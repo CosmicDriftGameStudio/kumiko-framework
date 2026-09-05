@@ -62,4 +62,32 @@ export type NavIconKey =
   | "check"
   | "arrow-left"
   | "arrow-right"
-  | "copy";
+  | "copy"
+  | "pencil"
+  | "eye"
+  | "eye-off"
+  | "filter"
+  | "refresh"
+  | "more-horizontal"
+  | "more-vertical"
+  | "external-link"
+  | "chevron-down"
+  | "chevron-right"
+  | "save"
+  | "undo"
+  | "archive"
+  | "star"
+  | "flag"
+  | "clock"
+  | "map-pin"
+  | "phone"
+  | "printer"
+  | "alert-triangle"
+  | "info"
+  | "check-circle"
+  | "x-circle"
+  | "loader";
+
+// Alias kept because the union stopped being nav-only — actions and fields
+// (added on this branch) also key their icons against it.
+export type IconKey = NavIconKey;

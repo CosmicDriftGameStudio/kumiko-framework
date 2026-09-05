@@ -38,14 +38,15 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Dark-Mode (Default) — shadcn-Preset „Rhea"/Neutral (hue 0, reines Grau —
-     kein zinc-Blaustich). background == card; Cards trennen über Border +
-     Shadow. Primary near-white, Apps überschreiben mit ihrer Brand. */
+  /* Dark-Mode (Default) — shadcn preset "Rhea"/Neutral (hue 0, pure gray,
+     no zinc blue tint). Card is raised above background (8% vs. 3.9%) so it
+     separates by surface color, not just border + shadow. Primary
+     near-white, apps override with their own brand. */
   --color-background: hsl(0 0% 3.9%);
   --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 3.9%);
+  --color-card: hsl(0 0% 8%);
   --color-card-foreground: hsl(0 0% 98%);
-  --color-popover: hsl(0 0% 3.9%);
+  --color-popover: hsl(0 0% 9%);
   --color-popover-foreground: hsl(0 0% 98%);
   --color-primary: hsl(0 0% 98%);
   --color-primary-foreground: hsl(0 0% 9%);
@@ -107,10 +108,12 @@
    auf light, greifen diese Werte. */
 @layer base {
   :root:not(.dark) {
-    /* Light-Mode — Neutral (hue 0, reines Grau). Weißes Background, Cards ==
-       weiß, trennen über Border + Shadow. Primary near-black; Apps überschreiben
-       mit Brand. Werte = shadcn-Preset (aus dem Live-Preview verifiziert). */
-    --color-background: hsl(0 0% 100%);
+    /* Light-Mode — Neutral (hue 0, pure gray). Background is tinted slightly
+       (96.5%), card stays pure white — card lifts off the page instead of
+       blending into it. Border + shadow remain additional cues. Primary
+       near-black; apps override with brand. Values = shadcn preset, adapted
+       to this hue-0 elevation scheme. */
+    --color-background: hsl(0 0% 96.5%);
     --color-foreground: hsl(0 0% 3.9%);
     --color-card: hsl(0 0% 100%);
     --color-card-foreground: hsl(0 0% 3.9%);
@@ -118,11 +121,11 @@
     --color-popover-foreground: hsl(0 0% 3.9%);
     --color-primary: hsl(0 0% 9%);
     --color-primary-foreground: hsl(0 0% 98%);
-    --color-secondary: hsl(0 0% 96.1%);
+    --color-secondary: hsl(0 0% 94%);
     --color-secondary-foreground: hsl(0 0% 9%);
-    --color-muted: hsl(0 0% 96.1%);
-    --color-muted-foreground: hsl(0 0% 45.1%);
-    --color-accent: hsl(0 0% 96.1%);
+    --color-muted: hsl(0 0% 94%);
+    --color-muted-foreground: hsl(0 0% 42%);
+    --color-accent: hsl(0 0% 94%);
     --color-accent-foreground: hsl(0 0% 9%);
     --color-destructive: hsl(0 84.2% 60.2%);
     --color-destructive-foreground: hsl(0 0% 98%);
@@ -130,10 +133,11 @@
     --color-input: hsl(0 0% 89.8%);
     --color-ring: hsl(0 0% 63%);
 
-    /* Sidebar-Familie Light (Neutral) = shadcn-Werte: Rail 98%, aktiv 96.1%,
-       Border 89.8%. Inset-Panel (100%) schwebt via Shadow + Rounded auf dem
-       Rail; der Kontrast ist bewusst subtil (wie im Original). */
-    --color-sidebar: hsl(0 0% 98%);
+    /* Sidebar family light (neutral): rail 98.5% (clearly between background
+       96.5% and card 100%, otherwise the tinted page would swallow the
+       rail), active 96.1%, border 89.8%. Inset panel (100%) floats via
+       shadow + rounded on the rail. */
+    --color-sidebar: hsl(0 0% 98.5%);
     --color-sidebar-foreground: hsl(0 0% 26.1%);
     --color-sidebar-primary: hsl(0 0% 9%);
     --color-sidebar-primary-foreground: hsl(0 0% 98%);

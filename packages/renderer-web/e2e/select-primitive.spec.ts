@@ -1,9 +1,8 @@
 // Select-Primitive Smoke. Beweist:
 //   1. SelectFieldDef.options landet im EditFieldViewModel.options
-//   2. kind:"select" rendert über ComboboxInput (cmdk + Radix-Popover) —
-//      Visual-Konsolidierung damit Selects + Reference-Comboboxen
-//      identisch aussehen (vorher 3 Variants, jetzt einer)
-//   3. Click-Trigger öffnet Portal-Popover, Click-Item setzt Wert
+//   2. kind:"select" mit ≤4 Optionen rendert als SegmentedSelect
+//      (role="radiogroup" mit role="radio"-Kindern) statt Dropdown
+//   3. Click auf ein Segment setzt den Wert direkt (kein Popover)
 //   4. Submit serialisiert den ausgewählten Wert ans Dispatcher
 
 import { expect, test } from "@playwright/test";
@@ -22,18 +21,24 @@ test("select-primitive: render + change + submit-roundtrip", async ({ page }) =>
 
   // Status-Field hat type=select, options=["draft","active","done"],
   // default="draft". Renderer's buildInitialValues füllt das Default ein.
-  // ComboboxInput rendert den Trigger mit data-testid="combobox-${id}";
-  // render-edit baut Field-IDs als "kumiko-edit-${field}".
-  const trigger = page.getByTestId("combobox-kumiko-edit-status");
-  await expect(trigger).toBeVisible();
-  await expect(trigger).toHaveText(/draft/);
+  // SegmentedSelect rendert die Gruppe mit data-testid="segmented-${id}",
+  // jede Option als role="radio"; render-edit baut Field-IDs als
+  // "kumiko-edit-${field}".
+  const segmented = page.getByTestId("segmented-kumiko-edit-status");
+  await expect(segmented).toBeVisible();
+  await expect(segmented.getByRole("radio", { name: "draft", exact: true })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 
-  // Click öffnet das portal'd Popover. cmdk rendert Items als role="option".
-  await trigger.click();
-  await page.getByRole("option", { name: "active" }).click();
+  // Kein Popover mehr — Click auf ein Segment setzt den Wert direkt.
+  await segmented.getByRole("radio", { name: "active", exact: true }).click();
 
-  // Trigger zeigt jetzt den ausgewählten Wert.
-  await expect(trigger).toHaveText(/active/);
+  // Ausgewähltes Segment zeigt jetzt aria-checked=true.
+  await expect(segmented.getByRole("radio", { name: "active", exact: true })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 
   // Title füllen damit das Form complete-required wird, dann submit.
   await page.getByTestId("field-label").locator("input").fill(label);

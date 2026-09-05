@@ -6,6 +6,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  IconKey,
   ListFacetSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
@@ -35,7 +36,12 @@ import { useUserRoles } from "../context/user-roles-context";
 import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
-import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives";
+import {
+  type DataTableFacet,
+  type DataTableRowAction,
+  type StatusTone,
+  usePrimitives,
+} from "../primitives";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { useAppFeatures } from "./app-features-context";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
@@ -67,6 +73,51 @@ function evalRowExtractor(
 
 function isWriteHandlerRowAction(action: RowAction): action is RowActionWriteHandler {
   return action.kind === "writeHandler" || action.kind === undefined;
+}
+
+// Part B (fw-ui-defaults): id-derived default icon for actions that never
+// declared one — a screen author still gets a recognizable glyph instead of
+// a bare label. Checked against the actually registered IconKey vocabulary
+// (nav-icon.ts) — no entry for verbs without a matching icon (e.g. "start",
+// "pause").
+const ACTION_ICON_BY_ID: Readonly<Partial<Record<string, IconKey>>> = {
+  delete: "trash",
+  edit: "pencil",
+  create: "plus",
+  new: "plus",
+  add: "plus",
+  view: "eye",
+  open: "eye",
+  cancel: "x",
+  reject: "x",
+  complete: "check",
+  resolve: "check",
+  approve: "check",
+  archive: "archive",
+  publish: "upload",
+  duplicate: "copy",
+  copy: "copy",
+  download: "download",
+  refresh: "refresh",
+  retry: "refresh",
+  settings: "settings",
+  share: "share",
+  send: "send",
+};
+
+// Ids are kebab-case (RowAction.id doc) — a compound id whose full form has
+// no entry falls back to its last segment ("order-ship" -> "ship").
+function kebabLastSegment(id: string): string {
+  const idx = id.lastIndexOf("-");
+  return idx === -1 ? id : id.slice(idx + 1);
+}
+
+// Resolution order: author-declared `icon` wins, then the id-derived
+// default (full id, then its last kebab segment). `declared` is `undefined`
+// for ToolbarAction, which has no author-facing icon field.
+function resolveActionIcon(id: string, declared?: IconKey): IconKey | undefined {
+  if (declared !== undefined) return declared;
+  return ACTION_ICON_BY_ID[id] ?? ACTION_ICON_BY_ID[kebabLastSegment(id)];
 }
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -544,6 +595,10 @@ function EntityEditCreateBody({
     },
     [nav, screen.redirect, navigateToList, onSaved],
   );
+  // Deliberately no `actions` prop here: `screen.actions` targets an
+  // EXISTING record (publish/archive/duplicate and friends), which the
+  // create branch has none of yet — see EntityEditUpdateForm for the
+  // wired-up counterpart.
   return (
     <RenderEdit
       screen={screen}
@@ -712,7 +767,99 @@ function EntityEditUpdateForm({
 
   const nav = useNav();
   const dispatcher = useDispatcher();
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
+  // Header action buttons (fw entityEdit-actions) — same shape/dispatch
+  // pattern as ProjectionDetailBody.headerActions above (the edited record
+  // stands in for the "row"), minus the cross-feature defaultEditAction
+  // lookup that doesn't apply here (this screen already IS the edit form).
+  const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
+    const out: RenderEditAction[] = [];
+    for (const action of screen.actions ?? []) {
+      if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) {
+        continue;
+      }
+      if (action.kind === "navigate") {
+        const runParams = (): void => {
+          const params =
+            action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
+          if (params !== undefined) {
+            nav.setSearchParams(stringifyNavParams(params));
+          }
+        };
+        const actionIcon = resolveActionIcon(action.id, action.icon);
+        if (action.entity !== undefined) {
+          const targetEntity = action.entity;
+          const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
+          out.push({
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
+            onPress: () => {
+              if (id === "") return;
+              nav.navigate({ entity: targetEntity, id });
+              runParams();
+            },
+          });
+        } else if (action.screen !== undefined) {
+          // Default entityId for a screen-target: the currently edited
+          // record's own id — an entityEdit header action has no other
+          // "row" to derive one from (unlike ProjectionDetailBody, which
+          // needs the same-entity detailFor lookup instead).
+          const explicit =
+            action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
+          const navEntityId = explicit ?? entityId;
+          const targetScreen = action.screen;
+          out.push({
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
+            onPress: () => {
+              nav.navigate({
+                screenId: targetScreen,
+                ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
+              });
+              runParams();
+            },
+          });
+        }
+        continue;
+      }
+      // writeHandler — same dispatch/reload/failure-surfacing pattern as
+      // ProjectionDetailBody's headerActions above.
+      const writeAction = action;
+      out.push({
+        id: writeAction.id,
+        label: effectiveTranslate(writeAction.label),
+        ...(writeAction.style !== undefined && { style: writeAction.style }),
+        icon: resolveActionIcon(writeAction.id, writeAction.icon),
+        ...(writeAction.confirm !== undefined && {
+          confirm: effectiveTranslate(writeAction.confirm),
+        }),
+        ...(writeAction.confirmLabel !== undefined && {
+          confirmLabel: effectiveTranslate(writeAction.confirmLabel),
+        }),
+        onPress: async () => {
+          const payload =
+            writeAction.payload !== undefined
+              ? evalRowExtractor(writeAction.payload, record)
+              : { id: entityId };
+          const result = await dispatcher.write(writeAction.handler, payload);
+          if (!result.isSuccess) {
+            throw new WriteFailedError(
+              result.error,
+              dispatcherErrorText(result.error, effectiveTranslate),
+            );
+          }
+          await onReload();
+        },
+      });
+    }
+    return out.length > 0 ? out : undefined;
+  }, [screen.actions, effectiveTranslate, nav, dispatcher, record, entityId, onReload]);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
@@ -760,6 +907,7 @@ function EntityEditUpdateForm({
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       {...(onCopyLink !== undefined && { onCopyLink })}
+      {...(headerActions !== undefined && { actions: headerActions })}
     />
   );
 }
@@ -1450,10 +1598,12 @@ function EntityListBody({
         if (action.kind === "navigate") {
           const navigateAction = action;
           const actionVisible = action.visible;
+          const actionIcon = resolveActionIcon(action.id, action.icon);
           return {
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
             ...(actionVisible !== undefined && {
               isVisible: (row: ListRowViewModel) => evalFieldCondition(actionVisible, row.values),
@@ -1468,6 +1618,7 @@ function EntityListBody({
           id: writeAction.id,
           label: effectiveTranslate(writeAction.label),
           style: writeAction.style,
+          icon: resolveActionIcon(writeAction.id, writeAction.icon),
           confirm:
             writeAction.confirm !== undefined ? effectiveTranslate(writeAction.confirm) : undefined,
           confirmLabel:
@@ -1509,11 +1660,13 @@ function EntityListBody({
     if (screen.toolbarActions === undefined) return undefined;
     return screen.toolbarActions
       .map((action: ToolbarAction): ToolbarActionButton | null => {
+        const actionIcon = resolveActionIcon(action.id);
         if (action.kind === "navigate") {
           return {
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: () => nav.navigate({ screenId: action.screen }),
           };
         }
@@ -1522,6 +1675,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: () => openDrawer(action),
           };
         }
@@ -1533,6 +1687,7 @@ function EntityListBody({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          ...(actionIcon !== undefined && { icon: actionIcon }),
           ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
           ...(action.confirmLabel !== undefined && {
             confirmLabel: effectiveTranslate(action.confirmLabel),
@@ -1813,10 +1968,12 @@ function ProjectionListBody({
       if (action.kind === "navigate") {
         const navigateAction = action;
         const visible = action.visible;
+        const actionIcon = resolveActionIcon(action.id, action.icon);
         out.push({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          ...(actionIcon !== undefined && { icon: actionIcon }),
           onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
           ...(visible !== undefined && {
             isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
@@ -1834,6 +1991,7 @@ function ProjectionListBody({
         id: writeAction.id,
         label: effectiveTranslate(writeAction.label),
         ...(writeAction.style !== undefined && { style: writeAction.style }),
+        icon: resolveActionIcon(writeAction.id, writeAction.icon),
         ...(writeAction.confirm !== undefined && {
           confirm: effectiveTranslate(writeAction.confirm),
         }),
@@ -1867,12 +2025,14 @@ function ProjectionListBody({
     if (screen.toolbarActions === undefined) return undefined;
     const out: ToolbarActionButton[] = [];
     for (const action of screen.toolbarActions) {
+      const actionIcon = resolveActionIcon(action.id);
       if (action.kind === "navigate") {
         const target = action.screen;
         out.push({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          ...(actionIcon !== undefined && { icon: actionIcon }),
           onTrigger: () => nav.navigate({ screenId: target }),
         });
         continue;
@@ -1882,6 +2042,7 @@ function ProjectionListBody({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          ...(actionIcon !== undefined && { icon: actionIcon }),
           onTrigger: () => openDrawer(action),
         });
         continue;
@@ -1892,6 +2053,7 @@ function ProjectionListBody({
         id: action.id,
         label: effectiveTranslate(action.label),
         ...(action.style !== undefined && { style: action.style }),
+        ...(actionIcon !== undefined && { icon: actionIcon }),
         ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
         ...(action.confirmLabel !== undefined && {
           confirmLabel: effectiveTranslate(action.confirmLabel),
@@ -2003,6 +2165,43 @@ function ProjectionListBody({
   );
 }
 
+// Status value -> StatusTone heuristic for projectionDetail header badges, because
+// the query row carries no tone (only the raw column value). Covers the
+// common status vocabularies; unknown values stay undefined so
+// DefaultStatusBadge falls back to its own "muted" default.
+const STATUS_TONE_BY_VALUE: Record<string, StatusTone> = {
+  ok: "ok",
+  active: "ok",
+  done: "ok",
+  complete: "ok",
+  completed: "ok",
+  paid: "ok",
+  approved: "ok",
+  published: "ok",
+  success: "ok",
+  pending: "warn",
+  processing: "warn",
+  review: "warn",
+  "in-review": "warn",
+  waiting: "warn",
+  open: "warn",
+  draft: "warn",
+  failed: "bad",
+  error: "bad",
+  overdue: "bad",
+  rejected: "bad",
+  blocked: "bad",
+  critical: "bad",
+};
+
+function statusToneForValue(value: string): StatusTone | undefined {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+  return STATUS_TONE_BY_VALUE[slug];
+}
+
 // Projection-Detail-Body — read-only single-row inspector über eine explizite
 // Query statt einer Entity (siehe projection-detail-shim.ts für die Schulden-
 // Doku). Fetcht selbst über `screen.query` + `idParam` (analog zu
@@ -2027,7 +2226,8 @@ function ProjectionDetailBody({
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
-  const { Banner, Text, Heading, Grid, GridCell, Tabs, StatusBadge, Metric } = usePrimitives();
+  const { Banner, Text, Heading, Grid, GridCell, Card, Tabs, StatusBadge, Metric } =
+    usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
@@ -2100,6 +2300,7 @@ function ProjectionDetailBody({
     return {
       id: "edit",
       label: effectiveTranslate("kumiko.actions.edit"),
+      icon: resolveActionIcon("edit"),
       onPress: () =>
         nav.navigate({ screenId: targetScreenId, ...(entityId !== undefined && { entityId }) }),
     };
@@ -2132,10 +2333,12 @@ function ProjectionDetailBody({
           // expliziten entityId für projectionDetail-entity-Targets.
           const targetEntity = action.entity;
           const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
+          const actionIcon = resolveActionIcon(action.id, action.icon);
           out.push({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
             onPress: () => {
               if (id === "") return;
               nav.navigate({ entity: targetEntity, id });
@@ -2163,10 +2366,12 @@ function ProjectionDetailBody({
           const fallback = targetIsEntityEditSameEntity ? String(record["id"] ?? "") : undefined;
           const navEntityId = explicit ?? fallback;
           const targetScreen = action.screen;
+          const actionIcon = resolveActionIcon(action.id, action.icon);
           out.push({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
             onPress: () => {
               nav.navigate({
                 screenId: targetScreen,
@@ -2186,6 +2391,7 @@ function ProjectionDetailBody({
         id: writeAction.id,
         label: effectiveTranslate(writeAction.label),
         ...(writeAction.style !== undefined && { style: writeAction.style }),
+        icon: resolveActionIcon(writeAction.id, writeAction.icon),
         ...(writeAction.confirm !== undefined && {
           confirm: effectiveTranslate(writeAction.confirm),
         }),
@@ -2261,52 +2467,60 @@ function ProjectionDetailBody({
   const header = screen.header;
   const headerContent = (
     <>
-      {header !== undefined && (
-        <>
-          <Heading variant="page" testId="kumiko-screen-projection-detail-title">
-            {String(record[header.title] ?? "")}
-          </Heading>
-          {(header.subtitle !== undefined || header.status !== undefined) && (
-            <Grid columns="auto">
-              {header.subtitle !== undefined && (
-                <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                  {String(record[header.subtitle] ?? "")}
-                </Text>
+      {(hasHeader || hasMetrics) && (
+        <Card>
+          {header !== undefined && (
+            <>
+              <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+                {String(record[header.title] ?? "")}
+              </Heading>
+              {(header.subtitle !== undefined || header.status !== undefined) && (
+                <Grid columns="auto">
+                  {header.subtitle !== undefined && (
+                    <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                      {String(record[header.subtitle] ?? "")}
+                    </Text>
+                  )}
+                  {header.status !== undefined &&
+                    (StatusBadge !== undefined ? (
+                      <StatusBadge
+                        value={String(record[header.status] ?? "")}
+                        tone={statusToneForValue(String(record[header.status] ?? ""))}
+                        testId="kumiko-screen-projection-detail-status"
+                      />
+                    ) : (
+                      <Text testId="kumiko-screen-projection-detail-status">
+                        {String(record[header.status] ?? "")}
+                      </Text>
+                    ))}
+                </Grid>
               )}
-              {header.status !== undefined &&
-                (StatusBadge !== undefined ? (
-                  <StatusBadge
-                    value={String(record[header.status] ?? "")}
-                    testId="kumiko-screen-projection-detail-status"
-                  />
+            </>
+          )}
+          {hasMetrics && (
+            <Grid
+              columns={screen.metrics?.length ?? 1}
+              testId="kumiko-screen-projection-detail-metrics"
+            >
+              {screen.metrics?.map((metric) => {
+                const labelKey = screen.fieldLabels?.[metric];
+                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : metric;
+                const value = String(record[metric] ?? "");
+                const testId = `kumiko-screen-projection-detail-metric-${metric}`;
+                return Metric !== undefined ? (
+                  <Metric key={metric} label={label} value={value} testId={testId} />
                 ) : (
-                  <Text testId="kumiko-screen-projection-detail-status">
-                    {String(record[header.status] ?? "")}
-                  </Text>
-                ))}
+                  <GridCell key={metric}>
+                    <Text variant="small" testId={`${testId}-label`}>
+                      {label}
+                    </Text>
+                    <Text testId={`${testId}-value`}>{value}</Text>
+                  </GridCell>
+                );
+              })}
             </Grid>
           )}
-        </>
-      )}
-      {hasMetrics && (
-        <Grid columns="auto" testId="kumiko-screen-projection-detail-metrics">
-          {screen.metrics?.map((metric) => {
-            const labelKey = screen.fieldLabels?.[metric];
-            const label = labelKey !== undefined ? effectiveTranslate(labelKey) : metric;
-            const value = String(record[metric] ?? "");
-            const testId = `kumiko-screen-projection-detail-metric-${metric}`;
-            return Metric !== undefined ? (
-              <Metric key={metric} label={label} value={value} testId={testId} />
-            ) : (
-              <GridCell key={metric}>
-                <Text variant="small" testId={`${testId}-label`}>
-                  {label}
-                </Text>
-                <Text testId={`${testId}-value`}>{value}</Text>
-              </GridCell>
-            );
-          })}
-        </Grid>
+        </Card>
       )}
       {hasTabs && activeSection !== undefined && (
         <Tabs

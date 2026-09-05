@@ -9,11 +9,15 @@ import type { RenderEditAction } from "./render-edit-types";
 // to hook into like the built-in onDelete/onSubmit paths have).
 export function RenderEditActionButton({
   action,
+  iconOnly = false,
   Button,
   Dialog,
   onError,
 }: {
   readonly action: RenderEditAction;
+  /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
+   *  effect when this action actually resolved an icon. */
+  readonly iconOnly?: boolean;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly onError: (text: string | null) => void;
@@ -37,6 +41,7 @@ export function RenderEditActionButton({
   // Same rule as RowActionWriteHandler: "danger" forces a confirm even
   // without an explicit confirm key.
   const needsConfirm = action.confirm !== undefined || action.style === "danger";
+  const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (
     <>
@@ -44,6 +49,8 @@ export function RenderEditActionButton({
         type="button"
         variant={variant}
         loading={busy}
+        {...(action.icon !== undefined && { icon: action.icon })}
+        {...(showIconOnly && { size: "icon" as const, ariaLabel: action.label })}
         onClick={() => {
           if (needsConfirm) {
             setConfirmOpen(true);
@@ -53,7 +60,7 @@ export function RenderEditActionButton({
         }}
         testId={`render-edit-action-${action.id}`}
       >
-        {action.label}
+        {showIconOnly ? null : action.label}
       </Button>
       <Dialog
         open={confirmOpen}

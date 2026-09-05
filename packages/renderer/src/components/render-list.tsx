@@ -2,6 +2,7 @@ import type { EagerloadedRow } from "@cosmicdrift/kumiko-framework/db";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
+  IconKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   ListColumnViewModel,
@@ -16,7 +17,12 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
-import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives";
+import {
+  type DataTableFacet,
+  type DataTableRowAction,
+  shouldRenderActionsIconOnly,
+  usePrimitives,
+} from "../primitives";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -112,6 +118,9 @@ export type ToolbarActionButton = {
   readonly confirm?: string;
   readonly confirmLabel?: string;
   readonly onTrigger: () => Promise<void> | void;
+  /** Id-derived default icon (ACTION_ICON_BY_ID in kumiko-screen.tsx) —
+   *  ToolbarAction has no author-declared icon field, unlike RowAction. */
+  readonly icon?: IconKey;
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -274,6 +283,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // "+ Neu" zuletzt weil das die häufigste/auffälligste CTA ist.
   const hasToolbarActions = toolbarActions !== undefined && toolbarActions.length > 0;
   const hasHeaderSlot = screen.slots?.header !== undefined;
+  const toolbarIconOnly = hasToolbarActions && shouldRenderActionsIconOnly(toolbarActions);
   const toolbarEnd =
     hasHeaderSlot || hasToolbarActions || onCreate !== undefined ? (
       <>
@@ -283,6 +293,7 @@ export function RenderList(props: RenderListProps): ReactNode {
             <ToolbarActionView
               key={a.id}
               action={a}
+              iconOnly={toolbarIconOnly}
               Button={Button}
               Dialog={Dialog}
               Banner={Banner}
@@ -427,11 +438,15 @@ function ReferenceLookupBridge({
 // öffnet sich vor dem Trigger wenn confirm/danger gesetzt.
 function ToolbarActionView({
   action,
+  iconOnly = false,
   Button,
   Dialog,
   Banner,
 }: {
   readonly action: ToolbarActionButton;
+  /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
+   *  effect when this action actually resolved an icon. */
+  readonly iconOnly?: boolean;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
@@ -459,12 +474,15 @@ function ToolbarActionView({
 
   const variant: "primary" | "secondary" | "danger" = action.style ?? "secondary";
   const needsConfirm = action.confirm !== undefined || action.style === "danger";
+  const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (
     <>
       <Button
         variant={variant}
         loading={busy}
+        {...(action.icon !== undefined && { icon: action.icon })}
+        {...(showIconOnly && { size: "icon" as const, ariaLabel: action.label })}
         onClick={() => {
           if (needsConfirm) {
             setConfirmOpen(true);

@@ -14,6 +14,7 @@
 // rather than a single literal key.
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expectSelectedOption, selectCombobox } from "./_helpers/select-combobox";
 import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";
 
 const DRAFT_STORAGE_PREFIX = draftStorageKey("listing-wizard:new:");
@@ -21,11 +22,6 @@ const DRAFT_STORAGE_PREFIX = draftStorageKey("listing-wizard:new:");
 async function gotoWizard(page: Page): Promise<void> {
   await page.goto("/listing-wizard");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
-}
-
-async function selectCombobox(page: Page, field: string, optionLabel: string): Promise<void> {
-  await page.getByTestId(`combobox-kumiko-edit-${field}`).click();
-  await page.getByRole("option", { name: optionLabel, exact: true }).click();
 }
 
 async function draftInStorage(page: Page): Promise<unknown> {
@@ -82,7 +78,7 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
     await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Vintage desk lamp");
-    await expect(page.getByTestId("combobox-kumiko-edit-category")).toContainText("furniture");
+    await expectSelectedOption(page, "category", "furniture");
     await page.getByTestId("render-edit-wizard-next").click();
 
     // Step 2 — Pricing
@@ -97,7 +93,7 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await page.getByTestId("field-price").locator("input").fill("42");
     await selectCombobox(page, "condition", "used");
     await expect(page.getByTestId("field-price").locator("input")).toHaveValue("42");
-    await expect(page.getByTestId("combobox-kumiko-edit-condition")).toContainText("used");
+    await expectSelectedOption(page, "condition", "used");
     await page.getByTestId("render-edit-wizard-next").click();
 
     // Step 3 — Review

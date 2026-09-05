@@ -1,5 +1,6 @@
 import {
   type EntityEditScreenDefinition,
+  type FieldIconKey,
   type FieldRenderer,
   isFormatSpec,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -146,7 +147,6 @@ export function RenderField({
       {...(issues !== undefined && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
-      {...(field.type === "boolean" && { layout: "inline" as const })}
       testId={`field-${field.field}`}
     >
       {control}
@@ -435,6 +435,44 @@ function isComplexFieldType(type: string): boolean {
   return type === "embedded" || type === "jsonb" || type === "files" || type === "images";
 }
 
+// Mirrors ACTION_ICON_BY_ID (kumiko-screen.tsx) for fields: only names with
+// an unambiguous matching FieldIconKey are listed here, everything else
+// stays iconless rather than guessing.
+const FIELD_ICON_BY_NAME: Readonly<Partial<Record<string, FieldIconKey>>> = {
+  email: "mail",
+  phone: "phone",
+  tel: "phone",
+  mobile: "phone",
+  url: "link",
+  website: "link",
+  link: "link",
+  password: "lock",
+  search: "search",
+  city: "map-pin",
+  address: "map-pin",
+  street: "map-pin",
+  user: "user",
+  owner: "user",
+  assignee: "user",
+};
+
+function kebabLastSegment(value: string): string {
+  const kebab = toKebab(value);
+  const lastDash = kebab.lastIndexOf("-");
+  return lastDash === -1 ? kebab : kebab.slice(lastDash + 1);
+}
+
+// Derives a prefix icon when the field declares none: field.icon wins, then
+// the field name. Deliberately no type-based fallback — a hash in front of a
+// number field restates what the field already shows and reads as noise.
+function resolveFieldIcon(field: EditFieldViewModel): FieldIconKey | undefined {
+  if (field.icon !== undefined) return field.icon;
+  const byName =
+    FIELD_ICON_BY_NAME[field.field.toLowerCase()] ??
+    FIELD_ICON_BY_NAME[kebabLastSegment(field.field)];
+  return byName;
+}
+
 // Dispatches field.type → Input-kind. Select threads options through
 // from the EditFieldViewModel (computeEditViewModel pulls them from
 // SelectFieldDef.options). Structural types without a widget (embedded,
@@ -478,6 +516,7 @@ function renderInput({
     // beyond what "number" already does (#1925).
     case "number":
     case "bigInt": {
+      const icon = resolveFieldIcon(field);
       const unit = resolveNumberUnit(field.unit, row);
       return (
         <Input
@@ -485,15 +524,16 @@ function renderInput({
           {...common}
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
-          {...(field.icon !== undefined && { icon: field.icon })}
+          {...(icon !== undefined && { icon })}
           {...(unit !== undefined && { unit })}
         />
       );
     }
-    case "decimal":
+    case "decimal": {
       // step="any" disables the native stepMismatch constraint — without it
       // <input type="number"> defaults to step=1 and blocks form submit on
       // any fractional value via silent browser-native validation.
+      const icon = resolveFieldIcon(field);
       return (
         <Input
           kind="number"
@@ -501,9 +541,10 @@ function renderInput({
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
           step="any"
-          {...(field.icon !== undefined && { icon: field.icon })}
+          {...(icon !== undefined && { icon })}
         />
       );
+    }
     case "tz":
       return (
         <Input
@@ -683,13 +724,14 @@ function renderInput({
           />
         );
       }
+      const icon = resolveFieldIcon(field);
       return (
         <Input
           kind="text"
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
-          {...(field.icon !== undefined && { icon: field.icon })}
+          {...(icon !== undefined && { icon })}
         />
       );
     }

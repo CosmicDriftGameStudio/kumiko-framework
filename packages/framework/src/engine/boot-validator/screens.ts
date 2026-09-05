@@ -94,7 +94,7 @@ function validateNoWidgetRequiredField(
 function validateRowActionNavigateParams(
   featureName: string,
   screenId: string,
-  screenType: "entityList" | "projectionList" | "projectionDetail",
+  screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
   screenEntity: string | undefined,
   action: RowAction,
   target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
@@ -396,7 +396,7 @@ type RowActionNavigateRuntime = RowActionNavigateBase & {
 function resolveRowActionNavigateTarget(
   featureName: string,
   screenId: string,
-  screenType: "entityList" | "projectionList" | "projectionDetail",
+  screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
   actionLabel: "rowAction" | "action",
   action: RowActionNavigateRuntime,
   allScreenQns: ReadonlySet<string>,
@@ -1307,6 +1307,50 @@ export function validateScreens(
         }
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);
+      // Header actions reuse RowAction — same shape and same checks as
+      // projectionDetail's `actions` above (the loaded record stands in
+      // for the row). `rowClick` is rejected outright — entityEdit has no
+      // row to click either.
+      if (screen.actions !== undefined) {
+        for (const action of screen.actions) {
+          if (action.kind === "navigate" && action.rowClick === true) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
+                `(entityEdit) action "${action.id}" sets rowClick: true — there is no row to click ` +
+                `on an edit screen. Remove rowClick.`,
+            );
+          }
+          if (action.kind === "navigate") {
+            const target = resolveRowActionNavigateTarget(
+              feature.name,
+              screenId,
+              "entityEdit",
+              "action",
+              action,
+              allScreenQns,
+              navTargetShortIds,
+              screensByShortId,
+              detailForScreens,
+            );
+            validateRowActionNavigateParams(
+              feature.name,
+              screenId,
+              "entityEdit",
+              screen.entity,
+              action,
+              target,
+            );
+          } else {
+            if (!allWriteHandlerQns.has(action.handler)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) action "${action.id}" ` +
+                  `handler "${action.handler}" is not a registered write-handler. Check the QN spelling ` +
+                  `(expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+              );
+            }
+          }
+        }
+      }
       if (screen.redirect !== undefined) {
         // Same rule as actionForm's redirect: short screen-ID (same-feature)
         // or a fully-qualified cross-feature QN (#1946).

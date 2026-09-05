@@ -68,7 +68,8 @@ export type DefaultAppShellProps = {
    *  Plan-Banner. */
   readonly sidebarFooter?: ReactNode;
   /** Viewport-fit Shell. true → fixe Viewport-Höhe (`h-svh`), der Content
-   *  scrollt INNEN statt der ganzen Seite. Default false (Seiten-Scroll). */
+   *  scrollt INNEN statt der ganzen Seite. Default true — `fill={false}`
+   *  schaltet zurück auf Seiten-Scroll. */
   readonly fill?: boolean;
   /** Screen-Content der im SidebarInset gerendert wird. */
   readonly children: ReactNode;
@@ -82,7 +83,7 @@ export function DefaultAppShell({
   headerActions,
   navBadges,
   sidebarFooter,
-  fill,
+  fill = true,
   children,
 }: DefaultAppShellProps): ReactNode {
   const fillCls = fillClasses(fill);

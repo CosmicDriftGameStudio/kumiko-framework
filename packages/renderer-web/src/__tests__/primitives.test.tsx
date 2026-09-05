@@ -15,7 +15,7 @@ import { defaultPrimitives, END_LABEL_MIN_ROWS } from "../primitives";
 import { PageSection, Stack } from "../primitives/layout";
 import { fireEvent, render, screen, waitFor } from "./test-utils";
 
-const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card } =
+const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card, Section } =
   defaultPrimitives;
 
 describe("Button", () => {
@@ -178,10 +178,10 @@ describe("Input kind mapping", () => {
     expect(onChange).toHaveBeenLastCalledWith(undefined);
   });
 
-  test('kind="boolean": onChange receives checked', () => {
+  test('kind="boolean" outside layout="inline": renders a switch, onChange receives checked', () => {
     const onChange = mock();
     render(<Input id="i" name="i" kind="boolean" value={false} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("switch"));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
@@ -285,6 +285,91 @@ describe("Input kind mapping", () => {
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
     const suffix = screen.getByText("km");
     expect(suffix.getAttribute("aria-hidden")).toBe("true");
+  });
+});
+
+// Boolean fields render a switch inside a standard (stacked) Field — matching
+// every other field's label-above-control arrangement — while layout="inline"
+// Fields (MultiSelectCheckboxes, the BooleanField widget) keep the checkbox.
+describe("Input kind=boolean: switch vs checkbox", () => {
+  test("Field (default layout) + Input(boolean): renders role=switch, not checkbox", () => {
+    render(
+      <Field id="active" label="Active" testId="field-active">
+        <Input id="active" name="active" kind="boolean" value={false} onChange={mock()} />
+      </Field>,
+    );
+    const field = screen.getByTestId("field-active");
+    expect(field.querySelector('[role="switch"]')).toBeTruthy();
+    expect(field.querySelector('[role="checkbox"]')).toBeNull();
+  });
+
+  test("Field(layout=inline) + Input(boolean): keeps the checkbox", () => {
+    render(
+      <Field id="opt" label="Option A" layout="inline" testId="field-opt">
+        <Input id="opt" name="opt" kind="boolean" value={false} onChange={mock()} />
+      </Field>,
+    );
+    const field = screen.getByTestId("field-opt");
+    expect(field.querySelector('[role="checkbox"]')).toBeTruthy();
+    expect(field.querySelector('[role="switch"]')).toBeNull();
+  });
+
+  test("clicking the switch reports the inverted value to onChange", () => {
+    const onChange = mock();
+    render(<Input id="active" name="active" kind="boolean" value={true} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("switch"));
+    expect(onChange).toHaveBeenCalledWith(false);
+  });
+
+  test("aria-checked reflects the value, and the switch toggles via keyboard", async () => {
+    const onChange = mock();
+    const { rerender } = render(
+      <Input id="active" name="active" kind="boolean" value={false} onChange={onChange} />,
+    );
+    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("false");
+
+    rerender(<Input id="active" name="active" kind="boolean" value={true} onChange={onChange} />);
+    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("true");
+
+    const user = userEvent.setup();
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("switch"));
+    await user.keyboard(" ");
+    expect(onChange).toHaveBeenCalledWith(false);
+  });
+
+  test("disabled prevents toggling", () => {
+    const onChange = mock();
+    render(
+      <Input id="active" name="active" kind="boolean" value={false} onChange={onChange} disabled />,
+    );
+    const toggle = screen.getByRole("switch") as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    fireEvent.click(toggle);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  test("boolean field's label sits above the control, same as a text field's", () => {
+    render(
+      <>
+        <Field id="active" label="Active" testId="field-active">
+          <Input id="active" name="active" kind="boolean" value={false} onChange={mock()} />
+        </Field>
+        <Field id="title" label="Title" testId="field-title">
+          <Input id="title" name="title" kind="text" value="" onChange={mock()} />
+        </Field>
+      </>,
+    );
+
+    const booleanField = screen.getByTestId("field-active");
+    const textField = screen.getByTestId("field-title");
+
+    // Same structural shape: label-row first, control second — the exact
+    // regression the old inline-layout checkbox introduced for booleans.
+    expect(booleanField.children[0]?.querySelector("label")).toBeTruthy();
+    expect(booleanField.children[1]?.getAttribute("role")).toBe("switch");
+    expect(textField.children[0]?.querySelector("label")).toBeTruthy();
+    expect(textField.children[1]?.tagName).toBe("INPUT");
   });
 });
 
@@ -1036,6 +1121,76 @@ describe("DataTable", () => {
       // beim Action-Click gleichzeitig zum Edit-Screen navigieren.
       expect(onRowClick).not.toHaveBeenCalled();
     });
+
+    // fw-ui-defaults: rowActionMode="inline" renders every action as an
+    // always-visible button (no Kebab, unlike adaptive) — a group with more
+    // than two icon-carrying actions collapses to icon-only so it doesn't
+    // become a wall of text buttons.
+    describe("icon-only collapse (mode='inline', >2 actions, all carry an icon)", () => {
+      test("renders icon-only buttons with an accessible name per action", () => {
+        render(
+          <DataTable
+            columns={cols}
+            rows={rows}
+            testId="dt"
+            rowActionMode="inline"
+            rowActions={[
+              { id: "edit", label: "Edit", icon: "pencil", onTrigger: mock() },
+              { id: "archive", label: "Archive", icon: "archive", onTrigger: mock() },
+              { id: "delete", label: "Delete", icon: "trash", onTrigger: mock() },
+            ]}
+          />,
+        );
+        for (const [id, label] of [
+          ["edit", "Edit"],
+          ["archive", "Archive"],
+          ["delete", "Delete"],
+        ] as const) {
+          expect(screen.getByTestId(`row-r1-action-${id}`).getAttribute("aria-label")).toBe(label);
+        }
+        const editButton = screen.getByTestId("row-r1-action-edit");
+        // Icon-only: children (the label text) are gone, only the <svg> renders.
+        expect(editButton.textContent).toBe("");
+        expect(editButton.querySelector("svg")).not.toBeNull();
+        expect(editButton.getAttribute("title")).toBe("Edit");
+      });
+
+      test("a group of exactly two icon actions keeps the text label (rule needs >2)", () => {
+        render(
+          <DataTable
+            columns={cols}
+            rows={rows}
+            testId="dt"
+            rowActionMode="inline"
+            rowActions={[
+              { id: "edit", label: "Edit", icon: "pencil", onTrigger: mock() },
+              { id: "delete", label: "Delete", icon: "trash", onTrigger: mock() },
+            ]}
+          />,
+        );
+        expect(screen.getByTestId("row-r1-action-edit").textContent).toContain("Edit");
+        expect(screen.getByTestId("row-r1-action-delete").textContent).toContain("Delete");
+      });
+
+      test("a mixed group (one action without an icon) keeps every label as text", () => {
+        render(
+          <DataTable
+            columns={cols}
+            rows={rows}
+            testId="dt"
+            rowActionMode="inline"
+            rowActions={[
+              { id: "edit", label: "Edit", icon: "pencil", onTrigger: mock() },
+              { id: "archive", label: "Archive", icon: "archive", onTrigger: mock() },
+              { id: "custom", label: "Custom", onTrigger: mock() },
+            ]}
+          />,
+        );
+        expect(screen.getByTestId("row-r1-action-edit").textContent).toContain("Edit");
+        expect(screen.getByTestId("row-r1-action-archive").textContent).toContain("Archive");
+        expect(screen.getByTestId("row-r1-action-custom").textContent).toContain("Custom");
+      });
+    });
   });
 
   describe("highlighted column", () => {
@@ -1515,6 +1670,30 @@ describe("Card", () => {
       </Card>,
     );
     expect(screen.getByTestId("c").innerHTML).not.toContain("grow");
+  });
+});
+
+describe("Section", () => {
+  test("declared icon renders left of the title", () => {
+    render(
+      <Section title="Text" icon="tag" testId="s">
+        <span>body</span>
+      </Section>,
+    );
+    const titleEl = screen.getByTestId("s-title");
+    expect(titleEl.querySelector("svg")).not.toBeNull();
+    expect(titleEl.className).toContain("items-center");
+  });
+
+  test("no icon → header renders exactly as before (no svg, no layout change)", () => {
+    render(
+      <Section title="Text" testId="s">
+        <span>body</span>
+      </Section>,
+    );
+    const titleEl = screen.getByTestId("s-title");
+    expect(titleEl.querySelector("svg")).toBeNull();
+    expect(titleEl.textContent).toBe("Text");
   });
 });
 

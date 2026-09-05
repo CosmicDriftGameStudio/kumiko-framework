@@ -333,6 +333,7 @@ export function computeEditViewModel<
       }),
       columns: sectionSpec.columns ?? 1,
       fields,
+      ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
     };
   });
 

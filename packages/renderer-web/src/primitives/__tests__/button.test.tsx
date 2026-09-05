@@ -25,3 +25,40 @@ describe("DefaultButton className/ref (fw#1831)", () => {
     expect(ref.current).toBe(screen.getByTestId("btn"));
   });
 });
+
+describe("DefaultButton icon (fw-ui-defaults)", () => {
+  test("icon prop renders the resolved icon left of the text", () => {
+    render(
+      <Button icon="trash" testId="btn">
+        Delete
+      </Button>,
+    );
+    const btn = screen.getByTestId("btn");
+    expect(btn.querySelector("svg")).not.toBeNull();
+    expect(btn.textContent).toBe("Delete");
+  });
+
+  test("size='icon' + a resolved icon still renders icon, children and aria-label", () => {
+    render(
+      <Button icon="trash" size="icon" ariaLabel="Delete" testId="btn">
+        Delete
+      </Button>,
+    );
+    const btn = screen.getByTestId("btn");
+    expect(btn.textContent).toBe("Delete");
+    expect(btn.querySelector("svg")).not.toBeNull();
+    expect(btn.getAttribute("aria-label")).toBe("Delete");
+  });
+
+  test("unknown icon key: no crash, falls back to rendering children only", () => {
+    render(
+      // @ts-expect-error — exercising the runtime fallback for a schema-supplied key outside the closed IconKey union
+      <Button icon="not-a-real-icon" testId="btn">
+        Delete
+      </Button>,
+    );
+    const btn = screen.getByTestId("btn");
+    expect(btn.querySelector("svg")).toBeNull();
+    expect(btn.textContent).toBe("Delete");
+  });
+});

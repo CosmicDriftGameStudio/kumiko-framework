@@ -80,7 +80,8 @@ export type WorkspaceShellProps = {
   /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
   readonly navBadges?: ReadonlyMap<string, ReactNode>;
   /** Viewport-fit shell. true → fixed viewport height (`h-svh`), content
-   *  scrolls INSIDE instead of the whole page. Default false (page scroll). */
+   *  scrolls INSIDE instead of the whole page. Default true — set
+   *  `fill={false}` to opt back into page scroll. */
   readonly fill?: boolean;
   /** Screen content. */
   readonly children: ReactNode;
@@ -94,7 +95,7 @@ export function WorkspaceShell({
   initialWorkspaceId,
   sidebarFooter,
   navBadges,
-  fill,
+  fill = true,
   children,
 }: WorkspaceShellProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);

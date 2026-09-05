@@ -1,6 +1,7 @@
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
+  IconKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FormSnapshot,
@@ -156,6 +157,10 @@ export type RenderEditAction = {
   readonly style?: "primary" | "secondary" | "danger";
   readonly confirm?: string;
   readonly confirmLabel?: string;
+  /** Resolved icon (author `RowAction.icon` or the id-derived default) —
+   *  drives both the icon-left-of-text render and the icon-only collapse
+   *  rule (see `shouldRenderActionsIconOnly`). */
+  readonly icon?: IconKey;
 };
 
 export type RenderEditChangeState<TValues extends FormValues> = {

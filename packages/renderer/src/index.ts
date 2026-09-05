@@ -206,7 +206,11 @@ export type {
   TextProps,
   WizardStepGroupProps,
 } from "./primitives";
-export { PrimitivesProvider, usePrimitives } from "./primitives";
+export {
+  PrimitivesProvider,
+  shouldRenderActionsIconOnly,
+  usePrimitives,
+} from "./primitives";
 export { sortByAccessor } from "./sort-by-accessor";
 export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events";
 export { LiveEventsProvider, useLiveEvents } from "./sse/live-events";

@@ -176,12 +176,22 @@ async function runEditSavePersists(
       case "fill":
         await wrapper.locator("input").fill(op.value);
         break;
-      case "check":
-        // Radix Checkbox rendert ein sichtbares role=checkbox-Element plus
-        // ein aria-hidden natives <input> fürs Form-Bubbling — nur das
-        // sichtbare Element ist klickbar.
-        await wrapper.getByRole("checkbox").setChecked(op.value);
+      case "check": {
+        // Boolean-Felder rendern als Switch (role="switch"), außer bei
+        // layout:"inline" — dort bleibt die Checkbox (role="checkbox").
+        // Beide sind Radix-Primitives ohne setChecked-Unterstützung (das
+        // greift nur bei echten <input type=checkbox|radio>) — Klick +
+        // aria-checked-Verifikation statt setChecked.
+        const switchControl = wrapper.getByRole("switch");
+        const control =
+          (await switchControl.count()) > 0 ? switchControl : wrapper.getByRole("checkbox");
+        const isChecked = (await control.getAttribute("aria-checked")) === "true";
+        if (isChecked !== op.value) {
+          await control.click();
+        }
+        await expect(control).toHaveAttribute("aria-checked", op.value ? "true" : "false");
         break;
+      }
       case "select":
         // DefaultInput rendert select-Primitives derzeit nicht (kein
         // case in primitives/index.tsx). Custom-Primitive ergänzen

@@ -36,7 +36,7 @@ import { useDraftStorage } from "../context/draft-storage-context";
 import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { shouldRenderActionsIconOnly, usePrimitives } from "../primitives";
 import { RelatedListSection } from "./related-list-section";
 import {
   filterEditSections,
@@ -922,6 +922,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onCopyLink !== undefined ||
     (actions !== undefined && actions.length > 0) ||
     onCancel !== undefined;
+  // Teil-C collapse rule: driven by the custom `actions` group only — a
+  // resolved true also folds the Copy-Link button (same visual group in the
+  // footer), but never Delete/Cancel, which keep their text regardless.
+  const iconOnlyMidActions = actions !== undefined && shouldRenderActionsIconOnly(actions);
   const secondaryFormActions = (
     <>
       {onDelete !== undefined && (
@@ -939,21 +943,30 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       {onCopyLink !== undefined && (
         <Button
           type="button"
-          variant="link"
+          variant={iconOnlyMidActions ? "secondary" : "link"}
           icon={linkCopied ? "check" : "link"}
           testId="render-edit-copy-link"
+          {...(iconOnlyMidActions && {
+            size: "icon" as const,
+            ariaLabel: translate(
+              linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink",
+            ),
+          })}
           onClick={async () => {
             await onCopyLink();
             setLinkCopied(true);
           }}
         >
-          {translate(linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink")}
+          {iconOnlyMidActions
+            ? null
+            : translate(linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink")}
         </Button>
       )}
       {actions?.map((action) => (
         <RenderEditActionButton
           key={action.id}
           action={action}
+          iconOnly={iconOnlyMidActions}
           Button={Button}
           Dialog={Dialog}
           onError={setActionError}
@@ -972,6 +985,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
     </>
   );
+  // Mirrors every branch inside formActions below — without this guard
+  // DefaultForm renders an empty footer strip (border + padding, no content)
+  // on read-only detail screens, since `actions` would otherwise always be
+  // a defined (if empty) fragment.
+  const hasFormActions =
+    (isWizard && currentStep > 0) ||
+    (isWizard && !isLastWizardStep) ||
+    ((isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep));
   const formActions = (
     <>
       {isWizard && currentStep > 0 && (
@@ -1039,7 +1060,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(hideSectionTitles !== true && { title: formTitle })}
         {...(hideSectionTitles !== true &&
           formSubtitle !== undefined && { subtitle: formSubtitle })}
-        {...(hideActions !== true && { actions: formActions })}
+        {...(hideActions !== true && hasFormActions && { actions: formActions })}
         {...(hideActions !== true &&
           hasSecondaryFormActions && { secondaryActions: secondaryFormActions })}
         testId="render-edit-form"
@@ -1206,6 +1227,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               key={sectionKey}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
               {...(section.description !== undefined && { subtitle: section.description })}
+              {...(section.icon !== undefined && { icon: section.icon })}
               testId={`section-${sectionKey}`}
             >
               <Grid columns={section.columns}>

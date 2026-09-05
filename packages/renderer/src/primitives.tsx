@@ -35,7 +35,12 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { FieldIconKey, FormWidth, NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  FieldIconKey,
+  FormWidth,
+  IconKey,
+  NavIconKey,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -492,7 +497,21 @@ export type DataTableRowAction = {
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
   /** Conditional Visibility pro Row (z.B. "Start" nur wenn status==="scheduled"). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
+  /** Resolved icon (author `RowAction.icon` or the id-derived default) —
+   *  drives both the icon-left-of-text render and the icon-only collapse
+   *  rule (see `shouldRenderActionsIconOnly`). */
+  readonly icon?: IconKey;
 };
+
+/** Teil-C action-icon collapse rule: a group of more than two actions where
+ *  every member carries an icon renders icon-only instead of wall-to-wall
+ *  text buttons; any icon-less member keeps the whole group on text so it
+ *  doesn't fall apart visually mid-group. */
+export function shouldRenderActionsIconOnly(
+  actions: readonly { readonly icon?: IconKey }[],
+): boolean {
+  return actions.length > 2 && actions.every((a) => a.icon !== undefined);
+}
 
 // Ein Faceted-Filter-Slot in der Toolbar: ein Outline-Dropdown-Button
 // (wie shadcns "Columns"-Toggle) mit Multi-Select-Checkboxen. KumikoScreen
@@ -747,6 +766,10 @@ export type SectionProps = {
    *  Default "default" (normal card border). */
   readonly variant?: "default" | "destructive";
   readonly testId?: string;
+  /** Rendered left of the title, `text-muted-foreground`, same optical
+   *  size as the title. No effect without a `title` — an icon alone would
+   *  have nothing to sit next to. */
+  readonly icon?: IconKey;
 };
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit

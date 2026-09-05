@@ -14,15 +14,11 @@
 // assertions against unstyled browser default flow.
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { selectCombobox } from "./_helpers/select-combobox";
 
 async function gotoWizard(page: Page): Promise<void> {
   await page.goto("/listing-wizard");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
-}
-
-async function selectCombobox(page: Page, field: string, optionLabel: string): Promise<void> {
-  await page.getByTestId(`combobox-kumiko-edit-${field}`).click();
-  await page.getByRole("option", { name: optionLabel, exact: true }).click();
 }
 
 function rectsOverlap(a: DOMRectLike, b: DOMRectLike): boolean {
