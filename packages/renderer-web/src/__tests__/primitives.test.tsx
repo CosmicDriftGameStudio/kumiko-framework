@@ -274,6 +274,18 @@ describe("Input kind mapping", () => {
     fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "120" } });
     expect(onChange).toHaveBeenCalledWith(120);
   });
+
+  test('kind="number" icon="hash" unit="km": both decorations render without clobbering each other', () => {
+    render(
+      <Input id="i" name="i" kind="number" value={58} icon="hash" unit="km" onChange={() => {}} />,
+    );
+    const input = screen.getByRole("spinbutton");
+    expect(input.className).toContain("pl-8");
+    expect(input.className).toContain("pr-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    const suffix = screen.getByText("km");
+    expect(suffix.getAttribute("aria-hidden")).toBe("true");
+  });
 });
 
 describe("DataTable", () => {
