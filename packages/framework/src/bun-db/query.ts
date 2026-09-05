@@ -1,6 +1,6 @@
-// Typed Query-API über Bun.sql. KEIN drizzle intern. Identische Signatur
-// zur legacy `db/query-api.ts` — App-code-migration ist Import-Pfad-Wechsel,
-// kein call-site-Refactor.
+// Typed query API over Bun.sql. No drizzle internally. Same signature as the
+// legacy `db/query-api.ts` — app-code migration is just an import-path swap,
+// not a call-site refactor.
 //
 // API:
 //   selectMany<T>(db, table, where?, opts?) → readonly T[]
@@ -13,11 +13,11 @@
 //   deleteManyBatched(db, table, where, { limit }) → { deleted, batches }
 //   transaction<T>(db, fn) → T
 //
-// `table` kann sein:
+// `table` can be either:
 //   - EntityTableMeta (preferred, plain data)
-//   - drizzle pgTable (legacy, hat Symbol-based tableName) — extracted via
-//     drizzle's getTableName + getTableColumns (drizzle weiterhin als type-
-//     reference, NICHT als runtime-API-call)
+//   - drizzle pgTable (legacy, has Symbol-based tableName) — extracted via
+//     drizzle's getTableName + getTableColumns (drizzle kept only as a type
+//     reference, never as a runtime API call)
 
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type {
@@ -49,7 +49,7 @@ function snakeToCamel(key: string): string {
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import type { BunDbRunner } from "./connection";
 
-// Drizzle-pgTable-Inspection via raw Symbol-access (kein drizzle-orm import).
+// Drizzle pgTable inspection via raw Symbol access (no drizzle-orm import).
 // table() (dialect) stores the canonical, shadow-proof EntityTableMeta under
 // `Symbol.for("kumiko:schema:Meta")`. The column handles on the table object are
 // enumerable props, so an entity field named `source`/`columns`/`tableName`/…
@@ -79,12 +79,12 @@ export function asEntityTableMeta(table: unknown): EntityTableMeta | undefined {
   return isEntityTableMeta(table) ? table : undefined;
 }
 
-// `db` Input akzeptiert drei Shapes:
-//   1. Bun.SQL connection (BunDbRunner) — neue Welt, native .unsafe + .begin
-//   2. drizzle DbConnection (postgres-js-Wrapper) — legacy compat,
-//      raw postgres-js client liegt unter `db.$client.unsafe / .begin`
-//   3. drizzle tx-handle — client liegt unter `tx.session.client`
-// Shim extrahiert in allen Fällen ein `{unsafe, begin}`-Surface.
+// `db` input accepts three shapes:
+//   1. Bun.SQL connection (BunDbRunner) — new world, native .unsafe + .begin
+//   2. drizzle DbConnection (postgres-js wrapper) — legacy compat,
+//      raw postgres-js client sits under `db.$client.unsafe / .begin`
+//   3. drizzle tx-handle — client sits under `tx.session.client`
+// The shim extracts a `{unsafe, begin}` surface in every case.
 type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: readonly unknown[]) => Promise<readonly TRow[]>;
   begin: <T>(fn: (tx: unknown) => Promise<T>) => Promise<T>;
@@ -254,23 +254,24 @@ function isWhereOperator(v: unknown): v is WhereOperator {
   if (keys.length === 0) return false;
   return keys.every((k) => (WHERE_OPERATOR_KEYS as readonly string[]).includes(k));
 }
-// Akzeptiert EITHER. Beide haben einen tableName und field→column-mapping.
+// Accepts EITHER. Both have a tableName and field→column mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;
 
-// Write-Param: alles was TableLike akzeptiert AUSSER einer gebrandeten
-// EntityTable (managed projection). Ein direkter Write auf eine Entity ist ein
-// Compile-Fehler — der einzige Schreibweg ist der Executor (Event ->
-// rebuild-safe). Unmanaged EntityTableMeta + die am Executor-Seam auf
-// TableColumns<any> eraste Table tragen den Brand nicht -> erlaubt. Test-Seeds
-// gehen über den sanktionierten testing-Seam (seedRow/…), der den Brand strippt.
+// Write param: everything TableLike accepts EXCEPT a branded
+// EntityTable (managed projection). A direct write to an Entity is a
+// compile error — the only write path is the executor (event ->
+// rebuild-safe). Unmanaged EntityTableMeta plus the table erased to
+// TableColumns<any> at the executor seam don't carry the brand -> allowed.
+// Test seeds go through the sanctioned testing seam (seedRow/…), which
+// strips the brand.
 // Method-form writes (ctx.db.insertOne/…) keep an erased param and are covered
 // by the guard-direct-entity-writes AST guard instead (see tenant-db.ts).
 type WritableTable = EntityTableMeta & NotExecutorOnly;
 
 export type TableInfo = {
   readonly name: string;
-  // field-name (camelCase oder snake_case) → snake_case column-name
+  // field name (camelCase or snake_case) → snake_case column name
   readonly columnOf: (field: string) => string;
   // pgType per column-name, for jsonb-cast detection
   readonly pgTypeOf: (column: string) => string | undefined;
@@ -366,8 +367,8 @@ function coerceBigIntFromDriver(value: bigint | string): bigint | number {
 function instantFromDriver(value: unknown): Temporal.Instant | null {
   if (value === null || value === undefined) return null;
   if (isTemporalInstant(value)) return value as Temporal.Instant;
-  // Number-coercion via +date — equivalent to .getTime() ohne Date-API-Methode
-  // (guard-no-date-api). Date → epochMilliseconds, dann zu Temporal.Instant.
+  // Number coercion via +date — equivalent to .getTime() without a Date-API
+  // method (guard-no-date-api). Date → epoch milliseconds, then to Temporal.Instant.
   if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(+value);
   if (typeof value === "string") {
     try {
@@ -437,8 +438,8 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const key of Object.keys(row)) {
-    // Blind-Index-Spalten (#818) sind reine Lookup-Artefakte — der
-    // deterministische HMAC darf nie an Caller/API-Responses leaken.
+    // Blind-index columns (#818) are pure lookup artifacts — the
+    // deterministic HMAC must never leak into caller/API responses.
     if ((key.endsWith("_bidx") || key.endsWith("Bidx")) && info.hasColumn(key)) {
       changed = true;
       continue;
@@ -505,11 +506,11 @@ function coerceRows<T extends Record<string, unknown>>(
   return rows.map((r) => coerceRow(r, info));
 }
 
-// Helper für jsonb-Werte: structured values binden als JS object/array mit
-// ::jsonb cast. JSON.stringify vor dem cast würde JSON-string-scalars erzeugen.
+// Helper for jsonb values: structured values bind as a JS object/array with
+// an ::jsonb cast. JSON.stringify before the cast would produce JSON-string scalars.
 // Plus Temporal.Instant → ISO string coercion for timestamptz columns.
-// SqlExpression (sql`now()`, sql`gen_random_uuid()`) wird als kind:"literal"
-// returned — Caller embedded das inline statt einen $N-placeholder zu setzen.
+// SqlExpression (sql`now()`, sql`gen_random_uuid()`) is returned as
+// kind:"literal" — the caller embeds it inline instead of setting a $N placeholder.
 type PreparedValue =
   | { readonly kind: "param"; readonly sql: string; readonly bound: unknown }
   | { readonly kind: "literal"; readonly literal: string };
@@ -693,12 +694,12 @@ function buildWhereClause(
       if (p.kind === "literal") {
         conditions.push(`${quoteIdent(col)} = ${p.literal}`);
       } else {
-        // Blind-Index-OR-Rewrite (#818): existiert zur Spalte ein bidx-
-        // Pendant (Suffix-Konvention `<col>_bidx`, framework-reserviert)
-        // und ist ein Key konfiguriert, matcht Equality beide Arme —
-        // Klartext-Alt-Rows über den Plaintext-Arm, verschlüsselte Rows
-        // über den HMAC. Der `kumiko-pii:`-Prefix der Ciphertexte macht
-        // einen Zufalls-Match des Plaintext-Arms praktisch unmöglich.
+        // Blind-index OR rewrite (#818): if the column has a bidx
+        // counterpart (suffix convention `<col>_bidx`, framework-reserved)
+        // and a key is configured, equality matches both arms —
+        // plaintext legacy rows via the plaintext arm, encrypted rows
+        // via the HMAC. The `kumiko-pii:` prefix on ciphertexts makes
+        // a random match on the plaintext arm practically impossible.
         const bidxKey = configuredBlindIndexKey();
         const bidxCol = `${col}_bidx`;
         if (
