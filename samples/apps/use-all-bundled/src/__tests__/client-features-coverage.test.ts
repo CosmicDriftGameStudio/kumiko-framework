@@ -44,6 +44,7 @@ const EXEMPT: ReadonlySet<string> = new Set(["legal-pages", "managed-pages", "no
 async function featuresWithClientFactory(): Promise<ReadonlyMap<string, readonly string[]>> {
   const out = new Map<string, readonly string[]>();
   for (const dirName of readdirSync(BUNDLED_FEATURES_SRC)) {
+    if (!statSync(join(BUNDLED_FEATURES_SRC, dirName)).isDirectory()) continue;
     const webIndex = join(BUNDLED_FEATURES_SRC, dirName, "web", "index.ts");
     if (!statSync(webIndex, { throwIfNoEntry: false })?.isFile()) continue;
     const mod: Record<string, unknown> = await import(webIndex);

@@ -93,6 +93,8 @@ export type {
   ScreenFilter,
   ScreenFilterOp,
   ScreenSlots,
+  SecretsEditScreenDefinition,
+  SecretsEditSection,
   ToolbarAction,
 } from "../engine/types/screen";
 export type { TargetRef } from "../engine/types/target-ref";

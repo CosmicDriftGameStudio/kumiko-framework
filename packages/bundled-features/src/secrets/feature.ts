@@ -6,6 +6,7 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { z } from "zod";
+import { SETTINGS_HUB_I18N } from "../settings-hub-i18n";
 import { DEFAULT_SECRETS_ACCESS } from "./constants";
 import { createDeleteHandler } from "./handlers/delete.write";
 import { createListHandler } from "./handlers/list.query";
@@ -128,6 +129,15 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
       recommended: true,
     });
     r.envSchema(secretsEnvSchema);
+
+    // `secrets` is a foundation feature auto-mounted even when `config` is
+    // not (see FOUNDATION_FEATURES, dev-server scaffold-app.ts), so it must
+    // ship the Settings-Hub chrome keys itself — server-authored
+    // r.translations are projected into FeatureSchema.translations and used
+    // as a client fallback bundle (create-app.tsx schemaTranslations),
+    // covering both boot-time validation and rendering without a web
+    // client-plugin for this feature.
+    r.translations({ keys: SETTINGS_HUB_I18N });
 
     // ES entity: set/delete go through the executor, `tenantSecret.created/
     // .updated/.deleted` events land on the aggregate stream. Reads fire a

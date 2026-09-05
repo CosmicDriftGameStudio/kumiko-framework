@@ -991,6 +991,11 @@ export function validateScreens(
       continue;
     }
 
+    // secretsEdit is generator-only (buildConfigFeatureSchema) — never
+    // authored via r.screen, so feature.screens never actually carries one.
+    // Kept here only so this loop's type narrowing stays exhaustive.
+    if (screen.type === "secretsEdit") continue;
+
     // entityList / entityEdit: entity-refs are feature-local.
     const entityDef = feature.entities?.[screen.entity];
     if (!entityDef) {

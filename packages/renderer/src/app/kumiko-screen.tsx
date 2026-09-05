@@ -59,6 +59,7 @@ import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projec
 import { lastSegment, toKebab } from "./qn";
 import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
 import { screenAccessAllows } from "./screen-access";
+import { SecretsEditBody } from "./secrets-edit-body";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
 function evalRowExtractor(
@@ -248,6 +249,8 @@ export function KumikoScreen({
       return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
       return <ConfigEditBody schema={schema} screen={screen} translate={translate} />;
+    case "secretsEdit":
+      return <SecretsEditBody screen={screen} translate={translate} />;
     case "custom":
       return <CustomScreenBody screenId={screen.id} featureName={schema.featureName} />;
   }

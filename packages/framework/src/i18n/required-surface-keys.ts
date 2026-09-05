@@ -13,6 +13,7 @@ import type {
   ProjectionListScreenDefinition,
   RowAction,
   ScreenDefinition,
+  SecretsEditScreenDefinition,
   ToolbarAction,
   WorkspaceDefinition,
 } from "../engine/types";
@@ -221,6 +222,16 @@ export function requiredKeysFromScreen(
           else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
         }
       }
+      break;
+    }
+    case "secretsEdit": {
+      const secretsEdit = screen as SecretsEditScreenDefinition;
+      for (const key of Object.values(secretsEdit.fieldLabels))
+        pushKey(out, key, treatDotFormAsKey);
+      for (const key of Object.values(secretsEdit.fieldHints ?? {})) {
+        pushKey(out, key, treatDotFormAsKey);
+      }
+      for (const section of secretsEdit.sections) pushKey(out, section.title, treatDotFormAsKey);
       break;
     }
     case "projectionDetail": {

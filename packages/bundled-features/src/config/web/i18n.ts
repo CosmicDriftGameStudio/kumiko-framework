@@ -11,6 +11,13 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
   en: {
+    "config.secrets.delete": "Delete",
+    "config.secrets.notSet": "Not set",
+    "config.secrets.placeholder": "Enter a value",
+    "config.secrets.replacePlaceholder": "Enter a new value to replace",
+    "config.secrets.required": "Required",
+    "config.secrets.set": "Set",
+    "config.secrets.title": "Secrets",
     "config.settings.title": "Settings",
     "config.settings.system": "Platform",
     "config.settings.tenant": "Tenant",
@@ -18,5 +25,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.errors.systemOnly": "This value can only be set by the system.",
     "config.errors.invalidScope": "This scope is not allowed for this key.",
     "config.errors.unknownKey": "Unknown configuration key.",
+    // Required by every generated screen (screenTitleKey, required-surface-keys.ts) —
+    // the secrets screen has a fixed id ("secrets"), so the framework ships its
+    // title translation directly instead of asking every app to declare it.
+    "screen:secrets.title": "Secrets",
   },
 };

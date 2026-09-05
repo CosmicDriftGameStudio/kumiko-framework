@@ -160,12 +160,16 @@ function mergeSettingsHubIntoConfigFeature(
       entities: {},
       screens: generated.screens,
       navs: generated.navs,
+      ...(generated.translations !== undefined && { translations: generated.translations }),
     });
   } else {
     features[features.indexOf(existing)] = {
       ...existing,
       screens: [...existing.screens, ...generated.screens],
       navs: [...(existing.navs ?? []), ...generated.navs],
+      ...(generated.translations !== undefined && {
+        translations: { ...existing.translations, ...generated.translations },
+      }),
     };
   }
 }
