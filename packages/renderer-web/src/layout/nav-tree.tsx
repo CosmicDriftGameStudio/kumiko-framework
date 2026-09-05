@@ -598,7 +598,10 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             {...(s.active && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            <span
+              className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+              title={s.displayLabel}
+            >
               {s.displayLabel}
             </span>
             <NavBadge node={node} />
@@ -621,7 +624,10 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           onClick={() => dispatch(target)}
         >
           <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-          <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+          <span
+            className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+            title={s.displayLabel}
+          >
             {s.displayLabel}
           </span>
           <NavBadge node={node} />
@@ -642,7 +648,9 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         {...(s.expandable && { "aria-expanded": s.isExpanded })}
       >
         <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} label={s.displayLabel} />
-        <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
+        <span className="truncate group-data-[collapsible=icon]:hidden" title={s.displayLabel}>
+          {s.displayLabel}
+        </span>
         {s.expandable &&
           (s.isExpanded ? (
             <ChevronDown className="ml-auto" />
@@ -710,7 +718,10 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             {...(s.active && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            <span
+              className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+              title={s.displayLabel}
+            >
               {s.displayLabel}
             </span>
             <NavBadge node={node} />
@@ -730,7 +741,10 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         <SidebarMenuSubButton asChild isActive={s.active}>
           <button type="button" onClick={() => dispatch(target)}>
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            <span
+              className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+              title={s.displayLabel}
+            >
               {s.displayLabel}
             </span>
             <NavBadge node={node} />
@@ -758,7 +772,9 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             expanded={s.isExpanded}
             label={s.displayLabel}
           />
-          <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
+          <span className="truncate group-data-[collapsible=icon]:hidden" title={s.displayLabel}>
+            {s.displayLabel}
+          </span>
         </button>
       </SidebarMenuSubButton>
       <NodeActions node={node} />

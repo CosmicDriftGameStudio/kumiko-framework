@@ -91,8 +91,16 @@ export function createMembersScreen(options?: {
         label: "tenant.members.col.status",
         renderer: { react: { __component: MEMBER_STATUS_CELL_COMPONENT } },
       },
-      { field: "createdAt", label: "tenant.members.col.created" },
-      { field: "lastSeenAt", label: "tenant.members.col.lastActivity" },
+      {
+        field: "createdAt",
+        label: "tenant.members.col.created",
+        renderer: { format: "timestamp" },
+      },
+      {
+        field: "lastSeenAt",
+        label: "tenant.members.col.lastActivity",
+        renderer: { format: "timestamp" },
+      },
     ],
     defaultSort: { field: "createdAt", dir: "desc" },
     searchable: true,

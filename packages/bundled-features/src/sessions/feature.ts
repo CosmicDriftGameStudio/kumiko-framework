@@ -224,9 +224,21 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       columns: [
         { field: "id", label: "sessions.list.col.id" },
         { field: "userId", label: "sessions.list.col.userId" },
-        { field: "createdAt", label: "sessions.list.col.createdAt" },
-        { field: "expiresAt", label: "sessions.list.col.expiresAt" },
-        { field: "revokedAt", label: "sessions.list.col.revokedAt" },
+        {
+          field: "createdAt",
+          label: "sessions.list.col.createdAt",
+          renderer: { format: "timestamp" },
+        },
+        {
+          field: "expiresAt",
+          label: "sessions.list.col.expiresAt",
+          renderer: { format: "timestamp" },
+        },
+        {
+          field: "revokedAt",
+          label: "sessions.list.col.revokedAt",
+          renderer: { format: "timestamp" },
+        },
       ],
       rowActions: [
         {

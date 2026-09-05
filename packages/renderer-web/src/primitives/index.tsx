@@ -1626,11 +1626,30 @@ function isMoneyValue(value: unknown): value is MoneyCellValue {
 //   - select/multiSelect → human-readable (kebab-case → Title Case), multiSelect values joined with ", "
 //   - money → { amount, currency } formatted via Intl (not "[object Object]")
 //   - text/else → toString
+
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+const warnedTimestampColumns = new Set<string>();
+
+// A raw ISO string in a "text" column means the author forgot `renderer:
+// { format: "timestamp" }` — guessing a format here could be wrong, so we
+// warn and leave the value as-is instead of auto-formatting.
+function warnMissingTimestampFormat(columnKey: string | undefined): void {
+  if (typeof process === "undefined" || process.env.NODE_ENV === "production") return;
+  const key = columnKey ?? "<unknown column>";
+  if (warnedTimestampColumns.has(key)) return;
+  warnedTimestampColumns.add(key);
+  // biome-ignore lint/suspicious/noConsole: dev-only assertion
+  console.warn(
+    `[kumiko] column "${key}" renders a raw ISO timestamp as text — add renderer: { format: "timestamp" } to its column definition.`,
+  );
+}
+
 export function defaultCellRender(
   value: unknown,
   type: string,
   optionLabels?: Readonly<Record<string, string>>,
   locale?: string,
+  columnKey?: string,
 ): string {
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
@@ -1664,6 +1683,9 @@ export function defaultCellRender(
         return translated !== undefined && translated !== raw ? translated : humanizeSlug(raw);
       })
       .join(", ");
+  }
+  if (type === "text" && typeof value === "string" && ISO_DATETIME_RE.test(value)) {
+    warnMissingTimestampFormat(columnKey);
   }
   return typeof value === "string" ? value : String(value);
 }
@@ -1773,7 +1795,7 @@ function DataTableCell({
       </Badge>
     );
   }
-  return defaultCellRender(value, type, optionLabels, locale);
+  return defaultCellRender(value, type, optionLabels, locale, field);
 }
 
 // ---- Form + Section + Grid + Text ----
