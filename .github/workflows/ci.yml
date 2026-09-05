@@ -716,9 +716,12 @@ jobs:
         # changeset-release/main with the NEXT unreleased versions, so reset
         # to the pushed SHA before publishing the registry diff. Idempotent:
         # after a normal publish run every package already matches the
-        # registry and the script only skips. Rescued versions get git tags
-        # (pushed here, since no action parses the "New tag:" lines in this
-        # path) but no GitHub Release.
+        # registry and the script skips it — either up front, or (when the
+        # registry's exact-version lookup still lags the publish that just
+        # happened) via the E403 a redundant `npm publish` collects for that
+        # same version (#2586). Rescued versions get git tags (pushed here,
+        # since no action parses the "New tag:" lines in this path) but no
+        # GitHub Release.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
