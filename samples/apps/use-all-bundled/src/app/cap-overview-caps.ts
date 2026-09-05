@@ -12,7 +12,7 @@ const TAG_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 5, pro: 50 }
 const SEAT_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 5, pro: 20 };
 const DEFAULT_LIMIT = 10;
 
-// Three example caps built from entities this sample already mounts
+// Four example caps built from entities this sample already mounts
 // (notes-history, tags, tenant-membership) — demonstrates the caller-supplied
 // CapSpec contract cap-overview reads against, the same shape a real app
 // would provide for its own usage tables.
@@ -47,5 +47,16 @@ export const CAP_OVERVIEW_CAPS: readonly CapSpec[] = [
       return rows.length;
     },
     icon: "users",
+  },
+  {
+    // Unlimited usage meter: counted but never capped, no percent/badge.
+    id: "apiCalls",
+    label: "cap-overview.caps.apiCalls",
+    limit: () => null,
+    usage: async (db, tenantId) => {
+      const rows = await selectMany(db, noteEntryTable, { tenantId: [tenantId] });
+      return rows.length;
+    },
+    icon: "gauge",
   },
 ];

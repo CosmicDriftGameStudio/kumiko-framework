@@ -4,5 +4,11 @@
     "type": "improvement",
     "title": "Add cap-overview feature: tier + cap usage visibility per tenant.",
     "detail": "New read-only bundled feature. SystemAdmin gets a paged, searchable tenant list with tier/billing columns and per-cap usage bars, plus a per-tenant dashboard reachable from the list. TenantAdmin gets a 'My usage' dashboard showing their own tenant's cap usage as cards. Reads tier-engine, billing-foundation and tenant projections plus caller-supplied CapSpec usage callbacks; every handler enforces explicit tenant scoping (no ambient tenant filter, cross-tenant reads require SystemAdmin + acknowledgeCrossTenant)."
+  },
+  {
+    "version": "0.233.0",
+    "type": "improvement",
+    "title": "CapSpec.limit can now return null for an unlimited usage meter.",
+    "detail": "A CapSpec's `limit(tier)` may now return `null` to mean unlimited: the cap is still counted (used shows the raw count) but never capped, has no percent, and renders no progress bar or badge. This is a distinct meaning from `limit <= 0`, which unchanged still means 'not part of this tier' and renders as 0/0%."
   }
 ]

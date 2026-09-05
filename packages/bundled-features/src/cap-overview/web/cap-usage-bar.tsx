@@ -24,6 +24,15 @@ export function CapUsageBar({
     );
   }
 
+  if (usage.limit === null) {
+    // A progress bar with no denominator says nothing — show the raw count instead.
+    return showLabel ? (
+      <Text variant="small" testId="cap-usage-unlimited">
+        {String(usage.used)}
+      </Text>
+    ) : null;
+  }
+
   return (
     <div className="flex flex-col gap-1">
       {Progress ? (
