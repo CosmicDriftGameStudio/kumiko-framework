@@ -1,95 +1,88 @@
 // End-to-end proof for entityList tables at both ends of the viewport range.
 //
-// Root cause (mobile bug, before the fix): the right-hand actions column was
-// unconditionally `sticky right-0`. Once the table is wider than its
-// container (true on any narrow viewport), that pins the actions cell over
-// the natural position of the preceding data column(s) — their value sits
-// inside the visible area but is hidden underneath the opaque sticky cell.
-// `rectsOverlap` (pattern from wizard-mobile.spec.ts, #1917) makes that
-// measurable.
+// Desktop (>= md): the right-hand actions column is `md:sticky right-0` so
+// it stays reachable while scrolling instead of disappearing off the right
+// edge.
 //
-// The sticky pin is still wanted on wide tables: it's what keeps row
-// actions reachable while scrolling instead of them disappearing off the
-// right edge. So the fix scopes it to `md:` and up (this package's
-// established "desktop" cutoff — see `hidden md:block` / `md:hidden` in
-// embedded-list-input.tsx and sidebar.tsx): below md, actions scroll with
-// the row like every other cell; at md+, they stay pinned to the right edge.
+// Mobile (< md, #2565): DefaultDataTable stopped rendering a table at all
+// below the breakpoint. Before #2565, the table just scrolled sideways with
+// no visible affordance that columns existed past the edge — and the
+// actions column, being unconditionally sticky, pinned itself right over
+// the data column that hadn't scrolled away yet. #2565 replaces the table
+// with one card per row below md instead: every column shows as a
+// label/value pair with no truncation, and actions sit inline instead of
+// behind a scroll edge. The mobile block below used to assert the old
+// scrolling-table contract and went red the moment #2565 landed
+// (ff39c707d) — rewritten to assert the card contract it actually ships.
 
-import { expect, type Locator, test } from "@playwright/test";
-
-type DOMRectLike = { top: number; bottom: number; left: number; right: number };
-
-function rectsOverlap(a: DOMRectLike, b: DOMRectLike): boolean {
-  return !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
-}
-
-async function cellRects(row: Locator): Promise<readonly DOMRectLike[]> {
-  return row.locator("td").evaluateAll((cells) =>
-    cells.map((cell) => {
-      const box = cell.getBoundingClientRect();
-      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
-    }),
-  );
-}
+import { expect, test } from "@playwright/test";
 
 test.describe("mobile (< md)", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("item-list at 390px: table scrolls internally, page does not scroll horizontally, no cell covers another", async ({
+  test("item-list at 390px: cards replace the table, every column stays reachable, actions stay visible", async ({
     page,
   }) => {
     await page.goto("/item-list");
     await expect(page.getByText("Demo item #1")).toBeVisible();
 
-    // The page (documentElement) must not be wider than the viewport — otherwise
-    // the whole app scrolls instead of just the table container.
+    // The page (documentElement) must not be wider than the viewport. This
+    // assertion predates #2565 and is layout-agnostic — neither a scrolling
+    // table nor stacked cards may push the whole app into horizontal scroll.
     const pageOverflowsHorizontally = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );
     expect(pageOverflowsHorizontally).toBe(false);
 
-    // The table container (data-slot="table-container", vendored shadcn Table)
-    // must itself be scrollable — otherwise there's nothing to scroll and the
-    // right-hand columns would simply be gone.
-    const scrollContainer = page.locator('[data-slot="table-container"]').first();
-    const { scrollWidth, clientWidth, overflowX } = await scrollContainer.evaluate((el) => ({
-      scrollWidth: el.scrollWidth,
-      clientWidth: el.clientWidth,
-      overflowX: getComputedStyle(el).overflowX,
-    }));
-    expect(overflowX).toBe("auto");
-    expect(scrollWidth).toBeGreaterThan(clientWidth);
+    // No table below the breakpoint — cards take over entirely (single-mount
+    // pattern, see DefaultDataTable's `isNarrow ? cardsInner() : tableInner()`).
+    await expect(page.locator('[data-slot="table-container"]')).toHaveCount(0);
+    await expect(page.locator("table")).toHaveCount(0);
 
-    // No two cells of the same row may overlap — neither at rest (scrollLeft=0)
-    // nor mid-scroll. A sticky column pinned over a data column that hasn't
-    // scrolled away yet violates exactly this (the bug: the actions cell sat on
-    // top of the "Active"/"Quantity" cells).
-    const firstRow = page.locator('[data-slot="table-body"] tr').first();
-    for (const scrollLeft of [0, Math.round(scrollWidth / 2), scrollWidth]) {
-      await scrollContainer.evaluate((el, left) => {
-        el.scrollLeft = left;
-      }, scrollLeft);
-      const rects = await cellRects(firstRow);
-      for (let i = 0; i < rects.length; i++) {
-        for (let j = i + 1; j < rects.length; j++) {
-          expect(rectsOverlap(rects[i] as DOMRectLike, rects[j] as DOMRectLike)).toBe(false);
-        }
-      }
+    // One card per row (8 seed rows — see seed.ts / filter.spec.ts). Action
+    // buttons also carry a `row-…` testid prefix, so they're excluded here.
+    const cardsContainer = page.locator('[data-testid="render-list-table-cards"]');
+    await expect(cardsContainer).toBeVisible();
+    const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action-"])');
+    await expect(cards).toHaveCount(8);
+
+    // Every column of item-list's schema (name, status, isActive, quantity,
+    // publishedAt) is reachable on a card: label + value both visible, and no
+    // `truncate` class hiding part of the value behind an ellipsis. This is
+    // the core of the fix — on the old table, these same values sat behind a
+    // sticky actions column with nothing visible past the scroll edge.
+    // Item #2 (seed.ts: i=1) is used instead of #1 because isActive renders
+    // as "" when false (defaultCellRender) — #1 has isActive=false, which
+    // would make that one cell legitimately empty/invisible regardless of
+    // table-vs-cards layout; #2 has isActive=true so every column has content.
+    const sampleCard = cards.nth(1);
+    await expect(sampleCard.locator('[data-testid$="-name"]')).toHaveText("Demo item #2");
+
+    const detailFields = ["status", "isActive", "quantity", "publishedAt"] as const;
+    for (const field of detailFields) {
+      const valueCell = sampleCard.locator(`[data-testid$="-${field}"]`);
+      await expect(valueCell).toBeVisible();
+
+      const label = valueCell.locator("xpath=preceding-sibling::span[1]");
+      await expect(label).toBeVisible();
+      expect((await label.textContent())?.trim()).not.toBe("");
+
+      const className = await valueCell.evaluate((el) => el.className);
+      expect(className).not.toContain("truncate");
     }
 
-    // The first row's actions cell is outside the visible viewport at
-    // scrollLeft=0 …
-    const actionsCell = page.locator('[data-testid$="-actions"]').first();
-    await scrollContainer.evaluate((el) => {
-      el.scrollLeft = 0;
-    });
-    await expect(actionsCell).not.toBeInViewport();
-
-    // … but becomes reachable by scrolling the container (not the page).
-    await scrollContainer.evaluate((el) => {
-      el.scrollLeft = el.scrollWidth;
-    });
-    await expect(actionsCell).toBeInViewport();
+    // Row actions (Edit, Delete) are visible and reachable, not shoved
+    // offscreen. This was the actual bug: on the old table, actions only
+    // became `sticky` from 768px up, so below that they scrolled with the
+    // row and needed the (now-removed) horizontal table scroll to reach.
+    const editAction = sampleCard.locator('[data-testid$="-action-edit"]');
+    const deleteAction = sampleCard.locator('[data-testid$="-action-delete"]');
+    await expect(editAction).toBeVisible();
+    await expect(editAction).toBeInViewport();
+    await expect(editAction).toBeEnabled();
+    await expect(deleteAction).toBeVisible();
+    await expect(deleteAction).toBeInViewport();
+    await expect(deleteAction).toBeEnabled();
   });
 });
 
