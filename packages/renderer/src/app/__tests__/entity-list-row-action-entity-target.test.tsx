@@ -292,10 +292,13 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-const FormWithActions: ComponentType<FormProps> = ({ children, actions }) => (
+const FormWithActions: ComponentType<FormProps> = ({ children, actions, secondaryActions }) => (
   <>
     <div data-testid="form-body">{children}</div>
-    <div data-testid="form-actions">{actions}</div>
+    <div data-testid="form-actions">
+      {secondaryActions}
+      {actions}
+    </div>
   </>
 );
 

@@ -81,6 +81,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { NAV_ICONS } from "../icons";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
 import { buttonVariants, Button as UiButton } from "../ui/button";
@@ -143,6 +144,7 @@ const BUTTON_VARIANT = {
   secondary: "outline",
   danger: "destructive",
   link: "link",
+  "danger-ghost": "ghost",
 } as const;
 
 const BUTTON_SIZE = {
@@ -164,14 +166,29 @@ function DefaultButton({
   testId,
   className,
   ref,
+  icon,
+  iconEnd,
 }: ButtonProps): ReactNode {
   // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner), nicht als
   // gepolsterte Fläche; width="full" streckt CTA-Buttons in Karten/Panels.
   const resolvedClassName = cn(
     variant === "link" ? "h-auto px-0 py-0" : "",
+    variant === "danger-ghost"
+      ? "text-destructive hover:text-destructive hover:bg-destructive/10"
+      : "",
     width === "full" ? "w-full" : "",
     className,
   );
+  const IconStart = icon !== undefined ? NAV_ICONS[icon] : undefined;
+  const IconEnd = iconEnd !== undefined ? NAV_ICONS[iconEnd] : undefined;
+  // Loading swaps the leading icon slot for a spinner and keeps `children` —
+  // replacing the label would shift the button's width mid-submit.
+  const leading =
+    loading === true ? (
+      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+    ) : IconStart !== undefined ? (
+      <IconStart className="size-4" aria-hidden="true" />
+    ) : null;
   return (
     <UiButton
       ref={ref}
@@ -185,7 +202,9 @@ function DefaultButton({
       aria-label={ariaLabel}
       className={resolvedClassName}
     >
-      {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
+      {leading}
+      {children}
+      {IconEnd !== undefined && <IconEnd className="size-4" aria-hidden="true" />}
     </UiButton>
   );
 }
@@ -1781,6 +1800,7 @@ function DefaultForm({
   title,
   subtitle,
   actions,
+  secondaryActions,
   testId,
   width,
   stickyActions,
@@ -1804,8 +1824,11 @@ function DefaultForm({
         )}
       >
         <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
-        {actions !== undefined && (
-          <div className="flex items-center justify-end gap-2">{actions}</div>
+        {(secondaryActions !== undefined || actions !== undefined) && (
+          <div className="flex items-center justify-end gap-2">
+            {secondaryActions}
+            {actions}
+          </div>
         )}
       </form>
     );
@@ -1865,11 +1888,10 @@ function DefaultForm({
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
           </div>
-          {actions !== undefined && (
+          {(secondaryActions !== undefined || actions !== undefined) && (
             <div
-              data-testid={testId !== undefined ? `${testId}-actions` : undefined}
               className={cn(
-                cardFooter,
+                "flex flex-col-reverse gap-3 px-[var(--card-padding)] py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
                 cardFooterBorder,
                 // Below sm (640px): pin to the viewport bottom instead of normal
                 // flow, so a virtual keyboard shrinking the viewport can't push
@@ -1880,7 +1902,22 @@ function DefaultForm({
                   "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-4",
               )}
             >
-              {actions}
+              {secondaryActions !== undefined && (
+                <div
+                  data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
+                  className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
+                >
+                  {secondaryActions}
+                </div>
+              )}
+              {actions !== undefined && (
+                <div
+                  data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+                  className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11"
+                >
+                  {actions}
+                </div>
+              )}
             </div>
           )}
         </div>

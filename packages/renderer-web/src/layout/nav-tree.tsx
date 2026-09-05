@@ -17,7 +17,7 @@ import type {
   TreeAction,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { NavDefinition, NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -28,58 +28,7 @@ import {
   useNav,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  BarChart3,
-  Bell,
-  BookOpen,
-  Building,
-  Calculator,
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  ClipboardList,
-  Coins,
-  CreditCard,
-  Download,
-  FileText,
-  Folder,
-  FolderOpen,
-  Gauge,
-  Hash,
-  Home,
-  KeyRound,
-  Languages,
-  Layers,
-  LayoutDashboard,
-  LayoutGrid,
-  LineChart,
-  Link,
-  List,
-  Lock,
-  Mail,
-  Package,
-  Palette,
-  PiggyBank,
-  Plus,
-  Receipt,
-  Rocket,
-  Search,
-  Send,
-  Server,
-  Settings,
-  Share2,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Table,
-  Tag,
-  TrendingUp,
-  Upload,
-  User,
-  Users,
-  Wallet,
-  Wand2,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, type Folder, Plus } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -91,6 +40,7 @@ import {
 } from "react";
 import { KumikoLink } from "../app/nav";
 import { useNavEntities, useNavProviders } from "../app/nav-providers-context";
+import { NAV_ICONS } from "../icons";
 import { cn } from "../lib/cn";
 import {
   SidebarGroup,
@@ -108,69 +58,6 @@ import {
 } from "../ui/sidebar";
 import { useDispatchTarget } from "./target-resolver-stub";
 import { parseTargetFromSearchParams } from "./target-url";
-
-// Nav-icon registry: a nav entry sets `icon: "<key>"` (in the r.nav decl),
-// the renderer maps the symbolic key to a lucide component. `NavIconKey` is
-// the closed vocabulary a feature author can write (packages/types/src/
-// nav-icon.ts); `satisfies` below makes this map a compile-time drift
-// guard — a key added to one without the other fails the build.
-//
-// `node.icon`/`TreeAction.icon` stay plain `string` at the resolved-tree
-// layer (dynamic/provider-supplied data isn't statically known), so the
-// runtime `Object.hasOwn` lookups below still see an unknown key on
-// occasion — that's the defense-in-depth fallback to the dot, not the
-// primary guard anymore.
-const NAV_ICONS = {
-  dashboard: LayoutDashboard,
-  "layout-grid": LayoutGrid,
-  "book-open": BookOpen,
-  "clipboard-list": ClipboardList,
-  package: Package,
-  gauge: Gauge,
-  list: List,
-  table: Table,
-  layers: Layers,
-  building: Building,
-  calculator: Calculator,
-  wallet: Wallet,
-  coins: Coins,
-  "credit-card": CreditCard,
-  "piggy-bank": PiggyBank,
-  receipt: Receipt,
-  chart: LineChart,
-  "bar-chart": BarChart3,
-  trending: TrendingUp,
-  sparkles: Sparkles,
-  wand: Wand2,
-  calendar: CalendarDays,
-  file: FileText,
-  folder: Folder,
-  "folder-open": FolderOpen,
-  home: Home,
-  bell: Bell,
-  shield: Shield,
-  "shield-check": ShieldCheck,
-  send: Send,
-  settings: Settings,
-  users: Users,
-  user: User,
-  search: Search,
-  tag: Tag,
-  key: KeyRound,
-  link: Link,
-  palette: Palette,
-  share: Share2,
-  server: Server,
-  mail: Mail,
-  lock: Lock,
-  hash: Hash,
-  download: Download,
-  upload: Upload,
-  rocket: Rocket,
-  // Was imported but never registered — `icon: "plus"` silently fell back.
-  plus: Plus,
-  languages: Languages,
-} as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
 
 // Widened alias for the two lookup sites below, which index by the plain
 // `string` icon key of the resolved NavNode/TreeAction tree — not the

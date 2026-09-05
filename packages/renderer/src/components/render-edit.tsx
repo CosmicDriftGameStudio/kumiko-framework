@@ -914,25 +914,33 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
   handleSubmitRef.current = handleSubmit;
 
-  // Sticky-top Action-Bar: Delete (links, destructive) + Cancel +
-  // Save. Delete sitzt links abgesetzt damit die Click-Distanz zu
-  // Save is large; red styling + confirm dialog are enough protection
-  // gegen Fehlklicks. Save bleibt rechts (primary affordance).
-  const formActions = (
+  // Two groups — wizard navigation on the right/top, record actions on the
+  // left/below; destructive action sits outermost, farthest from the target
+  // action.
+  const hasSecondaryFormActions =
+    onDelete !== undefined ||
+    onCopyLink !== undefined ||
+    (actions !== undefined && actions.length > 0) ||
+    onCancel !== undefined;
+  const secondaryFormActions = (
     <>
-      {actions?.map((action) => (
-        <RenderEditActionButton
-          key={action.id}
-          action={action}
-          Button={Button}
-          Dialog={Dialog}
-          onError={setActionError}
-        />
-      ))}
+      {onDelete !== undefined && (
+        <Button
+          type="button"
+          variant="danger-ghost"
+          icon="trash"
+          testId="render-edit-delete"
+          disabled={disabled}
+          onClick={() => setConfirmDeleteOpen(true)}
+        >
+          {translate("kumiko.actions.delete")}
+        </Button>
+      )}
       {onCopyLink !== undefined && (
         <Button
           type="button"
-          variant="secondary"
+          variant="link"
+          icon={linkCopied ? "check" : "link"}
           testId="render-edit-copy-link"
           onClick={async () => {
             await onCopyLink();
@@ -942,31 +950,35 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate(linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink")}
         </Button>
       )}
-      {onDelete !== undefined && (
-        <Button
-          type="button"
-          variant="danger"
-          testId="render-edit-delete"
-          disabled={disabled}
-          onClick={() => setConfirmDeleteOpen(true)}
-        >
-          {translate("kumiko.actions.delete")}
-        </Button>
-      )}
+      {actions?.map((action) => (
+        <RenderEditActionButton
+          key={action.id}
+          action={action}
+          Button={Button}
+          Dialog={Dialog}
+          onError={setActionError}
+        />
+      ))}
       {onCancel !== undefined && (
         <Button
           type="button"
-          variant="secondary"
+          variant="link"
+          icon="x"
           onClick={() => onCancel()}
           testId="render-edit-cancel"
         >
           {translate("kumiko.actions.cancel")}
         </Button>
       )}
+    </>
+  );
+  const formActions = (
+    <>
       {isWizard && currentStep > 0 && (
         <Button
           type="button"
           variant="secondary"
+          icon="arrow-left"
           onClick={handleWizardBack}
           testId="render-edit-wizard-back"
         >
@@ -974,7 +986,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Button>
       )}
       {isWizard && !isLastWizardStep && (
-        <Button type="submit" variant="primary" testId="render-edit-wizard-next">
+        <Button
+          type="submit"
+          variant="primary"
+          iconEnd="arrow-right"
+          testId="render-edit-wizard-next"
+        >
           {translate("kumiko.actions.next")}
         </Button>
       )}
@@ -984,6 +1001,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting || disabled}
           loading={isSubmitting}
           variant="primary"
+          icon="check"
           testId="render-edit-submit"
         >
           {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
@@ -1022,6 +1040,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(hideSectionTitles !== true &&
           formSubtitle !== undefined && { subtitle: formSubtitle })}
         {...(hideActions !== true && { actions: formActions })}
+        {...(hideActions !== true &&
+          hasSecondaryFormActions && { secondaryActions: secondaryFormActions })}
         testId="render-edit-form"
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
