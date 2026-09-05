@@ -6,13 +6,15 @@ import {
   requiredKeysFromScreen,
   requiredKeysFromWorkspace,
 } from "../../i18n/required-surface-keys";
-import { buildConfigFeatureSchema, SETTINGS_HUB_FEATURE } from "../build-config-feature-schema";
+import {
+  buildConfigFeatureSchema,
+  type ConfigFeatureSchema,
+  SETTINGS_HUB_FEATURE,
+} from "../build-config-feature-schema";
 import { createRegistry } from "../registry";
 import type { FeatureDefinition } from "../types";
-import type { Registry } from "../types/feature";
 
-function requiredKeysFromGeneratedConfigHub(registry: Registry): readonly string[] {
-  const schema = buildConfigFeatureSchema(registry);
+function requiredKeysFromGeneratedConfigHub(schema: ConfigFeatureSchema): readonly string[] {
   if (schema.navs.length === 0) return [];
   const out = new Set<string>();
 
@@ -33,6 +35,7 @@ function requiredKeysFromGeneratedConfigHub(registry: Registry): readonly string
     for (const key of requiredKeysFromWorkspace(schema.workspace.definition)) out.add(key);
   }
   out.add("config.settings.title");
+  if (schema.screens.some((s) => s.type === "secretsEdit")) out.add("config.secrets.title");
   for (const scope of ["system", "tenant", "user"] as const) {
     out.add(`config.settings.${scope}`);
   }
@@ -62,6 +65,11 @@ function hasDefinedTranslation(defined: Set<string>, key: string): boolean {
 export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]): void {
   const defined = buildEffectiveTranslationKeys(features);
   const registry = createRegistry(features);
+  const generatedConfigHub = buildConfigFeatureSchema(registry);
+  // The secrets screen's labels/hints come from the `r.secret()` declaration
+  // itself, not from r.translations — without this, every app with a
+  // declared secret would fail boot on its own generated keys.
+  for (const key of Object.keys(generatedConfigHub.translations ?? {})) defined.add(key);
 
   for (const feature of features) {
     if (!featureHasI18nSurface(feature)) continue;
@@ -76,7 +84,7 @@ export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]):
     }
   }
 
-  for (const key of requiredKeysFromGeneratedConfigHub(registry)) {
+  for (const key of requiredKeysFromGeneratedConfigHub(generatedConfigHub)) {
     if (!hasDefinedTranslation(defined, key)) {
       throw new Error(`[i18n] Settings-Hub: required translation key missing: "${key}"`);
     }

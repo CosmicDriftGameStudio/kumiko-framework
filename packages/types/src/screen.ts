@@ -984,6 +984,32 @@ export type ConfigEditScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// Self-populating counterpart of ConfigEditScreenDefinition for `r.secret(...)`
+// declarations. No EditLayout/FieldDefinition — secrets never round-trip a
+// stored value to the client, so the screen renders its own body (password
+// inputs + redaction display + delete) instead of going through RenderEdit.
+export type SecretsEditSection = {
+  readonly title?: string;
+  readonly fields: readonly string[];
+};
+
+export type SecretsEditScreenDefinition = {
+  readonly id: string;
+  readonly type: "secretsEdit";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
+  /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
+  readonly secretKeys: Readonly<Record<string, string>>;
+  /** field id -> i18n key for the label. */
+  readonly fieldLabels: Readonly<Record<string, string>>;
+  /** field id -> i18n key for the hint, only where the declaration carries one. */
+  readonly fieldHints?: Readonly<Record<string, string>>;
+  /** field ids whose declaration set `required: true`. */
+  readonly requiredFields?: readonly string[];
+  readonly sections: readonly SecretsEditSection[];
+  readonly access?: AccessRule;
+};
+
 // --- shared slots (Level 4 from ui-architecture.md) ---
 
 export type ScreenSlots = {
@@ -1030,4 +1056,5 @@ export type ScreenDefinition =
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
+  | SecretsEditScreenDefinition
   | CustomScreenDefinition;

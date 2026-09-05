@@ -297,6 +297,8 @@ export type {
   ScreenFilterOp,
   ScreenNavSugar,
   ScreenSlots,
+  SecretsEditScreenDefinition,
+  SecretsEditSection,
   ToolbarAction,
   UnitKey,
 } from "@cosmicdrift/kumiko-types/screen";

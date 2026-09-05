@@ -440,6 +440,8 @@ export type {
   ScreenNavSugar,
   ScreenSlots,
   SecretKeyHandle,
+  SecretsEditScreenDefinition,
+  SecretsEditSection,
   SelectFieldDef,
   SessionUser,
   StreamHandlerDef,

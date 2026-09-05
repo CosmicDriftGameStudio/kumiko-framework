@@ -112,6 +112,9 @@ export function generateE2ESpec(
     // pro Field geschrieben, ohne CRUD-Zustand zu generieren wäre der
     // Spec wertlos. Branding/SMTP/etc. sind Author-spezifisch.
     if (screen.type === "configEdit") continue;
+    // secretsEdit: dito — writes go through secrets:write:set with
+    // plaintext values the generator has no author-defined test data for.
+    if (screen.type === "secretsEdit") continue;
     // projectionList: query-getrieben, Author-spezifische Projection —
     // kein generischer CRUD-Spec ableitbar (wie actionForm/configEdit).
     if (screen.type === "projectionList") continue;
