@@ -27,13 +27,17 @@ test.describe("TenantAdmin workspace gating", () => {
 
     await expect(page.getByTestId("render-list-table")).toBeVisible();
     await page.getByTestId("render-list-toolbar-action-invite").click();
-    await page.getByTestId("combobox-kumiko-edit-role").click();
     // fw#2414: DEFAULT_INVITE_ROLE_OPTIONS excludes TenantAdmin (Admin must not see it).
-    await expect(page.getByRole("option", { name: "User", exact: true })).toBeVisible();
-    await expect(page.getByRole("option", { name: "Editor", exact: true })).toBeVisible();
-    await expect(page.getByRole("option", { name: "Admin", exact: true })).toBeVisible();
-    await expect(page.getByRole("option", { name: "Tenant Admin", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("option", { name: "SystemAdmin", exact: true })).toHaveCount(0);
+    // 3 options ⇒ SegmentedSelect (role="radiogroup"/role="radio"), no popover to open.
+    const roleGroup = page.getByTestId("segmented-kumiko-edit-role");
+    await expect(roleGroup).toBeVisible();
+    await expect(roleGroup.getByRole("radio", { name: "User", exact: true })).toBeVisible();
+    await expect(roleGroup.getByRole("radio", { name: "Editor", exact: true })).toBeVisible();
+    await expect(roleGroup.getByRole("radio", { name: "Admin", exact: true })).toBeVisible();
+    await expect(roleGroup.getByRole("radio", { name: "Tenant Admin", exact: true })).toHaveCount(
+      0,
+    );
+    await expect(roleGroup.getByRole("radio", { name: "SystemAdmin", exact: true })).toHaveCount(0);
   });
 
   test("API rejects platform tenant:list for TenantAdmin (403)", async ({ page }) => {

@@ -75,7 +75,7 @@ function isWriteHandlerRowAction(action: RowAction): action is RowActionWriteHan
   return action.kind === "writeHandler" || action.kind === undefined;
 }
 
-// Teil B (fw-ui-defaults): id-derived default icon for actions that never
+// Part B (fw-ui-defaults): id-derived default icon for actions that never
 // declared one — a screen author still gets a recognizable glyph instead of
 // a bare label. Checked against the actually registered IconKey vocabulary
 // (nav-icon.ts) — no entry for verbs without a matching icon (e.g. "start",
@@ -2165,10 +2165,10 @@ function ProjectionListBody({
   );
 }
 
-// Status-Wert → StatusTone-Heuristik für projectionDetail-Header-Badges, weil
-// die Query-Row keinen Tone mitliefert (nur den rohen Spaltenwert). Deckt die
-// üblichen Status-Vokabulare ab; unbekannte Werte bleiben undefined, damit
-// DefaultStatusBadge auf sein eigenes "muted"-Default zurückfällt.
+// Status value -> StatusTone heuristic for projectionDetail header badges, because
+// the query row carries no tone (only the raw column value). Covers the
+// common status vocabularies; unknown values stay undefined so
+// DefaultStatusBadge falls back to its own "muted" default.
 const STATUS_TONE_BY_VALUE: Record<string, StatusTone> = {
   ok: "ok",
   active: "ok",
