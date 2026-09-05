@@ -36,7 +36,7 @@ import { useDraftStorage } from "../context/draft-storage-context";
 import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { shouldRenderActionsIconOnly, usePrimitives } from "../primitives";
 import { RelatedListSection } from "./related-list-section";
 import {
   filterEditSections,
@@ -914,38 +914,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
   handleSubmitRef.current = handleSubmit;
 
-  // Sticky-top Action-Bar: Delete (links, destructive) + Cancel +
-  // Save. Delete sitzt links abgesetzt damit die Click-Distanz zu
-  // Save is large; red styling + confirm dialog are enough protection
-  // gegen Fehlklicks. Save bleibt rechts (primary affordance).
+  // Delete is pushed to the far left by mr-auto: the click distance to Save
+  // plus the confirm dialog are the guard against mis-clicks. Everything else
+  // stays right-aligned, Save last as the primary affordance.
+  const headerActionsIconOnly = actions !== undefined && shouldRenderActionsIconOnly(actions);
   const formActions = (
     <>
-      {actions?.map((action) => (
-        <RenderEditActionButton
-          key={action.id}
-          action={action}
-          Button={Button}
-          Dialog={Dialog}
-          onError={setActionError}
-        />
-      ))}
-      {onCopyLink !== undefined && (
-        <Button
-          type="button"
-          variant="secondary"
-          testId="render-edit-copy-link"
-          onClick={async () => {
-            await onCopyLink();
-            setLinkCopied(true);
-          }}
-        >
-          {translate(linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink")}
-        </Button>
-      )}
       {onDelete !== undefined && (
         <Button
           type="button"
           variant="danger"
+          className="mr-auto"
           testId="render-edit-delete"
           disabled={disabled}
           onClick={() => setConfirmDeleteOpen(true)}
@@ -953,6 +932,38 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.delete")}
         </Button>
       )}
+      {actions?.map((action) => (
+        <RenderEditActionButton
+          key={action.id}
+          action={action}
+          iconOnly={headerActionsIconOnly}
+          Button={Button}
+          Dialog={Dialog}
+          onError={setActionError}
+        />
+      ))}
+      {onCopyLink !== undefined &&
+        (() => {
+          const copyLinkLabel = translate(
+            linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink",
+          );
+          return (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              icon={linkCopied ? "check" : "link"}
+              ariaLabel={copyLinkLabel}
+              testId="render-edit-copy-link"
+              onClick={async () => {
+                await onCopyLink();
+                setLinkCopied(true);
+              }}
+            >
+              {copyLinkLabel}
+            </Button>
+          );
+        })()}
       {onCancel !== undefined && (
         <Button
           type="button"
@@ -991,6 +1002,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
     </>
   );
+  // Mirrors every branch inside formActions above — a projectionDetail
+  // screen (readOnly, no wizard, no extensions) hits none of them, so
+  // `actions` stays undefined instead of forcing DefaultForm's footer bar
+  // to render an empty gray strip (fw record-screen-type polish).
+  const hasFormActions =
+    (actions?.length ?? 0) > 0 ||
+    onCopyLink !== undefined ||
+    onDelete !== undefined ||
+    onCancel !== undefined ||
+    (isWizard && currentStep > 0) ||
+    (isWizard && !isLastWizardStep) ||
+    ((isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep));
 
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle
@@ -1021,7 +1044,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(hideSectionTitles !== true && { title: formTitle })}
         {...(hideSectionTitles !== true &&
           formSubtitle !== undefined && { subtitle: formSubtitle })}
-        {...(hideActions !== true && { actions: formActions })}
+        {...(hideActions !== true && hasFormActions && { actions: formActions })}
         testId="render-edit-form"
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
@@ -1186,6 +1209,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               key={sectionKey}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
               {...(section.description !== undefined && { subtitle: section.description })}
+              {...(section.icon !== undefined && { icon: section.icon })}
               testId={`section-${sectionKey}`}
             >
               <Grid columns={section.columns}>

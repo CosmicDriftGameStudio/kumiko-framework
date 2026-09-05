@@ -129,6 +129,69 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     expect(screen.queryByTestId("kumiko-screen-projection-detail-title")).toBeNull();
     expect(screen.queryByTestId("kumiko-screen-projection-detail-metrics")).toBeNull();
   });
+
+  test("colors the status badge via the StatusTone heuristic for a recognized value", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", status: "state" },
+    };
+    const dispatcher = dispatcherReturning({ ...rowData, state: "overdue" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.getByTestId("kumiko-screen-projection-detail-status").className).toContain(
+      "text-status-bad",
+    );
+  });
+
+  test("an unmapped status value falls back to the muted tone", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", status: "state" },
+    };
+    const dispatcher = dispatcherReturning({ ...rowData, state: "archived" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.getByTestId("kumiko-screen-projection-detail-status").className).toContain(
+      "text-muted-foreground",
+    );
+  });
+
+  test("read-only detail screens render no footer action bar", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(baseScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("render-edit-form-actions")).toBeNull();
+  });
 });
 
 describe("KumikoScreen / projectionDetail — metric tiles render through the Metric primitive", () => {
@@ -399,6 +462,30 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
 
     expect(setSearchParamsCalls).toContainEqual({ tab: "payments" });
   });
+
+  test("relatedList tab content renders without its own Section card wrapper", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+    const { navApi } = navWithTab("payments");
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(tabsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() =>
+      expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
+    );
+    // hideTitle (tabs mode) drops the Section wrapper — DataTable already
+    // draws its own card frame, so a second nested Card would double it up.
+    expect(screen.queryByTestId("related-list-Payments")).toBeNull();
+  });
 });
 
 // Only guard against a solon-shaped screen (relatedList-heavy) silently regressing.
@@ -448,6 +535,10 @@ describe("KumikoScreen / projectionDetail — unchanged for a solon-shaped scree
     // Contrast for the tabs-mode "form title suppressed" test above — outside
     // tabs mode (hideSectionTitles unset) the form's own title still renders.
     expect(screen.getByTestId("render-edit-form-title")).toBeTruthy();
+    // Contrast for the tabs-mode "no Section wrapper" test above — a stacked
+    // (non-tabs) relatedList section has a visible title, so it keeps its
+    // own Section card.
+    expect(screen.getByTestId("related-list-Payments")).toBeTruthy();
   });
 });
 

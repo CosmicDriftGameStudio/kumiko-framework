@@ -1,4 +1,5 @@
 import type { Scenario } from "../../../e2e/screenshots";
+import { FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
 
 // Ein Eintrag = ein Styleguide-Block = ein Screenshot (×Locale×Theme×Viewport).
 // Baseline: die zwei realen Auto-UI-Screens (Edit-Form-in-Card + Liste mit
@@ -18,6 +19,14 @@ export const SCENARIOS: readonly Scenario[] = [
     name: "edit",
     description: "Entity-Edit: Form in Card-Sections, alle Feldtypen, Buttons",
     url: "/item-edit",
+    waitFor: "text=Text",
+    settleMs: 400,
+    fullPage: true,
+  },
+  {
+    name: "edit-existing",
+    description: "Entity-Edit Update-Mode: Header-Actions (icon-only), gefüllte Felder",
+    url: `/item-edit/${FIRST_STYLEGUIDE_ITEM_ID}`,
     waitFor: "text=Text",
     settleMs: 400,
     fullPage: true,

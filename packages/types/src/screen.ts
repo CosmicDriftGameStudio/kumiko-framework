@@ -1,7 +1,7 @@
 import type { FieldIconKey } from "./field-icon";
 import type { FieldDefinition } from "./fields";
 import type { AccessRule } from "./handlers";
-import type { NavIconKey } from "./nav-icon";
+import type { IconKey, NavIconKey } from "./nav-icon";
 
 export type { FieldIconKey } from "./field-icon";
 
@@ -227,6 +227,10 @@ export type RowActionWriteHandler = {
   /** Visual-Style. "danger" rendert rot + erzwingt einen Confirm-
    *  Dialog (auch ohne expliziten `confirm`-Key). */
   readonly style?: "primary" | "secondary" | "danger";
+  /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
+   *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
+   *  (renderer-web), analogous to EditFieldSpec.icon. */
+  readonly icon?: IconKey;
 };
 
 export type RowActionNavigateBase = {
@@ -252,6 +256,10 @@ export type RowActionNavigateBase = {
    *  auf navigate — ein Row-Klick darf keinen (evtl. destruktiven, unbestätigten)
    *  Write auslösen, daher nicht auf writeHandler-Actions. */
   readonly rowClick?: boolean;
+  /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
+   *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
+   *  (renderer-web), analogous to EditFieldSpec.icon. */
+  readonly icon?: IconKey;
 };
 
 /** Exactly one of `screen` / `entity` — mutual exclusivity is type-enforced
@@ -682,6 +690,11 @@ export type EditFieldsSection = {
   readonly description?: string;
   readonly columns?: number;
   readonly fields: readonly EditFieldSpec[];
+  /** Rendered left of the section title, `text-muted-foreground` — closed
+   *  IconKey vocabulary into the ICONS registry (renderer-web), analogous
+   *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives
+   *  one from the title (titles are free i18n strings). */
+  readonly icon?: IconKey;
 };
 
 export type EditExtensionSection = {
@@ -798,6 +811,13 @@ export type EntityEditScreenDefinition = {
    *  das `mask.title`-Label des Config-Keys. Fehlt ein Eintrag, gilt die
    *  Konvention. */
   readonly fieldLabels?: Readonly<Record<string, string>>;
+  /** Header action buttons. Reuses `RowAction` — analogous to
+   *  `ProjectionDetailScreenDefinition.actions` (the loaded record stands
+   *  in for the "row"). `rowClick` has no target here and is rejected by
+   *  the boot-validator, same as on projectionDetail. Not rendered in
+   *  create mode — every action targets an existing record, which the
+   *  create branch doesn't have yet. */
+  readonly actions?: readonly RowAction[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

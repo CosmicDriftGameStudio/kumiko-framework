@@ -13,12 +13,12 @@ export type AppLayoutProps = {
   readonly sidebar?: ReactNode;
   readonly children: ReactNode;
   readonly testId?: string;
-  /** Viewport-fit Shell. true → Wurzel = `h-screen` (fixe Viewport-Höhe),
-   *  Sidebar/Topbar bleiben stehen, der Main-Bereich scrollt INNEN
-   *  (`min-h-0` + `overflow-auto`). false (Default) → klassischer
-   *  `min-h-screen`-Flow, die ganze Seite scrollt. Dashboard-artige Apps
-   *  wollen `true`; eine öffentliche, lange Content-Seite eher `false`.
-   *  Clippt nie — der Content scrollt in `main` statt im Body. */
+  /** Viewport-fit Shell. Default `true` → Wurzel = `h-screen` (fixe
+   *  Viewport-Höhe), Sidebar/Topbar bleiben stehen, der Main-Bereich
+   *  scrollt INNEN (`min-h-0` + `overflow-auto`). `false` → klassischer
+   *  `min-h-screen`-Flow, die ganze Seite scrollt — Escape-Hatch für
+   *  eine öffentliche, lange Content-Seite die echten Body-Scroll
+   *  braucht. Clippt nie — der Content scrollt in `main` statt im Body. */
   readonly fill?: boolean;
   /** Optionaler Klassen-Append an die Wurzel (eigener Hintergrund etc.).
    *  Erweitert die Defaults, ersetzt sie nicht (cn-merge). */
@@ -32,7 +32,7 @@ export function AppLayout({
   sidebar,
   children,
   testId,
-  fill,
+  fill = true,
   className,
   mainClassName,
 }: AppLayoutProps): ReactNode {

@@ -17,7 +17,7 @@ import type {
   TreeAction,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { NavDefinition, NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -28,58 +28,7 @@ import {
   useNav,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  BarChart3,
-  Bell,
-  BookOpen,
-  Building,
-  Calculator,
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  ClipboardList,
-  Coins,
-  CreditCard,
-  Download,
-  FileText,
-  Folder,
-  FolderOpen,
-  Gauge,
-  Hash,
-  Home,
-  KeyRound,
-  Languages,
-  Layers,
-  LayoutDashboard,
-  LayoutGrid,
-  LineChart,
-  Link,
-  List,
-  Lock,
-  Mail,
-  Package,
-  Palette,
-  PiggyBank,
-  Plus,
-  Receipt,
-  Rocket,
-  Search,
-  Send,
-  Server,
-  Settings,
-  Share2,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Table,
-  Tag,
-  TrendingUp,
-  Upload,
-  User,
-  Users,
-  Wallet,
-  Wand2,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, type Folder, Plus } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -106,76 +55,23 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "../ui/sidebar";
+import { ICONS } from "./icon-registry";
 import { useDispatchTarget } from "./target-resolver-stub";
 import { parseTargetFromSearchParams } from "./target-url";
 
-// Nav-icon registry: a nav entry sets `icon: "<key>"` (in the r.nav decl),
-// the renderer maps the symbolic key to a lucide component. `NavIconKey` is
-// the closed vocabulary a feature author can write (packages/types/src/
-// nav-icon.ts); `satisfies` below makes this map a compile-time drift
-// guard — a key added to one without the other fails the build.
+// Nav-icon lookup: a nav entry sets `icon: "<key>"` (in the r.nav decl), the
+// renderer maps the symbolic key to a lucide component via the shared ICONS
+// registry (./icon-registry.tsx). `node.icon`/`TreeAction.icon` stay plain
+// `string` at the resolved-tree layer (dynamic/provider-supplied data isn't
+// statically known), so the runtime `Object.hasOwn` lookups below still see
+// an unknown key on occasion — that's the defense-in-depth fallback to the
+// dot, not the primary guard anymore (the primary guard is the `satisfies`
+// in icon-registry.tsx).
 //
-// `node.icon`/`TreeAction.icon` stay plain `string` at the resolved-tree
-// layer (dynamic/provider-supplied data isn't statically known), so the
-// runtime `Object.hasOwn` lookups below still see an unknown key on
-// occasion — that's the defense-in-depth fallback to the dot, not the
-// primary guard anymore.
-const NAV_ICONS = {
-  dashboard: LayoutDashboard,
-  "layout-grid": LayoutGrid,
-  "book-open": BookOpen,
-  "clipboard-list": ClipboardList,
-  package: Package,
-  gauge: Gauge,
-  list: List,
-  table: Table,
-  layers: Layers,
-  building: Building,
-  calculator: Calculator,
-  wallet: Wallet,
-  coins: Coins,
-  "credit-card": CreditCard,
-  "piggy-bank": PiggyBank,
-  receipt: Receipt,
-  chart: LineChart,
-  "bar-chart": BarChart3,
-  trending: TrendingUp,
-  sparkles: Sparkles,
-  wand: Wand2,
-  calendar: CalendarDays,
-  file: FileText,
-  folder: Folder,
-  "folder-open": FolderOpen,
-  home: Home,
-  bell: Bell,
-  shield: Shield,
-  "shield-check": ShieldCheck,
-  send: Send,
-  settings: Settings,
-  users: Users,
-  user: User,
-  search: Search,
-  tag: Tag,
-  key: KeyRound,
-  link: Link,
-  palette: Palette,
-  share: Share2,
-  server: Server,
-  mail: Mail,
-  lock: Lock,
-  hash: Hash,
-  download: Download,
-  upload: Upload,
-  rocket: Rocket,
-  // Was imported but never registered — `icon: "plus"` silently fell back.
-  plus: Plus,
-  languages: Languages,
-} as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
-
 // Widened alias for the two lookup sites below, which index by the plain
 // `string` icon key of the resolved NavNode/TreeAction tree — not the
-// closed NavIconKey union NAV_ICONS itself is typed against.
-const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = NAV_ICONS;
+// closed IconKey union ICONS itself is typed against.
+const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = ICONS;
 
 export type NavTreeProps = {
   // Akzeptiert beide Shapes — AppSchema (multi-feature) oder
@@ -353,14 +249,14 @@ function NavLeadingIcon({
   label?: string;
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
-  const isKnownIcon = iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey);
+  const isKnownIcon = iconKey !== undefined && Object.hasOwn(ICONS, iconKey);
   const NavIcon = iconKey !== undefined && isKnownIcon ? NAV_ICON_LOOKUP[iconKey] : undefined;
   useEffect(() => {
     if (iconKey !== undefined && !isKnownIcon) {
       // biome-ignore lint/suspicious/noConsole: diagnostic for unregistered nav icon keys
       console.warn(
         `[kumiko] Nav entry "${node.qualifiedName}" references icon "${iconKey}", which is not ` +
-          `registered in NAV_ICONS — falling back to the dot indicator. Check the icon key spelling.`,
+          `registered in ICONS — falling back to the dot indicator. Check the icon key spelling.`,
       );
     }
   }, [iconKey, isKnownIcon, node.qualifiedName]);
@@ -552,10 +448,10 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
   };
 }
 
-// Action icon lookup: registered NAV_ICONS key → Lucide icon, otherwise the
+// Action icon lookup: registered ICONS key → Lucide icon, otherwise the
 // raw string as text (provider convention, no boot-fail on an unknown key).
 function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
-  const Icon = Object.hasOwn(NAV_ICONS, icon) ? NAV_ICON_LOOKUP[icon] : undefined;
+  const Icon = Object.hasOwn(ICONS, icon) ? NAV_ICON_LOOKUP[icon] : undefined;
   if (Icon !== undefined) return <Icon aria-hidden className="size-3.5" />;
   return (
     <span aria-hidden className="text-xs">

@@ -43,7 +43,9 @@ test.describe("mobile (< md)", () => {
     // buttons also carry a `row-…` testid prefix, so they're excluded here.
     const cardsContainer = page.locator('[data-testid="render-list-table-cards"]');
     await expect(cardsContainer).toBeVisible();
-    const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action-"])');
+    // Excludes both the inline `-action-{id}` buttons and the `-actions-menu`
+    // kebab trigger (>2 rowActions on item-list now renders a kebab).
+    const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action"])');
     await expect(cards).toHaveCount(8);
 
     // Every column of item-list's schema (name, status, isActive, quantity,
@@ -71,18 +73,25 @@ test.describe("mobile (< md)", () => {
       expect(className).not.toContain("truncate");
     }
 
-    // Row actions (Edit, Delete) are visible and reachable, not shoved
-    // offscreen. This was the actual bug: on the old table, actions only
-    // became `sticky` from 768px up, so below that they scrolled with the
-    // row and needed the (now-removed) horizontal table scroll to reach.
-    const editAction = sampleCard.locator('[data-testid$="-action-edit"]');
-    const deleteAction = sampleCard.locator('[data-testid$="-action-delete"]');
-    await expect(editAction).toBeVisible();
-    await expect(editAction).toBeInViewport();
-    await expect(editAction).toBeEnabled();
-    await expect(deleteAction).toBeVisible();
-    await expect(deleteAction).toBeInViewport();
-    await expect(deleteAction).toBeEnabled();
+    // Row actions are reachable, not shoved offscreen. This was the actual
+    // bug: on the old table, actions only became `sticky` from 768px up, so
+    // below that they scrolled with the row and needed the (now-removed)
+    // horizontal table scroll to reach. item-list carries 5 rowActions now
+    // (edit/publish/archive/duplicate/delete), which collapses to a single
+    // "More actions" kebab trigger per row/card instead of inline buttons
+    // (RowActionsCell's `adaptive` mode: >2 actions → RowActionsKebab) — so
+    // this asserts the trigger itself, then that Edit/Delete surface inside
+    // the opened menu.
+    const actionsMenu = sampleCard.locator('[data-testid$="-actions-menu"]');
+    await expect(actionsMenu).toBeVisible();
+    await expect(actionsMenu).toBeInViewport();
+    await expect(actionsMenu).toBeEnabled();
+
+    await actionsMenu.click();
+    const editItem = page.locator('[data-testid$="-action-edit"]');
+    const deleteItem = page.locator('[data-testid$="-action-delete"]');
+    await expect(editItem).toBeVisible();
+    await expect(deleteItem).toBeVisible();
   });
 });
 

@@ -8,7 +8,7 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import type { FieldIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { FieldIconKey, IconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -35,6 +35,7 @@ import {
   type ProgressProps,
   type SectionProps,
   type StepBarProps,
+  shouldRenderActionsIconOnly,
   type TextProps,
   useColumnRenderer,
   useOptionalLocale,
@@ -81,12 +82,14 @@ import {
   useRef,
   useState,
 } from "react";
+import { ICONS, Icon } from "../layout/icon-registry";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
 import { buttonVariants, Button as UiButton } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
+import { Switch } from "../ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Textarea } from "../ui/textarea";
 import { ProgressBar } from "../widgets/progress-bar";
@@ -132,6 +135,7 @@ const cardSurface = cva(
 // Wraps instead of running off-screen when the row outgrows its container (fw#2528).
 const cardFooter = "flex flex-wrap items-center justify-end gap-2 px-[var(--card-padding)] py-4";
 const cardFooterBorder = "border-t bg-muted/30";
+const cardHeaderBorder = "border-b bg-muted/30";
 
 // ---- Button (vendored shadcn ui/button) ----
 
@@ -151,6 +155,14 @@ const BUTTON_SIZE = {
   icon: "icon",
 } as const;
 
+// Closed IconKey vocabulary, checked against the shared ICONS registry
+// (icon-registry.tsx) — an unknown key (schema data isn't statically typed
+// against IconKey the way this prop is) renders no icon instead of crashing,
+// same fallback shape as fieldIconFor above.
+function actionIconFor(icon: IconKey | undefined): IconKey | undefined {
+  return icon !== undefined && Object.hasOwn(ICONS, icon) ? icon : undefined;
+}
+
 function DefaultButton({
   type = "button",
   onClick,
@@ -160,6 +172,7 @@ function DefaultButton({
   size = "md",
   ariaLabel,
   width = "auto",
+  icon,
   children,
   testId,
   className,
@@ -172,6 +185,25 @@ function DefaultButton({
     width === "full" ? "w-full" : "",
     className,
   );
+  const resolvedIcon = actionIconFor(icon);
+  // size="icon" + a resolved icon replaces children entirely (Teil C's
+  // collapsed action groups); size="icon" WITHOUT a resolved icon keeps the
+  // existing raw-icon-as-children usage (e.g. embedded-list-input.tsx)
+  // working unchanged.
+  const iconOnly = resolvedIcon !== undefined && size === "icon";
+  const content =
+    loading === true ? (
+      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+    ) : resolvedIcon === undefined ? (
+      children
+    ) : iconOnly ? (
+      <Icon name={resolvedIcon} className="size-4" />
+    ) : (
+      <>
+        <Icon name={resolvedIcon} className="size-4" />
+        {children}
+      </>
+    );
   return (
     <UiButton
       ref={ref}
@@ -183,9 +215,10 @@ function DefaultButton({
       variant={BUTTON_VARIANT[variant]}
       size={BUTTON_SIZE[size]}
       aria-label={ariaLabel}
+      title={iconOnly ? ariaLabel : undefined}
       className={resolvedClassName}
     >
-      {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
+      {content}
     </UiButton>
   );
 }
@@ -238,6 +271,13 @@ function fieldLabelId(id: string): string {
   return `${id}-label`;
 }
 
+// Boolean optics depend on the surrounding Field layout: layout="inline"
+// (checkbox lists like MultiSelectCheckboxes, the BooleanField widget) keeps
+// the checkbox, the standard form field (layout="stacked"/default) gets the
+// new switch. Pure web-renderer rendering decision, no contract field needed
+// — Field hands its resolved layout down to the nested Input via context.
+const FieldLayoutContext = createContext<FieldProps["layout"]>("stacked");
+
 function DefaultField({
   id,
   label,
@@ -286,7 +326,7 @@ function DefaultField({
     return (
       <div data-testid={testId} className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
-          {children}
+          <FieldLayoutContext.Provider value="inline">{children}</FieldLayoutContext.Provider>
           {labelEl}
           {labelAppendix !== undefined && labelAppendix}
         </div>
@@ -361,9 +401,116 @@ function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
+// Segmented control for `kind: "select"` with a small closed option set —
+// a 4-value Status field looked wrong stretched into a full-width dropdown
+// (edit-existing screenshot feedback). Purely a rendering choice inside the
+// "select" branch below; the primitives contract is untouched (still
+// `options` + string value/onChange).
+const SEGMENTED_SELECT_MAX_OPTIONS = 4;
+const SEGMENTED_SELECT_MAX_LABEL_LENGTH = 14;
+
+function isSegmentedSelectEligible(options: readonly { readonly label: string }[]): boolean {
+  return (
+    options.length > 0 &&
+    options.length <= SEGMENTED_SELECT_MAX_OPTIONS &&
+    options.every((o) => o.label.length <= SEGMENTED_SELECT_MAX_LABEL_LENGTH)
+  );
+}
+
+// WAI-ARIA radiogroup pattern (role="radiogroup" + role="radio" children):
+// arrow keys move focus AND selection in the same step, only the checked
+// segment (or the first when none is checked) sits in the tab order.
+function SegmentedSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  disabled,
+  required,
+  hasError,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly onChange: (v: string) => void;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly disabled?: boolean;
+  readonly required?: boolean;
+  readonly hasError?: boolean;
+}): ReactNode {
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const selectAt = (index: number): void => {
+    const target = options[index];
+    if (target === undefined) return;
+    onChange(target.value);
+    buttonRefs.current[index]?.focus();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number): void => {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      selectAt((index + 1) % options.length);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      selectAt((index - 1 + options.length) % options.length);
+    }
+  };
+
+  return (
+    <div
+      role="radiogroup"
+      aria-labelledby={fieldLabelId(id)}
+      aria-required={required}
+      aria-invalid={hasError === true ? true : undefined}
+      data-testid={`segmented-${id}`}
+      className={cn(
+        "inline-flex w-fit flex-wrap divide-x overflow-hidden rounded-md border",
+        hasError === true
+          ? "divide-destructive/50 border-destructive"
+          : "divide-border border-input",
+      )}
+    >
+      <input type="hidden" name={name} value={value} />
+      {options.map((opt, index) => {
+        const checked = opt.value === value;
+        return (
+          // biome-ignore lint/a11y/useSemanticElements: a native <input type="radio"> can't render the segment's label as content — button+role="radio" is the standard WAI-ARIA composite-widget substitute.
+          <button
+            key={opt.value}
+            ref={(node) => {
+              buttonRefs.current[index] = node;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={checked || (value === "" && index === 0) ? 0 : -1}
+            disabled={disabled}
+            data-testid={`segmented-${id}-${opt.value}`}
+            onClick={() => onChange(opt.value)}
+            onKeyDown={(e) => handleKeyDown(e, index)}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "disabled:pointer-events-none disabled:opacity-50",
+              checked
+                ? "bg-primary text-primary-foreground"
+                : "bg-transparent text-foreground hover:bg-accent",
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function DefaultInput(props: InputProps): ReactNode {
   // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
   // selbst — kein manuelles border-destructive mehr nötig.
+  const booleanLayout = useContext(FieldLayoutContext);
   const common = {
     id: props.id,
     name: props.name,
@@ -443,7 +590,10 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "boolean":
-      return (
+      // layout="inline" (checkbox lists like MultiSelectCheckboxes, the
+      // BooleanField widget) keeps the checkbox optics; the standard form
+      // field (render-field.tsx, layout="stacked") gets the switch.
+      return booleanLayout === "inline" ? (
         <Checkbox
           id={props.id}
           name={props.name}
@@ -452,6 +602,17 @@ function DefaultInput(props: InputProps): ReactNode {
           aria-invalid={props.hasError === true ? true : undefined}
           checked={props.value}
           onCheckedChange={(checked) => props.onChange(checked === true)}
+        />
+      ) : (
+        <Switch
+          id={props.id}
+          name={props.name}
+          disabled={props.disabled}
+          aria-required={props.required}
+          aria-invalid={props.hasError === true ? true : undefined}
+          checked={props.value}
+          onCheckedChange={(checked) => props.onChange(checked === true)}
+          className="aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"
         />
       );
     case "file":
@@ -497,6 +658,20 @@ function DefaultInput(props: InputProps): ReactNode {
       const comboOptions = props.options.map((o) =>
         typeof o === "string" ? { value: o, label: o } : o,
       );
+      if (isSegmentedSelectEligible(comboOptions)) {
+        return (
+          <SegmentedSelect
+            id={props.id}
+            name={props.name}
+            value={props.value}
+            onChange={props.onChange}
+            options={comboOptions}
+            {...(props.disabled !== undefined && { disabled: props.disabled })}
+            {...(props.required !== undefined && { required: props.required })}
+            {...(props.hasError !== undefined && { hasError: props.hasError })}
+          />
+        );
+      }
       return (
         <ComboboxInput
           id={props.id}
@@ -1055,10 +1230,14 @@ function RowActionsCell({
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
   if (mode === "inline") {
+    // Teil C: >2 actions all carrying an icon collapse to icon-only —
+    // otherwise "inline" is exactly the wall-to-wall text-button problem
+    // this feature exists to fix.
+    const iconOnly = shouldRenderActionsIconOnly(visible);
     return (
       <div className="flex w-full items-center gap-1 justify-start">
         {visible.map((a) => (
-          <RowActionButton key={a.id} row={row} action={a} />
+          <RowActionButton key={a.id} row={row} action={a} iconOnly={iconOnly} />
         ))}
       </div>
     );
@@ -1114,9 +1293,13 @@ function useRowActionTrigger(row: ListRowViewModel) {
 function RowActionButton({
   row,
   action,
+  iconOnly = false,
 }: {
   readonly row: ListRowViewModel;
   readonly action: DataTableRowAction;
+  /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
+   *  effect when this action actually resolved an icon. */
+  readonly iconOnly?: boolean;
 }): ReactNode {
   const { busy, triggerNow } = useRowActionTrigger(row);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -1128,12 +1311,16 @@ function RowActionButton({
         ? "text-primary hover:bg-primary/10"
         : "text-foreground hover:bg-accent";
 
+  const resolvedIcon = actionIconFor(action.icon);
+  const showIconOnly = iconOnly && resolvedIcon !== undefined;
+
   return (
     <>
       <button
         type="button"
         data-testid={`row-${row.id}-action-${action.id}`}
         disabled={busy}
+        {...(showIconOnly && { "aria-label": action.label, title: action.label })}
         onClick={(e) => {
           e.stopPropagation();
           if (needsConfirm(action)) {
@@ -1143,13 +1330,25 @@ function RowActionButton({
           }
         }}
         className={cn(
-          "inline-flex h-8 items-center justify-center rounded-sm px-2 text-sm",
+          "inline-flex h-8 items-center justify-center gap-1.5 rounded-sm text-sm",
+          showIconOnly ? "w-8" : "px-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:opacity-50 disabled:pointer-events-none",
           variantClass,
         )}
       >
-        {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : action.label}
+        {busy ? (
+          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+        ) : resolvedIcon === undefined ? (
+          action.label
+        ) : showIconOnly ? (
+          <Icon name={resolvedIcon} className="size-4" />
+        ) : (
+          <>
+            <Icon name={resolvedIcon} className="size-4" />
+            {action.label}
+          </>
+        )}
       </button>
       <DefaultDialog
         open={confirmOpen}
@@ -1829,7 +2028,7 @@ function DefaultForm({
         )}
         <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
-            <div className="px-6 pb-2 pt-5">
+            <div className={cn(cardHeaderBorder, "px-6 pb-4 pt-5")}>
               {title !== undefined && (
                 <h2
                   data-testid={testId !== undefined ? `${testId}-title` : undefined}
@@ -1905,7 +2104,7 @@ export function FormScreenShell({
   children,
   className,
   testId,
-  maxWidth = "full",
+  maxWidth = "4xl",
 }: {
   readonly children: ReactNode;
   readonly className?: string;
@@ -1929,20 +2128,24 @@ function DefaultSection({
   actions,
   variant = "default",
   testId,
+  icon,
 }: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
 
   // h3 statt CardTitle (= div): erhält die Heading-Semantik für
   // Screenreader-Navigation. Subtitle fließt darunter (kein Divider —
   // shadcn CardTitle+CardDescription-Muster).
+  // icon only renders alongside a title — a title-less section has nothing
+  // for a lone icon to sit next to, so it stays as-is (no heading grows).
   const header =
     title !== undefined || subtitle !== undefined ? (
       <div className="flex flex-col gap-1">
         {title !== undefined && (
           <h3
             data-testid={testId !== undefined ? `${testId}-title` : undefined}
-            className="text-base font-semibold leading-none tracking-tight"
+            className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight"
           >
+            {icon !== undefined && <Icon name={icon} className="size-4 text-muted-foreground" />}
             {title}
           </h3>
         )}

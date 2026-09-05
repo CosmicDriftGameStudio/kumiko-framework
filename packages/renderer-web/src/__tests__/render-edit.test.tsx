@@ -119,8 +119,8 @@ describe("RenderEdit", () => {
     // notes is hidden (isUrgent=false): title, count, isUrgent → 3 cells.
     expect(grid?.children.length).toBe(3);
 
-    const urgentCheckbox = screen.getByTestId("field-isUrgent").querySelector('[role="checkbox"]');
-    fireEvent.click(urgentCheckbox as HTMLElement);
+    const urgentSwitch = screen.getByTestId("field-isUrgent").querySelector('[role="switch"]');
+    fireEvent.click(urgentSwitch as HTMLElement);
 
     // notes becomes visible → 4 cells, no leftover empty cell from before.
     expect(grid?.children.length).toBe(4);
@@ -240,10 +240,9 @@ describe("RenderEdit", () => {
     );
 
     expect(screen.queryByTestId("field-notes")).toBeNull();
-    // boolean-Feld = vendored Radix-Checkbox → button[role=checkbox], kein
-    // native input[type=checkbox] mehr.
-    const urgentCheckbox = screen.getByTestId("field-isUrgent").querySelector('[role="checkbox"]');
-    fireEvent.click(urgentCheckbox as HTMLElement);
+    // boolean field in a standard form = vendored Radix Switch → button[role=switch].
+    const urgentSwitch = screen.getByTestId("field-isUrgent").querySelector('[role="switch"]');
+    fireEvent.click(urgentSwitch as HTMLElement);
     expect(screen.queryByTestId("field-notes")).toBeTruthy();
   });
 
@@ -284,7 +283,7 @@ describe("RenderEdit", () => {
     expect(seenResults[0]?.isSuccess).toBe(true);
   });
 
-  test("layout.width defaults the form shell to max-w-full when unset", () => {
+  test("layout.width defaults the form shell to max-w-4xl when unset", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <RenderEdit<TestValues>
@@ -298,7 +297,7 @@ describe("RenderEdit", () => {
     );
 
     const shell = screen.getByTestId("render-edit-form").firstElementChild;
-    expect(shell?.className).toContain("max-w-full");
+    expect(shell?.className).toContain("max-w-4xl");
     expect(shell?.className).not.toContain("max-w-3xl");
   });
 
@@ -2858,8 +2857,8 @@ describe("RenderEdit locked state (#1896)", () => {
     expect((titleInput as HTMLInputElement).disabled).toBe(true);
     const countInput = screen.getByTestId("field-count").querySelector("input");
     expect((countInput as HTMLInputElement).disabled).toBe(true);
-    const urgentCheckbox = screen.getByTestId("field-isUrgent").querySelector('[role="checkbox"]');
-    expect((urgentCheckbox as HTMLButtonElement).disabled).toBe(true);
+    const urgentSwitch = screen.getByTestId("field-isUrgent").querySelector('[role="switch"]');
+    expect((urgentSwitch as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
   });
 

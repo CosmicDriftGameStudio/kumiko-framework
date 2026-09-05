@@ -1,13 +1,14 @@
-// Closed vocabulary of nav icon keys. NavDefinition.icon, ScreenNavSugar.icon
-// and ConfigMask.icon are all typed against this union, so an unregistered
+// Closed vocabulary of icon keys, shared across nav entries, actions,
+// metrics and sections. NavDefinition.icon, ScreenNavSugar.icon and
+// ConfigMask.icon are all typed against this union, so an unregistered
 // key is a compile error at the r.nav()/r.screen()/config-mask call site
 // instead of a silent missing-icon at runtime.
 //
-// The renderer-web NAV_ICONS map (packages/renderer-web/src/layout/
-// nav-tree.tsx) is checked against this same union via `satisfies`, so the
-// two can't drift — add a key here only together with its lucide-react entry
-// there, and vice versa.
-export type NavIconKey =
+// The renderer-web ICONS map (packages/renderer-web/src/layout/
+// icon-registry.tsx) is checked against this same union via `satisfies`, so
+// the two can't drift — add a key here only together with its lucide-react
+// entry there, and vice versa.
+export type IconKey =
   | "dashboard"
   | "layout-grid"
   | "book-open"
@@ -55,4 +56,39 @@ export type NavIconKey =
   | "upload"
   | "rocket"
   | "plus"
-  | "languages";
+  | "languages"
+  | "pencil"
+  | "trash"
+  | "check"
+  | "x"
+  | "copy"
+  | "eye"
+  | "eye-off"
+  | "filter"
+  | "refresh"
+  | "more-horizontal"
+  | "more-vertical"
+  | "external-link"
+  | "arrow-left"
+  | "arrow-right"
+  | "chevron-down"
+  | "chevron-right"
+  | "save"
+  | "undo"
+  | "archive"
+  | "star"
+  | "flag"
+  | "clock"
+  | "map-pin"
+  | "phone"
+  | "printer"
+  | "alert-triangle"
+  | "info"
+  | "check-circle"
+  | "x-circle"
+  | "loader";
+
+// Deprecated alias — kept so existing imports/call sites of `NavIconKey`
+// keep compiling unchanged while the vocabulary grows past the nav-only
+// case. New code should use `IconKey`.
+export type NavIconKey = IconKey;

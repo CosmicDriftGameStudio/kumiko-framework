@@ -93,26 +93,36 @@ export function RelatedListSection({
         }
       : undefined;
 
+  const content =
+    rowsQuery.loading && rowsQuery.data === null ? (
+      <Banner padded variant="loading" testId="related-list-loading">
+        Loading…
+      </Banner>
+    ) : rowsQuery.error ? (
+      <Banner padded variant="error" testId="related-list-error">
+        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
+      </Banner>
+    ) : (
+      <RenderList
+        screen={listScreen}
+        entity={entity}
+        rows={rowsQuery.data?.rows ?? []}
+        featureName={featureName}
+        translate={effectiveTranslate}
+        {...(onRowClick !== undefined && { onRowClick })}
+      />
+    );
+
+  // hideTitle (tabs mode) → this section carries no header content of its
+  // own, and RenderList's DataTable already draws its own card frame — a
+  // Section wrapper here would only add a second, nested card (fw record-
+  // screen-type polish). Stacked (non-tabs) sections keep their Section
+  // card since they render a visible title.
+  if (hideTitle) return content;
+
   return (
-    <Section title={hideTitle ? undefined : section.title} testId={`related-list-${section.title}`}>
-      {rowsQuery.loading && rowsQuery.data === null ? (
-        <Banner padded variant="loading" testId="related-list-loading">
-          Loading…
-        </Banner>
-      ) : rowsQuery.error ? (
-        <Banner padded variant="error" testId="related-list-error">
-          {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
-        </Banner>
-      ) : (
-        <RenderList
-          screen={listScreen}
-          entity={entity}
-          rows={rowsQuery.data?.rows ?? []}
-          featureName={featureName}
-          translate={effectiveTranslate}
-          {...(onRowClick !== undefined && { onRowClick })}
-        />
-      )}
+    <Section title={section.title} testId={`related-list-${section.title}`}>
+      {content}
     </Section>
   );
 }

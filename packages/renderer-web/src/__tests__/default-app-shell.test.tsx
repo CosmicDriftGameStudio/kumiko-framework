@@ -130,3 +130,36 @@ describe("DefaultAppShell wires user.roles into children for screen-level access
     expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
   });
 });
+
+describe("DefaultAppShell fill default", () => {
+  test("fill defaults to true: applies h-svh on root and min-h-0 on inset/main", () => {
+    render(
+      <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
+        <div>content</div>
+      </DefaultAppShell>,
+    );
+    const root = document.querySelector('[data-slot="sidebar-wrapper"]');
+    expect(root?.classList.contains("h-svh")).toBe(true);
+    const inset = document.querySelector('[data-slot="sidebar-inset"]');
+    expect(inset?.classList.contains("min-h-0")).toBe(true);
+    const mains = screen.getAllByRole("main");
+    const innerMain = mains.find((m) => m !== inset);
+    expect(innerMain?.classList.contains("min-h-0")).toBe(true);
+    expect(innerMain?.classList.contains("flex-1")).toBe(true);
+    expect(innerMain?.classList.contains("overflow-auto")).toBe(true);
+  });
+
+  // fill={false} is the escape hatch back to page-scroll: must not apply
+  // viewport-lock classes.
+  test("fill={false} does not apply h-svh or min-h-0", () => {
+    render(
+      <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()} fill={false}>
+        <div>content</div>
+      </DefaultAppShell>,
+    );
+    const root = document.querySelector('[data-slot="sidebar-wrapper"]');
+    expect(root?.classList.contains("h-svh")).toBe(false);
+    const inset = document.querySelector('[data-slot="sidebar-inset"]');
+    expect(inset?.classList.contains("min-h-0")).toBe(false);
+  });
+});

@@ -440,13 +440,12 @@ describe("WorkspaceShell", () => {
     expect(screen.queryByText("Tours")).toBeNull();
   });
 
-  test("fill=true applies h-svh on root and min-h-0 on inset/main", () => {
+  test("fill defaults to true: applies h-svh on root and min-h-0 on inset/main", () => {
     renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
         user={{ id: "u1", roles: ["admin"] }}
-        fill
       >
         <div>content</div>
       </WorkspaceShell>,
@@ -462,13 +461,15 @@ describe("WorkspaceShell", () => {
     expect(innerMain?.classList.contains("overflow-auto")).toBe(true);
   });
 
-  // #1692: default (no fill) must not force viewport-lock classes
-  test("without fill does not apply h-svh or min-h-0", () => {
+  // fill={false} is the escape hatch back to page-scroll: must not apply
+  // viewport-lock classes.
+  test("fill={false} does not apply h-svh or min-h-0", () => {
     renderShell(
       <WorkspaceShell
         brand={<div>Brand</div>}
         schema={schema}
         user={{ id: "u1", roles: ["admin"] }}
+        fill={false}
       >
         <div>content</div>
       </WorkspaceShell>,

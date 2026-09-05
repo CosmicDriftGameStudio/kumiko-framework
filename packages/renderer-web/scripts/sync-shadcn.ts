@@ -32,12 +32,17 @@ type RegistryItem = {
 //   @/hooks/<x>          → ./<x>       (Hooks liegen flach in src/ui/)
 //   @/registry/<style>/ui/<x> → ./<x>
 function rewriteImports(content: string): string {
-  return content
-    .replaceAll(/@\/registry\/[^/]+\/lib\/utils/g, "../lib/cn")
-    .replaceAll(/@\/registry\/[^/]+\/(ui|hooks)\//g, "./")
-    .replaceAll("@/lib/utils", "../lib/cn")
-    .replaceAll("@/components/ui/", "./")
-    .replaceAll("@/hooks/", "./");
+  return (
+    content
+      .replaceAll(/@\/registry\/[^/]+\/lib\/utils/g, "../lib/cn")
+      .replaceAll(/@\/registry\/[^/]+\/(ui|hooks)\//g, "./")
+      .replaceAll("@/lib/utils", "../lib/cn")
+      .replaceAll("@/components/ui/", "./")
+      .replaceAll("@/hooks/", "./")
+      // Newer registry items (e.g. switch) ship a bare `from "cn"` specifier
+      // instead of the `@/lib/utils` alias — resolve it the same way.
+      .replaceAll('from "cn"', 'from "../lib/cn"')
+  );
 }
 
 const npmDeps = new Set<string>();

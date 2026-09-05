@@ -3,6 +3,7 @@ import type {
   EditSectionSpec,
   FieldIconKey,
   FieldRenderer,
+  IconKey,
   ListColumnSpec,
   PlatformComponent,
   ScreenSlots,
@@ -257,6 +258,9 @@ export type EditFieldsSectionViewModel = {
   readonly description?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
+  /** From `EditFieldsSection.icon` — closed IconKey vocabulary, renders
+   *  left of the title. No effect without `title`. */
+  readonly icon?: IconKey;
 };
 
 export type EditExtensionSectionViewModel = {

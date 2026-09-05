@@ -438,9 +438,9 @@ describe("KumikoScreen", () => {
   // Issue #912 — Copy-Link-Action. KumikoScreen threads an already-bound
   // onCopyLink callback down to RenderEdit (the actual URL-build/clipboard
   // impl lives in renderer-web's RoutedScreen, outside this test — here we
-  // only verify the wiring: button renders in update-mode, fires the
-  // callback, and shows the "copied" label afterwards).
-  test("entityEdit update-mode: Copy-Link-Button feuert onCopyLink + zeigt 'copied'-Label", async () => {
+  // only verify the wiring: button renders icon-only in update-mode, fires
+  // the callback, and swaps its accessible name to "copied" afterwards.
+  test("entityEdit update-mode: Copy-Link-Button feuert onCopyLink + zeigt 'copied'-Accessible-Name", async () => {
     const user = userEvent.setup();
     const onCopyLink = mock(() => Promise.resolve());
     const dispatcher = makeDispatcher({
@@ -462,10 +462,13 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
     const button = screen.getByTestId("render-edit-copy-link");
-    expect(button.textContent).toBe("Copy link");
+    // Icon-only: no visible text, accessible name carried entirely by aria-label.
+    expect(button.textContent).toBe("");
+    expect(button.querySelector("svg")).toBeTruthy();
+    expect(button.getAttribute("aria-label")).toBe("Copy link");
     await user.click(button);
     expect(onCopyLink).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(button.textContent).toBe("Copied!"));
+    await waitFor(() => expect(button.getAttribute("aria-label")).toBe("Copied!"));
   });
 
   test("entityEdit create-mode: kein Copy-Link-Button (keine entity-id → kein Permalink)", () => {
@@ -2447,5 +2450,97 @@ describe("KumikoScreen: actionForm extension-section", () => {
       </NavProvider>,
     );
     expect(screen.getByTestId("update-timeline").textContent).toBe("inc-7");
+  });
+});
+
+// --- entityEdit header actions (fw entityEdit-actions) ---
+// EntityEditScreenDefinition.actions mirrors ProjectionDetailScreenDefinition.
+// actions — same RenderEdit `actions` prop, same icon-only collapse rule
+// (shouldRenderActionsIconOnly: >2 actions, every one resolves an icon).
+describe("KumikoScreen: entityEdit header actions", () => {
+  const threeActionsScreen: EntityEditScreenDefinition = {
+    id: "task-edit-actions-3",
+    type: "entityEdit",
+    entity: "task",
+    layout: { sections: [{ title: "Basics", fields: ["title"] }] },
+    // ids match ACTION_ICON_BY_ID entries (publish/archive/duplicate) so
+    // every action resolves an icon without an explicit `icon` field.
+    actions: [
+      { id: "publish", label: "Publish", handler: "tasks:write:task:publish" },
+      { id: "archive", label: "Archive", handler: "tasks:write:task:archive" },
+      { id: "duplicate", label: "Duplicate", handler: "tasks:write:task:duplicate" },
+    ],
+  };
+  const twoActionsScreen: EntityEditScreenDefinition = {
+    ...threeActionsScreen,
+    id: "task-edit-actions-2",
+    actions: threeActionsScreen.actions?.slice(0, 2),
+  };
+  const actionsSchema: FeatureSchema = {
+    featureName: "tasks",
+    entities: { task: taskEntity },
+    screens: [threeActionsScreen, twoActionsScreen],
+  };
+  const detailDispatcher = () =>
+    makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "task-1", version: 1, title: "loaded", count: 0, done: false },
+      })) as unknown as Dispatcher["query"],
+    });
+
+  test("update-mode mit drei Header-Actions rendert drei Icon-Buttons ohne sichtbaren Text, je mit zugänglichem Namen", async () => {
+    render(
+      <DispatcherProvider dispatcher={detailDispatcher()}>
+        <KumikoScreen
+          schema={actionsSchema}
+          qn="tasks:screen:task-edit-actions-3"
+          entityId="task-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    const cases = [
+      ["publish", "Publish"],
+      ["archive", "Archive"],
+      ["duplicate", "Duplicate"],
+    ] as const;
+    for (const [id, label] of cases) {
+      const button = screen.getByTestId(`render-edit-action-${id}`);
+      expect(button.textContent).toBe("");
+      expect(button.getAttribute("aria-label")).toBe(label);
+    }
+  });
+
+  test("update-mode mit zwei Header-Actions zeigt weiterhin sichtbaren Text", async () => {
+    render(
+      <DispatcherProvider dispatcher={detailDispatcher()}>
+        <KumikoScreen
+          schema={actionsSchema}
+          qn="tasks:screen:task-edit-actions-2"
+          entityId="task-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    expect(screen.getByTestId("render-edit-action-publish").textContent).toBe("Publish");
+    expect(screen.getByTestId("render-edit-action-archive").textContent).toBe("Archive");
+  });
+
+  // Design decision (fw entityEdit-actions): actions target an EXISTING
+  // record (publish/archive/duplicate and friends) — create mode has none
+  // yet, so EntityEditCreateBody never builds a headerActions prop at all.
+  test("create-mode (kein entityId) rendert keine Header-Actions", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <KumikoScreen schema={actionsSchema} qn="tasks:screen:task-edit-actions-3" />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-action-publish")).toBeNull();
+    expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
+    expect(screen.queryByTestId("render-edit-action-duplicate")).toBeNull();
   });
 });
