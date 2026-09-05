@@ -1,12 +1,13 @@
-// Closed vocabulary of nav icon keys. NavDefinition.icon, ScreenNavSugar.icon
-// and ConfigMask.icon are all typed against this union, so an unregistered
-// key is a compile error at the r.nav()/r.screen()/config-mask call site
-// instead of a silent missing-icon at runtime.
+// Closed vocabulary of nav and button icon keys. NavDefinition.icon,
+// ScreenNavSugar.icon, ConfigMask.icon and ButtonProps.icon/iconEnd are all
+// typed against this union, so an unregistered key is a compile error at the
+// r.nav()/r.screen()/config-mask/button call site instead of a silent
+// missing-icon at runtime.
 //
-// The renderer-web NAV_ICONS map (packages/renderer-web/src/layout/
-// nav-tree.tsx) is checked against this same union via `satisfies`, so the
-// two can't drift — add a key here only together with its lucide-react entry
-// there, and vice versa.
+// The renderer-web NAV_ICONS map (packages/renderer-web/src/icons.tsx) is
+// checked against this same union via `satisfies`, so the two can't drift —
+// add a key here only together with its lucide-react entry there, and vice
+// versa.
 export type NavIconKey =
   | "dashboard"
   | "layout-grid"
@@ -55,4 +56,10 @@ export type NavIconKey =
   | "upload"
   | "rocket"
   | "plus"
-  | "languages";
+  | "languages"
+  | "trash"
+  | "x"
+  | "check"
+  | "arrow-left"
+  | "arrow-right"
+  | "copy";

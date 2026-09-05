@@ -43,14 +43,18 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-// Form's `actions` slot carries the header buttons under test — passChildren
-// alone would drop it. Wrapped in distinct testid'd containers so a test can
-// assert a banner rendered as a Form CHILD (formError/actionError region)
-// rather than inside the actions row — the review finding this proves.
-const FormWithActions: ComponentType<FormProps> = ({ children, actions }) => (
+// Form's `actions`/`secondaryActions` slots carry the header buttons under
+// test — passChildren alone would drop them. Wrapped in distinct testid'd
+// containers so a test can assert a banner rendered as a Form CHILD
+// (formError/actionError region) rather than inside the actions row — the
+// review finding this proves.
+const FormWithActions: ComponentType<FormProps> = ({ children, actions, secondaryActions }) => (
   <>
     <div data-testid="form-body">{children}</div>
-    <div data-testid="form-actions">{actions}</div>
+    <div data-testid="form-actions">
+      {secondaryActions}
+      {actions}
+    </div>
   </>
 );
 

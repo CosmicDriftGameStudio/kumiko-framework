@@ -35,7 +35,7 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { FieldIconKey, FormWidth } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { FieldIconKey, FormWidth, NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -67,11 +67,12 @@ export type ButtonProps = {
    *  setzen wenn die Action blockiert bis das Loading abgeschlossen
    *  ist (verhindert Double-Submit). */
   readonly loading?: boolean;
-  /** Semantische Klasse — default="primary". Custom-Impls entscheiden
-   *  was daraus visuell wird; die Renderer verwenden "primary" für
-   *  Save, "danger" für Delete, "secondary" für Confirm-State,
-   *  "link" für Inline-Aktionen im Fließtext (kein BG, underline). */
-  readonly variant?: "primary" | "secondary" | "danger" | "link";
+  /** Semantic class — default="primary". Custom impls decide what this
+   *  becomes visually; the renderers use "primary" for Save, "danger" for
+   *  Delete, "secondary" for a Confirm state, "link" for inline actions in
+   *  running text (no background, underline), "danger-ghost" for a
+   *  destructive action as red text instead of a red fill. */
+  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost";
   /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
    *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
   readonly size?: "sm" | "md" | "icon";
@@ -91,6 +92,10 @@ export type ButtonProps = {
    *  a click (e.g. binding a drop-target handler). Web forwards it, native
    *  impls ignore it (no native equivalent). */
   readonly ref?: Ref<HTMLButtonElement>;
+  /** Icon before the label. */
+  readonly icon?: NavIconKey;
+  /** Icon after the label (e.g. "Continue →"). */
+  readonly iconEnd?: NavIconKey;
 };
 
 /** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem
@@ -696,6 +701,9 @@ export type FormProps = {
    *  your catalog") — gibt dem Form-Header Kontext statt nur ein Label. */
   readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
+  /** Secondary, record-related actions — rendered on the left on desktop,
+   *  on their own row below the primary action on a narrow viewport. */
+  readonly secondaryActions?: ReactNode;
   readonly testId?: string;
   /** Max width of the form container. Default "full" — see FormWidth
    *  (`packages/types/src/screen.ts`, EditLayout.width). Native impls may

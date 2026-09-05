@@ -15,20 +15,69 @@ import { createMockDispatcher, render, screen } from "./test-utils";
 const { Form, Section, Button } = defaultPrimitives;
 
 describe("DefaultForm Action-Footer", () => {
-  test("Actions sitzen rechtsbündig am Form-Ende (border-t), Titel ist Heading", () => {
+  test("Actions sitzen am Form-Ende (border-t, sm:justify-between), Titel ist Heading", () => {
     render(
       <Form onSubmit={() => {}} title="Titel" actions={<Button>Save</Button>} testId="f">
         <div>body</div>
       </Form>,
     );
     const actions = screen.getByTestId("f-actions");
-    expect(actions.className).toContain("justify-end");
-    expect(actions.className).toContain("border-t");
+    // The border/layout classes live on the outer footer container (which
+    // also wraps the optional secondaryActions group), not on the inner
+    // `-actions` div itself.
+    const footer = actions.parentElement as HTMLElement;
+    expect(footer.className).toContain("sm:justify-between");
+    expect(footer.className).toContain("border-t");
     // Footer sits in the form shell (buttons align with the field edge).
     expect(actions.closest(".max-w-full")).toBeTruthy();
     // Title is its own heading above — not inside the action bar.
     expect(actions.textContent).not.toContain("Titel");
     expect(screen.getByTestId("f-title").textContent).toBe("Titel");
+  });
+
+  test("secondaryActions + actions: zwei Gruppen mit eigenen testIds, Container flex-col-reverse", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        actions={<Button>Save</Button>}
+        secondaryActions={<Button variant="danger-ghost">Delete</Button>}
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    const secondary = screen.getByTestId("f-actions-secondary");
+    const main = screen.getByTestId("f-actions");
+    expect(secondary.textContent).toBe("Delete");
+    expect(main.textContent).toBe("Save");
+    // Same outer footer container wraps both groups.
+    expect(secondary.parentElement).toBe(main.parentElement);
+    const footer = main.parentElement as HTMLElement;
+    expect(footer.className).toContain("flex-col-reverse");
+    expect(footer.className).toContain("sm:justify-between");
+  });
+
+  test("nur actions (keine secondaryActions): keine -actions-secondary-Gruppe", () => {
+    render(
+      <Form onSubmit={() => {}} actions={<Button>Save</Button>} testId="f">
+        <div>body</div>
+      </Form>,
+    );
+    expect(screen.queryByTestId("f-actions-secondary")).toBeNull();
+    expect(screen.getByTestId("f-actions").textContent).toBe("Save");
+  });
+
+  test("nur actions (keine secondaryActions): Gruppe bleibt rechtsbündig (sm:ml-auto)", () => {
+    render(
+      <Form onSubmit={() => {}} actions={<Button>Save</Button>} testId="f">
+        <div>body</div>
+      </Form>,
+    );
+    // justify-between on the footer only pushes the lone group to the edge
+    // when there's a second flex child to push away from — with a single
+    // child it falls back to flex-start, so the actions group needs its own
+    // margin to stay right-aligned on desktop.
+    expect(screen.getByTestId("f-actions").className).toContain("sm:ml-auto");
   });
 });
 
