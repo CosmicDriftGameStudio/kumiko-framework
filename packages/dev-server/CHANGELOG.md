@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.232.0
+
+### Patch Changes
+
+- 5dd1cc1: Fix `startDevJobRunners` (dev-server boot) never calling `attachDispatcher()` on its per-lane job runners, so `ctx.write`/`ctx.queryAs` inside any dev-run job threw "dispatcher attached — call attachDispatcher() first" on their first call. Production entrypoints were unaffected — they already wire this automatically.
+- Updated dependencies [5dd1cc1]
+- Updated dependencies [aeac06f]
+- Updated dependencies [05bdf93]
+- Updated dependencies [03a8df0]
+  - @cosmicdrift/kumiko-server-runtime@0.232.0
+  - @cosmicdrift/kumiko-framework@0.232.0
+  - @cosmicdrift/kumiko-bundled-features@0.232.0
+
 ## 0.231.0
 
 ### Patch Changes
