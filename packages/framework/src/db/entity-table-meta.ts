@@ -38,8 +38,8 @@ export type {
   UnmanagedTableInput,
 } from "./entity-table-meta-types";
 
-// Standard base-columns für event-sourced Read-Model-Tabellen. Spiegelt
-// `buildBaseColumns()` aus table-builder.ts (drizzle-Variante).
+// Standard base columns for event-sourced read-model tables. Mirrors
+// `buildBaseColumns()` from table-builder.ts (drizzle variant).
 function fullBaseColumns(idType: "uuid" | "serial", softDelete: boolean): readonly ColumnMeta[] {
   const idCol: ColumnMeta =
     idType === "uuid"
@@ -85,8 +85,8 @@ function fieldDefaultLiteral(field: FieldDefinition): string | undefined {
   return undefined;
 }
 
-// Spiegelt `fieldToColumns()` aus table-builder.ts (Drizzle-Variante).
-// Lock-step: jeder Field-Type produziert dieselben PG-Spalten wie heute.
+// Mirrors `fieldToColumns()` from table-builder.ts (drizzle variant).
+// Lock-step: every field type must produce the same PG columns as today.
 function fieldToColumnMeta(
   name: string,
   field: FieldDefinition,
@@ -105,9 +105,9 @@ function fieldToColumnMeta(
           ...(def !== undefined && { defaultSql: def }),
         },
       ];
-      // lookupable → HMAC-Blind-Index-Pendant. Nullable ist Pflicht:
-      // managedChangeRequiresRecreate würde eine NOT-NULL-Spalte ohne
-      // Default auf Bestandstabellen als DROP+Rebuild diffen.
+      // lookupable → HMAC blind-index counterpart. Nullable is mandatory:
+      // managedChangeRequiresRecreate would diff a NOT-NULL column without
+      // a default on existing tables as DROP+rebuild.
       if (field.type === "text" && field.lookupable === true) {
         cols.push({ name: `${snake}_bidx`, pgType: "text", notNull: false });
       }
@@ -262,13 +262,13 @@ export function deriveEntityTableMeta(
   }
   const idType = entity.idType ?? "uuid";
 
-  // Base-columns first, then user-fields. User-fields with the same
-  // pg-name as a base-column OVERRIDE the base-column (last-wins, gleiches
-  // Verhalten wie drizzle's `{ ...base, ...fields }` Spread im table-
-  // builder). Use-case: user-session hat `tenantId` als field um access-
-  // control aufzudrücken, fileRef hat `insertedAt` als field für sortable/
-  // filterable-marker. Die DB-Spalte bleibt die gleiche, nur Application-
-  // Metadata auf der Field-Seite ändert sich.
+  // Base columns first, then user-fields. User-fields with the same
+  // pg-name as a base-column OVERRIDE the base-column (last-wins, same
+  // behavior as drizzle's `{ ...base, ...fields }` spread in the table
+  // builder). Use case: user-session has `tenantId` as a field to enforce
+  // access control, fileRef has `insertedAt` as a field for sortable/
+  // filterable marking. The DB column stays the same, only the application
+  // metadata on the field side changes.
   const baseCols = fullBaseColumns(idType, entity.softDelete === true);
   const colByName = new Map<string, ColumnMeta>();
   for (const c of baseCols) colByName.set(c.name, c);
@@ -323,15 +323,15 @@ export function deriveEntityTableMeta(
     indexes.push({ name: `${tableName}_${snake}_idx`, columns: [snake] });
   }
 
-  // lookupable-Felder: Index auf der bidx-Spalte — der OR-Rewrite der
-  // Query-Compiler trifft sie bei jedem Equality-Lookup.
+  // lookupable fields: index on the bidx column — the query compiler's
+  // OR rewrite hits it on every equality lookup.
   for (const bidxSnake of bidxSnakeByFieldSnake.values()) {
     indexes.push({ name: `${tableName}_${bidxSnake}_idx`, columns: [bidxSnake] });
   }
 
-  // Explizit deklarierte indexes (EntityIndexDef). `def.where` ist ein
-  // SqlExpression (`sql\`…\`` aus @cosmicdrift/kumiko-framework/db) —
-  // renderbar via `.text`. Unbekannte where-Shapes bleiben needsManualWhere.
+  // Explicitly declared indexes (EntityIndexDef). `def.where` is a
+  // SqlExpression (`sql\`…\`` from @cosmicdrift/kumiko-framework/db) —
+  // renderable via `.text`. Unknown where-shapes stay needsManualWhere.
   for (const def of (entity.indexes ?? []) as readonly EntityIndexDef[]) {
     const cols = def.columns.map(
       (fieldName) => fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
@@ -346,10 +346,10 @@ export function deriveEntityTableMeta(
       ...(whereSql !== undefined && { whereSql }),
       ...(def.where !== undefined && whereSql === undefined && { needsManualWhere: true }),
     });
-    // Unique-Index über lookupable-Spalten: partielles bidx-Pendant, damit
-    // Uniqueness auch für verschlüsselte Rows greift. Das Original bleibt
-    // für Klartext-Alt-Rows; partial (IS NOT NULL) weil bidx bei erased/
-    // key-losen Rows NULL ist.
+    // Unique index over lookupable columns: partial bidx counterpart, so
+    // uniqueness also holds for encrypted rows. The original stays
+    // for plaintext legacy rows; partial (IS NOT NULL) because bidx is
+    // NULL for erased/key-less rows.
     if (def.unique === true && def.where === undefined) {
       const bidxCols = cols.map((c) => bidxSnakeByFieldSnake.get(c) ?? c);
       if (bidxCols.some((c, i) => c !== cols[i])) {
