@@ -60,7 +60,7 @@ export function RenderEditActionButton({
         }}
         testId={`render-edit-action-${action.id}`}
       >
-        {action.label}
+        {showIconOnly ? null : action.label}
       </Button>
       <Dialog
         open={confirmOpen}

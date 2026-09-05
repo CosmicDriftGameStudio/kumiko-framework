@@ -4,12 +4,7 @@ import {
   type SessionStoreProvider,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import {
-  access,
-  defineFeature,
-  type FeatureDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID, SessionQueries } from "./constants";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { cleanupJob } from "./handlers/cleanup.job";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
@@ -19,6 +14,7 @@ import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
 import { SESSIONS_I18N } from "./i18n";
 import { userSessionEntity } from "./schema/user-session";
+import { sessionDetailScreen, sessionListScreen } from "./screens";
 import {
   createSessionCallbacks,
   type SessionAllOthersRevoker,
@@ -211,70 +207,8 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
 
     r.translations({ keys: SESSIONS_I18N });
 
-    const listAccess = { roles: access.admin };
-
-    r.screen({
-      id: SESSION_LIST_SCREEN_ID,
-      type: "projectionList",
-      query: SessionQueries.list,
-      // Mirrors list.query's own fallback (unrecognised/absent sort → createdAt
-      // desc) — kept in sync by hand, boot-validator only requires the field
-      // be present once the query accepts `sort` (fw#2230).
-      defaultSort: { field: "createdAt", dir: "desc" },
-      columns: [
-        { field: "id", label: "sessions.list.col.id" },
-        { field: "userId", label: "sessions.list.col.userId" },
-        { field: "createdAt", label: "sessions.list.col.createdAt" },
-        { field: "expiresAt", label: "sessions.list.col.expiresAt" },
-        { field: "revokedAt", label: "sessions.list.col.revokedAt" },
-      ],
-      rowActions: [
-        {
-          kind: "navigate",
-          id: "open",
-          label: "sessions.list.action.open",
-          screen: SESSION_DETAIL_SCREEN_ID,
-          entityId: "id",
-          rowClick: true,
-        },
-      ],
-      access: listAccess,
-    });
-    r.screen({
-      id: SESSION_DETAIL_SCREEN_ID,
-      type: "projectionDetail",
-      query: SessionQueries.detail,
-      listScreenId: SESSION_LIST_SCREEN_ID,
-      layout: {
-        sections: [
-          {
-            fields: [
-              "id",
-              "userId",
-              // The shim (projection-detail-shim.ts) stamps every field as
-              // type:"text" — field.renderer is the only way this screen
-              // type reaches real per-type formatting instead of a raw ISO
-              // string (fw#2245).
-              { field: "createdAt", renderer: { format: "timestamp" } },
-              { field: "expiresAt", renderer: { format: "timestamp" } },
-              { field: "revokedAt", renderer: { format: "timestamp" } },
-              "ip",
-              "userAgent",
-            ],
-          },
-        ],
-      },
-      fieldLabels: {
-        id: "sessions.detail.field.id",
-        userId: "sessions.detail.field.userId",
-        createdAt: "sessions.detail.field.createdAt",
-        expiresAt: "sessions.detail.field.expiresAt",
-        revokedAt: "sessions.detail.field.revokedAt",
-        ip: "sessions.detail.field.ip",
-        userAgent: "sessions.detail.field.userAgent",
-      },
-      access: listAccess,
-    });
+    r.screen(sessionListScreen);
+    r.screen(sessionDetailScreen);
     r.nav({
       id: "session-list",
       label: "sessions:nav.sessionList",

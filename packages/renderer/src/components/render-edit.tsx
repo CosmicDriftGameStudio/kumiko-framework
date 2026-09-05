@@ -914,17 +914,25 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
   handleSubmitRef.current = handleSubmit;
 
-  // Delete is pushed to the far left by mr-auto: the click distance to Save
-  // plus the confirm dialog are the guard against mis-clicks. Everything else
-  // stays right-aligned, Save last as the primary affordance.
-  const headerActionsIconOnly = actions !== undefined && shouldRenderActionsIconOnly(actions);
-  const formActions = (
+  // Two groups — wizard navigation on the right/top, record actions on the
+  // left/below; destructive action sits outermost, farthest from the target
+  // action.
+  const hasSecondaryFormActions =
+    onDelete !== undefined ||
+    onCopyLink !== undefined ||
+    (actions !== undefined && actions.length > 0) ||
+    onCancel !== undefined;
+  // Teil-C collapse rule: driven by the custom `actions` group only — a
+  // resolved true also folds the Copy-Link button (same visual group in the
+  // footer), but never Delete/Cancel, which keep their text regardless.
+  const iconOnlyMidActions = actions !== undefined && shouldRenderActionsIconOnly(actions);
+  const secondaryFormActions = (
     <>
       {onDelete !== undefined && (
         <Button
           type="button"
-          variant="danger"
-          className="mr-auto"
+          variant="danger-ghost"
+          icon="trash"
           testId="render-edit-delete"
           disabled={disabled}
           onClick={() => setConfirmDeleteOpen(true)}
@@ -932,52 +940,66 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.delete")}
         </Button>
       )}
+      {onCopyLink !== undefined && (
+        <Button
+          type="button"
+          variant={iconOnlyMidActions ? "secondary" : "link"}
+          icon={linkCopied ? "check" : "link"}
+          testId="render-edit-copy-link"
+          {...(iconOnlyMidActions && {
+            size: "icon" as const,
+            ariaLabel: translate(
+              linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink",
+            ),
+          })}
+          onClick={async () => {
+            await onCopyLink();
+            setLinkCopied(true);
+          }}
+        >
+          {iconOnlyMidActions
+            ? null
+            : translate(linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink")}
+        </Button>
+      )}
       {actions?.map((action) => (
         <RenderEditActionButton
           key={action.id}
           action={action}
-          iconOnly={headerActionsIconOnly}
+          iconOnly={iconOnlyMidActions}
           Button={Button}
           Dialog={Dialog}
           onError={setActionError}
         />
       ))}
-      {onCopyLink !== undefined &&
-        (() => {
-          const copyLinkLabel = translate(
-            linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink",
-          );
-          return (
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              icon={linkCopied ? "check" : "link"}
-              ariaLabel={copyLinkLabel}
-              testId="render-edit-copy-link"
-              onClick={async () => {
-                await onCopyLink();
-                setLinkCopied(true);
-              }}
-            >
-              {copyLinkLabel}
-            </Button>
-          );
-        })()}
       {onCancel !== undefined && (
         <Button
           type="button"
-          variant="secondary"
+          variant="link"
+          icon="x"
           onClick={() => onCancel()}
           testId="render-edit-cancel"
         >
           {translate("kumiko.actions.cancel")}
         </Button>
       )}
+    </>
+  );
+  // Mirrors every branch inside formActions below — without this guard
+  // DefaultForm renders an empty footer strip (border + padding, no content)
+  // on read-only detail screens, since `actions` would otherwise always be
+  // a defined (if empty) fragment.
+  const hasFormActions =
+    (isWizard && currentStep > 0) ||
+    (isWizard && !isLastWizardStep) ||
+    ((isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep));
+  const formActions = (
+    <>
       {isWizard && currentStep > 0 && (
         <Button
           type="button"
           variant="secondary"
+          icon="arrow-left"
           onClick={handleWizardBack}
           testId="render-edit-wizard-back"
         >
@@ -985,7 +1007,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Button>
       )}
       {isWizard && !isLastWizardStep && (
-        <Button type="submit" variant="primary" testId="render-edit-wizard-next">
+        <Button
+          type="submit"
+          variant="primary"
+          iconEnd="arrow-right"
+          testId="render-edit-wizard-next"
+        >
           {translate("kumiko.actions.next")}
         </Button>
       )}
@@ -995,6 +1022,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting || disabled}
           loading={isSubmitting}
           variant="primary"
+          icon="check"
           testId="render-edit-submit"
         >
           {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
@@ -1002,18 +1030,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
     </>
   );
-  // Mirrors every branch inside formActions above — a projectionDetail
-  // screen (readOnly, no wizard, no extensions) hits none of them, so
-  // `actions` stays undefined instead of forcing DefaultForm's footer bar
-  // to render an empty gray strip (fw record-screen-type polish).
-  const hasFormActions =
-    (actions?.length ?? 0) > 0 ||
-    onCopyLink !== undefined ||
-    onDelete !== undefined ||
-    onCancel !== undefined ||
-    (isWizard && currentStep > 0) ||
-    (isWizard && !isLastWizardStep) ||
-    ((isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep));
 
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle
@@ -1045,6 +1061,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(hideSectionTitles !== true &&
           formSubtitle !== undefined && { subtitle: formSubtitle })}
         {...(hideActions !== true && hasFormActions && { actions: formActions })}
+        {...(hideActions !== true &&
+          hasSecondaryFormActions && { secondaryActions: secondaryFormActions })}
         testId="render-edit-form"
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}

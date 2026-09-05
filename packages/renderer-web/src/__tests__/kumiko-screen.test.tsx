@@ -462,13 +462,12 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
     const button = screen.getByTestId("render-edit-copy-link");
-    // Icon-only: no visible text, accessible name carried entirely by aria-label.
-    expect(button.textContent).toBe("");
+    // Icon + visible label; accessible name comes from the label text itself.
+    expect(button.textContent).toBe("Copy link");
     expect(button.querySelector("svg")).toBeTruthy();
-    expect(button.getAttribute("aria-label")).toBe("Copy link");
     await user.click(button);
     expect(onCopyLink).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(button.getAttribute("aria-label")).toBe("Copied!"));
+    await waitFor(() => expect(button.textContent).toBe("Copied!"));
   });
 
   test("entityEdit create-mode: kein Copy-Link-Button (keine entity-id → kein Permalink)", () => {
@@ -2489,7 +2488,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
       })) as unknown as Dispatcher["query"],
     });
 
-  test("update-mode mit drei Header-Actions rendert drei Icon-Buttons ohne sichtbaren Text, je mit zugänglichem Namen", async () => {
+  test("update-mode mit drei Header-Actions kollabiert auf Icon-only mit ariaLabel", async () => {
     render(
       <DispatcherProvider dispatcher={detailDispatcher()}>
         <KumikoScreen
@@ -2527,6 +2526,24 @@ describe("KumikoScreen: entityEdit header actions", () => {
 
     expect(screen.getByTestId("render-edit-action-publish").textContent).toBe("Publish");
     expect(screen.getByTestId("render-edit-action-archive").textContent).toBe("Archive");
+  });
+
+  test("update-mode mit drei Header-Actions kollabiert auch den Copy-Link-Button auf Icon-only mit ariaLabel", async () => {
+    render(
+      <DispatcherProvider dispatcher={detailDispatcher()}>
+        <KumikoScreen
+          schema={actionsSchema}
+          qn="tasks:screen:task-edit-actions-3"
+          entityId="task-1"
+          onCopyLink={() => Promise.resolve()}
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    const button = screen.getByTestId("render-edit-copy-link");
+    expect(button.textContent).toBe("");
+    expect(button.getAttribute("aria-label")).toBe("Copy link");
   });
 
   // Design decision (fw entityEdit-actions): actions target an EXISTING

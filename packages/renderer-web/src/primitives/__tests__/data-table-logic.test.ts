@@ -216,6 +216,39 @@ describe("defaultCellRender", () => {
     expect(defaultCellRender("hallo", "text")).toBe("hallo");
   });
 
+  test("text-Spalte mit vollem ISO-8601-Zeitstempel warnt einmal pro Spalte, Wert bleibt unverändert (fw#2569)", () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const iso = "2026-09-04T12:30:00.000Z";
+      expect(defaultCellRender(iso, "text", undefined, undefined, "createdAt")).toBe(iso);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain("createdAt");
+      // Same column, second row with a different ISO value → no second warning.
+      expect(
+        defaultCellRender("2026-09-05T08:00:00Z", "text", undefined, undefined, "createdAt"),
+      ).toBe("2026-09-05T08:00:00Z");
+      expect(warn).toHaveBeenCalledTimes(1);
+      // A different column still gets its own warning.
+      expect(defaultCellRender(iso, "text", undefined, undefined, "expiresAt")).toBe(iso);
+      expect(warn).toHaveBeenCalledTimes(2);
+      // Plain text and date-only strings never trigger the warning.
+      expect(defaultCellRender("hallo", "text", undefined, undefined, "name")).toBe("hallo");
+      expect(defaultCellRender("2026-09-04", "text", undefined, undefined, "day")).toBe(
+        "2026-09-04",
+      );
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+      if (prevNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = prevNodeEnv;
+      }
+    }
+  });
+
   test("number/decimal → locale-formatiert, kein roher Dezimalpunkt (fw#2160)", () => {
     expect(defaultCellRender(42, "number")).toBe(new Intl.NumberFormat(undefined).format(42));
     expect(defaultCellRender(245.5, "decimal")).toBe(

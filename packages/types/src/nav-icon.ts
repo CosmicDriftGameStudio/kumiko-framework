@@ -1,14 +1,14 @@
-// Closed vocabulary of icon keys, shared across nav entries, actions,
-// metrics and sections. NavDefinition.icon, ScreenNavSugar.icon and
-// ConfigMask.icon are all typed against this union, so an unregistered
-// key is a compile error at the r.nav()/r.screen()/config-mask call site
-// instead of a silent missing-icon at runtime.
+// Closed vocabulary of nav and button icon keys. NavDefinition.icon,
+// ScreenNavSugar.icon, ConfigMask.icon and ButtonProps.icon/iconEnd are all
+// typed against this union, so an unregistered key is a compile error at the
+// r.nav()/r.screen()/config-mask/button call site instead of a silent
+// missing-icon at runtime.
 //
-// The renderer-web ICONS map (packages/renderer-web/src/layout/
-// icon-registry.tsx) is checked against this same union via `satisfies`, so
-// the two can't drift — add a key here only together with its lucide-react
-// entry there, and vice versa.
-export type IconKey =
+// The renderer-web NAV_ICONS map (packages/renderer-web/src/icons.tsx) is
+// checked against this same union via `satisfies`, so the two can't drift —
+// add a key here only together with its lucide-react entry there, and vice
+// versa.
+export type NavIconKey =
   | "dashboard"
   | "layout-grid"
   | "book-open"
@@ -57,11 +57,13 @@ export type IconKey =
   | "rocket"
   | "plus"
   | "languages"
-  | "pencil"
   | "trash"
-  | "check"
   | "x"
+  | "check"
+  | "arrow-left"
+  | "arrow-right"
   | "copy"
+  | "pencil"
   | "eye"
   | "eye-off"
   | "filter"
@@ -69,8 +71,6 @@ export type IconKey =
   | "more-horizontal"
   | "more-vertical"
   | "external-link"
-  | "arrow-left"
-  | "arrow-right"
   | "chevron-down"
   | "chevron-right"
   | "save"
@@ -88,7 +88,6 @@ export type IconKey =
   | "x-circle"
   | "loader";
 
-// Deprecated alias — kept so existing imports/call sites of `NavIconKey`
-// keep compiling unchanged while the vocabulary grows past the nav-only
-// case. New code should use `IconKey`.
-export type NavIconKey = IconKey;
+// Alias kept because the union stopped being nav-only — actions and fields
+// (added on this branch) also key their icons against it.
+export type IconKey = NavIconKey;

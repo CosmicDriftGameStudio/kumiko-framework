@@ -7,9 +7,10 @@ import { CapUsageBar } from "./cap-usage-bar";
 function isCapUsage(value: unknown): value is CapUsage {
   if (typeof value !== "object" || value === null) return false;
   const used = (value as { used?: unknown }).used;
+  const limit = (value as { limit?: unknown }).limit;
   return (
     (typeof used === "number" || used === null) &&
-    typeof (value as { limit?: unknown }).limit === "number" &&
+    (typeof limit === "number" || limit === null) &&
     typeof (value as { fraction?: unknown }).fraction === "number"
   );
 }

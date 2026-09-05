@@ -38,17 +38,16 @@ describe("DefaultButton icon (fw-ui-defaults)", () => {
     expect(btn.textContent).toBe("Delete");
   });
 
-  test("size='icon' + a resolved icon drops the children, keeps an accessible name", () => {
+  test("size='icon' + a resolved icon still renders icon, children and aria-label", () => {
     render(
       <Button icon="trash" size="icon" ariaLabel="Delete" testId="btn">
         Delete
       </Button>,
     );
     const btn = screen.getByTestId("btn");
-    expect(btn.textContent).toBe("");
+    expect(btn.textContent).toBe("Delete");
     expect(btn.querySelector("svg")).not.toBeNull();
     expect(btn.getAttribute("aria-label")).toBe("Delete");
-    expect(btn.getAttribute("title")).toBe("Delete");
   });
 
   test("unknown icon key: no crash, falls back to rendering children only", () => {

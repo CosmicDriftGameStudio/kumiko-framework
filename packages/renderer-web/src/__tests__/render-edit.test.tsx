@@ -2926,6 +2926,26 @@ describe("RenderEdit locked state (#1896)", () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
+  test("Delete sitzt in der secondary-Gruppe, Submit in der Haupt-Gruppe (fw#2568)", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          writeCommand="order:create"
+          onDelete={async () => {}}
+        />
+      </DispatcherProvider>,
+    );
+
+    const deleteButton = screen.getByTestId("render-edit-delete");
+    const submitButton = screen.getByTestId("render-edit-submit");
+    expect(deleteButton.closest('[data-testid$="-actions-secondary"]')).not.toBeNull();
+    expect(submitButton.closest('[data-testid$="-actions-secondary"]')).toBeNull();
+  });
+
   test("disabled prevents picking a draft candidate from adopting it (fw#1909)", async () => {
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-wizard-locked-draftpicker",

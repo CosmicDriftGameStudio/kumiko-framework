@@ -34,7 +34,7 @@ export type PlatformComponent = {
 // formats it as a locale-formatted number with a literal "m²" suffix. The
 // rest map to a CLDR-sanctioned Intl.NumberFormat unit id and get
 // locale-correct pluralization/spacing straight from Intl.
-export type UnitKey = "m2" | "km" | "m" | "kg" | "percent";
+export type UnitKey = "m2" | "km" | "m" | "kg" | "percent" | "mi";
 
 // Built-in value formatters. Apps extend via module augmentation:
 //   declare module "@cosmicdrift/kumiko-framework/engine/types" {

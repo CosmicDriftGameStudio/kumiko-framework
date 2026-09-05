@@ -44,8 +44,9 @@ const testButton: ComponentType<{
 const testForm: ComponentType<{
   children?: ReactNode;
   actions?: ReactNode;
+  secondaryActions?: ReactNode;
   onSubmit?: () => void;
-}> = ({ children, actions, onSubmit }) => (
+}> = ({ children, actions, secondaryActions, onSubmit }) => (
   <form
     onSubmit={(e) => {
       e.preventDefault();
@@ -53,6 +54,7 @@ const testForm: ComponentType<{
     }}
   >
     {children}
+    {secondaryActions}
     {actions}
   </form>
 );

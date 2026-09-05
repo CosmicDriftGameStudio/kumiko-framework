@@ -54,6 +54,20 @@ describe("tenant members screen + handler access alignment", () => {
     }
   });
 
+  test("members screen timestamp columns declare renderer.format (fw#2569)", () => {
+    const tenant = createTenantFeature();
+    const screen = tenant.screens[MEMBERS_SCREEN_ID];
+    if (screen?.type !== "projectionList")
+      throw new Error("expected members screen to be projectionList");
+    for (const field of ["createdAt", "lastSeenAt"] as const) {
+      const column = screen.columns.find(
+        (c): c is Exclude<(typeof screen.columns)[number], string> =>
+          typeof c !== "string" && c.field === field,
+      );
+      expect(column?.renderer).toEqual({ format: "timestamp" });
+    }
+  });
+
   test("cancel-invitation row action is only visible on pending rows and cancels via TenantHandlers.cancelInvitation", () => {
     const tenant = createTenantFeature();
     const screen = tenant.screens[MEMBERS_SCREEN_ID];

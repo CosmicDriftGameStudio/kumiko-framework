@@ -40,6 +40,7 @@ import {
 } from "react";
 import { KumikoLink } from "../app/nav";
 import { useNavEntities, useNavProviders } from "../app/nav-providers-context";
+import { NAV_ICONS } from "../icons";
 import { cn } from "../lib/cn";
 import {
   SidebarGroup,
@@ -55,23 +56,13 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "../ui/sidebar";
-import { ICONS } from "./icon-registry";
 import { useDispatchTarget } from "./target-resolver-stub";
 import { parseTargetFromSearchParams } from "./target-url";
 
-// Nav-icon lookup: a nav entry sets `icon: "<key>"` (in the r.nav decl), the
-// renderer maps the symbolic key to a lucide component via the shared ICONS
-// registry (./icon-registry.tsx). `node.icon`/`TreeAction.icon` stay plain
-// `string` at the resolved-tree layer (dynamic/provider-supplied data isn't
-// statically known), so the runtime `Object.hasOwn` lookups below still see
-// an unknown key on occasion — that's the defense-in-depth fallback to the
-// dot, not the primary guard anymore (the primary guard is the `satisfies`
-// in icon-registry.tsx).
-//
 // Widened alias for the two lookup sites below, which index by the plain
 // `string` icon key of the resolved NavNode/TreeAction tree — not the
-// closed IconKey union ICONS itself is typed against.
-const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = ICONS;
+// closed NavIconKey union NAV_ICONS itself is typed against.
+const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = NAV_ICONS;
 
 export type NavTreeProps = {
   // Akzeptiert beide Shapes — AppSchema (multi-feature) oder
@@ -249,14 +240,14 @@ function NavLeadingIcon({
   label?: string;
 }): ReactNode {
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
-  const isKnownIcon = iconKey !== undefined && Object.hasOwn(ICONS, iconKey);
+  const isKnownIcon = iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey);
   const NavIcon = iconKey !== undefined && isKnownIcon ? NAV_ICON_LOOKUP[iconKey] : undefined;
   useEffect(() => {
     if (iconKey !== undefined && !isKnownIcon) {
       // biome-ignore lint/suspicious/noConsole: diagnostic for unregistered nav icon keys
       console.warn(
         `[kumiko] Nav entry "${node.qualifiedName}" references icon "${iconKey}", which is not ` +
-          `registered in ICONS — falling back to the dot indicator. Check the icon key spelling.`,
+          `registered in NAV_ICONS — falling back to the dot indicator. Check the icon key spelling.`,
       );
     }
   }, [iconKey, isKnownIcon, node.qualifiedName]);
@@ -448,10 +439,10 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
   };
 }
 
-// Action icon lookup: registered ICONS key → Lucide icon, otherwise the
+// Action icon lookup: registered NAV_ICONS key → Lucide icon, otherwise the
 // raw string as text (provider convention, no boot-fail on an unknown key).
 function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
-  const Icon = Object.hasOwn(ICONS, icon) ? NAV_ICON_LOOKUP[icon] : undefined;
+  const Icon = Object.hasOwn(NAV_ICONS, icon) ? NAV_ICON_LOOKUP[icon] : undefined;
   if (Icon !== undefined) return <Icon aria-hidden className="size-3.5" />;
   return (
     <span aria-hidden className="text-xs">
@@ -607,7 +598,10 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             {...(s.active && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            <span
+              className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+              title={s.displayLabel}
+            >
               {s.displayLabel}
             </span>
             <NavBadge node={node} />
@@ -630,7 +624,10 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           onClick={() => dispatch(target)}
         >
           <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-          <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+          <span
+            className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+            title={s.displayLabel}
+          >
             {s.displayLabel}
           </span>
           <NavBadge node={node} />
@@ -651,7 +648,9 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         {...(s.expandable && { "aria-expanded": s.isExpanded })}
       >
         <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} label={s.displayLabel} />
-        <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
+        <span className="truncate group-data-[collapsible=icon]:hidden" title={s.displayLabel}>
+          {s.displayLabel}
+        </span>
         {s.expandable &&
           (s.isExpanded ? (
             <ChevronDown className="ml-auto" />
@@ -719,7 +718,10 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             {...(s.active && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            <span
+              className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+              title={s.displayLabel}
+            >
               {s.displayLabel}
             </span>
             <NavBadge node={node} />
@@ -739,7 +741,10 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         <SidebarMenuSubButton asChild isActive={s.active}>
           <button type="button" onClick={() => dispatch(target)}>
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
-            <span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+            <span
+              className="min-w-0 truncate group-data-[collapsible=icon]:hidden"
+              title={s.displayLabel}
+            >
               {s.displayLabel}
             </span>
             <NavBadge node={node} />
@@ -767,7 +772,9 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             expanded={s.isExpanded}
             label={s.displayLabel}
           />
-          <span className="truncate group-data-[collapsible=icon]:hidden">{s.displayLabel}</span>
+          <span className="truncate group-data-[collapsible=icon]:hidden" title={s.displayLabel}>
+            {s.displayLabel}
+          </span>
         </button>
       </SidebarMenuSubButton>
       <NodeActions node={node} />

@@ -82,7 +82,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ICONS, Icon } from "../layout/icon-registry";
+import { Icon, NAV_ICONS } from "../icons";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
 import { buttonVariants, Button as UiButton } from "../ui/button";
@@ -134,8 +134,10 @@ const cardSurface = cva(
 );
 // Wraps instead of running off-screen when the row outgrows its container (fw#2528).
 const cardFooter = "flex flex-wrap items-center justify-end gap-2 px-[var(--card-padding)] py-4";
-const cardFooterBorder = "border-t bg-muted/30";
-const cardHeaderBorder = "border-b bg-muted/30";
+// /30 read as nearly invisible against the light-theme card (white card,
+// muted at 94% lightness) — /50 keeps the same token, just a stronger step.
+const cardFooterBorder = "border-t bg-muted/50";
+const cardHeaderBorder = "border-b bg-muted/50";
 
 // ---- Button (vendored shadcn ui/button) ----
 
@@ -147,6 +149,7 @@ const BUTTON_VARIANT = {
   secondary: "outline",
   danger: "destructive",
   link: "link",
+  "danger-ghost": "ghost",
 } as const;
 
 const BUTTON_SIZE = {
@@ -155,12 +158,12 @@ const BUTTON_SIZE = {
   icon: "icon",
 } as const;
 
-// Closed IconKey vocabulary, checked against the shared ICONS registry
-// (icon-registry.tsx) — an unknown key (schema data isn't statically typed
-// against IconKey the way this prop is) renders no icon instead of crashing,
-// same fallback shape as fieldIconFor above.
+// Closed IconKey vocabulary, checked against the shared NAV_ICONS registry
+// (icons.tsx) — an unknown key (schema data isn't statically typed against
+// IconKey the way this prop is) renders no icon instead of crashing, same
+// fallback shape as fieldIconFor above.
 function actionIconFor(icon: IconKey | undefined): IconKey | undefined {
-  return icon !== undefined && Object.hasOwn(ICONS, icon) ? icon : undefined;
+  return icon !== undefined && Object.hasOwn(NAV_ICONS, icon) ? icon : undefined;
 }
 
 function DefaultButton({
@@ -172,38 +175,33 @@ function DefaultButton({
   size = "md",
   ariaLabel,
   width = "auto",
-  icon,
   children,
   testId,
   className,
   ref,
+  icon,
+  iconEnd,
 }: ButtonProps): ReactNode {
   // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner), nicht als
   // gepolsterte Fläche; width="full" streckt CTA-Buttons in Karten/Panels.
   const resolvedClassName = cn(
     variant === "link" ? "h-auto px-0 py-0" : "",
+    variant === "danger-ghost"
+      ? "text-destructive hover:text-destructive hover:bg-destructive/10"
+      : "",
     width === "full" ? "w-full" : "",
     className,
   );
-  const resolvedIcon = actionIconFor(icon);
-  // size="icon" + a resolved icon replaces children entirely (Teil C's
-  // collapsed action groups); size="icon" WITHOUT a resolved icon keeps the
-  // existing raw-icon-as-children usage (e.g. embedded-list-input.tsx)
-  // working unchanged.
-  const iconOnly = resolvedIcon !== undefined && size === "icon";
-  const content =
+  const IconStart = icon !== undefined ? NAV_ICONS[icon] : undefined;
+  const IconEnd = iconEnd !== undefined ? NAV_ICONS[iconEnd] : undefined;
+  // Loading swaps the leading icon slot for a spinner and keeps `children` —
+  // replacing the label would shift the button's width mid-submit.
+  const leading =
     loading === true ? (
       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-    ) : resolvedIcon === undefined ? (
-      children
-    ) : iconOnly ? (
-      <Icon name={resolvedIcon} className="size-4" />
-    ) : (
-      <>
-        <Icon name={resolvedIcon} className="size-4" />
-        {children}
-      </>
-    );
+    ) : IconStart !== undefined ? (
+      <IconStart className="size-4" aria-hidden="true" />
+    ) : null;
   return (
     <UiButton
       ref={ref}
@@ -215,10 +213,11 @@ function DefaultButton({
       variant={BUTTON_VARIANT[variant]}
       size={BUTTON_SIZE[size]}
       aria-label={ariaLabel}
-      title={iconOnly ? ariaLabel : undefined}
       className={resolvedClassName}
     >
-      {content}
+      {leading}
+      {children}
+      {IconEnd !== undefined && <IconEnd className="size-4" aria-hidden="true" />}
     </UiButton>
   );
 }
@@ -401,6 +400,24 @@ function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
+// Mirrors withFieldIcon on the right side: a muted, non-interactive unit
+// suffix rendered inside the input's visual box. Pure decoration — never
+// focusable, never touches the input's value.
+function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
+  if (unit === undefined) return input;
+  return (
+    <div className="relative">
+      {input}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+      >
+        {unit}
+      </span>
+    </div>
+  );
+}
+
 // Segmented control for `kind: "select"` with a small closed option set —
 // a 4-value Status field looked wrong stretched into a full-width dropdown
 // (edit-existing screenshot feedback). Purely a rendering choice inside the
@@ -558,23 +575,27 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "number":
-      return withFieldIcon(
-        props.icon,
-        <UiInput
-          type="number"
-          {...common}
-          data-testid={props.testId}
-          value={props.value}
-          step={props.step}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            const v = e.target.value;
-            props.onChange(v === "" ? undefined : Number(v));
-          }}
-          className={cn(
-            "text-right tabular-nums",
-            fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
-          )}
-        />,
+      return withUnitSuffix(
+        props.unit,
+        withFieldIcon(
+          props.icon,
+          <UiInput
+            type="number"
+            {...common}
+            data-testid={props.testId}
+            value={props.value}
+            step={props.step}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const v = e.target.value;
+              props.onChange(v === "" ? undefined : Number(v));
+            }}
+            className={cn(
+              "text-right tabular-nums",
+              fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
+              props.unit !== undefined ? "pr-8" : undefined,
+            )}
+          />,
+        ),
       );
     case "range":
       return (
@@ -1806,11 +1827,30 @@ function isMoneyValue(value: unknown): value is MoneyCellValue {
 //   - select/multiSelect → human-readable (kebab-case → Title Case), multiSelect values joined with ", "
 //   - money → { amount, currency } formatted via Intl (not "[object Object]")
 //   - text/else → toString
+
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+const warnedTimestampColumns = new Set<string>();
+
+// A raw ISO string in a "text" column means the author forgot `renderer:
+// { format: "timestamp" }` — guessing a format here could be wrong, so we
+// warn and leave the value as-is instead of auto-formatting.
+function warnMissingTimestampFormat(columnKey: string | undefined): void {
+  if (typeof process === "undefined" || process.env.NODE_ENV === "production") return;
+  const key = columnKey ?? "<unknown column>";
+  if (warnedTimestampColumns.has(key)) return;
+  warnedTimestampColumns.add(key);
+  // biome-ignore lint/suspicious/noConsole: dev-only assertion
+  console.warn(
+    `[kumiko] column "${key}" renders a raw ISO timestamp as text — add renderer: { format: "timestamp" } to its column definition.`,
+  );
+}
+
 export function defaultCellRender(
   value: unknown,
   type: string,
   optionLabels?: Readonly<Record<string, string>>,
   locale?: string,
+  columnKey?: string,
 ): string {
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
@@ -1844,6 +1884,9 @@ export function defaultCellRender(
         return translated !== undefined && translated !== raw ? translated : humanizeSlug(raw);
       })
       .join(", ");
+  }
+  if (type === "text" && typeof value === "string" && ISO_DATETIME_RE.test(value)) {
+    warnMissingTimestampFormat(columnKey);
   }
   return typeof value === "string" ? value : String(value);
 }
@@ -1953,7 +1996,7 @@ function DataTableCell({
       </Badge>
     );
   }
-  return defaultCellRender(value, type, optionLabels, locale);
+  return defaultCellRender(value, type, optionLabels, locale, field);
 }
 
 // ---- Form + Section + Grid + Text ----
@@ -1980,6 +2023,7 @@ function DefaultForm({
   title,
   subtitle,
   actions,
+  secondaryActions,
   testId,
   width,
   stickyActions,
@@ -2003,8 +2047,11 @@ function DefaultForm({
         )}
       >
         <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
-        {actions !== undefined && (
-          <div className="flex items-center justify-end gap-2">{actions}</div>
+        {(secondaryActions !== undefined || actions !== undefined) && (
+          <div className="flex items-center justify-end gap-2">
+            {secondaryActions}
+            {actions}
+          </div>
         )}
       </form>
     );
@@ -2064,11 +2111,10 @@ function DefaultForm({
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
           </div>
-          {actions !== undefined && (
+          {(secondaryActions !== undefined || actions !== undefined) && (
             <div
-              data-testid={testId !== undefined ? `${testId}-actions` : undefined}
               className={cn(
-                cardFooter,
+                "flex flex-col-reverse gap-3 px-[var(--card-padding)] py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
                 cardFooterBorder,
                 // Below sm (640px): pin to the viewport bottom instead of normal
                 // flow, so a virtual keyboard shrinking the viewport can't push
@@ -2079,7 +2125,22 @@ function DefaultForm({
                   "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-4",
               )}
             >
-              {actions}
+              {secondaryActions !== undefined && (
+                <div
+                  data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
+                  className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
+                >
+                  {secondaryActions}
+                </div>
+              )}
+              {actions !== undefined && (
+                <div
+                  data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+                  className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto"
+                >
+                  {actions}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -2190,8 +2251,8 @@ function DefaultSection({
     );
   }
 
-  // Standalone: eigene Card, Header fließt in den Body (kein Divider).
-  // actions = abgehobene Footer-Row (border-t bg-muted/30, wie DefaultForm).
+  // Standalone: own card, header flows into the body (no divider).
+  // actions = raised footer row (cardFooterBorder, same as DefaultForm).
   // overflow-hidden clips the footer-corner radius correctly for portaled
   // overlays (Combobox/Select/Tooltip escape to document.body, unaffected).
   // A non-portaled overlay (e.g. a custom dropdown built directly into

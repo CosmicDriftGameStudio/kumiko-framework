@@ -86,7 +86,8 @@ export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefi
             limit,
             fraction,
             tone: computeTone(fraction),
-            percent: Math.round(computeUnclampedFraction(used, limit) * 100),
+            percent:
+              limit === null ? null : Math.round(computeUnclampedFraction(used, limit) * 100),
             ...(cap.icon !== undefined && { icon: cap.icon }),
             ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
           };

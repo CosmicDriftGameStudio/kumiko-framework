@@ -1,5 +1,5 @@
-// Icon registry: symbolic `IconKey` → lucide-react component. `IconKey` is
-// the closed vocabulary a feature author can write (packages/types/src/
+// Icon registry: symbolic `NavIconKey` → lucide-react component. `NavIconKey`
+// is the closed vocabulary a feature author can write (packages/types/src/
 // nav-icon.ts); `satisfies` below makes this map a compile-time drift
 // guard — a key added to one without the other fails the build.
 //
@@ -8,7 +8,10 @@
 // at runtime on occasion — `Icon` falls back to rendering the raw key as
 // text rather than crashing, mirroring the old `ActionGlyph` behavior in
 // nav-tree.tsx.
-import type { IconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+//
+// Buttons resolve icons through the same map — importing it from the nav
+// layout module would couple them to the sidebar.
+import type { NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   AlertTriangle,
   Archive,
@@ -90,9 +93,9 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "./lib/cn";
 
-export const ICONS = {
+export const NAV_ICONS = {
   dashboard: LayoutDashboard,
   "layout-grid": LayoutGrid,
   "book-open": BookOpen,
@@ -139,13 +142,16 @@ export const ICONS = {
   download: Download,
   upload: Upload,
   rocket: Rocket,
+  // Was imported but never registered — `icon: "plus"` silently fell back.
   plus: Plus,
   languages: Languages,
-  pencil: Pencil,
   trash: Trash2,
-  check: Check,
   x: X,
+  check: Check,
+  "arrow-left": ArrowLeft,
+  "arrow-right": ArrowRight,
   copy: Copy,
+  pencil: Pencil,
   eye: Eye,
   "eye-off": EyeOff,
   filter: Filter,
@@ -153,8 +159,6 @@ export const ICONS = {
   "more-horizontal": MoreHorizontal,
   "more-vertical": MoreVertical,
   "external-link": ExternalLink,
-  "arrow-left": ArrowLeft,
-  "arrow-right": ArrowRight,
   "chevron-down": ChevronDown,
   "chevron-right": ChevronRight,
   save: Save,
@@ -171,21 +175,21 @@ export const ICONS = {
   "check-circle": CheckCircle2,
   "x-circle": XCircle,
   loader: Loader2,
-} as const satisfies Readonly<Record<IconKey, typeof Folder>>;
+} as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
 
 // Widened alias for runtime lookups against the plain `string` icon keys
-// resolved-tree nodes carry — not the closed IconKey union ICONS itself is
-// typed against.
-const ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = ICONS;
+// resolved-tree nodes carry — not the closed NavIconKey union NAV_ICONS
+// itself is typed against.
+const ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = NAV_ICONS;
 
 export function Icon({
   name,
   className,
 }: {
-  readonly name: IconKey;
+  readonly name: NavIconKey;
   readonly className?: string;
 }): ReactNode {
-  const LucideIcon = Object.hasOwn(ICONS, name) ? ICON_LOOKUP[name] : undefined;
+  const LucideIcon = Object.hasOwn(NAV_ICONS, name) ? ICON_LOOKUP[name] : undefined;
   if (LucideIcon !== undefined) return <LucideIcon aria-hidden="true" className={className} />;
   return (
     <span aria-hidden="true" className={cn("text-xs", className)}>

@@ -90,6 +90,7 @@ const UNIT_INTL_IDS = {
   m: "meter",
   kg: "kilogram",
   percent: "percent",
+  mi: "mile",
 } as const;
 
 // "m2" (square meter) has no ECMA-402 sanctioned unit — Intl.NumberFormat

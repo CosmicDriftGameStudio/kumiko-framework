@@ -235,6 +235,10 @@ export type EditFieldViewModel = {
    *  falls back to "EUR"). The renderer needs this to build the payload's
    *  `{amount, currency}` shape (kumiko-framework#1923). */
   readonly currency?: string;
+  /** Only set for `type: "number"` when NumberFieldDef.unit is set — a static
+   *  suffix string, or a sibling-field reference the renderer resolves against
+   *  the live row values. Display-only, never converts the stored number. */
+  readonly unit?: string | { readonly field: string };
 };
 
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.

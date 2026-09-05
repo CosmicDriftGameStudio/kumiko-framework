@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.233.0
+
+### Minor Changes
+
+- ff39c70: Entity-list tables now render as cards below 768px instead of scrolling columns out of reach. Every ViewModel column still shows, actions stay visible, and a native sort select replaces the header-click sort that has no header to attach to at that width.
+- b0b9484: `NumberFieldDef` gained a `unit` option: an editable number field can now show a unit-of-measure suffix in its input, either a static string (`unit: "km"`) or a sibling field's live value (`unit: { field: "mileageUnit" }`), so the unit can vary per record (e.g. an odometer reading in "mi" or "km"). Display-only — the stored numeric value is never converted. Added `mi` (miles) to the read-only `unit` format registry's vocabulary alongside it.
+
+### Patch Changes
+
+- 56c3f2d: Form action bars now group into two rows: destructive/record actions (Delete, copy-link, custom actions, Cancel) on their own row, wizard/submit navigation on the other — desktop shows them side by side, narrow viewports stack the primary action on top. Buttons gained `icon`/`iconEnd` props (resolved against the shared `NavIconKey` vocabulary, now covering button icons too) and a new `danger-ghost` variant for destructive actions rendered as red text instead of a red fill.
+- dd6cf49: Fixed three renderer defects visible in every app (fw#2569):
+
+  - The sessions and tenant-members projectionList screens showed raw ISO timestamps for `createdAt`/`expiresAt`/`revokedAt`/`lastSeenAt` — those columns now declare `renderer: { format: "timestamp" }` like their detail-screen counterparts already did.
+  - `defaultCellRender` now warns once per column (dev builds only) when a `text` column renders a full ISO-8601 datetime string, pointing at the missing `renderer: { format: "timestamp" }` — the value itself is still rendered unchanged, no auto-formatting/guessing.
+  - The desktop sidebar's nav label now carries a native `title` attribute with the full label, so a truncated entry (e.g. "Händler-Einstellungen (Plattform-Standard)") is still reachable via hover instead of being silently cut off.
+
+- Updated dependencies [56c3f2d]
+- Updated dependencies [b0b9484]
+  - @cosmicdrift/kumiko-renderer@0.233.0
+  - @cosmicdrift/kumiko-headless@0.233.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.233.0
+
 ## 0.232.0
 
 ### Patch Changes

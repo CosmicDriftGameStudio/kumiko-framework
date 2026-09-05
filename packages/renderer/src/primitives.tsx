@@ -35,7 +35,12 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { FieldIconKey, FormWidth, IconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  FieldIconKey,
+  FormWidth,
+  IconKey,
+  NavIconKey,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -67,21 +72,18 @@ export type ButtonProps = {
    *  setzen wenn die Action blockiert bis das Loading abgeschlossen
    *  ist (verhindert Double-Submit). */
   readonly loading?: boolean;
-  /** Semantische Klasse — default="primary". Custom-Impls entscheiden
-   *  was daraus visuell wird; die Renderer verwenden "primary" für
-   *  Save, "danger" für Delete, "secondary" für Confirm-State,
-   *  "link" für Inline-Aktionen im Fließtext (kein BG, underline). */
-  readonly variant?: "primary" | "secondary" | "danger" | "link";
+  /** Semantic class — default="primary". Custom impls decide what this
+   *  becomes visually; the renderers use "primary" for Save, "danger" for
+   *  Delete, "secondary" for a Confirm state, "link" for inline actions in
+   *  running text (no background, underline), "danger-ghost" for a
+   *  destructive action as red text instead of a red fill. */
+  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost";
   /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
    *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
   readonly size?: "sm" | "md" | "icon";
   /** Barrierefreies Label — Pflicht bei icon-only-Buttons (children ist nur
    *  ein Icon/Zeichen), sonst hat der Button keinen zugänglichen Namen. */
   readonly ariaLabel?: string;
-  /** Closed IconKey vocabulary (ICONS registry, renderer-web) — resolved in
-   *  the platform implementation, analogous to InputProps.icon. Native
-   *  impls may ignore it. */
-  readonly icon?: IconKey;
   /** Breite — default="auto" (inhaltsbreit). "full" streckt CTA-Buttons auf
    *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
    *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
@@ -95,6 +97,10 @@ export type ButtonProps = {
    *  a click (e.g. binding a drop-target handler). Web forwards it, native
    *  impls ignore it (no native equivalent). */
   readonly ref?: Ref<HTMLButtonElement>;
+  /** Icon before the label. */
+  readonly icon?: NavIconKey;
+  /** Icon after the label (e.g. "Continue →"). */
+  readonly iconEnd?: NavIconKey;
 };
 
 /** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem
@@ -231,6 +237,9 @@ export type InputProps =
       /** `<input step>`. "any" disables the native stepMismatch constraint
        *  (needed for decimal fields — integer fields leave this unset). */
       readonly step?: number | "any";
+      /** Resolved display suffix (static or from a sibling field) — never
+       *  part of the numeric value. */
+      readonly unit?: string;
     }
   | {
       readonly kind: "range";
@@ -714,6 +723,9 @@ export type FormProps = {
    *  your catalog") — gibt dem Form-Header Kontext statt nur ein Label. */
   readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
+  /** Secondary, record-related actions — rendered on the left on desktop,
+   *  on their own row below the primary action on a narrow viewport. */
+  readonly secondaryActions?: ReactNode;
   readonly testId?: string;
   /** Max width of the form container. Default "full" — see FormWidth
    *  (`packages/types/src/screen.ts`, EditLayout.width). Native impls may

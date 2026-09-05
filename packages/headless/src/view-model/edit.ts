@@ -316,6 +316,7 @@ export function computeEditViewModel<
         // per row — one value for the whole embedded list.
         ...(embeddedListDef !== undefined && { embeddedListCurrency: resolvedCurrency }),
         ...(fieldDef.type === "money" && { currency: resolvedCurrency }),
+        ...(fieldDef.type === "number" && fieldDef.unit !== undefined && { unit: fieldDef.unit }),
       };
       return view;
     });

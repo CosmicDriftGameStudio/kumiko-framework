@@ -35,11 +35,9 @@ const CAP_ICONS: Record<CapIconKey, ComponentType<{ className?: string }>> = {
   gauge: Gauge,
 };
 
-// Narrows `percent` to non-null alongside `used` — the query handler only
-// ever sets both or neither, but the type doesn't encode that link.
-function isMeasured(
-  cap: CapUsageWithMeta,
-): cap is CapUsageWithMeta & { used: number; percent: number } {
+// Narrows `used` only — `percent` can independently be null for an
+// unlimited cap (limit: null) even though used is measured.
+function isMeasured(cap: CapUsageWithMeta): cap is CapUsageWithMeta & { used: number } {
   return cap.used !== null;
 }
 
@@ -89,12 +87,18 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
             key={cap.id}
             icon={Icon !== undefined ? <Icon className="size-4" /> : undefined}
             label={t(cap.label)}
-            value={isMeasured(cap) ? `${cap.used} / ${cap.limit}` : "—"}
+            value={
+              !isMeasured(cap)
+                ? "—"
+                : cap.limit === null
+                  ? String(cap.used)
+                  : `${cap.used} / ${cap.limit}`
+            }
             {...(cap.accentColor !== undefined && { accentColor: cap.accentColor })}
             testId="cap-card"
           >
             <div className="flex flex-col gap-2">
-              {isMeasured(cap) && (
+              {cap.percent !== null && (
                 <div className="flex items-center justify-between gap-2">
                   <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
                 </div>

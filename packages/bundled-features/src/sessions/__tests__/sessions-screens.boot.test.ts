@@ -36,6 +36,19 @@ describe("sessions screens + query access alignment (kumiko-framework#255)", () 
     }
   });
 
+  test("session-list timestamp columns declare renderer.format (fw#2569)", () => {
+    const sessions = createSessionsFeature();
+    const list = sessions.screens[SESSION_LIST_SCREEN_ID];
+    if (list?.type !== "projectionList") throw new Error("expected projectionList");
+    for (const field of ["createdAt", "expiresAt", "revokedAt"] as const) {
+      const column = list.columns.find(
+        (c): c is Exclude<(typeof list.columns)[number], string> =>
+          typeof c !== "string" && c.field === field,
+      );
+      expect(column?.renderer).toEqual({ format: "timestamp" });
+    }
+  });
+
   test("session-list row-action navigates to session-detail with entityId 'id'", () => {
     const sessions = createSessionsFeature();
     const list = sessions.screens[SESSION_LIST_SCREEN_ID];

@@ -43,7 +43,7 @@ describe("Button", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  test("loading: rendert Spinner statt Children + ist disabled", () => {
+  test("loading: Spinner ersetzt icon-Slot, Children bleiben sichtbar (kein Width-Jump) + ist disabled", () => {
     const onClick = mock();
     render(
       <Button loading onClick={onClick} testId="btn">
@@ -53,9 +53,27 @@ describe("Button", () => {
     const btn = screen.getByTestId("btn") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(btn.dataset["loading"]).toBe("true");
-    // Children verschwinden während loading; Spinner ist ein <svg>.
-    expect(btn.textContent).not.toContain("Save");
+    expect(btn.textContent).toContain("Save");
     expect(btn.querySelector("svg")).not.toBeNull();
+  });
+
+  test("icon: rendert ein SVG vor dem Label, kein SVG ohne icon-Prop", () => {
+    render(
+      <Button icon="trash" testId="btn">
+        Delete
+      </Button>,
+    );
+    const btn = screen.getByTestId("btn") as HTMLButtonElement;
+    const svg = btn.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(btn.textContent).toBe("Delete");
+    // The icon sits before the label text node in DOM order.
+    expect(svg?.compareDocumentPosition(btn.lastChild as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    render(<Button testId="btn-no-icon">Delete</Button>);
+    expect(screen.getByTestId("btn-no-icon").querySelector("svg")).toBeNull();
   });
 });
 
@@ -233,6 +251,40 @@ describe("Input kind mapping", () => {
     expect(input.className).toContain("pl-8");
     expect(input.className).toContain("text-right");
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
+
+  test('kind="number" unit="km": renders a muted, aria-hidden suffix inside the field and pads the input', () => {
+    render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={() => {}} />);
+    const input = screen.getByRole("spinbutton");
+    expect(input.className).toContain("pr-8");
+    const suffix = screen.getByText("km");
+    expect(suffix.getAttribute("aria-hidden")).toBe("true");
+    expect((input as HTMLInputElement).value).toBe("58");
+  });
+
+  test('kind="number" without unit: no suffix rendered, no right padding', () => {
+    render(<Input id="i" name="i" kind="number" value={58} onChange={() => {}} />);
+    expect(screen.queryByText("km")).toBeNull();
+    expect(screen.getByRole("spinbutton").className).not.toContain("pr-8");
+  });
+
+  test('kind="number" unit="km": typing only changes the numeric value, the unit never enters it', () => {
+    const onChange = mock();
+    render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={onChange} />);
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "120" } });
+    expect(onChange).toHaveBeenCalledWith(120);
+  });
+
+  test('kind="number" icon="hash" unit="km": both decorations render without clobbering each other', () => {
+    render(
+      <Input id="i" name="i" kind="number" value={58} icon="hash" unit="km" onChange={() => {}} />,
+    );
+    const input = screen.getByRole("spinbutton");
+    expect(input.className).toContain("pl-8");
+    expect(input.className).toContain("pr-8");
+    expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    const suffix = screen.getByText("km");
+    expect(suffix.getAttribute("aria-hidden")).toBe("true");
   });
 });
 
@@ -1357,9 +1409,11 @@ describe("Form", () => {
       </Form>,
     );
     const actionsFooter = screen.getByTestId("form-actions");
-    expect(actionsFooter.className).toContain("max-sm:fixed");
-    expect(actionsFooter.className).toContain("flex-wrap");
-    const contentContainer = actionsFooter.previousElementSibling as HTMLElement;
+    // stickyActions classes live on the outer footer container, which wraps
+    // the (optional) secondary group and the main actions group together.
+    const footer = actionsFooter.parentElement as HTMLElement;
+    expect(footer.className).toContain("max-sm:fixed");
+    const contentContainer = footer.previousElementSibling as HTMLElement;
     expect(contentContainer.className).toContain("max-sm:pb-32");
   });
 
@@ -1370,12 +1424,9 @@ describe("Form", () => {
       </Form>,
     );
     const actionsFooter = screen.getByTestId("form-actions");
-    expect(actionsFooter.className).not.toContain("max-sm:fixed");
-    // Shared cardFooter constant — this asserts the wrap fix (fw#2528) on the
-    // plain (non-sticky) footer, which also covers Section/Card since they
-    // render the same constant.
-    expect(actionsFooter.className).toContain("flex-wrap");
-    const contentContainer = actionsFooter.previousElementSibling as HTMLElement;
+    const footer = actionsFooter.parentElement as HTMLElement;
+    expect(footer.className).not.toContain("max-sm:fixed");
+    const contentContainer = footer.previousElementSibling as HTMLElement;
     expect(contentContainer.className).not.toContain("max-sm:pb-32");
   });
 });
