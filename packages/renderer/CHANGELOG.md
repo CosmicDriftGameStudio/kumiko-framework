@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.234.0
+
+### Minor Changes
+
+- 40a8143: Edit masks and screen actions now carry visual defaults instead of stacking identical text buttons.
+
+  - `RowAction` accepts an `icon` key, and `entityEdit` screens accept `actions` at all — an edit mask is no longer limited to Cancel and Save. Actions without a declared icon derive one from their id, so existing screens gain icons without a schema change.
+  - More than two icon-bearing actions collapse to icon-only buttons; the delete action moves to the far left of the form footer.
+  - Boolean fields render as a switch with the label above; select fields with at most four options render as a segmented group at content width instead of a full-width dropdown.
+  - Text fields derive a prefix icon from their name (email, phone, url, city, …).
+  - The form card gets a tinted, divided header band matching its footer, and metric cells render as dividers rather than nested cards.
+
+  Consumer note: boolean fields now expose `role="switch"` instead of `role="checkbox"`, and selects with at most four options expose `role="radiogroup"` with `role="radio"` children plus a `segmented-kumiko-edit-<field>` test id instead of a combobox. End-to-end tests that drive these controls by their old role — `setChecked` on a checkbox, or opening a combobox popover — need to be updated. `layout: "inline"` still renders a checkbox, and selects with more than four options still render a dropdown.
+
+- 77dd894: List cells now render what the rest of the UI already could: coloured status badges and collapsed row actions.
+
+  - A `select`-typed column whose raw value is a known status word (`active`, `pending`, `failed`, …) renders the toned status pill the projectionDetail header already used, instead of a grey outline badge. Values outside that vocabulary keep the neutral pill, and `text`/`multiSelect` columns are untouched.
+  - `entityList` and `projectionList` row actions where every action resolves an icon now render inline and collapse to icon-only buttons, the same rule the edit mask footer follows. Each button keeps its action label as `aria-label` and `title`.
+
+  Consumer note: a list with more than two row actions that all resolve an icon moves from the "More actions" kebab to a row of icon-only buttons. End-to-end tests that open the kebab (`[data-testid$="-actions-menu"]`) to reach such an action need to click the action button directly instead. A group with at least one icon-less action keeps the kebab. `RenderList` accepts a `rowActionMode` prop to pass the mode explicitly, and `statusToneForValue` is exported from `@cosmicdrift/kumiko-renderer` for apps that map their own status values.
+
+### Patch Changes
+
+- Updated dependencies [40a8143]
+  - @cosmicdrift/kumiko-framework@0.234.0
+  - @cosmicdrift/kumiko-headless@0.234.0
+
 ## 0.233.0
 
 ### Minor Changes
