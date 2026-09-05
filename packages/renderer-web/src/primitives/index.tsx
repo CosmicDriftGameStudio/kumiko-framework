@@ -73,6 +73,7 @@ import {
   Children,
   type CSSProperties,
   createContext,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   useContext,
@@ -113,6 +114,7 @@ import { DefaultTabs } from "./tabs";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 import { TzInput } from "./tz-input";
+import { useIsNarrowViewport } from "./use-narrow-viewport";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -682,20 +684,29 @@ function DefaultDataTable({
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
   const tableTranslate = useOptionalTranslation();
   const tableLocale = useOptionalLocale();
+  // Below 768px a table scrolls its columns out of reach with no visible
+  // affordance (fw#2159 fixed the desktop case; narrow viewports never had
+  // one). Cards replace the table entirely below the breakpoint — same
+  // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
+  const isNarrow = useIsNarrowViewport();
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
   // Sticky würde mit der Topbar konkurrieren.
   const hasTableActions = rowActions !== undefined && rowActions.length > 0;
+  const isEmpty = rows.length === 0;
+  const emptyBlock: ReactNode = (
+    <div
+      data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
+      className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
+    >
+      {emptyState ?? <span>No entries.</span>}
+    </div>
+  );
+
   function tableInner(): ReactNode {
-    return rows.length === 0 ? (
-      <div
-        data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
-        className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
-      >
-        {emptyState ?? <span>No entries.</span>}
-      </div>
-    ) : (
+    if (isEmpty) return emptyBlock;
+    return (
       // dashboard-01-Muster: `rounded-lg border`-Rahmen, die Header-Zeile
       // trägt den bg-muted-Grauton. `bg-card` (statt transparent) → die Liste
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
@@ -794,7 +805,140 @@ function DefaultDataTable({
       </div>
     );
   }
-  const tableContent = tableInner();
+
+  // No column headers below the breakpoint, so the click-to-sort affordance
+  // on SortableHeader has nothing to attach to. A single native <select> is
+  // the whole fix — no custom widget, no menu — fed straight from the
+  // columns marked sortable in the ViewModel.
+  const sortableColumns = columns.filter((col) => col.sortable);
+
+  function renderCard(row: ListRowViewModel): ReactNode {
+    const titleColumn = columns.find((col) => col.highlighted === true) ?? columns[0];
+    const detailColumns = columns.filter((col) => col !== titleColumn);
+    return (
+      <div
+        key={row.id}
+        data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
+        {...(onRowClick !== undefined && {
+          role: "button" as const,
+          tabIndex: 0,
+          onClick: () => onRowClick(row),
+          onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            onRowClick(row);
+          },
+        })}
+        className={cn(
+          "flex flex-col gap-3 rounded-lg border bg-card p-4",
+          onRowClick !== undefined && "cursor-pointer",
+        )}
+      >
+        {titleColumn !== undefined && (
+          <div
+            data-testid={
+              getCellTestId?.(row, titleColumn.field) ?? `cell-${row.id}-${titleColumn.field}`
+            }
+            className="text-base font-medium"
+          >
+            <DataTableCell
+              value={row.values[titleColumn.field]}
+              row={row.values}
+              field={titleColumn.field}
+              type={titleColumn.type}
+              renderer={titleColumn.renderer}
+              translate={tableTranslate}
+              locale={tableLocale}
+              {...(titleColumn.optionLabels !== undefined && {
+                optionLabels: titleColumn.optionLabels,
+              })}
+              {...(onCellChange !== undefined && {
+                onChange: (value: unknown) => onCellChange(row.id, titleColumn.field, value),
+              })}
+            />
+          </div>
+        )}
+        <div className="flex flex-col gap-2">
+          {detailColumns.map((col) => (
+            <div key={col.field} className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">{col.label}</span>
+              <span
+                data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                className="text-sm"
+              >
+                <DataTableCell
+                  value={row.values[col.field]}
+                  row={row.values}
+                  field={col.field}
+                  type={col.type}
+                  renderer={col.renderer}
+                  translate={tableTranslate}
+                  locale={tableLocale}
+                  {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                  {...(onCellChange !== undefined && {
+                    onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+                  })}
+                />
+              </span>
+            </div>
+          ))}
+        </div>
+        {hasTableActions && (
+          // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
+          <div
+            className="flex items-center justify-end gap-1 border-t pt-3"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function cardsInner(): ReactNode {
+    if (isEmpty) return emptyBlock;
+    return (
+      <div
+        data-testid={testId !== undefined ? `${testId}-cards` : "render-list-cards"}
+        className="flex flex-col gap-3"
+      >
+        {onSortChange !== undefined && sortableColumns.length > 0 && (
+          <select
+            aria-label="Sort"
+            data-testid={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
+            value={sort !== undefined && sort !== null ? `${sort.field}:${sort.dir}` : ""}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                onSortChange(null);
+                return;
+              }
+              // Safe: the value only ever comes from the "field:asc"/"field:desc"
+              // options rendered below, never from arbitrary user input.
+              const [field, dir] = raw.split(":") as [string, DataTableSortDir];
+              onSortChange({ field, dir });
+            }}
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <option value="">Unsorted</option>
+            {sortableColumns.flatMap((col) => [
+              <option key={`${col.field}:asc`} value={`${col.field}:asc`}>
+                {`${col.label} ↑`}
+              </option>,
+              <option key={`${col.field}:desc`} value={`${col.field}:desc`}>
+                {`${col.label} ↓`}
+              </option>,
+            ])}
+          </select>
+        )}
+        {rows.map((row) => renderCard(row))}
+      </div>
+    );
+  }
+
+  const tableContent = isNarrow ? cardsInner() : tableInner();
 
   // Pager wird IMMER unter der Tabelle gerendert (auch bei rows=[]),
   // damit der User bei einem Filter-Hit-of-Zero zurückblättern kann
