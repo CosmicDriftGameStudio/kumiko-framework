@@ -492,7 +492,7 @@ function ToolbarActionView({
         }}
         testId={`render-list-toolbar-action-${action.id}`}
       >
-        {action.label}
+        {showIconOnly ? null : action.label}
       </Button>
       <Dialog
         open={confirmOpen}
