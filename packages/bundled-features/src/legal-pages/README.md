@@ -110,8 +110,10 @@ routes.
 
 ## Boot check
 
-`r.job` with `runOnBoot: true` checks at app start whether the
-required blocks exist in SYSTEM_TENANT. **Default** (DACH):
+`r.job` with `bootGate: true` runs inline while the API job runner
+starts and checks whether the required blocks exist in SYSTEM_TENANT.
+A throw rejects the boot, so the process never reports ready.
+**Default** (DACH):
 
 | Slug + locale | What happens when missing |
 |---|---|

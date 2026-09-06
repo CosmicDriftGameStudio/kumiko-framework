@@ -587,6 +587,22 @@ export function validateJobTriggers(state: RegistryState): void {
   }
 }
 
+export function validateBootGates(state: RegistryState): void {
+  // Boot gates run inline in JobRunner.start(), which has neither the
+  // per-tenant fan-out (that re-enqueues) nor the sequential lock's
+  // re-enqueue-and-return path. Both would make the gate pass silently
+  // without ever running the handler.
+  for (const [jobName, jobDef] of state.jobMap) {
+    if (!jobDef.bootGate) continue;
+    if (jobDef.perTenant) {
+      throw new Error(`Job "${jobName}" cannot combine bootGate with perTenant`);
+    }
+    if (jobDef.concurrency === "sequential") {
+      throw new Error(`Job "${jobName}" cannot combine bootGate with concurrency "sequential"`);
+    }
+  }
+}
+
 export function validateExtensionUsageTargets(state: RegistryState): void {
   // Validate: extension usages must reference existing extensions
   for (const usage of state.extensionUsages) {

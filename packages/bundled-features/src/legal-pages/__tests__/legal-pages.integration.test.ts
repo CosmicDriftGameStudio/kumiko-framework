@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -226,10 +226,21 @@ describe("markdown render helpers", () => {
   });
 });
 
-// Boot-Check direkt (ohne dev-server-Job-Runner-Path) — verifiziert
-// dass die Logik fehlende Blocks im SYSTEM_TENANT erkennt. Der eigentliche
-// runOnBoot-Trigger lebt im JobRunner und wird in jobs-feature integration-
-// tests separately exercised.
+describe("legal-pages :: boot gate wiring", () => {
+  // The abort behaviour itself is proven in the framework's job-runner
+  // integration tests ("boot gates"); this only pins that legal-pages is
+  // wired onto that path and not onto the fire-and-forget runOnBoot one.
+  test("boot check is declared as a bootGate, not as runOnBoot", () => {
+    const registry = createRegistry([textFeature, legalFeature]);
+    const job = registry.getJob("legal-pages:job:legal-pages-boot-check");
+    expect(job).toBeDefined();
+    expect(job?.bootGate).toBe(true);
+    expect(job?.runOnBoot).toBeUndefined();
+  });
+});
+
+// Boot check called directly (without the dev-server job-runner path) —
+// verifies that the logic detects blocks missing in SYSTEM_TENANT.
 describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () => {
   test("legal-pages serven SYSTEM_TENANT-Texte auch wenn tenantResolver einen anderen Tenant zurückgibt", async () => {
     // Simuliert publicstatus's Setup: host-basierter tenantResolver der
