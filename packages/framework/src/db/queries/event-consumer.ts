@@ -24,13 +24,13 @@ export async function insertConsumerIfAbsent(
        ON CONFLICT ("name", "instance_id") DO NOTHING`,
       [name, instanceId],
     );
-    return;
+  } else {
+    await asRawClient(db).unsafe(
+      `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status") VALUES ($1, $2, 'idle')
+       ON CONFLICT ("name", "instance_id") DO NOTHING`,
+      [name, instanceId],
+    );
   }
-  await asRawClient(db).unsafe(
-    `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status") VALUES ($1, $2, 'idle')
-     ON CONFLICT ("name", "instance_id") DO NOTHING`,
-    [name, instanceId],
-  );
 }
 
 export async function selectConsumerForUpdateSkipLocked(

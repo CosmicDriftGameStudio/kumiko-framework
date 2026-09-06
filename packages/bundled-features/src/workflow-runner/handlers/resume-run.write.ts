@@ -99,6 +99,43 @@ function checkQ7Fingerprint(
   };
 }
 
+type ResolvedWorkflow =
+  | { readonly workflow: WorkflowDefinition; readonly failure: null }
+  | { readonly workflow: null; readonly failure: WorkflowRunFailedPayload };
+
+// Both preconditions fail the run the same way, so they resolve together: the
+// workflow must still be registered AND its definition must still match the
+// fingerprint the run was started against.
+function resolveRunnableWorkflow(
+  workflowName: string,
+  runId: string,
+  stepIndex: number,
+  storedFingerprint: string | null,
+): ResolvedWorkflow {
+  const workflow = getWorkflow(workflowName);
+  if (!workflow) {
+    return {
+      workflow: null,
+      failure: {
+        workflowName,
+        stepIndex,
+        error: `Workflow "${workflowName}" is not registered — cannot resume run ${runId}.`,
+        reason: "workflow_definition_changed",
+      },
+    };
+  }
+  const fingerprintFailure = checkQ7Fingerprint(
+    workflow,
+    workflowName,
+    runId,
+    stepIndex,
+    storedFingerprint,
+  );
+  return fingerprintFailure
+    ? { workflow: null, failure: fingerprintFailure }
+    : { workflow, failure: null };
+}
+
 function readResumedPayload(payload: unknown): {
   readonly stepIndex: number | undefined;
   readonly retryAttempt: number | undefined;
@@ -113,6 +150,32 @@ function readResumedPayload(payload: unknown): {
       ? payload.retryAttempt
       : undefined;
   return { stepIndex, retryAttempt };
+}
+
+// The workflow_run_pending row is only deleted asynchronously by
+// pending-projection, so a resume-due-runs tick inside that window finds the
+// row again and the append-claim no longer conflicts — the event stream is the
+// authoritative idempotency source.
+//
+// retryAttempt must match too, not just stepIndex: a retry suspension resumes
+// the SAME stepIndex on every attempt, so matching on stepIndex alone would
+// mistake attempt 1's WORKFLOW_RESUMED for attempt 2's and skip the second
+// retry entirely.
+function isRunAlreadySettled(
+  runEvents: Awaited<ReturnType<HandlerContext["loadAggregate"]>>,
+  stepIndex: number,
+  expectedRetryAttempt: number | undefined,
+): boolean {
+  return runEvents.some((e) => {
+    if (e.type === WORKFLOW_RUN_COMPLETED_TYPE || e.type === WORKFLOW_RUN_FAILED_TYPE) {
+      return true;
+    }
+    if (e.type !== WORKFLOW_RESUMED_TYPE) {
+      return false;
+    }
+    const resumed = readResumedPayload(e.payload);
+    return resumed.stepIndex === stepIndex && resumed.retryAttempt === expectedRetryAttempt;
+  });
 }
 
 function recoverTriggerEvent(
@@ -192,53 +255,21 @@ export const resumeRunHandler: WriteHandlerDef = {
     }
 
     const { workflowName } = pending;
-    const workflow = getWorkflow(workflowName);
-    if (!workflow) {
-      const failedPayload: WorkflowRunFailedPayload = {
-        workflowName,
-        stepIndex,
-        error: `Workflow "${workflowName}" is not registered — cannot resume run ${runId}.`,
-        reason: "workflow_definition_changed",
-      };
-      await appendRunFailed(ctx, runId, failedPayload);
-      return { isSuccess: true, data: { outcome: "failed" as const } };
-    }
-
-    const fingerprintFailure = checkQ7Fingerprint(
-      workflow,
+    const resolved = resolveRunnableWorkflow(
       workflowName,
       runId,
       stepIndex,
       pending.definitionFingerprint,
     );
-    if (fingerprintFailure) {
-      await appendRunFailed(ctx, runId, fingerprintFailure);
+    if (resolved.failure !== null) {
+      await appendRunFailed(ctx, runId, resolved.failure);
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
+    const workflow = resolved.workflow;
 
     const runEvents = await ctx.loadAggregate(runId);
 
-    // The workflow_run_pending row is only deleted asynchronously by
-    // pending-projection, so a resume-due-runs tick inside that window finds
-    // it again and the append-claim below no longer conflicts — the event
-    // stream is the authoritative idempotency source.
-    //
-    // retryAttempt must match too, not just stepIndex: a retry suspension
-    // resumes the SAME stepIndex on every attempt (see resumeFrom below), so
-    // matching on stepIndex alone would mistake attempt 1's WORKFLOW_RESUMED
-    // for attempt 2's and skip the second retry entirely.
-    const expectedRetryAttempt = pending.retryAttempt ?? undefined;
-    const alreadySettled = runEvents.some((e) => {
-      if (e.type === WORKFLOW_RUN_COMPLETED_TYPE || e.type === WORKFLOW_RUN_FAILED_TYPE) {
-        return true;
-      }
-      if (e.type !== WORKFLOW_RESUMED_TYPE) {
-        return false;
-      }
-      const resumed = readResumedPayload(e.payload);
-      return resumed.stepIndex === stepIndex && resumed.retryAttempt === expectedRetryAttempt;
-    });
-    if (alreadySettled) {
+    if (isRunAlreadySettled(runEvents, stepIndex, pending.retryAttempt ?? undefined)) {
       return { isSuccess: true, data: { outcome: "already-resumed" as const } };
     }
 
