@@ -369,7 +369,23 @@ export type JobDefinition = {
   readonly backoff?: "fixed" | "exponential" | undefined;
   readonly timeout?: number | undefined;
   readonly schema?: ZodType | undefined;
+  // Enqueue this job once when a runner for its lane starts. Fire-and-forget:
+  // the enqueue is awaited, the run is not, so a throwing handler only fails
+  // the queue job — the process keeps booting and reports ready.
+  // Deduped on a fixed job id, so it runs at most once per Redis dataset: a
+  // boot job that already ran (or failed) is not retried on a later deploy.
+  // Never a deploy gate — use `bootGate` for that.
   readonly runOnBoot?: boolean | undefined;
+  // Run this job inline while the runner for its lane starts, before cron
+  // schedules and `runOnBoot` enqueues. The handler is awaited and a throw
+  // rejects the runner's start() — which rejects runProdApp's boot, so the
+  // process exits before it ever reports ready. That makes it a real deploy
+  // gate, unlike `runOnBoot`. Runs on every start, never deduped.
+  // `retries`/`timeout`/`backoff` are BullMQ options and do not apply on the
+  // inline path. Incompatible with `perTenant` and `concurrency: "sequential"`.
+  // The gate runs wherever a job runner for its lane starts — a setup that
+  // starts no runner for that lane runs no gate.
+  readonly bootGate?: boolean | undefined;
   readonly perTenant?: boolean | undefined;
   // Which deploy-lane runs this job. Default "worker". Set "api" only for
   // short CPU-light handlers (token cleanup, in-process cache warmup) that

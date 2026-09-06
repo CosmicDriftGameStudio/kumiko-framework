@@ -15,6 +15,7 @@ import { createInMemoryFileProvider } from "../../files/in-memory-provider";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
 import {
+  bootJobIdForJobName,
   createJobRunner,
   type JobLogEntry,
   type JobMeta,
@@ -1220,5 +1221,131 @@ describe("job registry", () => {
     const job = registry.getJob("test:job:boot-sync");
     expect(job).toBeDefined();
     expect(job?.runOnBoot).toBe(true);
+  });
+});
+
+// --- Boot gates: only an inline gate can abort a boot (fw#2590) ---
+
+describe("boot gates", () => {
+  const gateLog: string[] = [];
+  const GATE_FAILURE = "required legal blocks are not seeded";
+
+  function uniquePrefix(): string {
+    return `kumiko-gate-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function createGateRunner(
+    feature: ReturnType<typeof defineFeature>,
+    queueNamePrefix: string,
+  ): JobRunner {
+    const context: AppContext = {};
+    return createJobRunner({
+      registry: createRegistry([feature]),
+      context,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+    });
+  }
+
+  async function purge(queueNamePrefix: string): Promise<void> {
+    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
+    if (keys.length > 0) await testRedis.redis.del(...keys);
+  }
+
+  test("a throwing gate rejects start() and stops the remaining boot wiring", async () => {
+    const feature = defineFeature("failgate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true }, async () => {
+        throw new Error(GATE_FAILURE);
+      });
+      r.job("afterGate", { trigger: { manual: true }, runOnBoot: true }, async () => {
+        gateLog.push("after-gate");
+      });
+    });
+    const prefix = uniquePrefix();
+    const runner = createGateRunner(feature, prefix);
+    gateLog.length = 0;
+
+    // Pin the qualified name the boot-job-id assertion below is built on —
+    // a typo there would make that assertion pass vacuously.
+    const afterGateName = "failgate:job:after-gate";
+    expect(createRegistry([feature]).getJob(afterGateName)).toBeDefined();
+
+    const queue = new Queue(`${prefix}-worker`, {
+      connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+    });
+    // A post-close 'error' here is otherwise unhandled and bun:test
+    // attributes it to whichever test runs next (fw#1805).
+    queue.on("error", () => {});
+
+    try {
+      // The gate's own message must survive — which blocks are missing is the
+      // entire operational value, and onJobFailed runs before the re-throw.
+      await expect(runner.start()).rejects.toThrow(GATE_FAILURE);
+      await sleep(300);
+      // The gate aborted start() before any further boot wiring ran: the
+      // runOnBoot job was never even enqueued, and never executed.
+      const bootJob = await queue.getJob(bootJobIdForJobName(afterGateName));
+      expect(bootJob).toBeUndefined();
+      expect(gateLog).toEqual([]);
+    } finally {
+      await queue.close();
+      await runner.stop();
+      await purge(prefix);
+    }
+  });
+
+  test("a gate runs on every start, unlike a deduped runOnBoot job", async () => {
+    const feature = defineFeature("everygate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true }, async () => {
+        gateLog.push("gate");
+      });
+      r.job("once", { trigger: { manual: true }, runOnBoot: true }, async () => {
+        gateLog.push("boot");
+      });
+    });
+    const prefix = uniquePrefix();
+    gateLog.length = 0;
+
+    const first = createGateRunner(feature, prefix);
+    await first.start();
+    await waitFor(() => {
+      expect(gateLog.filter((e) => e === "boot").length).toBe(1);
+    });
+    await first.stop();
+
+    const second = createGateRunner(feature, prefix);
+    try {
+      await second.start();
+      await sleep(300);
+      expect(gateLog.filter((e) => e === "gate").length).toBe(2);
+      // Same fixed boot job id, still present in Redis from the first start,
+      // so BullMQ drops the second enqueue — that dedup is why runOnBoot
+      // cannot gate a deploy.
+      expect(gateLog.filter((e) => e === "boot").length).toBe(1);
+    } finally {
+      await second.stop();
+      await purge(prefix);
+    }
+  });
+
+  test("bootGate is rejected for perTenant and sequential jobs", () => {
+    const perTenantGate = defineFeature("pergate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true, perTenant: true }, async () => {
+        gateLog.push("never");
+      });
+    });
+    expect(() => createRegistry([perTenantGate])).toThrow(/bootGate with perTenant/);
+
+    const sequentialGate = defineFeature("seqgate", (r) => {
+      r.job(
+        "check",
+        { trigger: { manual: true }, bootGate: true, concurrency: "sequential" },
+        async () => {
+          gateLog.push("never");
+        },
+      );
+    });
+    expect(() => createRegistry([sequentialGate])).toThrow(/bootGate with concurrency/);
   });
 });

@@ -208,7 +208,10 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       "legal-pages-boot-check",
       {
         trigger: { manual: true },
-        runOnBoot: true,
+        // bootGate, not runOnBoot: only an inline gate can actually abort the
+        // boot. runOnBoot merely enqueues, so a missing imprint would fail a
+        // queue job while the pod goes ready anyway (fw#2590).
+        bootGate: true,
         runIn: "api",
       },
       async (_payload, ctx) => runLegalPagesBootCheck(ctx, requiredBlocks),

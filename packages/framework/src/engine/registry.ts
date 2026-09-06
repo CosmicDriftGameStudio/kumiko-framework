@@ -27,6 +27,7 @@ import {
   populateHandlerEntityMappings,
   publishEventPiiCatalog,
   resolveNotificationTriggersAndRegisterHooks,
+  validateBootGates,
   validateEntityHookTargets,
   validateEventMigrationVersions,
   validateExtensionSelectors,
@@ -79,6 +80,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   validateLifecycleHookTargets(state);
   validateEntityHookTargets(state, features);
   validateJobTriggers(state);
+  validateBootGates(state);
   validateExtensionUsageTargets(state);
   computeHasRateLimitedHandler(state);
   publishEventPiiCatalog(state);

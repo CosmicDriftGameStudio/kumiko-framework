@@ -5,6 +5,7 @@
 // und treibt eine echte HTTP-Round-Trip durch den Dispatcher.
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
@@ -25,6 +26,9 @@ describe("use-all-bundled full-stack boot", () => {
           authOptions: AUTH_COMPOSE_OPTIONS,
         }),
       ],
+      // legal-pages' boot gate resolves text blocks through ctx.templateResolver;
+      // the app wires it in app/server.ts and this test boots without that file.
+      extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
       port: 0,
       installSignalHandlers: false,
     });

@@ -1,4 +1,4 @@
-import { type Job, Queue, Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow } from "../db/connection";
@@ -395,7 +395,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     return false;
   }
 
-  async function handleJob(bullJob: Job): Promise<void> {
+  // Structural instead of BullMQ's `Job` so boot gates can invoke the same
+  // execution path inline. A real `Job` stays assignable, so handleJob is
+  // still a valid BullMQ Processor.
+  type JobInvocation = {
+    readonly id?: string | undefined;
+    readonly name: string;
+    readonly data: Record<string, unknown>;
+    readonly attemptsMade: number;
+  };
+
+  async function handleJob(bullJob: JobInvocation): Promise<void> {
     const rawName = bullJob.name;
 
     // Handle perTenant dispatch jobs — fan out to one job per tenant. The
@@ -651,6 +661,27 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }
   }
 
+  // Boot gates run inline and are awaited, so a throwing gate rejects start()
+  // — and with it the entrypoint's start() and runProdApp's boot, before the
+  // process reports ready. Enqueuing them (as runOnBoot does) would only fail
+  // a queue job and let the deploy through (fw#2590).
+  async function runBootGates(lane: JobRunIn): Promise<void> {
+    for (const [name, jobDef] of allJobs) {
+      if (laneForJob(jobDef) !== lane) continue;
+      if (!jobDef.bootGate) continue;
+      try {
+        await handleJob({ id: bootJobIdForJobName(name), name, data: {}, attemptsMade: 0 });
+      } catch (err) {
+        // The worker is already consuming here; leaving its Redis connections
+        // open would keep the event loop alive and turn the aborted boot into
+        // a hanging process instead of a non-zero exit.
+        await worker?.close();
+        worker = null;
+        throw err;
+      }
+    }
+  }
+
   const runnerApi: JobRunner = {
     async start(): Promise<void> {
       // skip: enqueuer-only runner — no BullMQ worker, no cron schedules,
@@ -688,6 +719,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       } finally {
         bootTimeout.cancel();
       }
+
+      // Ahead of cron/runOnBoot wiring on purpose: a failed gate must not
+      // leave recurring schedulers behind.
+      await runBootGates(consumerLane);
 
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the
