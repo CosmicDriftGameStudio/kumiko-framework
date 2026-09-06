@@ -29,6 +29,9 @@ test.describe("TenantAdmin workspace gating", () => {
     await page.getByTestId("render-list-toolbar-action-invite").click();
     // fw#2414: DEFAULT_INVITE_ROLE_OPTIONS excludes TenantAdmin (Admin must not see it).
     // 3 options ⇒ SegmentedSelect (role="radiogroup"/role="radio"), no popover to open.
+    // This only covers the INVITE drawer — the separate roles-EDIT screen uses
+    // OWNER_INVITE_ROLE_OPTIONS and does show TenantAdmin (fw#2452), so this
+    // toHaveCount(0) is not evidence TenantAdmin is unrepresentable everywhere.
     const roleGroup = page.getByTestId("segmented-kumiko-edit-role");
     await expect(roleGroup).toBeVisible();
     await expect(roleGroup.getByRole("radio", { name: "User", exact: true })).toBeVisible();

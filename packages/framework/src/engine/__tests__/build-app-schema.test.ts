@@ -589,8 +589,9 @@ describe("buildAppSchema", () => {
           type: "embedded",
           multiple: true,
           schema: {
-            qty: { type: "number" },
+            qty: { type: "number", required: true },
             amount: { type: "money" },
+            status: { type: "select", options: ["open", "closed"] },
           },
           minItems: 1,
           maxItems: 20,
@@ -618,6 +619,14 @@ describe("buildAppSchema", () => {
     });
     expect(fields["lines"]?.["totals"]).toEqual(["amount"]);
     expect(fields["lines"]?.["totalsMatch"]).toEqual({ amount: "invoiceTotal" });
+    // fw#2507: `schema` itself — the embedded list's sub-field map — must
+    // survive too, or computeEditViewModel iterates `undefined` and the
+    // browser crashes on any entityEdit screen with an embedded list.
+    const schema = fields["lines"]?.["schema"] as Record<string, Record<string, unknown>>;
+    expect(Object.keys(schema)).toEqual(["qty", "amount", "status"]);
+    expect(schema["qty"]).toEqual({ type: "number", required: true });
+    expect(schema["amount"]).toEqual({ type: "money" });
+    expect(schema["status"]).toEqual({ type: "select", options: ["open", "closed"] });
   });
 
   test("embedded: derived/totalsMatch mit Function eine Ebene tief bleiben blockiert (fw#2497)", () => {
@@ -653,6 +662,44 @@ describe("buildAppSchema", () => {
     expect(fields["lines"]?.["totals"]).toBeUndefined();
     expect(fields["lines"]?.["totalsMatch"]).toBeUndefined();
     expect(fields["multi"]?.["multiline"]).toBeUndefined();
+  });
+
+  test("embedded: schema übersteht die Projection, ein Function-Wert eines Sub-Fields wird aber gedroppt (fw#2507)", () => {
+    // Regression: `schema` — the embedded list's sub-field map — was never
+    // forwarded at all, crashing computeEditViewModel client-side
+    // (Object.entries(undefined)). It's projected recursively per sub-field
+    // (through projectField again), not via a blanket copy: a sub-field
+    // carrying a non-JSON-safe value (e.g. a validator/renderer function)
+    // must lose only that value, not the whole schema map.
+    const entity = {
+      fields: {
+        lines: {
+          type: "embedded",
+          multiple: true,
+          schema: {
+            qty: { type: "number", required: true, default: () => 1 },
+            amount: { type: "money" },
+          },
+        },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    const schema = fields["lines"]?.["schema"] as Record<string, Record<string, unknown>>;
+    expect(schema).toBeDefined();
+    expect(schema["qty"]?.["type"]).toBe("number");
+    expect(schema["qty"]?.["required"]).toBe(true);
+    expect(schema["qty"]?.["default"]).toBeUndefined();
+    expect(schema["amount"]).toEqual({ type: "money" });
   });
 
   test("default: JSON-safe Arrays/Objects überleben die Projection, Nicht-JSON-Werte bleiben blockiert (fw#2497)", () => {

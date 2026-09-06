@@ -2226,15 +2226,14 @@ function ProjectionDetailBody({
   const idParam = screen.idParam ?? "id";
   const isTabsMode = screen.layout.mode === "tabs";
   const activeSection = useMemo(() => {
-    if (!isTabsMode) return undefined;
+    if (!isTabsMode || Tabs === undefined) return undefined;
     const tabParam = nav.searchParams["tab"];
     return (
       screen.layout.sections.find((section) => section.id === tabParam) ?? screen.layout.sections[0]
     );
-  }, [isTabsMode, screen.layout.sections, nav.searchParams]);
-  // Tabs is an optional Core-Primitive (additive rollout) — same "skip +
-  // warn once" precedent as Drawer above, instead of crashing when a web
-  // app hasn't upgraded its createKumikoApp wiring yet.
+  }, [isTabsMode, Tabs, screen.layout.sections, nav.searchParams]);
+  // Tabs is an optional Core-Primitive: without it the screen falls back to
+  // the stacked all-sections layout instead of silently truncating to section 1.
   useEffect(() => {
     if (isTabsMode && Tabs === undefined) {
       // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
@@ -2537,7 +2536,7 @@ function ProjectionDetailBody({
       customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
       {...(headerActions !== undefined && { actions: headerActions })}
       {...(translate !== undefined && { translate })}
-      {...(isTabsMode && { hideSectionTitles: true })}
+      {...(hasTabs && { hideSectionTitles: true })}
       {...((hasHeader || hasMetrics || hasTabs) && { headerRegion: headerContent })}
       valueDisplay={screen.valueDisplay ?? "text"}
     />

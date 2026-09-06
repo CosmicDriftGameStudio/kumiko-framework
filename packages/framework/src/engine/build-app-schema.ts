@@ -466,6 +466,16 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (Array.isArray(def["totals"]) && isJsonSafeValue(def["totals"])) out["totals"] = def["totals"];
   if (isPlainObject(def["totalsMatch"]) && isJsonSafeValue(def["totalsMatch"]))
     out["totalsMatch"] = def["totalsMatch"];
+  // embedded lists: the sub-field map itself — without it the client-side
+  // edit view-model iterates `undefined` and the screen crashes (fw#2507).
+  // Recursive per sub-field, NOT a blanket isJsonSafeValue gate: a single
+  // sub-field carrying a validator fn would otherwise drop the whole map,
+  // and a blanket copy would ship server internals.
+  if (isPlainObject(def["schema"])) {
+    out["schema"] = Object.fromEntries(
+      Object.entries(def["schema"]).map(([k, v]) => [k, projectField(v as FieldDefinition)]), // @cast-boundary schema-walk
+    );
+  }
   return out as FieldDefinition; // @cast-boundary schema-walk
 }
 

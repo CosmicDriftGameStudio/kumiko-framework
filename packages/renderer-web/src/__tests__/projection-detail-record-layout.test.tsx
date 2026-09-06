@@ -486,6 +486,34 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
     // draws its own card frame, so a second nested Card would double it up.
     expect(screen.queryByTestId("related-list-Payments")).toBeNull();
   });
+
+  test("without a Tabs primitive, falls back to the stacked all-sections layout instead of truncating to the first section (fw#2501)", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+    const { navApi } = navWithTab(undefined);
+
+    renderWithPrimitivesOverride(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(tabsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+      { Tabs: undefined },
+    );
+
+    await waitFor(() => screen.getByTestId("field-description"));
+    // Pre-fix: activeSection stayed truncated to sections[0] even without a
+    // Tabs primitive to switch away from it — payments/invoices content was
+    // permanently unreachable, with no tab strip to reach it either.
+    await waitFor(() =>
+      expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
+    );
+    expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:invoices")).toBe(true);
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs")).toBeNull();
+  });
 });
 
 // Only guard against a solon-shaped screen (relatedList-heavy) silently regressing.

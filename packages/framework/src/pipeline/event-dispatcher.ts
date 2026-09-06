@@ -94,6 +94,12 @@ export type EventConsumer = {
   //                   respect to shared storage (no DB writes), otherwise
   //                   each instance duplicates the effect.
   readonly delivery?: "shared" | "per-instance";
+  // Where the consumer's cursor starts on its FIRST registration. Default
+  // "beginning" replays the full log. "now" seeds the cursor at the current
+  // MAX(events.id) so mounting the consumer into an existing app does not
+  // retroactively fire side effects for historical events. Only affects the
+  // first registration — an existing cursor row is never clobbered.
+  readonly startFrom?: "beginning" | "now";
 };
 
 // Result of a dispatcher pass (runOnce / doPass). Shared across the public

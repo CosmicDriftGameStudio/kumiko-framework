@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
@@ -16,6 +21,9 @@ import {
   expectErrorIncludes,
   getSetCookieRaw,
   getSetCookieValue,
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+  updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -212,6 +220,50 @@ describe("scenario 3: login without membership", () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error?.details?.reason).toBe(AuthErrors.noMembership);
+  });
+});
+
+// --- Scenario 3b: login resolves the live account when its email is shared
+// with a soft-deleted row (fw#2464 partial bidx index only covers live rows) ---
+
+describe("scenario 3b: login with an email shared by a soft-deleted row", () => {
+  // The DB-level dedup that lets a soft-deleted row and a live row share an
+  // email only exists on the blind-index column (see
+  // email-unique-blind-index.integration.test.ts) — without a configured
+  // key, email_bidx stays NULL and the plaintext-fallback unique index
+  // blocks the second create outright, never reaching the login path.
+  beforeAll(() => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+  });
+
+  afterAll(() => {
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+  });
+
+  test("new account wins the login, not the soft-deleted original", async () => {
+    const original = await seedLoginUser({
+      email: "reused-login@example.com",
+      password: "original-password-123",
+    });
+    await updateRows(stack.db, userTable, { isDeleted: true }, { id: original.id });
+
+    const recreated = await seedLoginUser({
+      email: "reused-login@example.com",
+      password: "new-account-password-123",
+    });
+    expect(recreated.id).not.toBe(original.id);
+
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "reused-login@example.com",
+      password: "new-account-password-123",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.isSuccess).toBe(true);
+    expect(body.user.id).toBe(recreated.id);
   });
 });
 

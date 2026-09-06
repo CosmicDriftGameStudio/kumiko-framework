@@ -18,6 +18,7 @@ type JobRunRow = {
   readonly status: string;
   readonly jobName: string;
   readonly payload: string | null;
+  readonly triggeredById: string | null;
 };
 
 export const retryWrite = defineWriteHandler({
@@ -61,6 +62,7 @@ export const retryWrite = defineWriteHandler({
     // PII_ERASED_SENTINEL, which is not JSON; reject the retry rather than
     // dispatch it with a silently emptied payload.
     let payload: Record<string, unknown> = {};
+    let decryptedPayloadJson: string | null = null;
     if (run.payload) {
       const decryptedPayload = await decryptStoredPii(
         run.payload,
@@ -78,9 +80,14 @@ export const retryWrite = defineWriteHandler({
         decryptedPayload,
         `job run ${event.payload.runId} payload`,
       );
+      decryptedPayloadJson = decryptedPayload;
     }
 
-    const bullJobId = await jobRunner.dispatch(run.jobName, payload);
+    // Retry re-uses the original run's DEK owner so the retry's logs/payload stay encrypted.
+    const bullJobId = await jobRunner.dispatch(run.jobName, payload, {
+      triggeredById: run.triggeredById ?? undefined,
+      ...(decryptedPayloadJson !== null && { payload: decryptedPayloadJson }),
+    });
 
     return {
       isSuccess: true,
