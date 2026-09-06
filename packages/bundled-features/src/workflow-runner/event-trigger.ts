@@ -7,7 +7,8 @@
 // The MSP apply-fn runs in the dispatcher's own tx, so `workflow.run-started`
 // plus the synchronous portion of the pipeline land atomically. Any throw
 // from startAndRunWorkflow is recorded as `workflow.run-failed` and
-// rethrown so the dispatcher's retry/dead-letter handling still applies.
+// swallowed — the failure is already durable, so the dispatcher advances
+// past the trigger event instead of redelivering it.
 
 import type {
   FeatureRegistrar,
@@ -43,6 +44,9 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
 
   r.multiStreamProjection({
     name: `workflow-${workflow.name}`,
+    // Mounting an event-triggered workflow into an existing app must not
+    // replay the historical log and fire every side-effect step retroactively.
+    startFrom: "now",
     apply: {
       [eventType]: async (event, _tx, ctx) => {
         // skip: unreachable — the guard above already established this, but the
@@ -97,7 +101,10 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             type: WORKFLOW_RUN_FAILED_TYPE,
             payload: failedPayload,
           });
-          throw error;
+          // No rethrow: the failure is now durably recorded as
+          // workflow.run-failed. Rethrowing would make the dispatcher
+          // redeliver the same trigger event up to maxAttempts, re-running
+          // every side-effect step and eventually killing the consumer.
         }
       },
     },

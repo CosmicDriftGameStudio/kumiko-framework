@@ -6,11 +6,26 @@ export async function lockEventConsumersShareMode(db: AnyDb): Promise<void> {
   await asRawClient(db).unsafe(`LOCK TABLE "kumiko_event_consumers" IN SHARE MODE`);
 }
 
+// startFrom "now" seeds the FIRST-registration cursor at the current
+// MAX(events.id) instead of the column default 0 — mounting a consumer into
+// an existing app then skips the historical log instead of replaying it.
+// ON CONFLICT DO NOTHING keeps both branches safe for an existing row: the
+// subquery only ever affects the row this statement inserts.
 export async function insertConsumerIfAbsent(
   db: AnyDb,
   name: string,
   instanceId: string,
+  startFrom: "beginning" | "now" = "beginning",
 ): Promise<void> {
+  if (startFrom === "now") {
+    await asRawClient(db).unsafe(
+      `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status", "last_processed_event_id")
+       VALUES ($1, $2, 'idle', COALESCE((SELECT MAX("id") FROM "kumiko_events"), 0))
+       ON CONFLICT ("name", "instance_id") DO NOTHING`,
+      [name, instanceId],
+    );
+    return;
+  }
   await asRawClient(db).unsafe(
     `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status") VALUES ($1, $2, 'idle')
      ON CONFLICT ("name", "instance_id") DO NOTHING`,

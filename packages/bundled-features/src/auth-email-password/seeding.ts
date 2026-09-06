@@ -139,11 +139,13 @@ export async function provisionSignupAccount(
   // create paths (#1478 — this was only wired for tenant before).
   hooks?: SeedTenantHooks,
 ): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
-  // Create-only-Guard VOR seedTenant: bei bereits registrierter Email hart
-  // abbrechen, sonst entstünde ein verwaister Tenant und seedUser (idempotent
-  // add-only) gäbe still die bestehende userId zurück → Confirm mintet eine
-  // Session für den fremden Account (#365).
-  const existingUser = await fetchOne(db, userTable, { email: options.email });
+  // Create-only guard BEFORE seedTenant: hard-abort on an already-registered
+  // email, otherwise an orphaned tenant would be created and seedUser
+  // (idempotent add-only) would silently return the existing userId ->
+  // confirm mints a session for the wrong account (#365).
+  // isDeleted: false — the partial bidx unique index only covers live rows,
+  // so a soft-deleted row must not block re-registering its email.
+  const existingUser = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
   if (existingUser) {
     throw new ConflictError({ message: "signup: email already registered" });
   }

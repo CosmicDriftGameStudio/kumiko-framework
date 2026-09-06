@@ -29,9 +29,13 @@ export const findForAuthQuery = defineQueryHandler({
     ),
   access: { roles: access.system },
   handler: async (query, ctx) => {
-    const where: { email: string } | { id: string } =
+    // Soft-deleted rows can now share an email with a live row (the partial
+    // bidx unique index covers live rows only), so the email arm must resolve
+    // the live identity; every email-arm caller already rejects isDeleted
+    // rows after the fetch, so this only removes rows that would be discarded anyway.
+    const where: { email: string; isDeleted: false } | { id: string } =
       query.payload.email !== undefined
-        ? { email: query.payload.email }
+        ? { email: query.payload.email, isDeleted: false }
         : { id: query.payload.id as string }; // @cast-boundary engine-payload
 
     if (!ctx.systemDb) {

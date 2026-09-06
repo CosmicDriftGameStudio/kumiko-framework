@@ -99,13 +99,28 @@ function checkQ7Fingerprint(
   };
 }
 
-async function recoverTriggerEvent(
-  ctx: HandlerContext,
+function readResumedPayload(payload: unknown): {
+  readonly stepIndex: number | undefined;
+  readonly retryAttempt: number | undefined;
+} {
+  if (typeof payload !== "object" || payload === null) {
+    return { stepIndex: undefined, retryAttempt: undefined };
+  }
+  const stepIndex =
+    "stepIndex" in payload && typeof payload.stepIndex === "number" ? payload.stepIndex : undefined;
+  const retryAttempt =
+    "retryAttempt" in payload && typeof payload.retryAttempt === "number"
+      ? payload.retryAttempt
+      : undefined;
+  return { stepIndex, retryAttempt };
+}
+
+function recoverTriggerEvent(
+  runEvents: Awaited<ReturnType<HandlerContext["loadAggregate"]>>,
   runId: string,
   user: WriteEvent["user"],
-): Promise<WriteEvent> {
-  const startedEvents = await ctx.loadAggregate(runId);
-  const started = startedEvents.find((e) => e.type === WORKFLOW_RUN_STARTED_TYPE);
+): WriteEvent {
+  const started = runEvents.find((e) => e.type === WORKFLOW_RUN_STARTED_TYPE);
   if (!started) {
     throw new InternalError({
       message: `workflow-runner:write:resume-run: run ${runId} has no ${WORKFLOW_RUN_STARTED_TYPE} event — cannot recover its trigger event.`,
@@ -201,6 +216,32 @@ export const resumeRunHandler: WriteHandlerDef = {
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
 
+    const runEvents = await ctx.loadAggregate(runId);
+
+    // The workflow_run_pending row is only deleted asynchronously by
+    // pending-projection, so a resume-due-runs tick inside that window finds
+    // it again and the append-claim below no longer conflicts — the event
+    // stream is the authoritative idempotency source.
+    //
+    // retryAttempt must match too, not just stepIndex: a retry suspension
+    // resumes the SAME stepIndex on every attempt (see resumeFrom below), so
+    // matching on stepIndex alone would mistake attempt 1's WORKFLOW_RESUMED
+    // for attempt 2's and skip the second retry entirely.
+    const expectedRetryAttempt = pending.retryAttempt ?? undefined;
+    const alreadySettled = runEvents.some((e) => {
+      if (e.type === WORKFLOW_RUN_COMPLETED_TYPE || e.type === WORKFLOW_RUN_FAILED_TYPE) {
+        return true;
+      }
+      if (e.type !== WORKFLOW_RESUMED_TYPE) {
+        return false;
+      }
+      const resumed = readResumedPayload(e.payload);
+      return resumed.stepIndex === stepIndex && resumed.retryAttempt === expectedRetryAttempt;
+    });
+    if (alreadySettled) {
+      return { isSuccess: true, data: { outcome: "already-resumed" as const } };
+    }
+
     const claim = await ctx.tryAppendEvent({
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
@@ -217,7 +258,7 @@ export const resumeRunHandler: WriteHandlerDef = {
       return { isSuccess: true, data: { outcome: "already-resumed" as const } };
     }
 
-    const triggerEvent = await recoverTriggerEvent(ctx, runId, event.user);
+    const triggerEvent = recoverTriggerEvent(runEvents, runId, event.user);
 
     const resumeFrom =
       pending.suspensionEventType === WORKFLOW_RETRY_SCHEDULED_TYPE ? stepIndex : stepIndex + 1;

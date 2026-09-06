@@ -4,10 +4,10 @@ import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createConfigFeature } from "../../config/feature";
 import {
-  DEFAULT_INVITE_ROLE_OPTIONS,
   INVITE_CREATE_SCREEN_ID,
   MEMBER_ROLES_EDIT_SCREEN_ID,
   MEMBERS_SCREEN_ID,
+  OWNER_INVITE_ROLE_OPTIONS,
   TenantHandlers,
   TenantQueries,
 } from "../constants";
@@ -106,7 +106,7 @@ describe("tenant members screen + handler access alignment", () => {
     expect(section.fields).toEqual([{ field: "userId", readOnly: true }, "roles"]);
     expect(screen.fields["roles"]).toEqual({
       type: "multiSelect",
-      options: DEFAULT_INVITE_ROLE_OPTIONS,
+      options: OWNER_INVITE_ROLE_OPTIONS,
       required: true,
     });
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {
@@ -114,6 +114,34 @@ describe("tenant members screen + handler access alignment", () => {
     } else {
       throw new Error("expected member-roles-edit screen to have access.roles");
     }
+  });
+
+  // fw-2452 regression: the roles-edit multiSelect is prefilled with a
+  // member's current roles, so it must list every rank updateMemberRoles can
+  // actually assign (incl. TenantAdmin) — while the invite picker stays a
+  // closed allowlist without TenantAdmin (fw#2414), since inviting always
+  // starts a brand-new membership rather than editing an existing one.
+  test("member-roles-edit options can represent every assignable rank; invite picker stays TenantAdmin-free", () => {
+    const tenant = createTenantFeature({ inviteScreen: true });
+    const rolesEditScreen = tenant.screens[MEMBER_ROLES_EDIT_SCREEN_ID];
+    if (rolesEditScreen?.type !== "actionForm") {
+      throw new Error("expected member-roles-edit screen to be actionForm");
+    }
+    const rolesField = rolesEditScreen.fields["roles"];
+    if (rolesField?.type !== "multiSelect") {
+      throw new Error("expected roles field to be multiSelect");
+    }
+    expect(rolesField.options).toContain("TenantAdmin");
+
+    const inviteScreen = tenant.screens[INVITE_CREATE_SCREEN_ID];
+    if (inviteScreen?.type !== "actionForm") {
+      throw new Error("expected invite-create screen to be actionForm");
+    }
+    const roleField = inviteScreen.fields["role"];
+    if (roleField?.type !== "select") {
+      throw new Error("expected role field to be select");
+    }
+    expect(roleField.options).not.toContain("TenantAdmin");
   });
 
   // The generic drawer-open/submit/close/refetch mechanics for kind:"drawer"

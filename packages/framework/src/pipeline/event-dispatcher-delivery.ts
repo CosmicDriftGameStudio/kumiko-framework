@@ -155,7 +155,7 @@ export async function preRegisterConsumers(
 ): Promise<void> {
   for (const consumer of consumers) {
     const instanceId = consumerInstanceId(consumer, dispatcherInstanceId);
-    await insertConsumerIfAbsent(db, consumer.name, instanceId);
+    await insertConsumerIfAbsent(db, consumer.name, instanceId, consumer.startFrom);
   }
 }
 

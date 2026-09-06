@@ -12,6 +12,7 @@ import {
   MEMBER_ROLES_EDIT_SCREEN_ID,
   MEMBER_STATUS_CELL_COMPONENT,
   MEMBERS_SCREEN_ID,
+  OWNER_INVITE_ROLE_OPTIONS,
   TenantHandlers,
   TenantQueries,
 } from "./constants";
@@ -179,7 +180,11 @@ export const memberRolesEditScreen = {
   cancelTarget: MEMBERS_SCREEN_ID,
   fields: {
     userId: { type: "text", required: true },
-    roles: { type: "multiSelect", options: DEFAULT_INVITE_ROLE_OPTIONS, required: true },
+    // Prefilled with the member's current roles, so the option list must be
+    // able to represent every assignable rank — DEFAULT_INVITE_ROLE_OPTIONS
+    // omits TenantAdmin and would silently strip it on submit. Escalation
+    // still stays server-side via findForbiddenRoleAssignment (update-member-roles.write.ts).
+    roles: { type: "multiSelect", options: OWNER_INVITE_ROLE_OPTIONS, required: true },
   },
   layout: {
     // Prefill userId from rowAction; readOnly so the operator cannot retarget.

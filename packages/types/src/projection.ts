@@ -161,4 +161,10 @@ export type MultiStreamProjectionDefinition = {
   //                   writes duplicate rows. Misuse = duplicated side
   //                   effects, not a safety property.
   readonly delivery?: "shared" | "per-instance";
+  // Where the consumer's cursor starts on its FIRST registration. Default
+  // "beginning" replays the full log. "now" seeds the cursor at the current
+  // MAX(events.id) so mounting the MSP into an existing app does not
+  // retroactively fire side effects for historical events. Only affects the
+  // first registration — an existing cursor row is never clobbered.
+  readonly startFrom?: "beginning" | "now";
 };

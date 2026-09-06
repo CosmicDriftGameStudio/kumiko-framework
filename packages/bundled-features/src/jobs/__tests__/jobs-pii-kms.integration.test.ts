@@ -451,10 +451,12 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
   const RETRY_USER_ID = "u-pii-retry-1";
   const RETRY_JOB_NAME = "retryapp:job:capture-import";
   const capturedPayloads: Record<string, unknown>[] = [];
+  const capturedTriggeredBy: (string | null)[] = [];
 
   const retryAppFeature = defineFeature("retryapp", (r) => {
-    r.job("captureImport", { trigger: { manual: true } }, async (payload) => {
+    r.job("captureImport", { trigger: { manual: true } }, async (payload, ctx) => {
       capturedPayloads.push(payload);
+      capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
     });
   });
 
@@ -476,6 +478,7 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
 
   beforeEach(() => {
     capturedPayloads.length = 0;
+    capturedTriggeredBy.length = 0;
     retryKms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(retryKms);
   });
@@ -525,6 +528,40 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
     );
     expect(errInfo.code).toBe("unprocessable");
     expect(errInfo.details).toMatchObject({ reason: "job_payload_erased" });
+  });
+
+  // #2469: retry dispatched without a `meta` argument, so the retried run
+  // carried no triggeredById at all — job-run-logger's onJobStart then saw
+  // triggeredById: null, skipped encryption entirely, and the retried run's
+  // payload landed in job_runs as unshreddable plaintext. The asserted
+  // invariant is the input to that chain: the retried BullMQ job must carry
+  // the ORIGINAL run's owner, not the retrying SystemAdmin and not null.
+  // (Asserting the retried run's job_runs row directly is not possible here:
+  // this stack wires no job-run-logger into the runner, so a real dispatch
+  // writes no row — every other row in this file is seeded by calling
+  // retryLogger.onJobStart by hand.)
+  test("retry re-dispatches with the original run's triggeredById so the new run's payload stays encrypted", async () => {
+    await retryLogger.onJobStart?.(RETRY_JOB_NAME, "bull-retry-5", {
+      triggeredById: RETRY_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await retryLogger.onJobFailed?.(RETRY_JOB_NAME, "bull-retry-5", "boom", []);
+
+    const originalRow = await fetchOne(retryStack.db, jobRunsTable, { bullJobId: "bull-retry-5" });
+    expect(isPiiCiphertext(originalRow?.["payload"])).toBe(true);
+    expect(originalRow?.["triggeredById"]).toBe(RETRY_USER_ID);
+
+    await retryStack.http.writeOk<{
+      jobName: string;
+      bullJobId: string;
+      retriedFromRunId: string;
+    }>(JobHandlers.retry, { runId: originalRow?.["id"] }, TestUsers.systemAdmin);
+
+    await sleep(1000);
+
+    expect(capturedTriggeredBy).toEqual([RETRY_USER_ID]);
+    expect(capturedTriggeredBy[0]).not.toBe(TestUsers.systemAdmin.id);
+    expect(capturedPayloads).toEqual([JSON.parse(SECRET_PAYLOAD)]);
   });
 
   // The other producer of PII_ERASED_SENTINEL: job-run-logger writes the

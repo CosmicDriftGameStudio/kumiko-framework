@@ -54,8 +54,10 @@ export const createWrite = defineWriteHandler({
       "user rows are tenant-agnostic identity records; uniqueness check and create need no tenant filter",
     );
 
+    // Pre-flight must match the partial bidx unique index, which only covers live rows.
     const existing = await fetchOne<{ id: string }>(db, userTable, {
       email: event.payload.email,
+      isDeleted: false,
     });
 
     if (existing) {

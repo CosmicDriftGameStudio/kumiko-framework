@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
@@ -55,7 +56,8 @@ export const subjectForgottenSchema = z.object({
 });
 
 export const subjectForgetDeniedSchema = z.object({
-  subjectKey: z.string().min(1),
+  subjectKeyDigest: z.string().min(1),
+  subjectKind: z.enum(["user", "tenant"]),
   reason: z.string().min(10),
   forgottenBy: z.string().min(1),
   actorTenantId: z.string().min(1),
@@ -138,13 +140,21 @@ export const forgetSubjectWrite = defineWriteHandler({
       raw,
     );
     if (tenantScopeDenial) {
-      // Denied cross-tenant probes must still leave an audit trail (fw#2348).
+      // Denied cross-tenant probes must still leave an audit trail (fw#2348),
+      // but the denial lands in the REQUESTING actor's own tenant-scoped
+      // stream — it must never materialise the foreign subject's identifiers
+      // there. A plaintext subjectKey/aggregateId would survive as a
+      // permanent record for the prober and would still be present when the
+      // owning tenant later runs its own (legitimate) forget-subject for that
+      // subject. The digest still lets an operator correlate repeated probes
+      // of the same subject without exposing it (fw#2452).
       await ctx.unsafeAppendEvent({
-        aggregateId: raw.kind === "user" ? raw.userId : raw.tenantId,
+        aggregateId: event.user.id,
         aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
         type: SUBJECT_FORGET_DENIED_EVENT_NAME,
         payload: {
-          subjectKey,
+          subjectKeyDigest: createHash("sha256").update(subjectKey, "utf8").digest("base64url"),
+          subjectKind: raw.kind,
           reason: event.payload.reason,
           forgottenBy: event.user.id,
           actorTenantId: event.user.tenantId,

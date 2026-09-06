@@ -83,9 +83,30 @@ const retryWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
+// Counts real side-effect executions of the step AFTER the suspension point
+// — distinct from the recorded event log, so a double-resume that somehow
+// wrote a deduplicated event log but still re-ran the pipeline would still
+// be caught (framework#2552/1).
+let sideEffectCount = 0;
+
+const idempotentResumeWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "rl-idempotent-resume",
+  trigger: { kind: "event", eventType: "rl-test.idempotent-resume" },
+  idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
+  steps: stepsPipeline(({ r }) => [
+    r.step.wait({ for: (ctx) => (ctx.event.payload as { forIso: string }).forIso }),
+    r.step.compute("sideEffect", () => {
+      sideEffectCount += 1;
+      return sideEffectCount;
+    }),
+    r.step.return({ isSuccess: true, data: undefined }),
+  ]),
+});
+
 const testTriggersFeature = defineFeature("workflow-runner-resume-loop-test-triggers", (r) => {
   registerEventTrigger(r, waitWorkflow);
   registerEventTrigger(r, retryWorkflow);
+  registerEventTrigger(r, idempotentResumeWorkflow);
 });
 
 const noopLogger: JobContext["log"] = {
@@ -273,5 +294,46 @@ describe("workflow-runner resume loop", () => {
     expect(
       rowsAfterResume.filter((row) => row["type"] === WORKFLOW_RETRY_SCHEDULED_TYPE),
     ).toHaveLength(1);
+  });
+
+  test("a second resume-due-runs tick landing before pending-projection deletes the row resumes exactly once (fw#2552/1)", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(idempotentResumeWorkflow.name, runKey);
+    const pastIso = T.Now.instant().subtract({ hours: 1 }).toString();
+    sideEffectCount = 0;
+
+    await fireTrigger("rl-test.idempotent-resume", { runKey, forIso: pastIso });
+    expect(await pendingRowExists(runId, 0)).toBe(true);
+
+    await runResumeDueRunsJob();
+
+    const rowsAfterFirstResume = await loadRunEvents(runId);
+    expect(rowsAfterFirstResume.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_WAITING_TYPE,
+      WORKFLOW_RESUMED_TYPE,
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    ]);
+    expect(sideEffectCount).toBe(1);
+
+    // pending-projection.ts only deletes this row on a LATER dispatcher pass
+    // reacting to WORKFLOW_RESUMED — deliberately not run here, reproducing
+    // the framework#2552/1 race window where a second resume-due-runs tick
+    // lands inside that async-delete gap and still finds the row.
+    expect(await pendingRowExists(runId, 0)).toBe(true);
+
+    await runResumeDueRunsJob();
+
+    const rowsAfterSecondDispatch = await loadRunEvents(runId);
+    expect(rowsAfterSecondDispatch).toHaveLength(4);
+    expect(
+      rowsAfterSecondDispatch.filter((row) => row["type"] === WORKFLOW_RESUMED_TYPE),
+    ).toHaveLength(1);
+    expect(
+      rowsAfterSecondDispatch.filter((row) => row["type"] === WORKFLOW_RUN_COMPLETED_TYPE),
+    ).toHaveLength(1);
+    // Not just the recorded event log — the step's own side effect (which a
+    // buggy second pipeline re-entry would double-run) executed exactly once.
+    expect(sideEffectCount).toBe(1);
   });
 });
