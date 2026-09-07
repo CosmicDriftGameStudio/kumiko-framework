@@ -507,3 +507,88 @@ describe("upgrade command — --apply", () => {
     expect(existsSync(join(target, ".kumiko/upgrade-state.json"))).toBe(true);
   });
 });
+
+// Bug: without --from, the filter baseline used to be the installed
+// version, not the recorded marker — a bare `--apply` always reported
+// "Nothing new" and bootstrapped the marker onto the installed version,
+// hiding changelog entries the marker never actually saw (fw#2371-style).
+describe("upgrade command — filter baseline is the marker, not the installed version", () => {
+  const marker = (version: string): string =>
+    JSON.stringify({ version, appliedAt: "2024-01-01T00:00:00Z", codemods: [] });
+
+  test("bare --apply with a marker below installed: the entry between them is pending, not 'Nothing new'", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      ".kumiko/upgrade-state.json": marker("0.160.0"),
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--apply"], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).not.toContain("Nothing new since your version");
+    const rewritten = readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8");
+    expect(rewritten).toContain('from "@cosmicdrift/kumiko-framework/testing"');
+    const updatedMarker = JSON.parse(
+      readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"),
+    );
+    expect(updatedMarker.version).toBe("0.167.0");
+  });
+
+  test("bare --apply with a manual breaking change: marker is not stamped to installed, pendingManual records it", async () => {
+    const manualEntry = { version: "0.185.0", type: "breaking", title: "manual breaking change" };
+    const fixEntry = { version: "0.188.0", type: "fix", title: "later fix" };
+    const cwd = tmp({
+      "packages/framework/src/changes.json": JSON.stringify([manualEntry, fixEntry]),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.195.0" }),
+      ".kumiko/upgrade-state.json": marker("0.180.0"),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--apply"], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("no codemod, manual migration required");
+    const updatedMarker = JSON.parse(
+      readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"),
+    );
+    // Stamped to the trailing non-breaking entry's version (0.188.0), not
+    // blindly hoisted to the installed version (0.195.0) — proof both
+    // entries were actually seen and run through markerVersionForPending,
+    // rather than filtered out entirely by a too-high baseline.
+    expect(updatedMarker.version).toBe("0.188.0");
+    expect(updatedMarker.version).not.toBe("0.195.0");
+  });
+
+  test("bare --apply with no marker (bootstrap): behaves as before, marker is written at the installed version", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "packages/framework/package.json": JSON.stringify({ version: "0.170.0" }),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--apply"], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("Nothing new since your version");
+    const updatedMarker = JSON.parse(
+      readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"),
+    );
+    expect(updatedMarker.version).toBe("0.170.0");
+  });
+
+  test("--from wins over an existing marker", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": JSON.stringify([
+        { version: "0.175.0", type: "fix", title: "explicit-from-test-entry" },
+      ]),
+      ".kumiko/upgrade-state.json": marker("0.180.0"),
+    });
+
+    const result = await runJson(cwd, "0.170.0");
+
+    expect(result.pending.map((e) => e.title)).toEqual(["explicit-from-test-entry"]);
+  });
+});
