@@ -57,6 +57,29 @@ export async function markConsumerProcessing(
   );
 }
 
+// Best-effort record of an infra-level pass failure (event-dispatcher.ts's
+// processConsumer catch) — called OUTSIDE the transaction that just rolled
+// back, since that tx's own markProcessing/updateConsumerDeliveryOutcome
+// writes never committed. Only touches attempts/last_error: status and the
+// cursor are left as-is, since we don't know at this point whether the
+// consumer should be considered "dead" (that's the deliverEvents/maxAttempts
+// contract, which never ran this pass).
+export async function recordConsumerPassFailure(
+  db: AnyDb,
+  name: string,
+  instanceId: string,
+  errorMessage: string,
+): Promise<void> {
+  await asRawClient(db).unsafe(
+    `UPDATE "kumiko_event_consumers" SET
+       "attempts" = "attempts" + 1,
+       "last_error" = $1,
+       "updated_at" = now()
+     WHERE "name" = $2 AND "instance_id" = $3`,
+    [errorMessage, name, instanceId],
+  );
+}
+
 export type ConsumerDeliveryOutcome = {
   readonly cursor: bigint;
   readonly attempts: number;
