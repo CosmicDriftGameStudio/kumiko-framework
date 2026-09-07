@@ -2,6 +2,7 @@
 // registry on import. Add a line here when a new command is added.
 
 import "./add";
+import "./agent";
 import "./build";
 import "./changes";
 import "./check";

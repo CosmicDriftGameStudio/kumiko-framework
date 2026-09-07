@@ -1588,6 +1588,63 @@ defineFeature("f", (r) => {
     });
   });
 
+  test("object form: description + agent hints are extracted", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "task:approve",
+    schema: z.object({ id: z.string() }),
+    handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
+    description: "Approves a pending task.",
+    agent: { expose: true, risk: "high" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:approve",
+      description: "Approves a pending task.",
+      agent: { expose: true, risk: "high" },
+    });
+  });
+
+  test("object form: an unknown agent.risk value is dropped, not passed through", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "task:approve",
+    schema: z.object({ id: z.string() }),
+    handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
+    agent: { expose: true, risk: "bogus" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      agent: { expose: true },
+    });
+    expect((result.patterns[0] as { agent?: { risk?: unknown } }).agent?.risk).toBeUndefined();
+  });
+
+  test("4-argument form: description + agent hints are read from the options object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler("task:create", z.object({ title: z.string() }), async (event, ctx) => {
+    return { isSuccess: true, data: {} };
+  }, { description: "Creates a task.", agent: { risk: "mid" } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:create",
+      description: "Creates a task.",
+      agent: { risk: "mid" },
+    });
+  });
+
   test("resolves a same-file identifier arg to its object-literal form (#1007)", () => {
     const result = parseInline(`
 const h = {
@@ -1634,6 +1691,27 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({
       kind: "queryHandler",
       handlerName: "task:list",
+    });
+  });
+
+  test("object form: description + agent hints are extracted", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.queryHandler({
+    name: "task:list",
+    schema: z.object({}),
+    handler: async (q, ctx) => [],
+    description: "Lists tasks.",
+    agent: { risk: "low" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "queryHandler",
+      handlerName: "task:list",
+      description: "Lists tasks.",
+      agent: { risk: "low" },
     });
   });
 });
@@ -1687,6 +1765,23 @@ defineFeature("f", (r) => {
       source: { raw: "r.streamHandler(chatCompleteHandler)" },
     });
     expect(result.errors).toEqual([]);
+  });
+
+  test("description/agent are NOT part of StreamHandlerPattern's runtime shape", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.streamHandler({
+    name: "chat:complete",
+    schema: z.object({ prompt: z.string() }),
+    handler: async function* (input, ctx) { yield "token"; },
+    description: "Should be ignored for streamHandler.",
+    agent: { risk: "high" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).not.toHaveProperty("description");
+    expect(result.patterns[0]).not.toHaveProperty("agent");
   });
 });
 
