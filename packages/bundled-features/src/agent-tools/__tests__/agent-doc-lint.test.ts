@@ -195,6 +195,6 @@ describe("findAgentDocGaps", () => {
     expect(gap).toBeDefined();
     const formatted = formatAgentDocGap(gap as NonNullable<typeof gap>);
     expect(formatted).toContain((gap as NonNullable<typeof gap>).qn);
-    expect(formatted).toContain((gap as NonNullable<typeof gap>).reason);
+    expect(formatted).toContain((gap as NonNullable<typeof gap>).message);
   });
 });

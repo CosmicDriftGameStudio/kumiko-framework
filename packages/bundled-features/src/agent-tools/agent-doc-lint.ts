@@ -17,7 +17,7 @@ export type AgentDocGap = {
   readonly qn: string;
   readonly feature: string;
   readonly kind: AgentDocGapKind;
-  readonly reason: string;
+  readonly message: string;
 };
 
 // No shared screen-type union exists in the codebase to import (ScreenDefinition
@@ -47,7 +47,7 @@ function handlerDocGaps(
       qn: qn(toKebab(feature.name), handlerQnType, toKebab(name)),
       feature: feature.name,
       kind: AgentDocGapKinds.handlerWithoutDescription,
-      reason: `This ${handlerNoun} has no description, so it stays invisible to the AI agent — set \`description\` to expose it, or \`agent: { expose: false }\` to opt out deliberately.`,
+      message: `This ${handlerNoun} has no description, so it stays invisible to the AI agent — set \`description\` to expose it, or \`agent: { expose: false }\` to opt out deliberately.`,
     });
   }
   return gaps;
@@ -61,7 +61,7 @@ function screenDocGaps(feature: FeatureDefinition): readonly AgentDocGap[] {
       qn: qn(toKebab(feature.name), QnTypes.screen, toKebab(shortId)),
       feature: feature.name,
       kind: AgentDocGapKinds.customScreenWithoutDescription,
-      reason:
+      message:
         "This custom screen has no description, so the AI agent can't tell what it's for — set `description` to explain it.",
     });
   }
@@ -93,7 +93,7 @@ function exposedEntityDocGaps(feature: FeatureDefinition): readonly AgentDocGap[
       qn: `${toKebab(feature.name)}:${ENTITY_QN_SEGMENT}:${entityName}`,
       feature: feature.name,
       kind: AgentDocGapKinds.exposedEntityWithoutDescription,
-      reason:
+      message:
         "This entity is reachable through an agent-visible handler, but the agent can't explain its schema — set `description` to describe it.",
     });
   }
@@ -118,5 +118,5 @@ export function findAgentDocGaps(features: readonly FeatureDefinition[]): readon
 }
 
 export function formatAgentDocGap(gap: AgentDocGap): string {
-  return `${gap.qn} — ${gap.reason}`;
+  return `${gap.qn} — ${gap.message}`;
 }

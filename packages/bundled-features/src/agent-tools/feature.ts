@@ -19,7 +19,10 @@ export function createAgentToolsFeature(): FeatureDefinition {
     // would turn every incrementally-documented app into an outage.
     r.bootCheck(({ features }) => {
       const gaps = findAgentDocGaps(features);
-      if (gaps.length === 0) return;
+      if (gaps.length === 0) {
+        // skip: no documentation gaps, nothing to warn about
+        return;
+      }
       // biome-ignore lint/suspicious/noConsole: operator-visibility at boot for agent-doc gaps
       console.warn(
         `[agent-tools] ${gaps.length} handler/screen/entity gap(s) invisible to the AI agent — run \`kumiko agent lint\` for details:`,
