@@ -23,12 +23,12 @@
 // registers its own shutdown hooks (eventDispatcher.stop, jobRunner.stop)
 // in the order they were built.
 //
-// Known limitation (tracked in uebersicht.md Offene Follow-Ups): the
-// built-in SSE broker is in-memory per process. In a split api/worker
-// deploy, system-consumers that push to SSE (new-row broadcasts) run on
-// the worker and therefore can't reach clients connected to the API
-// instances. Either run all-in-one, put the SSE consumer on the API
-// side explicitly, or wait for the Redis-Pub/Sub bridge.
+// SSE fanout across processes (split api/worker deploy, replicas > 1):
+// buildServer's default sseBroker is Redis-backed whenever REDIS_URL is
+// set (fw#2625) — a push on the worker's dispatcher reaches clients
+// connected to any API instance via Redis Pub/Sub, no per-instance
+// cursor needed. Without REDIS_URL, the in-memory broker still only
+// reaches clients on the same process.
 
 import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes";

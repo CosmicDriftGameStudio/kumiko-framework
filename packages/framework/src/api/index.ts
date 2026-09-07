@@ -41,6 +41,8 @@ export {
 export type { JwtHelper, JwtKeyring, JwtPayload } from "./jwt";
 export { createJwtHelper, loadJwtSecretOrKeyring } from "./jwt";
 export { patAllows, qnMatches } from "./pat-scope";
+export type { RedisSseBroker, RedisSseBrokerOptions } from "./redis-sse-broker";
+export { createRedisSseBroker } from "./redis-sse-broker";
 export { type RequestContextData, requestContext } from "./request-context";
 export { requestIdMiddleware } from "./request-id-middleware";
 export { createApiRoutes } from "./routes";

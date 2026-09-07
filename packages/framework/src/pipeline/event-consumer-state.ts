@@ -11,6 +11,7 @@ import {
   text,
 } from "../db/dialect";
 import { alterTableAddColumn } from "../db/queries/ddl";
+import { deleteOrphanedPerInstanceConsumerRows } from "../db/queries/event-consumer";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 
@@ -90,6 +91,18 @@ export const eventConsumerStateTable = pgTable(
   }),
 );
 
+// fw#2625: these two system consumers moved from delivery: "per-instance" to
+// "shared" (see system-hooks.ts). Their old per-instance rows are now
+// orphaned — no dispatcher will ever advance them again — and pruneEvents
+// stays pinned to whichever one has the lowest cursor forever. Named here
+// (not imported from system-hooks.ts) to avoid a pipeline → system-hooks
+// dependency for two string literals; system-hooks.ts's own exported
+// constants are the source of truth these must match.
+const ORPHANED_PER_INSTANCE_CONSUMER_NAMES = [
+  "system:consumer:sse-broadcast",
+  "system:consumer:access-invalidation",
+] as const;
+
 // Object-const form lets call sites write `ConsumerStatuses.disabled` instead
 // of the raw string, which keeps status checks refactor-safe. The runtime
 // value on each field is the same string the DB stores — no mapping needed.
@@ -126,8 +139,11 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
       " NOT NULL",
       /* ifNotExists */ true,
     );
+    await deleteOrphanedPerInstanceConsumerRows(db, ORPHANED_PER_INSTANCE_CONSUMER_NAMES);
     // skip: table (+ any missing column) is already up to date
     return;
   }
+  // A freshly created table has no rows to clean up — the DELETE only
+  // matters for a DB that already ran the old per-instance consumers.
   await unsafePushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
 }

@@ -29,8 +29,10 @@ export type SseBroker = {
 };
 
 export function createSseBroker(): SseBroker {
-  // Cross-replica fanout lives one level up: the SSE + access-invalidation
-  // consumers (system-hooks.ts) run delivery: "per-instance" (#1718).
+  // Purely local: no cross-replica fanout. buildServer wraps this in
+  // createRedisSseBroker (fw#2625) whenever REDIS_URL is set, which is what
+  // makes pushToChannel/publishAccessInvalidation reach every replica's
+  // clients — this reference implementation stays single-process only.
   const channels = new Map<string, Map<string, SseClient>>();
   // Set, not Map<listenerId, fn> — dedup key is callback reference. Every
   // subscriber must pass a distinct closure (dispatch-stream.ts does, one

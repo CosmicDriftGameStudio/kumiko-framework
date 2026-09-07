@@ -13,10 +13,12 @@ import { globalFeatureStateTable } from "./global-feature-state-table";
 // snapshot is loaded once at boot via `.initialize()`, refreshed by the
 // set-handler on the local instance, and kept in sync across
 // instances by the `toggle-cache-sync` MSP (declared on the
-// feature-toggles feature, delivery: "per-instance"). Every API/worker
-// process observes every toggle-set event and applies it to its local
-// snapshot — no Redis / SSE / polling needed; the existing events-table
-// + event-dispatcher pipeline handles propagation.
+// feature-toggles feature, delivery: "per-instance" — see fw#2625 comment
+// there for why this consumer can't move to a shared cursor). Every
+// API/worker process runs its own dispatcher cursor and applies each
+// toggle-set event to its own local snapshot — no Redis / SSE / polling
+// needed, the existing events-table + event-dispatcher pipeline handles
+// propagation.
 export class GlobalFeatureToggleRuntime {
   private snapshot = new Map<string, boolean>();
 
