@@ -201,14 +201,14 @@ defineFeature("workflow", (r) => {
     async (event, ctx) => {
       return { isSuccess: true, data: { id: "x" } };
     },
-    { access: { roles: ["user"] } },
+    { access: { roles: ["user"] }, description: "Creates a step.", agent: { expose: true, risk: "high" } },
   );
 
   r.queryHandler(
     "step:list",
     z.object({}),
     async (q, ctx) => [],
-    { access: { openToAll: true } },
+    { access: { openToAll: true }, description: "Lists steps.", agent: { risk: "low" } },
   );
 
   r.streamHandler(

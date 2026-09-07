@@ -66,7 +66,12 @@ import type {
 } from "../types/config";
 import type { MetricOptions, SecretOptions } from "../types/feature";
 import type { EntityDefinition } from "../types/fields";
-import type { AccessRule, ClaimKeyType, RateLimitOption } from "../types/handlers";
+import type {
+  AccessRule,
+  AgentHandlerHints,
+  ClaimKeyType,
+  RateLimitOption,
+} from "../types/handlers";
 import type { HookPhase } from "../types/hooks";
 import type { HttpRouteMethod } from "../types/http-route";
 import type { NavDefinition } from "../types/nav";
@@ -87,6 +92,10 @@ import type { SourceLocation } from "./source-location";
 // framework derives the aggregate table, CRUD events, and the read-side
 // projection from it at boot. Fully static — the Designer renders it as a
 // form, the AI patcher edits it as pure data.
+//
+// Carries `definition.description` transitively (no dedicated field here):
+// that prose feeds the AI-agent manifest output. An entity without it still
+// works, but the agent has nothing to say about it in the tool catalogue.
 export type EntityPattern = {
   readonly kind: "entity";
   readonly source: SourceLocation;
@@ -333,6 +342,10 @@ export type ScreenOpaqueMarker = typeof SCREEN_OPAQUE_MARKER;
 // entity-bound screens reference a registered entity and that column/form
 // field refs name real fields. Closure-valued props (visibility conditions,
 // row-action payloads, custom renderers) stay opaque — see `opaqueProps`.
+//
+// Carries `definition.description` transitively (no dedicated field here):
+// that prose feeds the AI-agent manifest output. A `type: "custom"` screen
+// without it renders a `renderer` closure the agent has no way to explain.
 export type ScreenPattern = {
   readonly kind: "screen";
   readonly source: SourceLocation;
@@ -346,6 +359,13 @@ export type ScreenPattern = {
 // `r.writeHandler(...)` — registers a command handler: name, Zod input
 // schema, handler closure, plus optional `access` and `rateLimit` rules.
 // The header is declarative; schema and body stay opaque source spans.
+//
+// `description` is the prose the AI agent sees as this handler's tool
+// description in the manifest — without it, the handler stays invisible to
+// the agent (fail-closed: no description, no exposure). `agent.expose`
+// overrides that derivation explicitly (force-show or force-hide);
+// `agent.risk` ("low" | "mid" | "high") classifies the action's blast
+// radius, defaulting to "mid" for a write handler.
 export type WriteHandlerPattern = {
   readonly kind: "writeHandler";
   readonly source: SourceLocation;
@@ -364,6 +384,8 @@ export type WriteHandlerPattern = {
   // generates raw TypeScript, no DSL interpretation.
   readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
 };
@@ -372,6 +394,12 @@ export type WriteHandlerPattern = {
 // handler closure, plus optional `access` and `rateLimit` rules. Read-side
 // counterpart of `r.writeHandler` with the same header/body split. Opaque
 // (no handlerName) for the same single-reference case as WriteHandlerPattern.
+//
+// `description` and `agent` mirror WriteHandlerPattern: `description` is the
+// prose the AI agent shows as this query's tool description (absent →
+// invisible to the agent), `agent.expose` overrides that, and `agent.risk`
+// defaults to "low" for a query handler (reads carry less blast radius than
+// writes).
 export type QueryHandlerPattern = {
   readonly kind: "queryHandler";
   readonly source: SourceLocation;
@@ -379,6 +407,8 @@ export type QueryHandlerPattern = {
   readonly schemaSource?: SourceLocation;
   readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
 };
 

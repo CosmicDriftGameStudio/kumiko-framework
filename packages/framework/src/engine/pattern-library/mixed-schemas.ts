@@ -76,6 +76,20 @@ export const writeHandlerSchema: PatternFormSchema = {
     },
     accessRuleField,
     {
+      path: "description",
+      label: { en: "Description", de: "Beschreibung" },
+      hint: {
+        en: "Prose the AI agent sees as the tool description. Without it the handler stays invisible to the agent.",
+      },
+      input: "textarea",
+    },
+    {
+      path: "agent",
+      label: { en: "Agent hints", de: "Agent-Hinweise" },
+      hint: { en: "expose override + risk level for the AI-agent manifest." },
+      input: "json-readonly",
+    },
+    {
       path: "rateLimit",
       label: { en: "Rate limit", de: "Rate-Limit" },
       input: "json-readonly",
@@ -117,6 +131,20 @@ export const queryHandlerSchema: PatternFormSchema = {
       readOnly: true,
     },
     accessRuleField,
+    {
+      path: "description",
+      label: { en: "Description", de: "Beschreibung" },
+      hint: {
+        en: "Prose the AI agent sees as the tool description. Without it the handler stays invisible to the agent.",
+      },
+      input: "textarea",
+    },
+    {
+      path: "agent",
+      label: { en: "Agent hints", de: "Agent-Hinweise" },
+      hint: { en: "expose override + risk level for the AI-agent manifest." },
+      input: "json-readonly",
+    },
     {
       path: "rateLimit",
       label: { en: "Rate limit", de: "Rate-Limit" },

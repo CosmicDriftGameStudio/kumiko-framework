@@ -404,6 +404,8 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
   lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
   lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
+  if (p.description !== undefined) lines.push(`  description: ${JSON.stringify(p.description)},`);
+  if (p.agent !== undefined) lines.push(`  agent: ${renderValue(p.agent)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   if (p.unsafeSkipTransitionGuard === true) lines.push("  unsafeSkipTransitionGuard: true,");
   lines.push("});");
@@ -417,6 +419,8 @@ function renderQueryHandler(p: QueryHandlerPattern): string {
   lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
   lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
+  if (p.description !== undefined) lines.push(`  description: ${JSON.stringify(p.description)},`);
+  if (p.agent !== undefined) lines.push(`  agent: ${renderValue(p.agent)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   lines.push("});");
   return lines.join("\n");

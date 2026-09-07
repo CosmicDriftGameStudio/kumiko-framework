@@ -25,8 +25,8 @@ export {
 } from "./classes";
 export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error";
 export { isKumikoError, KumikoError } from "./kumiko-error";
-export type { FrameworkReason } from "./reasons";
-export { FrameworkReasons } from "./reasons";
+export type { AgentReason, FrameworkReason } from "./reasons";
+export { AgentReasons, FrameworkReasons } from "./reasons";
 export type { ErrorLogEntry, ErrorResponseBody } from "./serialize";
 export { buildErrorLog, serializeError } from "./serialize";
 export { toKumikoError } from "./to-kumiko-error";

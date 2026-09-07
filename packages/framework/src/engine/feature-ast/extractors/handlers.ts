@@ -1,6 +1,11 @@
-import type { CallExpression, Node, SourceFile } from "ts-morph";
+import type { CallExpression, Node, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { AccessRule, RateLimitOption } from "../../types/handlers";
+import type {
+  AccessRule,
+  AgentHandlerHints,
+  AgentRisk,
+  RateLimitOption,
+} from "../../types/handlers";
 import type { QueryHandlerPattern, StreamHandlerPattern, WriteHandlerPattern } from "../patterns";
 import type { SourceLocation } from "../source-location";
 import { sourceLocationFromNode } from "../source-location";
@@ -23,9 +28,77 @@ export type ParsedHandlerCall = {
   readonly schemaSource?: SourceLocation;
   readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
 };
+
+const AGENT_RISK_VALUES: readonly AgentRisk[] = ["low", "mid", "high"];
+
+function isAgentRisk(value: unknown): value is AgentRisk {
+  return typeof value === "string" && (AGENT_RISK_VALUES as readonly string[]).includes(value);
+}
+
+export function readOptionalAgentHints(value: unknown): AgentHandlerHints | undefined {
+  if (!isPlainObject(value)) return undefined;
+  const expose = typeof value["expose"] === "boolean" ? value["expose"] : undefined;
+  const risk = isAgentRisk(value["risk"]) ? value["risk"] : undefined;
+  if (expose === undefined && risk === undefined) return undefined;
+  return {
+    ...(expose !== undefined && { expose }),
+    ...(risk !== undefined && { risk }),
+  };
+}
+
+/**
+ * Reads the two AI-agent-manifest slots (`description`, `agent`) off an
+ * object-form handler-call literal. Factored out of parseHandlerCall to
+ * keep that function's branching flat — both fields are optional and
+ * independent of the rest of the header (access/rateLimit/schema/handler).
+ */
+function readDescriptionAndAgent(
+  obj: ObjectLiteralExpression,
+): Pick<ParsedHandlerCall, "description" | "agent"> {
+  const descriptionLiteral = obj
+    .getProperty("description")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  const agentInit = obj
+    .getProperty("agent")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  const agent = agentInit ? readOptionalAgentHints(readDataLiteralNode(agentInit)) : undefined;
+  return {
+    ...(descriptionLiteral !== undefined && { description: descriptionLiteral.getLiteralValue() }),
+    ...(agent !== undefined && { agent }),
+  };
+}
+
+/**
+ * Reads `access`/`rateLimit`/`description`/`agent` off the positional
+ * 4th-argument options object (the inline-authoring form). Mirrors
+ * readDescriptionAndAgent's role for the object-form branch — keeping
+ * parseHandlerCall's positional branch to a single assignment instead of
+ * four independent mutable locals.
+ */
+function readOptionsFields(
+  options: unknown,
+): Pick<ParsedHandlerCall, "access" | "rateLimit" | "description" | "agent"> {
+  if (!isPlainObject(options)) return {};
+  const access = readOptionalAccessRule(options["access"]);
+  const rateLimit = readOptionalRateLimit(options["rateLimit"]);
+  const description =
+    typeof options["description"] === "string" ? options["description"] : undefined;
+  const agent = readOptionalAgentHints(options["agent"]);
+  return {
+    ...(access !== undefined && { access }),
+    ...(description !== undefined && { description }),
+    ...(agent !== undefined && { agent }),
+    ...(rateLimit !== undefined && { rateLimit }),
+  };
+}
 
 /**
  * Resolves an argument standing in for a handler-call's object-form body:
@@ -113,6 +186,7 @@ export function parseHandlerCall(
     const rateLimit = rateLimitInit
       ? readOptionalRateLimit(readDataLiteralNode(rateLimitInit))
       : undefined;
+    const { description, agent } = readDescriptionAndAgent(obj);
     const skip = readBooleanProperty(obj, "unsafeSkipTransitionGuard");
     return ok({
       source: sourceLocationFromNode(call, sourceFile),
@@ -120,6 +194,8 @@ export function parseHandlerCall(
       schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
       handlerBody: sourceLocationFromNode(fn, sourceFile),
       ...(access !== undefined && { access }),
+      ...(description !== undefined && { description }),
+      ...(agent !== undefined && { agent }),
       ...(rateLimit !== undefined && { rateLimit }),
       ...(skip === true && { unsafeSkipTransitionGuard: true }),
     });
@@ -168,22 +244,13 @@ export function parseHandlerCall(
     );
   }
   const optionsArg = args[3];
-  let access: AccessRule | undefined;
-  let rateLimit: RateLimitOption | undefined;
-  if (optionsArg) {
-    const options = readDataLiteralNode(optionsArg);
-    if (isPlainObject(options)) {
-      access = readOptionalAccessRule(options["access"]);
-      rateLimit = readOptionalRateLimit(options["rateLimit"]);
-    }
-  }
+  const optionsFields = optionsArg ? readOptionsFields(readDataLiteralNode(optionsArg)) : {};
   return ok({
     source: sourceLocationFromNode(call, sourceFile),
     handlerName,
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
     handlerBody: sourceLocationFromNode(fn, sourceFile),
-    ...(access !== undefined && { access }),
-    ...(rateLimit !== undefined && { rateLimit }),
+    ...optionsFields,
   });
 }
 
@@ -200,6 +267,8 @@ export function extractWriteHandler(
     schemaSource: parsed.pattern.schemaSource,
     handlerBody: parsed.pattern.handlerBody,
     ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
+    ...(parsed.pattern.description !== undefined && { description: parsed.pattern.description }),
+    ...(parsed.pattern.agent !== undefined && { agent: parsed.pattern.agent }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
     ...(parsed.pattern.unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
   });
@@ -222,9 +291,17 @@ export function extractQueryHandler(
 ): ExtractOutput<QueryHandlerPattern> {
   const parsed = parseHandlerCall(call, sourceFile, "queryHandler");
   if (parsed.kind === "error") return parsed;
-  return ok({ kind: "queryHandler", ...readHandlerFields(parsed) });
+  return ok({
+    kind: "queryHandler",
+    ...readHandlerFields(parsed),
+    ...(parsed.pattern.description !== undefined && { description: parsed.pattern.description }),
+    ...(parsed.pattern.agent !== undefined && { agent: parsed.pattern.agent }),
+  });
 }
 
+// streamHandler shares parseHandlerCall with writeHandler/queryHandler, but
+// StreamHandlerDef carries neither `description` nor `agent` at runtime —
+// readHandlerFields intentionally does not forward them here.
 export function extractStreamHandler(
   call: CallExpression,
   sourceFile: SourceFile,
