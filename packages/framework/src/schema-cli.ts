@@ -447,6 +447,15 @@ export async function runSchemaCli(
     }
 
     default: {
+      // No subcommand (`kumiko schema`) is a help request → usage + exit 0.
+      // An unrecognized one (typo, e.g. `schema cutover`) must fail loud —
+      // silently exiting 0 here let a deploy's migrate step print help and
+      // move on without ever running a migration.
+      if (sub !== undefined) {
+        out.err(`  Unbekanntes Subcommand: "${sub}"`);
+        out.err("  Erlaubt: generate | validate | apply | baseline | status");
+        return 1;
+      }
       out.log("");
       out.log("  Subcommands:");
       out.log("    generate <name>   Schreibe neue Migration aus EntityTableMeta-Diff");
