@@ -46,7 +46,7 @@ import { seedTenantMembership } from "../../tenant/seeding";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { seedUser } from "../../user/seeding";
-import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
+import { SUBJECT_FORGET_DENIED_EVENT_NAME, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 import { createCryptoShreddingFeature } from "../feature";
 
 const FORGET = "crypto-shredding:write:forget-subject";
@@ -93,6 +93,17 @@ afterEach(() => {
 async function forgottenEvents(): Promise<Array<{ payload: Record<string, unknown> }>> {
   return (await selectMany(stack.db, eventsTable, {
     type: SUBJECT_FORGOTTEN_EVENT_NAME,
+  })) as Array<{ payload: Record<string, unknown> }>;
+}
+
+// Parameterized (unlike forgottenEvents) because the denial-audit tests
+// below run against both this file's top-level stack and the separate
+// tenant+user-mounted stack further down — each has its own events table.
+async function deniedEvents(
+  db: TestStack["db"] = stack.db,
+): Promise<Array<{ payload: Record<string, unknown> }>> {
+  return (await selectMany(db, eventsTable, {
+    type: SUBJECT_FORGET_DENIED_EVENT_NAME,
   })) as Array<{ payload: Record<string, unknown> }>;
 }
 
@@ -148,6 +159,26 @@ describe("crypto-shredding :: forget-subject", () => {
     await expect(
       kms.getKey({ kind: "tenant", tenantId: TARGET_TENANT_ID as TenantId }),
     ).resolves.toBeTruthy();
+  });
+
+  // fw#2592 regression: the denial audit event used to be appended via
+  // ctx.unsafeAppendEvent, inside the same tx the denial then rolled back —
+  // the store stayed empty even though a cross-tenant probe was denied.
+  test("cross-tenant denial (kind=tenant) still leaves an audit event that survives the rollback", async () => {
+    const subject = { kind: "tenant", tenantId: TARGET_TENANT_ID } as const;
+    await kms.createKey({ kind: "tenant", tenantId: TARGET_TENANT_ID as TenantId });
+
+    const err = await stack.http.writeErr(FORGET, { subject, reason: REASON }, dpoUser);
+    expect(err.httpStatus).toBe(403);
+
+    const denied = await deniedEvents();
+    expect(denied).toHaveLength(1);
+    expect(denied[0]?.payload).toMatchObject({
+      subjectKind: "tenant",
+      reason: REASON,
+      forgottenBy: dpoUser.id,
+      actorTenantId: dpoUser.tenantId,
+    });
   });
 
   test("SystemAdmin bypasses the tenant-scope guard", async () => {
@@ -477,6 +508,64 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
 
     const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
     expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
+  });
+
+  // fw#2592 regression, kind=user variant of the top-level "cross-tenant
+  // denial ... survives the rollback" test: before the fix, deniedEvents()
+  // would come back empty here too.
+  test("cross-tenant denial (kind=user) still leaves an audit event that survives the rollback", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "foreign-tenant-user-2592@example.com",
+      displayName: "Foreign Tenant User 2592",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_B, roles: ["Member"] });
+
+    const err = await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
+
+    const denied = await deniedEvents(stack.db);
+    expect(denied).toHaveLength(1);
+    expect(denied[0]?.payload).toMatchObject({
+      subjectKind: "user",
+      reason: REASON,
+      forgottenBy: dpoUser.id,
+      actorTenantId: dpoUser.tenantId,
+    });
+  });
+
+  // fw#2591 payload-hardening coverage (previously untested): the denial
+  // event must carry only a digest, never the foreign user id or a
+  // plaintext subject key.
+  test("denial payload carries only the digest, never the foreign subject id or a plaintext key", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "foreign-tenant-user-2591@example.com",
+      displayName: "Foreign Tenant User 2591",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_B, roles: ["Member"] });
+
+    await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+
+    const denied = await deniedEvents(stack.db);
+    expect(denied).toHaveLength(1);
+    const payload = denied[0]?.payload ?? {};
+    expect(payload["subjectKeyDigest"]).toBeTruthy();
+    expect(payload["subjectKind"]).toBe("user");
+    expect(payload).not.toHaveProperty("subjectKey");
+    expect(payload["actorTenantId"]).toBe(dpoUser.tenantId);
+
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain(userId);
+    expect(serialized).not.toContain(TENANT_B);
   });
 
   test("SystemAdmin can forget a user with no membership in any tenant", async () => {

@@ -14,8 +14,10 @@ import {
 import {
   defineWriteHandler,
   type FeatureDefinition,
+  type HandlerContext,
   type SessionUser,
   type TenantId,
+  type WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -23,7 +25,9 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens";
 import { USER_STATUS } from "../../user";
@@ -101,6 +105,75 @@ async function resolveTenantScopeDenial(
   return ownedInTenant ? undefined : memberDenied;
 }
 
+// Denied cross-tenant probes must still leave an audit trail (fw#2348).
+// Appended outside the handler tx (fw#2592): the caller's
+// `return tenantScopeDenial` rolls that tx back.
+async function appendDenialAuditEvent(
+  ctx: HandlerContext,
+  event: WriteEvent<z.infer<typeof forgetSubjectSchema>>,
+  subjectKey: string,
+  subjectKind: SubjectIdInput["kind"],
+  denialCode: string,
+): Promise<WriteFailure | null> {
+  const outsideTx = ctx.dbOutsideTransaction;
+  if (!outsideTx) {
+    return writeFailure(
+      new InternalError({
+        message:
+          "[crypto-shredding] forget-subject denial audit event cannot be appended without " +
+          "ctx.dbOutsideTransaction — dispatch wiring is missing the outside-tx db source.",
+      }),
+    );
+  }
+  const eventDef = ctx.registry.getEvent(SUBJECT_FORGET_DENIED_EVENT_NAME);
+  if (!eventDef) {
+    return writeFailure(
+      new InternalError({
+        message: `[crypto-shredding] event "${SUBJECT_FORGET_DENIED_EVENT_NAME}" is not registered.`,
+      }),
+    );
+  }
+  const payload = subjectForgetDeniedSchema.parse({
+    // The denial lands in the REQUESTING actor's own tenant-scoped stream —
+    // it must never materialise the foreign subject's identifiers there. A
+    // plaintext subjectKey/aggregateId would survive as a permanent record
+    // for the prober and would still be present when the owning tenant
+    // later runs its own (legitimate) forget-subject for that subject. The
+    // digest still lets an operator correlate repeated probes of the same
+    // subject without exposing it (fw#2452).
+    subjectKeyDigest: createHash("sha256").update(subjectKey, "utf8").digest("base64url"),
+    subjectKind,
+    reason: event.payload.reason,
+    forgottenBy: event.user.id,
+    actorTenantId: event.user.tenantId,
+    denial: denialCode,
+  });
+  const reqCtx = requestContext.get();
+  // This event is the only proof the denial happened. Skipping
+  // runProjectionsForEvent here is fine — nothing projects
+  // crypto-shredding:event:forget-denied.
+  await append(outsideTx.raw, {
+    aggregateId: generateId(),
+    aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+    // MUST be event.user.tenantId (the prober's own tenant), never
+    // SYSTEM_TENANT_ID — .raw bypasses TenantDb's scoping wrapper, so this
+    // is the only thing keeping the denial event out of the foreign
+    // subject's tenant (fw#2452).
+    tenantId: event.user.tenantId,
+    expectedVersion: 0,
+    type: SUBJECT_FORGET_DENIED_EVENT_NAME,
+    eventVersion: eventDef.version,
+    payload,
+    metadata: {
+      userId: event.user.id,
+      ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+      ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+      ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+    },
+  });
+  return null;
+}
+
 // Manual crypto-shred for a DPO / platform operator: erases the subject's
 // DEK immediately (all its PII ciphertext becomes unreadable, reads render
 // "[[erased]]") and appends the audit event. Forget is final — the adapter
@@ -140,28 +213,14 @@ export const forgetSubjectWrite = defineWriteHandler({
       raw,
     );
     if (tenantScopeDenial) {
-      // Denied cross-tenant probes must still leave an audit trail (fw#2348),
-      // but the denial lands in the REQUESTING actor's own tenant-scoped
-      // stream — it must never materialise the foreign subject's identifiers
-      // there. A plaintext subjectKey/aggregateId would survive as a
-      // permanent record for the prober and would still be present when the
-      // owning tenant later runs its own (legitimate) forget-subject for that
-      // subject. The digest still lets an operator correlate repeated probes
-      // of the same subject without exposing it (fw#2452).
-      await ctx.unsafeAppendEvent({
-        aggregateId: event.user.id,
-        aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-        type: SUBJECT_FORGET_DENIED_EVENT_NAME,
-        payload: {
-          subjectKeyDigest: createHash("sha256").update(subjectKey, "utf8").digest("base64url"),
-          subjectKind: raw.kind,
-          reason: event.payload.reason,
-          forgottenBy: event.user.id,
-          actorTenantId: event.user.tenantId,
-          denial: tenantScopeDenial.error.code,
-        },
-      });
-      return tenantScopeDenial;
+      const auditFailure = await appendDenialAuditEvent(
+        ctx,
+        event,
+        subjectKey,
+        raw.kind,
+        tenantScopeDenial.error.code,
+      );
+      return auditFailure ?? tenantScopeDenial;
     }
 
     // Erase BEFORE the audit append: if the append throws, the key is gone

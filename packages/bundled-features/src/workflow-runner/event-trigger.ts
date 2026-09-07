@@ -4,11 +4,10 @@
 // Registration pattern:
 //   registerEventTrigger(r, myWorkflow)
 //
-// The MSP apply-fn runs in the dispatcher's own tx, so `workflow.run-started`
-// plus the synchronous portion of the pipeline land atomically. Any throw
-// from startAndRunWorkflow is recorded as `workflow.run-failed` and
-// swallowed — the failure is already durable, so the dispatcher advances
-// past the trigger event instead of redelivering it.
+// The apply-fn does NOT run in the dispatcher's cursor tx (the server's MSP
+// wiring uses the unbound pool), so `workflow.run-started` and the rest of
+// the pipeline are not atomic. A throw from startAndRunWorkflow is recorded
+// as `workflow.run-failed` and swallowed, so the dispatcher moves on.
 
 import type {
   FeatureRegistrar,

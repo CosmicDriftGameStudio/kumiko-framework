@@ -11,10 +11,10 @@ export type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-st
 
 export type MultiStreamApplyContextDeps = {
   readonly registry: Registry;
-  // TX-scoped DbRunner — the same `tx` the applyFn receives as the 2nd
-  // arg. ctx.appendEvent + inline-projections run inside this tx so a
-  // throw rolls the whole hop back (consumer retries the triggering
-  // event on the next pass).
+  // Same DbRunner the applyFn receives as its 2nd arg. In the server's MSP
+  // consumer wiring (api/server.ts) that's the unbound pool, not the
+  // dispatcher's cursor tx — a throw does NOT roll back appends/inline
+  // projections already made; apply must be idempotent for the retry.
   readonly db: DbRunner;
   // tenantId + userId of the TRIGGERING event. appendEvent stamps these
   // onto the new event so the causal chain stays tenant-consistent and
