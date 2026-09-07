@@ -203,9 +203,18 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("field-title")).toBeTruthy());
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Created title" } });
+    // Re-query (not a held reference, which a re-render could have detached)
+    // and confirm the button is actually clickable before clicking it — a
+    // disabled native button swallows fireEvent.click silently, which reads
+    // identically to "the handler never ran" at the write-count assertion below.
+    await waitFor(() => {
+      const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+      expect(button.disabled).toBe(false);
+    });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
 
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -227,6 +236,10 @@ describe("KumikoScreen: singleton entityEdit", () => {
     // update, never a second create.
     fireEvent.change(screen.getByTestId("field-title").querySelector("input") as HTMLInputElement, {
       target: { value: "Edited again" },
+    });
+    await waitFor(() => {
+      const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+      expect(button.disabled).toBe(false);
     });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     // Exactly one create (the first submit) followed by an update, never a
