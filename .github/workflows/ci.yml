@@ -708,6 +708,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish versions skipped by concurrent changesets
+        id: rescue-publish
         # changesets/action only reaches `publish` when main carries no
         # changesets. If a PR with a fresh changeset merges right after a
         # version-PR, the release run at that SHA takes the `version` branch
@@ -732,6 +733,7 @@ jobs:
           bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           new_tags="$(git tag --points-at "$GITHUB_SHA")"
+          if [ -n "$new_tags" ]; then echo "released=true" >> "$GITHUB_OUTPUT"; else echo "released=false" >> "$GITHUB_OUTPUT"; fi
           if [ -z "$new_tags" ]; then
             echo "no tags at this SHA"
           # Push only tags pointing at this run's SHA, not --tags (a single
@@ -759,9 +761,9 @@ jobs:
       # fehlgeschlagener Dispatch-Call darf den Release-Job NIEMALS rot
       # machen, ein ausgebliebener Renovate-Lauf ist harmlos (infra faengt es
       # per 4h-Cron ohnehin auf), ein roter Release-Job blockiert den
-      # naechsten Publish. Deckt nur den regulaeren changesets/action-Publish
-      # ab, nicht den Rescue-Pfad im Schritt oben (#1781, konkurrierende
-      # Changesets) — der ist selten genug, dass der 4h-Cron als Netz reicht.
+      # naechsten Publish. Deckt beide Publish-Pfade ab: den regulaeren
+      # changesets/action-Publish sowie den Rescue-Pfad oben (#1781) ueber
+      # dessen `released`-Output, das an Git-Tags am Release-SHA haengt.
       # Der Secret-Guard im `run`-Block des Dispatch-Steps bleibt bestehen
       # (nicht im `if`: Step-level `env` ist im `if` desselben Steps noch
       # nicht gesetzt, Auswertungsreihenfolge) — er faengt jetzt zusaetzlich
@@ -770,7 +772,7 @@ jobs:
       # `steps.renovate-dispatch-token.outputs.token` leer).
       - name: Create Renovate dispatch token
         id: renovate-dispatch-token
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -780,7 +782,7 @@ jobs:
           repositories: infra
 
       - name: Trigger Renovate in consumers
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.renovate-dispatch-token.outputs.token }}
