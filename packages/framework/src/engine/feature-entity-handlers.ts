@@ -55,6 +55,16 @@ function tryMapEntity(state: FeatureBuilderState, name: string, handlerName: str
   }
 }
 
+function agentSlots(source: {
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
+}): { description?: string; agent?: AgentHandlerHints } {
+  return {
+    ...(source.description !== undefined && { description: source.description }),
+    ...(source.agent && { agent: source.agent }),
+  };
+}
+
 // Builds entity/relation/writeHandler/queryHandler — the registrar
 // methods that create or reference entities.
 export function buildEntityHandlerMethods<TName extends string>(
@@ -119,8 +129,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           // is what fails). Explicit cast is the right tool.
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
-          ...(def.description !== undefined && { description: def.description }),
-          ...(def.agent && { agent: def.agent }),
+          ...agentSlots(def),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           // Forward the pipeline-build closure so boot-validators and
@@ -143,8 +152,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         schema,
         handler: handler as WriteHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
-        ...(options?.description !== undefined && { description: options.description }),
-        ...(options?.agent && { agent: options.agent }),
+        ...agentSlots(options ?? {}),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
       };
       tryMapEntity(state, name, nameOrDef);
@@ -170,8 +178,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
           ...(def.access && { access: def.access }),
-          ...(def.description !== undefined && { description: def.description }),
-          ...(def.agent && { agent: def.agent }),
+          ...agentSlots(def),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.outputSchema && { outputSchema: def.outputSchema }),
           // Carry the definePagedQueryHandler brand through — this rebuild
@@ -188,8 +195,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         schema,
         handler: handler as QueryHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
-        ...(options?.description !== undefined && { description: options.description }),
-        ...(options?.agent && { agent: options.agent }),
+        ...agentSlots(options ?? {}),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
         ...(options?.outputSchema && { outputSchema: options.outputSchema }),
       };
