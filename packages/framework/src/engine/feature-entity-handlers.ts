@@ -14,6 +14,7 @@ import { resolveName } from "./handler-helpers";
 import { splitNamedDefinition } from "./object-form";
 import type {
   AccessRule,
+  AgentHandlerHints,
   EntityDefinition,
   EntityRef,
   HandlerRef,
@@ -52,6 +53,16 @@ function tryMapEntity(state: FeatureBuilderState, name: string, handlerName: str
       state.handlerEntityMappings[handlerName] = entityKeys[0] as string;
     }
   }
+}
+
+function agentSlots(source: {
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
+}): { description?: string; agent?: AgentHandlerHints } {
+  return {
+    ...(source.description !== undefined && { description: source.description }),
+    ...(source.agent && { agent: source.agent }),
+  };
 }
 
 // Builds entity/relation/writeHandler/queryHandler — the registrar
@@ -96,7 +107,12 @@ export function buildEntityHandlerMethods<TName extends string>(
       nameOrDef: string | WriteHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: WriteHandlerFn<z.infer<TSchema>>,
-      options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+      options?: {
+        access?: AccessRule;
+        rateLimit?: RateLimitOption;
+        description?: string;
+        agent?: AgentHandlerHints;
+      },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
@@ -113,6 +129,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           // is what fails). Explicit cast is the right tool.
           handler: def.handler as WriteHandlerFn,
           ...(def.access && { access: def.access }),
+          ...agentSlots(def),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           // Forward the pipeline-build closure so boot-validators and
@@ -135,6 +152,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         schema,
         handler: handler as WriteHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
+        ...agentSlots(options ?? {}),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
       };
       tryMapEntity(state, name, nameOrDef);
@@ -144,7 +162,13 @@ export function buildEntityHandlerMethods<TName extends string>(
       nameOrDef: string | QueryHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: QueryHandlerFn<z.infer<TSchema>>,
-      options?: { access?: AccessRule; rateLimit?: RateLimitOption; outputSchema?: ZodType },
+      options?: {
+        access?: AccessRule;
+        rateLimit?: RateLimitOption;
+        outputSchema?: ZodType;
+        description?: string;
+        agent?: AgentHandlerHints;
+      },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
@@ -154,6 +178,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
           ...(def.access && { access: def.access }),
+          ...agentSlots(def),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.outputSchema && { outputSchema: def.outputSchema }),
           // Carry the definePagedQueryHandler brand through — this rebuild
@@ -170,6 +195,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         schema,
         handler: handler as QueryHandlerFn, // @cast-boundary engine-bridge
         ...(options?.access && { access: options.access }),
+        ...agentSlots(options ?? {}),
         ...(options?.rateLimit && { rateLimit: options.rateLimit }),
         ...(options?.outputSchema && { outputSchema: options.outputSchema }),
       };

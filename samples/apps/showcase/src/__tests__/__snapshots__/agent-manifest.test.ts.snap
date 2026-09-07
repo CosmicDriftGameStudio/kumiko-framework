@@ -1,0 +1,392 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`buildAgentManifest against the showcase app matches the recorded snapshot 1`] = `
+{
+  "entities": [
+    {
+      "fields": [
+        {
+          "labels": {
+            "de": "Titel",
+            "en": "Title",
+          },
+          "name": "title",
+          "searchable": true,
+          "type": "text",
+        },
+        {
+          "labels": {
+            "de": "Notizen",
+            "en": "Notes",
+          },
+          "name": "notes",
+          "type": "text",
+        },
+        {
+          "filterable": true,
+          "labels": {
+            "de": "Priorität",
+            "en": "Priority",
+          },
+          "name": "priority",
+          "type": "number",
+        },
+        {
+          "filterable": true,
+          "labels": {
+            "de": "Erledigt?",
+            "en": "Done?",
+          },
+          "name": "isDone",
+          "type": "boolean",
+        },
+        {
+          "filterable": true,
+          "labels": {
+            "de": "Fällig am",
+            "en": "Due date",
+          },
+          "name": "dueDate",
+          "type": "date",
+        },
+        {
+          "filterable": true,
+          "labels": {
+            "de": "Status",
+            "en": "Status",
+          },
+          "name": "status",
+          "options": [
+            "draft",
+            "active",
+            "blocked",
+            "done",
+          ],
+          "type": "select",
+        },
+        {
+          "labels": {
+            "de": "Parent-Task",
+            "en": "Parent task",
+          },
+          "name": "parentId",
+          "references": "item",
+          "type": "reference",
+        },
+        {
+          "labels": {
+            "de": "Verwandte Items",
+            "en": "Related items",
+          },
+          "name": "relatedIds",
+          "references": "item",
+          "type": "reference",
+        },
+      ],
+      "labels": {},
+      "name": "item",
+    },
+  ],
+  "features": [
+    {
+      "description": "German UI and mail copy for framework screens. Opt-in; not included by includeBundled.",
+      "name": "locale-de",
+    },
+    {
+      "name": "showcase",
+    },
+    {
+      "name": "showcase-demos",
+    },
+  ],
+  "handlers": [],
+  "navs": [
+    {
+      "id": "showcase-demos:nav:demo-banner",
+      "labels": {
+        "de": "Banner",
+        "en": "Banner",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-banner",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-buttons",
+      "labels": {
+        "de": "Buttons",
+        "en": "Buttons",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-buttons",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-dialog",
+      "labels": {
+        "de": "Dialog & Lightbox",
+        "en": "Dialog & Lightbox",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-dialog",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-inputs",
+      "labels": {
+        "de": "Inputs",
+        "en": "Inputs",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-inputs",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-layout",
+      "labels": {
+        "de": "Layout",
+        "en": "Layout",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-layout",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-sidebar-panel",
+      "labels": {
+        "de": "Sidebar-Panel",
+        "en": "Sidebar panel",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-sidebar-panel",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-text",
+      "labels": {
+        "de": "Text",
+        "en": "Text",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-text",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:demo-toast",
+      "labels": {
+        "de": "Toast",
+        "en": "Toast",
+      },
+      "parent": "showcase-demos:nav:primitives",
+      "screen": "showcase-demos:screen:demo-toast",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:nav:primitives",
+      "labels": {
+        "de": "Primitives",
+        "en": "Primitives",
+      },
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:nav:data",
+      "labels": {
+        "de": "Daten",
+        "en": "Data",
+      },
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:nav:item-active",
+      "labels": {
+        "de": "Items (Active)",
+        "en": "Items (Active)",
+      },
+      "parent": "showcase:nav:data",
+      "screen": "showcase:screen:item-active",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:nav:item-feed",
+      "labels": {
+        "de": "Items (Feed)",
+        "en": "Items (Feed)",
+      },
+      "parent": "showcase:nav:data",
+      "screen": "showcase:screen:item-feed",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:nav:item-list",
+      "labels": {
+        "de": "Items (Pages)",
+        "en": "Items (Pages)",
+      },
+      "parent": "showcase:nav:data",
+      "screen": "showcase:screen:item-list",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:nav:item-new",
+      "labels": {
+        "de": "Neuer Eintrag",
+        "en": "New item",
+      },
+      "parent": "showcase:nav:data",
+      "screen": "showcase:screen:item-edit",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:nav:item-quick-add",
+      "labels": {
+        "de": "Quick Add",
+        "en": "Quick Add",
+      },
+      "parent": "showcase:nav:data",
+      "screen": "showcase:screen:item-quick-add",
+      "workspaces": [],
+    },
+  ],
+  "screens": [
+    {
+      "id": "showcase-demos:screen:demo-banner",
+      "params": [],
+      "titles": {
+        "de": "Banner",
+        "en": "Banner",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-buttons",
+      "params": [],
+      "titles": {
+        "de": "Buttons",
+        "en": "Buttons",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-dialog",
+      "params": [],
+      "titles": {
+        "de": "Dialog & Lightbox",
+        "en": "Dialog & Lightbox",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-inputs",
+      "params": [],
+      "titles": {
+        "de": "Inputs",
+        "en": "Inputs",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-layout",
+      "params": [],
+      "titles": {
+        "de": "Layout",
+        "en": "Layout",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-sidebar-panel",
+      "params": [],
+      "titles": {
+        "de": "Sidebar-Panel",
+        "en": "Sidebar panel",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-text",
+      "params": [],
+      "titles": {
+        "de": "Text",
+        "en": "Text",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase-demos:screen:demo-toast",
+      "params": [],
+      "titles": {
+        "de": "Toast",
+        "en": "Toast",
+      },
+      "type": "custom",
+      "workspaces": [],
+    },
+    {
+      "entity": "item",
+      "id": "showcase:screen:item-active",
+      "params": [],
+      "titles": {
+        "de": "Items (Active)",
+        "en": "Items (Active)",
+      },
+      "type": "entityList",
+      "workspaces": [],
+    },
+    {
+      "entity": "item",
+      "id": "showcase:screen:item-edit",
+      "params": [],
+      "titles": {
+        "de": "Eintrag bearbeiten",
+        "en": "Edit item",
+      },
+      "type": "entityEdit",
+      "workspaces": [],
+    },
+    {
+      "entity": "item",
+      "id": "showcase:screen:item-feed",
+      "params": [],
+      "titles": {
+        "de": "Items (Feed)",
+        "en": "Items (Feed)",
+      },
+      "type": "entityList",
+      "workspaces": [],
+    },
+    {
+      "entity": "item",
+      "id": "showcase:screen:item-list",
+      "params": [],
+      "titles": {
+        "de": "Items (Pages)",
+        "en": "Items (Pages)",
+      },
+      "type": "entityList",
+      "workspaces": [],
+    },
+    {
+      "id": "showcase:screen:item-quick-add",
+      "params": [],
+      "titles": {
+        "de": "Schnell-Anlage",
+        "en": "Quick add",
+      },
+      "type": "actionForm",
+      "workspaces": [],
+    },
+  ],
+  "tenantSettings": {
+    "locale": "de",
+  },
+  "workspaces": [],
+}
+`;

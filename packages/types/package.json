@@ -233,6 +233,10 @@
     "./snapshot-types": {
       "types": "./src/snapshot-types.ts",
       "default": "./src/snapshot-types.ts"
+    },
+    "./agent-exposure": {
+      "types": "./src/agent-exposure.ts",
+      "default": "./src/agent-exposure.ts"
     }
   },
   "devDependencies": {

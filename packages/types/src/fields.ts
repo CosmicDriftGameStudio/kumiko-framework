@@ -237,6 +237,9 @@ export type RetentionDef = {
 
 export type TextFieldDef = {
   readonly type: "text";
+  /** Optional free-text semantics for the AI agent manifest — never rendered;
+   *  the i18n label is what users see. */
+  readonly description?: string;
   readonly maxLength?: number;
   readonly required?: boolean;
   readonly searchable?: boolean;
@@ -279,6 +282,7 @@ export type TextFieldDef = {
  */
 export type LongTextFieldDef = {
   readonly type: "longText";
+  readonly description?: string;
   /** Optionale soft-Cap. Default unbounded (= Postgres-text-limit, 1 GB).
    *  Nützlich für defensive Caps wie 1 MB damit ein verirrter Browser-
    *  Paste nicht die DB sprengt. */
@@ -293,6 +297,7 @@ export type LongTextFieldDef = {
 
 export type BooleanFieldDef = {
   readonly type: "boolean";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -303,6 +308,7 @@ export type BooleanFieldDef = {
 
 export type SelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
   readonly type: "select";
+  readonly description?: string;
   readonly options: TOptions;
   readonly required?: boolean;
   readonly sortable?: boolean;
@@ -327,6 +333,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
 // rejected Duplikate erst wenn Bedarf da ist.
 export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
   readonly type: "multiSelect";
+  readonly description?: string;
   readonly options: TOptions;
   readonly required?: boolean;
   readonly filterable?: boolean;
@@ -359,6 +366,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
  */
 export type NumberFieldDef = {
   readonly type: "number";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -390,6 +398,7 @@ export type NumberFieldDef = {
  */
 export type BigIntFieldDef = {
   readonly type: "bigInt";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -412,6 +421,7 @@ export type BigIntFieldDef = {
  */
 export type DecimalFieldDef = {
   readonly type: "decimal";
+  readonly description?: string;
   readonly precision: number;
   readonly scale: number;
   readonly required?: boolean;
@@ -424,6 +434,7 @@ export type DecimalFieldDef = {
 
 export type MoneyFieldDef = {
   readonly type: "money";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -446,6 +457,7 @@ export type MoneyFieldDef = {
 // ist ein menschlich-lesbares Feld wie "name", "title", "email".
 export type ReferenceFieldDef = {
   readonly type: "reference";
+  readonly description?: string;
   readonly entity: string;
   readonly required?: boolean;
   readonly filterable?: boolean;
@@ -528,6 +540,7 @@ export type EmbeddedDerivedCellDef = {
 
 export type EmbeddedFieldDef = {
   readonly type: "embedded";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly schema: Readonly<Record<string, EmbeddedSubFieldDef>>;
@@ -574,6 +587,7 @@ export type EmbeddedFieldDef = {
 // + NOT NULL, identisch zu embedded.
 export type JsonbFieldDef = {
   readonly type: "jsonb";
+  readonly description?: string;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
@@ -587,6 +601,7 @@ export type JsonbFieldDef = {
 // Siehe docs/plans/architecture/timezones.md
 export type DateFieldDef = {
   readonly type: "date";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -615,6 +630,7 @@ export type DateFieldDef = {
 // Feld statt eines lose verdrahteten Pairs (siehe LocatedTimestampFieldDef).
 export type TimestampFieldDef = {
   readonly type: "timestamp";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -645,6 +661,7 @@ export type TimestampFieldDef = {
 // (TEXT-Spalte) korrekt sind und der `locatedBy`-Marker eindeutig auflöst.
 export type TzFieldDef = {
   readonly type: "tz";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
@@ -670,6 +687,7 @@ export type TzFieldDef = {
 // Siehe docs/plans/architecture/timezones.md.
 export type LocatedTimestampFieldDef = {
   readonly type: "locatedTimestamp";
+  readonly description?: string;
   readonly required?: boolean;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
@@ -687,6 +705,7 @@ export type LocatedTimestampFieldDef = {
 
 export type FileFieldDef = {
   readonly type: "file";
+  readonly description?: string;
   readonly required?: boolean;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
@@ -695,6 +714,7 @@ export type FileFieldDef = {
 
 export type ImageFieldDef = {
   readonly type: "image";
+  readonly description?: string;
   readonly required?: boolean;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
@@ -710,6 +730,7 @@ export type ImageFieldDef = {
 
 export type FilesFieldDef = {
   readonly type: "files";
+  readonly description?: string;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
@@ -718,6 +739,7 @@ export type FilesFieldDef = {
 
 export type ImagesFieldDef = {
   readonly type: "images";
+  readonly description?: string;
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly maxCount?: number;
@@ -921,4 +943,6 @@ export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
    * nameable as a column in a declarative `entityList`. See DerivedFieldDef.
    */
   readonly derivedFields?: DerivedFieldsMap;
+  /** Optional free-text semantics for the AI agent manifest — see TextFieldDef.description. */
+  readonly description?: string;
 };

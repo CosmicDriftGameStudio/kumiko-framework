@@ -1,6 +1,7 @@
 // Barrel: re-exports all types from @cosmicdrift/kumiko-types, plus the
 // runtime helpers below that stay framework-side.
 
+export { resolveAgentExposure } from "@cosmicdrift/kumiko-types/agent-exposure";
 export type {
   ConfigAccessor,
   ConfigAccessorFactory,
@@ -133,6 +134,9 @@ export type {
 } from "@cosmicdrift/kumiko-types/fields";
 export type {
   AccessRule,
+  AgentExposure,
+  AgentHandlerHints,
+  AgentRisk,
   AggregateStreamHandle,
   AppContext,
   AppendEventArgs,

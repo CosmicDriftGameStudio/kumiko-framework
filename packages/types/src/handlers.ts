@@ -929,11 +929,27 @@ export type RateLimitOption = {
   readonly cost?: number;
 };
 
+export type AgentRisk = "low" | "mid" | "high";
+
+/** Per-handler hints for the AI-agent manifest. `expose` overrides the
+ *  default derived from `description`; `risk` overrides the per-kind default. */
+export type AgentHandlerHints = {
+  readonly expose?: boolean;
+  readonly risk?: AgentRisk;
+};
+
+export type AgentExposure = {
+  readonly expose: boolean;
+  readonly risk: AgentRisk;
+};
+
 export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
@@ -951,6 +967,8 @@ export type QueryHandlerDef = {
   readonly schema: ZodType;
   readonly handler: QueryHandlerFn;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
   /** Zod schema of the handler's actual return value — the paged envelope
    *  `{ rows, nextCursor, total? }` for a `definePagedQueryHandler`, or the

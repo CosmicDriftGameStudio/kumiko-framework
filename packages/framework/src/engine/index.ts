@@ -279,6 +279,9 @@ export {
 export type {
   AccessRule,
   ActionFormScreenDefinition,
+  AgentExposure,
+  AgentHandlerHints,
+  AgentRisk,
   AppContext,
   AppendEventArgs,
   AppendEventFn,
@@ -469,7 +472,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
-export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, HookPhases } from "./types";
+export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, HookPhases, resolveAgentExposure } from "./types";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export type {
   AwaitedEventType,
