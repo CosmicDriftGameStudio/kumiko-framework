@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { buildAgentManifest } from "../agent-manifest";
 import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
-import type { AgentManifest, RegistrySearchView, ToolCatalogOptions } from "../types";
+import type { AgentManifest, AgentToolMode, RegistrySearchView } from "../types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -110,14 +110,20 @@ function buildCatalogTestFeature() {
   });
 }
 
-function buildCatalog(options: ToolCatalogOptions) {
+type CatalogRequest = {
+  readonly mode: AgentToolMode;
+  readonly roles: readonly string[];
+  readonly locale: string;
+};
+
+function buildCatalog({ mode, roles, locale }: CatalogRequest) {
   const registry = createRegistry([buildCatalogTestFeature()]);
-  const manifest = buildAgentManifest(registry, { locale: options.locale, roles: options.roles });
-  return buildToolCatalog(registry, manifest, options);
+  const manifest = buildAgentManifest(registry, { locale, roles });
+  return buildToolCatalog(registry, manifest, { mode });
 }
 
-const ADMIN: ToolCatalogOptions = { mode: "edit", roles: ["Admin"], locale: "en" };
-const READER: ToolCatalogOptions = { mode: "edit", roles: ["Reader"], locale: "en" };
+const ADMIN: CatalogRequest = { mode: "edit", roles: ["Admin"], locale: "en" };
+const READER: CatalogRequest = { mode: "edit", roles: ["Reader"], locale: "en" };
 
 describe("buildToolCatalog — search_<entity> / find_<entity>_by_<field> (existing generation)", () => {
   test("generates search_<entity> and find_<entity>_by_<field> for a mounted :list handler", () => {
@@ -137,12 +143,26 @@ describe("buildToolCatalog — search_<entity> / find_<entity>_by_<field> (exist
     expect(names).not.toContain("list_orphan");
   });
 
-  test("role-filters search_<entity>/find_<entity>_by_<field>: a caller without read access gets none", () => {
+  test("both catalog halves read the same role source: an unknown role gets neither half", () => {
     const catalog = buildCatalog({ mode: "edit", roles: ["Nobody"], locale: "en" });
     const names = catalog.tools.map((t) => t.name);
+    // Registry-derived half and manifest-derived half both vanish for a role that matches
+    // nothing — they can only agree because both follow `manifest.builtForRoles`.
     expect(names).not.toContain("search_widget");
+    expect(names).not.toContain("find_widget_by_name");
     expect(names).not.toContain("get_widget");
     expect(names).not.toContain("list_widget");
+    expect(names).not.toContain(toolNameForQn("catalog-test:query:widget:summary"));
+    expect(names).not.toContain(toolNameForQn("catalog-test:write:widget:approve"));
+    expect(names).toEqual(["navigate", "ask_user"]);
+  });
+
+  test("@ts-expect-error: ToolCatalogOptions has no roles channel of its own", () => {
+    const registry = createRegistry([buildCatalogTestFeature()]);
+    const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });
+    // @ts-expect-error: roles must come from the manifest; a second channel could desync the halves.
+    const catalog = buildToolCatalog(registry, manifest, { mode: "edit", roles: ["Nobody"] });
+    expect(catalog.tools.length).toBeGreaterThan(0);
   });
 });
 
@@ -297,6 +317,7 @@ describe("buildToolCatalog — client tools", () => {
     expect(descriptor.formScreens.get("catalog-test:write:widget:update")).toBe(
       "catalog-test:screen:widget-edit",
     );
+    expect(catalog.tools.map((t) => t.name)).not.toContain("open_form");
   });
 
   test("ask_user is always present with a fixed schema", () => {
@@ -323,6 +344,7 @@ describe("buildToolCatalog — built-in client tool names vs. a colliding handle
       getSearchableFields: () => [],
     };
     const manifest: AgentManifest = {
+      builtForRoles: ["Admin"],
       features: [],
       entities: [],
       handlers: [
@@ -347,7 +369,7 @@ describe("buildToolCatalog — built-in client tool names vs. a colliding handle
       tenantSettings: { locale: "en" },
     };
 
-    const catalog = buildToolCatalog(registry, manifest, ADMIN);
+    const catalog = buildToolCatalog(registry, manifest, { mode: "edit" });
 
     const matches = catalog.tools.filter((t) => t.name === "navigate");
     expect(matches).toHaveLength(1);

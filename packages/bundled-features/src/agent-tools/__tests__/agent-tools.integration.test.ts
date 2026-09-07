@@ -72,7 +72,7 @@ const reader = createTestUser({ roles: ["Reader"], id: admin.id, tenantId: admin
 
 function catalogFor(roles: readonly string[]) {
   const manifest = buildAgentManifest(stack.registry, { locale: "en", roles });
-  return buildToolCatalog(stack.registry, manifest, { mode: "edit", roles, locale: "en" });
+  return buildToolCatalog(stack.registry, manifest, { mode: "edit" });
 }
 
 /** ToolDispatcher backed by real HTTP requests through the app — response-shape empirically

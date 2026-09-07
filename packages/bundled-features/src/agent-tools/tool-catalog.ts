@@ -5,6 +5,7 @@ import type {
   AgentManifestEntity,
   AgentManifestHandler,
   AgentManifestScreen,
+  AgentToolMode,
   RegistrySearchView,
   ToolCatalog,
   ToolCatalogOptions,
@@ -98,16 +99,12 @@ function addToolsForListHandler(
   qn: string,
   entityName: string,
   entity: EntityDefinition,
-  tools: ToolDefinition[],
-  dispatchTable: Map<string, ToolDispatchDescriptor>,
-  usedNames: Set<string>,
+  sink: CatalogSink,
 ): void {
   const searchableFields = registry.getSearchableFields(entityName);
   if (searchableFields.length > 0) {
     const tool = buildSearchTool(entityName, searchableFields);
-    tools.push(tool);
-    dispatchTable.set(tool.name, { kind: "search", entityName, qn });
-    usedNames.add(tool.name);
+    addTool(sink, tool, { kind: "search", entityName, qn });
   }
 
   for (const [fieldName, field] of Object.entries(
@@ -117,9 +114,7 @@ function addToolsForListHandler(
     const fieldSchema = jsonSchemaTypeForField(field);
     if (!fieldSchema) continue;
     const tool = buildFindByTool(entityName, fieldName, fieldSchema);
-    tools.push(tool);
-    dispatchTable.set(tool.name, { kind: "findBy", entityName, fieldName, qn });
-    usedNames.add(tool.name);
+    addTool(sink, tool, { kind: "findBy", entityName, fieldName, qn });
   }
 }
 
@@ -352,29 +347,36 @@ function buildAskUserTool(): { tool: ToolDefinition; descriptor: ToolDispatchDes
   };
 }
 
-/** Registry snapshot + role-filtered manifest → agent tool catalog. Pure, deterministic, no I/O
- *  — every tool here is a name+schema only; `tool-dispatch.ts` is what actually calls a
- *  permission-checked handler when the LLM invokes one of these by name.
- *
- *  `search_<entity>` / `find_<entity>_by_<field>` iterate mounted `:list` handlers directly off
- *  the registry (unchanged from the original design). `get_<entity>` / `list_<entity>` are also
- *  enumerated from the registry rather than `manifest.handlers`, because entity CRUD handlers
- *  carry no `description`/`agent` and are therefore never role-exposed into the manifest (see
- *  `resolveAgentExposure`) — the manifest can't tell us these handlers exist at all. Every other
- *  tool (custom query/write handlers, navigate/open_form/ask_user) is manifest-derived, since
- *  the manifest already carries the role-filtered handler/screen shape needed for those. */
-export function buildToolCatalog(
-  registry: RegistrySearchView,
-  manifest: AgentManifest,
-  options: ToolCatalogOptions,
-): ToolCatalog {
-  const tools: ToolDefinition[] = [];
-  const dispatchTable = new Map<string, ToolDispatchDescriptor>();
-  const usedNames = new Set<string>();
-  const roleFilter = { roles: options.roles };
-  const entityByName = new Map(manifest.entities.map((entity) => [entity.name, entity]));
+type CatalogSink = {
+  readonly tools: ToolDefinition[];
+  readonly dispatchTable: Map<string, ToolDispatchDescriptor>;
+  readonly usedNames: Set<string>;
+};
 
-  // --- existing search_<entity> / find_<entity>_by_<field>, now role-filtered too ---
+function claimDispatchName(
+  sink: CatalogSink,
+  name: string,
+  descriptor: ToolDispatchDescriptor,
+): boolean {
+  if (sink.usedNames.has(name)) return false;
+  sink.dispatchTable.set(name, descriptor);
+  sink.usedNames.add(name);
+  return true;
+}
+
+function addTool(
+  sink: CatalogSink,
+  tool: ToolDefinition,
+  descriptor: ToolDispatchDescriptor,
+): void {
+  if (claimDispatchName(sink, tool.name, descriptor)) sink.tools.push(tool);
+}
+
+function addRegistrySearchTools(
+  registry: RegistrySearchView,
+  roleFilter: { roles: readonly string[] },
+  sink: CatalogSink,
+): void {
   for (const [qn, def] of registry.getAllQueryHandlers()) {
     const entityName = registry.getHandlerEntity(qn);
     if (!entityName || !isListHandlerQn(qn, entityName)) continue;
@@ -383,14 +385,24 @@ export function buildToolCatalog(
     const entity = registry.getEntity(entityName);
     if (!entity) continue;
 
-    addToolsForListHandler(registry, qn, entityName, entity, tools, dispatchTable, usedNames);
+    addToolsForListHandler(registry, qn, entityName, entity, sink);
   }
+}
 
-  // --- shape lookups shared by get_/list_/write-handler tools ---
+type EntityHandlerQns = {
+  readonly detailQnByEntity: ReadonlyMap<string, string>;
+  readonly listQnByEntity: ReadonlyMap<string, string>;
+  readonly entityListDetailQns: ReadonlySet<string>;
+};
+
+function collectEntityHandlerQns(
+  registry: RegistrySearchView,
+  roleFilter: { roles: readonly string[] },
+): EntityHandlerQns {
   const detailQnByEntity = new Map<string, string>();
   const listQnByEntity = new Map<string, string>();
   // Structural set (role-independent): every qn shaped like an entity list/detail handler, used
-  // to keep 3c from ever double-registering a handler already covered by get_/list_.
+  // to keep query-handler tools from ever double-registering a handler already covered by get_/list_.
   const entityListDetailQns = new Set<string>();
   for (const [qn] of registry.getAllQueryHandlers()) {
     const entityName = registry.getHandlerEntity(qn);
@@ -404,22 +416,33 @@ export function buildToolCatalog(
     if (isDetailHandlerQn(qn, entityName)) detailQnByEntity.set(entityName, qn);
     if (isListHandlerQn(qn, entityName)) listQnByEntity.set(entityName, qn);
   }
+  return { detailQnByEntity, listQnByEntity, entityListDetailQns };
+}
 
-  // --- get_<entity> ---
+function addGetTools(
+  detailQnByEntity: ReadonlyMap<string, string>,
+  entityByName: ReadonlyMap<string, AgentManifestEntity>,
+  locale: string,
+  sink: CatalogSink,
+): void {
   const getEntries = [...detailQnByEntity.entries()].sort((a, b) => compareByCodePoint(a[0], b[0]));
   for (const [entityName, qn] of getEntries) {
-    const label = entityDisplayLabel(entityByName.get(entityName), entityName, options.locale);
+    const label = entityDisplayLabel(entityByName.get(entityName), entityName, locale);
     const { tool, descriptor } = buildGetTool(entityName, qn, label);
-    if (usedNames.has(tool.name)) continue;
-    tools.push(tool);
-    dispatchTable.set(tool.name, descriptor);
-    usedNames.add(tool.name);
+    addTool(sink, tool, descriptor);
   }
+}
 
-  // --- list_<entity> ---
+function addListTools(
+  registry: RegistrySearchView,
+  listQnByEntity: ReadonlyMap<string, string>,
+  entityByName: ReadonlyMap<string, AgentManifestEntity>,
+  locale: string,
+  sink: CatalogSink,
+): void {
   const listEntries = [...listQnByEntity.entries()].sort((a, b) => compareByCodePoint(a[0], b[0]));
   for (const [entityName, qn] of listEntries) {
-    const label = entityDisplayLabel(entityByName.get(entityName), entityName, options.locale);
+    const label = entityDisplayLabel(entityByName.get(entityName), entityName, locale);
     const searchableFields = registry.getSearchableFields(entityName);
     const filterableFields = filterableFieldsOf(entityByName.get(entityName));
     const { tool, descriptor } = buildListTool(
@@ -429,51 +452,55 @@ export function buildToolCatalog(
       searchableFields,
       filterableFields,
     );
-    if (usedNames.has(tool.name)) continue;
-    tools.push(tool);
-    dispatchTable.set(tool.name, descriptor);
-    usedNames.add(tool.name);
+    addTool(sink, tool, descriptor);
   }
+}
 
-  // --- <feature>_<handler> query tools (manifest.handlers already role-filtered + qn-sorted) ---
+function addQueryHandlerTools(
+  manifest: AgentManifest,
+  entityListDetailQns: ReadonlySet<string>,
+  sink: CatalogSink,
+): void {
   for (const handler of manifest.handlers) {
     if (handler.kind !== "query") continue;
     if (entityListDetailQns.has(handler.qn)) continue;
     const name = toolNameForQn(handler.qn);
-    if (usedNames.has(name)) continue;
 
-    tools.push({
-      name,
-      description: handlerDescription(handler),
-      inputSchema: handler.inputSchema,
-    });
-    dispatchTable.set(name, {
-      kind: "server",
-      op: "query",
-      qn: handler.qn,
-      risk: handler.risk,
-      ...(handler.entity !== undefined && { entity: handler.entity }),
-    });
-    usedNames.add(name);
+    addTool(
+      sink,
+      { name, description: handlerDescription(handler), inputSchema: handler.inputSchema },
+      {
+        kind: "server",
+        op: "query",
+        qn: handler.qn,
+        risk: handler.risk,
+        ...(handler.entity !== undefined && { entity: handler.entity }),
+      },
+    );
   }
+}
 
-  // --- <feature>_<handler> write tools — only outside read-only mode ---
-  if (options.mode !== "read-only") {
-    for (const handler of manifest.handlers) {
-      if (handler.kind !== "write") continue;
-      const name = toolNameForQn(handler.qn);
-      if (usedNames.has(name)) continue;
+function addWriteHandlerTools(
+  manifest: AgentManifest,
+  detailQnByEntity: ReadonlyMap<string, string>,
+  sink: CatalogSink,
+): void {
+  for (const handler of manifest.handlers) {
+    if (handler.kind !== "write") continue;
+    const name = toolNameForQn(handler.qn);
 
-      const detailQn =
-        handler.entity !== undefined ? detailQnByEntity.get(handler.entity) : undefined;
-      const injectsVersion =
-        detailQn !== undefined && schemaRequiresField(handler.inputSchema, "version");
-      const inputSchema = injectsVersion
-        ? stripFieldFromSchema(handler.inputSchema, "version")
-        : handler.inputSchema;
+    const detailQn =
+      handler.entity !== undefined ? detailQnByEntity.get(handler.entity) : undefined;
+    const injectsVersion =
+      detailQn !== undefined && schemaRequiresField(handler.inputSchema, "version");
+    const inputSchema = injectsVersion
+      ? stripFieldFromSchema(handler.inputSchema, "version")
+      : handler.inputSchema;
 
-      tools.push({ name, description: handlerDescription(handler), inputSchema });
-      dispatchTable.set(name, {
+    addTool(
+      sink,
+      { name, description: handlerDescription(handler), inputSchema },
+      {
         kind: "server",
         op: "write",
         qn: handler.qn,
@@ -481,36 +508,63 @@ export function buildToolCatalog(
         ...(handler.entity !== undefined && { entity: handler.entity }),
         ...(detailQn !== undefined && { detailQn }),
         ...(injectsVersion && { injectsVersion: true as const }),
-      });
-      usedNames.add(name);
-    }
+      },
+    );
   }
+}
 
-  // --- client tools ---
+function addClientTools(manifest: AgentManifest, mode: AgentToolMode, sink: CatalogSink): void {
   // Same precedence rule as every loop above: a name already claimed by a handler-derived tool
   // wins, and a built-in never overwrites it — only the order differs (built-ins run last).
   const navigate = buildNavigateTool(manifest);
-  if (!usedNames.has(navigate.tool.name)) {
-    tools.push(navigate.tool);
-    dispatchTable.set(navigate.tool.name, navigate.descriptor);
-    usedNames.add(navigate.tool.name);
-  }
+  addTool(sink, navigate.tool, navigate.descriptor);
 
-  if (options.mode !== "read-only" && !usedNames.has(OPEN_FORM_TOOL_NAME)) {
-    dispatchTable.set(OPEN_FORM_TOOL_NAME, {
+  // open_form is dispatch-only by design: the approval layer triggers it, the model never calls it.
+  if (mode !== "read-only") {
+    claimDispatchName(sink, OPEN_FORM_TOOL_NAME, {
       kind: "client",
       op: "open_form",
       formScreens: buildFormScreens(manifest),
     });
-    usedNames.add(OPEN_FORM_TOOL_NAME);
   }
 
   const askUser = buildAskUserTool();
-  if (!usedNames.has(askUser.tool.name)) {
-    tools.push(askUser.tool);
-    dispatchTable.set(askUser.tool.name, askUser.descriptor);
-    usedNames.add(askUser.tool.name);
-  }
+  addTool(sink, askUser.tool, askUser.descriptor);
+}
 
-  return { tools, dispatchTable };
+/** Registry snapshot + role-filtered manifest → agent tool catalog. Pure, deterministic, no I/O
+ *  — every tool here is a name+schema only; `tool-dispatch.ts` is what actually calls a
+ *  permission-checked handler when the LLM invokes one of these by name.
+ *
+ *  `search_<entity>` / `find_<entity>_by_<field>` iterate mounted `:list` handlers directly off
+ *  the registry (unchanged from the original design). `get_<entity>` / `list_<entity>` are also
+ *  enumerated from the registry rather than `manifest.handlers`, because entity CRUD handlers
+ *  carry no `description`/`agent` and are therefore never role-exposed into the manifest (see
+ *  `resolveAgentExposure`) — the manifest can't tell us these handlers exist at all. Every other
+ *  tool (custom query/write handlers, navigate/open_form/ask_user) is manifest-derived, since
+ *  the manifest already carries the role-filtered handler/screen shape needed for those. Roles
+ *  and locale both come from the manifest (`manifest.builtForRoles` / `manifest.tenantSettings.locale`)
+ *  so the registry-derived and manifest-derived halves share one source and cannot disagree. */
+export function buildToolCatalog(
+  registry: RegistrySearchView,
+  manifest: AgentManifest,
+  options: ToolCatalogOptions,
+): ToolCatalog {
+  const sink: CatalogSink = { tools: [], dispatchTable: new Map(), usedNames: new Set() };
+  const roleFilter = { roles: manifest.builtForRoles };
+  const locale = manifest.tenantSettings.locale;
+  const entityByName = new Map(manifest.entities.map((entity) => [entity.name, entity]));
+
+  addRegistrySearchTools(registry, roleFilter, sink);
+  const { detailQnByEntity, listQnByEntity, entityListDetailQns } = collectEntityHandlerQns(
+    registry,
+    roleFilter,
+  );
+  addGetTools(detailQnByEntity, entityByName, locale, sink);
+  addListTools(registry, listQnByEntity, entityByName, locale, sink);
+  addQueryHandlerTools(manifest, entityListDetailQns, sink);
+  if (options.mode !== "read-only") addWriteHandlerTools(manifest, detailQnByEntity, sink);
+  addClientTools(manifest, options.mode, sink);
+
+  return { tools: sink.tools, dispatchTable: sink.dispatchTable };
 }

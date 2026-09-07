@@ -317,6 +317,7 @@ export function buildAgentManifest(
   const workspaces = buildWorkspaces(workspaceMap, translations, roles);
 
   return {
+    builtForRoles: [...roles],
     features: sortedByKey(features, (f) => f.name),
     entities: sortedByKey(entities, (e) => e.name),
     handlers: sortedByKey(handlers, (h) => h.qn),

@@ -14,11 +14,6 @@ export type AgentToolMode = "read-only" | "approval" | "edit";
 
 export type ToolCatalogOptions = {
   readonly mode: AgentToolMode;
-  /** Caller's roles — the manifest is already role-filtered but does not carry
-   *  roles back out, and get_/list_ are enumerated from the registry. */
-  readonly roles: readonly string[];
-  /** Locale to pick entity/field labels from the manifest's label maps. */
-  readonly locale: string;
 };
 
 /** Mirrors `ToolDefinition` in `@cosmicdriftgamestudio/kumiko-ai-foundation` (providers/types.ts)
@@ -182,6 +177,9 @@ export type AgentManifestFeature = {
 };
 
 export type AgentManifest = {
+  /** Roles this manifest was built for. `buildToolCatalog` derives its role filter from here so
+   *  the registry-derived and manifest-derived halves of the catalog cannot disagree. */
+  readonly builtForRoles: readonly string[];
   readonly features: readonly AgentManifestFeature[];
   readonly entities: readonly AgentManifestEntity[];
   readonly handlers: readonly AgentManifestHandler[];

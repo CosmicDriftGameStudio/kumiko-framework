@@ -64,7 +64,7 @@ const noRoleA = createTestUser({ roles: [], id: adminA.id, tenantId: adminA.tena
 describe("dispatchToolCall — real <entity>:list pipeline", () => {
   function catalogFor(roles: readonly string[]) {
     const manifest = buildAgentManifest(stack.registry, { locale: "en", roles });
-    return buildToolCatalog(stack.registry, manifest, { mode: "edit", roles, locale: "en" });
+    return buildToolCatalog(stack.registry, manifest, { mode: "edit" });
   }
 
   test("find_vendor_by_iban never leaks another tenant's row, even on an identical IBAN", async () => {

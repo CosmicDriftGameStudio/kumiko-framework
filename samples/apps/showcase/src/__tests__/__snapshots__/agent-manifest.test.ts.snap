@@ -2,6 +2,9 @@
 
 exports[`buildAgentManifest against the showcase app matches the recorded snapshot 1`] = `
 {
+  "builtForRoles": [
+    "admin",
+  ],
   "entities": [
     {
       "fields": [
