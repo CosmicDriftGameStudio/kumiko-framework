@@ -17,16 +17,19 @@ import {
   type AccessRule,
   defineEntityListHandler,
   defineFeature,
+  type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { hasWhereRule } from "../shared";
 import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants";
-import { noteEntryEntity } from "./entity";
+import { createNoteEntryEntity } from "./entity";
 import { createAddNoteHandler } from "./handlers/add-note.write";
 import { NOTES_HISTORY_FEATURE_I18N } from "./i18n";
 
 function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,
   access: AccessRule,
+  ownership: EntityDefinition["access"] | undefined,
 ): void {
   r.describe(
     "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: true } }) or pin roles with createNotesHistoryFeature({ roles }).",
@@ -37,16 +40,17 @@ function registerNotesHistory(
     recommended: false,
   });
 
-  r.entity("note-entry", noteEntryEntity);
+  const entity = createNoteEntryEntity(ownership);
+  r.entity("note-entry", entity);
 
   r.writeHandler(createAddNoteHandler(access));
-  r.queryHandler(defineEntityListHandler("note-entry", noteEntryEntity, { access }));
+  r.queryHandler(defineEntityListHandler("note-entry", entity, { access }));
 
   r.translations({ keys: NOTES_HISTORY_FEATURE_I18N });
 }
 
 export const notesHistoryFeature = defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-  registerNotesHistory(r, DEFAULT_NOTES_HISTORY_ACCESS),
+  registerNotesHistory(r, DEFAULT_NOTES_HISTORY_ACCESS, undefined),
 );
 
 export type NotesHistoryFeatureOptions = {
@@ -57,6 +61,22 @@ export type NotesHistoryFeatureOptions = {
   readonly access?: AccessRule;
   /** Shorthand for { access: { roles } }. Ignored when `access` is set. */
   readonly roles?: readonly string[];
+  /** Row-level ownership on the note-entry rows themselves — orthogonal to
+   *  `access`, which only gates whether a caller may dispatch create/list at
+   *  all. Set `ownership.read` to close the read leak: without it — even if
+   *  `ownership.write` is set — `access.read` stays undefined and any
+   *  dispatch-eligible user can read every note in the tenant, including
+   *  notes on entities they can't otherwise see.
+   *
+   *  `ownership.write` is separate and does NOT affect list/read. It's
+   *  consulted by the framework's generic delete/forget/restore paths (not
+   *  by this feature's own add-note handler — see createNotesHistoryFeature's
+   *  boot-guard comment). A `from()` rule there also gates GDPR erasure
+   *  (`forget`): if the rule's role map doesn't cover whatever role the
+   *  erasure/retention pipeline runs as, `forget` denies instead of
+   *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
+   *  sure any `ownership.write` you set covers that role, or leave it unset. */
+  readonly ownership?: EntityDefinition["access"];
 };
 
 function resolveAccess(opts: NotesHistoryFeatureOptions): AccessRule {
@@ -66,12 +86,24 @@ function resolveAccess(opts: NotesHistoryFeatureOptions): AccessRule {
 }
 
 // Options wrapper. Without options returns the module-level singleton (no
-// rebuild). access/roles build a fresh feature-definition.
+// rebuild). access/roles/ownership build a fresh feature-definition.
 export function createNotesHistoryFeature(
   opts: NotesHistoryFeatureOptions = {},
 ): typeof notesHistoryFeature {
-  if (opts.access === undefined && opts.roles === undefined) return notesHistoryFeature;
+  if (opts.access === undefined && opts.roles === undefined && opts.ownership === undefined) {
+    return notesHistoryFeature;
+  }
+  if (hasWhereRule(opts.ownership?.write)) {
+    throw new Error(
+      "createNotesHistoryFeature({ ownership }): ownership.write must not contain a " +
+        '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
+        "layer (the read path, via buildOwnershipClause). Write paths that " +
+        "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
+        "evaluate them: create throws at runtime, update/delete/forget/restore " +
+        "silently deny. Use a `from()` rule for ownership.write, or leave it unset.",
+    );
+  }
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-    registerNotesHistory(r, resolveAccess(opts)),
+    registerNotesHistory(r, resolveAccess(opts), opts.ownership),
   );
 }

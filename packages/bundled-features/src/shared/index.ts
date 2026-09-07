@@ -13,6 +13,7 @@ export { decryptStoredPii } from "./decrypt-stored-pii";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write";
 export { entitiesOf } from "./entities-of";
 export { isWithinGracePeriod } from "./grace-period";
+export { hasWhereRule } from "./has-where-rule";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash";
 export { mapWithConcurrency } from "./map-with-concurrency";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing";

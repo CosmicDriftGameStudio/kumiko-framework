@@ -1,4 +1,8 @@
-import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  type EntityDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // tag — per-tenant tag catalog. Event-sourced entity (create/rename/delete via
 // the standard executor); the framework projects `read_tags` from its own CRUD
@@ -7,11 +11,12 @@ export const tagEntity = createEntity({
   table: "read_tags",
   fields: {
     // Catalog labels ("urgent", "billing"), not user-identifying content —
-    // `personal: false` silences the user-content heuristic (456/5). A
-    // tenant COULD name a tag after a person; if that becomes a real
-    // requirement, this needs a `personal: { of: "<f>" }` annotation +
-    // forget/export hooks in the user-data-rights pipeline (none exist for
-    // tags today).
+    // `personal: false` silences the user-content heuristic (456/5). A tag
+    // has no author to anchor a `personal: { of: "<f>" }` annotation to, and
+    // a tag isn't ABOUT the entity that created it anyway — it's a catalog
+    // entry shared across whatever gets assigned it. If a tenant ever names a
+    // tag after a real person, the fix is renaming or deleting that tag, not
+    // wiring it to a subject key.
     name: createTextField({
       required: true,
       maxLength: 64,
@@ -48,13 +53,18 @@ export const tagEntity = createEntity({
 // Cross-entity views compose in the read-layer (no JOIN):
 //   - tags of an entity   → list assignments filter { field: "entityId", op: "eq" }
 //   - entities with a tag  → list assignments filter { field: "tagId",   op: "eq" }
-export const tagAssignmentEntity = createEntity({
-  table: "read_tag_assignments",
-  softDelete: true,
-  fields: {
-    tagId: createTextField({ required: true, maxLength: 64 }),
-    entityType: createTextField({ required: true, maxLength: 64 }),
-    // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
-    entityId: createTextField({ required: true, maxLength: 128 }),
-  },
-});
+export function createTagAssignmentEntity(access?: EntityDefinition["access"]) {
+  return createEntity({
+    table: "read_tag_assignments",
+    softDelete: true,
+    access,
+    fields: {
+      tagId: createTextField({ required: true, maxLength: 64 }),
+      entityType: createTextField({ required: true, maxLength: 64 }),
+      // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
+      entityId: createTextField({ required: true, maxLength: 128 }),
+    },
+  });
+}
+
+export const tagAssignmentEntity = createTagAssignmentEntity();

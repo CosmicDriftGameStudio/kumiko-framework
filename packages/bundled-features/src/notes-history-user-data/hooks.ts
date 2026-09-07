@@ -27,16 +27,19 @@ export const noteEntryExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-// Deliberate no-op: `body` and `authorName` are annotated `personal: { of: "authorId" }`
-// (entity.ts), which relies on crypto-shredding (mounted KMS) for erasure —
-// destroying the author's subject key makes every note-entry event AND
-// projected row unreadable at once, without needing a physical delete
-// (which would also break the bundle's append-only history for OTHER
-// entities' co-authors reading it).
+// Deliberate no-op: only `authorName` is annotated `personal: { of: "authorId" }`
+// (entity.ts) — `body` is deliberately plaintext (`personal: false`), since it
+// describes the HOST entity the note is attached to, not the author. So a
+// forget here crypto-shreds (mounted KMS) just `authorName`: after erasing
+// the author, who wrote a note is no longer visible, but the note's content
+// stays intact and readable — the note is about the host entity, and other
+// readers of that entity's history still need it. No physical delete is
+// needed for either outcome.
 // Same tradeoff as job-run/delivery-attempt (user-data-rights-defaults).
 // Precondition: this ONLY erases anything if the app mounts a KMS adapter —
 // without one, userOwned fields fall back to plaintext storage framework-wide
-// (see pii-field-encryption.ts) and forget is a true no-op for `body`. That
-// gap is a property of the framework's crypto-shredding design, not specific
-// to this hook; apps that need Art.17 coverage without KMS must mount one.
+// (see pii-field-encryption.ts) and forget is a true no-op for `authorName`
+// too. That gap is a property of the framework's crypto-shredding design,
+// not specific to this hook; apps that need Art.17 coverage without KMS must
+// mount one.
 export const noteEntryDeleteHook: UserDataDeleteHook = async () => {};
