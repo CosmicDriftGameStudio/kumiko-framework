@@ -288,6 +288,22 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   writeFileSync(join(dir, "upgrade-state.json"), `${JSON.stringify(marker, null, 2)}\n`, "utf-8");
 }
 
+// Missing, unreadable, or invalid marker means no baseline was ever recorded
+// — most commonly a bootstrap app that never ran `--apply` (fw#2299) — so
+// this reports "no marker" instead of throwing.
+function readMarkerVersion(targetDir: string): string | null {
+  const markerPath = join(targetDir, ".kumiko", "upgrade-state.json");
+  if (!existsSync(markerPath)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(markerPath, "utf-8")) as { version?: unknown };
+    return typeof parsed.version === "string" && SEMVER_RE.test(parsed.version)
+      ? parsed.version
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Highest pending version strictly below the earliest open manual breaking
  *  entry (no codemod). Falls back to highest non-breaking pending when every
  *  pending version is at/after that manual — never advances onto the manual. */
@@ -444,10 +460,29 @@ export async function runUpgradeCli(
   const verbose = getFlag(args, "verbose");
   const fromFlag = getStringFlag(args, "from");
 
+  // Resolved once here (not just inside --apply) so both the filter
+  // baseline below and the --apply codemod run target the same directory.
+  const dirFlag = getStringFlag(args, "dir");
+  const targetDir = dirFlag ? resolve(dirFlag) : cwd;
+  if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
+    out.err("");
+    out.err(`  --dir path is not a directory: ${targetDir}`);
+    out.err("");
+    return 1;
+  }
+
   // Always resolve the actually installed version, even when --from is set,
   // so --json can report both the filter baseline and what's really there.
   const installedVersion = readCurrentVersion(cwd);
-  const currentVersion = fromFlag ?? installedVersion;
+  // Filter baseline: explicit --from wins, otherwise the marker recorded
+  // under targetDir (what was last actually applied there), falling back to
+  // the installed version only when no marker exists yet (bootstrap,
+  // fw#2299). Baselining on installedVersion here would silently treat every
+  // changelog entry up to the installed version as already handled, even
+  // when the marker says otherwise — a bare `--apply` would then always
+  // report "Nothing new" and bootstrap the marker onto the installed
+  // version, hiding breaking changes the marker never actually saw.
+  const currentVersion = fromFlag ?? readMarkerVersion(targetDir) ?? installedVersion;
   if (!currentVersion) {
     out.err("");
     out.err("  Could not detect Kumiko version.");
@@ -483,16 +518,8 @@ export async function runUpgradeCli(
   const pending = sortEntries(filterEntriesAfter(allEntries, currentVersion));
 
   if (getFlag(args, "apply")) {
-    const dirFlag = getStringFlag(args, "dir");
-    const targetDir = dirFlag ? resolve(dirFlag) : cwd;
-    if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
-      out.err("");
-      out.err(`  --dir path is not a directory: ${targetDir}`);
-      out.err("");
-      return 1;
-    }
     // Marker must reflect what is actually installed under the target (or
-    // cwd), not a `--from` filter override — otherwise CI stays green forever.
+    // cwd), not the filter baseline above — otherwise CI stays green forever.
     const markerVersion =
       (dirFlag ? readCurrentVersion(targetDir) : null) ?? installedVersion ?? currentVersion;
     const dryRun = getFlag(args, "dry-run");
