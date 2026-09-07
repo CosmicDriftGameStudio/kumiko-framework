@@ -73,6 +73,10 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.queryHandlerMap;
     },
 
+    getAllWriteHandlers(): ReadonlyMap<string, WriteHandlerDef> {
+      return state.writeHandlerMap;
+    },
+
     getStreamHandler(name: string): StreamHandlerDef | undefined {
       return state.streamHandlerMap.get(name);
     },

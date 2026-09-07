@@ -12,7 +12,10 @@ import type { AccessRule, SessionUser } from "./types";
 // list `anonymous` in `roles` (e.g. `roles: ["anonymous", "customer"]`).
 // Without this guard, enabling `anonymousAccess` on the server would silently
 // turn every existing `openToAll: true` handler into a public endpoint.
-export function hasAccess(user: SessionUser, access: AccessRule | undefined): boolean {
+export function hasAccess(
+  user: Pick<SessionUser, "roles">,
+  access: AccessRule | undefined,
+): boolean {
   if (!access) return false;
   if ("openToAll" in access) {
     if (access.openToAll !== true) return false;

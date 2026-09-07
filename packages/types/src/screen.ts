@@ -326,6 +326,7 @@ export type EntityListScreenDefinition = {
   readonly type: "entityList";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   readonly entity: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
@@ -404,6 +405,7 @@ export type ProjectionListScreenDefinition = {
   readonly type: "projectionList";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -464,6 +466,7 @@ export type ProjectionDetailScreenDefinition = {
   readonly type: "projectionDetail";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
@@ -632,6 +635,7 @@ export type DashboardScreenDefinition = {
   readonly type: "dashboard";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
@@ -767,6 +771,7 @@ export type EntityEditScreenDefinition = {
   readonly type: "entityEdit";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   readonly entity: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
@@ -846,6 +851,7 @@ export type ActionFormScreenDefinition = {
   readonly type: "actionForm";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
    *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
   readonly handler: string;
@@ -901,6 +907,7 @@ export type CustomScreenDefinition = {
   readonly type: "custom";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
   /** Parent list screen for breadcrumb when this detail is not in nav. */
@@ -956,6 +963,7 @@ export type ConfigEditScreenDefinition = {
   readonly type: "configEdit";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -998,6 +1006,7 @@ export type SecretsEditScreenDefinition = {
   readonly type: "secretsEdit";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
+  readonly description?: string;
   /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
   readonly secretKeys: Readonly<Record<string, string>>;
   /** field id -> i18n key for the label. */
@@ -1035,10 +1044,10 @@ export type ScreenNavSugar = {
   readonly order?: number;
 };
 
-// `nav`/`detailFor` live directly on every variant (not only via this
+// `nav`/`detailFor`/`description` live directly on every variant (not only via this
 // union) so a screen typed as its own concrete kind — e.g. `const screen:
 // CustomScreenDefinition = {...}` in a module split out of `feature.ts` —
-// still accepts both fields; a union-only intersection drops them the
+// still accepts all three; a union-only intersection drops them the
 // moment a caller narrows to one member.
 //
 // `detailFor` applies to any screen kind because any kind can be the

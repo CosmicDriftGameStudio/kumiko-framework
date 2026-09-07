@@ -432,6 +432,7 @@ describe("buildAppSchema", () => {
       "allowPlaintext", // PII-audit reason string, not a renderer concern
       "lookupable", // blind-index equality lookup, server-side query concern
       "subjectRef", // GDPR-hook-coverage marker, not a renderer concern
+      "description", // AI-agent manifest hint, never rendered to the user
     ] as const;
 
     type Classified = (typeof FORWARDED_KEYS)[number] | (typeof SERVER_ONLY_KEYS)[number];
@@ -459,6 +460,7 @@ describe("buildAppSchema", () => {
           allowPlaintext: "is_business_data",
           lookupable: true,
           subjectRef: true,
+          description: "tags for the thing",
         },
       },
     } as unknown as EntityDefinition;

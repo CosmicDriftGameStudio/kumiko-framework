@@ -27,6 +27,7 @@ import type { EntityTableMeta } from "./entity-table-meta-types";
 import type { EntityDefinition } from "./fields";
 import type {
   AccessRule,
+  AgentHandlerHints,
   AuthClaimsFn,
   AuthClaimsHookDef,
   ClaimKeyDefinition,
@@ -453,7 +454,12 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: WriteHandlerFn<z.infer<TSchema>>,
-    options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+    options?: {
+      access?: AccessRule;
+      rateLimit?: RateLimitOption;
+      description?: string;
+      agent?: AgentHandlerHints;
+    },
   ): HandlerRef;
 
   queryHandler<TName extends string, TSchema extends ZodType>(
@@ -463,7 +469,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: QueryHandlerFn<z.infer<TSchema>>,
-    options?: { access?: AccessRule; rateLimit?: RateLimitOption; outputSchema?: ZodType },
+    options?: {
+      access?: AccessRule;
+      rateLimit?: RateLimitOption;
+      outputSchema?: ZodType;
+      description?: string;
+      agent?: AgentHandlerHints;
+    },
   ): HandlerRef;
 
   streamHandler<TName extends string, TSchema extends ZodType>(
@@ -865,6 +877,7 @@ export type Registry = {
   getWriteHandler(name: string): WriteHandlerDef | undefined;
   getQueryHandler(name: string): QueryHandlerDef | undefined;
   getAllQueryHandlers(): ReadonlyMap<string, QueryHandlerDef>;
+  getAllWriteHandlers(): ReadonlyMap<string, WriteHandlerDef>;
   getStreamHandler(name: string): StreamHandlerDef | undefined;
   getAllStreamHandlers(): ReadonlyMap<string, StreamHandlerDef>;
   getSearchableFields(entityName: string): readonly string[];

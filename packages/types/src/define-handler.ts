@@ -2,6 +2,7 @@ import type { ZodType, z } from "zod";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type {
   AccessRule,
+  AgentHandlerHints,
   HandlerContext,
   QueryEvent,
   RateLimitOption,
@@ -34,6 +35,8 @@ export type WriteHandlerDefinition<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
   readonly handler: (
@@ -59,6 +62,8 @@ export type WriteHandlerInput<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
 } & (
@@ -86,6 +91,8 @@ export type QueryHandlerDefinition<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
