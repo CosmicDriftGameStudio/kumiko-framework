@@ -5,6 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   LIST_ROW_META_COLUMNS,
+  LIST_ROW_META_REFERENCES,
   normalizeListColumn,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -50,17 +51,26 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
         // a real base-table column that's never a declared entity field, e.g.
         // a SystemAdmin cross-tenant list exposing tenantId. Unlike the
         // derivedFields branch above, these are actual DB columns, so
-        // server-side ORDER BY works — sortable stays true.
+        // server-side ORDER BY works — sortable stays true, except for the
+        // ID columns in LIST_ROW_META_REFERENCES (see their reference branch).
         const rowMetaType = LIST_ROW_META_COLUMNS[normalized.field];
         if (rowMetaType !== undefined) {
+          const rowMetaRef = LIST_ROW_META_REFERENCES[normalized.field];
           columns.push({
             field: normalized.field,
             label: translate(
               normalized.label ?? fieldLabelKey(featureName, screen.entity, normalized.field),
             ),
-            type: rowMetaType,
-            sortable: true,
+            type: rowMetaRef !== undefined ? "reference" : rowMetaType,
+            // The DB column holds the GUID, not the resolved label — server-side
+            // ORDER BY would sort by GUID while the cell shows the name.
+            sortable: rowMetaRef === undefined,
             ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+            ...(rowMetaRef !== undefined && {
+              refEntity: rowMetaRef.refEntity,
+              refFeature: rowMetaRef.refFeature,
+              refLabelField: rowMetaRef.refLabelField,
+            }),
           });
           continue;
         }

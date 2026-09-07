@@ -23,3 +23,19 @@ export const LIST_ROW_META_COLUMNS: Readonly<Record<string, ListRowMetaColumnTyp
   insertedById: "text",
   modifiedById: "text",
 };
+
+export type ListRowMetaReference = {
+  readonly refFeature: string;
+  readonly refEntity: string;
+  readonly refLabelField: string;
+};
+
+// tenantId would otherwise render the raw GUID; the lookup query is
+// `tenant:query:tenant:list`, cross-tenant because the feature is
+// `r.systemScope()`.
+// ponytail: bulk lookup is capped at REFERENCE_LIST_LOOKUP_LIMIT (200) —
+// above that, rows fall back to the GUID; paginate the lookup if an install
+// ever exceeds it.
+export const LIST_ROW_META_REFERENCES: Readonly<Record<string, ListRowMetaReference>> = {
+  tenantId: { refFeature: "tenant", refEntity: "tenant", refLabelField: "name" },
+};

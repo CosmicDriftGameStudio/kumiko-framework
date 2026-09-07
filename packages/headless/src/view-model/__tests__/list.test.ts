@@ -3,7 +3,10 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { LIST_ROW_META_COLUMNS } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  LIST_ROW_META_COLUMNS,
+  LIST_ROW_META_REFERENCES,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { computeListViewModel } from "../list";
 
 // Minimal EntityDefinition-shape. ui-core's view-model only reads
@@ -283,13 +286,57 @@ describe("computeListViewModel", () => {
         featureName: "tasks",
       });
 
+      const ref = LIST_ROW_META_REFERENCES[field];
       expect(vm.columns[1]).toEqual({
         field,
         label: `tasks:entity:task:field:${field}`,
-        type: expectedType,
-        sortable: true,
+        ...(ref !== undefined
+          ? {
+              type: "reference",
+              sortable: false,
+              refFeature: ref.refFeature,
+              refEntity: ref.refEntity,
+              refLabelField: ref.refLabelField,
+            }
+          : { type: expectedType, sortable: true }),
       });
     }
+  });
+
+  // tenantId carries a GUID in the DB but should render the referenced
+  // tenant's display name, like a declared reference field does — not the
+  // raw GUID. insertedById stays unchanged: this also pins that the map
+  // switches exactly one column, not every row-meta ID column.
+  test("tenantId row-meta column resolves as a reference column, insertedById unchanged", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["tenantId", "insertedById", "id"]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.columns[0]).toEqual({
+      field: "tenantId",
+      label: "tasks:entity:task:field:tenantId",
+      type: "reference",
+      sortable: false,
+      refFeature: "tenant",
+      refEntity: "tenant",
+      refLabelField: "name",
+    });
+    expect(vm.columns[1]).toEqual({
+      field: "insertedById",
+      label: "tasks:entity:task:field:insertedById",
+      type: "text",
+      sortable: true,
+    });
+    expect(vm.columns[2]).toEqual({
+      field: "id",
+      label: "tasks:entity:task:field:id",
+      type: "text",
+      sortable: true,
+    });
   });
 
   test("row-meta column: explicit label + renderer are passed through unchanged", () => {
