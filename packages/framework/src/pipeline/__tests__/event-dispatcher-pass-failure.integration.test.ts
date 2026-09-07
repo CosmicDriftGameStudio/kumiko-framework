@@ -16,6 +16,7 @@
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient } from "../../db/query";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { type Gauge, getFallbackMeter, type Meter } from "../../observability";
@@ -126,7 +127,7 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
     expect(logged.some((l) => l.includes(flaky) && l.includes("injected-lag-failure"))).toBe(true);
   });
 
-  test("attempts + last_error survive the rollback instead of staying stuck", async () => {
+  test("last_error survives the rollback while attempts stays untouched", async () => {
     const flaky = "passfailure:attempts";
     const consumer: EventConsumer = { name: flaky, handler: async () => {} };
     const dispatcher = buildDispatcher(
@@ -145,9 +146,10 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
     const after = await getConsumerState(stack.db, flaky);
     // Delivery itself succeeded (the handler never threw) — only the lag
     // emission did, rolling back markProcessing/persistConsumerOutcome. The
-    // dedicated post-catch write in its own transaction is the only thing
-    // that landed this.
-    expect(after?.attempts).toBe(1);
+    // dedicated post-catch write in its own transaction lands last_error,
+    // but must NOT touch attempts: that counter is deliverEvents' dead-letter
+    // budget, and this is an infra-level pass failure, not a handler throw.
+    expect(after?.attempts).toBe(0);
     expect(after?.lastError).toMatch(/injected-lag-failure/);
     // The cursor update rolled back with the rest of the transaction — the
     // consumer will redeliver "one" once its backoff clears.
@@ -175,15 +177,16 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
 
     await dispatcher.runOnce();
     const afterFirst = await getConsumerState(stack.db, flaky);
-    expect(afterFirst?.attempts).toBe(1);
+    expect(afterFirst?.attempts).toBe(0);
     expect(afterFirst?.lastProcessedEventId).toBe(0n);
 
     // Retry on the very next tick: the backoff must skip the flaky consumer
-    // (no new attempts increment) while the healthy one keeps advancing.
+    // (no delivery attempt, so no change to attempts) while the healthy one
+    // keeps advancing.
     await appendWidget("second-for-healthy");
     const second = await dispatcher.runOnce();
     const afterSecond = await getConsumerState(stack.db, flaky);
-    expect(afterSecond?.attempts).toBe(1);
+    expect(afterSecond?.attempts).toBe(0);
     expect(healthySeen).toEqual(["first", "second-for-healthy"]);
     expect(second.byConsumer[healthy]?.processed).toBeGreaterThan(0);
   });
@@ -206,7 +209,7 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
 
     await dispatcher.runOnce();
     const afterFailure = await getConsumerState(stack.db, name);
-    expect(afterFailure?.attempts).toBe(1);
+    expect(afterFailure?.attempts).toBe(0);
     expect(afterFailure?.lastProcessedEventId).toBe(0n);
 
     // Wait out the (short, base-case) backoff window rather than reaching
@@ -221,10 +224,43 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
 
     // A fresh failure right after the successful pass must NOT be skipped —
     // proves the backoff entry was cleared, not left at its escalated delay.
+    // attempts stays at 0: this is the same infra-level pass failure as
+    // above, which never touches deliverEvents' dead-letter budget.
     failOnce = true;
     await appendWidget("two");
     await dispatcher.runOnce();
     const afterSecondFailure = await getConsumerState(stack.db, name);
-    expect(afterSecondFailure?.attempts).toBe(1);
+    expect(afterSecondFailure?.attempts).toBe(0);
+  });
+
+  test("repeated infra-level pass failures never spend deliverEvents' dead-letter budget", async () => {
+    const flaky = "passfailure:budget";
+    const consumer: EventConsumer = { name: flaky, handler: async () => {} };
+    const meter = makeLagFailingMeter((c) => c === flaky);
+    await buildDispatcher([consumer], meter).ensureRegistered();
+
+    // Seed as if 9 of the real deliverEvents budget (maxAttempts=10) were
+    // already spent on genuine handler throws.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "kumiko_event_consumers" SET "attempts" = 9 WHERE "name" = $1`,
+      [flaky],
+    );
+    await appendWidget("one");
+
+    // Three infra-level pass failures in a row. Each uses a fresh dispatcher
+    // instance so its in-memory backoff never delays the next runOnce() —
+    // the DB row (and its seeded attempts=9) is what's shared and under test.
+    for (let i = 0; i < 3; i++) {
+      const dispatcher = buildDispatcher([consumer], meter);
+      await dispatcher.ensureRegistered();
+      await dispatcher.runOnce();
+    }
+
+    const after = await getConsumerState(stack.db, flaky);
+    // A 10th genuine handler throw would now dead-letter the consumer if
+    // these infra failures had bumped attempts past the seeded 9 — they
+    // must not, since none of them ran a real delivery pass.
+    expect(after?.attempts).toBe(9);
+    expect(after?.status).not.toBe("dead");
   });
 });

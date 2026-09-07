@@ -60,10 +60,15 @@ export async function markConsumerProcessing(
 // Best-effort record of an infra-level pass failure (event-dispatcher.ts's
 // processConsumer catch) — called OUTSIDE the transaction that just rolled
 // back, since that tx's own markProcessing/updateConsumerDeliveryOutcome
-// writes never committed. Only touches attempts/last_error: status and the
-// cursor are left as-is, since we don't know at this point whether the
-// consumer should be considered "dead" (that's the deliverEvents/maxAttempts
-// contract, which never ran this pass).
+// writes never committed. Must NOT touch "attempts": that counter is
+// deliverEvents' poison-pill/dead-letter budget, incremented only on a
+// handler throw inside an actual delivery pass. Spending it here would let
+// repeated infra blips (the exact case this backoff exists for) dead-letter
+// the consumer on the next real handler failure instead of after
+// maxAttempts. Visibility is covered by last_error, updated_at, and the
+// caller's console.error — status and the cursor are left as-is too, since
+// we don't know at this point whether the consumer should be "dead" (that's
+// the deliverEvents/maxAttempts contract, which never ran this pass).
 export async function recordConsumerPassFailure(
   db: AnyDb,
   name: string,
@@ -72,7 +77,6 @@ export async function recordConsumerPassFailure(
 ): Promise<void> {
   await asRawClient(db).unsafe(
     `UPDATE "kumiko_event_consumers" SET
-       "attempts" = "attempts" + 1,
        "last_error" = $1,
        "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3`,
