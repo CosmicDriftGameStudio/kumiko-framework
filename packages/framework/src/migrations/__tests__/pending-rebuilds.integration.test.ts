@@ -55,6 +55,13 @@ const countsTable = pgTable("read_pending_counts", {
   itemCount: integer("item_count").notNull().default(0),
 });
 
+// Exists in the DB but has no registered projection — models an owning
+// feature missing from the composition (distinct from a deliberately DROPped
+// table, which is never pushed at all).
+const orphanProjectionTable = pgTable("read_orphan_projection", {
+  groupId: uuid("group_id").primaryKey(),
+});
+
 // Steuerbarer Fail: simuliert einen transienten Rebuild-Fehler.
 let failApply = false;
 
@@ -92,7 +99,10 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, itemEntity, "pending-item");
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
-  await unsafePushTables(testDb.db, { readPendingCounts: countsTable });
+  await unsafePushTables(testDb.db, {
+    readPendingCounts: countsTable,
+    readOrphanProjection: orphanProjectionTable,
+  });
   tdb = createTenantDb(testDb.db, admin.tenantId);
   markerDir = mkdtempSync(join(tmpdir(), "pending-rebuilds-"));
 });
@@ -105,7 +115,7 @@ afterAll(async () => {
 beforeEach(async () => {
   failApply = false;
   await asRawClient(testDb.db).unsafe(
-    `TRUNCATE kumiko_events, read_pending_items, read_pending_counts, kumiko_projections RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, read_pending_items, read_pending_counts, read_orphan_projection, kumiko_projections RESTART IDENTITY CASCADE`,
   );
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS kumiko_pending_rebuilds`);
 });
@@ -230,6 +240,30 @@ describe("pending-rebuilds queue", () => {
     expect(run.rebuilt).toEqual([]);
     expect(run.failed).toEqual([]);
     // Trotz laut: gedraint → kein sticky-stuck Re-Apply.
+    expect(await listPendingRebuilds(testDb.db)).toEqual([]);
+  });
+
+  // A later migration in the SAME run can deliberately DROP a table it just
+  // emptied (e.g. after copying its rows elsewhere, phronexsis 0013/0025) —
+  // that's not data loss, so it must drain as unmapped instead of firing
+  // unresolvedManaged.
+  test("table emptied THIS run then dropped by a later migration → unmapped, not flagged", async () => {
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE IF NOT EXISTS read_dropped_by_later_migration (group_id uuid PRIMARY KEY)`,
+    );
+    writeRebuildMarker(markerDir, "0007_dropped.sql", ["read_dropped_by_later_migration"]);
+    const queued = await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0007_dropped"],
+    });
+    expect(queued).toEqual(["read_dropped_by_later_migration"]);
+
+    // Migration 0008 in the same run migrates the data elsewhere and drops the table.
+    await asRawClient(testDb.db).unsafe(`DROP TABLE read_dropped_by_later_migration`);
+
+    const run = await runPendingRebuilds(testDb.db, registry, { thisRunTables: queued });
+    expect(run.unresolvedManaged).toEqual([]);
+    expect(run.unmapped).toEqual(["read_dropped_by_later_migration"]);
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
   });
 

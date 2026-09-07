@@ -94,9 +94,10 @@ export type PendingRebuildRun = {
   readonly rebuilt: readonly { readonly projection: string; readonly eventsProcessed: number }[];
   /** Fehlgeschlagene Projektionen — ihre Tabellen BLEIBEN pending. */
   readonly failed: readonly { readonly projection: string; readonly error: string }[];
-  /** Pending-Tabellen ohne registrierte Projektion, die NICHT in diesem Run
-   *  frisch via Marker geleert wurden (pre-existing / Legacy-unmanaged-Marker)
-   *  — geräumt, still (nicht von echten Legacy-Tabellen unterscheidbar). */
+  /** Pending tables without a registered projection that are either NOT
+   *  freshly emptied via marker in this run (pre-existing / legacy unmanaged
+   *  marker) OR were deliberately DROPped by a later migration in the same
+   *  run (no data loss, no projection left to resolve) — drained, silent. */
   readonly unmapped: readonly string[];
   /** In DIESEM Run via Marker geleerte managed-Tabellen ohne auflösbare
    *  Projektion = das owning-Feature fehlt in der Komposition. Geräumt (kein
@@ -148,13 +149,18 @@ export async function runPendingRebuilds(
   for (const tableName of pending) {
     const projection = tableToProjection.get(tableName);
     if (projection === undefined) {
-      // Marker tragen nur managed Tabellen (rebuild-marker.ts). Eine in DIESEM
-      // Run frisch geleerte Tabelle ohne auflösbare Projektion ist daher ein
-      // echter Defekt (owning-Feature fehlt in der Komposition) → laut. Pre-
-      // existing pending Tabellen sind nicht von alten unmanaged-Markern
-      // unterscheidbar → still drainen wie bisher (kein Hard-Throw, siehe #361).
-      if (thisRun.has(tableName)) unresolvedManaged.push(tableName);
-      else unmapped.push(tableName);
+      // Markers only carry managed tables (rebuild-marker.ts). A table emptied
+      // in THIS run with no resolving projection is a real defect (owning
+      // feature missing from the composition) → loud (#361) — unless the table
+      // no longer exists: then a later migration in the same run deliberately
+      // DROPped it after migrating its data elsewhere, no data loss. Pre-
+      // existing pending tables stay indistinguishable from old unmanaged
+      // markers → still drain silently as before.
+      if (thisRun.has(tableName) && (await tableExists(db, `public.${tableName}`))) {
+        unresolvedManaged.push(tableName);
+      } else {
+        unmapped.push(tableName);
+      }
       continue;
     }
     byProjection.set(projection, [...(byProjection.get(projection) ?? []), tableName]);
