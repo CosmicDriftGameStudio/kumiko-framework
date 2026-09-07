@@ -23,7 +23,11 @@ describe("buildAgentManifest against the showcase app", () => {
     const adminManifest = buildAgentManifest(registry, { locale: "de", roles: ["admin"] });
     const viewerManifest = buildAgentManifest(registry, { locale: "de", roles: ["viewer"] });
 
-    expect(adminManifest).toEqual(viewerManifest);
+    // `builtForRoles` is caller provenance, not app shape — it differs by construction.
+    expect({ ...adminManifest, builtForRoles: [] }).toEqual({
+      ...viewerManifest,
+      builtForRoles: [],
+    });
   });
 
   // No showcase handler carries a `description` today, so fail-closed

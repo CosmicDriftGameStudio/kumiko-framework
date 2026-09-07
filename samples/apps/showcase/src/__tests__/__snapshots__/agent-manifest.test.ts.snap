@@ -2,6 +2,9 @@
 
 exports[`buildAgentManifest against the showcase app matches the recorded snapshot 1`] = `
 {
+  "builtForRoles": [
+    "admin",
+  ],
   "entities": [
     {
       "fields": [
@@ -374,6 +377,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "handler": "showcase:write:item:create",
       "id": "showcase:screen:item-quick-add",
       "params": [],
       "titles": {

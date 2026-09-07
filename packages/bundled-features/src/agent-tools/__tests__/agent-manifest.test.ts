@@ -85,6 +85,12 @@ describe("buildAgentManifest", () => {
     expect(viewer.handlers.some((h) => h.qn.endsWith(":undescribed"))).toBe(false);
   });
 
+  test("echoes the roles it was built for, so consumers cannot invent a second role source", () => {
+    const registry = createRegistry([buildTestFeature()]);
+    const manifest = buildAgentManifest(registry, { locale: "en", roles: ["admin", "viewer"] });
+    expect(manifest.builtForRoles).toEqual(["admin", "viewer"]);
+  });
+
   test("role gating: viewer sees the query handler but not the admin-only write handler", () => {
     const registry = createRegistry([buildTestFeature()]);
     const viewer = buildAgentManifest(registry, { locale: "en", roles: ["viewer"] });

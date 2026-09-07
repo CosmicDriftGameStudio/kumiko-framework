@@ -16,6 +16,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { buildAgentManifest } from "../agent-manifest";
 import { buildToolCatalog } from "../tool-catalog";
 import { dispatchToolCall } from "../tool-dispatch";
 
@@ -61,18 +62,25 @@ const readerA = createTestUser({ roles: ["Reader"], id: adminA.id, tenantId: adm
 const noRoleA = createTestUser({ roles: [], id: adminA.id, tenantId: adminA.tenantId });
 
 describe("dispatchToolCall — real <entity>:list pipeline", () => {
+  function catalogFor(roles: readonly string[]) {
+    const manifest = buildAgentManifest(stack.registry, { locale: "en", roles });
+    return buildToolCatalog(stack.registry, manifest, { mode: "edit" });
+  }
+
   test("find_vendor_by_iban never leaks another tenant's row, even on an identical IBAN", async () => {
     await stack.dispatcher.write(VENDOR_CREATE_QN, { name: "Acme A", iban: "DE-SAME" }, adminA);
     await stack.dispatcher.write(VENDOR_CREATE_QN, { name: "Acme B", iban: "DE-SAME" }, adminB);
 
-    const catalog = buildToolCatalog(stack.registry);
-    const result = await dispatchToolCall(
-      stack.dispatcher,
-      readerA,
-      "find_vendor_by_iban",
-      { iban: "DE-SAME" },
-      catalog.dispatchTable,
-    );
+    const catalog = catalogFor(readerA.roles);
+    const result = await dispatchToolCall({
+      dispatcher: stack.dispatcher,
+      user: readerA,
+      toolName: "find_vendor_by_iban",
+      input: { iban: "DE-SAME" },
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-1",
+      toolCallId: "call-1",
+    });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
@@ -84,14 +92,18 @@ describe("dispatchToolCall — real <entity>:list pipeline", () => {
   test("a caller without the list handler's required role gets denied, not an empty ok result", async () => {
     await stack.dispatcher.write(VENDOR_CREATE_QN, { name: "Acme A", iban: "DE-SAME" }, adminA);
 
-    const catalog = buildToolCatalog(stack.registry);
-    const result = await dispatchToolCall(
-      stack.dispatcher,
-      noRoleA,
-      "find_vendor_by_iban",
-      { iban: "DE-SAME" },
-      catalog.dispatchTable,
-    );
+    // Build the catalog for the READER role (the list handler's actual gate) so
+    // find_vendor_by_iban is generated at all; noRoleA then calls it without any role.
+    const catalog = catalogFor(readerA.roles);
+    const result = await dispatchToolCall({
+      dispatcher: stack.dispatcher,
+      user: noRoleA,
+      toolName: "find_vendor_by_iban",
+      input: { iban: "DE-SAME" },
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-1",
+      toolCallId: "call-2",
+    });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
