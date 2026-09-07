@@ -2,13 +2,23 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-08-20
+verified: 2026-09-07
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.235.0
+
+### framework-core
+
+**UnprocessableOpts.details can no longer carry its own `reason` key (fw#2460).**
+
+UnprocessableError builds its `details` as `{ ...opts?.details, reason }`, so `reason` was always owned by the ctor's first positional argument — but nothing stopped a caller from also putting `reason` inside `opts.details`, where it was silently overwritten. `UnprocessableOpts.details` is now typed `Readonly<Record<string, unknown>> & { readonly reason?: never }`, so that redundant key is now a compile-time error (TS2322) instead of a silent no-op. This was shipped in #2460 without a changeset or changelog entry, which is what this entry retroactively fixes.
+
+**Migration:** Remove `reason` from any `details: { ... }` object literal passed to `new UnprocessableError(reason, { details: { ...} })` — the value is unchanged, it now flows only through the first positional argument. Run the codemod, or delete the property by hand where it isn't statically removable (the codemod reports those sites with file:line and a reason).
 
 ## 0.209.1
 
