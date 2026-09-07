@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.235.2
+
+### Patch Changes
+
+- 1ce74b3: List row-meta ID columns resolve to tenant/user names instead of raw GUIDs.
+  - @cosmicdrift/kumiko-types@0.235.2
+
 ## 0.235.1
 
 ### Patch Changes
