@@ -24,10 +24,12 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { hasWhereRule } from "../shared";
 import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants";
-import { tagAssignmentEntity, tagEntity } from "./entity";
+import { createTagAssignmentEntity, tagEntity } from "./entity";
 import { createAssignTagHandler } from "./handlers/assign-tag.write";
 import { createCreateTagHandler } from "./handlers/create-tag.write";
 import { createDeleteTagHandler } from "./handlers/delete-tag.write";
@@ -48,6 +50,7 @@ function registerTags(
   r: FeatureRegistrar<typeof TAGS_FEATURE_NAME>,
   access: AccessRule,
   toggleable: TagsToggleable | undefined,
+  ownership: EntityDefinition["access"] | undefined,
 ): void {
   r.describe(
     "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Catalog screens are declarative (`entityList` + `entityEdit`) and use convention QNs `tag:{create,update,delete}`; TagManager/TagPicker keep `create-tag`/`update-tag`/`delete-tag`. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
@@ -62,6 +65,7 @@ function registerTags(
   // feature toggleable lets tier-engine/feature-toggles cut it per tenant.
   if (toggleable !== undefined) r.toggleable(toggleable);
 
+  const tagAssignmentEntity = createTagAssignmentEntity(ownership);
   r.entity("tag", tagEntity);
   r.entity("tag-assignment", tagAssignmentEntity);
 
@@ -91,7 +95,7 @@ function registerTags(
 }
 
 export const tagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>
-  registerTags(r, DEFAULT_TAG_ACCESS, undefined),
+  registerTags(r, DEFAULT_TAG_ACCESS, undefined, undefined),
 );
 
 export type TagsFeatureOptions = {
@@ -107,6 +111,23 @@ export type TagsFeatureOptions = {
    *  `default` applies when no toggle/tier override exists — use { default: false }
    *  for fail-closed tier-gating. Omit to keep tags always-on (default). */
   readonly toggleable?: TagsToggleable;
+  /** Row-level ownership on the tag-assignment rows themselves — orthogonal to
+   *  `access`, which only gates whether a caller may dispatch assign/remove/list
+   *  at all. Set `ownership.read` to close the read leak: without it — even if
+   *  `ownership.write` is set — `access.read` stays undefined and any
+   *  dispatch-eligible user can read every assignment in the tenant, including
+   *  assignments on entities they can't otherwise see. Applies only to
+   *  `tag-assignment`; the `tag` catalog stays tenant-wide by design.
+   *
+   *  `ownership.write` is separate and does NOT affect list/read. It's
+   *  consulted by the framework's generic delete/forget/restore paths (not by
+   *  this feature's own assign-tag handler — see createTagsFeature's
+   *  boot-guard comment). A `from()` rule there also gates GDPR erasure
+   *  (`forget`): if the rule's role map doesn't cover whatever role the
+   *  erasure/retention pipeline runs as, `forget` denies instead of
+   *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
+   *  sure any `ownership.write` you set covers that role, or leave it unset. */
+  readonly ownership?: EntityDefinition["access"];
 };
 
 function resolveAccess(opts: TagsFeatureOptions): AccessRule {
@@ -116,11 +137,29 @@ function resolveAccess(opts: TagsFeatureOptions): AccessRule {
 }
 
 // Backwards-compat / options wrapper. Without options returns the module-level
-// singleton (no rebuild). access/roles/toggleable build a fresh feature-definition.
+// singleton (no rebuild). access/roles/toggleable/ownership build a fresh
+// feature-definition.
 export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFeature {
-  if (opts.access === undefined && opts.roles === undefined && opts.toggleable === undefined) {
+  if (
+    opts.access === undefined &&
+    opts.roles === undefined &&
+    opts.toggleable === undefined &&
+    opts.ownership === undefined
+  ) {
     return tagsFeature;
   }
+  if (hasWhereRule(opts.ownership?.write)) {
+    throw new Error(
+      "createTagsFeature({ ownership }): ownership.write must not contain a " +
+        '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
+        "layer (the read path, via buildOwnershipClause). Write paths that " +
+        "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
+        "evaluate them: create throws at runtime, update/delete/forget/restore " +
+        "silently deny. Use a `from()` rule for ownership.write, or leave it unset.",
+    );
+  }
   const access = resolveAccess(opts);
-  return defineFeature(TAGS_FEATURE_NAME, (r) => registerTags(r, access, opts.toggleable));
+  return defineFeature(TAGS_FEATURE_NAME, (r) =>
+    registerTags(r, access, opts.toggleable, opts.ownership),
+  );
 }
