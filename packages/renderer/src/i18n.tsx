@@ -120,7 +120,7 @@ export function useLocale(): LocaleResolver {
   useSyncExternalStore(
     ctx.resolver.subscribe,
     () => ctx.resolver.locale(),
-    () => "en",
+    () => ctx.resolver.locale(),
   );
   return ctx.resolver;
 }
@@ -147,7 +147,7 @@ export function useTranslation(): (
   const locale = useSyncExternalStore(
     ctx.resolver.subscribe,
     () => ctx.resolver.locale(),
-    () => "en",
+    () => ctx.resolver.locale(),
   );
 
   // `t` MUSS referenz-stabil sein solange sich Resolver/Bundles/Locale
@@ -200,7 +200,7 @@ export function useOptionalLocale(): string | undefined {
   useSyncExternalStore(
     (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
     () => (ctx ? ctx.resolver.locale() : "en"),
-    () => "en",
+    () => (ctx ? ctx.resolver.locale() : "en"),
   );
   return ctx === undefined ? undefined : ctx.resolver.locale();
 }
@@ -213,7 +213,7 @@ export function useOptionalTranslation():
   const locale = useSyncExternalStore(
     (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
     () => (ctx ? ctx.resolver.locale() : "en"),
-    () => "en",
+    () => (ctx ? ctx.resolver.locale() : "en"),
   );
   const t = useCallback(
     (key: string, params?: Readonly<Record<string, unknown>>): string => {

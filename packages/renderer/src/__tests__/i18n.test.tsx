@@ -2,12 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
   useLocale,
+  useOptionalTranslation,
   useTranslation,
 } from "../i18n";
 
@@ -169,5 +171,42 @@ describe("useLocale", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const { result } = renderHook(() => useLocale(), { wrapper: wrap(resolver) });
     expect(result.current.locale()).toBe("de");
+  });
+});
+describe("useTranslation — SSR", () => {
+  // kumiko-framework#2595: getServerSnapshot hardcoded "en", so any
+  // server render came out English regardless of the resolver's actual
+  // locale — untestable via renderToStaticMarkup until getServerSnapshot
+  // read the resolver instead of a constant.
+  test(`renderToStaticMarkup with a non-English resolver renders the resolver's locale, not "en"`, () => {
+    const resolver = createStaticLocaleResolver({ locale: "de" });
+    const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
+    function Probe(): ReactNode {
+      const t = useTranslation();
+      return <span>{t("greet")}</span>;
+    }
+    const html = renderToStaticMarkup(
+      <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
+        <Probe />
+      </LocaleProvider>,
+    );
+    expect(html).toContain("Hallo");
+    expect(html).not.toContain("Hello");
+  });
+
+  test(`renderToStaticMarkup via useOptionalTranslation resolves the resolver's locale, not "en"`, () => {
+    const resolver = createStaticLocaleResolver({ locale: "de" });
+    const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
+    function Probe(): ReactNode {
+      const t = useOptionalTranslation();
+      return <span>{t?.("greet")}</span>;
+    }
+    const html = renderToStaticMarkup(
+      <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
+        <Probe />
+      </LocaleProvider>,
+    );
+    expect(html).toContain("Hallo");
+    expect(html).not.toContain("Hello");
   });
 });
