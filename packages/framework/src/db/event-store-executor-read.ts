@@ -2,7 +2,7 @@ import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto";
 import { executeRawQueryRead } from "../db/queries/raw-sql";
 import { coerceRow, extractTableInfo } from "../db/query";
-import { buildOwnershipClause, shiftParams } from "../engine/ownership";
+import { buildOwnershipClause, normalizeAccessEntry, shiftParams } from "../engine/ownership";
 import type { EntityId } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { UnprocessableError } from "../errors";
@@ -269,7 +269,15 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const physicalCol = (field: string): string =>
         (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
       const colSql = (field: string): string => `"${physicalCol(field)}"`;
-      const sortField = payload.sort && table[payload.sort] ? payload.sort : undefined;
+      // Field-level read access gates filtering and sorting the same way it
+      // gates the projected row: a caller who cannot read a field must not be
+      // able to probe its values through result counts or ordering (fw#2629).
+      const fieldReadClause = (field: string) =>
+        buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
+      const sortField =
+        payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
+          ? payload.sort
+          : undefined;
       const sortDescending = payload.sortDirection === "desc";
 
       // Tenant-Filter (replicates TenantDb's readWhere semantics).
@@ -316,6 +324,22 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         if (table[f.field] === undefined) {
           // skip: unknown field — not a real column, drop the filter (injection guard)
           return;
+        }
+        const readClause = fieldReadClause(f.field);
+        if (readClause.kind === "empty") {
+          whereSql.push("FALSE");
+          // skip: no role grants read on this field, so no row may be probed
+          // through it — an unsatisfiable filter beats an error, which would
+          // itself confirm the field exists (field-access.ts strips silently)
+          return;
+        }
+        if (readClause.kind === "sql") {
+          const shifted = shiftParams(
+            { sqlText: readClause.sqlText, params: readClause.params },
+            params.length,
+          );
+          whereSql.push(shifted.sqlText);
+          for (const p of shifted.params) params.push(p);
         }
         if (entity.fields[f.field]?.type === "multiSelect") {
           applyMultiSelectFilter(colSql, whereSql, params, f);
