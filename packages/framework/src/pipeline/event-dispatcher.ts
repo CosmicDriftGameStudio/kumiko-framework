@@ -20,6 +20,7 @@ import {
   fetchPendingEvents,
   markProcessing,
   persistConsumerOutcome,
+  persistConsumerPassFailure,
   preRegisterConsumers,
 } from "./event-dispatcher-delivery";
 
@@ -175,6 +176,13 @@ const DEFAULT_POLL_MS = 100;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const DEFAULT_REARM_COOLDOWN_MS = 5 * 60_000;
 const DEFAULT_MAX_REARM_COUNT = 3;
+// Backoff for a consumer whose pass THREW (the processConsumer catch below)
+// — an infra-level failure (db.begin's callback rejected outside deliverEvents'
+// own per-event try/catch), not a poisoned event. Doubles per consecutive
+// failure, capped at PASS_FAILURE_MAX_BACKOFF_MS so a consumer stuck failing
+// still gets retried within a minute; a successful pass resets it to 0.
+const PASS_FAILURE_BASE_BACKOFF_MS = 1_000;
+const PASS_FAILURE_MAX_BACKOFF_MS = 60_000;
 
 export function createEventDispatcher(options: EventDispatcherOptions): EventDispatcher {
   const {
@@ -216,6 +224,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // which is fine: a fresh process re-observing a still-dead consumer is
   // exactly the "still needs a human" signal ops wants.
   const reportedDeadConsumers = new Set<string>();
+
+  // Per-(consumer, instanceId) backoff after a thrown pass (see the catch in
+  // processConsumer). Keyed the same way as reportedDeadConsumers.
+  // consecutiveFailures drives the exponential delay; retryAtMs is the
+  // Date.now() timestamp doPass compares against to decide whether this
+  // consumer's turn is skipped this tick. A successful pass deletes the
+  // entry — the next failure (if any) starts a fresh backoff from scratch.
+  const consumerBackoff = new Map<string, { consecutiveFailures: number; retryAtMs: number }>();
 
   let running = false;
   // Separate from `running` on purpose: pre-registration of consumer state
@@ -279,6 +295,16 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // that feature is globally disabled. Cursor stays put — events accumulate
       // and are re-delivered in order when the feature is re-enabled.
       if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
+        byConsumer[consumer.name] = { processed: 0, failed: 0 };
+        continue;
+      }
+      // Backoff-gate: a consumer whose last pass threw waits out its
+      // exponential delay before being tried again — see the catch in
+      // processConsumer. Other consumers are unaffected; only this one's
+      // turn is skipped this tick.
+      const backoffKey = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
+      const backoff = consumerBackoff.get(backoffKey);
+      if (backoff && backoff.retryAtMs > Date.now()) {
         byConsumer[consumer.name] = { processed: 0, failed: 0 };
         continue;
       }
@@ -352,6 +378,11 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         await emitLagFromTx(tx, consumer.name, instanceId, outcome.cursor, meter);
       });
 
+      // Pass completed without throwing — clear any backoff from a prior
+      // failure so the next unrelated outage gets its own fresh delay
+      // instead of inheriting a partially-escalated one.
+      consumerBackoff.delete(`${consumer.name}:${instanceId}`);
+
       emitEventConsumerPassOutcome(
         meter,
         { consumer: consumer.name, instanceId },
@@ -370,8 +401,44 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // callers and at-least-once-with-duplicate-delivery on the next pass;
       // neither is what we want, so ops needs to see it.
       const msg = e instanceof Error ? e.message : String(e);
-      context.log?.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
+      if (context.log) {
+        context.log.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
+      } else {
+        // No logger wired onto this context (e.g. createEventDispatcher used
+        // standalone) — console.error is the only way ops still sees this in
+        // pod logs instead of the failure vanishing with the rolled-back tx.
+        console.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
+      }
       span.setStatus("error", msg);
+
+      // The whole pass rolled back, so markProcessing/persistConsumerOutcome
+      // never committed — attempts/last_error are stuck at their pre-pass
+      // values. Record the failure in its OWN transaction so it survives.
+      // Best-effort: this write must never itself take down the dispatcher,
+      // so any failure here is swallowed after logging.
+      try {
+        await db.begin(async (tx: DbTx) => {
+          await persistConsumerPassFailure(tx, consumer.name, instanceId, msg);
+        });
+      } catch (persistErr) {
+        const persistMsg = persistErr instanceof Error ? persistErr.message : String(persistErr);
+        const failureMsg = `[event-dispatcher] ${consumer.name} failed to persist pass-failure state: ${persistMsg}`;
+        if (context.log) {
+          context.log.error(failureMsg);
+        } else {
+          console.error(failureMsg);
+        }
+      }
+
+      // Escalate the backoff so this consumer isn't retried on the very
+      // next tick — see PASS_FAILURE_BASE_BACKOFF_MS/MAX_MS above.
+      const key = `${consumer.name}:${instanceId}`;
+      const consecutiveFailures = (consumerBackoff.get(key)?.consecutiveFailures ?? 0) + 1;
+      const delayMs = Math.min(
+        PASS_FAILURE_BASE_BACKOFF_MS * 2 ** (consecutiveFailures - 1),
+        PASS_FAILURE_MAX_BACKOFF_MS,
+      );
+      consumerBackoff.set(key, { consecutiveFailures, retryAtMs: Date.now() + delayMs });
     } finally {
       span.end();
     }

@@ -8,6 +8,7 @@ import {
   insertConsumerIfAbsent,
   markConsumerProcessing,
   rearmDeadConsumer,
+  recordConsumerPassFailure,
   selectConsumerForUpdateSkipLocked,
   updateConsumerDeliveryOutcome,
 } from "../db/queries/event-consumer";
@@ -287,6 +288,19 @@ export async function persistConsumerOutcome(
   outcome: DeliveryOutcome,
 ): Promise<void> {
   await updateConsumerDeliveryOutcome(tx, name, instanceId, outcome);
+}
+
+// Best-effort record of a pass that threw before persistConsumerOutcome
+// could run (event-dispatcher.ts's processConsumer catch). The caller opens
+// its OWN transaction for this — the one that rolled back never committed
+// anything, including this write, if it happened inside the same tx.
+export async function persistConsumerPassFailure(
+  tx: DbTx,
+  name: string,
+  instanceId: string,
+  errorMessage: string,
+): Promise<void> {
+  await recordConsumerPassFailure(tx, name, instanceId, errorMessage);
 }
 
 // Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
