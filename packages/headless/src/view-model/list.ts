@@ -3,7 +3,11 @@ import type {
   EntityListScreenDefinition,
   FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeListColumn, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  LIST_ROW_META_COLUMNS,
+  normalizeListColumn,
+  parseRefTarget,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types";
 
 export type ComputeListViewModelInput = {
@@ -42,6 +46,24 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       // columns carry no reference/select metadata and never server-sort.
       const derivedDef = entity.derivedFields?.[normalized.field];
       if (!derivedDef) {
+        // Row-meta column (id/tenantId/version/insertedAt/modifiedAt/...) —
+        // a real base-table column that's never a declared entity field, e.g.
+        // a SystemAdmin cross-tenant list exposing tenantId. Unlike the
+        // derivedFields branch above, these are actual DB columns, so
+        // server-side ORDER BY works — sortable stays true.
+        const rowMetaType = LIST_ROW_META_COLUMNS[normalized.field];
+        if (rowMetaType !== undefined) {
+          columns.push({
+            field: normalized.field,
+            label: translate(
+              normalized.label ?? fieldLabelKey(featureName, screen.entity, normalized.field),
+            ),
+            type: rowMetaType,
+            sortable: true,
+            ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+          });
+          continue;
+        }
         // A virtual presentational column — drawn entirely by a columnRenderer
         // component from the row (e.g. tag chips); value is undefined and it
         // never server-sorts. `field` is just the column key. It needs BOTH a

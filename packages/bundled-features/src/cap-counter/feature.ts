@@ -46,7 +46,11 @@
 // config, kein secrets, kein tenant-feature nötig. Tenant-Scoping kommt
 // vom Framework-Default (Base-Column tenantId).
 
-import { defineEntityListHandler, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  defineEntityListHandler,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   CAP_COUNTER_FEATURE,
   CAP_COUNTER_LIST_SCREEN_ID,
@@ -62,7 +66,7 @@ import {
 import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write";
 import { CAP_COUNTER_I18N } from "./i18n";
 
-const sysadminAccess = { access: { roles: ["SystemAdmin"] } } as const;
+const sysadminAccess = { access: { roles: access.systemAdmin }, crossTenant: true } as const;
 
 export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   r.describe(
@@ -101,7 +105,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     id: CAP_COUNTER_LIST_SCREEN_ID,
     type: "entityList",
     entity: "cap-counter",
-    columns: ["capName", "value", "periodStart", "lastSoftWarnedAt"],
+    columns: ["tenantId", "capName", "value", "periodStart", "lastSoftWarnedAt"],
     defaultSort: { field: "capName", dir: "asc" },
     searchable: true,
     access: { roles: ["SystemAdmin"] },
@@ -117,6 +121,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     keys: {
       ...CAP_COUNTER_I18N,
       "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+      "cap-counter:entity:cap-counter:field:tenantId": { de: "Mandant", en: "Tenant" },
     },
   });
 });
