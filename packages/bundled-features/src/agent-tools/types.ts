@@ -10,6 +10,17 @@ import type {
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 
+export type AgentToolMode = "read-only" | "approval" | "edit";
+
+export type ToolCatalogOptions = {
+  readonly mode: AgentToolMode;
+  /** Caller's roles — the manifest is already role-filtered but does not carry
+   *  roles back out, and get_/list_ are enumerated from the registry. */
+  readonly roles: readonly string[];
+  /** Locale to pick entity/field labels from the manifest's label maps. */
+  readonly locale: string;
+};
+
 /** Mirrors `ToolDefinition` in `@cosmicdriftgamestudio/kumiko-ai-foundation` (providers/types.ts)
  *  field-for-field so a generated catalog needs no translation layer at the call site. Kept as
  *  a local, dependency-free type — agent-tools has no ai-foundation/enterprise dependency. */
@@ -40,7 +51,53 @@ export type ToolDispatchDescriptor =
       readonly entityName: string;
       readonly fieldName: string;
       readonly qn: string;
-    };
+    }
+  | {
+      readonly kind: "server";
+      readonly op: "query";
+      readonly qn: string;
+      readonly risk: AgentRisk;
+      readonly entity?: string;
+      /** Set for `list_<entity>`: dispatch builds the entityListSchema payload
+       *  itself and validates field names against these allowlists. */
+      readonly list?: {
+        readonly searchableFields: readonly string[];
+        readonly filterableFields: readonly string[];
+      };
+      /** Set for `get_<entity>`. */
+      readonly detail?: true;
+    }
+  | {
+      readonly kind: "server";
+      readonly op: "write";
+      readonly qn: string;
+      readonly risk: AgentRisk;
+      readonly entity?: string;
+      /** `<feature>:query:<entity>:detail` QN when one is mounted and readable.
+       *  Dispatch reads the current `version` from it before an optimistic-lock
+       *  write, and re-reads through it after a successful write so the result
+       *  goes through the field-level read filter. */
+      readonly detailQn?: string;
+      /** True when the handler schema requires `version` and `detailQn` exists,
+       *  so the catalog stripped `version` from the model-facing input schema. */
+      readonly injectsVersion?: boolean;
+    }
+  | {
+      readonly kind: "client";
+      readonly op: "navigate";
+      /** entity name → detail screen id, resolved from the manifest's `detailFor`. */
+      readonly entityScreens: ReadonlyMap<string, string>;
+      /** Every screen id present in the role-filtered manifest — the allowlist
+       *  for the `{ screenId, params }` form. */
+      readonly screenIds: ReadonlySet<string>;
+    }
+  | {
+      readonly kind: "client";
+      readonly op: "open_form";
+      /** write-handler QN → actionForm/entityEdit screen id. */
+      readonly formScreens: ReadonlyMap<string, string>;
+    }
+  | { readonly kind: "client"; readonly op: "ask_user" };
 
 export type ToolCatalog = {
   readonly tools: readonly ToolDefinition[];
@@ -97,6 +154,11 @@ export type AgentManifestScreen = {
   readonly entity?: string;
   readonly params: readonly string[];
   readonly workspaces: readonly string[];
+  /** Entity this screen is the detail view for. Distinct from `entity`: a custom
+   *  screen can render entity A while being the detail view for B. */
+  readonly detailFor?: string;
+  /** Write-handler QN an `actionForm` screen submits to. */
+  readonly handler?: string;
 };
 
 export type AgentManifestNav = {

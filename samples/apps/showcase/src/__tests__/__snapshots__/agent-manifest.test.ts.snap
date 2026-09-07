@@ -374,6 +374,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "handler": "showcase:write:item:create",
       "id": "showcase:screen:item-quick-add",
       "params": [],
       "titles": {

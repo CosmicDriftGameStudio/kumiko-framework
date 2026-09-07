@@ -1,179 +1,369 @@
 import { describe, expect, test } from "bun:test";
 import {
   createEntity,
+  createRegistry,
   createSelectField,
   createTextField,
+  defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type {
-  EntityDefinition,
-  QueryHandlerDef,
-  ReferenceFieldDef,
-} from "@cosmicdrift/kumiko-framework/engine/types";
-import { buildToolCatalog } from "../tool-catalog";
-import type { RegistrySearchView } from "../types";
+import { z } from "zod";
+import { buildAgentManifest } from "../agent-manifest";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
+import type { AgentManifest, RegistrySearchView, ToolCatalogOptions } from "../types";
 
-const vendorEntity = createEntity({
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const widgetEntity = createEntity({
   fields: {
     name: createTextField({ searchable: true, filterable: true }),
-    iban: createTextField({ filterable: true }),
+    status: createSelectField({ options: ["open", "closed"] as const, filterable: true }),
     notes: createTextField(),
-    status: createSelectField({ options: ["active", "archived"] as const, filterable: true }),
   },
 });
 
-const invoiceEntity = createEntity({
-  fields: {
-    vendorId: { type: "reference", entity: "vendor", filterable: true } satisfies ReferenceFieldDef,
-    description: createTextField({ searchable: true }),
-  },
+const orphanEntity = createEntity({ fields: { label: createTextField() } });
+
+function buildCatalogTestFeature() {
+  return defineFeature("catalog-test", (r) => {
+    // create/update excluded from the generated set: EntityHandlerOptions has no
+    // `description`, so a CRUD-generated create/update is never agent-exposed
+    // (resolveAgentExposure needs description or agent.expose) — registered
+    // explicitly below instead, so open_form's entityEdit-mapping has something
+    // to find in manifest.handlers.
+    r.crud("widget", widgetEntity, {
+      write: { access: { roles: ["Admin"] } },
+      read: { access: { roles: ["Admin", "Reader"] } },
+      verbs: { create: false, update: false },
+    });
+    r.writeHandler(
+      "widget:create",
+      z.object({ name: z.string(), status: z.enum(["open", "closed"]).optional() }),
+      async () => ({ isSuccess: true as const, data: { id: "w1", version: 1 } }),
+      { access: { roles: ["Admin"] }, description: "Create a widget." },
+    );
+    r.writeHandler(
+      "widget:update",
+      z.object({ id: z.string(), version: z.number(), changes: z.record(z.string(), z.unknown()) }),
+      async () => ({ isSuccess: true as const, data: { id: "w1", version: 2 } }),
+      { access: { roles: ["Admin"] }, description: "Update a widget." },
+    );
+
+    // Entity with no mounted handlers — the "skip when nothing callable" case.
+    r.entity("orphan", orphanEntity);
+
+    r.writeHandler(
+      "widget:approve",
+      z.object({ id: z.string(), version: z.number(), note: z.string() }),
+      async () => ({ isSuccess: true as const, data: { id: "w1", version: 2 } }),
+      { access: { roles: ["Admin"] }, description: "Approve a widget." },
+    );
+
+    // No entity mapping (bare name, not a CRUD verb) — exercises the detailQn-less write path.
+    r.writeHandler("ping", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
+      access: { roles: ["Admin"] },
+      description: "Ping the service.",
+    });
+
+    r.queryHandler("widget:summary", z.object({ id: z.string() }), async () => ({ count: 0 }), {
+      access: { roles: ["Admin"] },
+      description: "Widget summary stats.",
+    });
+
+    // Two valid-but-distinct QNs whose sanitized tool name collides: every run of
+    // non-identifier characters collapses to a single "_", so a single vs. a double
+    // hyphen both normalize to "..._approve_x". QN segments can't contain "_" themselves
+    // (registry validation), so the collision has to come from hyphen-collapsing instead.
+    r.writeHandler(
+      "widget:approve--x",
+      z.object({ id: z.string() }),
+      async () => ({ isSuccess: true as const, data: {} }),
+      { access: { roles: ["Admin"] }, description: "Approve X (double hyphen)." },
+    );
+    r.writeHandler(
+      "widget:approve-x",
+      z.object({ id: z.string() }),
+      async () => ({ isSuccess: true as const, data: {} }),
+      { access: { roles: ["Admin"] }, description: "Approve X." },
+    );
+
+    r.screen({
+      id: "widget-detail",
+      type: "custom",
+      renderer: { react: "stub" },
+      detailFor: "widget",
+    });
+    r.screen({
+      id: "widget-edit",
+      type: "entityEdit",
+      entity: "widget",
+      layout: { sections: [{ title: "s", fields: ["name"] }] },
+    });
+    r.screen({
+      id: "widget-approve-form",
+      type: "actionForm",
+      handler: "catalog-test:write:widget:approve",
+      fields: { note: createTextField() },
+      layout: { sections: [{ title: "s", fields: ["note"] }] },
+    });
+  });
+}
+
+function buildCatalog(options: ToolCatalogOptions) {
+  const registry = createRegistry([buildCatalogTestFeature()]);
+  const manifest = buildAgentManifest(registry, { locale: options.locale, roles: options.roles });
+  return buildToolCatalog(registry, manifest, options);
+}
+
+const ADMIN: ToolCatalogOptions = { mode: "edit", roles: ["Admin"], locale: "en" };
+const READER: ToolCatalogOptions = { mode: "edit", roles: ["Reader"], locale: "en" };
+
+describe("buildToolCatalog — search_<entity> / find_<entity>_by_<field> (existing generation)", () => {
+  test("generates search_<entity> and find_<entity>_by_<field> for a mounted :list handler", () => {
+    const catalog = buildCatalog(ADMIN);
+    const names = catalog.tools.map((t) => t.name);
+    expect(names).toContain("search_widget");
+    expect(names).toContain("find_widget_by_name");
+    expect(names).toContain("find_widget_by_status");
+    expect(names).not.toContain("find_widget_by_notes");
+  });
+
+  test("skips an entity with no mounted :list handler", () => {
+    const catalog = buildCatalog(ADMIN);
+    const names = catalog.tools.map((t) => t.name);
+    expect(names).not.toContain("search_orphan");
+    expect(names).not.toContain("get_orphan");
+    expect(names).not.toContain("list_orphan");
+  });
+
+  test("role-filters search_<entity>/find_<entity>_by_<field>: a caller without read access gets none", () => {
+    const catalog = buildCatalog({ mode: "edit", roles: ["Nobody"], locale: "en" });
+    const names = catalog.tools.map((t) => t.name);
+    expect(names).not.toContain("search_widget");
+    expect(names).not.toContain("get_widget");
+    expect(names).not.toContain("list_widget");
+  });
 });
 
-const FAKE_HANDLER = {} as QueryHandlerDef;
-
-type EntityFixture = {
-  readonly qn: string;
-  readonly entityName: string;
-  readonly entity: EntityDefinition;
-  readonly searchableFields: readonly string[];
-};
-
-/** Handler-first fake: one entry per MOUNTED `:list` handler, mirroring what
- *  `registry.getAllQueryHandlers()` + `getHandlerEntity()` would return for a real app. There is
- *  no `getAllEntities()` here on purpose — an entity with no fixture is exactly "no list handler
- *  mounted", the case `buildToolCatalog` must skip. */
-function fakeRegistry(fixtures: readonly EntityFixture[]): RegistrySearchView {
-  const byQn = new Map(fixtures.map((f) => [f.qn, FAKE_HANDLER]));
-  const entityByQn = new Map(fixtures.map((f) => [f.qn, f.entityName]));
-  const entityByName = new Map(fixtures.map((f) => [f.entityName, f.entity]));
-  const searchableByName = new Map(fixtures.map((f) => [f.entityName, f.searchableFields]));
-
-  return {
-    getAllQueryHandlers: () => byQn,
-    getHandlerEntity: (qn) => entityByQn.get(qn),
-    getEntity: (entityName) => entityByName.get(entityName),
-    getSearchableFields: (entityName) => searchableByName.get(entityName) ?? [],
-  };
-}
-
-function vendorFixture(searchableFields: readonly string[] = []): EntityFixture {
-  return {
-    qn: "vendor-feature:query:vendor:list",
-    entityName: "vendor",
-    entity: vendorEntity,
-    searchableFields,
-  };
-}
-
-function invoiceFixture(searchableFields: readonly string[] = []): EntityFixture {
-  return {
-    qn: "invoice-feature:query:invoice:list",
-    entityName: "invoice",
-    entity: invoiceEntity,
-    searchableFields,
-  };
-}
-
-describe("buildToolCatalog", () => {
-  test("generates a search_<entity> tool only when searchable fields exist", () => {
-    const registry = fakeRegistry([vendorFixture(["name"]), invoiceFixture(["description"])]);
-    const catalog = buildToolCatalog(registry);
-    const names = catalog.tools.map((t) => t.name);
-
-    expect(names).toContain("search_vendor");
-    expect(names).toContain("search_invoice");
-  });
-
-  test("skips search_<entity> when the entity has no searchable fields", () => {
-    const registry = fakeRegistry([vendorFixture([])]);
-    const catalog = buildToolCatalog(registry);
-    expect(catalog.tools.map((t) => t.name)).not.toContain("search_vendor");
-  });
-
-  test("skips an entity entirely when it has no mounted :list handler", () => {
-    // getHandlerEntity resolves it, but the qn doesn't end in ":<entity>:list" — e.g. a
-    // :detail handler picked up by a naive "any handler mentioning this entity" scan.
-    const registry: RegistrySearchView = {
-      getAllQueryHandlers: () => new Map([["vendor-feature:query:vendor:detail", FAKE_HANDLER]]),
-      getHandlerEntity: () => "vendor",
-      getEntity: () => vendorEntity,
-      getSearchableFields: () => ["name"],
-    };
-    const catalog = buildToolCatalog(registry);
-    expect(catalog.tools).toEqual([]);
-  });
-
-  test("generates one find_<entity>_by_<field> tool per filterable field", () => {
-    const registry = fakeRegistry([vendorFixture(["name"])]);
-    const catalog = buildToolCatalog(registry);
-    const names = catalog.tools.map((t) => t.name);
-
-    expect(names).toContain("find_vendor_by_name");
-    expect(names).toContain("find_vendor_by_iban");
-    expect(names).toContain("find_vendor_by_status");
-    expect(names).not.toContain("find_vendor_by_notes"); // not filterable
-  });
-
-  test("select field becomes a string schema with an enum of its options", () => {
-    const registry = fakeRegistry([vendorFixture()]);
-    const catalog = buildToolCatalog(registry);
-    const statusTool = catalog.tools.find((t) => t.name === "find_vendor_by_status");
-
-    expect(statusTool?.inputSchema).toEqual({
+describe("buildToolCatalog — get_<entity> / list_<entity>", () => {
+  test("get_<entity> fetches by id via the mounted :detail handler", () => {
+    const catalog = buildCatalog(ADMIN);
+    const tool = catalog.tools.find((t) => t.name === "get_widget");
+    expect(tool?.inputSchema).toEqual({
       type: "object",
-      properties: { status: { type: "string", enum: ["active", "archived"] } },
-      required: ["status"],
+      properties: { id: { type: "string", description: "Record id (uuid)" } },
+      required: ["id"],
       additionalProperties: false,
+    });
+    expect(catalog.dispatchTable.get("get_widget")).toEqual({
+      kind: "server",
+      op: "query",
+      qn: "catalog-test:query:widget:detail",
+      risk: "low",
+      entity: "widget",
+      detail: true,
     });
   });
 
-  test("reference field becomes a string schema describing the referenced entity", () => {
-    const registry = fakeRegistry([invoiceFixture()]);
-    const catalog = buildToolCatalog(registry);
-    const vendorIdTool = catalog.tools.find((t) => t.name === "find_invoice_by_vendorId");
+  test("list_<entity> names searchable + filterable fields and states the total count", () => {
+    const catalog = buildCatalog(ADMIN);
+    const tool = catalog.tools.find((t) => t.name === "list_widget");
+    expect(tool?.description).toContain("name");
+    expect(tool?.description).toContain("status");
+    expect(tool?.description.toLowerCase()).toContain("total");
+    expect(tool?.inputSchema).toMatchObject({
+      properties: {
+        search: { type: "string" },
+        filters: {
+          type: "array",
+          items: { properties: { field: { enum: ["name", "status"] } } },
+        },
+        limit: { type: "integer", minimum: 1, maximum: 200 },
+      },
+      required: [],
+      additionalProperties: false,
+    });
+    expect(catalog.dispatchTable.get("list_widget")).toEqual({
+      kind: "server",
+      op: "query",
+      qn: "catalog-test:query:widget:list",
+      risk: "low",
+      entity: "widget",
+      list: { searchableFields: ["name"], filterableFields: ["name", "status"] },
+    });
+  });
+});
 
-    expect(vendorIdTool?.inputSchema).toEqual({
+describe("buildToolCatalog — handler-derived query/write tools", () => {
+  test("a described, non-CRUD query handler becomes its own tool, role-gated", () => {
+    const admin = buildCatalog(ADMIN);
+    const reader = buildCatalog(READER);
+    expect(admin.tools.map((t) => t.name)).toContain("catalog_test_widget_summary");
+    expect(reader.tools.map((t) => t.name)).not.toContain("catalog_test_widget_summary");
+  });
+
+  test("a described write handler becomes a tool with injectsVersion + a stripped schema when a readable detail handler exists", () => {
+    const catalog = buildCatalog(ADMIN);
+    const name = toolNameForQn("catalog-test:write:widget:approve");
+    const tool = catalog.tools.find((t) => t.name === name);
+    const schema = tool?.inputSchema ?? {};
+    const properties = isRecord(schema["properties"]) ? schema["properties"] : {};
+    const required = Array.isArray(schema["required"]) ? schema["required"] : [];
+
+    expect(properties).toHaveProperty("id");
+    expect(properties).toHaveProperty("note");
+    expect(properties).not.toHaveProperty("version");
+    expect(required).toContain("id");
+    expect(required).toContain("note");
+    expect(required).not.toContain("version");
+
+    expect(catalog.dispatchTable.get(name)).toEqual({
+      kind: "server",
+      op: "write",
+      qn: "catalog-test:write:widget:approve",
+      risk: "mid",
+      entity: "widget",
+      detailQn: "catalog-test:query:widget:detail",
+      injectsVersion: true,
+    });
+  });
+
+  test("a write handler with no entity mapping gets no detailQn and no version injection", () => {
+    const catalog = buildCatalog(ADMIN);
+    const name = toolNameForQn("catalog-test:write:ping");
+    expect(catalog.dispatchTable.get(name)).toEqual({
+      kind: "server",
+      op: "write",
+      qn: "catalog-test:write:ping",
+      risk: "mid",
+    });
+  });
+
+  test("read-only mode produces no write tools and no open_form descriptor", () => {
+    const readOnly = buildCatalog({ mode: "read-only", roles: ["Admin"], locale: "en" });
+    const names = readOnly.tools.map((t) => t.name);
+    expect(names).not.toContain(toolNameForQn("catalog-test:write:widget:approve"));
+    expect(names).not.toContain(toolNameForQn("catalog-test:write:ping"));
+    expect(readOnly.dispatchTable.has("open_form")).toBe(false);
+    // Read-side tools + client tools stay available.
+    expect(names).toContain("get_widget");
+    expect(names).toContain("list_widget");
+    expect(names).toContain("navigate");
+    expect(names).toContain("ask_user");
+  });
+
+  test("a name collision between two handler-derived tools skips the later one instead of shadowing it", () => {
+    const catalog = buildCatalog(ADMIN);
+    const collidingName = toolNameForQn("catalog-test:write:widget:approve-x");
+    expect(collidingName).toBe(toolNameForQn("catalog-test:write:widget:approve--x"));
+
+    const matches = catalog.tools.filter((t) => t.name === collidingName);
+    expect(matches).toHaveLength(1);
+    // manifest.handlers is qn-sorted; "approve--x" < "approve-x" by code point (the extra
+    // "-" beats "x" at the first differing position), so it's added first and wins the name.
+    expect(catalog.dispatchTable.get(collidingName)).toMatchObject({
+      qn: "catalog-test:write:widget:approve--x",
+    });
+  });
+});
+
+describe("buildToolCatalog — client tools", () => {
+  test("navigate maps the entity's detailFor screen and lists every manifest screen id", () => {
+    const catalog = buildCatalog(ADMIN);
+    const descriptor = catalog.dispatchTable.get("navigate");
+    expect(descriptor?.kind).toBe("client");
+    if (descriptor?.kind !== "client" || descriptor.op !== "navigate")
+      throw new Error("wrong kind");
+    // Screen ids in the manifest are feature-qualified ("<feature>:screen:<id>") —
+    // see registry-ingest.ts's populateScreensNavWorkspaces, which overwrites the
+    // feature-local short id with the qualified name before it reaches the registry.
+    expect(descriptor.entityScreens.get("widget")).toBe("catalog-test:screen:widget-detail");
+    expect(descriptor.screenIds.has("catalog-test:screen:widget-edit")).toBe(true);
+    expect(descriptor.screenIds.has("catalog-test:screen:widget-approve-form")).toBe(true);
+  });
+
+  test("open_form maps the actionForm handler and the entityEdit create/update handlers", () => {
+    const catalog = buildCatalog(ADMIN);
+    const descriptor = catalog.dispatchTable.get("open_form");
+    if (descriptor?.kind !== "client" || descriptor.op !== "open_form")
+      throw new Error("wrong kind");
+    expect(descriptor.formScreens.get("catalog-test:write:widget:approve")).toBe(
+      "catalog-test:screen:widget-approve-form",
+    );
+    expect(descriptor.formScreens.get("catalog-test:write:widget:create")).toBe(
+      "catalog-test:screen:widget-edit",
+    );
+    expect(descriptor.formScreens.get("catalog-test:write:widget:update")).toBe(
+      "catalog-test:screen:widget-edit",
+    );
+  });
+
+  test("ask_user is always present with a fixed schema", () => {
+    const catalog = buildCatalog(READER);
+    const tool = catalog.tools.find((t) => t.name === "ask_user");
+    expect(tool?.inputSchema).toEqual({
       type: "object",
       properties: {
-        vendorId: { type: "string", description: 'ID referencing "vendor"' },
+        question: { type: "string" },
+        options: { type: "array", items: { type: "string" } },
       },
-      required: ["vendorId"],
+      required: ["question"],
       additionalProperties: false,
     });
   });
+});
 
-  test("search tool description lists every searchable field", () => {
-    const registry = fakeRegistry([vendorFixture(["name", "iban"])]);
-    const catalog = buildToolCatalog(registry);
-    const searchTool = catalog.tools.find((t) => t.name === "search_vendor");
+describe("buildToolCatalog — built-in client tool names vs. a colliding handler-derived tool", () => {
+  test("a handler-derived tool sharing the built-in 'navigate' name wins; the built-in is skipped rather than shadowing it", () => {
+    const registry: RegistrySearchView = {
+      getAllQueryHandlers: () => new Map<string, never>(),
+      getHandlerEntity: () => undefined,
+      getEntity: () => undefined,
+      getSearchableFields: () => [],
+    };
+    const manifest: AgentManifest = {
+      features: [],
+      entities: [],
+      handlers: [
+        {
+          // toolNameForQn drops the "query" verb segment; a bare 2-segment qn collapses
+          // to exactly "navigate" — the same name buildNavigateTool always produces.
+          qn: "query:navigate",
+          kind: "query",
+          description: "A handler that happens to be named like the built-in navigate tool.",
+          risk: "low",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            required: [],
+            additionalProperties: false,
+          },
+        },
+      ],
+      screens: [],
+      navs: [],
+      workspaces: [],
+      tenantSettings: { locale: "en" },
+    };
 
-    expect(searchTool?.description).toContain("name, iban");
-  });
+    const catalog = buildToolCatalog(registry, manifest, ADMIN);
 
-  test("empty registry produces an empty catalog", () => {
-    const registry = fakeRegistry([]);
-    const catalog = buildToolCatalog(registry);
-    expect(catalog.tools).toEqual([]);
-    expect(catalog.dispatchTable.size).toBe(0);
-  });
-
-  test("dispatchTable maps search_<entity> to a search descriptor carrying the real qn", () => {
-    const registry = fakeRegistry([vendorFixture(["name"])]);
-    const catalog = buildToolCatalog(registry);
-    expect(catalog.dispatchTable.get("search_vendor")).toEqual({
-      kind: "search",
-      entityName: "vendor",
-      qn: "vendor-feature:query:vendor:list",
+    const matches = catalog.tools.filter((t) => t.name === "navigate");
+    expect(matches).toHaveLength(1);
+    expect(catalog.dispatchTable.get("navigate")).toEqual({
+      kind: "server",
+      op: "query",
+      qn: "query:navigate",
+      risk: "low",
     });
   });
+});
 
-  test("dispatchTable maps find_<entity>_by_<field> to a findBy descriptor carrying the real qn", () => {
-    const registry = fakeRegistry([vendorFixture()]);
-    const catalog = buildToolCatalog(registry);
-    expect(catalog.dispatchTable.get("find_vendor_by_iban")).toEqual({
-      kind: "findBy",
-      entityName: "vendor",
-      fieldName: "iban",
-      qn: "vendor-feature:query:vendor:list",
-    });
+describe("toolNameForQn", () => {
+  test("drops the verb segment, joins with underscores, sanitizes non-identifier characters", () => {
+    expect(toolNameForQn("agent-tools-test-vendor:write:vendor:approve")).toBe(
+      "agent_tools_test_vendor_vendor_approve",
+    );
   });
 });

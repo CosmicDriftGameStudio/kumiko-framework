@@ -266,6 +266,8 @@ function buildScreens(
       // A detail screen takes the row id; everything else is parameterless.
       params: screen.detailFor !== undefined ? ["id"] : [],
       workspaces: screenWorkspaces,
+      ...(screen.detailFor !== undefined && { detailFor: screen.detailFor }),
+      ...("handler" in screen && typeof screen.handler === "string" && { handler: screen.handler }),
     });
   }
   return result;
