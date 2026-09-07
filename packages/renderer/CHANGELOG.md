@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.235.1
+
+### Patch Changes
+
+- 05a1622: Server-side renders now honour the locale resolver instead of always rendering English.
+
+  `getServerSnapshot` in `useLocale`, `useTranslation`, `useOptionalLocale` and `useOptionalTranslation` returned a hardcoded `"en"`. Because `useSyncExternalStore` calls `getServerSnapshot` both during actual server rendering and during the client's first hydration render, every `renderToStaticMarkup`-based render produced English markup no matter what the resolver reported. All four now reuse the same synchronous `resolver.locale()` computation as `getSnapshot`, so server and client snapshots agree for a given request and localized SSR markup renders in the resolved locale.
+
+- Updated dependencies [4c83a80]
+  - @cosmicdrift/kumiko-framework@0.235.1
+  - @cosmicdrift/kumiko-headless@0.235.1
+
 ## 0.235.0
 
 ### Minor Changes
