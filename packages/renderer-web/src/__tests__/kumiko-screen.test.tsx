@@ -58,6 +58,17 @@ const schema: FeatureSchema = {
   screens: [editScreen, listScreen, restrictedListScreen],
 };
 
+// Re-queries the button (a held reference may have been detached by a
+// re-render) and waits for it to actually be clickable before firing the
+// click — a disabled native button swallows fireEvent.click silently.
+async function clickSubmitOnceEnabled(): Promise<void> {
+  await waitFor(() => {
+    const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+  });
+  fireEvent.click(screen.getByTestId("render-edit-submit"));
+}
+
 function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
   const base = createMockDispatcher({
     query: (async () => ({
@@ -276,7 +287,7 @@ describe("KumikoScreen", () => {
 
     // Edit + submit → write command trägt { id, version, changes: {title} }
     fireEvent.change(titleInput, { target: { value: "edited-title" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
 
     await waitFor(() => expect(writeCalls.length).toBe(1));
     const [call] = writeCalls;
@@ -538,7 +549,7 @@ describe("KumikoScreen", () => {
 
     // Dirty machen damit der Submit überhaupt feuert.
     fireEvent.change(titleInput, { target: { value: "edited" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
 
     // Banner zeigt die ÜBERSETZTE version-conflict-Message (kein roher i18nKey)
     // und bietet einen Reload-Button. Gegen das Default-Bundle assertet, damit
@@ -1341,7 +1352,7 @@ describe("KumikoScreen", () => {
       const noteInput = screen.getByTestId("field-note").querySelector("input");
       if (noteInput === null) throw new Error("expected an <input> inside field-note");
       fireEvent.change(noteInput, { target: { value: "hello" } });
-      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await clickSubmitOnceEnabled();
 
       await waitFor(() => expect(writeCalls.length).toBe(1));
       expect(writeCalls[0]?.type).toBe("tasks:write:task:note");
@@ -1566,7 +1577,7 @@ describe("KumikoScreen", () => {
     expect(titleInput).toBeTruthy();
     fireEvent.change(titleInput, { target: { value: "New Task" } });
 
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]?.type).toBe("tasks:write:task:quick-add");
     // payloadMode="values" — alle Form-Werte landen im Payload, nicht
@@ -1615,7 +1626,7 @@ describe("KumikoScreen", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "go" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     // #2419: entityList targets ignore entityId — do not attach a handler id.
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
@@ -1674,7 +1685,7 @@ describe("KumikoScreen", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "go" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     // #2485: the cross-feature target now resolves (over all mounted
     // features) — it just happens to be an entityList, which never carries
@@ -1739,7 +1750,7 @@ describe("KumikoScreen", () => {
 
     const vinInput = screen.getByTestId("field-vin").querySelector("input") as HTMLInputElement;
     fireEvent.change(vinInput, { target: { value: "1HGCM82633A004352" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     // #2485: redirect crosses a feature boundary (vehicle-vin-decode →
     // vehicles) — the target is only found by searching all mounted
@@ -1819,7 +1830,7 @@ describe("KumikoScreen", () => {
 
     const vinInput = screen.getByTestId("field-vin").querySelector("input") as HTMLInputElement;
     fireEvent.change(vinInput, { target: { value: "1HGCM82633A004352" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     // The QN names "vehicles" explicitly — the decoy feature's same-id
     // screen (mounted first) must not win just because it comes first.
@@ -1873,7 +1884,7 @@ describe("KumikoScreen", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "go" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "x" });
   });
@@ -1924,7 +1935,7 @@ describe("KumikoScreen", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "go" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
     expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
@@ -2186,7 +2197,7 @@ describe("KumikoScreen", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "stay" } });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled();
     // Auf den Write-Call warten — sonst racet der Test gegen den
     // async submit und prüft navigate-Calls bevor handleSubmitted
     // überhaupt gerufen wurde (waitFor auf "render-edit-form" wäre
