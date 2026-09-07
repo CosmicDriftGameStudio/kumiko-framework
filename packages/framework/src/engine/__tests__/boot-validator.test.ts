@@ -1953,6 +1953,43 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- entityList: row-meta columns (id/tenantId/version/...) ---
+  // Row-meta columns are real base-table columns, never declared entity
+  // fields — a SystemAdmin cross-tenant list exposes tenantId this way.
+  describe("entityList row-meta column", () => {
+    test("tenantId column on a non-softDelete entity → kein Throw", () => {
+      const feature = defineFeature("notes", (r) => {
+        r.entity("note", createEntity({ fields: { title: createTextField() } }));
+        r.screen({
+          id: "note-list",
+          type: "entityList",
+          entity: "note",
+          columns: ["title", "tenantId"],
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("softDelete-only row-meta column (deletedAt) → Throw — computeListViewModel can't render it either", () => {
+      // LIST_ROW_META_COLUMNS (the renderer's set) deliberately excludes the
+      // softDelete columns — accepting "deletedAt" here would let it pass the
+      // boot gate and then throw at render-time in computeListViewModel
+      // instead of failing loud at boot.
+      const feature = defineFeature("notes", (r) => {
+        r.entity("note", createEntity({ fields: { title: createTextField() }, softDelete: true }));
+        r.screen({
+          id: "note-list",
+          type: "entityList",
+          entity: "note",
+          columns: ["title", "deletedAt"],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /references field "deletedAt" which does not exist/,
+      );
+    });
+  });
+
   // --- entityList: pagination + sort validation ---
   // Author-Fehler vor Production fangen, damit "Screen lädt nichts /
   // sortiert falsch / crasht beim Pager-Klick" nicht erst zur Laufzeit

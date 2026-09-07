@@ -6,6 +6,7 @@
 
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 import { rowMetaFieldNames } from "../../db/table-builder";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
@@ -25,6 +26,15 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "../types/screen";
+
+// entityList columns accept exactly the row-meta columns the renderer
+// (computeListViewModel) knows how to type — LIST_ROW_META_COLUMNS, NOT the
+// wider rowMetaFieldNames(softDelete) used below for rowAction payload/visible
+// field refs. Those two checks guard different things: a screen column must
+// be renderable, a payload/visible field reference only needs to exist on the
+// row. Using the wider set here would let a softDelete column like
+// "deletedAt" pass the boot gate and then throw at render-time instead.
+const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
 // entityList and projectionList both allow a rowAction to double as the
 // row-body click target (rowClick: true, fw#1708/#2164) — at most one per
@@ -1036,14 +1046,23 @@ export function validateScreens(
       }
       for (const col of screen.columns) {
         const normalized = normalizeListColumn(col);
+        // A row-meta column (id/tenantId/version/insertedAt/modifiedAt/...) is a
+        // real DB column without being a declared entity field — e.g. a
+        // SystemAdmin cross-tenant list exposing tenantId. Accept it like a
+        // regular field name — but only the columns computeListViewModel can
+        // actually render (LIST_ROW_META_COLUMN_NAMES), not the wider
+        // softDelete-aware rowMeta set used below for payload/visible refs.
+        //
         // A virtual presentational column (drawn by a columnRenderer component
         // from the row, e.g. tag chips) needs BOTH a label AND a renderer —
         // renderer is what actually makes it "virtual" (label alone still
         // needs list.ts's virtual-branch to have something to draw; without
         // a renderer the column would render nothing). A column with neither
-        // matching a real field NOR a renderer is a typo worth failing the boot.
+        // matching a real field/row-meta column NOR a renderer is a typo worth
+        // failing the boot.
         if (
           !columnFieldNames.has(normalized.field) &&
+          !LIST_ROW_META_COLUMN_NAMES.has(normalized.field) &&
           !(normalized.label !== undefined && normalized.renderer !== undefined)
         ) {
           throw new Error(

@@ -107,3 +107,5 @@ export type {
   QualifiedContentCollection,
   WorkspaceSchema,
 } from "./app-schema";
+export type { ListRowMetaColumnType } from "./list-row-meta";
+export { LIST_ROW_META_COLUMNS } from "./list-row-meta";

@@ -1,8 +1,16 @@
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
 import { normalizeListColumn } from "../screen-helpers";
 import type { EntityListScreenDefinition, FeatureDefinition } from "../types";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
 export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list"]);
+
+// Same set computeListViewModel (headless) can actually render — NOT
+// db/table-builder's rowMetaFieldNames(softDelete), which also carries
+// isDeleted/deletedAt/deletedById. Accepting those here would let a
+// softDelete column pass the boot gate and then throw at render-time
+// because the renderer's LIST_ROW_META_COLUMNS doesn't know them.
+const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
 function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
   const entities = feature.entities;
@@ -71,7 +79,11 @@ function validateOneEntityListScreen(
     if (normalized.label === undefined) {
       const entity = feature.entities?.[screen.entity];
       const isDerived = entity?.derivedFields?.[normalized.field] !== undefined;
-      if (!entity?.fields[normalized.field] && !isDerived) {
+      // Row-meta column (id/tenantId/version/insertedAt/modifiedAt/...) is a
+      // real base-table column without being a declared entity field — e.g.
+      // a SystemAdmin cross-tenant list exposing tenantId.
+      const isRowMeta = LIST_ROW_META_COLUMN_NAMES.has(normalized.field);
+      if (!entity?.fields[normalized.field] && !isDerived && !isRowMeta) {
         throw new Error(`${prefix}: unknown column field "${normalized.field}"`);
       }
     }

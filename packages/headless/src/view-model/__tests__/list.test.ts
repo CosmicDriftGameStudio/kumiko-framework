@@ -264,6 +264,26 @@ describe("computeListViewModel", () => {
     });
   });
 
+  test("row-meta column (tenantId) resolves to a sortable text column, no throw", () => {
+    // tenantId is a base-table column (see rowMetaFieldNames in
+    // db/table-builder.ts), never a declared entity field — a SystemAdmin
+    // cross-tenant list picks it as a column (fw#2xxx cap-counter cap-list).
+    const vm = computeListViewModel({
+      screen: listScreen(["title", "tenantId"]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.columns[1]).toEqual({
+      field: "tenantId",
+      label: "tasks:entity:task:field:tenantId",
+      type: "text",
+      sortable: true,
+    });
+  });
+
   test("slots pass through unchanged for the renderer to mount", () => {
     const slots = { header: { react: { component: "HeaderRef" } } };
     const vm = computeListViewModel({
