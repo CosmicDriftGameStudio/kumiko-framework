@@ -3,6 +3,7 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { LIST_ROW_META_COLUMNS } from "@cosmicdrift/kumiko-framework/ui-types";
 import { computeListViewModel } from "../list";
 
 // Minimal EntityDefinition-shape. ui-core's view-model only reads
@@ -264,23 +265,49 @@ describe("computeListViewModel", () => {
     });
   });
 
-  test("row-meta column (tenantId) resolves to a sortable text column, no throw", () => {
-    // tenantId is a base-table column (see rowMetaFieldNames in
-    // db/table-builder.ts), never a declared entity field — a SystemAdmin
-    // cross-tenant list picks it as a column (fw#2xxx cap-counter cap-list).
+  // Table-driven over LIST_ROW_META_COLUMNS itself (not one-off cases) — a
+  // row-meta column (id/tenantId/version/insertedAt/...) is a base-table
+  // column, never a declared entity field (a SystemAdmin cross-tenant list
+  // picks tenantId as a column this way). Together with boot-validator.test.ts
+  // (both boot validators accept the same set) and list-row-meta-drift.test.ts
+  // (LIST_ROW_META_COLUMNS key-set drift guard), this pins "whatever boot
+  // accepts as a row-meta column, the renderer can actually draw" — a #2601
+  // review found the two sides had drifted apart.
+  test("every row-meta column resolves to its declared type, sortable, no throw", () => {
+    for (const [field, expectedType] of Object.entries(LIST_ROW_META_COLUMNS)) {
+      const vm = computeListViewModel({
+        screen: listScreen(["title", field]),
+        entity: taskEntity,
+        rows: [],
+        translate,
+        featureName: "tasks",
+      });
+
+      expect(vm.columns[1]).toEqual({
+        field,
+        label: `tasks:entity:task:field:${field}`,
+        type: expectedType,
+        sortable: true,
+      });
+    }
+  });
+
+  test("row-meta column: explicit label + renderer are passed through unchanged", () => {
+    const fmt = { format: "currency" as const, symbol: "€" };
     const vm = computeListViewModel({
-      screen: listScreen(["title", "tenantId"]),
+      screen: listScreen([{ field: "insertedAt", label: "custom.created", renderer: fmt }]),
       entity: taskEntity,
       rows: [],
       translate,
       featureName: "tasks",
     });
 
-    expect(vm.columns[1]).toEqual({
-      field: "tenantId",
-      label: "tasks:entity:task:field:tenantId",
-      type: "text",
+    expect(vm.columns[0]).toEqual({
+      field: "insertedAt",
+      label: "custom.created",
+      type: "timestamp",
       sortable: true,
+      renderer: fmt,
     });
   });
 

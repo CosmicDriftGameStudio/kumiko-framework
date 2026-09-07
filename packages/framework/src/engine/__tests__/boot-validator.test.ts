@@ -2,8 +2,11 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
+import { rowMetaFieldNames } from "../../db/table-builder";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
 import { validateBoot as validateBootRaw } from "../boot-validator";
+import { validateEntityListScreens } from "../boot-validator/entity-list-screens";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
   createDerivedField,
@@ -1956,38 +1959,112 @@ describe("boot-validator", () => {
   // --- entityList: row-meta columns (id/tenantId/version/...) ---
   // Row-meta columns are real base-table columns, never declared entity
   // fields — a SystemAdmin cross-tenant list exposes tenantId this way.
-  describe("entityList row-meta column", () => {
-    test("tenantId column on a non-softDelete entity → kein Throw", () => {
-      const feature = defineFeature("notes", (r) => {
-        r.entity("note", createEntity({ fields: { title: createTextField() } }));
+  //
+  // Two separate boot-validators check entityList columns (validateScreens
+  // here, validateEntityListScreens in entity-list-screens.ts) — a #2601
+  // review found they'd drifted to accept different column sets, which
+  // would have let a softDelete column pass one gate and throw only in
+  // computeListViewModel at render time. Table-driven over
+  // LIST_ROW_META_COLUMNS (not one-off cases) so a future column added
+  // there is proven against BOTH validators automatically. Companion
+  // assertions: list.test.ts (headless renderer draws the same set) and
+  // list-row-meta-drift.test.ts (LIST_ROW_META_COLUMNS key-set drift guard).
+  describe("entityList row-meta column — accepted by both boot validators", () => {
+    function noteFeatureWithColumn(
+      columnName: string,
+      options?: { readonly softDelete?: boolean },
+    ) {
+      return defineFeature("notes", (r) => {
+        r.entity(
+          "note",
+          createEntity({ fields: { title: createTextField() }, softDelete: options?.softDelete }),
+        );
         r.screen({
           id: "note-list",
           type: "entityList",
           entity: "note",
-          columns: ["title", "tenantId"],
+          columns: ["title", columnName],
         });
       });
-      expect(() => validateBoot([feature])).not.toThrow();
-    });
+    }
 
-    test("softDelete-only row-meta column (deletedAt) → Throw — computeListViewModel can't render it either", () => {
-      // LIST_ROW_META_COLUMNS (the renderer's set) deliberately excludes the
-      // softDelete columns — accepting "deletedAt" here would let it pass the
-      // boot gate and then throw at render-time in computeListViewModel
-      // instead of failing loud at boot.
-      const feature = defineFeature("notes", (r) => {
-        r.entity("note", createEntity({ fields: { title: createTextField() }, softDelete: true }));
-        r.screen({
-          id: "note-list",
-          type: "entityList",
-          entity: "note",
-          columns: ["title", "deletedAt"],
-        });
+    for (const [columnName, columnType] of Object.entries(LIST_ROW_META_COLUMNS)) {
+      test(`"${columnName}" (${columnType}) on a non-softDelete entity → kein Throw`, () => {
+        const feature = noteFeatureWithColumn(columnName);
+        expect(() => validateBoot([feature])).not.toThrow();
+        const fixed = withBootValidatorFixture([feature]);
+        expect(() => validateEntityListScreens(fixed)).not.toThrow();
       });
-      expect(() => validateBoot([feature])).toThrow(
-        /references field "deletedAt" which does not exist/,
-      );
-    });
+    }
+
+    // rowMetaFieldNames(true) also carries the softDelete-only columns
+    // (isDeleted/deletedAt/deletedById) — real base-table columns, but
+    // deliberately absent from LIST_ROW_META_COLUMNS because
+    // computeListViewModel can't render them. Both validators must reject
+    // them, or a softDelete column would pass boot and only throw at
+    // render-time.
+    const softDeleteOnlyColumns = [...rowMetaFieldNames(true)].filter(
+      (name) => LIST_ROW_META_COLUMNS[name] === undefined,
+    );
+    expect(softDeleteOnlyColumns.sort()).toEqual(["deletedAt", "deletedById", "isDeleted"]);
+
+    for (const columnName of softDeleteOnlyColumns) {
+      test(`"${columnName}" (softDelete-only, not renderable) → Throw on both validators`, () => {
+        const feature = noteFeatureWithColumn(columnName, { softDelete: true });
+        expect(() => validateBoot([feature])).toThrow(
+          new RegExp(`references field "${columnName}" which does not exist`),
+        );
+        const fixed = withBootValidatorFixture([feature]);
+        expect(() => validateEntityListScreens(fixed)).toThrow(
+          new RegExp(`unknown column field "${columnName}"`),
+        );
+      });
+    }
+  });
+
+  // --- entityList: typo columns must still fail (row-meta acceptance is
+  // NOT a general gate-loosening) ---
+  //
+  // validateBoot only ever surfaces validateScreens' message here — it runs
+  // before validateEntityListScreens in the per-feature loop (see
+  // boot-validator/index.ts) and throws first. validateEntityListScreens'
+  // own "unknown column field" message is only reachable by calling it
+  // directly, which these tests also do.
+  describe("entityList typo column → Throw on both validators (not silently accepted)", () => {
+    const typoColumns = ["tenantID", "tenatId", "totallyMadeUp"];
+
+    for (const typo of typoColumns) {
+      test(`"${typo}" fails validateScreens (via validateBoot)`, () => {
+        const feature = defineFeature("notes", (r) => {
+          r.entity("note", createEntity({ fields: { title: createTextField() } }));
+          r.screen({
+            id: "note-list",
+            type: "entityList",
+            entity: "note",
+            columns: ["title", typo],
+          });
+        });
+        expect(() => validateBoot([feature])).toThrow(
+          new RegExp(`references field "${typo}" which does not exist`),
+        );
+      });
+
+      test(`"${typo}" fails validateEntityListScreens directly ("unknown column field")`, () => {
+        const feature = defineFeature("notes", (r) => {
+          r.entity("note", createEntity({ fields: { title: createTextField() } }));
+          r.screen({
+            id: "note-list",
+            type: "entityList",
+            entity: "note",
+            columns: ["title", typo],
+          });
+        });
+        const fixed = withBootValidatorFixture([feature]);
+        expect(() => validateEntityListScreens(fixed)).toThrow(
+          new RegExp(`unknown column field "${typo}"`),
+        );
+      });
+    }
   });
 
   // --- entityList: pagination + sort validation ---
