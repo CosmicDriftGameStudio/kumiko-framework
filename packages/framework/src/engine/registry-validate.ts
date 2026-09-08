@@ -10,7 +10,7 @@ import {
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteGraceDaysConfig,
 } from "./soft-delete-cleanup";
-import type { EventPiiFields, EventUpcastFn, FeatureDefinition } from "./types";
+import type { EventPiiFields, EventUpcastFn, FeatureDefinition, ReferenceFieldDef } from "./types";
 import { HookPhases } from "./types";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
@@ -164,6 +164,34 @@ function parseReferenceTargetEntityName(raw: string): string {
   return idx < 0 ? raw : raw.slice(idx + 1);
 }
 
+// fw#2660: labelField defaults to "id" (a UUID column) elsewhere, but a
+// searchable reference ILIKEs the label column — an implicit or explicit
+// "id" default would 500 on every search request. Fail at boot.
+function buildSearchableReferenceField(
+  entityName: string,
+  fieldName: string,
+  field: ReferenceFieldDef,
+): SearchableReferenceField {
+  if (field.labelField === undefined || field.labelField === "id") {
+    throw new Error(
+      `[Entity ${entityName}] field "${fieldName}": searchable reference fields require an ` +
+        `explicit, non-"id" labelField. "id" is a UUID column — ILIKE against it fails ` +
+        `at request time. Set labelField to a human-readable field on the referenced entity.`,
+    );
+  }
+  if (field.multiple === true) {
+    throw new Error(
+      `[Entity ${entityName}] field "${fieldName}": searchable is not supported on multiple ` +
+        `(array) reference fields — remove "multiple" or "searchable".`,
+    );
+  }
+  return {
+    fieldName,
+    targetEntityName: parseReferenceTargetEntityName(field.entity),
+    labelField: field.labelField,
+  };
+}
+
 // Precompute: searchable/sortable fields, searchable reference fields.
 export function buildSearchableSortableCaches(state: RegistryState): void {
   for (const [name, entity] of state.entityMap) {
@@ -179,27 +207,7 @@ export function buildSearchableSortableCaches(state: RegistryState): void {
         }
       }
       if (field.type === "reference" && field.searchable === true) {
-        // fw#2660: labelField defaults to "id" (a UUID column) elsewhere,
-        // but a searchable reference ILIKEs the label column — an implicit
-        // or explicit "id" default would 500 on every search request. Fail at boot.
-        if (field.labelField === undefined || field.labelField === "id") {
-          throw new Error(
-            `[Entity ${name}] field "${fieldName}": searchable reference fields require an ` +
-              `explicit, non-"id" labelField. "id" is a UUID column — ILIKE against it fails ` +
-              `at request time. Set labelField to a human-readable field on the referenced entity.`,
-          );
-        }
-        if (field.multiple === true) {
-          throw new Error(
-            `[Entity ${name}] field "${fieldName}": searchable is not supported on multiple ` +
-              `(array) reference fields — remove "multiple" or "searchable".`,
-          );
-        }
-        searchableReferences.push({
-          fieldName,
-          targetEntityName: parseReferenceTargetEntityName(field.entity),
-          labelField: field.labelField,
-        });
+        searchableReferences.push(buildSearchableReferenceField(name, fieldName, field));
       }
     }
     state.searchableFieldsCache.set(name, searchable);

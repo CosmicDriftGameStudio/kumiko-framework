@@ -187,9 +187,9 @@ function applyScreenFilter(
         whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
       }
     } else {
-      // Blind-Index-OR-Rewrite (#818), lock-step mit buildWhereClause
-      // in bun-db/query.ts — Equality auf lookupable-Feldern matcht
-      // Klartext-Arm ODER HMAC-Arm.
+      // Blind-index OR rewrite (#818), lock-step with buildWhereClause
+      // in bun-db/query.ts — equality on lookupable fields matches the
+      // plaintext arm OR the HMAC arm.
       const bidxKey = configuredBlindIndexKey();
       if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {
         params.push(value, computeBlindIndex(bidxKey, value));
@@ -547,12 +547,12 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           sortText === undefined ? encodeCursor(cursorId) : encodeKeysetCursor(sortText, cursorId);
       }
 
-      // total: extra COUNT(*) — nur wenn explizit angefordert (Pager-UI).
-      // Postgres-Cost ist O(table-scan) ohne Filter, mit Filter so teuer
-      // wie der entsprechende WHERE — bei indexed columns billig genug.
-      // Bei Search-Path ist `total = filterIds.length` ohne extra Query —
-      // außer ein Reference-Match hat zusätzliche Rows beigesteuert (fw#2660),
-      // dann würde die reine filterIds-Länge undercounten.
+      // total: extra COUNT(*) — only when explicitly requested (pager UI).
+      // Postgres cost is O(table-scan) without a filter, with a filter as
+      // expensive as the corresponding WHERE — cheap enough on indexed columns.
+      // On the search path, `total = filterIds.length` needs no extra query —
+      // unless a reference match contributed additional rows (fw#2660), in
+      // which case the raw filterIds length alone would undercount.
       let total: number | undefined;
       if (totalCount) {
         if (filterIds && !referenceClauseActive) {
