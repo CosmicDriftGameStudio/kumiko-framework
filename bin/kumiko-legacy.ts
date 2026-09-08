@@ -1,20 +1,19 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun";
-import {
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { createWriteStream, existsSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 import {
   formatCheckWorkContext,
   resolveCheckWorkContext,
 } from "./_lib/check-work-context";
+import {
+  acquireCheckLock,
+  checkLockPaths,
+  followCheck,
+  registerLockCleanup,
+} from "./_lib/check-lock";
 
 // Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
 // wherever spare CPU < 6 — the 1-CPU CI runner, or a loaded dev box (4 parallel
@@ -659,14 +658,18 @@ const commands = {
   check: {
     description: "Alles pruefen: Lint, Types, Tests",
     run: async () => {
-      // Parallel-Dedup: zwei gleichzeitige `kumiko check`-Aufrufe sollen
-      // den realen Run nur einmal machen. Erster Aufruf haelt den Lock und
-      // streamt Output zur Console UND in eine Log-Datei. Folge-Aufrufe
-      // tail-en die Log-Datei live und uebernehmen am Ende den Exit-Code
-      // aus der Result-Datei.
-      const lockDir = ".kumiko-check.lock";
-      const logPath = ".kumiko-check.log";
-      const resultPath = ".kumiko-check.result";
+      // Parallel dedup: two concurrent `kumiko check` runs for the SAME
+      // scope should only do the real work once. The first call holds the
+      // lock and streams output to console AND a log file; follow-up calls
+      // tail the log live and adopt the exit code from the result file.
+      //
+      // Lock/log/result are named after KUMIKO_CLI_SCOPE: the pre-push hook
+      // cd's into the same parent workspace for EVERY sub-repo, so scope-
+      // less file names would let concurrent pushes from different repos
+      // collide on the same lock — the loser would then adopt the other
+      // repo's scope and exit code (infra#722).
+      const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
+      const { lockDir, logPath, resultPath } = checkLockPaths(workCtx.cliScope);
 
       if (!acquireCheckLock(lockDir, logPath, resultPath)) {
         const code = await followCheck(lockDir, logPath, resultPath);
@@ -676,7 +679,6 @@ const commands = {
 
       registerLockCleanup(lockDir);
 
-      const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
       logBoth(`${formatCheckWorkContext(workCtx)}\n`, logPath);
       logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
@@ -1437,58 +1439,6 @@ async function waitForPostgres(retries = 30): Promise<void> {
   process.exit(1);
 }
 
-// --- Check Lock Helpers ---
-
-function acquireCheckLock(lockDir: string, logPath: string, resultPath: string): boolean {
-  // mkdirSync ohne recursive ist atomar — EEXIST entscheidet ueber den
-  // Wettlauf zweier paralleler Aufrufe. Stale-Locks (Owner ist tot)
-  // werden einmal aufgeraeumt und dann neu versucht.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      mkdirSync(lockDir);
-      writeFileSync(join(lockDir, "pid"), String(process.pid));
-      writeFileSync(logPath, "");
-      rmSync(resultPath, { force: true });
-      return true;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
-      if (isLockHolderAlive(lockDir)) return false;
-      rmSync(lockDir, { recursive: true, force: true });
-    }
-  }
-  return false;
-}
-
-function isLockHolderAlive(lockDir: string): boolean {
-  try {
-    const pid = Number.parseInt(readFileSync(join(lockDir, "pid"), "utf8"), 10);
-    if (!Number.isFinite(pid) || pid <= 0) return false;
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function registerLockCleanup(lockDir: string): void {
-  const release = (): void => {
-    try {
-      rmSync(lockDir, { recursive: true, force: true });
-    } catch {
-      // ignore — best effort
-    }
-  };
-  process.on("exit", release);
-  process.on("SIGINT", () => {
-    release();
-    process.exit(130);
-  });
-  process.on("SIGTERM", () => {
-    release();
-    process.exit(143);
-  });
-}
-
 function logBoth(line: string, logPath: string): void {
   console.log(line);
   try {
@@ -1599,31 +1549,6 @@ async function runWithTee(cmd: string, logPath: string): Promise<number> {
   const code = await proc.exited;
   await new Promise<void>((resolve) => logStream.end(resolve));
   return code;
-}
-
-async function followCheck(lockDir: string, logPath: string, resultPath: string): Promise<number> {
-  console.log("kumiko check laeuft schon — haenge mich dran...\n");
-  // tail -F (capital F) folgt dem Log auch wenn er noch nicht existiert
-  // und ueberlebt File-Rotation. Das deckt den Race ab, in dem wir den
-  // Lock sehen aber der Owner die Log-Datei noch nicht angelegt hat.
-  const tail = Bun.spawn(["tail", "-n", "+1", "-F", logPath], {
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-
-  while (existsSync(lockDir)) {
-    await Bun.sleep(200);
-  }
-  tail.kill();
-  await tail.exited;
-
-  if (!existsSync(resultPath)) {
-    console.error("\nLaufender Run beendet, aber kein Result gefunden — vermutlich gecrasht.");
-    return 1;
-  }
-  const raw = readFileSync(resultPath, "utf8").trim();
-  const code = Number.parseInt(raw, 10);
-  return Number.isFinite(code) ? code : 1;
 }
 
 // --- Entry point ---
