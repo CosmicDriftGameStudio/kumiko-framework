@@ -8,10 +8,12 @@
 #      Biome/TS/Tests for kumiko-studio/-enterprise/-platform/
 #      publicstatus as well.
 #
-#      NB: cross-repo Guards (infra/guards) keep their full scan, so
-#      Drift introduced in another repo still surfaces here. Use
-#      `KUMIKO_GUARD_ROOTS` to scope guard scan explicitly when you
-#      know what you're doing.
+#      NB: cross-repo Guards (infra/guards) also scope to THIS sub-repo via
+#      KUMIKO_CLI_SCOPE, including the Security Audit (scoped to THIS
+#      sub-repo's own bun.lock by default, infra#484) — Drift in another
+#      repo no longer blocks this push; a full scan across all repos is PR
+#      CI's job, not this hook's. Use `KUMIKO_GUARD_ROOTS` to widen any
+#      guard's scope explicitly when you know what you're doing.
 #   2. Else (standalone clone outside the parent workspace): run the
 #      sub-repo's own `bun test`.
 #
