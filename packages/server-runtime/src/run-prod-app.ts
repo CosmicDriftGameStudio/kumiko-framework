@@ -74,8 +74,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
+  createDefaultSseBroker,
   createRedisLoginRateLimiter,
-  createSseBroker,
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
   type SseBroker,
@@ -898,13 +898,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // gegen die DB resolven müssen (z.B. Subdomain-Tenant-Lookup im
   // tenantResolver) — die Factory closure'd `db` und der Resolver kann
   // sie zur Request-Zeit aufrufen.
-  // sseBroker hier bauen (statt's createApiEntrypoint intern machen zu
-  // lassen) damit extraContext-Factories ihn schon zur Boot-Zeit closure'n
-  // können — z.B. ein extraContext-Provider der direkt SSE-Events
-  // publisht. Wir reichen denselben Broker dann an createApiEntrypoint
-  // durch (sseBroker?-option), damit der Server-internal-Broadcast und
-  // App-spezifische Publishes über genau einen Broker laufen.
-  const sseBroker = createSseBroker();
+  // Build the sseBroker here (instead of letting createApiEntrypoint do it
+  // internally) so extraContext factories can close over it at boot time —
+  // e.g. an extraContext provider that publishes SSE events directly. We
+  // pass the same broker into createApiEntrypoint (sseBroker? option) so
+  // the server-internal broadcast and app-specific publishes run over
+  // exactly one broker. createDefaultSseBroker (not createSseBroker
+  // directly) is what makes that broker Redis-backed under REDIS_URL —
+  // an unconditional in-memory broker here would silently win over
+  // buildServer's own REDIS_URL default (ServerOptions.sseBroker always
+  // wins), which is exactly how fw#2630's cross-replica fanout fix shipped
+  // without ever taking effect in production.
+  const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
   const deps: RunProdAppDeps = { db, redis, registry, sseBroker };
   const resolvedExtraContext =
     typeof options.extraContext === "function"
@@ -1169,6 +1174,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           },
         }),
       });
+
+  // The broker built above is always ours (runProdApp never accepts a
+  // caller-supplied sseBroker), so — same reasoning as buildServer's own
+  // ownedRedisSseBroker hook — closing it on shutdown is our job, not the
+  // entrypoint's. Registered after createApiEntrypoint/createAllInOneEntrypoint
+  // (which already registered the eventDispatcher/jobRunner hooks above),
+  // so it drains LIFO before those, matching the close-before-teardown
+  // order fw#2630 established for buildServer's own hook.
+  if (ownedRedisSseBroker) {
+    const broker = ownedRedisSseBroker;
+    entrypoint.lifecycle.registerShutdownHook("prodAppRedisSseBroker", async () => {
+      await broker.close();
+    });
+  }
 
   // 8. Build the AppSchema once + serialize. Wird beim Static-Fallback
   //    in die index.html injiziert damit createKumikoApp() im Browser

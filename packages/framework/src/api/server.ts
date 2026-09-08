@@ -57,7 +57,7 @@ import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
-import { createRedisSseBroker } from "./redis-sse-broker";
+import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker";
 import { requestContext } from "./request-context";
 import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware";
 import {
@@ -68,7 +68,7 @@ import {
   registerVersionRoute,
 } from "./route-registrars";
 import { createApiRoutes } from "./routes";
-import { createSseBroker, type SseBroker } from "./sse-broker";
+import type { SseBroker } from "./sse-broker";
 import { createSseRoute } from "./sse-route";
 
 export type ServerOptions = {
@@ -318,17 +318,19 @@ export function buildServer(options: ServerOptions): KumikoServer {
     options.jwtTtl ?? defaultJwtTtl,
   );
   // An explicit ServerOptions.sseBroker always wins (caller owns its
-  // lifecycle). Otherwise, REDIS_URL decides the default: without
-  // cross-replica fanout, replicas > 1 silently drops SSE/access-
-  // invalidation events for whichever pod didn't win the shared cursor
-  // (fw#2625) — the safe default has to be the correct one, not the
-  // single-process one.
-  const ownedRedisSseBroker = options.sseBroker
-    ? undefined
-    : process.env["REDIS_URL"]
-      ? createRedisSseBroker({ redisUrl: process.env["REDIS_URL"] })
-      : undefined;
-  const sseBroker = options.sseBroker ?? ownedRedisSseBroker ?? createSseBroker();
+  // lifecycle) — createDefaultSseBroker is the single decision point every
+  // other caller must funnel through instead of picking a broker on its
+  // own, so the REDIS_URL-gated cross-replica default (fw#2625) can't be
+  // silently bypassed the way runProdApp bypassed it before this existed.
+  let sseBroker: SseBroker;
+  let ownedRedisSseBroker: RedisSseBroker | undefined;
+  if (options.sseBroker) {
+    sseBroker = options.sseBroker;
+  } else {
+    const defaults = createDefaultSseBroker();
+    sseBroker = defaults.sseBroker;
+    ownedRedisSseBroker = defaults.ownedRedisSseBroker;
+  }
 
   // Resolve the per-process instance identifier. Prefer explicit
   // ServerOptions.instanceId (tests, deliberate wiring), fall back to the

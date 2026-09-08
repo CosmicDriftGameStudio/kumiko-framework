@@ -22,6 +22,34 @@ export type RedisSseBroker = SseBroker & {
   close(): Promise<void>;
 };
 
+// The one property RedisSseBroker adds over SseBroker — cheap and reliable
+// to narrow on, so callers that only hold an SseBroker (e.g. a test that
+// pulled it back out of a generic ServerOptions.sseBroker slot) can tell
+// which lifecycle they own without an unsound `as` cast.
+export function isRedisSseBroker(broker: SseBroker): broker is RedisSseBroker {
+  return "close" in broker;
+}
+
+// Single decision point for "which SseBroker should a caller default to
+// when it doesn't inject its own": REDIS_URL present → cross-replica
+// Redis-backed broker, absent → the in-memory one. Both buildServer and
+// runProdApp must funnel through this rather than each deciding on their
+// own — runProdApp doing exactly that (building an in-memory broker
+// unconditionally, then passing it in as ServerOptions.sseBroker) is why
+// fw#2625's fanout fix (fw#2630) shipped without ever taking effect in
+// production: an explicit ServerOptions.sseBroker always wins in
+// buildServer, so its own REDIS_URL-based default never ran.
+export function createDefaultSseBroker(env: Record<string, string | undefined> = process.env): {
+  readonly sseBroker: SseBroker;
+  // Present only when REDIS_URL resolved. undefined means the fallback
+  // in-memory broker was used, which has nothing to release on shutdown.
+  readonly ownedRedisSseBroker: RedisSseBroker | undefined;
+} {
+  const redisUrl = env["REDIS_URL"];
+  const ownedRedisSseBroker = redisUrl ? createRedisSseBroker({ redisUrl }) : undefined;
+  return { sseBroker: ownedRedisSseBroker ?? createSseBroker(), ownedRedisSseBroker };
+}
+
 function isSseEvent(value: unknown): value is SseEvent {
   return (
     typeof value === "object" &&

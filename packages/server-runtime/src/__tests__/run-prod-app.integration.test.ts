@@ -20,7 +20,12 @@ import {
   userSessionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
-import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
+import {
+  createRedisSseBroker,
+  isRedisSseBroker,
+  NO_ROUTE_MATCH_HEADER_NAME,
+  type SseEvent,
+} from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -43,6 +48,8 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Queue } from "bullmq";
 import postgres from "postgres";
 import { z } from "zod";
@@ -1190,5 +1197,60 @@ describe("runProdApp — /metrics endpoint (fw#1352)", () => {
 
     const res = await handle.entrypoint.app.fetch(new Request("http://test/metrics"));
     expect(res.status).toBe(404);
+  });
+
+  // fw#2630 shipped a Redis Pub/Sub fanout fix for SSE/access-invalidation
+  // across replicas, but runProdApp built its own in-memory sseBroker
+  // unconditionally and passed it in as ServerOptions.sseBroker — which
+  // always wins over buildServer's REDIS_URL default — so the fix never
+  // took effect in production. These tests exercise the level prod
+  // actually boots through (runProdApp), not buildServer/createRedisSseBroker
+  // directly, which is why the tests above were green while prod was broken.
+  describe("sseBroker wiring (fw#2630 Redis fanout)", () => {
+    test("wires a Redis-backed sseBroker so SSE events fan out across replicas", async () => {
+      const handle = await boot();
+      const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:16379";
+      const channel = `runprod-sse-${generateId()}`;
+      const received: SseEvent[] = [];
+      const otherReplica = createRedisSseBroker({ redisUrl });
+      try {
+        otherReplica.addClient(
+          channel,
+          (event) => received.push(event),
+          () => {},
+        );
+        await waitFor(() => {
+          handle.entrypoint.sseBroker.pushToChannel(channel, {
+            type: "unit.updated",
+            data: { id: "1" },
+          });
+          return received.length >= 1;
+        });
+        expect(received[0]).toEqual({ type: "unit.updated", data: { id: "1" } });
+      } finally {
+        await otherReplica.close();
+      }
+    });
+
+    test("closes the Redis-backed sseBroker on shutdown (no leaked connection)", async () => {
+      const handle = await boot();
+      const broker = handle.entrypoint.sseBroker;
+      if (!isRedisSseBroker(broker)) {
+        throw new Error("expected a Redis-backed sseBroker under REDIS_URL");
+      }
+      let closeCalls = 0;
+      const originalClose = broker.close.bind(broker);
+      broker.close = async () => {
+        closeCalls += 1;
+        await originalClose();
+      };
+
+      await handle.stop();
+      // avoid a second stop()/close() from the module-level afterEach
+      const idx = prodAppHandles.indexOf(handle);
+      if (idx >= 0) prodAppHandles.splice(idx, 1);
+
+      expect(closeCalls).toBe(1);
+    });
   });
 });
