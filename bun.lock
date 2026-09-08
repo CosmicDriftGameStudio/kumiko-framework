@@ -71,7 +71,7 @@
     },
     "packages/create-kumiko-app": {
       "name": "create-kumiko-app",
-      "version": "0.4.268",
+      "version": "0.4.269",
       "bin": {
         "create-kumiko-app": "./bin/cli.ts",
       },
