@@ -54,11 +54,13 @@ describe("runSchemaCli — no-DB paths", () => {
     expect(cap.err).toHaveLength(0);
   });
 
-  test("unknown subcommand falls through to usage", async () => {
+  test("unknown subcommand exits 1 and reports it on stderr", async () => {
     const cap = captureOut();
-    const code = await runSchemaCli(["lolwut"], appCwd, cap.out);
-    expect(code).toBe(0);
-    expect(cap.log.join("\n")).toContain("Subcommands:");
+    const code = await runSchemaCli(["cutover"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain('Unbekanntes Subcommand: "cutover"');
+    expect(cap.err.join("\n")).toContain("generate | validate | apply | baseline | status");
+    expect(cap.log).toHaveLength(0);
   });
 
   test("generate without name exits 1 with neutral usage wording", async () => {
