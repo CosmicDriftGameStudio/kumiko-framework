@@ -471,6 +471,12 @@ export type ReferenceFieldDef = {
    *  statt single UUID. Storage als jsonb-Array<uuid>. UI rendert
    *  Multi-Select-Combobox mit Tag-Anzeige der gewählten Items. */
   readonly multiple?: boolean;
+  /** Reihe eines Text-Suchtreffers auf `labelField` der referenced Entity
+   *  in die Ergebnismenge dieser Entity aufnehmen, statt nur auf die
+   *  UUID-Spalte selbst zu matchen (fw#2660). Erfordert ein explizites
+   *  `labelField` — Boot-Validator lehnt sonst ab, weil der Default "id"
+   *  eine UUID-Spalte ist und ILIKE dagegen zur Laufzeit crasht. */
+  readonly searchable?: true;
 } & ResolvedPiiFlags;
 
 // --- Currency ---
