@@ -220,9 +220,5 @@ export function MfaEnableScreen({
   );
 
   if (embedded) return content;
-  return (
-    <FormScreenShell testId="mfa-enable-screen" maxWidth="3xl">
-      {content}
-    </FormScreenShell>
-  );
+  return <FormScreenShell testId="mfa-enable-screen">{content}</FormScreenShell>;
 }

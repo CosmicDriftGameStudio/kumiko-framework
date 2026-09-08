@@ -289,7 +289,7 @@ export function PatTokensScreen({
     return <div className="flex flex-col gap-6">{content}</div>;
   }
   return (
-    <FormScreenShell testId="pat-tokens-screen" maxWidth="3xl" className="flex flex-col gap-6">
+    <FormScreenShell testId="pat-tokens-screen" className="flex flex-col gap-6">
       {content}
     </FormScreenShell>
   );
