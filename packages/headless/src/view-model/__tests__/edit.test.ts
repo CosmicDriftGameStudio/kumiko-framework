@@ -676,3 +676,57 @@ describe("computeEditViewModel — multiSelect display/columns/maxRows passthrou
     expect(field?.maxRows).toBeUndefined();
   });
 });
+
+describe("computeEditViewModel — declared reference metadata (fw#2662)", () => {
+  // projectionDetail fields have no real EntityDefinition — the shim that
+  // adapts them synthesizes a pseudo-entity where every field is hardcoded
+  // to "text" (see projection-detail-shim.ts). EditFieldSpec.refEntity must
+  // be evaluated BEFORE the entity.fields lookup, or it never fires against
+  // that shape.
+  const projectionPseudoEntity = {
+    fields: {
+      userId: { type: "text" },
+      ip: { type: "text" },
+    },
+  } as unknown as EntityDefinition;
+
+  test("EditFieldSpec.refEntity marks the field as a reference, even against a pseudo-entity whose fields are all 'text' (fw#2662)", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          { fields: [{ field: "userId", refEntity: "user:user", refLabelField: "displayName" }] },
+        ],
+      }),
+      entity: projectionPseudoEntity,
+      values: { userId: "u-1" },
+      translate,
+      featureName: "sessions",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field).toMatchObject({
+      field: "userId",
+      type: "reference",
+      refEntity: "user",
+      refFeature: "user",
+      refLabelField: "displayName",
+    });
+    expect(field?.refMultiple).toBeUndefined();
+  });
+
+  test("non-regression: a projectionDetail field without refEntity metadata stays 'text', unchanged (fw#2662)", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ fields: ["ip"] }] }),
+      entity: projectionPseudoEntity,
+      values: { ip: "10.0.0.1" },
+      translate,
+      featureName: "sessions",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.type).toBe("text");
+    expect(field?.refEntity).toBeUndefined();
+    expect(field?.refFeature).toBeUndefined();
+    expect(field?.refLabelField).toBeUndefined();
+  });
+});

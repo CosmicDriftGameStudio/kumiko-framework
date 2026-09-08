@@ -17,8 +17,10 @@
 // internen Cache shared zwischen List + Edit-Form für die gleiche
 // Entity, Live-Updates kommen via SSE (use-query-live).
 
+import { SYSTEM_REFERENCE_LABELS } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useMemo } from "react";
 import { toKebab } from "../app/qn";
+import { useTranslation } from "../i18n";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits";
 import { useQuery } from "./use-query";
 
@@ -40,6 +42,8 @@ export function useReferenceLookup(
   const result = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
     limit: REFERENCE_LIST_LOOKUP_LIMIT,
   });
+  const translate = useTranslation();
+  const systemLabel = SYSTEM_REFERENCE_LABELS[`${featureName}:${refEntity}`];
   const map = useMemo(() => {
     const out = new Map<string, string>();
     for (const row of result.data?.rows ?? []) {
@@ -49,7 +53,10 @@ export function useReferenceLookup(
       const label = row[labelField] ?? id;
       out.set(idStr, String(label));
     }
+    // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row, so
+    // the bulk lookup above never covers them — inject the label directly.
+    if (systemLabel !== undefined) out.set(systemLabel.id, translate(systemLabel.labelKey));
     return out;
-  }, [result.data, labelField]);
+  }, [result.data, labelField, systemLabel, translate]);
   return { map, loading: result.loading };
 }

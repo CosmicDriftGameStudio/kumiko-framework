@@ -339,6 +339,62 @@ describe("computeListViewModel", () => {
     });
   });
 
+  // projectionList/relatedList columns have no real EntityDefinition — the
+  // shim that adapts them synthesizes a pseudo-entity where every field is
+  // hardcoded to "text" (see projection-list-shim.ts /
+  // related-list-section.tsx). ListColumnSpec.refEntity must be evaluated
+  // BEFORE the entity.fields lookup, or it never fires against that shape.
+  const projectionPseudoEntity = {
+    fields: {
+      tenantId: { type: "text" },
+      type: { type: "text" },
+    },
+  } as unknown as EntityDefinition;
+
+  test("ListColumnSpec.refEntity marks the column as a reference, even against a pseudo-entity whose fields are all 'text' (fw#2662)", () => {
+    const vm = computeListViewModel({
+      screen: listScreen([
+        {
+          field: "tenantId",
+          label: "delivery.log.col.tenantId",
+          refEntity: "tenant:tenant",
+          refLabelField: "name",
+        },
+      ]),
+      entity: projectionPseudoEntity,
+      rows: [],
+      translate,
+      featureName: "delivery",
+    });
+
+    expect(vm.columns[0]).toEqual({
+      field: "tenantId",
+      label: "delivery.log.col.tenantId",
+      type: "reference",
+      sortable: false,
+      refFeature: "tenant",
+      refEntity: "tenant",
+      refLabelField: "name",
+    });
+  });
+
+  test("non-regression: a projectionList column without refEntity metadata stays 'text', unchanged (fw#2662)", () => {
+    const vm = computeListViewModel({
+      screen: listScreen([{ field: "type", label: "delivery.log.col.type" }]),
+      entity: projectionPseudoEntity,
+      rows: [],
+      translate,
+      featureName: "delivery",
+    });
+
+    expect(vm.columns[0]).toEqual({
+      field: "type",
+      label: "delivery.log.col.type",
+      type: "text",
+      sortable: false,
+    });
+  });
+
   test("row-meta column: explicit label + renderer are passed through unchanged", () => {
     const fmt = { format: "currency" as const, symbol: "€" };
     const vm = computeListViewModel({
