@@ -715,6 +715,90 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  // withBootValidatorFixture auto-fills every key requiredKeysFromFeature
+  // reports, so every other boot test in this file passes regardless of
+  // whether required-surface-keys.ts's writeForm branch names the right key
+  // — it would pass even for a wrong namespace. Bypass the fixture (raw
+  // validateBootRaw, no stubTranslations) to pin the actual key contract.
+  test("validateBoot requires a translation for a writeForm field's own label, namespaced under the write-form pseudo-entity (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        // Screens always require their own "screen:<id>.title" key — supplied
+        // here so the throw below isolates the one key this test is about.
+        r.translations({ keys: { "screen:x.title": { en: "X" } } });
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.writeHandler(
+          "save",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+
+    expect(() => validateBootRaw(features)).toThrow(
+      '[i18n] Feature "app": required translation key missing: "app:entity:__write-form-section__:field:name"',
+    );
+  });
+
+  test("translating the writeForm field's pseudo-entity key lets boot pass", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.translations({
+          keys: {
+            "screen:x.title": { en: "X" },
+            "app:entity:__write-form-section__:field:name": { en: "Name" },
+          },
+        });
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.writeHandler(
+          "save",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+
+    expect(() => validateBootRaw(features)).not.toThrow();
+  });
+
   test("validateBoot rejects a writeForm section on entityEdit (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("shop", (r) => {

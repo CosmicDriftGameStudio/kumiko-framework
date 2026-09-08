@@ -170,4 +170,36 @@ describe("WriteFormSection", () => {
 
     await waitFor(() => expect(writes).toHaveLength(0));
   });
+
+  // Pins the only route a writeForm section has to thread the host record's
+  // id into its payload (see EditWriteFormSection.handler's doc): a
+  // visible:false field never renders an input, but its resolved value still
+  // seeds `initial` and so rides along in the submit payload untouched.
+  test("a visible:false field's prefilled value rides along in the submit payload", async () => {
+    const sectionWithHiddenId: EditWriteFormSectionViewModel = {
+      ...noteSection,
+      fields: [
+        {
+          field: "orderId",
+          label: "Order",
+          type: "text",
+          value: "order-42",
+          visible: false,
+          readOnly: false,
+          required: false,
+        },
+        ...noteSection.fields,
+      ],
+    };
+    const { dispatcher, writes } = stubDispatcher();
+    renderWriteForm(sectionWithHiddenId, dispatcher, noop);
+
+    expect(rtlScreen.queryByTestId("input-orderId")).toBeNull();
+
+    fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "hi" } });
+    fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.payload).toEqual({ orderId: "order-42", note: "hi" });
+  });
 });

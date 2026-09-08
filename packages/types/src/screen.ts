@@ -805,7 +805,12 @@ export type EditWriteFormSection = {
    *  Every referenced field must have an entry in `fieldDefs`. */
   readonly fields: readonly EditFieldSpec[];
   /** Write-handler QN dispatched on submit. The submitted values (not a
-   *  diff) land 1:1 as payload, same as `ActionFormScreenDefinition.handler`. */
+   *  diff) land 1:1 as payload, same as `ActionFormScreenDefinition.handler`.
+   *  The payload carries only this section's own fields — no parent/record
+   *  id is injected automatically. To thread the host record's id through,
+   *  declare it in `fieldDefs` with `visible: false` on its `fields` entry:
+   *  it gets prefilled from the loaded record like any other field and rides
+   *  along in the submit payload without being shown in the form. */
   readonly handler: string;
   /** i18n-key for the submit button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
