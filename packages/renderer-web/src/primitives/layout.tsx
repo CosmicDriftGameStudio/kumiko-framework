@@ -1,6 +1,6 @@
-// Layout-Primitives für Custom-Screens: ein Ort für vertikale Abstände und
-// Screen-Padding, damit Consumer nicht `flex flex-col gap-*` / `p-6` per Hand
-// streuen. Bewusst dünn — kein generisches Box-mit-20-props-System.
+// Layout primitives for custom screens: one place for vertical spacing and
+// screen padding, so consumers don't hand-roll `flex flex-col gap-*` / `p-6`.
+// Deliberately thin — not a generic box-with-20-props system.
 
 import type { FormWidth } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
