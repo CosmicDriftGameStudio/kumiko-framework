@@ -16,10 +16,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 // being published: registry replication lag (#2586) can leave the earlier
 // exact-version lookup blind to a publish that just landed elsewhere, so this
 // rescue run redundantly retries `npm publish` for a version that is already
-// live. An E403 naming a *different* version, or any other npm publish
-// failure (auth, network, tarball, a failing `latest` move), must still fail
-// hard. This drives the real function extracted from the script rather than
-// re-implementing or grepping it, so a behavioural regression is caught.
+// live. Detection must key off that message line alone, not a companion `npm
+// error code E403` line — the 0.238.0 release hit this rescue case with npm
+// printing only the message, and a code-gated check missed it, hard-failing a
+// release that had actually landed. An E403 naming a *different* version, or
+// any other npm publish failure (auth, network, tarball, a failing `latest`
+// move), must still fail hard. This drives the real function extracted from
+// the script rather than re-implementing or grepping it, so a behavioural
+// regression is caught.
 
 const SCRIPT_PATH = fileURLToPath(new URL("../publish-with-oidc.sh", import.meta.url));
 
@@ -176,6 +180,33 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
     });
     expect(exitCode).toBe(0);
     expect(stdout).toContain("already_published_via_e403=1");
+  });
+
+  test("treats the E403 message alone as already released even without a 'code E403' line (0.238.0 regression)", () => {
+    const { exitCode, stdout } = runWithNpmStub({
+      publishExitCode: 1,
+      publishOutput:
+        "npm error 403 403 Forbidden - PUT https://registry.npmjs.org/@cosmicdrift%2fkumiko-types - You cannot publish over the previously published versions: 0.233.0.",
+      // Would fail the run if publish_and_tag reached it — proves the
+      // already-published path returns before ever touching the dist-tag.
+      distTagExitCode: 1,
+      distTagOutput: "npm error code E404\nnpm error 404 Not Found - version not found",
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("already_published_via_e403=1");
+  });
+
+  test("still fails hard on an unrelated npm error such as E401 auth failure", () => {
+    const { exitCode, stdout } = runWithNpmStub({
+      publishExitCode: 1,
+      publishOutput:
+        "npm error code E401\n" +
+        "npm error 401 Unauthorized - PUT https://registry.npmjs.org/@cosmicdrift%2fkumiko-types - You must be logged in to publish packages.",
+      distTagExitCode: 0,
+      distTagOutput: "",
+    });
+    expect(exitCode).not.toBe(0);
+    expect(stdout).not.toContain("already_published_via_e403=1");
   });
 
   test("still fails when the E403 names a different version than the one being published", () => {
