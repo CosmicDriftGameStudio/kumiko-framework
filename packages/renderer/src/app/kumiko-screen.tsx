@@ -1871,14 +1871,14 @@ function ProjectionListBody({
 
   const filterFacets = useMemo<DataTableFacet[]>(() => buildFilterFacets(facetSpecs), [facetSpecs]);
 
-  // Entity-Targets (fw#2228) — siehe EntityListBody.runNavigate für die
-  // Begründung, warum die Auflösung in der NavApi-Impl passiert. Anders als
-  // dort: KEIN row["id"]-Fallback — projectionList-Rows kommen aus einer
-  // beliebigen Query-Projection ohne garantiertes "id"-Feld. Der Boot-
-  // Validator erzwingt deshalb einen expliziten entityId für
-  // projectionList-entity-Targets. Same helper relatedList's rowActions
-  // reuse (related-list-section.tsx) — a projectionDetail relatedList row
-  // has the identical "no guaranteed id" shape.
+  // Entity-Targets (fw#2228) — see EntityListBody.runNavigate for why the
+  // resolution happens in the NavApi impl. Unlike there: NO row["id"]
+  // fallback — projectionList rows come from an arbitrary query projection
+  // with no guaranteed "id" field. The boot validator therefore enforces an
+  // explicit entityId for projectionList entity targets. Same helper
+  // relatedList's rowActions reuse (related-list-section.tsx) — a
+  // projectionDetail relatedList row has the identical "no guaranteed id"
+  // shape.
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) =>
       runProjectionRowNavigate(nav, action, row),

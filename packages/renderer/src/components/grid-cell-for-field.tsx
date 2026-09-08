@@ -3,18 +3,16 @@ import type { ReactNode } from "react";
 import type { usePrimitives } from "../primitives";
 import { RenderField } from "./render-field";
 
-// Winziger Wrapper der die span-Logik kapselt und die Field-Cell in
-// die Grid platziert. Eigene Component damit die map-Callback der Caller
-// schlank bleibt. Extracted out of render-edit.tsx so write-form-section.tsx
-// can reuse it without a circular import between the two components.
+// Extracted out of render-edit.tsx so write-form-section.tsx can reuse it
+// without a circular import between the two components.
 export type GridCellForFieldProps = {
   readonly field: EditFieldViewModel;
   readonly columns: number;
   readonly issues: readonly FieldIssue[] | undefined;
   readonly onChange: (value: unknown) => void;
   readonly GridCell: ReturnType<typeof usePrimitives>["GridCell"];
-  /** Tier 2.7e-3: durchgereicht damit Reference-Felder die richtige
-   *  Lookup-Query-QN bauen können (`<feature>:query:<refEntity>:list`). */
+  /** Tier 2.7e-3: passed through so Reference fields can build the correct
+   *  lookup query QN (`<feature>:query:<refEntity>:list`). */
   readonly featureName: string;
   readonly labelAppendix?: ReactNode;
   readonly fieldAppendix?: ReactNode;
