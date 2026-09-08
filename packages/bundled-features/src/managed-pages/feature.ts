@@ -1,13 +1,5 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
-import {
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
-  defineFeature,
-  type FeatureDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type BrandingTokens,
   cachedSecurePageResponse,
@@ -20,16 +12,12 @@ import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from
 import { createBrandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query";
+import { pageCrudQueries, pageCrudWrites } from "./handlers/page-crud";
 import { setWrite } from "./handlers/set.write";
 import { MANAGED_PAGES_I18N } from "./i18n";
 import { createBrandingSettingsScreen } from "./screens/branding-screen";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens";
 import { pageEntity } from "./table";
-
-// Admin-Authoring läuft als TenantAdmin (self-service) oder SystemAdmin
-// (app-weite Pages). Spiegelt set.write's ACL — Apps mit eigenem Rollen-
-// Alias (publicstatus = "Admin") müssen TenantAdmin granten/mappen.
-const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
 // 60s-shared-cache saves the origin-revalidate roundtrip; CMS edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
@@ -186,46 +174,8 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       branding: r.queryHandler(createBrandingQuery({ allowCustomCss })),
     };
 
-    // Convention-CRUD hinter den Admin-Screens: entityEdit/entityList
-    // dispatchen per Konvention `managed-pages:write:page:{create,update,
-    // delete}` + `managed-pages:query:page:{list,detail}`. `set` (oben)
-    // wird davon NICHT genutzt und bleibt als Provisioning-API erhalten.
-    r.writeHandler(
-      defineEntityCreateHandler("page", pageEntity, {
-        access: ADMIN_ACCESS,
-        description:
-          "Creates a managed page from the admin form's field values, failing if that slug and language already exist; use it from the page catalog screen, whereas managed-pages:write:set upserts a page addressed by slug and language.",
-      }),
-    );
-    r.writeHandler(
-      defineEntityUpdateHandler("page", pageEntity, {
-        access: ADMIN_ACCESS,
-        description:
-          "Updates one managed page addressed by row id from the admin form's `{ id, version, changes }` envelope; use it from the page edit screen, whereas managed-pages:write:set addresses a page by slug and language instead.",
-      }),
-    );
-    r.writeHandler(
-      defineEntityDeleteHandler("page", pageEntity, {
-        access: ADMIN_ACCESS,
-        description:
-          "Deletes one managed page by row id so its URL stops resolving entirely; use it to retire a page for good, not to take it offline temporarily — that is a published:false write through managed-pages:write:set.",
-        agent: { risk: "high" },
-      }),
-    );
-    r.queryHandler(
-      defineEntityListHandler("page", pageEntity, {
-        access: ADMIN_ACCESS,
-        description:
-          "Lists the tenant's managed pages for the admin catalog, drafts included; use it to browse or search pages for editing, unlike by-tenant-published which only enumerates the publicly visible ones.",
-      }),
-    );
-    r.queryHandler(
-      defineEntityDetailHandler("page", pageEntity, {
-        access: ADMIN_ACCESS,
-        description:
-          "Reads one managed page by row id including its body and draft state; use it to load a page into the admin edit screen, whereas by-slug serves the public render path.",
-      }),
-    );
+    for (const def of pageCrudWrites) r.writeHandler(def);
+    for (const def of pageCrudQueries) r.queryHandler(def);
 
     r.screen(pageListScreen);
     r.screen(pageEditScreen);
