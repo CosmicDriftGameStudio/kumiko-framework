@@ -117,6 +117,17 @@ export type ListColumnSpec =
        *  label; without one it is rejected at boot as an unknown field. `field`
        *  is then just a stable column key (pick any unique slug). */
       readonly label?: string;
+      /** Marks this column as a reference lookup instead of a plain value —
+       *  for projectionList/relatedList columns, which have no
+       *  `EntityDefinition` to carry a real `reference` field type. Same
+       *  target convention as `parseRefTarget`: an entity name (same
+       *  feature) or `feature:entity` (cross-feature). Ignored on
+       *  `entityList` columns, where the field's own declared type always
+       *  wins. */
+      readonly refEntity?: string;
+      /** Row field on the referenced entity shown as the label (default
+       *  "id"). Only meaningful together with `refEntity`. */
+      readonly refLabelField?: string;
     };
 
 // Pagination-Modi für entityList:

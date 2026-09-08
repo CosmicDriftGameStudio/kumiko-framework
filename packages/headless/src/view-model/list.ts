@@ -40,6 +40,31 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
   const columns: ListColumnViewModel[] = [];
   for (const spec of screen.columns) {
     const normalized = normalizeListColumn(spec);
+    if (normalized.refEntity !== undefined) {
+      // Declared reference metadata (ListColumnSpec.refEntity) — for
+      // projectionList/relatedList columns, which have no EntityDefinition
+      // field to carry a real "reference" type. Checked before the
+      // entity.fields lookup below so it also fires against the pseudo-
+      // entities that hardcode every field as "text" (projection-list-shim,
+      // related-list-section) — those never reach the reference branch
+      // further down since fieldDef.type is always "text" there.
+      const refTarget = parseRefTarget(normalized.refEntity, featureName);
+      columns.push({
+        field: normalized.field,
+        label: translate(
+          normalized.label ?? fieldLabelKey(featureName, screen.entity, normalized.field),
+        ),
+        type: "reference",
+        // The declared value is the referenced id, not the resolved label —
+        // there is no column to server-sort by, same as row-meta references.
+        sortable: false,
+        refEntity: refTarget.entityName,
+        refFeature: refTarget.featureName,
+        refLabelField: normalized.refLabelField ?? "id",
+        ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+      });
+      continue;
+    }
     const fieldDef = entity.fields[normalized.field];
     if (!fieldDef) {
       // Not a stored field — may be a read-time derived field (value appended
