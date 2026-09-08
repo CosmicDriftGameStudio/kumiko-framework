@@ -3,12 +3,14 @@
 # POSIX sh — the build container has no bash and procps `ps -C` is unavailable.
 set -eu
 
+PROC_DIR="${KUMIKO_MEMLOG_PROC_DIR:-/proc}"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: ci-memlog-run.sh <command...>" >&2
   exit 2
 fi
 
-if [ ! -r /proc/meminfo ]; then
+if [ ! -r "$PROC_DIR/meminfo" ]; then
   echo "[kumiko-mem] /proc/meminfo unavailable — running command without sampling"
   exec "$@"
 fi
@@ -18,25 +20,27 @@ INTERVAL="${KUMIKO_MEMLOG_INTERVAL_SEC:-5}"
 PEAK_FILE="$(mktemp)"
 
 mem_available_kb() {
-  awk '/MemAvailable:/ { print $2 }' /proc/meminfo
+  awk '/MemAvailable:/ { print $2 }' "$PROC_DIR/meminfo"
 }
 
 mem_used_kb() {
   awk '/MemTotal:|MemAvailable:/ {
     if ($1 == "MemTotal:") total = $2
     if ($1 == "MemAvailable:") avail = $2
-  } END { print total - avail }' /proc/meminfo
+  } END { print total - avail }' "$PROC_DIR/meminfo"
 }
 
 # Sum VmRSS for kumiko-check toolchain processes via /proc (portable).
 check_rss_kb() {
   total=0
-  for status in /proc/[0-9]*/status; do
+  for status in "$PROC_DIR"/[0-9]*/status; do
     [ -r "$status" ] || continue
-    name=$(awk '/^Name:/ { print $2; exit }' "$status")
+    # A process can exit between the -r check and the read (TOCTOU) — an
+    # entry that vanishes mid-read must be skipped, not fail the whole script.
+    name=$(awk '/^Name:/ { print $2; exit }' "$status" 2>/dev/null) || continue
     case $name in
       bun | node | biome | tsc | esbuild)
-        rss=$(awk '/^VmRSS:/ { print $2; exit }' "$status")
+        rss=$(awk '/^VmRSS:/ { print $2; exit }' "$status" 2>/dev/null) || rss=0
         total=$((total + ${rss:-0}))
         ;;
     esac
@@ -90,12 +94,12 @@ SAMPLER_PID=$!
 
 cleanup() {
   code=$?
+  # Cleanup failures must never replace the wrapped command's real exit code.
+  set +e
   kill "$SAMPLER_PID" 2>/dev/null || true
   wait "$SAMPLER_PID" 2>/dev/null || true
-  # kill+wait above can race the sampler's own truncate-then-write of
-  # PEAK_FILE (SIGTERM landing between the two) — an empty file here would
-  # make `read` fail under `set -e` and clobber $code with read's exit
-  # status instead of the wrapped command's real one.
+  # kill+wait above can also race the sampler's own truncate-then-write of
+  # PEAK_FILE (SIGTERM landing between the two), leaving it briefly empty.
   read -r max_check max_used min_avail <"$PEAK_FILE" || true
   max_check=${max_check:-0}
   max_used=${max_used:-0}
