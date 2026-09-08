@@ -1,5 +1,85 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.236.0
+
+### Minor Changes
+
+- ccad32d: Adds AI-agent tooling: `description`/`agent` slots on `r.writeHandler`/`r.queryHandler` feature-ast patterns, `createAgentToolsFeature()` with a boot check that warns (never throws) on handlers/screens/entities the agent can't describe, `findAgentDocGaps` for surfacing those gaps programmatically (also wired into this repo's own `kumiko agent lint` dev command), and an `AgentReasons` error-reason catalog. Also adds the tool catalog and write-dispatch layer that turns an `AgentManifest` into a model-facing tool list (`get`/`list`/`query`/`write`/`navigate`/`open_form`).
+
+  **Breaking:** `buildToolCatalog(registry)` becomes `buildToolCatalog(registry, manifest, options)`, where `options: ToolCatalogOptions` is `{ mode }` only — role filtering and locale are no longer passed in separately, they're read off the manifest (`manifest.builtForRoles`, `manifest.tenantSettings.locale`), closing a divergence where a caller could pass a role/locale pair that didn't match the manifest's own. `AgentManifest` gains `builtForRoles` (the roles the manifest was built for) as that single source. Callers pass the already-built manifest as the second argument and drop any separate roles/locale options.
+
+- 1c330c2: `createNotesHistoryFeature` and `createTagsFeature` gain an `ownership`
+  option for row-level READ access on `note-entry` / `tag-assignment` rows.
+  Previously neither entity declared `access`, so `buildOwnershipClause`
+  always passed and any dispatch-eligible tenant user could list every note
+  or tag-assignment in the tenant — including rows on host entities they
+  can't otherwise see. `access`/`roles` remain a dispatch gate only (can the
+  caller call create/list at all); `ownership` is orthogonal and controls
+  which rows a caller sees. Both feature factories reject a `where`-rule in
+  `ownership.write` at construction time, since the write path
+  (`userCanCreateFieldRow`/`userCanWriteFieldRow`) can't evaluate where-rules:
+  create throws at runtime, update/delete/forget/restore silently deny. Use a
+  `from()` rule for `ownership.write`, or leave it unset.
+
+  Also fixes `note-entry.body`, which was annotated `personal: { of: "authorId" }`
+  — erasing the author's data-rights key would crypto-shred every note's
+  content, not just their name. A note's content is about the host entity, not
+  the author, so `body` is now `personal: false`; `authorName` keeps
+  `personal: { of: "authorId" }` correctly. No production database has rows in
+  `read_note_entries` today, so no migration is needed.
+
+- e668a62: SSE broadcast, access-invalidation, and the feature-toggles cache-sync now
+  all fan out correctly across `replicas > 1`. Previously all three ran as
+  `delivery: "per-instance"` consumers, which only works when every process
+  has a distinct `KUMIKO_INSTANCE_ID` — in production that value is pinned to
+  a fixed string, so all pods shared one cursor row and each consumer only
+  ever saw a random subset of events.
+
+  `buildServer` now defaults to a Redis-backed `SseBroker` (`createRedisSseBroker`,
+  new export) whenever `REDIS_URL` is set: one pod publishes, every pod's
+  broker republishes to its own local clients over Redis Pub/Sub. An
+  explicitly-passed `ServerOptions.sseBroker` still always wins. Without
+  `REDIS_URL` the behavior is unchanged (in-memory `createSseBroker`, single
+  process only).
+
+  The generic Pub/Sub mechanics behind that broker are now factored out into
+  `createRedisPubSubSignal` (`@cosmicdrift/kumiko-framework/redis`) — two
+  ioredis connections (publish + subscribe), one `psubscribe` on a caller
+  pattern, JSON payloads, defensive parse-and-drop on malformed messages.
+  `feature-toggles` builds its own transport on top of the same primitive via
+  the new `createRedisToggleSyncSignal` (`@cosmicdrift/kumiko-bundled-features/feature-toggles`):
+  `GlobalFeatureToggleRuntime` now takes an optional `syncSignal`, and its new
+  `broadcastToggle()` publishes a flip to every other process when one is
+  configured, falling back to the old direct-apply behavior when it isn't
+  (no `REDIS_URL` — single-process dev/test, unchanged).
+
+  With real transports in place under all three, `system:consumer:sse-broadcast`,
+  `system:consumer:access-invalidation`, and `feature-toggles:projection:toggle-cache-sync`
+  all moved to `delivery: "shared"` (one cursor reads every event once, fanout
+  happens through the respective signal) with `startFrom: "now"` so existing
+  deploys don't replay their full event history on first boot after
+  upgrading. Their old per-instance cursor rows are cleaned up automatically
+  on the next `kumiko-schema apply`.
+
+  No consumer anywhere in `kumiko-framework` or `kumiko-bundled-features` uses
+  `delivery: "per-instance"` for a production feature any more — that's the
+  statement `replicas > 1` correctness now rests on. App-authors: wire
+  `createRedisToggleSyncSignal(REDIS_URL)` into `createFeatureToggleRuntime`
+  the same way `REDIS_URL` already gates the SSE broker, so a multi-replica
+  deploy's feature-toggle flips actually converge across pods.
+
+### Patch Changes
+
+- Updated dependencies [ccad32d]
+- Updated dependencies [69529cd]
+- Updated dependencies [e668a62]
+  - @cosmicdrift/kumiko-framework@0.236.0
+  - @cosmicdrift/kumiko-headless@0.236.0
+  - @cosmicdrift/kumiko-renderer@0.236.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.236.0
+  - @cosmicdrift/kumiko-renderer-web@0.236.0
+  - @cosmicdrift/kumiko-types@0.236.0
+
 ## 0.235.4
 
 ### Patch Changes
