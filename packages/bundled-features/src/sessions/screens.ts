@@ -62,7 +62,7 @@ export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
       {
         fields: [
           "id",
-          "userId",
+          { field: "userId", refEntity: "user:user", refLabelField: "displayName" },
           // The shim (projection-detail-shim.ts) stamps every field as
           // type:"text" — field.renderer is the only way this screen
           // type reaches real per-type formatting instead of a raw ISO

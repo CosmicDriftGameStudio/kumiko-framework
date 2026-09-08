@@ -3,6 +3,7 @@ import {
   type FieldIconKey,
   type FieldRenderer,
   isFormatSpec,
+  SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   applyFormatSpec,
@@ -403,6 +404,7 @@ function ReadOnlyReferenceValue({
   readonly featureName: string;
 }): ReactNode {
   const { Text } = usePrimitives();
+  const t = useTranslation();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
   const labelField = field.refLabelField ?? "id";
@@ -420,7 +422,13 @@ function ReadOnlyReferenceValue({
       : [];
   if (ids.length === 0) return <Text testId={`field-value-${field.field}`}>—</Text>;
   const rows = queryResult.data?.rows ?? [];
+  // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row —
+  // same central fallback as useReferenceLookup (render-list.tsx), so a
+  // reference field showing one on the detail path also gets a label
+  // instead of the raw id.
+  const systemLabel = SYSTEM_REFERENCE_LABELS[`${refFeature}:${refEntity}`];
   const labels = ids.map((id) => {
+    if (systemLabel !== undefined && id === systemLabel.id) return t(systemLabel.labelKey);
     const row = rows.find((r) => String(r["id"] ?? "") === id);
     return row !== undefined ? String(row[labelField] ?? id) : id;
   });
