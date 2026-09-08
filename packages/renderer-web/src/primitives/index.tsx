@@ -899,7 +899,7 @@ function DefaultDataTable({
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
       className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
     >
-      {emptyState ?? <span>No entries.</span>}
+      {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}
     </div>
   );
 
