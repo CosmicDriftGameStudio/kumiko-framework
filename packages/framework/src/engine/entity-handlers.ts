@@ -339,6 +339,13 @@ export function defineEntityQueryHandler(
         const result = await executor.list(listPayload, query.user, db, {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
           ...(ctx.includeDeleted === true && { includeDeleted: true }),
+          // fw#2660 — registry access only exists at request time, so the
+          // searchable-reference cache + entity resolver travel through the
+          // same runtime-override extension point as searchAdapter above.
+          referenceSearch: {
+            fields: ctx.registry.getSearchableReferences(entityName),
+            resolveEntity: (name) => ctx.registry.getEntity(name),
+          },
         });
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(

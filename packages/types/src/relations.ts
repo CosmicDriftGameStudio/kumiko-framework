@@ -9,7 +9,6 @@ export type BelongsToRelation = {
   readonly type: "belongsTo";
   readonly target: string;
   readonly foreignKey: string;
-  readonly searchInclude?: readonly string[];
   // onDelete is declared on the parent-side (hasMany / manyToMany) because
   // that's where the "what happens to my children?" decision lives. A
   // belongsTo node just points at a parent — the parent's onDelete drives
@@ -45,7 +44,6 @@ export type ManyToManyRelation = {
     readonly sourceKey: string;
     readonly targetKey: string;
   };
-  readonly searchInclude?: readonly string[];
   readonly onDelete?: OnDeleteStrategy;
 };
 

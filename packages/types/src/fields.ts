@@ -471,6 +471,12 @@ export type ReferenceFieldDef = {
    *  statt single UUID. Storage als jsonb-Array<uuid>. UI rendert
    *  Multi-Select-Combobox mit Tag-Anzeige der gewählten Items. */
   readonly multiple?: boolean;
+  /** Include a row in this entity's result set on a text-search hit against
+   *  the referenced entity's `labelField`, instead of only matching the UUID
+   *  column itself (fw#2660). Requires an explicit `labelField` — the boot
+   *  validator rejects it otherwise, since the default "id" is a UUID column
+   *  and ILIKE against it would crash at runtime. */
+  readonly searchable?: true;
 } & ResolvedPiiFlags;
 
 // --- Currency ---

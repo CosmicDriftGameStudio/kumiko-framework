@@ -883,7 +883,11 @@ export type Registry = {
   getSearchableFields(entityName: string): readonly string[];
   getSortableFields(entityName: string): readonly string[];
   getRelations(entityName: string): EntityRelations;
-  getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]>;
+  getSearchableReferences(entityName: string): ReadonlyArray<{
+    fieldName: string;
+    targetEntityName: string;
+    labelField: string;
+  }>;
   getIncomingRelations(entityName: string): ReadonlyArray<{
     sourceEntity: string;
     relationName: string;

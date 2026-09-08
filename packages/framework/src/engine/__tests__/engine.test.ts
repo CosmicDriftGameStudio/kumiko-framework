@@ -621,6 +621,83 @@ describe("createRegistry", () => {
     expect(registry.getSearchableFields("user")).toEqual(["email", "lastName"]);
     expect(registry.getSearchableFields("nonexistent")).toEqual([]);
   });
+
+  test("returns searchable reference fields for entity, without leaking them into getSearchableFields (fw#2660)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            note: createTextField({ searchable: true }),
+            customerId: {
+              type: "reference",
+              entity: "customer",
+              labelField: "name",
+              searchable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    const registry = createRegistry([feature]);
+    // Meili invariant: the search-index build reads getSearchableFields, and
+    // a reference field is never text-indexed there — it's resolved via a
+    // live DB lookup at query time instead (getSearchableReferences).
+    expect(registry.getSearchableFields("order")).toEqual(["note"]);
+    expect(registry.getSearchableReferences("order")).toEqual([
+      { fieldName: "customerId", targetEntityName: "customer", labelField: "name" },
+    ]);
+    expect(registry.getSearchableReferences("nonexistent")).toEqual([]);
+  });
+
+  test("throws at boot when a searchable reference field has no explicit labelField (fw#2660)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            customerId: { type: "reference", entity: "customer", searchable: true },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/labelField/);
+  });
+
+  test("throws at boot when searchable is combined with multiple on a reference field (fw#2660)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity("tag", createEntity({ table: "Tags", fields: { name: createTextField() } }));
+      r.entity(
+        "post",
+        createEntity({
+          table: "Posts",
+          fields: {
+            tagIds: {
+              type: "reference",
+              entity: "tag",
+              labelField: "name",
+              searchable: true,
+              multiple: true,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/multiple/);
+  });
 });
 
 // --- Access ---
@@ -1597,7 +1674,6 @@ describe("r.relation()", () => {
         type: "belongsTo",
         target: "department",
         foreignKey: "departmentId",
-        searchInclude: ["name"],
       });
     });
 
@@ -1613,7 +1689,6 @@ describe("r.relation()", () => {
         type: "manyToMany",
         target: "role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
-        searchInclude: ["name"],
       });
     });
 
@@ -1648,38 +1723,12 @@ describe("registry relations", () => {
         type: "manyToMany",
         target: "role",
         through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
-        searchInclude: ["name"],
       });
     });
 
     const registry = createRegistry([f1]);
     const rels = registry.getRelations("user");
     expect(rels["roles"]).toBeDefined();
-  });
-
-  test("getSearchIncludes returns fields to index from relations", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
-      r.entity("department", createEntity({ table: "Depts", fields: { name: createTextField() } }));
-      r.relation("user", "roles", {
-        type: "manyToMany",
-        target: "role",
-        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
-        searchInclude: ["name"],
-      });
-      r.relation("user", "department", {
-        type: "belongsTo",
-        target: "department",
-        foreignKey: "departmentId",
-        searchInclude: ["name"],
-      });
-    });
-
-    const registry = createRegistry([feature]);
-    const includes = registry.getSearchIncludes("user");
-    expect(includes.get("roles")).toEqual(["name"]);
-    expect(includes.get("department")).toEqual(["name"]);
   });
 
   test("throws on relation to non-existent entity", () => {

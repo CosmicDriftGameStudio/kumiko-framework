@@ -1,17 +1,21 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { computeBlindIndex, configuredBlindIndexKey } from "../crypto";
+import { collectPiiSubjectFields, computeBlindIndex, configuredBlindIndexKey } from "../crypto";
+import { escapeLikePattern } from "../crypto/ciphertext-pattern";
 import { executeRawQueryRead } from "../db/queries/raw-sql";
 import { coerceRow, extractTableInfo } from "../db/query";
 import { buildOwnershipClause, normalizeAccessEntry, shiftParams } from "../engine/ownership";
-import type { EntityId } from "../engine/types";
+import type { EntityDefinition, EntityId } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { UnprocessableError } from "../errors";
 import { getStreamVersion } from "../event-store";
+import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta";
 import { rehydrateCompoundTypes } from "./compound-types";
 import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
+import { collectEncryptedFieldNames } from "./entity-field-encryption";
 import type { EventStoreExecutor } from "./event-store-executor";
 import { buildFilterWhere, type ExecutorContext, type Table } from "./event-store-executor-context";
-import { toSnakeCase } from "./table-builder";
+import { buildEntityTable, toSnakeCase } from "./table-builder";
+import type { TenantDb, TenantDbMode } from "./tenant-db";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
 // of event-store-executor.ts (#1005, Welle 2) — behavior-preserving
@@ -183,9 +187,9 @@ function applyScreenFilter(
         whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
       }
     } else {
-      // Blind-Index-OR-Rewrite (#818), lock-step mit buildWhereClause
-      // in bun-db/query.ts — Equality auf lookupable-Feldern matcht
-      // Klartext-Arm ODER HMAC-Arm.
+      // Blind-index OR rewrite (#818), lock-step with buildWhereClause
+      // in bun-db/query.ts — equality on lookupable fields matches the
+      // plaintext arm OR the HMAC arm.
       const bidxKey = configuredBlindIndexKey();
       if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {
         params.push(value, computeBlindIndex(bidxKey, value));
@@ -198,6 +202,102 @@ function applyScreenFilter(
       }
     }
   }
+}
+
+// fw#2660 — above this many target-row matches, drop the reference clause
+// entirely instead of truncating: an arbitrary 200-row slice of "which
+// targets match" would silently hide rows a full-cardinality match would
+// have found. Native text search on the entity's own fields still applies.
+const MAX_REFERENCE_SEARCH_IDS = 200;
+
+function physicalColumnName(table: Table, field: string): string {
+  return (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
+}
+
+type ReferenceSearchDescriptor = {
+  readonly ownColumn: string;
+  readonly targetEntityName: string;
+  readonly labelField: string;
+};
+
+// Registry-declared `searchable` reference fields, plus the implicit
+// tenantId→tenant.name row-meta reference (fw#2660) — both resolve a text
+// search term against a target row's label instead of the raw FK column.
+function collectReferenceSearchDescriptors(
+  table: Table,
+  referenceSearch: NonNullable<Parameters<EventStoreExecutor["list"]>[3]>["referenceSearch"],
+  dbMode: TenantDbMode,
+): readonly ReferenceSearchDescriptor[] {
+  if (!referenceSearch) return [];
+  const descriptors: ReferenceSearchDescriptor[] = referenceSearch.fields.map((f) => ({
+    ownColumn: f.fieldName,
+    targetEntityName: f.targetEntityName,
+    labelField: f.labelField,
+  }));
+  for (const [ownColumn, ref] of Object.entries(LIST_ROW_META_REFERENCES)) {
+    if (table[ownColumn] === undefined) continue;
+    // In "tenant" mode the outer tenant filter already pins tenantId to one
+    // of exactly two values, so a by-name lookup here can never narrow that further.
+    if (ownColumn === "tenantId" && dbMode === "tenant") continue;
+    descriptors.push({ ownColumn, targetEntityName: ref.refEntity, labelField: ref.refLabelField });
+  }
+  return descriptors;
+}
+
+// Tenant-scoped ILIKE lookup against one reference target — never raw/
+// unscoped SQL, a match in a foreign tenant must never surface a row here
+// (fw#2660's hard constraint). Mirrors the main table's own tenant filter
+// (see the `table["tenantId"]` check further down in list()).
+async function resolveReferenceMatches(
+  descriptor: ReferenceSearchDescriptor,
+  searchTerm: string,
+  resolveEntity: (entityName: string) => EntityDefinition | undefined,
+  db: TenantDb,
+): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
+  const targetEntity = resolveEntity(descriptor.targetEntityName);
+  if (targetEntity === undefined) {
+    // skip: unknown target entity — registry inconsistency the boot-validator
+    // should have caught; fail open (no clause) rather than 500 the request
+    return undefined;
+  }
+  if (targetEntity.fields[descriptor.labelField] === undefined) {
+    // skip: labelField isn't a real (declared) column on the target entity —
+    // row-meta references (e.g. tenant.name) always resolve here since
+    // `name` is a declared field on the tenant entity, not an id/row-meta column
+    return undefined;
+  }
+  if (
+    collectEncryptedFieldNames(targetEntity).has(descriptor.labelField) ||
+    collectPiiSubjectFields(targetEntity).includes(descriptor.labelField)
+  ) {
+    // skip: encrypted/PII labelField — ILIKE can never match ciphertext,
+    // emitting the query would just be a silent, permanent non-match
+    return undefined;
+  }
+
+  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
+  const targetTableName = String(
+    (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
+  );
+  const labelCol = physicalColumnName(targetTable, descriptor.labelField);
+  const subParams: unknown[] = [`%${escapeLikePattern(searchTerm)}%`];
+  let tenantClause = "";
+  if (targetTable["tenantId"] !== undefined && db.mode === "tenant") {
+    subParams.push(db.tenantId, SYSTEM_TENANT_ID);
+    tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($2, $3)`;
+  }
+  // ::text cast covers a non-text labelField (e.g. a number/select column
+  // used as label) — Postgres has no ILIKE for those types otherwise.
+  const sql =
+    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause} ` +
+    `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
+  const rows = await executeRawQueryRead<{ id: string }>(db.raw, sql, subParams);
+  if (rows.length === 0 || rows.length > MAX_REFERENCE_SEARCH_IDS) {
+    // skip: no match, or over the cap — drop the clause rather than
+    // truncate to an arbitrary slice of matching targets
+    return undefined;
+  }
+  return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
 }
 
 export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
@@ -231,12 +331,35 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       }
 
       let filterIds: EntityId[] | undefined;
+      // fw#2660 — true once a searchable-reference or row-meta-reference
+      // clause contributed rows, so the total-count fast-path below knows
+      // `filterIds.length` alone would undercount.
+      let referenceClauseActive = false;
+      // Build the WHERE clause as raw SQL — ownership produces a
+      // parameterised fragment that we splice in alongside simple WhereObject
+      // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
+      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+      const whereSql: string[] = [];
+      const params: unknown[] = [];
+      const physicalCol = (field: string): string => physicalColumnName(table, field);
+      const colSql = (field: string): string => `"${physicalCol(field)}"`;
+
+      // Field-level read access gates filtering and sorting the same way it
+      // gates the projected row: a caller who cannot read a field must not be
+      // able to probe its values through result counts or ordering (fw#2629).
+      // Hoisted above the search block (fw#2660) — a searchable-reference
+      // clause is the same probe surface as a filter/sort and must be gated
+      // the same way, before the reference-match query even runs.
+      const fieldReadClause = (field: string) =>
+        buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
+
       // Build-Time options.searchAdapter gewinnt; runtime-Override ist
       // Fallback für die defaultEntityQueryHandler-Pipe (die nutzt den
       // ctx.searchAdapter erst zur Laufzeit weil createEventStoreExecutor
       // beim Definition-Time noch keinen Server-Context hat).
       const effectiveSearchAdapter = searchAdapter ?? runtimeOptions?.searchAdapter;
       if (payload.search) {
+        const searchTerm = payload.search;
         // #2032 — a search term with no adapter wired must fail loud, not
         // silently return the unfiltered list dressed up as a search result.
         if (!effectiveSearchAdapter) {
@@ -251,29 +374,63 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         // SYSTEM_TENANT_ID; everything else under the session tenant — db.mode
         // must not invent a second predicate (kumiko-framework#2412).
         const searchTenantId = streamTenantFor(user);
-        const results = await effectiveSearchAdapter.search(searchTenantId, payload.search, {
+        const results = await effectiveSearchAdapter.search(searchTenantId, searchTerm, {
           filterType: entityName,
         });
         filterIds = results.map((r) => r.entityId);
-        if (filterIds.length === 0) {
+
+        // fw#2660 — union in reference-column label matches: a searchable
+        // reference field (or the implicit tenantId→tenant.name row-meta
+        // reference) whose target row's labelField matches the search term
+        // also counts as a hit on this entity, not just a raw text-field hit.
+        const referenceSearch = runtimeOptions?.referenceSearch;
+        // fw#2629 parity: a caller who cannot read the reference column itself
+        // must not be able to infer its value by matching the target's label —
+        // same probe surface as filtering/sorting on it directly.
+        const descriptors = collectReferenceSearchDescriptors(
+          table,
+          referenceSearch,
+          db.mode,
+        ).filter((d) => fieldReadClause(d.ownColumn).kind === "pass");
+        const referenceMatches = referenceSearch
+          ? (
+              await Promise.all(
+                descriptors.map((d) =>
+                  resolveReferenceMatches(d, searchTerm, referenceSearch.resolveEntity, db),
+                ),
+              )
+            ).filter(
+              (m): m is { readonly ownColumn: string; readonly ids: readonly string[] } =>
+                m !== undefined,
+            )
+          : [];
+
+        if (filterIds.length === 0 && referenceMatches.length === 0) {
           return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
         }
+
+        const orParts: string[] = [];
+        if (filterIds.length > 0) {
+          const placeholders = filterIds.map((id) => {
+            params.push(id);
+            return `$${params.length}`;
+          });
+          orParts.push(`${colSql("id")} IN (${placeholders.join(", ")})`);
+        }
+        for (const match of referenceMatches) {
+          const placeholders = match.ids.map((id) => {
+            params.push(id);
+            return `$${params.length}`;
+          });
+          orParts.push(`${colSql(match.ownColumn)} IN (${placeholders.join(", ")})`);
+          referenceClauseActive = true;
+        }
+        // Parenthesized as one whereSql entry — whereSql is joined with
+        // " AND " below, an unparenthesized OR here would leak past the
+        // tenant filter that follows.
+        whereSql.push(`(${orParts.join(" OR ")})`);
       }
 
-      // Build the WHERE clause as raw SQL — ownership produces a
-      // parameterised fragment that we splice in alongside simple WhereObject
-      // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
-      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
-      const whereSql: string[] = [];
-      const params: unknown[] = [];
-      const physicalCol = (field: string): string =>
-        (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
-      const colSql = (field: string): string => `"${physicalCol(field)}"`;
-      // Field-level read access gates filtering and sorting the same way it
-      // gates the projected row: a caller who cannot read a field must not be
-      // able to probe its values through result counts or ordering (fw#2629).
-      const fieldReadClause = (field: string) =>
-        buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
       const sortField =
         payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
           ? payload.sort
@@ -304,13 +461,6 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             ),
           );
         }
-      }
-      if (filterIds) {
-        const placeholders = filterIds.map((id) => {
-          params.push(id);
-          return `$${params.length}`;
-        });
-        whereSql.push(`${colSql("id")} IN (${placeholders.join(", ")})`);
       }
       if (ownership.kind === "sql") {
         const shifted = shiftParams(
@@ -397,13 +547,15 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           sortText === undefined ? encodeCursor(cursorId) : encodeKeysetCursor(sortText, cursorId);
       }
 
-      // total: extra COUNT(*) — nur wenn explizit angefordert (Pager-UI).
-      // Postgres-Cost ist O(table-scan) ohne Filter, mit Filter so teuer
-      // wie der entsprechende WHERE — bei indexed columns billig genug.
-      // Bei Search-Path ist `total = filterIds.length` ohne extra Query.
+      // total: extra COUNT(*) — only when explicitly requested (pager UI).
+      // Postgres cost is O(table-scan) without a filter, with a filter as
+      // expensive as the corresponding WHERE — cheap enough on indexed columns.
+      // On the search path, `total = filterIds.length` needs no extra query —
+      // unless a reference match contributed additional rows (fw#2660), in
+      // which case the raw filterIds length alone would undercount.
       let total: number | undefined;
       if (totalCount) {
-        if (filterIds) {
+        if (filterIds && !referenceClauseActive) {
           total = filterIds.length;
         } else {
           const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;

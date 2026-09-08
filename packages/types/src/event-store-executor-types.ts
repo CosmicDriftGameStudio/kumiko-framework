@@ -1,4 +1,5 @@
 import type { CursorResult } from "./cursor-types";
+import type { EntityDefinition } from "./fields";
 import type { SessionUser, WriteResult } from "./handlers";
 import type { DeleteContext, SaveContext } from "./hooks";
 import type { EntityId } from "./identifiers";
@@ -93,6 +94,21 @@ export type EventStoreExecutor = {
       // — includeDeleted only relaxes the soft-delete predicate, never the
       // visibility ones, so it can ride untrusted query input safely.
       readonly includeDeleted?: boolean;
+      // fw#2660 — a text search also matches `searchable: true` reference
+      // fields (and the implicit tenantId→tenant.name row-meta reference) by
+      // their target row's labelField, not just the raw FK column. Only
+      // available at request time (registry access), so it rides the same
+      // runtime-override extension point as searchAdapter. `fields` and
+      // `resolveEntity` travel together — one without the other silently
+      // no-ops, so they're grouped instead of two independent optionals.
+      readonly referenceSearch?: {
+        readonly fields: ReadonlyArray<{
+          readonly fieldName: string;
+          readonly targetEntityName: string;
+          readonly labelField: string;
+        }>;
+        readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+      };
     },
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
