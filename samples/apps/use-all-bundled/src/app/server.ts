@@ -66,5 +66,10 @@ await runDevApp({
     // Registers invite-create so the seed can dispatch real invitations —
     // the delivery-log screenshot needs real attempts, not projection writes.
     invite: AUTH_COMPOSE_OPTIONS.invite,
+    // Same three option objects kumiko.config.ts feeds composeFeatures, so the
+    // linted feature list and the running dev app stay the same registry.
+    passwordReset: AUTH_COMPOSE_OPTIONS.passwordReset,
+    emailVerification: AUTH_COMPOSE_OPTIONS.emailVerification,
+    accountUnlock: AUTH_COMPOSE_OPTIONS.accountUnlock,
   },
 });

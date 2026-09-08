@@ -41,7 +41,7 @@ import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/deli
 import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
-import { fileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
+import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
@@ -85,7 +85,9 @@ import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
 import { capOverviewLabelsFeature } from "./app/cap-overview-labels-feature";
 import { collectionLabelsFeature } from "./app/collection-labels-feature";
@@ -175,7 +177,15 @@ export const APP_FEATURES = [
   fileProviderS3Feature,
   fileProviderS3EnvFeature,
   createFilesFeature(),
-  fileDerivativesFeature,
+  // resolveApexTenant is what registers the `public-variant` query and the
+  // anonymous /media route — the option-less export leaves both out and hides
+  // them from `kumiko agent lint` (#2643). No entityType in this sample
+  // registers a derivativePublicPredicate, so the route answers 404 for
+  // every request; it exists here for handler coverage, not for serving.
+  // Do NOT copy this resolver: ignoring the host is what makes it harmless in
+  // a single-tenant smoke sample and a cross-tenant leak in a real app, where
+  // the host is the ONLY thing that may decide which tenant's bytes go out.
+  createFileDerivativesFeature({ resolveApexTenant: () => DEV_TENANT_ID as TenantId }),
   derivativesSharpFeature,
 
   // billing + providers
@@ -357,6 +367,11 @@ export const APP_FEATURES = [
   documentIngestFoundationFeature,
 ] as const;
 
+// Fixed dev-only signing key for the reset/verify/unlock magic-links. The
+// factory rejects anything under 32 chars, and this sample never runs outside
+// `bun dev` / CI boot — no token minted here is ever trusted by a deployment.
+const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
+
 // Smoke signup — enables createAuthSelfRegistrationToggleFeature via
 // composeFeatures when passed as authOptions (#1521 Option A). Same shape
 // as run{Dev,Prod}App's auth.signup; appUrl is a stub (no real mail in boot).
@@ -370,6 +385,28 @@ export const AUTH_COMPOSE_OPTIONS = {
   // as signup's above (no real mail in boot).
   invite: {
     appUrl: "http://localhost:4186/invite/accept",
+    tokenTtlMinutes: 60,
+  },
+  // reset/verify/unlock register their handlers only when their option object
+  // is present, so leaving them out hid six handlers from `kumiko agent lint`
+  // (#2643). appUrl is a stub like signup's; no real mail leaves boot.
+  passwordReset: {
+    hmacSecret: SMOKE_HMAC_SECRET,
+    appUrl: "http://localhost:4186/reset-password",
+    tokenTtlMinutes: 60,
+  },
+  emailVerification: {
+    hmacSecret: SMOKE_HMAC_SECRET,
+    appUrl: "http://localhost:4186/verify-email",
+    tokenTtlMinutes: 60,
+    // "off", not the "strict" default: strict makes login fail with
+    // email_not_verified for every account whose flag is false — which is the
+    // seeded admin, so boot, e2e and the screenshot run would all lose login.
+    mode: "off",
+  },
+  accountUnlock: {
+    hmacSecret: SMOKE_HMAC_SECRET,
+    appUrl: "http://localhost:4186/unlock-account",
     tokenTtlMinutes: 60,
   },
 } as const;
