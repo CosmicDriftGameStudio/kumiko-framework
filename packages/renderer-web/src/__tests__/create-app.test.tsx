@@ -682,5 +682,46 @@ describe("createKumikoApp", () => {
 
       await waitFor(() => expect(window.location.pathname).toBe("/task-detail/r1"));
     });
+
+    // fw#2640: a list screen with no reachable click target must not look
+    // clickable either — the click handler was always defined before,
+    // silently no-op-ing on click. Row-testids stay independent of the
+    // handler (see primitives/index.tsx), so getByTestId still finds them.
+    test("no detailFor screen and no entityEdit screen → no row-click handler, row not clickable", async () => {
+      window.history.replaceState(null, "", "/task-list");
+      mountRoot();
+      const schema: FeatureSchema = {
+        featureName: "tasks",
+        entities: { task: taskEntity },
+        screens: [listScreen],
+      };
+      await mountApp({
+        schema,
+        dispatcher: makeRowDispatcher(),
+        screenQn: "tasks:screen:task-list",
+      });
+      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+
+      const row = screen.getByTestId("row-r1");
+      expect(row.className).not.toContain("cursor-pointer");
+
+      fireEvent.click(row);
+
+      // No target exists — the click must not navigate anywhere.
+      expect(window.location.pathname).toBe("/task-list");
+    });
+
+    test("entityEdit screen for the entity → row-click handler present, row looks clickable", async () => {
+      window.history.replaceState(null, "", "/task-list");
+      mountRoot();
+      await mountApp({
+        schema: baseSchema,
+        dispatcher: makeRowDispatcher(),
+        screenQn: "tasks:screen:task-list",
+      });
+      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+
+      expect(screen.getByTestId("row-r1").className).toContain("cursor-pointer");
+    });
   });
 });

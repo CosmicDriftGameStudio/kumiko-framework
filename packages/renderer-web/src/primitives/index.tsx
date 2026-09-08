@@ -109,6 +109,7 @@ import {
 } from "./dropdown-menu";
 import { EmbeddedListInput } from "./embedded-list-input";
 import { FileUploadInput } from "./file-upload";
+import { screenWidthClassName } from "./layout";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
 import { DefaultMetric } from "./metric";
@@ -2160,16 +2161,11 @@ function DefaultForm({
 }
 
 // Canonical form/settings shell shared by DefaultForm (configEdit/entityEdit)
-// and custom settings screens (profile, privacy-center). Default width matches
-// list chrome (full); override via maxWidth / layout.width when a screen
-// truly needs a narrow column (sm=auth-adjacent, 3xl/4xl=centered detail).
+// and custom settings screens (profile, privacy-center). Default width is
+// "4xl" — a centered column, narrower than list chrome (which runs full-
+// width) — override via maxWidth / layout.width, e.g. "full" to match list
+// chrome or "3xl" for a narrower auth-adjacent form.
 export type FormScreenShellWidth = FormWidth;
-
-const formScreenShellWidth: Record<FormScreenShellWidth, string> = {
-  "3xl": "max-w-3xl mx-auto",
-  "4xl": "max-w-4xl mx-auto",
-  full: "max-w-full",
-};
 
 export function FormScreenShell({
   children,
@@ -2185,7 +2181,7 @@ export function FormScreenShell({
   return (
     <div
       data-testid={testId}
-      className={cn("px-6 pt-6 pb-12 w-full", formScreenShellWidth[maxWidth], className)}
+      className={cn("px-6 pt-6 pb-12 w-full", screenWidthClassName[maxWidth], className)}
     >
       {children}
     </div>

@@ -2,8 +2,20 @@
 // Screen-Padding, damit Consumer nicht `flex flex-col gap-*` / `p-6` per Hand
 // streuen. Bewusst dünn — kein generisches Box-mit-20-props-System.
 
+import type { FormWidth } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
+
+export type ScreenWidth = FormWidth;
+
+// Shared 3xl/4xl/full → max-w-*/mx-auto map. FormScreenShell
+// (primitives/index.tsx) reuses this instead of keeping its own copy —
+// same width tokens must render the same class everywhere (fw#2640).
+export const screenWidthClassName: Record<ScreenWidth, string> = {
+  "3xl": "max-w-3xl mx-auto",
+  "4xl": "max-w-4xl mx-auto",
+  full: "max-w-full",
+};
 
 const STACK_GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6" } as const;
 
@@ -28,11 +40,17 @@ type PageSectionProps = {
   readonly className?: string;
   readonly children?: ReactNode;
   readonly testId?: string;
+  readonly maxWidth?: ScreenWidth;
 };
 
-export function PageSection({ className, children, testId }: PageSectionProps): ReactNode {
+export function PageSection({
+  className,
+  children,
+  testId,
+  maxWidth = "full",
+}: PageSectionProps): ReactNode {
   return (
-    <div data-testid={testId} className={cn("p-6", className)}>
+    <div data-testid={testId} className={cn("p-6", screenWidthClassName[maxWidth], className)}>
       {children}
     </div>
   );
