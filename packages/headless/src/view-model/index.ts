@@ -29,6 +29,7 @@ export type {
   EditSectionSpec,
   EditSectionViewModel,
   EditViewModel,
+  EditWriteFormSectionViewModel,
   EmbeddedListCellViewModel,
   FieldConditionCtx,
   FieldRenderer,

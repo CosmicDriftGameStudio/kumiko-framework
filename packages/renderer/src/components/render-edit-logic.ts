@@ -41,9 +41,10 @@ export function shouldNotifyCaller(
   return !(result.isSuccess && !extensionsPersisted);
 }
 
-// Extension and relatedList sections skip the `fields` filter (neither has a
-// `field`-name set that filtering applies to); a `fields` section left with
-// zero fields after filtering is dropped, not rendered empty.
+// Extension, relatedList and writeForm sections skip the `fields` filter
+// (writeForm's fields belong to its own independent form, not the host's);
+// a `fields` section left with zero fields after filtering is dropped, not
+// rendered empty.
 export function filterEditSections(
   sections: readonly EditSectionViewModel[],
   fieldsFilter: readonly string[] | undefined,
@@ -52,7 +53,11 @@ export function filterEditSections(
   const filterSet = new Set(fieldsFilter);
   const result: EditSectionViewModel[] = [];
   for (const section of sections) {
-    if (section.kind === "extension" || section.kind === "relatedList") {
+    if (
+      section.kind === "extension" ||
+      section.kind === "relatedList" ||
+      section.kind === "writeForm"
+    ) {
       result.push(section);
       continue;
     }

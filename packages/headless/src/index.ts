@@ -89,6 +89,7 @@ export type {
   EditSectionSpec,
   EditSectionViewModel,
   EditViewModel,
+  EditWriteFormSectionViewModel,
   EmbeddedDerivedOp,
   EmbeddedListCellViewModel,
   EmbeddedListIssueGroups,

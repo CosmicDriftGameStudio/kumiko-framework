@@ -3,6 +3,7 @@ import type {
   EditFieldSpec,
   EditFieldsSection,
   EditSectionSpec,
+  EditWriteFormSection,
   FieldCondition,
   FormatSpec,
   ListColumnSpec,
@@ -14,6 +15,10 @@ export function isExtensionEditSection(section: EditSectionSpec): section is Edi
 
 export function isFieldsEditSection(section: EditSectionSpec): section is EditFieldsSection {
   return section.kind === undefined || section.kind === "fields";
+}
+
+export function isWriteFormEditSection(section: EditSectionSpec): section is EditWriteFormSection {
+  return section.kind === "writeForm";
 }
 
 // Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer

@@ -123,6 +123,20 @@ describe("hasEditableSection", () => {
     expect(hasEditableSection([])).toBe(false);
   });
 
+  // writeForm owns its own submit button (write-form-section-submit) —
+  // counting it here would additionally render the screen-level Save button
+  // (render-edit-submit) on a projectionDetail, which has no form submit to
+  // wire it to.
+  test("writeForm section → false (has its own submit, not the screen's)", () => {
+    const writeFormSection: EditSectionViewModel = {
+      kind: "writeForm",
+      columns: 1,
+      handler: "orders:write:add-note",
+      fields: [field(false)],
+    };
+    expect(hasEditableSection([writeFormSection])).toBe(false);
+  });
+
   test("hidden section with editable field → false (user cannot see the field)", () => {
     const hiddenSectionWithEditableField: EditSectionViewModel = {
       kind: "fields",

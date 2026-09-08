@@ -1,4 +1,8 @@
-import { isExtensionEditSection, normalizeListColumn } from "../engine/screen-helpers";
+import {
+  isExtensionEditSection,
+  isWriteFormEditSection,
+  normalizeListColumn,
+} from "../engine/screen-helpers";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -26,6 +30,11 @@ export const CONFIG_EDIT_ENTITY = "__config-edit__";
 
 /** Pseudo-entity for projectionDetail field labels (renderer projection-detail-shim). */
 export const PROJECTION_DETAIL_ENTITY = "__projection-detail__";
+
+/** Pseudo-entity for a projectionDetail writeForm section's own fieldDefs
+ *  (distinct from PROJECTION_DETAIL_ENTITY — the section's fields aren't
+ *  drawn from the host record's display entity). */
+export const WRITE_FORM_SECTION_ENTITY = "__write-form-section__";
 
 export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
@@ -246,6 +255,16 @@ export function requiredKeysFromScreen(
           for (const col of section.columns) {
             const normalized = normalizeListColumn(col);
             if (normalized.label !== undefined) pushKey(out, normalized.label);
+          }
+          for (const action of section.rowActions ?? []) pushRowActionKeys(out, action);
+          continue;
+        }
+        if (isWriteFormEditSection(section)) {
+          pushKey(out, section.title);
+          pushKey(out, section.submitLabel);
+          for (const f of section.fields) {
+            const fieldName = editFieldName(f);
+            out.add(fieldLabelKey(featureName, WRITE_FORM_SECTION_ENTITY, fieldName));
           }
           continue;
         }

@@ -275,6 +275,7 @@ export type {
   EditLayout,
   EditRelatedListSection,
   EditSectionSpec,
+  EditWriteFormSection,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   FieldCondition,

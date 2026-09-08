@@ -435,6 +435,461 @@ describe("r.screen() — registration", () => {
     );
   });
 
+  test("validateBoot rejects a relatedList rowAction with an unregistered write-handler (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "s",
+                query: "app:query:foo:list",
+                columns: ["name"],
+                rowActions: [{ id: "sync", label: "actions.sync", handler: "app:write:missing" }],
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /relatedList\).*rowAction "sync" handler "app:write:missing".*not a registered write-handler/,
+    );
+  });
+
+  test("validateBoot accepts a relatedList rowAction bound to a registered write-handler (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.writeHandler(
+          "sync",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          {
+            access: { roles: ["Admin"] },
+          },
+        );
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: true },
+        });
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "s",
+                query: "app:query:foo:list",
+                columns: ["name"],
+                rowActions: [
+                  {
+                    id: "sync",
+                    label: "actions.sync",
+                    handler: "app:write:sync",
+                    payload: { pick: ["name"] },
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("validateBoot rejects a relatedList section with both rowClick and a rowActions rowClick:true entry (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("billing", (r) => {
+        r.entity(
+          "invoice",
+          createEntity({ table: "invoices", fields: { name: createTextField() } }),
+        );
+        r.screen({
+          id: "invoice-detail",
+          type: "custom",
+          renderer: { react: { __component: "stub" } },
+          detailFor: "invoice",
+        });
+      }),
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "s",
+                query: "app:query:foo:list",
+                columns: ["name"],
+                rowClick: { entity: "invoice" },
+                rowActions: [
+                  {
+                    kind: "navigate",
+                    id: "open",
+                    label: "actions.open",
+                    entity: "invoice",
+                    entityId: "id",
+                    rowClick: true,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /relatedList\).*has both a rowClick and 1 rowActions marked rowClick:true/,
+    );
+  });
+
+  test("validateBoot rejects a projectionDetail writeForm section with an empty fieldDefs map (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: {},
+                fields: ["name"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/\(writeForm\) has an empty fieldDefs map/);
+  });
+
+  test("validateBoot rejects a projectionDetail writeForm section with zero fields (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: [],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/\(writeForm\) has zero fields/);
+  });
+
+  test("validateBoot rejects a projectionDetail writeForm field with no entry in fieldDefs (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["sku"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(writeForm\) field "sku" has no entry in fieldDefs/,
+    );
+  });
+
+  test("validateBoot rejects a projectionDetail writeForm section in a wizard layout (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            mode: "wizard",
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/writeForm.*wizard layout/);
+  });
+
+  test("validateBoot rejects a projectionDetail writeForm section with an unregistered write-handler (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:missing",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(writeForm\) handler "app:write:missing".*not a registered write-handler/,
+    );
+  });
+
+  test("validateBoot accepts a valid projectionDetail writeForm section (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.writeHandler(
+          "save",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          {
+            access: { roles: ["Admin"] },
+          },
+        );
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:save",
+                submitLabel: "actions.save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  // withBootValidatorFixture auto-fills every key requiredKeysFromFeature
+  // reports, so every other boot test in this file passes regardless of
+  // whether required-surface-keys.ts's writeForm branch names the right key
+  // — it would pass even for a wrong namespace. Bypass the fixture (raw
+  // validateBootRaw, no stubTranslations) to pin the actual key contract.
+  test("validateBoot requires a translation for a writeForm field's own label, namespaced under the write-form pseudo-entity (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        // Screens always require their own "screen:<id>.title" key — supplied
+        // here so the throw below isolates the one key this test is about.
+        r.translations({ keys: { "screen:x.title": { en: "X" } } });
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.writeHandler(
+          "save",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+
+    expect(() => validateBootRaw(features)).toThrow(
+      '[i18n] Feature "app": required translation key missing: "app:entity:__write-form-section__:field:name"',
+    );
+  });
+
+  test("translating the writeForm field's pseudo-entity key lets boot pass", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.translations({
+          keys: {
+            "screen:x.title": { en: "X" },
+            "app:entity:__write-form-section__:field:name": { en: "Name" },
+          },
+        });
+        r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+          access: { openToAll: true },
+        });
+        r.writeHandler(
+          "save",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "app:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+
+    expect(() => validateBootRaw(features)).not.toThrow();
+  });
+
+  test("validateBoot rejects a writeForm section on entityEdit (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("shop", (r) => {
+        r.entity("product", productEntity());
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "shop:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(entityEdit\) writeForm section "s".*projectionDetail-only/,
+    );
+  });
+
+  test("validateBoot rejects a writeForm section on configEdit (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("shop", (r) => {
+        r.config({
+          keys: { "site-name": createTenantConfig("text", { default: "" }) },
+        });
+        r.screen({
+          id: "settings",
+          type: "configEdit",
+          scope: "tenant",
+          configKeys: { siteName: "shop:config:site-name" },
+          fields: { siteName: { type: "text" } } as never,
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "shop:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(configEdit\) writeForm section "s".*projectionDetail-only/,
+    );
+  });
+
+  test("validateBoot rejects a writeForm section on actionForm (fw editable-detail-screens)", () => {
+    const features = [
+      defineFeature("shop", (r) => {
+        r.writeHandler(
+          "restock",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "restock",
+          type: "actionForm",
+          handler: "shop:write:restock",
+          fields: { qty: { type: "number" } } as never,
+          layout: {
+            sections: [
+              {
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: createTextField() },
+                fields: ["name"],
+                handler: "shop:write:save",
+              },
+            ],
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /\(actionForm\) writeForm section "s".*projectionDetail-only/,
+    );
+  });
+
   test("stores an entityEdit screen with sections + conditional fields", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", productEntity());
