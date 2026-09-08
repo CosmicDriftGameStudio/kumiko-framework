@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.237.1
+
+### Patch Changes
+
+- da3aed4: Fix the `DataTable` empty state rendering the literal English `No entries.` in translated apps: `DefaultDataTable` now resolves its default empty label through `kumiko.list.no-entries` (already shipped in the framework catalog and translated in `@cosmicdrift/kumiko-locale-de`/`-es`) instead of a hardcoded string. This covers every caller that does not pass its own `emptyState` — notably the `relatedList` path of a `projectionDetail`, where an empty list in a German app showed `No entries.` Callers outside a `LocaleProvider` still fall back to the English literal.
+  - @cosmicdrift/kumiko-headless@0.237.1
+  - @cosmicdrift/kumiko-renderer@0.237.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.237.1
+
 ## 0.237.0
 
 ### Patch Changes
