@@ -33,6 +33,32 @@ export async function insertConsumerIfAbsent(
   }
 }
 
+// fw#2625: a consumer that moved from delivery: "per-instance" to "shared"
+// leaves its old per-instance rows behind — no dispatcher will ever advance
+// them again, and pruneEvents stays pinned to their stale cursor forever.
+// Scoped by name + "not the shared sentinel" so a still-per-instance
+// consumer's live rows (or an already-migrated __shared__ row) are never
+// touched.
+export async function deleteOrphanedPerInstanceConsumerRows(
+  db: AnyDb,
+  consumerNames: readonly string[],
+  // Passed in rather than imported from event-consumer-state.ts (which
+  // defines SHARED_INSTANCE_SENTINEL): that module already imports from
+  // this one for the DB queries it needs, so importing back would be a
+  // require cycle. The one caller lives in that same file and has the
+  // constant in scope.
+  sharedInstanceSentinel: string,
+): Promise<void> {
+  // skip: nothing to delete — an empty ANY($1) would still hit the table,
+  // pointlessly, on every boot for an app with no migrated consumers yet.
+  if (consumerNames.length === 0) return;
+  await asRawClient(db).unsafe(
+    `DELETE FROM "kumiko_event_consumers"
+     WHERE "name" = ANY($1) AND "instance_id" != $2`,
+    [consumerNames, sharedInstanceSentinel],
+  );
+}
+
 export async function selectConsumerForUpdateSkipLocked(
   db: AnyDb,
   name: string,

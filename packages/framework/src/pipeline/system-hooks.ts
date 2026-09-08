@@ -294,15 +294,15 @@ export const SSE_BROADCAST_CONSUMER_NAME = "system:consumer:sse-broadcast";
 export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
     name: SSE_BROADCAST_CONSUMER_NAME,
-    // Per-instance delivery: each API process has its own pool of SSE
-    // clients and its own cursor. Every instance reads every event
-    // independently and pushes to its local clients. Without this, in a
-    // split-deploy (API-1/API-2 + Worker, Welle 2.5), only ONE API
-    // instance would pick up each event (shared-cursor SKIP LOCKED) and
-    // the other instance's clients would never see updates. SSE clients
-    // pin to a specific API process via the HTTP long-poll; cross-process
-    // delivery isn't solvable by sharing a cursor.
-    delivery: "per-instance",
+    // Shared delivery: one cursor reads every event exactly once (fw#2625).
+    // Fanout to every process's own SSE clients happens below, through
+    // sseBroker.pushToChannel — a Redis-backed broker (the default once
+    // REDIS_URL is set) republishes across replicas, so every pod's
+    // clients still see the event without each pod needing its own cursor.
+    delivery: "shared",
+    // History is meaningless here — an SSE push for a client that didn't
+    // exist yet has no audience to replay it to.
+    startFrom: "now",
     handler: async (event) => {
       sseBroker.pushToChannel(tenantChannel(event.tenantId), {
         type: event.type,
@@ -424,11 +424,16 @@ function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): strin
 export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
     name: ACCESS_INVALIDATION_CONSUMER_NAME,
-    // Per-instance, same reasoning as SSE broadcast: subscribeAccessInvalidation
-    // listeners live in this process's in-memory sseBroker only. A shared
-    // cursor would deliver the event to exactly one instance and leave
-    // every other instance's open streams for that user un-invalidated.
-    delivery: "per-instance",
+    // Shared delivery, same reasoning as SSE broadcast (fw#2625): one
+    // cursor reads every event once and calls sseBroker.publishAccessInvalidation
+    // below, which a Redis-backed broker republishes to every replica's
+    // subscribeAccessInvalidation listeners — no per-instance cursor needed
+    // to reach every process's open streams for that user.
+    delivery: "shared",
+    // A revocation for a session/membership from before this instance
+    // existed has nothing to invalidate — replaying it would be a no-op at
+    // best and a spurious stream-close at worst.
+    startFrom: "now",
     handler: async (event) => {
       if (event.type === SESSION_REVOKED_EVENT_TYPE) {
         const userId = event.payload["userId"];

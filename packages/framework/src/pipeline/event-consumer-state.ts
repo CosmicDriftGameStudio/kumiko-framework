@@ -11,6 +11,7 @@ import {
   text,
 } from "../db/dialect";
 import { alterTableAddColumn } from "../db/queries/ddl";
+import { deleteOrphanedPerInstanceConsumerRows } from "../db/queries/event-consumer";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 
@@ -90,6 +91,21 @@ export const eventConsumerStateTable = pgTable(
   }),
 );
 
+// fw#2625: these three consumers moved from delivery: "per-instance" to
+// "shared" (see system-hooks.ts and bundled-features/feature-toggles/
+// feature.ts). Their old per-instance rows are now orphaned — no dispatcher
+// will ever advance them again — and pruneEvents stays pinned to whichever
+// one has the lowest cursor forever. Named here (not imported from
+// system-hooks.ts / feature.ts) to avoid a pipeline → system-hooks /
+// bundled-features dependency for three string literals; those modules'
+// own exported constants (or, for feature-toggles, the qualified consumer
+// name qualify() produces) are the source of truth these must match.
+const ORPHANED_PER_INSTANCE_CONSUMER_NAMES = [
+  "system:consumer:sse-broadcast",
+  "system:consumer:access-invalidation",
+  "feature-toggles:projection:toggle-cache-sync",
+] as const;
+
 // Object-const form lets call sites write `ConsumerStatuses.disabled` instead
 // of the raw string, which keeps status checks refactor-safe. The runtime
 // value on each field is the same string the DB stores — no mapping needed.
@@ -126,8 +142,23 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
       " NOT NULL",
       /* ifNotExists */ true,
     );
+    // Runs on every boot, including mid-rolling-deploy: a new pod can delete
+    // an old pod's still-in-use per-instance row out from under it. That old
+    // pod's next acquireConsumer then finds no row, delivers no more SSE/
+    // access-invalidation events for the rest of its lifetime — a one-time,
+    // few-second gap that resolves itself as clients reconnect onto new pods
+    // during the same rollout. Not a replay risk: preRegisterConsumers only
+    // (re-)inserts a row at dispatcher startup, so the deleted pod won't
+    // silently get a fresh cursor-0 row and replay history mid-flight.
+    await deleteOrphanedPerInstanceConsumerRows(
+      db,
+      ORPHANED_PER_INSTANCE_CONSUMER_NAMES,
+      SHARED_INSTANCE_SENTINEL,
+    );
     // skip: table (+ any missing column) is already up to date
     return;
   }
+  // A freshly created table has no rows to clean up — the DELETE only
+  // matters for a DB that already ran the old per-instance consumers.
   await unsafePushTables(db, { kumikoEventConsumers: eventConsumerStateTable });
 }

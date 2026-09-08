@@ -57,6 +57,7 @@ import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
+import { createRedisSseBroker } from "./redis-sse-broker";
 import { requestContext } from "./request-context";
 import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware";
 import {
@@ -316,7 +317,18 @@ export function buildServer(options: ServerOptions): KumikoServer {
     options.jwtIssuer,
     options.jwtTtl ?? defaultJwtTtl,
   );
-  const sseBroker = options.sseBroker ?? createSseBroker();
+  // An explicit ServerOptions.sseBroker always wins (caller owns its
+  // lifecycle). Otherwise, REDIS_URL decides the default: without
+  // cross-replica fanout, replicas > 1 silently drops SSE/access-
+  // invalidation events for whichever pod didn't win the shared cursor
+  // (fw#2625) — the safe default has to be the correct one, not the
+  // single-process one.
+  const ownedRedisSseBroker = options.sseBroker
+    ? undefined
+    : process.env["REDIS_URL"]
+      ? createRedisSseBroker({ redisUrl: process.env["REDIS_URL"] })
+      : undefined;
+  const sseBroker = options.sseBroker ?? ownedRedisSseBroker ?? createSseBroker();
 
   // Resolve the per-process instance identifier. Prefer explicit
   // ServerOptions.instanceId (tests, deliberate wiring), fall back to the
@@ -584,6 +596,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
     const dispatcher = eventDispatcher;
     options.lifecycle.registerShutdownHook("eventDispatcher", async () => {
       await dispatcher.stop();
+    });
+  }
+
+  // Same reasoning, scoped to the broker this function created itself — an
+  // app-injected sseBroker (options.sseBroker) owns its own teardown.
+  if (options.lifecycle && ownedRedisSseBroker) {
+    const broker = ownedRedisSseBroker;
+    options.lifecycle.registerShutdownHook("redisSseBroker", async () => {
+      await broker.close();
     });
   }
 
