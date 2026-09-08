@@ -19,6 +19,8 @@ export function createBrandingQuery(opts: { readonly allowCustomCss: boolean }) 
     name: "branding",
     schema: z.object({}),
     access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+    description:
+      "Reads the tenant's public branding values for the rendered page shell, adding the raw custom CSS only when the app opted in and the per-tenant CSS toggle is on; anonymous callers may read it because it dresses public pages.",
     handler: async (_query, ctx) => {
       const base = await readBranding(ctx.config);
       if (

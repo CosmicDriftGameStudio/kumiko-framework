@@ -21,6 +21,8 @@ export const changePasswordWrite = defineWriteHandler({
     newPassword: passwordSchema,
   }),
   access: { roles: access.authenticated },
+  description:
+    "Replaces the signed-in caller's own password after re-checking the current one; use it for a self-service password change rather than the emailed reset flow.",
   handler: async (event, ctx) => {
     const systemUser = createSystemUser(event.user.tenantId);
 

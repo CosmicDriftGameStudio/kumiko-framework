@@ -60,26 +60,86 @@ function registerLedger(
   // Chart of accounts — plain CRUD, no custom logic. No delete in v1: removing an
   // account that has postings would orphan them; a posting-aware guard lands with
   // the postings projection (Phase 1).
-  r.writeHandler(defineEntityCreateHandler("account", accountEntity, { access }));
-  r.writeHandler(defineEntityUpdateHandler("account", accountEntity, { access }));
-  r.queryHandler(defineEntityListHandler("account", accountEntity, { access }));
-  r.queryHandler(defineEntityDetailHandler("account", accountEntity, { access }));
+  r.writeHandler(
+    defineEntityCreateHandler("account", accountEntity, {
+      access,
+      description:
+        "Adds an account to the tenant's chart of accounts with a name, a type of asset, liability, equity, income or expense, an optional code and an optional parent account; use it before booking anything against that account.",
+    }),
+  );
+  r.writeHandler(
+    defineEntityUpdateHandler("account", accountEntity, {
+      access,
+      description:
+        "Changes an existing chart-of-accounts entry's name, type, code or parent; use it to rename or re-file an account, its balance is derived from postings and never edited here.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityListHandler("account", accountEntity, {
+      access,
+      description:
+        "Lists the tenant's chart of accounts with name, type, code and parent; use it to browse the account tree or to look up the account id a booking needs.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("account", accountEntity, {
+      access,
+      description:
+        "Returns one chart-of-accounts entry by id with its name, type, code and parent; use it to inspect a single account.",
+    }),
+  );
 
   // Journal entries — immutable. Only create (balanced) + reverse (Storno). No
   // update/delete handler is registered, so a posted entry cannot be mutated.
   r.writeHandler(createCreateTransactionHandler(access));
   r.writeHandler(createReverseTransactionHandler(access));
-  r.queryHandler(defineEntityListHandler("transaction", transactionEntity, { access }));
-  r.queryHandler(defineEntityDetailHandler("transaction", transactionEntity, { access }));
+  r.queryHandler(
+    defineEntityListHandler("transaction", transactionEntity, {
+      access,
+      description:
+        "Lists the tenant's journal entries with date, description, reference, status and their embedded posting lines; use it to browse the books or to find the entry a reversal should target.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("transaction", transactionEntity, {
+      access,
+      description:
+        "Returns one journal entry by id including every posting line; use it to inspect a single booking.",
+    }),
+  );
 
   // Recurring schedules — CRUD catalog plus confirm-schedule-period, which books
   // one projected period as a balanced, idempotent + reversal-aware entry. The
   // Soll (forecast) is a pure projection (projectSchedule); only confirming writes.
-  r.writeHandler(defineEntityCreateHandler("schedule", scheduleEntity, { access }));
-  r.writeHandler(defineEntityUpdateHandler("schedule", scheduleEntity, { access }));
+  r.writeHandler(
+    defineEntityCreateHandler("schedule", scheduleEntity, {
+      access,
+      description:
+        "Creates a recurring booking template that names a debit and a credit account, a positive amount, an interval and a start plus optional end date; use it to set up a standing order, it books nothing on its own.",
+    }),
+  );
+  r.writeHandler(
+    defineEntityUpdateHandler("schedule", scheduleEntity, {
+      access,
+      description:
+        "Changes a recurring booking template's description, accounts, amount, interval or date window; use it when a standing order's terms change, already confirmed periods stay booked as they were.",
+    }),
+  );
   r.writeHandler(createConfirmSchedulePeriodHandler(access));
-  r.queryHandler(defineEntityListHandler("schedule", scheduleEntity, { access }));
-  r.queryHandler(defineEntityDetailHandler("schedule", scheduleEntity, { access }));
+  r.queryHandler(
+    defineEntityListHandler("schedule", scheduleEntity, {
+      access,
+      description:
+        "Lists the tenant's recurring booking templates with their accounts, amount, interval and date window; use it to see which standing orders exist and forecast upcoming periods.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("schedule", scheduleEntity, {
+      access,
+      description:
+        "Returns one recurring booking template by id with its accounts, amount, interval and date window; use it to inspect a single standing order before confirming a period.",
+    }),
+  );
 
   // Reports — pure aggregations over the posted entries (account balances,
   // GuV, Bilanz with the current result folded into equity).

@@ -61,6 +61,8 @@ export const downloadByJobQuery = defineQueryHandler({
     jobId: z.string().min(1, "jobId required"),
   }),
   access: { openToAll: true }, // openToAll = auth-required, kein anonymous
+  description:
+    "Returns a short-lived signed download URL for the calling user's own finished data-export job named by job id, backing the download button in the privacy center once export-status reports the job done.",
   handler: async (query, ctx) => {
     const T = getTemporal();
     const now = T.Now.instant();

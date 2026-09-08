@@ -33,6 +33,8 @@ export const liftRestrictionWrite = defineWriteHandler({
   name: "lift-restriction",
   schema: z.object({ userId: z.string().uuid() }),
   access: { roles: access.admin },
+  description:
+    "Lifts a GDPR Art. 18 processing restriction on the named user and returns the account to active; operator-only, because a restricted user's own session is rejected and cannot reach this endpoint.",
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 

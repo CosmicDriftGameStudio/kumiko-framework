@@ -37,6 +37,8 @@ export const updateAccountHandler: WriteHandlerDef = {
   name: "update-account",
   schema: updateAccountSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
+  description:
+    "Records a status, watch-state or display-name change on a connected mailbox as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; use it to flag an auth error or to re-activate a mailbox after fixing its credentials.",
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as UpdateAccountPayload;

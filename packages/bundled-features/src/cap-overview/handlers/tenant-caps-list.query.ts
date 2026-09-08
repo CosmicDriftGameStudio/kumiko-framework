@@ -95,6 +95,8 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
 
   return definePagedQueryHandler({
     name: "tenant-caps:list",
+    description:
+      "Lists every tenant on the platform with its tier, billing provider/status and per-cap usage, paged, searchable by name and filterable by tier; use it as the operator-wide capacity overview.",
     schema: z.object({
       cursor: z.string().optional(),
       limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(50),

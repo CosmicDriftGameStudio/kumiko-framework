@@ -35,7 +35,21 @@ function keyFirst(byLocale: typeof itemsTranslations): Record<string, Record<str
 
 export const itemsFeature = defineFeature("showcase", (r) => {
   r.translations({ keys: keyFirst(itemsTranslations) });
-  r.crud("item", itemEntity, { write: open, read: open });
+  r.crud("item", itemEntity, {
+    write: open,
+    read: open,
+    descriptions: {
+      create:
+        "Creates one showcase item from title, notes, priority, done flag, due date, status and its parent/related item references; used by the item edit screen and by the quick-add action form, which supplies only title and priority and leaves the rest on their defaults.",
+      update:
+        "Applies changed item fields to one existing row, addressed by id plus the version the client last read; used when the item edit screen saves.",
+      delete:
+        "Removes one item row for good, addressed by id; used by the danger row action on the item list, and there is no restore because the entity is not soft-deleted.",
+      list: "Returns one page of items with search, sorting, an optional fixed status filter and the parent/related references already resolved to their titles; used by the paged item list, the infinite-scroll feed, the active-items screen and the reference comboboxes on the edit form.",
+      detail:
+        "Returns one item by id with its parent and related references resolved; used when the item edit screen loads an existing row.",
+    },
+  });
 
   r.screen(itemEditScreen);
   r.screen(itemListScreen);

@@ -172,7 +172,7 @@ function parseHandlerName<TVerb extends string>(
 export function defineEntityWriteHandler(
   name: string,
   entity: EntityDefinition,
-  options?: { access?: AccessRule },
+  options?: EntityHandlerOptions,
 ): WriteHandlerDef {
   const { entityName, verb } = parseHandlerName(name, WRITE_VERBS);
   if (verb === "restore" && !entity.softDelete) {
@@ -253,6 +253,8 @@ export function defineEntityWriteHandler(
     schema,
     handler,
     ...(options?.access && { access: options.access }),
+    ...(options?.description !== undefined && { description: options.description }),
+    ...(options?.agent !== undefined && { agent: options.agent }),
   };
 }
 
@@ -282,7 +284,7 @@ function augmentDerivedFields(
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
-  options?: { access?: AccessRule; crossTenant?: boolean },
+  options?: EntityQueryHandlerOptions,
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
 
@@ -367,6 +369,8 @@ export function defineEntityQueryHandler(
     schema,
     handler,
     ...(options?.access && { access: options.access }),
+    ...(options?.description !== undefined && { description: options.description }),
+    ...(options?.agent !== undefined && { agent: options.agent }),
     // The "list" verb's executor.list() always returns { rows, nextCursor,
     // total? } (see the handler body above) — brand it so the definition
     // site documents the PagedRows contract without needing
@@ -533,10 +537,12 @@ export function registerEntityCrud(
   const resolveWriteOpts = (verb: EntityCrudVerb): EntityHandlerOptions => ({
     ...writeOpts,
     access: options?.verbAccess?.[verb] ?? writeOpts?.access,
+    description: options?.descriptions?.[verb] ?? writeOpts?.description,
   });
   const resolveReadOpts = (verb: EntityCrudVerb): EntityQueryHandlerOptions => ({
     ...readOpts,
     access: options?.verbAccess?.[verb] ?? readOpts?.access,
+    description: options?.descriptions?.[verb] ?? readOpts?.description,
   });
 
   if (verbs.create) {

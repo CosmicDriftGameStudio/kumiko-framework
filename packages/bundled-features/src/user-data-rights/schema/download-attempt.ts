@@ -12,6 +12,8 @@ import {
 export const downloadAttemptEntity = createEntity({
   table: "read_download_attempts",
   idType: "uuid",
+  description:
+    "One rejected attempt to fetch a GDPR data-export download, recording the failure result, the path used (magic-link token or logged-in job id), the source IP, user agent and time, so brute-force probing of download links is visible.",
   fields: {
     // notFound | expired | failed | signedUrlNotSupported
     result: createTextField({ required: true, maxLength: 32 }),

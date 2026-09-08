@@ -99,6 +99,8 @@ export const teamListQuery = definePagedQueryHandler({
       .optional(),
   }),
   access: { roles: access.admin },
+  description:
+    "Pages through the caller's tenant team as one list of active members and pending invitations, with email, display name, roles, last-seen time and a status of active or pending, sortable and filterable by status.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

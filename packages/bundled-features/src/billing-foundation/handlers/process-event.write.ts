@@ -85,6 +85,7 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
 // Tenant-Admin direkt.
 export const processEventHandler: WriteHandlerDef = {
   name: "process-event",
+  agent: { expose: false },
   schema: processEventSchema,
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {

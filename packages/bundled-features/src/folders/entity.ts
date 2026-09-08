@@ -7,6 +7,8 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // tenant-scoped.
 export const folderEntity = createEntity({
   table: "read_folders",
+  description:
+    "One folder of a tenant's hierarchical catalog: a name plus an optional parentId pointing at another folder, so the rows together form a tree whose roots have no parent.",
   fields: {
     name: createTextField({ required: true, maxLength: 64 }),
     // Parent folder id, or absent for a root folder. No FK (event-sourced); a
@@ -32,6 +34,8 @@ export const folderEntity = createEntity({
 //   - entities in a folder  → list assignments filter { field: "folderId", op: "eq" }
 export const folderAssignmentEntity = createEntity({
   table: "read_folder_assignments",
+  description:
+    "The membership row recording which folder one host entity, addressed by entityType and entityId, is filed in. At most one row exists per entity, so filing it elsewhere changes this row's folderId rather than adding a second.",
   softDelete: true,
   fields: {
     folderId: createTextField({ required: true, maxLength: 64 }),

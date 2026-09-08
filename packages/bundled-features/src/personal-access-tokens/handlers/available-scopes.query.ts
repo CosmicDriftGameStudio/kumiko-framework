@@ -11,6 +11,8 @@ export function buildAvailableScopesQuery(scopes: PatScopeConfig) {
     name: "available-scopes",
     schema: z.object({}),
     access: { openToAll: true },
+    description:
+      "Lists the API scope domains this deployment declares, each with its display label and whether it offers write access, for choosing what a new personal access token may do.",
     handler: async () =>
       Object.entries(scopes).map(([name, def]) => ({
         name,

@@ -59,6 +59,8 @@ export const setProfileWrite = defineWriteHandler({
   // SystemAdmin kann Profile fuer Customer-Setup setzen (Plattform-
   // Operator-Pfad). TenantAdmin nur fuer eigenen Tenant.
   access: { roles: access.admin },
+  description:
+    "Sets or replaces a tenant's compliance profile key plus an optional JSON override, for onboarding or a later region change; a system admin may target a different tenant through tenantIdOverride.",
   handler: async (event, ctx) => {
     const tenantOverride = event.payload.tenantIdOverride;
     const overrideDenied = crossTenantOverrideDenied(

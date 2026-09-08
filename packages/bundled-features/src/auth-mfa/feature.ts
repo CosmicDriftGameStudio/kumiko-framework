@@ -137,6 +137,8 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       renderer: { react: { __component: "MfaEnableScreen" } },
       access: { openToAll: true },
       dormant: true,
+      description:
+        "Self-service screen where a signed-in user enrolls in TOTP two-factor authentication: it shows the QR code and manual secret, reveals the recovery codes once, and confirms enrollment with a code from their authenticator app.",
     });
     r.translations({ keys: AUTH_MFA_FEATURE_I18N });
 

@@ -75,6 +75,8 @@ export const logQuery = definePagedQueryHandler({
     sortDirection: z.enum(["asc", "desc"]).optional(),
   }),
   access: { roles: access.admin },
+  description:
+    "Pages through recorded delivery attempts (notification type, channel, recipient, status, error, priority) for the caller's tenant, or across all tenants for a SystemAdmin; use it to investigate whether and why a notification reached someone.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({ message: "delivery log handler requires ctx.systemDb" });

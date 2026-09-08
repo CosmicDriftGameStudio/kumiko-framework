@@ -77,6 +77,8 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       type: "custom",
       renderer: { react: { __component: "TenantOverviewScreen" } },
       access: { roles: access.admin },
+      description:
+        "Landing page of the tenant-admin workspace, showing pending invitation, member and missing-config counts for the caller's own tenant so an operator sees what needs attention there.",
     });
     r.nav({
       id: "tenant-overview",
@@ -92,6 +94,8 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       type: "custom",
       renderer: { react: { __component: "PlatformOverviewScreen" } },
       access: { roles: access.systemAdmin },
+      description:
+        "Landing page of the platform-admin workspace, showing installation-wide tenant, user and failed-job counts so a system admin sees the health of the whole deployment at a glance.",
     });
     r.nav({
       id: "platform-overview",

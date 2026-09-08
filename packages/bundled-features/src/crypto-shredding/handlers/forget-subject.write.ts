@@ -187,6 +187,9 @@ export const forgetSubjectWrite = defineWriteHandler({
   name: "forget-subject",
   schema: forgetSubjectSchema,
   access: { roles: [ROLES.DataProtectionOfficer, ROLES.SystemAdmin] },
+  description:
+    "Irreversibly crypto-shreds one user or tenant subject by erasing its encryption key, nulling its blind indexes, purging its search documents and closing the user's login, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const kms = configuredPiiSubjectKms();
     if (!kms) {

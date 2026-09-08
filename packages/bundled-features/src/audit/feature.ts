@@ -44,6 +44,8 @@ export function createAuditFeature(): FeatureDefinition {
       id: AUDIT_LOG_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "AuditLogScreen" } },
+      description:
+        "Admin table of the tenant's audit-trail events with actor names and event-type/date filters; open it to browse recent changes and drill into a single event.",
       access: { roles: access.admin },
     });
     // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
@@ -51,6 +53,8 @@ export function createAuditFeature(): FeatureDefinition {
       id: AUDIT_LOG_DETAIL_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "AuditLogDetailScreen" } },
+      description:
+        "Read-only detail view of one audit event showing actor, timestamp, aggregate and the raw event payload and metadata; reached from a row of the audit log.",
       listScreenId: AUDIT_LOG_SCREEN_ID,
       access: { roles: access.admin },
     });

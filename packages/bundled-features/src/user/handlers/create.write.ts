@@ -46,6 +46,8 @@ export const createWrite = defineWriteHandler({
     roles: rolesInputSchema.optional(),
   }),
   access: { roles: ["system", "SystemAdmin"] },
+  description:
+    "Creates a tenant-agnostic identity record from email, display name, optional locale, timezone and global roles, refusing an email that a live user already holds; the auth features and SystemAdmins use it to onboard a person.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({ message: "user:create requires r.systemScope()" });

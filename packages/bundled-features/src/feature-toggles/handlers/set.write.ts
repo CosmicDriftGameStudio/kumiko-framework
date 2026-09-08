@@ -34,6 +34,8 @@ import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRuntime) | undefined) {
   return defineWriteHandler({
     name: "set",
+    description:
+      "Turns one registered, toggleable feature on or off platform-wide and applies the flip immediately; use it to enable or disable a feature for the whole installation.",
     schema: z.object({
       featureName: z.string().min(1),
       enabled: z.boolean(),

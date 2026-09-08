@@ -8,6 +8,8 @@ export const preferencesQuery = defineQueryHandler({
   name: "preferences",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Returns the calling user's notification preference rows for their own tenant; use it to show which notification types and channels that user has enabled or muted.",
   handler: async (query, ctx) => {
     // delivery runs in system-scope, so ctx.db is not auto-tenant-filtered —
     // userId alone is not tenant-unique, so a userId-only filter here leaked preferences cross-tenant.

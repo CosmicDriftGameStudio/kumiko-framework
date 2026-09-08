@@ -37,6 +37,8 @@ export const changeEmailWrite = defineWriteHandler({
     newEmail: z.email(),
   }),
   access: { roles: access.authenticated },
+  description:
+    "Replaces the signed-in caller's own email address after re-checking their current password, refusing an unchanged or already-taken address and clearing the verified flag so the app can re-run email verification.",
   handler: async (event, ctx) => {
     const systemUser = createSystemUser(event.user.tenantId);
 

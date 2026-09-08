@@ -75,6 +75,7 @@ export function createInviteAcceptHandler() {
     // nutzen `roles: ["all"]` weil dort GUEST_USER mit ["all"]-role
     // dispatched wird.
     access: { openToAll: true },
+    agent: { expose: false },
     // kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
     handler: async (event, ctx) => {
       if (!ctx.redis) {

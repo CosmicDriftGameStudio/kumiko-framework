@@ -20,6 +20,9 @@ export function createDeleteFolderHandler(
     name: "folder:delete",
     schema: deleteFolderPayloadSchema,
     access,
+    description:
+      "Deletes a folder from the tenant catalog and refuses while any entity is still filed in it; use it once that folder's contents have been unfiled or moved elsewhere.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as { id: string }; // @cast-boundary engine-payload
       const assigned = await folderAssignmentExecutor.list(

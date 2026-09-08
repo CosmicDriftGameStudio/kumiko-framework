@@ -16,6 +16,8 @@ export const appScreensFeature: FeatureDefinition = defineFeature("app-screens",
     type: "custom",
     renderer: { react: { __component: "UserProfileScreen" } },
     nav: { label: "screen:profile.title" },
+    description:
+      "Self-service account page where the signed-in user changes their password, changes their e-mail address (re-authenticating and triggering a verification mail) and requests or cancels deletion of their own account.",
   });
   // Provider node for template-resolver's text-block tree. The app owns
   // label/icon/access, the feature supplies the children plus the editor

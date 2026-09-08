@@ -11,6 +11,8 @@ import { attachTenantLabels, dbForList } from "./list.query";
 // bound to their own tenant's memberships (served by the tenant feature).
 const baseDetail = defineEntityDetailHandler("user", userEntity, {
   access: { roles: access.systemAdmin },
+  description:
+    "Loads one identity record by id for a SystemAdmin, enriched with the same derived `tenants` membership label as the user list; tenant-level admins do not reach it.",
 });
 
 // Same tenants enrichment as user:list — derived field placeholder is "".

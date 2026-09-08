@@ -75,6 +75,7 @@ export const publicVariantQuery = defineQueryHandler({
     variant: z.string().min(1).max(64),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  agent: { expose: false },
   // ponytail: "ip" trusts the first x-forwarded-for hop (buildRequestContextData
   // in request-id-middleware.ts) — this is the ONLY throttle on an anonymous,
   // internet-facing render/storage-cost route, so it assumes the deployment's

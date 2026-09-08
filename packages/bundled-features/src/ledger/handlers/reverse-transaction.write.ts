@@ -24,6 +24,8 @@ export function createReverseTransactionHandler(
     name: "reverse-transaction",
     schema: reverseTransactionPayloadSchema,
     access,
+    description:
+      "Books the mirror image of a posted journal entry as a new entry referencing the original, refusing entries that are not posted or already reversed; use it as the only way to correct a booking, since entries themselves are immutable.",
     handler: async (event, ctx) => {
       const payload = event.payload as ReverseTransactionPayload; // @cast-boundary engine-payload
 

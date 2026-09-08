@@ -12,6 +12,8 @@ export function createRemoveTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
     name: "remove-tag",
     schema: removeTagPayloadSchema,
     access,
+    description:
+      "Detaches one catalog tag from one host entity, reporting success when it was not attached; use it to untag a single record while the tag itself stays in the catalog.",
     handler: async (event, ctx) => {
       const payload = event.payload as RemoveTagPayload; // @cast-boundary engine-payload
       const id = tagAssignmentAggregateId(

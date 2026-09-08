@@ -44,7 +44,13 @@ function registerNotesHistory(
   r.entity("note-entry", entity);
 
   r.writeHandler(createAddNoteHandler(access));
-  r.queryHandler(defineEntityListHandler("note-entry", entity, { access }));
+  r.queryHandler(
+    defineEntityListHandler("note-entry", entity, {
+      access,
+      description:
+        "Lists note-history entries of the caller's tenant with their text, author and timestamp; filter on entityId to read the full note trail of one record.",
+    }),
+  );
 
   r.translations({ keys: NOTES_HISTORY_FEATURE_I18N });
 }

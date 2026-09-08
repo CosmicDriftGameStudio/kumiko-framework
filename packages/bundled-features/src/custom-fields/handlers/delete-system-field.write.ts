@@ -14,6 +14,9 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
   name: "delete-system-field",
   schema: deleteFieldPayloadSchema,
   access: { roles: ["SystemAdmin"] },
+  description:
+    "Deletes a system-tenant custom-field definition and cascades an event that strips the now-orphaned values out of every tenant's host rows; use it to retire a platform-wide field for all tenants at once.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const payload = event.payload as DeleteFieldPayload; // @cast-boundary engine-payload
 

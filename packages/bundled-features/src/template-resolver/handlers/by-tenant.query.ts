@@ -33,6 +33,8 @@ export const byTenantQuery = defineQueryHandler({
     tenantIdOverride: z.string().min(1).optional(),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  description:
+    "Lists every text-block of a tenant with slug, locale, title and body so a public content tree can be rendered in one call; use it for the whole sidebar, and by-slug when only one block is needed.",
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
     const overrideDenied = crossTenantOverrideDenied(

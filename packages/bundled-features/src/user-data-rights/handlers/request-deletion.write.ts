@@ -44,6 +44,9 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     name: "request-deletion",
     schema: z.object({}),
     access: { openToAll: true },
+    description:
+      "Starts the GDPR Art. 17 deletion of the calling user's own account by arming the grace period from the tenant compliance profile and mailing a confirmation, after which only cancel-deletion can stop the erasure.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const res = await startDeletionGracePeriod(ctx, event.user.id, event.user.tenantId);
       if (!res.ok) return writeFailure(res.error);

@@ -30,6 +30,8 @@ export function createSetFolderHandler(
     name: "set-folder",
     schema: setFolderPayloadSchema,
     access,
+    description:
+      "Files a host entity into one existing folder and moves it out of whatever folder it was in, since an entity belongs to at most one folder; use it for both the first filing and every later move.",
     handler: async (event, ctx) => {
       const payload = event.payload as SetFolderPayload; // @cast-boundary engine-payload
       const id = folderAssignmentAggregateId(

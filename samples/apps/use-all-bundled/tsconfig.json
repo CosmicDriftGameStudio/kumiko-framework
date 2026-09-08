@@ -19,5 +19,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun-types"]
   },
-  "include": ["bin", "src", "kumiko", "scripts"]
+  "include": ["bin", "src", "kumiko", "scripts", "kumiko.config.ts"]
 }

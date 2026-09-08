@@ -10,6 +10,8 @@ export const meQuery = defineQueryHandler({
   name: "me",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Returns the record of the tenant the caller is currently signed in to, or null if it is gone; use it whenever the active tenant's own name, key or settings are needed.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

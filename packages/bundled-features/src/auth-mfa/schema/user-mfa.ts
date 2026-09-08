@@ -11,6 +11,8 @@ import {
 // mfa.enabled/disabled fall out of the event stream instead of being
 // manually emitted.
 export const userMfaEntity = createEntity({
+  description:
+    "One user's TOTP two-factor enrollment: the encrypted shared secret, the hashed recovery codes and when the factor was enabled and last used; the row exists only while the user has MFA on.",
   table: "read_user_mfa",
   fields: {
     // FK to the user row, not content — PII-naming heuristic would flag

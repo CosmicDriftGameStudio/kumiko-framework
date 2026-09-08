@@ -98,7 +98,13 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   // single-row via get-counter. Detail-by-id-handler bewusst weggelassen
   // (kein Use-Case; der natürliche Lookup ist über capName + period, nicht
   // über aggregate-id).
-  r.queryHandler(defineEntityListHandler("cap-counter", capCounterEntity, sysadminAccess));
+  r.queryHandler(
+    defineEntityListHandler("cap-counter", capCounterEntity, {
+      ...sysadminAccess,
+      description:
+        "Lists usage-counter rows across all tenants with cap name, current value, period start and soft-warn timestamp; use it as the operator view of who is consuming which quota.",
+    }),
+  );
   r.queryHandler(getCounterQuery);
 
   r.screen({

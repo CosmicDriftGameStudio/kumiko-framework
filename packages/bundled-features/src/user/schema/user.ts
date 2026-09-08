@@ -58,6 +58,8 @@ const USER_STATUS_OPTIONS = [
 // User entity — tenant-agnostic. A single user can belong to multiple tenants
 // via tenantMemberships. No tenantId column on this table.
 export const userEntity = createEntity({
+  description:
+    "A person's platform-wide identity: login email and credentials, display name, locale and time zone, account status and global roles, shared across every tenant they belong to.",
   table: "read_users",
   softDelete: true,
   // Tenant-independent identity aggregate — its event stream lives on

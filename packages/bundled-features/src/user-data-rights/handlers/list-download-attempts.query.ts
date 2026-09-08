@@ -23,6 +23,8 @@ export const listDownloadAttemptsQuery = defineQueryHandler({
       message: "`from` must be less than or equal to `to`",
     }),
   access: { roles: ["Admin", "SystemAdmin"] },
+  description:
+    "Lists invalid export-download attempts inside the caller's own tenant, filterable by failure result, source IP and time range, for a data protection officer triaging brute-force probing of download links.",
   handler: async (query, ctx) => {
     const p = query.payload;
     const where: WhereObject = { tenantId: query.user.tenantId };

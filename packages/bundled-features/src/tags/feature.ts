@@ -79,13 +79,46 @@ function registerTags(
   // (payloadMode=values); update must accept the {id,version,changes} envelope
   // entityEdit sends (legacy update-tag stays for TagManager). delete stays
   // legacy so assignment cascade is preserved (convention delete would orphan).
-  r.writeHandler(createCreateTagHandler(access, "tag:create"));
-  r.writeHandler(defineEntityUpdateHandler("tag", tagEntity, { access }));
-  r.writeHandler(createDeleteTagHandler(access, "tag:delete"));
+  r.writeHandler({
+    ...createCreateTagHandler(access, "tag:create"),
+    description:
+      "Adds a tag to the caller's tenant tag catalog and mints its id; this is the convention name the declarative tag catalog screens dispatch, with the same effect as the legacy create-tag.",
+  });
+  r.writeHandler(
+    defineEntityUpdateHandler("tag", tagEntity, {
+      access,
+      description:
+        "Renames, recolours or re-scopes a catalog tag from the entity-edit `{ id, version, changes }` envelope; this is the convention name the tag edit screen submits, unlike the flat-payload legacy update-tag.",
+    }),
+  );
+  r.writeHandler({
+    ...createDeleteTagHandler(access, "tag:delete"),
+    description:
+      "Deletes a catalog tag and detaches it from every entity carrying it; this is the convention name the tag catalog list screen's delete row-action dispatches, with the same cascade as the legacy delete-tag.",
+    agent: { risk: "high" },
+  });
 
-  r.queryHandler(defineEntityListHandler("tag", tagEntity, { access }));
-  r.queryHandler(defineEntityListHandler("tag-assignment", tagAssignmentEntity, { access }));
-  r.queryHandler(defineEntityDetailHandler("tag", tagEntity, { access }));
+  r.queryHandler(
+    defineEntityListHandler("tag", tagEntity, {
+      access,
+      description:
+        "Lists the caller's tenant tag catalog with each tag's name, colour and scope; use it to render the catalog or to offer a user the tags they can attach.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityListHandler("tag-assignment", tagAssignmentEntity, {
+      access,
+      description:
+        "Lists the tag-to-entity assignment rows of the caller's tenant; filter on entityId to get one record's tags, or on tagId to get every record carrying a tag.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("tag", tagEntity, {
+      access,
+      description:
+        "Reads one catalog tag by id with its name, colour and scope; use it to load a single tag into an edit form rather than to find which entities carry it.",
+    }),
+  );
 
   // Standalone catalog: entityList + entityEdit. App navs via
   // r.nav("tags:screen:tag-list"). TagManager stays for picker/section only.

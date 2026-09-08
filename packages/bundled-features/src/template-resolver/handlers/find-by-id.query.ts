@@ -12,6 +12,8 @@ export const findByIdQuery = defineQueryHandler({
   name: "find-by-id",
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
+  description:
+    "Reads one template resource by row id with its content, variable schema, scope and draft/archived status, but only when it belongs to the caller's tenant or is a system default; use it to load a template into the admin editor.",
   handler: async (query, ctx) => {
     const row = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       id: query.payload.id,

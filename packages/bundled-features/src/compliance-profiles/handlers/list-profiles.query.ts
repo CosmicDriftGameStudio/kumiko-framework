@@ -17,6 +17,8 @@ export const listProfilesQuery = defineQueryHandler({
   name: "list-profiles",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Lists the compliance profiles a tenant can choose from (key, region, label, supervisory-authority contact, notification languages), for rendering the onboarding profile picker; the minimal-no-region fallback is excluded because it is not selectable.",
   handler: async (): Promise<{ profiles: readonly ComplianceProfileSummary[] }> => {
     return {
       profiles: SELECTABLE_PROFILE_KEYS.map(toSummary),

@@ -29,6 +29,8 @@ export const listDraftsQuery = defineQueryHandler({
   name: "list",
   schema: listDraftsPayloadSchema,
   access: FORM_DRAFT_ACCESS,
+  description:
+    "Lists the calling user's open drafts for one screenId as id, draftKey, stepIndex and savedAt (newest first, without the form values); use it to let a user pick which draft to resume when the client lost the draftId.",
   handler: async (query, ctx): Promise<ListDraftsResult> => {
     const rows = await listDraftsByScreen(
       ctx.db,

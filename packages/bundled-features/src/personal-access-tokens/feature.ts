@@ -156,6 +156,8 @@ export function createPersonalAccessTokensFeature(
       renderer: { react: { __component: "PatTokensScreen" } },
       access: { openToAll: true },
       dormant: true,
+      description:
+        "Self-service screen where a signed-in user reviews their personal access tokens, mints a new one by picking a permission level per scope domain and an expiry, and revokes tokens they no longer need.",
     });
     r.translations({ keys: PAT_FEATURE_I18N });
 

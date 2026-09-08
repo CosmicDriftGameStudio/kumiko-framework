@@ -16,6 +16,8 @@ export function createUpdateTagHandler(
     name,
     schema: updateTagPayloadSchema,
     access,
+    description:
+      "Renames, recolours or re-scopes a catalog tag from a flat optimistic-locked payload, leaving omitted fields untouched; this is the legacy name the TagManager dispatches, unlike the entity-edit alias that takes a changes envelope.",
     handler: async (event, ctx) => {
       const payload = event.payload as UpdateTagPayload; // @cast-boundary engine-payload
       const changes: Record<string, unknown> = {};

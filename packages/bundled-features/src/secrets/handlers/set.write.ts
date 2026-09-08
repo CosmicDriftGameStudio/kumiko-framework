@@ -6,6 +6,8 @@ import { requireSecretsContext } from "../feature";
 export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({
     name: "set",
+    description:
+      "Stores or replaces one encrypted secret for the caller's tenant under the given key, together with a redacted preview and optional hint; use it to enter or rotate a credential.",
     schema: z.object({
       key: z.string().min(1).max(100),
       value: z.string(),

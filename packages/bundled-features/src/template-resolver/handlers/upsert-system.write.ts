@@ -16,6 +16,8 @@ export const upsertSystemWrite = defineWriteHandler({
   name: "upsert-system",
   schema: upsertPayloadSchema,
   access: { roles: ["SystemAdmin"] },
+  description:
+    "Creates or overwrites a system-default template under the system tenant with its full variable schema and linked resources, active straight away with no draft stage; SystemAdmin only, since tenants shadow these defaults through upsert-tenant instead.",
   handler: async (event, ctx) => {
     const db = ctx.db;
     // @cast-boundary engine-payload — SYSTEM_TENANT_ID is a UUID literal,

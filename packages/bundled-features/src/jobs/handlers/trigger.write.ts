@@ -13,6 +13,8 @@ import { isManualTrigger } from "../is-manual-trigger";
 
 export const triggerWrite = defineWriteHandler({
   name: "trigger",
+  description:
+    "Starts one manually-triggerable job with the given payload after validating it against the job's schema; use it to run a maintenance or import job on demand.",
   schema: z.object({
     jobName: z.string(),
     payload: z.record(z.string(), z.unknown()).optional(),

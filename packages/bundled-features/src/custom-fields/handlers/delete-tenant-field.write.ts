@@ -31,6 +31,9 @@ export function createDeleteTenantFieldHandler(
     name: "delete-tenant-field",
     schema: deleteFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
+    description:
+      "Deletes one of the caller's own tenant's custom-field definitions and cascades an event that strips its orphaned values out of that tenant's host rows; use it to retire a field this tenant defined itself.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as DeleteFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;

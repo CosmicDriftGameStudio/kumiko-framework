@@ -23,6 +23,8 @@ async function decryptRunRow<T extends Record<string, unknown>>(row: T): Promise
 
 export const listQuery = defineQueryHandler({
   name: "list",
+  description:
+    "Lists job runs across all tenants newest-first, optionally filtered by job name and status; use it to check whether a job ran and whether it succeeded.",
   schema: z.object({
     jobName: z.string().optional(),
     status: z.enum(["queued", "running", "completed", "failed"]).optional(),

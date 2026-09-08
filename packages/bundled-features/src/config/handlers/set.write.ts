@@ -36,6 +36,8 @@ const executor = createEventStoreExecutor(configValuesTable, configValueEntity, 
 
 export const setWrite = defineWriteHandler({
   name: "set",
+  description:
+    "Stores a config value for one key at the requested scope (user, tenant or system) after type, bounds and pattern validation, encrypting it when the key declares that; use it to change a setting.",
   schema: z.object({
     key: z.string(),
     value: z.union([z.string(), z.number(), z.boolean()]),

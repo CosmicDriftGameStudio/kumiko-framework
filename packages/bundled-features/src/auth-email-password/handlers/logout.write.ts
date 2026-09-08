@@ -8,6 +8,8 @@ export const logoutWrite = defineWriteHandler({
   name: "logout",
   schema: z.object({}),
   access: { roles: access.authenticated },
+  description:
+    "Acknowledges a sign-out for the authenticated caller so the client can discard its token; the JWT is stateless, so no server-side session state changes here.",
   perform: stepsPipeline(({ r }) => [
     r.step.return({ isSuccess: true, data: { kind: "logged-out" } }),
   ]),

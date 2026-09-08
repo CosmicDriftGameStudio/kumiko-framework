@@ -7,6 +7,8 @@ export const unreadCountQuery = defineQueryHandler({
   name: "unreadCount",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Counts the calling user's unread in-app notification messages; use it for an inbox badge or to check whether a user has pending notifications.",
   handler: async (query, ctx) => {
     // bun-db hat keinen aggregate-helper — selectMany alle matching rows,
     // count() in JS. Pragma: unread-counts sind low-cardinality (user-

@@ -7,6 +7,8 @@ export const markAllReadWrite = defineWriteHandler({
   name: "markAllRead",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Marks every unread in-app message of the calling user as read and returns how many rows were touched; use it for a mark-all-as-read action.",
   handler: async (event, ctx) => {
     const rows = await updateMany(
       ctx.db,

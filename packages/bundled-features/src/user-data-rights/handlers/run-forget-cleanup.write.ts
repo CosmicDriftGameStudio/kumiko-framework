@@ -28,6 +28,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
     name: "run-forget-cleanup",
     schema: z.object({}),
     access: { roles: access.privileged },
+    agent: { expose: false },
     handler: async (_event, ctx) => {
       if (!ctx.registry) {
         return writeFailure(

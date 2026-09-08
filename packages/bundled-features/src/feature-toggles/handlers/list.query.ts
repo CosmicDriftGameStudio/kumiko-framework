@@ -10,6 +10,8 @@ import { globalFeatureStateTable } from "../global-feature-state-table";
 // effective state (registered features + their current override, if any).
 export const listQuery = defineQueryHandler({
   name: "list",
+  description:
+    "Lists only the features that carry an explicit platform-wide on/off override, with who flipped it and when; use it to see which toggles were changed away from their default.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
   handler: async (_event, ctx) => {

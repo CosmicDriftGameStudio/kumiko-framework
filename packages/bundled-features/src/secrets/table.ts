@@ -47,6 +47,8 @@ export type StoredMetadata = {
 // doesn't weaken the threat model vs. the pre-ES tenant_secrets column.
 export const tenantSecretEntity = createEntity({
   table: "read_tenant_secrets",
+  description:
+    "One encrypted secret per tenant and key, holding the sealed envelope, the key-encryption-key version it was sealed under and its last rotation time; plaintext values are never stored or returned.",
   fields: {
     key: createTextField({ required: true }),
     kekVersion: createNumberField({ required: true, integer: true }),

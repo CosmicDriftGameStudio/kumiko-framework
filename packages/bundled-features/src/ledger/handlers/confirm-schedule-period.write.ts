@@ -32,6 +32,8 @@ export function createConfirmSchedulePeriodHandler(
     name: "confirm-schedule-period",
     schema: confirmSchedulePeriodPayloadSchema,
     access,
+    description:
+      "Turns one month of a recurring schedule into a posted balanced entry between its debit and credit account, returning the existing booking instead when that period is already booked and not reversed; use it to move a forecast period into the actual books.",
     handler: async (event, ctx) => {
       const payload = event.payload as ConfirmSchedulePeriodPayload; // @cast-boundary engine-payload
 

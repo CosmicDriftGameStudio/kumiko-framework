@@ -12,6 +12,8 @@ const KMS_POOL_CONCURRENCY = 4;
 
 export const detailQuery = defineQueryHandler({
   name: "details",
+  description:
+    "Returns one job run across all tenants by its run id with status, timings, decrypted payload, error and its full log lines; use it to investigate why a run failed.",
   // Post-ES: runId is the uuid aggregate-id of the jobRun event-stream.
   // Pre-ES callers passed the serial row-id; the migration is breaking
   // for API callers (intentional — jobs is framework-ops, no external

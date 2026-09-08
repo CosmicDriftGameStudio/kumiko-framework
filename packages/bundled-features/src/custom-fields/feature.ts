@@ -163,6 +163,8 @@ function registerCustomFields(
   r.queryHandler(
     defineEntityListHandler("field-definition", fieldDefinitionEntity, {
       access: { roles: variant.fieldDefinitionListRoles },
+      description:
+        "Lists the custom-field definitions of the caller's own tenant; use it to discover which extra fields an entity accepts before setting or clearing a value on it.",
     }),
   );
 

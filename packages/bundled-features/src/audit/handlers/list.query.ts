@@ -21,6 +21,8 @@ const MAX_LIMIT = 100;
 
 export const listQuery = defineQueryHandler({
   name: "list",
+  description:
+    "Lists the tenant's audit-trail events newest-first with cursor paging, filterable by aggregate type, aggregate id, event type, actor and time range; use it to answer who changed what and when.",
   schema: z
     .object({
       before: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),

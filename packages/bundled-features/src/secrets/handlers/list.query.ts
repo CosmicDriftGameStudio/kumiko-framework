@@ -10,6 +10,8 @@ import { tenantSecretsTable } from "../table";
 export function createListHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineQueryHandler({
     name: "list",
+    description:
+      "Lists the secrets stored for the caller's tenant by key with a redacted preview, hint, key version and rotation date — never the plaintext; use it to check which credentials are set.",
     schema: z.object({}),
     access,
     handler: async (event, ctx) => {

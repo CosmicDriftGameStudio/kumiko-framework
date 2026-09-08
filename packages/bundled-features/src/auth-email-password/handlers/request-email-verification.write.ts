@@ -19,6 +19,8 @@ export function createRequestEmailVerificationHandler(opts: RequestEmailVerifica
     {
       handlerName: "request-email-verification",
       successKind: "verification-requested",
+      description:
+        "Mails an address a signed, time-limited link to confirm it owns the mailbox; an already-verified address is skipped silently, and the answer looks the same for unknown addresses either way.",
       defaultTtlMinutes: AUTH_VERIFY_DEFAULT_TTL_MINUTES,
       sign: signVerificationToken,
       notConfiguredError: AuthErrors.verificationNotConfigured,

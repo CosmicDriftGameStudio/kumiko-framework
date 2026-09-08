@@ -14,6 +14,8 @@ export const mfaStatusQuery = defineQueryHandler({
   name: "user-mfa:status",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Reports whether the calling user has TOTP two-factor authentication enrolled; use it before offering either the enrollment flow or the disable and recovery-code actions.",
   handler: async (query, ctx) => {
     const row = await fetchOne<{ id: string }>(ctx.db, userMfaTable, {
       userId: query.user.id,

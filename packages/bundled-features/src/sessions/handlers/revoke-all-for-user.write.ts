@@ -34,6 +34,9 @@ export const revokeAllForUserWrite = defineWriteHandler({
     tenantId: z.string().min(1).optional(),
   }),
   access: { roles: access.privileged },
+  description:
+    "Irreversibly signs a named user out of all their live sessions, across every tenant unless a tenantId narrows it; use it for operator actions such as freezing or banning an account.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const updated = await updateMany<{ id: string }>(
       ctx.db.raw,

@@ -29,6 +29,8 @@ export function createNeedsProfileQuery(pickerReachableRoles: readonly string[])
     name: "needs-profile",
     schema: z.object({}),
     access: { roles: [ROLES.TenantAdmin] },
+    description:
+      "Answers whether the calling tenant admin still has to pick a compliance profile, for the onboarding banner in their own tenant; reports needsSelection false once a profile exists or when the caller's roles cannot reach the picker screen.",
     handler: async (query, ctx): Promise<NeedsProfileResponse> => {
       const row = (await fetchOne(ctx.db, tenantComplianceProfileTable, {
         tenantId: query.user.tenantId,

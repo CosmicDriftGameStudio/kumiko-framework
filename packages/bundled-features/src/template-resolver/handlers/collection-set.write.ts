@@ -36,6 +36,10 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
       tenantIdOverride: z.string().min(1).optional(),
     }),
     access: collection.access ?? DEFAULT_COLLECTION_ACCESS,
+    description:
+      collection.ownership === "user"
+        ? `Creates or overwrites the caller's own "${collection.id}" entry at a slug and locale, live on save with no draft stage; it always writes the acting user's entry, never another user's.`
+        : `Creates or overwrites the tenant-wide "${collection.id}" entry at a slug and locale, live on save with no draft stage; the change is visible to everyone who may reach this shared collection.`,
     handler: async (event, ctx) => {
       const db = ctx.db;
       const override = event.payload.tenantIdOverride;

@@ -37,6 +37,8 @@ type CreateCheckoutSessionPayload = z.infer<typeof createCheckoutSessionSchema>;
 
 export const createCheckoutSessionHandler: WriteHandlerDef = {
   name: "create-checkout-session",
+  description:
+    "Opens a hosted checkout page at the named subscription provider for the caller's tenant and returns its URL; use it when a tenant admin wants to subscribe or switch to a paid plan.",
   schema: createCheckoutSessionSchema,
   // Tenant-Admin-only — der Tenant muss bewusst seine Subscription
   // konfigurieren. SystemAdmin als Fallback für Operator-Initiated-Flows.

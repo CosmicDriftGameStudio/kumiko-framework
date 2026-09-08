@@ -43,6 +43,8 @@ export const setWrite = defineWriteHandler({
     tenantIdOverride: z.string().min(1).optional(),
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  description:
+    "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;

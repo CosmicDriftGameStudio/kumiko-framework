@@ -18,6 +18,8 @@ const getCounterSchema = z.object({
 
 export const getCounterQuery: QueryHandlerDef = {
   name: "get-counter",
+  description:
+    "Returns the calendar-period usage counter row of the caller's tenant for one cap name and period start, or null when nothing was counted yet; use it to show remaining quota.",
   schema: getCounterSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {

@@ -24,6 +24,8 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 //   - Caps-Werte: pro-Tier-Cap-Definitionen leben in der TierMap der App.
 export const tierAssignmentEntity = createEntity({
   table: "read_tier_assignments",
+  description:
+    "The pricing tier currently assigned to a tenant, plus where the assignment came from (manual grant, billing sync or signup default) — one row per tenant.",
   fields: {
     tier: createTextField({ required: true, maxLength: 50 }),
     // Woher das Assignment stammt: "manual" (Admin-Grant via tier-admin-Screen),

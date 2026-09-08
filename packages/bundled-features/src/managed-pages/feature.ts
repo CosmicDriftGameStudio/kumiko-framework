@@ -1,13 +1,5 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
-import {
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
-  defineFeature,
-  type FeatureDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type BrandingTokens,
   cachedSecurePageResponse,
@@ -20,16 +12,12 @@ import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from
 import { createBrandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query";
+import { pageCrudQueries, pageCrudWrites } from "./handlers/page-crud";
 import { setWrite } from "./handlers/set.write";
 import { MANAGED_PAGES_I18N } from "./i18n";
 import { createBrandingSettingsScreen } from "./screens/branding-screen";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens";
 import { pageEntity } from "./table";
-
-// Admin-Authoring läuft als TenantAdmin (self-service) oder SystemAdmin
-// (app-weite Pages). Spiegelt set.write's ACL — Apps mit eigenem Rollen-
-// Alias (publicstatus = "Admin") müssen TenantAdmin granten/mappen.
-const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
 // 60s-shared-cache saves the origin-revalidate roundtrip; CMS edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
@@ -186,15 +174,8 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       branding: r.queryHandler(createBrandingQuery({ allowCustomCss })),
     };
 
-    // Convention-CRUD hinter den Admin-Screens: entityEdit/entityList
-    // dispatchen per Konvention `managed-pages:write:page:{create,update,
-    // delete}` + `managed-pages:query:page:{list,detail}`. `set` (oben)
-    // wird davon NICHT genutzt und bleibt als Provisioning-API erhalten.
-    r.writeHandler(defineEntityCreateHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.writeHandler(defineEntityUpdateHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.writeHandler(defineEntityDeleteHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.queryHandler(defineEntityListHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.queryHandler(defineEntityDetailHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+    for (const def of pageCrudWrites) r.writeHandler(def);
+    for (const def of pageCrudQueries) r.queryHandler(def);
 
     r.screen(pageListScreen);
     r.screen(pageEditScreen);

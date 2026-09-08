@@ -47,6 +47,7 @@ export const rollingIncrementedSchema = incrementRollingSchema;
 // store atomar ermittelt.
 export const incrementRollingCapHandler: WriteHandlerDef = {
   name: "increment-rolling",
+  agent: { expose: false },
   schema: incrementRollingSchema,
   // Internal handler — System-Caller (Plattform-foundations nach
   // erfolgreichem Side-Effect) ruft das auf. Tenant-end-users niemals

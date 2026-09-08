@@ -78,6 +78,8 @@ export function defineWriteHandler<
     name: def.name,
     schema: def.schema,
     ...(def.access && { access: def.access }),
+    ...(def.description !== undefined && { description: def.description }),
+    ...(def.agent && { agent: def.agent }),
     ...(def.unsafeSkipTransitionGuard && {
       unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard,
     }),

@@ -33,6 +33,8 @@ export const listQuery = definePagedQueryHandler({
     sortDirection: z.enum(["asc", "desc"]).optional(),
   }),
   access: { roles: access.admin },
+  description:
+    "Lists every session in the active tenant, live and revoked, sortable by id, user, creation, expiry or revocation, for an admin auditing who is signed in.",
   outputSchema: z.object({
     rows: z.array(
       z.object({

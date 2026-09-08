@@ -27,6 +27,7 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
     name: "verify-email",
     schema: VerifyEmailSchema,
     access: { roles: ["all"] },
+    agent: { expose: false },
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {
         return writeFailure(

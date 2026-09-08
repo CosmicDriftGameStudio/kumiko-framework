@@ -19,6 +19,8 @@ export const addMemberWrite = defineWriteHandler({
     roles: z.array(z.string()).min(1),
   }),
   access: { roles: ["SystemAdmin"] },
+  description:
+    "Grants an existing user membership in a tenant with the given roles, refusing reserved role names and a user who is already a member; use it to add someone to a workspace without going through an invitation.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

@@ -35,6 +35,8 @@ import {
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
 export const noteEntity = createEntity({
+  description:
+    "A demo note holding just a title plus per-tenant custom-field values, used as the host object that the tags, folders and custom-fields extensions attach to.",
   table: "read_demo_notes",
   fields: {
     title: createTextField({ required: true, maxLength: 200, sortable: true }),
@@ -121,6 +123,17 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
   r.crud("note", noteEntity, {
     write: { access: ADMIN_ACCESS },
     read: { access: ADMIN_ACCESS },
+    descriptions: {
+      create:
+        "Creates one demo note from its title plus the values entered in the custom-fields form section; used when the note edit screen saves a note that has not been stored yet.",
+      update:
+        "Applies a changed title or changed custom-field values to one existing note, addressed by id plus the version the client last read; used when the note edit screen saves.",
+      delete:
+        "Removes one note row for good, addressed by id; used by the confirmed danger row action on the note list, and there is no restore because the entity is not soft-deleted.",
+      list: "Returns one page of notes, searchable and sorted by title; used by the note list screen that renders each row's tags column and the tag filter above it.",
+      detail:
+        "Returns one note by id; used when the note edit screen loads the row that hosts the custom-fields, folder and tags extension sections.",
+    },
   });
 
   r.translations({

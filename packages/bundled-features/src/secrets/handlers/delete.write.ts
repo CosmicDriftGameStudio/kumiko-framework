@@ -7,6 +7,9 @@ import { requireSecretsContext } from "../feature";
 export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({
     name: "delete",
+    description:
+      "Permanently removes the stored secret under the given key for the caller's tenant, breaking every feature that depends on that credential.",
+    agent: { risk: "high" },
     schema: z.object({
       key: z.string().min(1).max(100),
     }),

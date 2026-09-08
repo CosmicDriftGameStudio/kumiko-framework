@@ -23,6 +23,8 @@ type JobRunRow = {
 
 export const retryWrite = defineWriteHandler({
   name: "retry",
+  description:
+    "Re-dispatches a failed job run with its original payload and triggering user; use it to rerun a job that failed for a transient reason.",
   // Post-ES: runId is the uuid aggregate-id. See detail.query for the
   // rationale — jobs is framework-ops, callers are admin tooling only.
   schema: z.object({ runId: z.uuid() }),

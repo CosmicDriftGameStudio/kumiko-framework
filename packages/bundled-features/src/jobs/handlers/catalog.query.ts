@@ -22,6 +22,8 @@ function payloadSchemaJson(job: JobDefinition): Record<string, unknown> | null {
 /** SystemAdmin catalog of jobs that may be started via `jobs:write:trigger`. */
 export const catalogQuery = defineQueryHandler({
   name: "catalog",
+  description:
+    "Lists the jobs that may be started manually, each with its per-tenant flag and payload JSON Schema; use it to find out which job can be triggered and what payload it expects.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
   handler: async (_query, ctx): Promise<{ rows: readonly ManualJobCatalogEntry[] }> => {

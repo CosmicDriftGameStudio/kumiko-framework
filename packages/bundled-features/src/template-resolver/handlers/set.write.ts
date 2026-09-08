@@ -47,6 +47,8 @@ export const setWrite = defineWriteHandler({
   // SystemAdmin is a global role, TenantAdmin is per tenant-membership — both
   // paths are needed explicitly, otherwise nobody can set SYSTEM_TENANT texts.
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  description:
+    "Creates or overwrites one content-tree resource addressed by slug, kind and locale, carrying a title and folder and going live on save with no draft stage; a SystemAdmin may target the system tenant, where shared legal and marketing copy lives.",
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;

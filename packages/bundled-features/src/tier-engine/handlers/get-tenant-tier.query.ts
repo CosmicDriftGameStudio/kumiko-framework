@@ -17,6 +17,8 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 
 export const getTenantTierQuery = defineQueryHandler({
   name: "get-tenant-tier",
+  description:
+    "Returns the tier-assignment of any given tenant including where it came from (manual grant, billing sync or signup default), or null; use it to look up another tenant's plan.",
   schema: z.object({ tenantId: z.string().min(1) }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {

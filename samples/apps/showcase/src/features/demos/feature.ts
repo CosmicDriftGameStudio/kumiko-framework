@@ -42,37 +42,57 @@ export const demosFeature = defineFeature("showcase-demos", (r) => {
     id: "demo-layout",
     type: "custom",
     renderer: { react: { __component: "demo-layout" } },
+    description:
+      "Shows where each named slot of the app shell, form, data table, section, banner and heading primitives lands, as a sketch next to the JSX call that fills it.",
   });
   r.screen({
     id: "demo-buttons",
     type: "custom",
     renderer: { react: { __component: "demo-buttons" } },
+    description:
+      "Shows the Button primitive in its primary, secondary and danger variants, each in the normal, disabled and loading (spinner) state.",
   });
   r.screen({
     id: "demo-inputs",
     type: "custom",
     renderer: { react: { __component: "demo-inputs" } },
+    description:
+      "Shows every Input kind of the primitives contract (text, number, money in three currency locales, boolean, date, timestamp, select, textarea and locally or remotely filtered single and multi comboboxes) plus a Field rendering a validation error.",
   });
   r.screen({
     id: "demo-banner",
     type: "custom",
     renderer: { react: { __component: "demo-banner" } },
+    description:
+      "Shows the Banner primitive in its info and error variants, including an error banner that carries a Button in its right-hand action slot.",
   });
   r.screen({
     id: "demo-dialog",
     type: "custom",
     renderer: { react: { __component: "demo-dialog" } },
+    description:
+      "Shows the Dialog primitive as a default confirm, a danger confirm and an async confirm with spinner, plus the Lightbox full-screen image preview that shares the same overlay shell.",
   });
   r.screen({
     id: "demo-toast",
     type: "custom",
     renderer: { react: { __component: "demo-toast" } },
+    description:
+      "Shows the useToast hook pushing auto-dismissing notifications: a default toast, an error toast, several stacked at once and one with a title only.",
   });
-  r.screen({ id: "demo-text", type: "custom", renderer: { react: { __component: "demo-text" } } });
+  r.screen({
+    id: "demo-text",
+    type: "custom",
+    renderer: { react: { __component: "demo-text" } },
+    description:
+      "Shows the Text primitive in its body, small, code and required-mark variants, including code and required-mark nested inside body text.",
+  });
   r.screen({
     id: "demo-sidebar-panel",
     type: "custom",
     renderer: { react: { __component: "demo-sidebar-panel" } },
+    description:
+      "Shows the SidebarPanel shell slot as a mail-client inbox: a resizable message list beside the navigation over the full window height, with the selected message read in the content area.",
   });
 
   // Section "Primitives" — clickbar-collapsible weil parent ohne screen.

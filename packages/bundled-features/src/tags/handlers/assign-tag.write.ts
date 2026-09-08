@@ -26,6 +26,8 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
     name: "assign-tag",
     schema: assignTagPayloadSchema,
     access,
+    description:
+      "Attaches an existing catalog tag to one host entity addressed by its type and id, reporting success when the tag was already attached; use it to tag a record, not to create the tag.",
     handler: async (event, ctx) => {
       const payload = event.payload as AssignTagPayload; // @cast-boundary engine-payload
       const id = tagAssignmentAggregateId(

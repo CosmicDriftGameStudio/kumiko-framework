@@ -13,6 +13,8 @@ export type ReadinessMissingSecret = { readonly key: string };
 // query can't see secrets, this feature requires both — so it may verdict.
 export const statusQuery = defineQueryHandler({
   name: "status",
+  description:
+    "Reports whether the caller's tenant is fully configured, naming every required config key and every required secret that is still unset; use it to answer what is missing before go-live.",
   schema: z.object({}),
   // Same gate as secrets:query:list — the response names missing secrets.
   access: { roles: ["TenantAdmin"] },

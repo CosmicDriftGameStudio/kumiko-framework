@@ -21,6 +21,8 @@ export const cancelDeletionWrite = defineWriteHandler({
   name: "cancel-deletion",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Withdraws the calling user's own pending account-deletion request and puts the account back to active, accepted only while the grace period is still running.",
   handler: async (event, ctx) => {
     // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
     // ist — siehe request-deletion.write.ts fuer die Begruendung. Cancel

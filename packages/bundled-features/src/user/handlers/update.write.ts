@@ -41,6 +41,8 @@ export const updateWrite = defineWriteHandler({
     }),
   }),
   access: { openToAll: true },
+  description:
+    "Changes a user's display name, locale, timezone, email, verification flag, last active tenant or global roles against the version the caller read; callers may edit themselves, while editing someone else or granting roles needs a privileged actor.",
   handler: async (event, ctx) => {
     const isSelf = event.payload.id === event.user.id;
     const isPrivileged = hasAccess(event.user, { roles: access.privileged });

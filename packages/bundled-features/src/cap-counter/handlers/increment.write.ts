@@ -38,6 +38,7 @@ type IncrementPayload = z.infer<typeof incrementSchema>;
 // not this handler.
 export const incrementCapHandler: WriteHandlerDef = {
   name: "increment",
+  agent: { expose: false },
   schema: incrementSchema,
   // Internal handler — only system-callers (Plattform-foundations after
   // a successful side-effect) drive this. Tenant-end-users never call

@@ -18,6 +18,8 @@ export const TENANT_LIFECYCLE_STATUSES = [
 export type TenantLifecycleStatus = (typeof TENANT_LIFECYCLE_STATUSES)[number];
 
 export const tenantEntity = createEntity({
+  description:
+    "A tenant, the isolated workspace every other record belongs to, holding its key and display name, whether it is enabled, and its destruction-lifecycle state.",
   table: "read_tenants",
   // tenant.id IS the tenantId-value that every other table references as FK.
   // Alle tenantId-Spalten sind UUID (Migration 2026-04-16) → tenant.id muss

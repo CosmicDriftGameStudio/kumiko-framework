@@ -76,6 +76,8 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
     name: "signup-request",
     schema: SignupRequestSchema,
     access: { roles: ["all"] },
+    description:
+      "Starts magic-link self-registration by mailing a fresh activation link to an address and invalidating any link still outstanding for it; the answer looks the same whether or not the address is already registered.",
     handler: async (event, ctx) => {
       // Silent no-op when off, matching the route's own always-200
       // anti-enumeration contract (registerTokenRequestRoute swallows every

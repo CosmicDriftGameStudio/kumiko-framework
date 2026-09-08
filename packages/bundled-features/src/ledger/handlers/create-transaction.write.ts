@@ -17,6 +17,8 @@ export function createCreateTransactionHandler(
     name: "create-transaction",
     schema: createTransactionPayloadSchema,
     access,
+    description:
+      "Books one balanced journal entry from a date, description and at least two posting lines summing to zero, after verifying every named account exists; use it to record any financial movement in the tenant's books.",
     handler: async (event, ctx) => {
       const payload = event.payload as CreateTransactionPayload; // @cast-boundary engine-payload
 

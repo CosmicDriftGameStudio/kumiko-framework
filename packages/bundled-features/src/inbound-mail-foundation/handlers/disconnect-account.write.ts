@@ -29,6 +29,9 @@ export const disconnectAccountHandler: WriteHandlerDef = {
   name: "disconnect-account",
   schema: disconnectAccountSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
+  description:
+    "Puts a connected mailbox into the final disconnected state so the watch supervisor stops fetching it, keeping the stream for audit and requiring a fresh connect to resume; use it to stop mail ingestion for one mailbox.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as DisconnectAccountPayload;

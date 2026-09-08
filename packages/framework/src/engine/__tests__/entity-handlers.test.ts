@@ -16,7 +16,7 @@ import {
 import { createEntity, createTextField } from "../factories";
 // Barrel import, not "../entity-handlers": covers that entityListSchema is
 // actually re-exported through engine/index.ts.
-import { entityListSchema } from "../index";
+import { entityListSchema, resolveAgentExposure } from "../index";
 import type { QueryHandlerDef, WriteHandlerDef } from "../types";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
@@ -366,5 +366,57 @@ describe("registerEntityCrud", () => {
     });
     expect(Object.keys(entities)).toEqual(["note"]);
     expect(writes.map((w) => w.name)).toEqual(["note:create"]);
+  });
+  test("descriptions: per-verb text lands on that verb only, and drives agent exposure", () => {
+    const { r, writes, queries } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity, {
+      descriptions: {
+        create: "Files a new note.",
+        list: "Lists notes newest first.",
+      },
+    });
+
+    const create = writes.find((w) => w.name === "note:create");
+    const update = writes.find((w) => w.name === "note:update");
+    const list = queries.find((q) => q.name === "note:list");
+    const detail = queries.find((q) => q.name === "note:detail");
+    if (!create || !update || !list || !detail) throw new Error("CRUD handlers missing");
+
+    expect(create.description).toBe("Files a new note.");
+    expect(list.description).toBe("Lists notes newest first.");
+    expect(update.description).toBeUndefined();
+    expect(detail.description).toBeUndefined();
+
+    // Fail-closed exposure is why the slot exists: only the described verbs
+    // reach the agent manifest.
+    expect(resolveAgentExposure(create, "write").expose).toBe(true);
+    expect(resolveAgentExposure(list, "query").expose).toBe(true);
+    expect(resolveAgentExposure(update, "write").expose).toBe(false);
+    expect(resolveAgentExposure(detail, "query").expose).toBe(false);
+  });
+
+  test("descriptions: per-verb entry wins over the write/read fallback", () => {
+    const { r, writes } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity, {
+      write: { description: "Shared write text." },
+      descriptions: { create: "Files a new note." },
+      verbs: { list: false, detail: false },
+    });
+
+    expect(writes.find((w) => w.name === "note:create")?.description).toBe("Files a new note.");
+    expect(writes.find((w) => w.name === "note:update")?.description).toBe("Shared write text.");
+  });
+
+  test("agent hints on the per-handler options raise the resolved risk", () => {
+    const del = defineEntityDeleteHandler("note", noteEntity, {
+      description: "Deletes a note permanently.",
+      agent: { risk: "high" },
+    });
+    const create = defineEntityCreateHandler("note", noteEntity, {
+      description: "Files a new note.",
+    });
+
+    expect(resolveAgentExposure(del, "write").risk).toBe("high");
+    expect(resolveAgentExposure(create, "write").risk).toBe("mid");
   });
 });
