@@ -3,7 +3,7 @@
 // here since this is a structural move, not a semantic reorg).
 
 import { qualifyEntityName } from "../qualified-name";
-import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
+import type { AccessRule, FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
 
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
@@ -96,6 +96,41 @@ export function validateNavCycles(
 
   for (const qualified of allNavQns.keys()) {
     visit(qualified, []);
+  }
+}
+
+// undefined access or `{ openToAll: true }` both mean "visible to everyone"
+// — neither has a role-set an inversion check could compare against.
+function navViewerRoles(access: AccessRule | undefined): readonly string[] | undefined {
+  if (access === undefined || "openToAll" in access) return undefined;
+  return access.roles;
+}
+
+// fw#2640: warn (never throw — this is a real UX bug, not a broken ref)
+// when a nav leaf's role gate is disjoint from its parent section's — no
+// user who can see the section could ever see this child, so the section
+// renders with zero visible children for every user who reaches it.
+// Only fires when BOTH sides declare an explicit, non-empty role list:
+// an unset/openToAll side is visible to everyone, so it can't invert.
+export function warnOnNavAccessInversion(
+  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+): void {
+  for (const [qn, navDef] of allNavQns) {
+    if (navDef.parent === undefined) continue;
+    const parentDef = allNavQns.get(navDef.parent);
+    if (parentDef === undefined) continue; // dangling parent ref — validateNavs already throws for this
+    const parentRoles = navViewerRoles(parentDef.access);
+    const leafRoles = navViewerRoles(navDef.access);
+    if (parentRoles === undefined || leafRoles === undefined) continue;
+    if (parentRoles.length === 0) continue; // parent already visible to nobody — a different problem
+    if (leafRoles.some((role) => parentRoles.includes(role))) continue;
+    // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+    console.warn(
+      `[kumiko:boot] Nav entry "${qn}" requires roles [${leafRoles.join(", ")}] but its parent ` +
+        `"${navDef.parent}" only allows [${parentRoles.join(", ")}] — no user who can see the ` +
+        `parent section could ever see this entry. If this is intentional, ignore this warning; ` +
+        `otherwise align the role sets.`,
+    );
   }
 }
 

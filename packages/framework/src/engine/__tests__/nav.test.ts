@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
 import { validateBoot as validateBootRaw } from "../boot-validator";
 import { defineFeature } from "../define-feature";
@@ -356,5 +356,57 @@ describe("validateBoot — nav validation", () => {
       r.nav({ id: "leaf", label: "l", parent: "shop:nav:mid" });
     });
     expect(() => validateBoot([feature])).not.toThrow();
+  });
+});
+
+describe("nav access inversion warning (fw#2640)", () => {
+  test("leaf role-gate disjoint from its parent section's → warns but boot still succeeds", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const feature = defineFeature("shop", (r) => {
+      r.nav({ id: "section", label: "s", access: { roles: ["Manager"] } });
+      r.nav({
+        id: "leaf",
+        label: "l",
+        parent: "shop:nav:section",
+        access: { roles: ["Admin"] },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Nav entry "shop:nav:leaf" requires roles [Admin]'),
+    );
+    warnSpy.mockRestore();
+  });
+
+  test("leaf role-gate overlapping its parent's → no warning", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const feature = defineFeature("shop", (r) => {
+      r.nav({ id: "section", label: "s", access: { roles: ["Manager", "Admin"] } });
+      r.nav({
+        id: "leaf",
+        label: "l",
+        parent: "shop:nav:section",
+        access: { roles: ["Admin"] },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("Nav entry"));
+    warnSpy.mockRestore();
+  });
+
+  test("parent open to everyone (unset access) → a role-gated leaf never warns", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const feature = defineFeature("shop", (r) => {
+      r.nav({ id: "section", label: "s" });
+      r.nav({
+        id: "leaf",
+        label: "l",
+        parent: "shop:nav:section",
+        access: { roles: ["Admin"] },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("Nav entry"));
+    warnSpy.mockRestore();
   });
 });
