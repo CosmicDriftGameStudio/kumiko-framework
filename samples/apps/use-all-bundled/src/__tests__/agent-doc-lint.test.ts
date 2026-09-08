@@ -37,25 +37,29 @@ const CONDITIONAL_HANDLERS: Readonly<
   "file-derivatives": { write: [], query: ["public-variant"] },
 };
 
-type AgentDocFields = {
-  readonly description?: string;
-  readonly agent?: { readonly expose?: boolean };
-};
+// Concrete indexed-access types, not a generic <T>: `Omit<T, ...>` never narrows
+// back to a generic T, so tsc rejects the write-back (TS2322).
+type WriteHandlerDefs = FeatureDefinition["writeHandlers"];
+type QueryHandlerDefs = FeatureDefinition["queryHandlers"];
 
-function withoutAgentDocs<T extends AgentDocFields>(def: T): Omit<T, "description" | "agent"> {
-  const { description: _description, agent: _agent, ...rest } = def;
-  return rest;
-}
-
-function stripAgentDocs<T extends AgentDocFields>(
-  defs: Readonly<Record<string, T>> | undefined,
-  names: readonly string[],
-): Record<string, T> {
-  const stripped: Record<string, T> = { ...defs };
+function stripWriteDocs(defs: WriteHandlerDefs, names: readonly string[]): WriteHandlerDefs {
+  const stripped = { ...defs };
   for (const name of names) {
     const def = stripped[name];
     if (def === undefined) continue;
-    stripped[name] = withoutAgentDocs(def);
+    const { description: _description, agent: _agent, ...rest } = def;
+    stripped[name] = rest;
+  }
+  return stripped;
+}
+
+function stripQueryDocs(defs: QueryHandlerDefs, names: readonly string[]): QueryHandlerDefs {
+  const stripped = { ...defs };
+  for (const name of names) {
+    const def = stripped[name];
+    if (def === undefined) continue;
+    const { description: _description, agent: _agent, ...rest } = def;
+    stripped[name] = rest;
   }
   return stripped;
 }
@@ -68,8 +72,8 @@ function undocumentConditionalHandlers(
     if (targets === undefined) return feature;
     return {
       ...feature,
-      writeHandlers: stripAgentDocs(feature.writeHandlers, targets.write),
-      queryHandlers: stripAgentDocs(feature.queryHandlers, targets.query),
+      writeHandlers: stripWriteDocs(feature.writeHandlers, targets.write),
+      queryHandlers: stripQueryDocs(feature.queryHandlers, targets.query),
     };
   });
 }
