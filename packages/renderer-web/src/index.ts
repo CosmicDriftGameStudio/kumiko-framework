@@ -141,6 +141,7 @@ export {
   DefaultCard as Card,
   defaultPrimitives,
   FormScreenShell,
+  ScreenWidthProvider,
 } from "./primitives";
 export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu";
 export { ActionMenu } from "./primitives/action-menu";

@@ -17,6 +17,7 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { z } from "zod";
 import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../../renderer/src/components/render-edit";
+import { defaultPrimitives, ScreenWidthProvider } from "../primitives";
 import {
   act,
   createFakeDraftStorage,
@@ -36,6 +37,8 @@ const orderEntity = {
     notes: { type: "text" },
   },
 } as unknown as EntityDefinition;
+
+const { Button } = defaultPrimitives;
 
 function makeScreen(): EntityEditScreenDefinition {
   return {
@@ -318,6 +321,78 @@ describe("RenderEdit", () => {
     const shell = screen.getByTestId("render-edit-form").firstElementChild;
     expect(shell?.className).toContain("max-w-3xl");
     expect(shell?.className).not.toContain("max-w-full");
+  });
+
+  test("ScreenWidthProvider width='full' widens the form shell when layout.width is unset (fw#2656)", () => {
+    render(
+      <ScreenWidthProvider width="full">
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <RenderEdit<TestValues>
+            screen={makeScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, isUrgent: false }}
+            writeCommand="order:create"
+          />
+        </DispatcherProvider>
+      </ScreenWidthProvider>,
+    );
+
+    const shell = screen.getByTestId("render-edit-form").firstElementChild;
+    expect(shell?.className).toContain("max-w-full");
+    expect(shell?.className).not.toContain("max-w-4xl");
+  });
+
+  test("layout.width: '3xl' overrides ScreenWidthProvider width='full' (fw#2656)", () => {
+    const screenDef = makeScreen();
+    render(
+      <ScreenWidthProvider width="full">
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <RenderEdit<TestValues>
+            screen={{ ...screenDef, layout: { ...screenDef.layout, width: "3xl" } }}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, isUrgent: false }}
+            writeCommand="order:create"
+          />
+        </DispatcherProvider>
+      </ScreenWidthProvider>,
+    );
+
+    const shell = screen.getByTestId("render-edit-form").firstElementChild;
+    expect(shell?.className).toContain("max-w-3xl");
+    expect(shell?.className).not.toContain("max-w-full");
+  });
+
+  test("Cancel button renders with the same hover-class family as a secondary button, not the link look (fw#2656)", () => {
+    render(
+      <>
+        <Button testId="secondary-reference" variant="secondary">
+          Reference
+        </Button>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <RenderEdit<TestValues>
+            screen={makeScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, isUrgent: false }}
+            writeCommand="order:create"
+            onCancel={() => {}}
+          />
+        </DispatcherProvider>
+      </>,
+    );
+
+    const reference = screen.getByTestId("secondary-reference");
+    const cancel = screen.getByTestId("render-edit-cancel");
+    const referenceHoverClass = reference.className
+      .split(" ")
+      .find((token) => token.startsWith("hover:"));
+
+    expect(referenceHoverClass).toBeDefined();
+    expect(cancel.className).toContain(referenceHoverClass as string);
+    expect(cancel.className).not.toContain("h-auto");
+    expect(cancel.className).not.toContain("px-0");
   });
 
   test("title resolved aus i18n-Key `screen:<id>.title` mit screenId als Fallback", () => {

@@ -975,7 +975,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       {onCancel !== undefined && (
         <Button
           type="button"
-          variant="link"
+          variant="secondary"
           icon="x"
           onClick={() => onCancel()}
           testId="render-edit-cancel"

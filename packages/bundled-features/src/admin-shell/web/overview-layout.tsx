@@ -33,7 +33,7 @@ export function OverviewLayout({
   const gridClass = columns === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
 
   return (
-    <FormScreenShell testId={testId} maxWidth="4xl" className="flex flex-col gap-6">
+    <FormScreenShell testId={testId} className="flex flex-col gap-6">
       <Heading variant="page">{title}</Heading>
 
       {state.kind === "loading" && (

@@ -2028,6 +2028,21 @@ export function BareFormProvider({ children }: { children: ReactNode }): ReactNo
   return <BareFormContext.Provider value={true}>{children}</BareFormContext.Provider>;
 }
 
+// App-wide default for FormScreenShell's width when a screen doesn't set its
+// own `layout.width`. Default "4xl" keeps today's behavior for apps that
+// don't opt into `createKumikoApp({ screenWidth })` (fw#2656).
+const ScreenWidthContext = createContext<FormWidth>("4xl");
+
+export function ScreenWidthProvider({
+  width,
+  children,
+}: {
+  readonly width: FormWidth;
+  readonly children: ReactNode;
+}): ReactNode {
+  return <ScreenWidthContext.Provider value={width}>{children}</ScreenWidthContext.Provider>;
+}
+
 function DefaultForm({
   onSubmit,
   children,
@@ -2161,27 +2176,29 @@ function DefaultForm({
 }
 
 // Canonical form/settings shell shared by DefaultForm (configEdit/entityEdit)
-// and custom settings screens (profile, privacy-center). Default width is
-// "4xl" — a centered column, narrower than list chrome (which runs full-
-// width) — override via maxWidth / layout.width, e.g. "full" to match list
-// chrome or "3xl" for a narrower auth-adjacent form.
+// and custom settings screens (profile, privacy-center). Width resolution:
+// explicit `maxWidth` prop (screen's `layout.width`) wins, else the app-wide
+// `createKumikoApp({ screenWidth })` default from ScreenWidthContext, else
+// "4xl" (a centered column, narrower than list chrome, which runs full-width).
 export type FormScreenShellWidth = FormWidth;
 
 export function FormScreenShell({
   children,
   className,
   testId,
-  maxWidth = "4xl",
+  maxWidth,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
   readonly testId?: string;
   readonly maxWidth?: FormScreenShellWidth;
 }): ReactNode {
+  const contextWidth = useContext(ScreenWidthContext);
+  const width = maxWidth ?? contextWidth;
   return (
     <div
       data-testid={testId}
-      className={cn("px-6 pt-6 pb-12 w-full", screenWidthClassName[maxWidth], className)}
+      className={cn("px-6 pt-6 pb-12 w-full", screenWidthClassName[width], className)}
     >
       {children}
     </div>
