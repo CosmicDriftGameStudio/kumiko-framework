@@ -2,7 +2,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { createTestRedis, type TestRedis } from "../../stack";
 import { waitFor } from "../../testing/wait-for";
 import { generateId } from "../../utils";
-import { createRedisSseBroker, type RedisSseBroker } from "../redis-sse-broker";
+import {
+  createDefaultSseBroker,
+  createRedisSseBroker,
+  isRedisSseBroker,
+  type RedisSseBroker,
+} from "../redis-sse-broker";
 import type { SseEvent } from "../sse-broker";
 
 let testRedis: TestRedis;
@@ -147,5 +152,37 @@ describe("createRedisSseBroker", () => {
     } finally {
       publisherRaw.disconnect();
     }
+  });
+});
+
+describe("createDefaultSseBroker", () => {
+  test("builds a Redis-backed broker under REDIS_URL that participates in cross-pod fanout", async () => {
+    const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker({
+      REDIS_URL: testRedis.redisUrl,
+    });
+    expect(ownedRedisSseBroker).toBeDefined();
+    expect(isRedisSseBroker(sseBroker)).toBe(true);
+    if (ownedRedisSseBroker) brokers.push(ownedRedisSseBroker);
+
+    const otherPod = trackedBroker();
+    const channel = `default-broker-${generateId()}`;
+    const received: SseEvent[] = [];
+    otherPod.addClient(
+      channel,
+      (event) => received.push(event),
+      () => {},
+    );
+
+    await waitFor(() => {
+      sseBroker.pushToChannel(channel, { type: "unit.updated", data: { id: "1" } });
+      return received.length >= 1;
+    });
+    expect(received[0]).toEqual({ type: "unit.updated", data: { id: "1" } });
+  });
+
+  test("falls back to the in-memory broker without REDIS_URL", () => {
+    const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker({});
+    expect(ownedRedisSseBroker).toBeUndefined();
+    expect(isRedisSseBroker(sseBroker)).toBe(false);
   });
 });
