@@ -49,6 +49,17 @@ export type IncomingRelation = {
   relation: RelationDefinition;
 };
 
+// One entry per `ReferenceFieldDef` with `searchable: true` (fw#2660) —
+// resolved once at boot so the read-path never re-parses `field.entity`
+// per request. `labelField` is guaranteed defined here: buildSearchableSortableCaches
+// throws at boot for a searchable reference missing an explicit labelField
+// (the "id" default is a UUID column, ILIKE against it would 500 at request time).
+export type SearchableReferenceField = {
+  readonly fieldName: string;
+  readonly targetEntityName: string;
+  readonly labelField: string;
+};
+
 const IMPLICIT_PROJECTION_SUFFIX = "-entity" as const;
 
 // Pro r.entity-Registration eine ImplicitProjection mit auto-generierten
@@ -223,7 +234,7 @@ export type RegistryState = {
   treeActionsMap: Map<string, Readonly<Record<string, TreeActionDef>>>;
   searchableFieldsCache: Map<string, readonly string[]>;
   sortableFieldsCache: Map<string, readonly string[]>;
-  searchIncludesCache: Map<string, ReadonlyMap<string, readonly string[]>>;
+  searchableReferencesCache: Map<string, readonly SearchableReferenceField[]>;
   incomingRelationsCache: Map<string, IncomingRelation[]>;
   hasRateLimitedHandlerCached: boolean;
 };
@@ -286,7 +297,7 @@ export function createInitialState(): RegistryState {
     treeActionsMap: new Map(),
     searchableFieldsCache: new Map(),
     sortableFieldsCache: new Map(),
-    searchIncludesCache: new Map(),
+    searchableReferencesCache: new Map(),
     incomingRelationsCache: new Map(),
     hasRateLimitedHandlerCached: false,
   };

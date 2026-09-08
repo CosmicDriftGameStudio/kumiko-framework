@@ -1,4 +1,4 @@
-import type { IncomingRelation, RegistryState } from "./registry-state";
+import type { IncomingRelation, RegistryState, SearchableReferenceField } from "./registry-state";
 import { filterByPhase, filterOwned } from "./registry-state";
 import type {
   AuthClaimsHookDef,
@@ -97,8 +97,8 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return (state.relationMap.get(entityName) ?? {}) as EntityRelations; // @cast-boundary schema-walk
     },
 
-    getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]> {
-      return state.searchIncludesCache.get(entityName) ?? new Map();
+    getSearchableReferences(entityName: string): readonly SearchableReferenceField[] {
+      return state.searchableReferencesCache.get(entityName) ?? [];
     },
 
     getIncomingRelations(entityName: string): readonly IncomingRelation[] {

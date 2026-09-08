@@ -1,6 +1,6 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii";
 import { resolveName } from "./handler-helpers";
-import type { RegistryState } from "./registry-state";
+import type { RegistryState, SearchableReferenceField } from "./registry-state";
 import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state";
 import {
   buildSoftDeleteCleanupJob,
@@ -154,13 +154,22 @@ export function applyExtensionUsages(state: RegistryState): void {
   }
 }
 
-// Precompute: searchable/sortable fields.
-export function buildSearchableSortableCaches(state: RegistryState): void {
-  // Precompute: searchable/sortable fields, search includes, incoming relations
+// "customer" (same-feature) or "users:customer" (cross-feature,
+// "<featureName>:<entityName>") — only the entity name matters here, names
+// are globally unique in entityMap. Local duplicate of the same parse done
+// in db/eagerload.ts's parseRefEntity — this loop has no feature context to
+// hand to engine/parse-ref-target.ts's parseRefTarget.
+function parseReferenceTargetEntityName(raw: string): string {
+  const idx = raw.indexOf(":");
+  return idx < 0 ? raw : raw.slice(idx + 1);
+}
 
+// Precompute: searchable/sortable fields, searchable reference fields.
+export function buildSearchableSortableCaches(state: RegistryState): void {
   for (const [name, entity] of state.entityMap) {
     const searchable: string[] = [];
     const sortable: string[] = [];
+    const searchableReferences: SearchableReferenceField[] = [];
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type === "text" && field.searchable === true) searchable.push(fieldName);
       if (field.type === "text" && field.sortable === true) sortable.push(fieldName);
@@ -169,9 +178,33 @@ export function buildSearchableSortableCaches(state: RegistryState): void {
           if (subField.searchable === true) searchable.push(`${fieldName}_${subName}`);
         }
       }
+      if (field.type === "reference" && field.searchable === true) {
+        // fw#2660: labelField defaults to "id" (a UUID column) elsewhere,
+        // but a searchable reference ILIKEs the label column — an implicit
+        // or explicit "id" default would 500 on every search request. Fail at boot.
+        if (field.labelField === undefined || field.labelField === "id") {
+          throw new Error(
+            `[Entity ${name}] field "${fieldName}": searchable reference fields require an ` +
+              `explicit, non-"id" labelField. "id" is a UUID column — ILIKE against it fails ` +
+              `at request time. Set labelField to a human-readable field on the referenced entity.`,
+          );
+        }
+        if (field.multiple === true) {
+          throw new Error(
+            `[Entity ${name}] field "${fieldName}": searchable is not supported on multiple ` +
+              `(array) reference fields — remove "multiple" or "searchable".`,
+          );
+        }
+        searchableReferences.push({
+          fieldName,
+          targetEntityName: parseReferenceTargetEntityName(field.entity),
+          labelField: field.labelField,
+        });
+      }
     }
     state.searchableFieldsCache.set(name, searchable);
     state.sortableFieldsCache.set(name, sortable);
+    state.searchableReferencesCache.set(name, searchableReferences);
   }
 }
 
@@ -223,16 +256,8 @@ export function buildImplicitProjections(
   }
 }
 
-export function buildSearchIncludesAndIncomingRelations(state: RegistryState): void {
+export function buildIncomingRelations(state: RegistryState): void {
   for (const [entityName, rels] of state.relationMap) {
-    const includes = new Map<string, readonly string[]>();
-    for (const [relName, rel] of Object.entries(rels)) {
-      if ((rel.type === "belongsTo" || rel.type === "manyToMany") && rel.searchInclude?.length) {
-        includes.set(relName, rel.searchInclude);
-      }
-    }
-    state.searchIncludesCache.set(entityName, includes);
-
     // Build reverse index for incoming relations
     for (const [relName, rel] of Object.entries(rels)) {
       const existing = state.incomingRelationsCache.get(rel.target) ?? [];

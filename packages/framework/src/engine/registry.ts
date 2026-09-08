@@ -20,8 +20,8 @@ import {
   autoWireSoftDeleteJobs,
   buildEventUpcasterChains,
   buildImplicitProjections,
+  buildIncomingRelations,
   buildSearchableSortableCaches,
-  buildSearchIncludesAndIncomingRelations,
   computeHasRateLimitedHandler,
   finalizeWorkspaceNavMembership,
   populateHandlerEntityMappings,
@@ -68,7 +68,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   applyExtensionUsages(state);
   buildSearchableSortableCaches(state);
   buildImplicitProjections(state, features);
-  buildSearchIncludesAndIncomingRelations(state);
+  buildIncomingRelations(state);
   validateFieldAccessHandlersAreEntityMapped(state, features);
   validateExtensionPreSaveWiring(features);
   validateRelationTargetsExist(state);
