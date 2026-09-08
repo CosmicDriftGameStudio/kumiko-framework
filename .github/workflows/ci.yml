@@ -644,7 +644,9 @@ jobs:
     # github-hosted runners (HTTP 422 sonst). Public Repo → alle Jobs github-
     # hosted (gratis); cdgs-runner wird hier nicht mehr genutzt.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 20min reichte fuer Install+Publish allein; der neue Registry-Wait-Step
+    # unten kann bis zu 15min zusaetzlich blockieren (NPM_VISIBILITY_TIMEOUT_MS).
+    timeout-minutes: 40
     permissions:
       contents: write
       pull-requests: write
@@ -770,9 +772,24 @@ jobs:
       # den Fall ab, dass der App-Token-Step wegen fehlender Secrets
       # uebersprungen wurde oder fehlschlug (dann ist
       # `steps.renovate-dispatch-token.outputs.token` leer).
+      # Renovate respektiert per Default `respectLatest: true` den npm
+      # `dist-tags.latest`-Tag, der nach einem Publish beliebig lange auf der
+      # alten Version haengen bleiben kann (nicht die `versions`-Liste, die
+      # sofort aktuell ist). Ein Dispatch direkt nach dem Publish laesst
+      # Renovate deshalb genau die Pakete ueberspringen, deren `latest` noch
+      # nicht nachgezogen ist (fw#2644-Release: bundled-features' `latest`
+      # blieb Stunden auf 0.236.0 haengen, waehrend alle anderen Pakete schon
+      # auf 0.236.1 standen) — Ergebnis war ein halber Lockstep-Bump mit zwei
+      # kumiko-types-Kopien und rotem Consumer-Typecheck.
+      - name: Wait for npm packuments to catch up
+        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
+        continue-on-error: true
+        id: npm-visibility
+        run: bun scripts/wait-for-npm-visibility.ts
+
       - name: Create Renovate dispatch token
         id: renovate-dispatch-token
-        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
+        if: (steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true') && steps.npm-visibility.outcome == 'success'
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -781,8 +798,12 @@ jobs:
           owner: CosmicDriftGameStudio
           repositories: infra
 
+      # Bleiben die Packumente unvollstaendig (Timeout oben), wird bewusst NICHT
+      # dispatcht: der 4h-schedule-Cron im infra-Renovate-Workflow holt den Bump
+      # dann nach, sobald die Registry konsistent ist, statt wieder einen halben
+      # Lockstep-Bump zu triggern.
       - name: Trigger Renovate in consumers
-        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
+        if: (steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true') && steps.npm-visibility.outcome == 'success'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.renovate-dispatch-token.outputs.token }}
