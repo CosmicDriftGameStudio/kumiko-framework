@@ -386,6 +386,26 @@ describe("DataTable", () => {
     expect(screen.getByTestId("t-empty")).not.toBeNull();
   });
 
+  test("empty rows without emptyState translate the default label (issue #2653)", async () => {
+    const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } = await import(
+      "@cosmicdrift/kumiko-renderer"
+    );
+    const { localeDeBundle } = await import("@cosmicdrift/kumiko-locale-de");
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "de" })}
+        fallbackBundles={[{ de: localeDeBundle }, kumikoDefaultTranslations]}
+      >
+        <DataTable
+          columns={[{ field: "name", label: "Name", type: "string", sortable: false }]}
+          rows={[]}
+          testId="t"
+        />
+      </LocaleProvider>,
+    );
+    expect(screen.getByTestId("t-empty").textContent).toBe("Keine Einträge.");
+  });
+
   test("rows + cells get individual testIds for E2E hooks", () => {
     render(
       <DataTable
