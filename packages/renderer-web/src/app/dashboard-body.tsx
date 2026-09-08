@@ -50,6 +50,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect } from "react";
+import { PageSection } from "../primitives/layout";
 import { TimeseriesChart, type TimeseriesPoint } from "../widgets/charts";
 import { FeedList, type FeedRow } from "../widgets/feed-list";
 import { ProgressList, type ProgressListRow } from "../widgets/progress-list";
@@ -434,7 +435,7 @@ export function WebDashboardBody({ screen, translate }: DashboardBodyProps): Rea
   const effectiveTranslate = translate ?? t;
   const { params: filterParams, picker } = useFilterParams(screen);
   return (
-    <div className="flex flex-col gap-4 p-6" data-testid={`dashboard-${screen.id}`}>
+    <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
       {picker}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {screen.panels.map((panel) => {
@@ -452,6 +453,6 @@ export function WebDashboardBody({ screen, translate }: DashboardBodyProps): Rea
           );
         })}
       </div>
-    </div>
+    </PageSection>
   );
 }

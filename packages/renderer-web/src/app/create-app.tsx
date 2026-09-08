@@ -526,6 +526,29 @@ function findOwnerFeature(app: AppSchema, qn: string): FeatureSchema | undefined
   return undefined;
 }
 
+type ScreenDef = FeatureSchema["screens"][number];
+
+// fw#2640: a list screen with no reachable click target (no `detailFor`
+// screen for its entity, no app-wide onRowClick, no entityEdit screen)
+// must render without the row-click affordance instead of a silent no-op —
+// mirrors the precedence effectiveOnRowClick itself resolves at click time.
+// Only entityList/projectionList screens ever render RenderList; every other
+// screen type never wires onRowClick at all, so it can never have a target.
+function hasRowClickTarget(
+  app: AppSchema,
+  screen: ScreenDef | undefined,
+  onRowClick: ((row: ListRowViewModel, entityName: string) => void) | undefined,
+): boolean {
+  if (screen === undefined) return false;
+  if (screen.type !== "entityList" && screen.type !== "projectionList") return false;
+  if (onRowClick !== undefined) return true;
+  if (screen.type !== "entityList") return false;
+  if (hasDetailScreen(app.features, screen.entity)) return true;
+  return app.features.some((f) =>
+    f.screens.some((s) => s.type === "entityEdit" && s.entity === screen.entity),
+  );
+}
+
 function RoutedScreen({
   app,
   fallbackQn,
@@ -544,12 +567,16 @@ function RoutedScreen({
   // need to pin it to the right feature. Strategy: iterate through all
   // features until the matching screen decl turns up. No match →
   // fallback feature (the one from fallbackQn).
-  const { feature, qn, entityId } = useMemo(() => {
+  const { feature, qn, entityId, activeScreen } = useMemo(() => {
     if (nav.route === undefined) {
+      const ownerFeature = findOwnerFeature(app, fallbackQn);
       return {
-        feature: findOwnerFeature(app, fallbackQn),
+        feature: ownerFeature,
         qn: fallbackQn,
         entityId: undefined as string | undefined,
+        activeScreen: ownerFeature?.screens.find(
+          (s) => qualifyScreenId(ownerFeature.featureName, s.id) === fallbackQn,
+        ),
       };
     }
     const shortId = nav.route.screenId;
@@ -567,12 +594,16 @@ function RoutedScreen({
       feature: ownerFeature,
       qn: qualifiedQn,
       entityId: nav.route.entityId,
+      activeScreen: ownerFeature?.screens.find(
+        (s) => qualifyScreenId(ownerFeature.featureName, s.id) === qualifiedQn,
+      ),
     };
   }, [nav.route, app, fallbackQn]);
 
   const effectiveOnRowClick = useMemo<
     ((row: ListRowViewModel, entityName: string) => void) | undefined
   >(() => {
+    if (!hasRowClickTarget(app, activeScreen, onRowClick)) return undefined;
     return (row, entityName) => {
       // Precedence (fw#2164): detailFor screen, then onRowClick, then the
       // entityEdit-search fallback below. An explicit rowActions
@@ -603,7 +634,7 @@ function RoutedScreen({
         }
       }
     };
-  }, [onRowClick, app.features, nav]);
+  }, [app, activeScreen, onRowClick, nav]);
 
   // Copy-link action (Issue #912) for entityEdit update screens. Builds
   // the absolute permalink URL from the current route + copies it —

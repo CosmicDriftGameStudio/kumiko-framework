@@ -11,7 +11,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { type ColumnRendererProps, ColumnRenderersProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { defaultPrimitives, END_LABEL_MIN_ROWS } from "../primitives";
+import { defaultPrimitives, END_LABEL_MIN_ROWS, FormScreenShell } from "../primitives";
 import { PageSection, Stack } from "../primitives/layout";
 import { fireEvent, render, screen, waitFor } from "./test-utils";
 
@@ -1724,5 +1724,25 @@ describe("PageSection", () => {
     );
     expect(screen.getByTestId("p").className).toContain("p-6");
     expect(screen.getByTestId("child")).toBeDefined();
+  });
+
+  test("maxWidth=4xl sets the same width class as FormScreenShell maxWidth=4xl (fw#2640)", () => {
+    render(
+      <>
+        <PageSection testId="page-4xl" maxWidth="4xl">
+          x
+        </PageSection>
+        <FormScreenShell testId="shell-4xl" maxWidth="4xl">
+          x
+        </FormScreenShell>
+      </>,
+    );
+    expect(screen.getByTestId("page-4xl").className).toContain("max-w-4xl");
+    expect(screen.getByTestId("shell-4xl").className).toContain("max-w-4xl");
+  });
+
+  test("default maxWidth stays full-width (existing behavior)", () => {
+    render(<PageSection testId="p-default">x</PageSection>);
+    expect(screen.getByTestId("p-default").className).toContain("max-w-full");
   });
 });

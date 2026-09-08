@@ -42,6 +42,7 @@ import {
   collectWriteHandlerQns,
   validateNavCycles,
   validateNavs,
+  warnOnNavAccessInversion,
 } from "./nav";
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
@@ -215,6 +216,7 @@ export function validateBoot(
   }
 
   validateNavCycles(allNavQns);
+  warnOnNavAccessInversion(allNavQns);
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
