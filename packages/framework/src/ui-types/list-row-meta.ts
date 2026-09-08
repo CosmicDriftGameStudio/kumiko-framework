@@ -12,6 +12,8 @@
 // deletedById) — this is also the SAME set the boot-validator's entityList
 // column checks accept, so a softDelete column stays a boot-time error
 // instead of a renderer-side throw (see screens.ts / entity-list-screens.ts).
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
+
 export type ListRowMetaColumnType = "text" | "number" | "timestamp";
 
 export const LIST_ROW_META_COLUMNS: Readonly<Record<string, ListRowMetaColumnType>> = {
@@ -38,4 +40,20 @@ export type ListRowMetaReference = {
 // ever exceeds it.
 export const LIST_ROW_META_REFERENCES: Readonly<Record<string, ListRowMetaReference>> = {
   tenantId: { refFeature: "tenant", refEntity: "tenant", refLabelField: "name" },
+};
+
+export type SystemReferenceLabel = {
+  readonly id: string;
+  readonly labelKey: string;
+};
+
+// Reference ids that never resolve through the bulk id->row lookup because
+// no row exists for them (e.g. SYSTEM_TENANT_ID has no tenant record, see
+// isSystemTenant()) — every reference column falls back to the raw id
+// otherwise. Keyed by `${refFeature}:${refEntity}` so useReferenceLookup can
+// consult this generically instead of any screen/hook hardcoding an entity
+// name. Central so the label applies to every screen that references this
+// entity, not just delivery-log (fw#2662).
+export const SYSTEM_REFERENCE_LABELS: Readonly<Record<string, SystemReferenceLabel>> = {
+  "tenant:tenant": { id: SYSTEM_TENANT_ID, labelKey: "kumiko.reference.system-tenant" },
 };

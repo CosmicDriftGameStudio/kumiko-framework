@@ -64,6 +64,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.end-of-list": "— End of list —",
     "kumiko.list.sort.label": "Sort",
     "kumiko.list.sort.unsorted": "Unsorted",
+    "kumiko.reference.system-tenant": "System",
 
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.previousPage": "Previous page",

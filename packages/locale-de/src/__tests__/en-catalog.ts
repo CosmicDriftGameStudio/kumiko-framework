@@ -536,6 +536,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.search-placeholder": "Search…",
   "kumiko.list.sort.label": "Sort",
   "kumiko.list.sort.unsorted": "Unsorted",
+  "kumiko.reference.system-tenant": "System",
   "kumiko.nav.collapse": "Collapse",
   "kumiko.nav.expand": "Expand",
   "kumiko.nav.language": "Language",
