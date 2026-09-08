@@ -70,11 +70,14 @@ publish_and_tag() {
     # view "$name@$version"`) can still answer with the prior version for a
     # short while after another job's publish already landed, so this rescue
     # run reaches `npm publish` for a version that is, in fact, already live.
-    # npm's E403 body names the exact version it rejected — matching that
-    # against $version keeps a real auth/tarball failure, or an E403 for a
-    # *different* version, a hard failure.
-    if grep -q 'code E403' <<<"$log" \
-      && grep -qF "previously published versions: ${version}." <<<"$log"; then
+    # npm's E403 body names the exact version it rejected in its human-readable
+    # message line — matching that against $version keeps a real auth/tarball
+    # failure, or an E403 for a *different* version, a hard failure. Match on
+    # that message alone, not a companion `npm error code E403` line: the
+    # 0.238.0 release job hit this exact rescue case with npm printing only
+    # the message line (no `code E403` line above it), so the old code-gated
+    # check missed it and hard-failed a release that had actually landed.
+    if grep -qF "previously published versions: ${version}." <<<"$log"; then
       already_published_via_e403=1
     else
       grep -q 'Cannot publish over previously staged version' <<<"$log" || return 1
