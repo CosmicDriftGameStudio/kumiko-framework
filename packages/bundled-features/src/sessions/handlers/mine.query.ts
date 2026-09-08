@@ -11,6 +11,8 @@ export const mineQuery = defineQueryHandler({
   name: "user-session:mine",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Lists the calling user's own still-live sessions, newest first, each flagged whether it is the one making the request; use it to show a user their signed-in devices.",
   handler: async (query, ctx) => {
     const rows = await selectMany<{
       id: string;

@@ -46,6 +46,9 @@ export const restrictAccountWrite = defineWriteHandler({
   name: "restrict-account",
   schema: z.object({ userId: z.string().uuid().optional() }),
   access: { openToAll: true },
+  description:
+    "Freezes an account under GDPR Art. 18 by flipping it to restricted and revoking all of its live sessions, locking the user out until an admin calls lift-restriction; targets the caller by default, an admin may name another userId.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId ?? event.user.id;
     if (targetUserId !== event.user.id) {

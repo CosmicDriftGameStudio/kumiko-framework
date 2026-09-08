@@ -13,6 +13,8 @@ import {
 // Tenant-eigene Pages (Host → tenantId via resolveApexTenant am Render-Pfad).
 export const pageEntity = createEntity({
   table: "read_pages",
+  description:
+    "One tenant-editable public web page, unique per slug and language, holding a markdown body plus the title, SEO description and OG image, with a published flag that decides whether anonymous visitors are served it or get a 404.",
   fields: {
     slug: createTextField({ required: true, maxLength: 64, sortable: true, searchable: true }),
     lang: createTextField({ required: true, maxLength: 8, sortable: true }),

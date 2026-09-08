@@ -42,6 +42,9 @@ export type TokenRequestData<K extends string> = TokenRequestSuccess<K> | TokenR
 export type TokenRequestSpec<TName extends string, TSuccessKind extends string> = {
   readonly handlerName: TName;
   readonly successKind: TSuccessKind;
+  // Per-flow, never derived here — a shared sentence would describe the
+  // mechanism instead of the flow the agent is picking between.
+  readonly description: string;
   readonly defaultTtlMinutes: number;
   // Feature-specific sign function. Signature matches both signResetToken
   // and signVerificationToken (thin wrappers over signed-token.ts).
@@ -92,6 +95,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     name: spec.handlerName,
     schema: RequestTokenSchema,
     access: { roles: ["all"] },
+    description: spec.description,
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {
         // Feature-factory guards this at boot; defensive here for lazy-

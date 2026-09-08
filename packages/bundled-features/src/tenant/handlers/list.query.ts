@@ -14,6 +14,8 @@ export const listQuery = defineQueryHandler({
     search: z.string().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
+  description:
+    "Pages through every tenant on the platform with an optional search term, for a SystemAdmin browsing the tenant roster.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

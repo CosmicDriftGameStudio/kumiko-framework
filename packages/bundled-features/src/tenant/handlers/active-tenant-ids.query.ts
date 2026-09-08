@@ -12,6 +12,8 @@ export const activeTenantIdsQuery = defineQueryHandler({
   name: "activeTenantIds",
   schema: z.object({}),
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  description:
+    "Returns the ids of every tenant that is currently enabled, platform-wide; use it to drive work that has to fan out over all live tenants.",
   handler: async (_query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

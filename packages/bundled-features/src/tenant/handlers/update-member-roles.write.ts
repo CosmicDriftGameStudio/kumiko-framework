@@ -54,6 +54,8 @@ export const updateMemberRolesWrite = defineWriteHandler({
   // manage memberships cross-tenant (payload.tenantId). TenantAdmin and Admin
   // are session-scoped (event.user.tenantId).
   access: { roles: ["system", ...access.admin] },
+  description:
+    "Replaces the roles a user holds in a tenant, rejecting reserved role names and any grant that would raise the target above the caller; admins act on their own tenant, SystemAdmins on any.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

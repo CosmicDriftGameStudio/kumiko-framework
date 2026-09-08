@@ -299,6 +299,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       renderer: { react: { __component: "PrivacyCenterScreen" } },
       access: { openToAll: true },
       dormant: true,
+      description:
+        "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
     });
 
     // Magic-link path (anonymous): the email link carries the token as a

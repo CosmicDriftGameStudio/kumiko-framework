@@ -58,6 +58,8 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       mfaCode: z.string().optional(),
     }),
     access: { openToAll: true },
+    description:
+      "Mints a personal access token for the calling user after re-verifying their password (and MFA code when enrolled) and returns the plaintext token exactly once; use it when a user needs a long-lived API credential.",
     handler: async (event, ctx) => {
       const systemUser = createSystemUser(event.user.tenantId);
       const me = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {

@@ -20,6 +20,8 @@ export const forTenantQuery = defineQueryHandler({
   name: "for-tenant",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Returns the effective compliance profile for the caller's tenant with any tenant override merged in, falling back to minimal-no-region plus a no-profile-selected warning when the tenant has not picked one yet.",
   handler: async (query, ctx): Promise<EffectiveComplianceProfile> => {
     const row = (await fetchOne(ctx.db, tenantComplianceProfileTable, {
       tenantId: query.user.tenantId,

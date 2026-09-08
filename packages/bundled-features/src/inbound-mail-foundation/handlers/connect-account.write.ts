@@ -57,6 +57,8 @@ export const connectAccountHandler: WriteHandlerDef = {
   name: "connect-account",
   schema: connectAccountSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
+  description:
+    "Registers a mailbox for the tenant (provider, auth method, display name, encrypted address, shared or personal) and returns the new accountId that also keys its credential slot; use it to start a mail connection, credentials and the first connection test happen outside this call.",
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as ConnectAccountPayload;

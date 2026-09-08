@@ -22,6 +22,8 @@ export const updateWrite = defineWriteHandler({
     changes: z.object({ name: z.string().min(1).max(200).optional() }),
   }),
   access: { roles: ["Admin", "SystemAdmin"] },
+  description:
+    "Renames a tenant against the version the caller read; an Admin may only rename their own tenant, a SystemAdmin any of them.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

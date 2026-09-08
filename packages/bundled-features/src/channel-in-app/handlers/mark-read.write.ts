@@ -11,6 +11,8 @@ export const markReadWrite = defineWriteHandler({
     id: z.number().int(),
   }),
   access: { openToAll: true },
+  description:
+    "Marks one in-app message of the calling user as read by its numeric id, failing with not-found when no such message belongs to the caller; use it when a user opens a single notification.",
   handler: async (event, ctx) => {
     const rows = await updateMany(
       ctx.db,

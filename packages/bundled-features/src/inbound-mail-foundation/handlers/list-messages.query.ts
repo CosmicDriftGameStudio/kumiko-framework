@@ -32,6 +32,8 @@ export const listMessagesQuery: QueryHandlerDef = {
   name: "message:list",
   schema: listMessagesSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin", "User"] },
+  description:
+    "Lists received mail of the caller's tenant with sender, recipients, subject and snippet decrypted, optionally narrowed to one account, thread or folder scope and hiding messages of personal mailboxes the caller neither owns nor administers; use it to read an inbox or a conversation.",
   handler: async (query, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = query.payload as ListMessagesPayload;

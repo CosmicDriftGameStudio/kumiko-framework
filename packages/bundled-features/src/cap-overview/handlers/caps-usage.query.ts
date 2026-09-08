@@ -19,6 +19,8 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefinition {
   return defineQueryHandler({
     name: "caps:usage",
+    description:
+      "Returns one tenant's configured caps with used amount, tier limit and utilisation fraction; use it to answer how close a tenant is to its quota (SystemAdmin may target another tenant via tenantId).",
     schema: z.object({ tenantId: z.string().min(1).optional() }),
     access: { roles: access.admin },
     handler: async (query, ctx) => {

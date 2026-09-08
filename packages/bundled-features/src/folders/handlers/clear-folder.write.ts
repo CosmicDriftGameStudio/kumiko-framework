@@ -14,6 +14,8 @@ export function createClearFolderHandler(
     name: "clear-folder",
     schema: clearFolderPayloadSchema,
     access,
+    description:
+      "Unfiles a host entity so it sits in no folder at all, reporting success when it was already unfiled; use it to take an entity out of its folder without touching the folder itself.",
     handler: async (event, ctx) => {
       const payload = event.payload as ClearFolderPayload; // @cast-boundary engine-payload
       const id = folderAssignmentAggregateId(

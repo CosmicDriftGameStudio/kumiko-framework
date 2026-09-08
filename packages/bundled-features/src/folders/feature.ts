@@ -58,18 +58,48 @@ function registerFolders(
 
   // Folder catalog — plain CRUD, no custom logic. update is rename (and, in a
   // later stage, reparent: it accepts changes.parentId, optimistic-locked).
-  r.writeHandler(defineEntityCreateHandler("folder", folderEntity, { access }));
-  r.writeHandler(defineEntityUpdateHandler("folder", folderEntity, { access }));
+  r.writeHandler(
+    defineEntityCreateHandler("folder", folderEntity, {
+      access,
+      description:
+        "Creates a folder in the caller's tenant folder tree, optionally nested under a parent folder; use it to grow the folder catalog, not to file an entity into a folder.",
+    }),
+  );
+  r.writeHandler(
+    defineEntityUpdateHandler("folder", folderEntity, {
+      access,
+      description:
+        "Renames a folder or moves it under a different parent folder; use it to reorganise the catalog itself, which leaves the entities filed in that folder where they are.",
+    }),
+  );
   // Custom, not defineEntityDeleteHandler: blocks the delete when folder-
   // assignments still point at this folder (658/1) — see delete-folder.write.ts.
   r.writeHandler(createDeleteFolderHandler(access));
-  r.queryHandler(defineEntityListHandler("folder", folderEntity, { access }));
-  r.queryHandler(defineEntityDetailHandler("folder", folderEntity, { access }));
+  r.queryHandler(
+    defineEntityListHandler("folder", folderEntity, {
+      access,
+      description:
+        "Lists the caller's tenant folders with their names and parent ids so the whole folder tree can be reassembled; use it to render a folder tree or to let a user pick a folder.",
+    }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("folder", folderEntity, {
+      access,
+      description:
+        "Reads one folder of the caller's tenant by id, returning its name and parent id; use it to confirm a folder id is real before filing something into it.",
+    }),
+  );
 
   // Single-membership assignment — hand-written (deterministic id + move/restore).
   r.writeHandler(createSetFolderHandler(access));
   r.writeHandler(createClearFolderHandler(access));
-  r.queryHandler(defineEntityListHandler("folder-assignment", folderAssignmentEntity, { access }));
+  r.queryHandler(
+    defineEntityListHandler("folder-assignment", folderAssignmentEntity, {
+      access,
+      description:
+        "Lists the folder-membership rows of the caller's tenant; filter on entityId to learn which folder one entity sits in, or on folderId to list everything filed into a folder.",
+    }),
+  );
 }
 
 export const foldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>

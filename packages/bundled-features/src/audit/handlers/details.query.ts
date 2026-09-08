@@ -9,6 +9,8 @@ import { z } from "zod";
 
 export const detailsQuery = defineQueryHandler({
   name: "details",
+  description:
+    "Returns one audit-trail event of the caller's tenant by its event-store id, with full payload and metadata; use it to inspect the exact change behind a row of the audit log list.",
   schema: z.object({
     id: z.string().regex(/^[1-9]\d*$/, "id must be a positive integer"),
   }),

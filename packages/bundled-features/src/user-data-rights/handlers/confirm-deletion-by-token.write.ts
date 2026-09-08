@@ -50,6 +50,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     name: "confirm-deletion-by-token",
     schema: z.object({ token: z.string().min(1) }),
     access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+    agent: { expose: false },
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
       if (!opts.deletionTokenSecret) return writeFailure(invalidToken());

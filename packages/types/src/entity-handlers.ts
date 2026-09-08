@@ -1,7 +1,11 @@
 import type { EntityDefinition } from "./fields";
-import type { AccessRule, QueryHandlerDef, WriteHandlerDef } from "./handlers";
+import type { AccessRule, AgentHandlerHints, QueryHandlerDef, WriteHandlerDef } from "./handlers";
 
-export type EntityHandlerOptions = { readonly access?: AccessRule };
+export type EntityHandlerOptions = {
+  readonly access?: AccessRule;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
+};
 
 export type EntityQueryHandlerOptions = EntityHandlerOptions & {
   /** Reads across every tenant instead of the caller's own — for a
@@ -20,6 +24,10 @@ export type RegisterEntityCrudOptions = {
   readonly verbs?: Partial<Record<EntityCrudVerb, boolean>>;
   /** Per-verb access override — falls back to `write.access`/`read.access` when unset for a verb. */
   readonly verbAccess?: Partial<Record<EntityCrudVerb, AccessRule>>;
+  /** Per-verb `description` — the author writes one sentence per verb; the AI-agent
+   *  manifest exposes only the verbs described here (fail-closed, same rule as
+   *  hand-written handlers). Falls back to `write.description`/`read.description`. */
+  readonly descriptions?: Partial<Record<EntityCrudVerb, string>>;
   /** Default true. Set false when the entity was already registered (e.g. before r.relation). */
   readonly registerEntity?: boolean;
 };

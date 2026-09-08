@@ -86,6 +86,7 @@ export function createInviteSignupCompleteHandler() {
     name: "invite-signup-complete",
     schema: InviteSignupCompleteSchema,
     access: { roles: ["all"] },
+    agent: { expose: false },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(

@@ -46,6 +46,8 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
     name: "verify",
     schema: z.object({ challengeToken: z.string().min(1), code: z.string().min(6).max(9) }),
     access: { roles: ["all"] },
+    description:
+      "Finishes a two-step sign-in by checking a TOTP or recovery code against the challenge token that login handed back, under a per-account attempt cap, and derives the resulting session.",
     handler: async (event, ctx) => {
       const verified = verifyMfaChallengeToken(
         event.payload.challengeToken,

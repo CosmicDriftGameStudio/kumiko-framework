@@ -19,6 +19,8 @@ export const cancelDestructionWrite = defineWriteHandler({
   name: "cancel-destruction",
   schema: z.object({}),
   access: { roles: ["TenantOwner", "Admin"] },
+  description:
+    "Returns a tenant whose destruction was requested back to active and clears the grace period; use it to undo a close-account request while the grace period is still running.",
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
     const row = await fetchOne<TenantLifecycleRow>(ctx.db.raw, tenantTable, { id: tenantId });

@@ -11,6 +11,8 @@ import { hasConfigAccess } from "../write-helpers";
 
 export const cascadeQuery = defineQueryHandler({
   name: "cascade",
+  description:
+    "Shows, per config key the caller may read, the value at every cascade level (user, tenant, system, app override, default) and which level won; use it to explain where a setting's current value comes from.",
   schema: z.object({
     keys: z.array(z.string()).optional(),
   }),

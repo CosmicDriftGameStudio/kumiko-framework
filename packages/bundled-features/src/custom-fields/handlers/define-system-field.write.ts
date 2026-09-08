@@ -19,6 +19,8 @@ export const defineSystemFieldHandler: WriteHandlerDef = {
   name: "define-system-field",
   schema: defineFieldPayloadSchema,
   access: { roles: ["SystemAdmin"] },
+  description:
+    "Creates a custom-field definition under the system tenant so every tenant inherits the field on the named entity; use it for platform-mandated fields that individual tenants may fill in but never edit or delete.",
   handler: async (event, ctx) => {
     const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
 

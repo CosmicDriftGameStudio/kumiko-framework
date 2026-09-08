@@ -12,6 +12,8 @@ export const meQuery = defineQueryHandler({
   name: "user:me",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Returns the signed-in caller's own identity record, with the password hash stripped by field-level read access; use it whenever the current user's own profile data is needed.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({ message: "user:me requires r.systemScope()" });

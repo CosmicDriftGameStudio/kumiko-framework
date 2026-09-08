@@ -38,6 +38,8 @@ export function createBalancesReportHandler(
     name: "report:balances",
     schema: periodSchema,
     access,
+    description:
+      "Returns the per-account balance in its natural sign plus the trial balance over an optional from/to period; use it for a trial balance or to read one account's standing.",
     handler: async (query, ctx) => {
       const period = periodSchema.parse(query);
       const { accounts, entries } = await loadBooks(ctx);
@@ -54,6 +56,8 @@ export function createIncomeStatementHandler(
     name: "report:income-statement",
     schema: periodSchema,
     access,
+    description:
+      "Returns income minus expense over an optional from/to period; use it for a profit-and-loss statement.",
     handler: async (query, ctx) => {
       const period = periodSchema.parse(query);
       const { accounts, entries } = await loadBooks(ctx);
@@ -70,6 +74,8 @@ export function createBalanceSheetHandler(
     name: "report:balance-sheet",
     schema: periodSchema,
     access,
+    description:
+      "Returns assets, liabilities and equity as of the optional `to` date with the period result folded into equity so the sheet balances; use it for a balance sheet at a point in time.",
     handler: async (query, ctx) => {
       const period = periodSchema.parse(query);
       const { accounts, entries } = await loadBooks(ctx);

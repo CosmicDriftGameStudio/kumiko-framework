@@ -16,6 +16,8 @@ export const bySlugQuery = defineQueryHandler({
     lang: z.string().min(2).max(8),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  description:
+    "Reads the body and metadata of one published managed page of the caller's tenant by slug and language, returning null for drafts and bodyless pages; use it to render a public page, not to load one for editing.",
   handler: async (query, ctx) => {
     const row = await fetchOne<PageRow>(ctx.db, pagesTable, {
       tenantId: query.user.tenantId,

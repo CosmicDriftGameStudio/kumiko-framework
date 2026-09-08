@@ -8,11 +8,12 @@ import { executor } from "./shared";
 
 type TemplateStatus = "active" | "archived";
 
-function createStatusUpdateHandler(name: string, status: TemplateStatus) {
+function createStatusUpdateHandler(name: string, status: TemplateStatus, description: string) {
   return defineWriteHandler({
     name,
     schema: z.object({ id: z.string().min(1) }),
     access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    description,
     handler: async (event, ctx) => {
       // ctx.db is tenant-scoped: a foreign tenant's id reads as absent → NotFound.
       // Cross-tenant toggling needs SystemAdmin with tenantIdOverride.
@@ -33,5 +34,13 @@ function createStatusUpdateHandler(name: string, status: TemplateStatus) {
   });
 }
 
-export const archiveWrite = createStatusUpdateHandler("archive", "archived");
-export const publishWrite = createStatusUpdateHandler("publish", "active");
+export const archiveWrite = createStatusUpdateHandler(
+  "archive",
+  "archived",
+  "Sets one template resource of the caller's tenant to archived so the resolver stops serving it while the row and its content survive; use it to retire a template reversibly instead of deleting it.",
+);
+export const publishWrite = createStatusUpdateHandler(
+  "publish",
+  "active",
+  "Sets one template resource of the caller's tenant to active so the resolver starts serving it; use it to release a draft written by upsert-tenant, or to bring an archived template back.",
+);

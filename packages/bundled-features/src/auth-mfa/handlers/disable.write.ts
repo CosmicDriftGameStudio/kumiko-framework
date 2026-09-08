@@ -31,6 +31,9 @@ export function createDisableHandler(opts: DisableOptions) {
     name: "disable",
     schema: z.object({ code: z.string().min(6).max(9) }),
     access: { openToAll: true },
+    description:
+      "Removes the caller's TOTP enrollment for good after they prove possession with a TOTP or recovery code, and signs their other sessions and access tokens out; use it when a user wants two-factor authentication turned off.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const row = await findUserMfaRow(ctx.db, event.user);
       if (!row) return mfaNotEnabled();

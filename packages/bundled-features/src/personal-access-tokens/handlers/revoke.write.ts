@@ -14,6 +14,9 @@ export const revokePatWrite = defineWriteHandler({
   name: "revoke",
   schema: z.object({ id: z.uuid() }),
   access: { openToAll: true },
+  description:
+    "Permanently revokes one of the caller's own personal access tokens so it stops authenticating; use it when a token leaked or is no longer needed.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const updated = await updateMany(
       ctx.db,

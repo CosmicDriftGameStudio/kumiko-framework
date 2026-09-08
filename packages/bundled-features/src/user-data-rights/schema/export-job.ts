@@ -64,6 +64,8 @@ const EXPORT_JOB_STATUS_OPTIONS = [
 export const exportJobEntity = createEntity({
   table: "read_export_jobs",
   idType: "uuid",
+  description:
+    "One user's GDPR Art. 20 data-export request and its lifecycle: who asked, from which tenant, the pending/running/done/failed status, the timestamps, the download storage key and expiry, and any error the export worker hit.",
 
   fields: {
     // Tenant-agnostisch: Wert wird beim Schreiben gesetzt (Framework

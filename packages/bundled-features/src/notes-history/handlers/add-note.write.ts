@@ -18,6 +18,8 @@ export function createAddNoteHandler(
     name: "add-note",
     schema: addNotePayloadSchema,
     access,
+    description:
+      "Appends a note to one host entity's history, stamping the author from the authenticated caller rather than the payload; use it for every remark and correction alike, because entries can never be edited or removed afterwards.",
     handler: async (event, ctx) => {
       const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
 

@@ -23,6 +23,8 @@ export const policyForQuery = defineQueryHandler({
     entityName: z.string().min(1).max(100),
   }),
   access: { openToAll: true },
+  description:
+    "Resolves the effective retention policy for one entity name in the caller's tenant (keep-for duration plus delete or anonymize strategy) by layering the entity default, tenant preset and tenant override, so a forget flow or cleanup job knows how that data may be removed.",
   handler: async (query, ctx): Promise<EffectiveRetentionPolicy> => {
     const entityName = query.payload.entityName;
 

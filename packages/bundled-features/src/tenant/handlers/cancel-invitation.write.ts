@@ -35,6 +35,8 @@ export const cancelInvitationWrite = defineWriteHandler({
   name: "cancel-invitation",
   schema: CancelInvitationSchema,
   access: { roles: access.admin },
+  description:
+    "Withdraws a still-pending invitation of the caller's own tenant and invalidates its link, answering successfully as a no-op when it was already accepted, cancelled or expired.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

@@ -22,6 +22,8 @@ export const rateLimitStatus = defineQueryHandler({
   // when the feature is registered. Passing the qualified form here would
   // double-prefix it and the handler wouldn't be reachable.
   name: "status",
+  description:
+    "Peeks at one rate-limit bucket and returns its remaining tokens, window and next reset without consuming a token; use it to explain why a caller is being throttled.",
   schema: z.object({
     bucket: z.string().min(1),
     limit: z.number().int().positive(),

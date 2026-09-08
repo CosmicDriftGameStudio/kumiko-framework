@@ -25,6 +25,8 @@ export const subProcessorsQuery = defineQueryHandler({
   name: "sub-processors",
   schema: z.object({}),
   access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+  description:
+    "Returns the publicly readable Kumiko sub-processor list split into active and planned entries, for the GDPR Art. 28(2) disclosure a privacy policy or data-processing agreement links to.",
   handler: async (): Promise<SubProcessorListResponse> => {
     return {
       active: [...getActiveSubProcessors()],

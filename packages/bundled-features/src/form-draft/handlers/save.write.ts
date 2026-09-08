@@ -35,6 +35,8 @@ export const saveDraftWrite = defineWriteHandler({
   name: "save",
   schema: saveDraftPayloadSchema,
   access: FORM_DRAFT_ACCESS,
+  description:
+    "Upserts the calling user's draft for one draftKey with the given form values and step index, stamping savedAt server-side and refusing a brand-new draft once the per-owner draft cap is reached; use it to persist an in-progress form before the real entity exists.",
   handler: async (event, ctx) => {
     const ownerId = event.user.id;
     const { draftKey, values, stepIndex } = event.payload;

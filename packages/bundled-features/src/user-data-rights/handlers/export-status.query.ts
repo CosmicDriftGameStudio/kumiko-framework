@@ -33,6 +33,8 @@ export const exportStatusQuery = defineQueryHandler({
   name: "export-status",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Returns the calling user's own most recent data-export job with its status, expiry and error, or hasJob false, for polling after a request-export while the job is still running.",
   handler: async (query, ctx) => {
     // ctx.db.raw weil tenant-agnostisch — ein User der aus Tenant B
     // pollt, sieht den aus Tenant A erstellten Job.

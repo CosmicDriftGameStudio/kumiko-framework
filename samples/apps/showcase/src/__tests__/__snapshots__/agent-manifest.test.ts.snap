@@ -7,6 +7,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
   ],
   "entities": [
     {
+      "description": "A showcase task item carrying a title, free-text notes, a numeric priority, a done flag, a due date and a draft/active/blocked/done status, plus an optional parent item and a list of related items.",
       "fields": [
         {
           "labels": {
@@ -102,7 +103,320 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "name": "showcase-demos",
     },
   ],
-  "handlers": [],
+  "handlers": [
+    {
+      "description": "Returns one item by id with its parent and related references resolved; used when the item edit screen loads an existing row.",
+      "entity": "item",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+        ],
+        "type": "object",
+        "~standard": {
+          "jsonSchema": {
+            "input": [Function],
+            "output": [Function],
+          },
+          "validate": [Function],
+          "vendor": "zod",
+          "version": 1,
+        },
+      },
+      "kind": "query",
+      "qn": "showcase:query:item:detail",
+      "risk": "low",
+    },
+    {
+      "description": "Returns one page of items with search, sorting, an optional fixed status filter and the parent/related references already resolved to their titles; used by the paged item list, the infinite-scroll feed, the active-items screen and the reference comboboxes on the edit form.",
+      "entity": "item",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "cursor": {
+            "type": "string",
+          },
+          "filter": {
+            "properties": {
+              "field": {
+                "type": "string",
+              },
+              "op": {
+                "enum": [
+                  "eq",
+                  "ne",
+                  "lt",
+                  "gt",
+                  "in",
+                ],
+                "type": "string",
+              },
+              "value": {},
+            },
+            "required": [
+              "field",
+              "op",
+              "value",
+            ],
+            "type": "object",
+          },
+          "filters": {
+            "items": {
+              "properties": {
+                "field": {
+                  "type": "string",
+                },
+                "op": {
+                  "enum": [
+                    "eq",
+                    "ne",
+                    "lt",
+                    "gt",
+                    "in",
+                  ],
+                  "type": "string",
+                },
+                "value": {},
+              },
+              "required": [
+                "field",
+                "op",
+                "value",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "includeDeleted": {
+            "type": "boolean",
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 0,
+            "type": "integer",
+          },
+          "offset": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer",
+          },
+          "search": {
+            "type": "string",
+          },
+          "sort": {
+            "type": "string",
+          },
+          "sortDirection": {
+            "enum": [
+              "asc",
+              "desc",
+            ],
+            "type": "string",
+          },
+          "totalCount": {
+            "type": "boolean",
+          },
+        },
+        "type": "object",
+        "~standard": {
+          "jsonSchema": {
+            "input": [Function],
+            "output": [Function],
+          },
+          "validate": [Function],
+          "vendor": "zod",
+          "version": 1,
+        },
+      },
+      "kind": "query",
+      "qn": "showcase:query:item:list",
+      "risk": "low",
+    },
+    {
+      "description": "Creates one showcase item from title, notes, priority, done flag, due date, status and its parent/related item references; used by the item edit screen and by the quick-add action form, which supplies only title and priority and leaves the rest on their defaults.",
+      "entity": "item",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "dueDate": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string",
+          },
+          "isDone": {
+            "default": false,
+            "type": "boolean",
+          },
+          "notes": {
+            "type": "string",
+          },
+          "parentId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
+          },
+          "priority": {
+            "default": 1,
+            "type": "number",
+          },
+          "relatedIds": {
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string",
+            },
+            "type": "array",
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "active",
+              "blocked",
+              "done",
+            ],
+            "type": "string",
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "title",
+        ],
+        "type": "object",
+        "~standard": {
+          "jsonSchema": {
+            "input": [Function],
+            "output": [Function],
+          },
+          "validate": [Function],
+          "vendor": "zod",
+          "version": 1,
+        },
+      },
+      "kind": "write",
+      "qn": "showcase:write:item:create",
+      "risk": "mid",
+    },
+    {
+      "description": "Removes one item row for good, addressed by id; used by the danger row action on the item list, and there is no restore because the entity is not soft-deleted.",
+      "entity": "item",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+        ],
+        "type": "object",
+        "~standard": {
+          "jsonSchema": {
+            "input": [Function],
+            "output": [Function],
+          },
+          "validate": [Function],
+          "vendor": "zod",
+          "version": 1,
+        },
+      },
+      "kind": "write",
+      "qn": "showcase:write:item:delete",
+      "risk": "mid",
+    },
+    {
+      "description": "Applies changed item fields to one existing row, addressed by id plus the version the client last read; used when the item edit screen saves.",
+      "entity": "item",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "changes": {
+            "properties": {
+              "dueDate": {
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                "type": "string",
+              },
+              "isDone": {
+                "type": "boolean",
+              },
+              "notes": {
+                "type": "string",
+              },
+              "parentId": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string",
+              },
+              "priority": {
+                "type": "number",
+              },
+              "relatedIds": {
+                "items": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+                "type": "array",
+              },
+              "status": {
+                "enum": [
+                  "draft",
+                  "active",
+                  "blocked",
+                  "done",
+                ],
+                "type": "string",
+              },
+              "title": {
+                "minLength": 1,
+                "type": "string",
+              },
+            },
+            "type": "object",
+          },
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
+          },
+          "version": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "id",
+          "version",
+          "changes",
+        ],
+        "type": "object",
+        "~standard": {
+          "jsonSchema": {
+            "input": [Function],
+            "output": [Function],
+          },
+          "validate": [Function],
+          "vendor": "zod",
+          "version": 1,
+        },
+      },
+      "kind": "write",
+      "qn": "showcase:write:item:update",
+      "risk": "mid",
+    },
+  ],
   "navs": [
     {
       "id": "showcase-demos:nav:demo-banner",
@@ -253,6 +567,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
   ],
   "screens": [
     {
+      "description": "Shows the Banner primitive in its info and error variants, including an error banner that carries a Button in its right-hand action slot.",
       "id": "showcase-demos:screen:demo-banner",
       "params": [],
       "titles": {
@@ -263,6 +578,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows the Button primitive in its primary, secondary and danger variants, each in the normal, disabled and loading (spinner) state.",
       "id": "showcase-demos:screen:demo-buttons",
       "params": [],
       "titles": {
@@ -273,6 +589,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows the Dialog primitive as a default confirm, a danger confirm and an async confirm with spinner, plus the Lightbox full-screen image preview that shares the same overlay shell.",
       "id": "showcase-demos:screen:demo-dialog",
       "params": [],
       "titles": {
@@ -283,6 +600,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows every Input kind of the primitives contract (text, number, money in three currency locales, boolean, date, timestamp, select, textarea and locally or remotely filtered single and multi comboboxes) plus a Field rendering a validation error.",
       "id": "showcase-demos:screen:demo-inputs",
       "params": [],
       "titles": {
@@ -293,6 +611,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows where each named slot of the app shell, form, data table, section, banner and heading primitives lands, as a sketch next to the JSX call that fills it.",
       "id": "showcase-demos:screen:demo-layout",
       "params": [],
       "titles": {
@@ -303,6 +622,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows the SidebarPanel shell slot as a mail-client inbox: a resizable message list beside the navigation over the full window height, with the selected message read in the content area.",
       "id": "showcase-demos:screen:demo-sidebar-panel",
       "params": [],
       "titles": {
@@ -313,6 +633,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows the Text primitive in its body, small, code and required-mark variants, including code and required-mark nested inside body text.",
       "id": "showcase-demos:screen:demo-text",
       "params": [],
       "titles": {
@@ -323,6 +644,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "workspaces": [],
     },
     {
+      "description": "Shows the useToast hook pushing auto-dismissing notifications: a default toast, an error toast, several stacked at once and one with a title only.",
       "id": "showcase-demos:screen:demo-toast",
       "params": [],
       "titles": {

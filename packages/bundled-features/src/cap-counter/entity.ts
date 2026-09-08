@@ -39,6 +39,8 @@ import {
 //     auslöst).
 export const capCounterEntity = createEntity({
   table: "read_cap_counters",
+  description:
+    "One usage counter per tenant, cap name and calendar period, holding the accumulated value and the timestamp of the last soft-limit warning.",
   fields: {
     capName: createTextField({ required: true, maxLength: 100, sortable: true, searchable: true }),
     value: createBigIntField({ required: true, default: 0 }),

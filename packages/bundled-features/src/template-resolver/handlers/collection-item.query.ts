@@ -25,6 +25,10 @@ export function makeCollectionItemQuery(collection: ContentCollectionDefinition)
       tenantIdOverride: z.string().min(1).optional(),
     }),
     access: collection.access ?? DEFAULT_COLLECTION_ACCESS,
+    description:
+      collection.ownership === "user"
+        ? `Reads one of the caller's own "${collection.id}" entries by slug and locale, returning null when that user has none; use it to open a single entry in the editor rather than to list the collection.`
+        : `Reads one tenant-wide "${collection.id}" entry by slug and locale, returning null when it does not exist; use it to open a single entry in the editor rather than to list the collection.`,
     handler: async (query, ctx) => {
       const override = query.payload.tenantIdOverride;
       const overrideDenied = crossTenantOverrideDenied(

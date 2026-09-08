@@ -60,6 +60,8 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     name: "request-deletion-by-email",
     schema: z.object({ email: z.email() }),
     access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+    description:
+      "Mails an account-deletion verification link to the given address, for a user who wants to be erased but can no longer log in; it answers identically whether or not the address belongs to an active account and never returns the link.",
     // Defense-in-depth gegen Email-Probing auf dem anonymen Endpoint.
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {

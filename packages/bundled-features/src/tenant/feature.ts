@@ -144,13 +144,25 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     // update by convention, so these are added alongside (no rename = no break
     // for existing callers). Cross-tenant because the feature is systemScope.
     r.queryHandler(
-      defineEntityListHandler("tenant", tenantEntity, { access: { roles: ["SystemAdmin"] } }),
+      defineEntityListHandler("tenant", tenantEntity, {
+        access: { roles: ["SystemAdmin"] },
+        description:
+          "Lists tenants under the entity-convention name the generated SystemAdmin tenant-list screen resolves; tenant:query:list is the hand-written equivalent.",
+      }),
     );
     r.queryHandler(
-      defineEntityDetailHandler("tenant", tenantEntity, { access: { roles: ["SystemAdmin"] } }),
+      defineEntityDetailHandler("tenant", tenantEntity, {
+        access: { roles: ["SystemAdmin"] },
+        description:
+          "Loads a single tenant by id under the entity-convention name the generated SystemAdmin tenant-edit screen resolves.",
+      }),
     );
     r.writeHandler(
-      defineEntityUpdateHandler("tenant", tenantEntity, { access: { roles: ["SystemAdmin"] } }),
+      defineEntityUpdateHandler("tenant", tenantEntity, {
+        access: { roles: ["SystemAdmin"] },
+        description:
+          "Saves edits to a tenant's own fields under the entity-convention name the generated SystemAdmin tenant-edit screen resolves; tenant:write:update is the hand-written equivalent.",
+      }),
     );
     r.screen(tenantListScreen);
     r.screen(tenantEditScreen);

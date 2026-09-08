@@ -16,6 +16,9 @@ export const revokeAllOthersWrite = defineWriteHandler({
   name: "user-session:revoke-all-others",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    'Irreversibly signs the calling user out of every session except the one making the request and reports how many were dropped; use it for a "sign out everywhere else" action after a suspected compromise.',
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const keepSid = event.user.sid;
     if (!keepSid) {

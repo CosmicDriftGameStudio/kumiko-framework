@@ -8,6 +8,8 @@ type TenantRow = { readonly id: string; readonly name: string };
 
 export const tenantOptionsQuery = defineQueryHandler({
   name: "tenant-options",
+  description:
+    "Returns all tenants as id/name option pairs sorted by name; use it to populate the tenant picker of a platform-wide overview.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
   handler: async (_query, ctx) => {

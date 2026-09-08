@@ -32,6 +32,8 @@ import {
 export function createNoteEntryEntity(access?: EntityDefinition["access"]) {
   return createEntity({
     table: "read_note_entries",
+    description:
+      "One note attached to a host entity by entityType and entityId, holding the note body plus the id and the display name of the author as it stood when the note was written. Rows are append-only: a correction is a further note, never an edit of this one.",
     access,
     fields: {
       entityType: createTextField({ required: true, maxLength: 64 }),

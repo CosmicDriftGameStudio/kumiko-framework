@@ -65,6 +65,7 @@ export function createSignupConfirmHandler() {
     name: "signup-confirm",
     schema: SignupConfirmSchema,
     access: { roles: ["all"] },
+    agent: { expose: false },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(

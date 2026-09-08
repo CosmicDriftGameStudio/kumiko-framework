@@ -200,11 +200,29 @@ export function createTierEngineFeature<
     r.entity("tier-assignment", tierAssignmentEntity);
 
     // Standard-CRUD via Helper.
-    r.writeHandler(defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, writeAccess));
-    r.writeHandler(defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, writeAccess));
+    r.writeHandler(
+      defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, {
+        ...writeAccess,
+        description:
+          "Creates the tier-assignment row of the caller's tenant with a tier name and its source; prefer `set-tenant-tier`, which upserts and refreshes the feature gate.",
+      }),
+    );
+    r.writeHandler(
+      defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, {
+        ...writeAccess,
+        description:
+          "Updates an existing tier-assignment row by id; prefer `set-tenant-tier`, which resolves the tenant's row itself and refreshes the feature gate.",
+      }),
+    );
 
     // Reads.
-    r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));
+    r.queryHandler(
+      defineEntityListHandler("tier-assignment", tierAssignmentEntity, {
+        ...adminAccess,
+        description:
+          "Lists the tier-assignment rows visible to the caller with tier name and assignment source; use it to see which plan is stored for a tenant.",
+      }),
+    );
     r.queryHandler(getActiveTierQuery);
 
     // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -226,6 +244,8 @@ export function createTierEngineFeature<
     r.queryHandler(
       defineQueryHandler({
         name: "tier-options",
+        description:
+          "Returns the tier names the application defines in its tier map; use it to find out which values `set-tenant-tier` accepts.",
         schema: z.object({}),
         access: { roles: ["SystemAdmin"] },
         handler: async () => ({ tiers: opts.tierMap ? Object.keys(opts.tierMap) : [] }),
@@ -242,6 +262,8 @@ export function createTierEngineFeature<
       id: TIER_ADMIN_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "TierAdminScreen" } },
+      description:
+        "Operator form that picks a tenant, shows its current tier and assigns a new one as a manual grant without a billing purchase.",
       access: { roles: ["SystemAdmin"] },
     });
 

@@ -12,6 +12,8 @@ import { z } from "zod";
 // tier-assignment-Row.
 export const getActiveTierQuery: QueryHandlerDef = {
   name: "get-active-tier",
+  description:
+    "Returns the tier-assignment row currently active for the caller's own tenant, or null when none is assigned; use it to answer which plan the caller is on.",
   schema: z.object({}),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (_query, ctx) => {

@@ -6,4 +6,6 @@ import { exportJobEntity } from "../schema/export-job";
 export const exportJobListQuery = defineEntityListHandler("export-job", exportJobEntity, {
   access: { roles: access.systemAdmin },
   crossTenant: true,
+  description:
+    "Read-only cross-tenant list of GDPR Art. 20 data-export jobs for the system-admin inspector; use export-status instead when a user asks about their own export.",
 });

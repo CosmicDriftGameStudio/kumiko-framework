@@ -24,6 +24,9 @@ export function createDeleteTagHandler(
     name,
     schema: deleteTagPayloadSchema,
     access,
+    description:
+      "Deletes a catalog tag and cascades a detach over every assignment still carrying it, so the tag disappears from all entities at once; this is the legacy name the TagManager dispatches.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as DeleteTagPayload; // @cast-boundary engine-payload
 

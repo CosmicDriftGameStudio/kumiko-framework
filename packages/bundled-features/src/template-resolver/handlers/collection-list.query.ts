@@ -30,6 +30,10 @@ export function makeCollectionListQuery(collection: ContentCollectionDefinition)
       tenantIdOverride: z.string().min(1).optional(),
     }),
     access: collection.access ?? DEFAULT_COLLECTION_ACCESS,
+    description:
+      collection.ownership === "user"
+        ? `Lists the caller's own entries in the "${collection.id}" content collection (${collection.kind} content) with slug, locale, title and body; entries other users keep in this collection are never returned.`
+        : `Lists the tenant-wide entries of the "${collection.id}" content collection (${collection.kind} content) with slug, locale, title and body; every caller who may reach this collection sees the same shared set.`,
     handler: async (query, ctx) => {
       const override = query.payload.tenantIdOverride;
       const overrideDenied = crossTenantOverrideDenied(

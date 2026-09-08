@@ -12,6 +12,8 @@ export const membershipsQuery = defineQueryHandler({
   // Called via ctx.queryAs(systemUser, ...) during login/switch-tenant, or
   // directly by tenant admins managing memberships in the admin UI.
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  description:
+    "Resolves which tenants a given user belongs to and with which roles, labelled by tenant name and key and skipping disabled tenants; sign-in and tenant switching build their options from it.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

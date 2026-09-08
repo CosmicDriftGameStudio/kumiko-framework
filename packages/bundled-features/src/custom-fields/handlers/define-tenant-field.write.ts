@@ -53,6 +53,8 @@ export function createDefineTenantFieldHandler(
     name: "define-tenant-field",
     schema: defineFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
+    description:
+      "Creates a custom-field definition owned by the caller's own tenant on the named entity, rejecting the write once the tenant's definition quota is reached; use it when one tenant needs an extra field the other tenants must not see.",
     handler: async (event, ctx) => {
       const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;

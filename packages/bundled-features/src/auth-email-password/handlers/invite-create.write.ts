@@ -94,6 +94,8 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
     name: "invite-create",
     schema: InviteCreateSchema,
     access: { roles: access.admin },
+    description:
+      "Invites an email address into the caller's tenant with a chosen membership role, creating or reusing the invitation and mailing the invitee a fresh accept link; re-inviting the same address invalidates the previous link.",
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(

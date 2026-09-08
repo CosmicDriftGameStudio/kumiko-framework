@@ -224,6 +224,7 @@ function seedResumedStepResults(
 
 export const resumeRunHandler: WriteHandlerDef = {
   name: "resume-run",
+  agent: { expose: false },
   schema: resumeRunSchema,
   access: { roles: [SYSTEM_ROLE] },
   handler: async (event, ctx) => {

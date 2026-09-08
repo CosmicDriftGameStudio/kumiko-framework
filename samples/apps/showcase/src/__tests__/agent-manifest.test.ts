@@ -30,15 +30,27 @@ describe("buildAgentManifest against the showcase app", () => {
     });
   });
 
-  // No showcase handler carries a `description` today, so fail-closed
-  // exposure keeps every one of them out of the manifest — proof for D8.
-  // This will start filling in once #2615 adds descriptions to the
-  // bundled CRUD handlers.
-  test("has no exposed handlers yet", () => {
+  // Fail-closed exposure against an undescribed registry is proven with a
+  // synthetic one in
+  // packages/bundled-features/src/agent-tools/__tests__/agent-manifest.test.ts.
+  // What this app proves is the other direction: r.crud's per-verb
+  // `descriptions` reach the manifest with the risk each verb resolves to.
+  test("exposes every described CRUD verb with its resolved risk", () => {
     const registry = createRegistry([localeDe(), itemsFeature, demosFeature]);
     const manifest = buildAgentManifest(registry, { locale: "de", roles: ["admin"] });
 
-    expect(manifest.handlers).toEqual([]);
+    const byQn = new Map(manifest.handlers.map((handler) => [handler.qn, handler]));
+
+    expect([...byQn.keys()].sort()).toEqual([
+      "showcase:query:item:detail",
+      "showcase:query:item:list",
+      "showcase:write:item:create",
+      "showcase:write:item:delete",
+      "showcase:write:item:update",
+    ]);
+    expect(byQn.get("showcase:query:item:list")?.risk).toBe("low");
+    expect(byQn.get("showcase:write:item:delete")?.risk).toBe("mid");
+    expect(byQn.get("showcase:write:item:create")?.description).toBeTruthy();
   });
 
   test("includes the item entity with field labels in both de and en", () => {

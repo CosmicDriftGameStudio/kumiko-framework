@@ -27,6 +27,9 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
     name: "regenerate-recovery",
     schema: z.object({ code: z.string().min(6).max(9) }),
     access: { openToAll: true },
+    description:
+      "Destroys every existing recovery code of the caller, including unused ones, and returns a fresh set once in plaintext; use it when recovery codes may have leaked but TOTP itself should stay enrolled.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const row = await findUserMfaRow(ctx.db, event.user);
       if (!row) return mfaNotEnabled();

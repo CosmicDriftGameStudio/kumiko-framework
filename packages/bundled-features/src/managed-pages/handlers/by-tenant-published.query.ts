@@ -28,6 +28,8 @@ export const byTenantPublishedQuery = defineQueryHandler({
     tenantIdOverride: z.string().min(1).optional(),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  description:
+    "Lists every published page of a tenant with slug, language, title and last-change time but no body; use it to enumerate the public pages for sitemap.xml or llms.txt, rather than by-slug which fetches one page's content.",
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
     const overrideDenied = crossTenantOverrideDenied(

@@ -21,6 +21,7 @@ const markSoftWarnedSchema = z.object({
 
 export const markSoftWarnedHandler: WriteHandlerDef = {
   name: "mark-soft-warned",
+  agent: { expose: false },
   schema: markSoftWarnedSchema,
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {

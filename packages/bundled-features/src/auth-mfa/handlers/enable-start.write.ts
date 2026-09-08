@@ -30,6 +30,8 @@ export function createEnableStartHandler(opts: EnableStartOptions) {
       accountLabel: z.string().min(1).max(200),
     }),
     access: { openToAll: true },
+    description:
+      "Begins TOTP enrollment for the signed-in user by generating a secret plus recovery codes and returning them as a short-lived setup token, an otpauth:// URI and the one-time plaintext recovery codes; nothing is persisted until enable-confirm.",
     handler: async (event, ctx) => {
       const existing = await findUserMfaRow(ctx.db, event.user);
       if (existing) return mfaAlreadyEnabled();

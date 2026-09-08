@@ -20,6 +20,8 @@ function formatFlag(value: boolean | null): string {
 
 export const registeredQuery = defineQueryHandler({
   name: "registered",
+  description:
+    "Lists every registered feature with whether it is toggleable, its default, its explicit override, its dependencies and its effective on/off state; use it as the full feature inventory.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
   handler: async (_event, ctx) => {

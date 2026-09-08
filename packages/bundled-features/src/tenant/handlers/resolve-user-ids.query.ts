@@ -14,6 +14,7 @@ export const resolveUserIdsQuery = defineQueryHandler({
     userId: z.string().optional(),
   }),
   access: { roles: [SYSTEM_ROLE] },
+  agent: { expose: false },
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

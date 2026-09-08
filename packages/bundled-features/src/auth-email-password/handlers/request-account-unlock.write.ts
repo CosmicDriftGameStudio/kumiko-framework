@@ -21,6 +21,8 @@ export function createRequestAccountUnlockHandler(opts: RequestAccountUnlockOpti
     {
       handlerName: "request-account-unlock",
       successKind: "unlock-requested",
+      description:
+        "Mails an address a signed, time-limited link that lets a user clear a failed-login lockout without an operator; it applies whether or not the account is locked right now, and answers identically for unknown addresses.",
       defaultTtlMinutes: AUTH_UNLOCK_DEFAULT_TTL_MINUTES,
       sign: signUnlockToken,
       notConfiguredError: AuthErrors.unlockNotConfigured,

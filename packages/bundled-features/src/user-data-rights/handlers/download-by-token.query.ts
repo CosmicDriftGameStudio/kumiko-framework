@@ -74,6 +74,7 @@ export const downloadByTokenQuery = defineQueryHandler({
       .optional(),
   }),
   access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+  agent: { expose: false },
   // Brute-Force-Schutz fuer Token-Hash-Probing. Anonymous-Endpoint mit
   // 32-byte-Random-Token = 256 Bit Search-Space, aber rate-limit als
   // defense-in-depth + Schutz gegen Storm-Patterns die DB-Last erzeugen.

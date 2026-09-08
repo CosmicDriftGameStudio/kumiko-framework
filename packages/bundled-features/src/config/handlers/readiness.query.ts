@@ -127,6 +127,8 @@ export async function collectMissingRequiredConfig(
 // about secrets. readiness:query:status (readiness feature) rolls both up.
 export const readinessQuery = defineQueryHandler({
   name: "readiness",
+  description:
+    "Lists the required config keys that are still unset for the caller's tenant, each with its scope and type; use it to find out what is missing before a feature can run.",
   schema: z.object({}),
   // Per-key read access enforced via hasConfigAccess inside the handler.
   access: { openToAll: true },

@@ -43,6 +43,8 @@ export function createUpdateTenantFieldHandler(
     name: "update-tenant-field",
     schema: updateFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
+    description:
+      "Replaces a tenant-owned custom-field definition with a complete new spec while refusing any change to the field's type; use it to relabel or re-constrain an existing field rather than to create or remove one.",
     handler: async (event, ctx) => {
       const payload = event.payload as UpdateFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;

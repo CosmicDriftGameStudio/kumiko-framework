@@ -30,6 +30,8 @@ type CreatePortalSessionPayload = z.infer<typeof createPortalSessionSchema>;
 
 export const createPortalSessionHandler: WriteHandlerDef = {
   name: "create-portal-session",
+  description:
+    "Returns a hosted billing-portal URL at the provider that already holds the tenant's subscription; use it when a tenant admin wants to change payment method, see invoices or cancel.",
   schema: createPortalSessionSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {

@@ -30,6 +30,7 @@ export function createConfirmAccountUnlockHandler(opts: ConfirmAccountUnlockOpti
       token: z.string().min(1),
     }),
     access: { roles: ["all"] },
+    agent: { expose: false },
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {
         return writeFailure(

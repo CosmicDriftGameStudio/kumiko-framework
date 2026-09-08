@@ -16,6 +16,8 @@ export const listQuery = defineQueryHandler({
     includeSystem: z.boolean().default(true),
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
+  description:
+    "Lists template resources of the caller's tenant alongside the system defaults as summaries without content, filterable by kind, locale and status; use it to browse the catalogue, then find-by-id to read one row.",
   handler: async (query, ctx) => {
     const where: Record<string, unknown> = {};
 

@@ -21,6 +21,8 @@ export function createRequestPasswordResetHandler(opts: RequestPasswordResetOpti
     {
       handlerName: "request-password-reset",
       successKind: "reset-requested",
+      description:
+        "Starts the emailed password-reset flow for an address by minting a signed, time-limited reset token and mailing the reset link, for any existing non-deleted account regardless of its verification state; the answer is identical for unknown addresses, so it never reveals whether an account exists.",
       defaultTtlMinutes: AUTH_RESET_DEFAULT_TTL_MINUTES,
       sign: signResetToken,
       notConfiguredError: AuthErrors.resetNotConfigured,

@@ -16,6 +16,8 @@ import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./constan
 // tenantId is a base column set by the framework → each tenant has its own books.
 export const accountEntity = createEntity({
   table: "read_ledger_accounts",
+  description:
+    "One node of a tenant's chart of accounts: a name, an asset/liability/equity/income/expense type that decides how reports read its balance, an optional account code and an optional parent account forming the account tree; balances are derived from postings, never stored here.",
   fields: {
     name: createTextField({ required: true, maxLength: 120 }),
     type: createSelectField({ options: ACCOUNT_TYPES, required: true }),
@@ -38,6 +40,8 @@ export const accountEntity = createEntity({
 // `status` carries draft|posted for the later Soll/Ist work — Phase 0 posts only.
 export const transactionEntity = createEntity({
   table: "read_ledger_transactions",
+  description:
+    "One journal entry: a booking date, a narration, an optional reference (a reversal points at the entry it corrects), a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
   fields: {
     date: createDateField({ required: true }),
     // Journal narration ("Miete Januar", "Storno: …") is accounting data, not
@@ -76,6 +80,8 @@ export const transactionEntity = createEntity({
 // amount is stored positive (minor units); the confirm handler assigns the signs.
 export const scheduleEntity = createEntity({
   table: "read_ledger_schedules",
+  description:
+    "One recurring booking template: book a positive minor-unit amount from a debit account to a credit account each interval between a start date and an optional open end; it holds no bookings itself, periods become real entries only when confirmed.",
   fields: {
     description: createTextField({
       required: true,

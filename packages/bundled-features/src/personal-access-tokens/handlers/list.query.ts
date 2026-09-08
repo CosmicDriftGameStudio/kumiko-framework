@@ -11,6 +11,8 @@ export const listPatQuery = defineQueryHandler({
   name: "mine",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Lists the calling user's personal access tokens with metadata only (name, key prefix, scopes, created/expiry/revoked timestamps, including revoked ones) and never the token secret.",
   handler: async (query, ctx) => {
     const rows = await selectMany<{
       id: string;

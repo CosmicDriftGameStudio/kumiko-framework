@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  defineWriteHandler,
+  resolveAgentExposure,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "../agent-doc-lint";
 
@@ -51,6 +55,54 @@ describe("findAgentDocGaps", () => {
     });
 
     expect(findAgentDocGaps([feature])).toHaveLength(0);
+  });
+
+  // defineWriteHandler rebuilds its return value from an explicit field
+  // whitelist, so a slot it forgets to copy is invisible here even though the
+  // author wrote it — that regression hid 37 bundled descriptions.
+  test("R1: description authored through defineWriteHandler survives the def rebuild", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.writeHandler(
+        defineWriteHandler({
+          name: "do-a",
+          schema: z.object({}),
+          access: OPEN_ACCESS,
+          description: "Does A.",
+          handler: noopWriteHandler,
+        }),
+      );
+    });
+
+    expect(findAgentDocGaps([feature])).toHaveLength(0);
+  });
+
+  test("R1: agent hints authored through defineWriteHandler reach the resolved exposure", () => {
+    const optedOut = defineWriteHandler({
+      name: "do-internal",
+      schema: z.object({}),
+      access: OPEN_ACCESS,
+      agent: { expose: false },
+      handler: noopWriteHandler,
+    });
+    const destructive = defineWriteHandler({
+      name: "do-destroy",
+      schema: z.object({}),
+      access: OPEN_ACCESS,
+      description: "Destroys the thing.",
+      agent: { risk: "high" },
+      handler: noopWriteHandler,
+    });
+
+    expect(resolveAgentExposure(optedOut, "write").expose).toBe(false);
+    expect(resolveAgentExposure(destructive, "write").risk).toBe("high");
+    expect(
+      findAgentDocGaps([
+        defineFeature("doc-gap-demo", (r) => {
+          r.writeHandler(optedOut);
+          r.writeHandler(destructive);
+        }),
+      ]),
+    ).toHaveLength(0);
   });
 
   test("R2: custom screen without description -> exactly one gap with the correct QN", () => {

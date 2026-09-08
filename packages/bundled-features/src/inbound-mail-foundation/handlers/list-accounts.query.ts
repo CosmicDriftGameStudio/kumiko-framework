@@ -25,6 +25,8 @@ export const listAccountsQuery: QueryHandlerDef = {
   name: "account:list",
   schema: listAccountsSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin", "User"] },
+  description:
+    "Lists the connected mailboxes of the caller's tenant with the mailbox address decrypted, hiding personal mailboxes the caller neither owns nor administers; use it for the mail connect and settings views.",
   handler: async (_query, ctx) => {
     const allRows = await selectMany(ctx.db.raw, mailAccountsProjectionTable, {
       tenantId: ctx.user.tenantId,

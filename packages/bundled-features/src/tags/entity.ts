@@ -9,6 +9,8 @@ import {
 // events. tenantId is a base column set by the framework → tenant-scoped.
 export const tagEntity = createEntity({
   table: "read_tags",
+  description:
+    "One entry of a tenant's tag catalog: a name plus an optional colour hint for rendering and an optional entityType scope that limits which entities a picker offers the tag on. Names are not unique, and a tag carries no link to the entities it is attached to.",
   fields: {
     // Catalog labels ("urgent", "billing"), not user-identifying content —
     // `personal: false` silences the user-content heuristic (456/5). A tag
@@ -56,6 +58,8 @@ export const tagEntity = createEntity({
 export function createTagAssignmentEntity(access?: EntityDefinition["access"]) {
   return createEntity({
     table: "read_tag_assignments",
+    description:
+      "The join row recording that one catalog tag is attached to one host entity, addressed by tagId, entityType and entityId, with exactly one row per pair. An entity may carry many tags, unlike the single-folder membership rows.",
     softDelete: true,
     access,
     fields: {

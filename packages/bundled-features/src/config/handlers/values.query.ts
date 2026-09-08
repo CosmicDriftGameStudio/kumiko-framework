@@ -12,6 +12,8 @@ import { hasConfigAccess } from "../write-helpers";
 
 export const valuesQuery = defineQueryHandler({
   name: "values",
+  description:
+    "Returns the effective value, scope and winning source for every config key the caller may read, with encrypted and secret-backed values masked; use it to inspect the current settings.",
   schema: z.object({}),
   // Per-key read access enforced via hasConfigAccess inside the handler.
   access: { openToAll: true },

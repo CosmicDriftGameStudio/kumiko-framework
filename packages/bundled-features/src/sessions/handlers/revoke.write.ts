@@ -29,6 +29,9 @@ export const revokeWrite = defineWriteHandler({
     id: z.uuid(),
   }),
   access: { openToAll: true },
+  description:
+    "Irreversibly signs one of the caller's own sessions out by id; use it when a user wants to drop a single device, and note that revoking their current session logs them out.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     const updated = await updateMany(
       ctx.db,

@@ -20,6 +20,8 @@ export const tenantsMissingProfileQuery = defineQueryHandler({
   name: "tenants-missing-profile",
   schema: z.object({}),
   access: { roles: [ROLES.SystemAdmin] },
+  description:
+    "Lists every enabled tenant that has never selected a compliance profile, for the platform operator sweeping the whole installation; needs-profile answers the same question but only for the caller's own tenant.",
   handler: async (_query, ctx): Promise<TenantsMissingProfileResponse> => {
     if (!ctx.systemDb) {
       throw new InternalError({

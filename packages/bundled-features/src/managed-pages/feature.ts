@@ -190,11 +190,42 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
     // dispatchen per Konvention `managed-pages:write:page:{create,update,
     // delete}` + `managed-pages:query:page:{list,detail}`. `set` (oben)
     // wird davon NICHT genutzt und bleibt als Provisioning-API erhalten.
-    r.writeHandler(defineEntityCreateHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.writeHandler(defineEntityUpdateHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.writeHandler(defineEntityDeleteHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.queryHandler(defineEntityListHandler("page", pageEntity, { access: ADMIN_ACCESS }));
-    r.queryHandler(defineEntityDetailHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+    r.writeHandler(
+      defineEntityCreateHandler("page", pageEntity, {
+        access: ADMIN_ACCESS,
+        description:
+          "Creates a managed page from the admin form's field values, failing if that slug and language already exist; use it from the page catalog screen, whereas managed-pages:write:set upserts a page addressed by slug and language.",
+      }),
+    );
+    r.writeHandler(
+      defineEntityUpdateHandler("page", pageEntity, {
+        access: ADMIN_ACCESS,
+        description:
+          "Updates one managed page addressed by row id from the admin form's `{ id, version, changes }` envelope; use it from the page edit screen, whereas managed-pages:write:set addresses a page by slug and language instead.",
+      }),
+    );
+    r.writeHandler(
+      defineEntityDeleteHandler("page", pageEntity, {
+        access: ADMIN_ACCESS,
+        description:
+          "Deletes one managed page by row id so its URL stops resolving entirely; use it to retire a page for good, not to take it offline temporarily — that is a published:false write through managed-pages:write:set.",
+        agent: { risk: "high" },
+      }),
+    );
+    r.queryHandler(
+      defineEntityListHandler("page", pageEntity, {
+        access: ADMIN_ACCESS,
+        description:
+          "Lists the tenant's managed pages for the admin catalog, drafts included; use it to browse or search pages for editing, unlike by-tenant-published which only enumerates the publicly visible ones.",
+      }),
+    );
+    r.queryHandler(
+      defineEntityDetailHandler("page", pageEntity, {
+        access: ADMIN_ACCESS,
+        description:
+          "Reads one managed page by row id including its body and draft state; use it to load a page into the admin edit screen, whereas by-slug serves the public render path.",
+      }),
+    );
 
     r.screen(pageListScreen);
     r.screen(pageEditScreen);

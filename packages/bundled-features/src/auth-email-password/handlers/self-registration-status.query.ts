@@ -14,6 +14,8 @@ export const selfRegistrationStatusQuery = defineQueryHandler({
   name: "signup-registration-status",
   schema: z.object({}),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  description:
+    "Reports whether self-registration is currently switched on, readable without signing in, so a signup page can hide its own form instead of collecting an address that would be silently ignored.",
   handler: async (_query, ctx) => {
     // Same fail-open reasoning as signup-request.write.ts (#1468): only
     // report disabled when the toggle feature is actually composed.

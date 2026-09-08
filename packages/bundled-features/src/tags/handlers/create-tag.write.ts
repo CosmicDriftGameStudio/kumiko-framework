@@ -15,6 +15,8 @@ export function createCreateTagHandler(
     name,
     schema: createTagPayloadSchema,
     access,
+    description:
+      "Adds a tag to the caller's tenant tag catalog from a flat payload and mints its id; this is the legacy name the TagManager and TagPicker widgets dispatch, and it does not attach the new tag to anything.",
     handler: async (event, ctx) => {
       const payload = event.payload as CreateTagPayload; // @cast-boundary engine-payload
       return tagExecutor.create(payload, event.user, ctx.db);

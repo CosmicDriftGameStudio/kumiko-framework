@@ -114,6 +114,8 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       id: JOB_RUNS_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "JobRunsScreen" } },
+      description:
+        "Operator table of recent job runs with status filters, plus a panel to trigger a manual job with a payload; open it to monitor background jobs and start one.",
       access: systemAdminAccess,
     });
     // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
@@ -121,6 +123,8 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       id: JOB_RUN_DETAIL_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "JobRunDetailScreen" } },
+      description:
+        "Detail view of one job run with status, timings, error and log lines, and a retry action for failed runs; reached from a row of the job-runs list.",
       listScreenId: JOB_RUNS_SCREEN_ID,
       access: systemAdminAccess,
     });

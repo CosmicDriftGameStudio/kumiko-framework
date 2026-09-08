@@ -14,6 +14,8 @@ export const getDraftQuery = defineQueryHandler({
   name: "get",
   schema: getDraftPayloadSchema,
   access: FORM_DRAFT_ACCESS,
+  description:
+    "Returns the calling user's saved draft blob (form values and step index) for one draftKey, or null when they have no such draft; use it to resume an in-progress form.",
   handler: async (query, ctx): Promise<GetDraftResult> => {
     const row = await lookupDraft(
       ctx.db,

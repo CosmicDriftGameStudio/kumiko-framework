@@ -24,6 +24,9 @@ export const removeMemberWrite = defineWriteHandler({
   name: "removeMember",
   schema: z.object({ userId: z.string(), tenantId: z.string() }),
   access: { roles: ["SystemAdmin"] },
+  description:
+    "Removes a user's membership in a tenant and signs their sessions in that tenant out, refusing to strip the tenant's last TenantAdmin; use it when someone should lose access to a workspace.",
+  agent: { risk: "high" },
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

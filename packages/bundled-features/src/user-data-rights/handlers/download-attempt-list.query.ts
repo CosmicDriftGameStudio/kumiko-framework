@@ -7,5 +7,10 @@ import { downloadAttemptEntity } from "../schema/download-attempt";
 export const downloadAttemptListQuery = defineEntityListHandler(
   "download-attempt",
   downloadAttemptEntity,
-  { access: { roles: access.systemAdmin }, crossTenant: true },
+  {
+    access: { roles: access.systemAdmin },
+    crossTenant: true,
+    description:
+      "Lists invalid export-download attempts across every tenant for the system-admin inspector screen; list-download-attempts is the filterable view scoped to a single tenant.",
+  },
 );

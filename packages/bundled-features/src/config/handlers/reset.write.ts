@@ -18,6 +18,9 @@ const executor = createEventStoreExecutor(configValuesTable, configValueEntity, 
 
 export const resetWrite = defineWriteHandler({
   name: "reset",
+  description:
+    "Removes the stored config value for one key at the given scope so the key falls back to the next cascade level, and permanently deletes the stored credential for secrets-backed keys.",
+  agent: { risk: "high" },
   schema: z.object({
     key: z.string(),
     scope: scopeEnum.optional(),

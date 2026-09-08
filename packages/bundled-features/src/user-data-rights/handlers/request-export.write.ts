@@ -60,6 +60,8 @@ export const requestExportWrite = defineWriteHandler({
   name: "request-export",
   schema: z.object({}),
   access: { openToAll: true },
+  description:
+    "Queues a GDPR Art. 15 and 20 data export for the calling user and returns its job id, handing back the running job with isExisting true instead of a second one when an export is already pending.",
   handler: async (event, ctx) => {
     const userId = event.user.id;
     const T = getTemporal();

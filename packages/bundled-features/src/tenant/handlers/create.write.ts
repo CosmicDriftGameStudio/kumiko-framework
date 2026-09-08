@@ -22,6 +22,8 @@ export const createWrite = defineWriteHandler({
   // (roles=["system"]) as the executor; "SystemAdmin" stays the real
   // human-operator path via the UI.
   access: { roles: ["system", "SystemAdmin"] },
+  description:
+    "Creates a new tenant from a key and display name, optionally under a caller-chosen id for seeds or external provisioning; use it when onboarding a new customer or workspace.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

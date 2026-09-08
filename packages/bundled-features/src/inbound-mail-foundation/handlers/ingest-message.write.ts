@@ -110,6 +110,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
   access: { roles: ["SystemAdmin"] },
+  agent: { expose: false },
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as IngestMessagePayload;

@@ -55,6 +55,8 @@ export type SetTenantTierOptions = {
 export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
   return defineWriteHandler({
     name: "set-tenant-tier",
+    description:
+      "Assigns a tier to any tenant as a manual grant without a billing purchase, marking it so a later billing sync will not overwrite it, and applies the new feature set immediately.",
     schema: z.object({
       tenantId: z.string().min(1),
       tier: z

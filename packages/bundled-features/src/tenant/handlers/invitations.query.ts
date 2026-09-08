@@ -23,6 +23,8 @@ export const invitationsQuery = defineQueryHandler({
   name: "invitations",
   schema: z.object({}),
   access: { roles: access.admin },
+  description:
+    "Lists the still-pending invitations of the caller's own tenant with their email and inviter decrypted; accepted, cancelled and expired ones are left out.",
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

@@ -28,6 +28,7 @@ export const findForAuthQuery = defineQueryHandler({
       { message: "exactly one of email or id must be set" },
     ),
   access: { roles: access.system },
+  agent: { expose: false },
   handler: async (query, ctx) => {
     // Soft-deleted rows can now share an email with a live row (the partial
     // bidx unique index covers live rows only), so the email arm must resolve

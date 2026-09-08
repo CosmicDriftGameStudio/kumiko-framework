@@ -17,6 +17,8 @@ const listSchema = z.object({}).strict();
 
 export const listSubscriptionsQuery: QueryHandlerDef = {
   name: "subscription:list",
+  description:
+    "Returns the tenant's subscription rows with provider, status, tier and current period end (provider ids decrypted); use it to answer what plan a tenant is on and until when.",
   schema: listSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
   handler: async (_query, ctx) => {
