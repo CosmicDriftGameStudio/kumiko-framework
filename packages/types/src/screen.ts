@@ -697,7 +697,11 @@ export type EditFieldSpec =
 // id, so a bundled feature (e.g. custom-fields) can load and persist its
 // own data inside the form. `relatedList` runs its own query instead —
 // see `EditRelatedListSection`.
-export type EditSectionSpec = EditFieldsSection | EditExtensionSection | EditRelatedListSection;
+export type EditSectionSpec =
+  | EditFieldsSection
+  | EditExtensionSection
+  | EditRelatedListSection
+  | EditWriteFormSection;
 
 export type EditFieldsSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
@@ -766,6 +770,45 @@ export type EditRelatedListSection = {
    *  is named here. `idColumn` names the row key holding that id (default
    *  "id"). Omit `rowClick` for a non-interactive list. */
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
+  /** Per-row actions — same type and dispatch semantics as `entityList`/
+   *  `projectionList`'s `rowActions` (writeHandler dispatch with a
+   *  declarative `payload` extractor, or navigate). A successful
+   *  writeHandler action re-runs this section's own query, same as a
+   *  projectionList row action re-running its list query. */
+  readonly rowActions?: readonly RowAction[];
+};
+
+// A declarative, self-persisting form section for `projectionDetail`
+// (fw editable-detail-screens). Unlike the plain `fields` section — which
+// projectionDetail forces read-only, see the type's own doc — this section's
+// fields ARE editable and submit through their own write-handler, entirely
+// independent of the (nonexistent) outer form submit. Modeled on
+// `ActionFormScreenDefinition`: `fieldDefs` carries the field-type map (a
+// projectionDetail's synthesized display entity has no real field types to
+// draw on), `fields` the rendered order/overrides, same as
+// `EditFieldsSection.fields`. Only supported on projectionDetail — the
+// boot-validator rejects it on entityEdit/configEdit/actionForm, same as
+// `relatedList`.
+export type EditWriteFormSection = {
+  /** Kebab-case tab id, used as the `?tab=` value. Required by the
+   *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
+  readonly id?: string;
+  readonly kind: "writeForm";
+  readonly title?: string;
+  readonly description?: string;
+  readonly columns?: number;
+  readonly icon?: IconKey;
+  /** Field-type map for this section's own form — same shape as
+   *  `ActionFormScreenDefinition.fields`. */
+  readonly fieldDefs: Readonly<Record<string, FieldDefinition>>;
+  /** Rendered fields, in order — same shape as `EditFieldsSection.fields`.
+   *  Every referenced field must have an entry in `fieldDefs`. */
+  readonly fields: readonly EditFieldSpec[];
+  /** Write-handler QN dispatched on submit. The submitted values (not a
+   *  diff) land 1:1 as payload, same as `ActionFormScreenDefinition.handler`. */
+  readonly handler: string;
+  /** i18n-key for the submit button. Default: "kumiko.actions.save". */
+  readonly submitLabel?: string;
 };
 
 // Max width of the form container (see FormScreenShell in renderer-web).

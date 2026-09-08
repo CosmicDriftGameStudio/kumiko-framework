@@ -1,4 +1,5 @@
 import type {
+  EditWriteFormSection,
   EntityDefinition,
   EntityEditScreenDefinition,
   FieldCondition,
@@ -7,8 +8,10 @@ import {
   evalFieldCondition,
   isExtensionEditSection,
   isFieldsEditSection,
+  isWriteFormEditSection,
   normalizeEditField,
   parseRefTarget,
+  WRITE_FORM_SECTION_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   buildOptionLabels,
@@ -21,6 +24,7 @@ import type {
   EditFieldViewModel,
   EditSectionViewModel,
   EditViewModel,
+  EditWriteFormSectionViewModel,
   EmbeddedListCellViewModel,
   Translate,
 } from "./types";
@@ -58,6 +62,54 @@ export type ComputeEditViewModelInput<
   readonly featureName: string;
 };
 
+// Resolves a writeForm section's own fieldDefs/fields through the same
+// per-field pipeline as a plain fields section, by reusing the pipeline
+// itself rather than duplicating it: wrap fieldDefs/fields as a throwaway
+// entityEdit screen (same "synthesize a pseudo-entity" idiom as the shims in
+// packages/renderer/src/app/*-shim.ts) and recurse into computeEditViewModel
+// once. Split out of computeEditViewModel's section-map to keep that
+// function's own complexity from absorbing this branch's decision points.
+function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string, unknown>>>(
+  sectionSpec: EditWriteFormSection,
+  screenId: string,
+  values: TValues,
+  translate: Translate,
+  featureName: string,
+): EditWriteFormSectionViewModel {
+  const innerEntity: EntityDefinition = { fields: sectionSpec.fieldDefs } as EntityDefinition;
+  const innerScreen: EntityEditScreenDefinition = {
+    id: `${screenId}:${sectionSpec.id ?? "write-form"}`,
+    type: "entityEdit",
+    entity: WRITE_FORM_SECTION_ENTITY,
+    layout: {
+      sections: [{ kind: "fields", fields: sectionSpec.fields, columns: sectionSpec.columns }],
+    },
+  };
+  const inner = computeEditViewModel({
+    screen: innerScreen,
+    entity: innerEntity,
+    values,
+    translate,
+    featureName,
+  });
+  const innerSection = inner.sections[0];
+  const fields = innerSection?.kind === "fields" ? innerSection.fields : [];
+  return {
+    kind: "writeForm" as const,
+    ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
+    ...(sectionSpec.description !== undefined && {
+      description: translate(sectionSpec.description),
+    }),
+    columns: sectionSpec.columns ?? 1,
+    fields,
+    ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
+    handler: sectionSpec.handler,
+    ...(sectionSpec.submitLabel !== undefined && {
+      submitLabel: translate(sectionSpec.submitLabel),
+    }),
+  };
+}
+
 // Pure transform from screen-def + entity-def + row-values to the flat
 // section/field tree the renderer draws. FieldConditions are evaluated here
 // so the renderer never re-runs them during React render.
@@ -76,6 +128,15 @@ export function computeEditViewModel<
         ...(sectionSpec.entityName !== undefined && { entityName: sectionSpec.entityName }),
       };
     }
+    if (isWriteFormEditSection(sectionSpec)) {
+      return computeWriteFormSectionViewModel(
+        sectionSpec,
+        screen.id,
+        values,
+        translate,
+        featureName,
+      );
+    }
     if (!isFieldsEditSection(sectionSpec)) {
       // relatedList runs its own query — nothing here to resolve against
       // entity/values, the spec passes through verbatim (fw#2166).
@@ -87,6 +148,7 @@ export function computeEditViewModel<
         columns: sectionSpec.columns,
         ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
         ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
+        ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
       };
     }
     const fields: EditFieldViewModel[] = sectionSpec.fields.map((fieldSpec) => {

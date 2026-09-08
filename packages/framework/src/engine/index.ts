@@ -242,6 +242,7 @@ export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-build
 export {
   isExtensionEditSection,
   isFieldsEditSection,
+  isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
 } from "./screen-helpers";

@@ -9,7 +9,12 @@ import { rowMetaFieldNames } from "../../db/table-builder";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
-import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
+import {
+  isExtensionEditSection,
+  isWriteFormEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+} from "../screen-helpers";
 import type { EntityDefinition, FeatureDefinition } from "../types";
 import type {
   DashboardCustomPanel,
@@ -732,6 +737,93 @@ export function validateScreens(
               );
             }
           }
+          if (section.rowActions !== undefined) {
+            for (const action of section.rowActions) {
+              if (action.kind === "navigate") {
+                const target = resolveRowActionNavigateTarget(
+                  feature.name,
+                  screenId,
+                  "projectionDetail",
+                  "rowAction",
+                  action,
+                  allScreenQns,
+                  navTargetShortIds,
+                  screensByShortId,
+                  detailForScreens,
+                );
+                validateRowActionNavigateParams(
+                  feature.name,
+                  screenId,
+                  "projectionDetail",
+                  undefined,
+                  action,
+                  target,
+                );
+              } else if (!allWriteHandlerQns.has(action.handler)) {
+                throw new Error(
+                  `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section ` +
+                    `"${section.title}" (relatedList) rowAction "${action.id}" handler "${action.handler}" ` +
+                    `is not a registered write-handler. Check the QN spelling (expected ` +
+                    `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+                );
+              }
+            }
+            // section.rowClick (legacy, navigate-only) and a rowActions entry
+            // marked rowClick:true both claim the row-body click — same
+            // at-most-one constraint as entityList/projectionList's
+            // validateAtMostOneRowClick, just spanning two fields instead of one.
+            const rowClickActionCount = section.rowActions.filter(
+              (a) => a.kind === "navigate" && a.rowClick === true,
+            ).length;
+            const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
+            if (rowClickActionCount + legacyRowClickCount > 1) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(relatedList) has both a rowClick and ${rowClickActionCount} rowActions marked ` +
+                  `rowClick:true — at most one may fire on a row-body click.`,
+              );
+            }
+          }
+          continue;
+        }
+        if (isWriteFormEditSection(section)) {
+          if (Object.keys(section.fieldDefs).length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(writeForm) has an empty fieldDefs map — declare at least one field type.`,
+            );
+          }
+          if (section.fields.length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(writeForm) has zero fields — drop the section or add fields to it.`,
+            );
+          }
+          for (const f of section.fields) {
+            const fieldName = normalizeEditField(f).field;
+            if (section.fieldDefs[fieldName] === undefined) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(writeForm) field "${fieldName}" has no entry in fieldDefs — every rendered field needs ` +
+                  `a type declared there.`,
+              );
+            }
+          }
+          if (screen.layout.mode === "wizard") {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `is kind "writeForm" in a wizard layout — a self-persisting form is not supported in a ` +
+                `stepped form. Remove mode: "wizard" or drop the writeForm section.`,
+            );
+          }
+          if (!allWriteHandlerQns.has(section.handler)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(writeForm) handler "${section.handler}" is not a registered write-handler. Check the QN ` +
+                `spelling (expected "<feature>:write:<short>") and that the handler is declared via ` +
+                `r.writeHandler(...).`,
+            );
+          }
           continue;
         }
         if (section.fields.length === 0) {
@@ -835,6 +927,12 @@ export function validateScreens(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) relatedList section ` +
               `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
               `primitive (fw#2166).`,
+          );
+        }
+        if (isWriteFormEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) writeForm section ` +
+              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
           );
         }
         if (section.fields.length === 0) {
@@ -950,6 +1048,12 @@ export function validateScreens(
             `[Feature ${feature.name}] Screen "${screenId}" (actionForm) relatedList section ` +
               `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
               `primitive (fw#2166).`,
+          );
+        }
+        if (isWriteFormEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) writeForm section ` +
+              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
           );
         }
         if (section.fields.length === 0) {
@@ -1306,6 +1410,12 @@ export function validateScreens(
             `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) relatedList section ` +
               `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
               `primitive (fw#2166).`,
+          );
+        }
+        if (isWriteFormEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) writeForm section ` +
+              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
           );
         }
         if (section.fields.length === 0) {

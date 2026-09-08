@@ -6,6 +6,7 @@ import type {
   IconKey,
   ListColumnSpec,
   PlatformComponent,
+  RowAction,
   ScreenSlots,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
@@ -247,7 +248,8 @@ export type EditFieldViewModel = {
 export type EditSectionViewModel =
   | EditFieldsSectionViewModel
   | EditExtensionSectionViewModel
-  | EditRelatedListSectionViewModel;
+  | EditRelatedListSectionViewModel
+  | EditWriteFormSectionViewModel;
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
@@ -287,6 +289,22 @@ export type EditRelatedListSectionViewModel = {
   readonly columns: readonly ListColumnSpec[];
   readonly pageSize?: number;
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
+  readonly rowActions?: readonly RowAction[];
+};
+
+// Mirrors EditWriteFormSection, except `fields` is already resolved through
+// the same per-field pipeline as EditFieldsSectionViewModel (computed via a
+// recursive computeEditViewModel call against the section's own fieldDefs —
+// see edit.ts) — the renderer needs no second field-resolution path.
+export type EditWriteFormSectionViewModel = {
+  readonly kind: "writeForm";
+  readonly title?: string;
+  readonly description?: string;
+  readonly columns: number;
+  readonly fields: readonly EditFieldViewModel[];
+  readonly icon?: IconKey;
+  readonly handler: string;
+  readonly submitLabel?: string;
 };
 
 export type EditViewModel = {

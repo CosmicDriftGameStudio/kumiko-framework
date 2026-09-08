@@ -2,9 +2,15 @@ import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
+  RowAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { computeEditViewModel } from "../edit";
-import type { EditFieldsSectionViewModel, EditSectionViewModel } from "../types";
+import type {
+  EditFieldsSectionViewModel,
+  EditRelatedListSectionViewModel,
+  EditSectionViewModel,
+  EditWriteFormSectionViewModel,
+} from "../types";
 
 function asFields(s: EditSectionViewModel | undefined): EditFieldsSectionViewModel {
   if (s === undefined || s.kind !== "fields") {
@@ -728,5 +734,152 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
     expect(field?.refEntity).toBeUndefined();
     expect(field?.refFeature).toBeUndefined();
     expect(field?.refLabelField).toBeUndefined();
+  });
+});
+
+function asRelatedList(s: EditSectionViewModel | undefined): EditRelatedListSectionViewModel {
+  if (s === undefined || s.kind !== "relatedList") {
+    throw new Error(`expected relatedList-section, got ${s?.kind ?? "undefined"}`);
+  }
+  return s;
+}
+
+function asWriteForm(s: EditSectionViewModel | undefined): EditWriteFormSectionViewModel {
+  if (s === undefined || s.kind !== "writeForm") {
+    throw new Error(`expected writeForm-section, got ${s?.kind ?? "undefined"}`);
+  }
+  return s;
+}
+
+describe("computeEditViewModel — relatedList rowActions passthrough (fw editable-detail-screens)", () => {
+  test("rowActions pass through onto the relatedList section view-model verbatim", () => {
+    const rowActions: readonly RowAction[] = [
+      { id: "sync", label: "actions.sync", handler: "app:write:sync", payload: { pick: ["id"] } },
+    ];
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "relatedList",
+            title: "History",
+            query: "app:query:history",
+            columns: ["name"],
+            rowActions,
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asRelatedList(vm.sections[0]).rowActions).toEqual(rowActions);
+  });
+
+  test("rowActions is absent from the view-model when the section spec has none", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          { kind: "relatedList", title: "History", query: "app:query:history", columns: ["name"] },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asRelatedList(vm.sections[0]).rowActions).toBeUndefined();
+  });
+});
+
+describe("computeEditViewModel — writeForm sections (fw editable-detail-screens)", () => {
+  test("resolves the section's own fieldDefs/fields through the same per-field pipeline as a fields section", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "writeForm",
+            title: "Add note",
+            fieldDefs: { note: { type: "text", required: true } },
+            fields: ["note"],
+            handler: "orders:write:add-note",
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const section = asWriteForm(vm.sections[0]);
+    expect(section.handler).toBe("orders:write:add-note");
+    expect(section.fields).toEqual([
+      {
+        field: "note",
+        label: "orders:entity:__write-form-section__:field:note",
+        type: "text",
+        value: undefined,
+        visible: true,
+        readOnly: false,
+        required: true,
+      },
+    ]);
+  });
+
+  test("readOnly/required on a writeForm field come from the section's own fieldDefs, independent of the host entity", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "writeForm",
+            title: "Add note",
+            // "notes" is optional on orderEntity — the writeForm section's own
+            // fieldDefs declares its own "notes" field as required, and that
+            // (not the host entity's) must win.
+            fieldDefs: { notes: { type: "text", required: true } },
+            fields: ["notes"],
+            handler: "orders:write:add-note",
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asWriteForm(vm.sections[0]).fields[0]?.required).toBe(true);
+  });
+
+  test("columns defaults to 1; icon/description/submitLabel are translated and passed through when set", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "writeForm",
+            title: "Add note",
+            description: "orders:write-form.description",
+            icon: "plus",
+            fieldDefs: { note: { type: "text" } },
+            fields: ["note"],
+            handler: "orders:write:add-note",
+            submitLabel: "orders:write-form.submit",
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const section = asWriteForm(vm.sections[0]);
+    expect(section.columns).toBe(1);
+    expect(section.icon).toBe("plus");
+    expect(section.description).toBe("orders:write-form.description");
+    expect(section.submitLabel).toBe("orders:write-form.submit");
   });
 });

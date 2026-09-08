@@ -30,6 +30,7 @@ export {
   isExtensionEditSection,
   isFieldsEditSection,
   isFormatSpec,
+  isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
 } from "../engine/screen-helpers";
@@ -74,6 +75,7 @@ export type {
   EditLayout,
   EditRelatedListSection,
   EditSectionSpec,
+  EditWriteFormSection,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   FieldCondition,
@@ -100,7 +102,10 @@ export type {
 export type { TargetRef } from "../engine/types/target-ref";
 export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node";
 export type { WorkspaceDefinition } from "../engine/types/workspace";
-export { PROJECTION_DETAIL_ENTITY } from "../i18n/required-surface-keys";
+export {
+  PROJECTION_DETAIL_ENTITY,
+  WRITE_FORM_SECTION_ENTITY,
+} from "../i18n/required-surface-keys";
 export type {
   AppSchema,
   FeatureSchema,
