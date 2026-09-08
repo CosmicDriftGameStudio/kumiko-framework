@@ -42,6 +42,34 @@ const orderEntity = createEntity({
 });
 const orderTable = buildEntityTable("refSearchOrder", orderEntity);
 
+// A caller who cannot read `customerId` itself must not be able to infer its
+// value by matching the target's label through the reference clause — same
+// probe surface fw#2629 already closed for filter/sort (fw#2660 parity).
+const restrictedOrderEntity = createEntity({
+  table: "read_ref_search_restricted_orders",
+  fields: {
+    note: createTextField({ searchable: true }),
+    customerId: {
+      type: "reference",
+      entity: "refSearchCustomer",
+      labelField: "name",
+      searchable: true,
+      access: { read: { Admin: "all" } },
+    },
+  },
+});
+const restrictedOrderTable = buildEntityTable("refSearchRestrictedOrder", restrictedOrderEntity);
+
+// Minimal stand-in for the real bundled `tenant` entity (table `read_tenants`)
+// — mirrors the pattern in entity-table-from-registry.test.ts. Only `name`
+// matters here: the implicit tenantId->tenant.name row-meta reference
+// (LIST_ROW_META_REFERENCES) is what's under test, not tenant's full schema.
+const tenantMetaEntity = createEntity({
+  table: "read_tenants",
+  fields: { name: createTextField({ required: true }) },
+});
+const tenantMetaTable = buildEntityTable("tenant", tenantMetaEntity);
+
 function resolveEntity(name: string): EntityDefinition | undefined {
   return name === "refSearchCustomer" ? customerEntity : undefined;
 }
@@ -49,6 +77,20 @@ function resolveEntity(name: string): EntityDefinition | undefined {
 const referenceSearch = {
   fields: [{ fieldName: "customerId", targetEntityName: "refSearchCustomer", labelField: "name" }],
   resolveEntity,
+};
+
+const restrictedReferenceSearch = {
+  fields: referenceSearch.fields,
+  resolveEntity,
+};
+
+// Same fields as `referenceSearch`, but resolves "tenant" too — kept separate
+// from the module-default `referenceSearch` so the other tests (whose
+// resolveEntity never resolves "tenant") never issue a query against
+// `read_tenants`.
+const referenceSearchWithTenant = {
+  fields: referenceSearch.fields,
+  resolveEntity: (name: string) => (name === "tenant" ? tenantMetaEntity : resolveEntity(name)),
 };
 
 let testDb: BunTestDb;
@@ -59,12 +101,17 @@ const otherTenantAdmin = TestUsers.otherTenant;
 const orderExec = createEventStoreExecutor(orderTable, orderEntity, {
   entityName: "refSearchOrder",
 });
+const restrictedOrderExec = createEventStoreExecutor(restrictedOrderTable, restrictedOrderEntity, {
+  entityName: "refSearchRestrictedOrder",
+});
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, customerEntity, "refSearchCustomer");
   await unsafeCreateEntityTable(testDb.db, orderEntity, "refSearchOrder");
+  await unsafeCreateEntityTable(testDb.db, restrictedOrderEntity, "refSearchRestrictedOrder");
+  await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
   await createEventsTable(testDb.db);
   tdbA = createTenantDb(testDb.db, admin.tenantId);
   tdbB = createTenantDb(testDb.db, otherTenantAdmin.tenantId);
@@ -76,7 +123,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    "TRUNCATE kumiko_events, read_ref_search_customers, read_ref_search_orders RESTART IDENTITY CASCADE",
+    "TRUNCATE kumiko_events, read_ref_search_customers, read_ref_search_orders, " +
+      "read_ref_search_restricted_orders, read_tenants RESTART IDENTITY CASCADE",
   );
 });
 
@@ -232,5 +280,76 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
       referenceSearch,
     });
     expect(res.rows.map((r) => r["id"])).toEqual([(textMatchOrder as { id: string }).id]);
+  });
+
+  test("a caller without read access to the reference column gets no reference-match hit (fw#2629 parity)", async () => {
+    const [acme] = await seedRows(testDb.db, customerTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
+    ]);
+    const [order] = await seedRows(testDb.db, restrictedOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "totally unrelated note",
+        customerId: (acme as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+
+    const asUser = await restrictedOrderExec.list({ search: "acme" }, TestUsers.user, tdbA, {
+      searchAdapter,
+      referenceSearch: restrictedReferenceSearch,
+    });
+    expect(asUser.rows).toHaveLength(0);
+
+    const asAdmin = await restrictedOrderExec.list({ search: "acme" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch: restrictedReferenceSearch,
+    });
+    expect(asAdmin.rows.map((r) => r["id"])).toEqual([(order as { id: string }).id]);
+  });
+
+  test("matches via the implicit tenantId->tenant.name row-meta reference in a system-scoped cross-tenant search", async () => {
+    const [acmeTenant] = await seedRows(testDb.db, tenantMetaTable, [
+      { id: admin.tenantId, tenantId: admin.tenantId, name: "Acme Tenant" },
+    ]);
+    await seedRows(testDb.db, tenantMetaTable, [
+      { id: otherTenantAdmin.tenantId, tenantId: otherTenantAdmin.tenantId, name: "Globex Tenant" },
+    ]);
+    const [someCustomer] = await seedRows(testDb.db, customerTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Some Customer" },
+    ]);
+
+    const [tenantAOrder] = await seedRows(testDb.db, orderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "nothing relevant here",
+        customerId: (someCustomer as { id: string }).id,
+      },
+    ]);
+    await seedRows(testDb.db, orderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: otherTenantAdmin.tenantId,
+        note: "also nothing relevant",
+        customerId: (someCustomer as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(TestUsers.systemAdmin.tenantId, { searchableFields: ["note"] });
+
+    const systemDb = createTenantDb(testDb.db, TestUsers.systemAdmin.tenantId, "system");
+    const res = await orderExec.list({ search: "acme" }, TestUsers.systemAdmin, systemDb, {
+      searchAdapter,
+      referenceSearch: referenceSearchWithTenant,
+    });
+
+    expect(res.rows.map((r) => r["id"])).toEqual([(tenantAOrder as { id: string }).id]);
+    // sanity: the match is scoped to the matching tenant, not "everything"
+    expect((acmeTenant as { id: string }).id).toBe(admin.tenantId);
   });
 });

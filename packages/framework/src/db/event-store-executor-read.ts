@@ -345,6 +345,15 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const physicalCol = (field: string): string => physicalColumnName(table, field);
       const colSql = (field: string): string => `"${physicalCol(field)}"`;
 
+      // Field-level read access gates filtering and sorting the same way it
+      // gates the projected row: a caller who cannot read a field must not be
+      // able to probe its values through result counts or ordering (fw#2629).
+      // Hoisted above the search block (fw#2660) — a searchable-reference
+      // clause is the same probe surface as a filter/sort and must be gated
+      // the same way, before the reference-match query even runs.
+      const fieldReadClause = (field: string) =>
+        buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
+
       // Build-Time options.searchAdapter gewinnt; runtime-Override ist
       // Fallback für die defaultEntityQueryHandler-Pipe (die nutzt den
       // ctx.searchAdapter erst zur Laufzeit weil createEventStoreExecutor
@@ -376,7 +385,12 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         // reference) whose target row's labelField matches the search term
         // also counts as a hit on this entity, not just a raw text-field hit.
         const referenceSearch = runtimeOptions?.referenceSearch;
-        const descriptors = collectReferenceSearchDescriptors(table, referenceSearch);
+        // fw#2629 parity: a caller who cannot read the reference column itself
+        // must not be able to infer its value by matching the target's label —
+        // same probe surface as filtering/sorting on it directly.
+        const descriptors = collectReferenceSearchDescriptors(table, referenceSearch).filter(
+          (d) => fieldReadClause(d.ownColumn).kind === "pass",
+        );
         const referenceMatches = referenceSearch
           ? (
               await Promise.all(
@@ -416,11 +430,6 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         whereSql.push(`(${orParts.join(" OR ")})`);
       }
 
-      // Field-level read access gates filtering and sorting the same way it
-      // gates the projected row: a caller who cannot read a field must not be
-      // able to probe its values through result counts or ordering (fw#2629).
-      const fieldReadClause = (field: string) =>
-        buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
       const sortField =
         payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
           ? payload.sort
