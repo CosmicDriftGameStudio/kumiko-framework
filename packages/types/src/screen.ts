@@ -676,6 +676,17 @@ export type EditFieldSpec =
        *  `multiline` routes to a textarea (no icon slot), and other input
        *  kinds (select, combobox, date, …) silently ignore the key. */
       readonly icon?: FieldIconKey;
+      /** Marks this field as a reference lookup instead of a plain value —
+       *  for projectionDetail fields, which have no `EntityDefinition` to
+       *  carry a real `reference` field type. Same target convention as
+       *  `parseRefTarget` (and `ListColumnSpec.refEntity`): an entity name
+       *  (same feature) or `feature:entity` (cross-feature). Ignored on
+       *  `entityEdit` fields, where the field's own declared type always
+       *  wins. */
+      readonly refEntity?: string;
+      /** Row field on the referenced entity shown as the label (default
+       *  "id"). Only meaningful together with `refEntity`. */
+      readonly refLabelField?: string;
     };
 
 // A section is a normal field-grid (default — `kind` omitted keeps every

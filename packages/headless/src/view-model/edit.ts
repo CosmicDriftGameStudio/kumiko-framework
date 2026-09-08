@@ -97,6 +97,18 @@ export function computeEditViewModel<
           `computeEditViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
         );
       }
+      // Declared reference metadata (EditFieldSpec.refEntity) — for
+      // projectionDetail fields, which have no EntityDefinition field to
+      // carry a real "reference" type. Takes priority over fieldDef.type
+      // below so it also fires against the pseudo-entity that hardcodes
+      // every field as "text" (projection-detail-shim) — real entityEdit
+      // screens never set this, so their fieldDef.type === "reference"
+      // branch is unaffected.
+      const declaredRefTarget =
+        normalized.refEntity !== undefined
+          ? parseRefTarget(normalized.refEntity, featureName)
+          : undefined;
+      const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;
       const label = translate(
         screen.fieldLabels?.[normalized.field] ??
           fieldLabelKey(featureName, screen.entity, normalized.field),
@@ -160,26 +172,33 @@ export function computeEditViewModel<
       const min = dateBounds?.min;
       const max = dateBounds?.max;
       const dateLocale = dateBounds?.locale;
-      // Tier 2.7e-3: Reference-Field — refEntity + refLabelField in
-      // das ViewModel reichen damit der Renderer die Lookup-Query
-      // bauen kann ohne noch an EntityDefinition zu greifen.
-      // Tier 2.7e-3: Reference-Field — entity-String kann same-feature
-      // ("user") oder cross-feature ("users:user") sein. parseRefTarget
-      // splittet das, der Renderer baut die Lookup-QN aus
-      // (refFeature, refEntity).
+      // Tier 2.7e-3: Reference-Field — refEntity + refLabelField travel into
+      // the view model so the renderer can build the lookup query without
+      // touching the EntityDefinition again. The entity-string can be
+      // same-feature ("user") or cross-feature ("users:user"); parseRefTarget
+      // splits that, the renderer builds the lookup QN from
+      // (refFeature, refEntity). Declared metadata (declaredRefTarget) takes
+      // priority, same as effectiveType above.
       const refRaw =
-        fieldDef.type === "reference"
+        declaredRefTarget === undefined && fieldDef.type === "reference"
           ? (fieldDef as unknown as { entity?: string }).entity
           : undefined;
-      const refTarget = refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined;
+      const refTarget =
+        declaredRefTarget ??
+        (refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined);
       const refEntity = refTarget?.entityName;
       const refFeature = refTarget?.featureName;
       const refLabelField =
-        fieldDef.type === "reference"
-          ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
-          : undefined;
+        declaredRefTarget !== undefined
+          ? (normalized.refLabelField ?? "id")
+          : fieldDef.type === "reference"
+            ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
+            : undefined;
+      // Declared reference metadata has no `multiple` concept (it targets
+      // row-meta/derived fields, always single-valued) — only a real
+      // ReferenceFieldDef carries it.
       const refMultiple =
-        fieldDef.type === "reference"
+        declaredRefTarget === undefined && fieldDef.type === "reference"
           ? ((fieldDef as unknown as { multiple?: boolean }).multiple ?? false)
           : undefined;
       // file/image: accept/maxSize ins ViewModel + entityType/fieldName für
@@ -272,7 +291,7 @@ export function computeEditViewModel<
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
-        type: fieldDef.type,
+        type: effectiveType,
         value: values[normalized.field],
         visible,
         readOnly,
