@@ -94,7 +94,7 @@ export function AuditLogDetailScreen(): ReactNode {
 
   if (state.kind === "loading") {
     return (
-      <FormScreenShell testId="audit-log-detail-screen" maxWidth="3xl">
+      <FormScreenShell testId="audit-log-detail-screen">
         <Text variant="small">{t("audit.log.detail.loading")}</Text>
       </FormScreenShell>
     );
@@ -102,7 +102,7 @@ export function AuditLogDetailScreen(): ReactNode {
 
   if (state.kind === "missing") {
     return (
-      <FormScreenShell testId="audit-log-detail-screen" maxWidth="3xl">
+      <FormScreenShell testId="audit-log-detail-screen">
         <Banner variant="error">{t("audit.log.detail.missing")}</Banner>
       </FormScreenShell>
     );
@@ -110,7 +110,7 @@ export function AuditLogDetailScreen(): ReactNode {
 
   if (state.kind === "error") {
     return (
-      <FormScreenShell testId="audit-log-detail-screen" maxWidth="3xl">
+      <FormScreenShell testId="audit-log-detail-screen">
         <Banner variant="error">{state.message}</Banner>
       </FormScreenShell>
     );
@@ -124,11 +124,7 @@ export function AuditLogDetailScreen(): ReactNode {
       : memberLabel || t("audit.log.actor.unknown");
 
   return (
-    <FormScreenShell
-      testId="audit-log-detail-screen"
-      maxWidth="3xl"
-      className="flex flex-col gap-6"
-    >
+    <FormScreenShell testId="audit-log-detail-screen" className="flex flex-col gap-6">
       <Card slots={{ title: event.type }}>
         <dl className="grid gap-3 text-sm">
           <div>
