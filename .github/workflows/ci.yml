@@ -772,11 +772,15 @@ jobs:
       # den Fall ab, dass der App-Token-Step wegen fehlender Secrets
       # uebersprungen wurde oder fehlschlug (dann ist
       # `steps.renovate-dispatch-token.outputs.token` leer).
-      # Renovate liest die Versionsliste aus dem npm-Packument, das hinter einem
-      # CDN minutenlang veraltet bleibt. Ein Dispatch direkt nach dem Publish
-      # laesst Renovate deshalb nur einen Teil der Lockstep-Pakete sehen und
-      # einen halben Bump bauen (fw#2644-Release: bundled-features blieb auf
-      # 0.236.0 zurueck, zwei kumiko-types-Kopien, Consumer-Typecheck rot).
+      # Renovate respektiert per Default `respectLatest: true` den npm
+      # `dist-tags.latest`-Tag, der nach einem Publish beliebig lange auf der
+      # alten Version haengen bleiben kann (nicht die `versions`-Liste, die
+      # sofort aktuell ist). Ein Dispatch direkt nach dem Publish laesst
+      # Renovate deshalb genau die Pakete ueberspringen, deren `latest` noch
+      # nicht nachgezogen ist (fw#2644-Release: bundled-features' `latest`
+      # blieb Stunden auf 0.236.0 haengen, waehrend alle anderen Pakete schon
+      # auf 0.236.1 standen) — Ergebnis war ein halber Lockstep-Bump mit zwei
+      # kumiko-types-Kopien und rotem Consumer-Typecheck.
       - name: Wait for npm packuments to catch up
         if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
         continue-on-error: true

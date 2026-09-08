@@ -1,12 +1,14 @@
 #!/usr/bin/env bun
-// registry.npmjs.org's packument response (what Renovate reads for the version
-// list) sits behind a CDN that stays stale for minutes after `npm publish` — the
-// dist-tags endpoint updates immediately but doesn't list versions, so it can't
-// substitute as a readiness check. Dispatching Renovate right after publish let
-// it see only part of a lockstep release (fw#2644: bundled-features stuck on
-// 0.236.0 while every other package was already on 0.236.1, producing two
-// kumiko-types copies and a broken consumer typecheck). This polls the real
-// packument until every package published in this run is visible.
+// A package's `versions` list in the npm packument updates immediately on
+// publish — but `dist-tags.latest` can lag it indefinitely, and Renovate's
+// default `respectLatest: true` means it never offers an update past
+// whatever `latest` currently points to. In the 0.236.1 release
+// bundled-features@0.236.1 was already listed under `versions` seconds after
+// publish, yet `dist-tags.latest` stayed pinned at "0.236.0" for hours
+// (fw#2644) — so Renovate silently skipped that one package while bumping
+// every other lockstep package, producing two kumiko-types copies and a
+// broken consumer typecheck. This polls the real packument's `dist-tags.latest`
+// — not `versions` — until every package published in this run is current.
 
 import { readFileSync } from "node:fs";
 import { Glob } from "bun";
@@ -37,11 +39,11 @@ export function collectPublishablePackages(packagesDir: string): PublishablePack
   return packages;
 }
 
-export function isVersionVisible(packument: unknown, version: string): boolean {
+export function isLatestOnRegistry(packument: unknown, version: string): boolean {
   if (packument === null || typeof packument !== "object") return false;
-  const versions = (packument as Record<string, unknown>).versions;
-  if (versions === null || typeof versions !== "object") return false;
-  return Object.prototype.hasOwnProperty.call(versions, version);
+  const distTags = (packument as Record<string, unknown>)["dist-tags"];
+  if (distTags === null || typeof distTags !== "object") return false;
+  return (distTags as Record<string, unknown>).latest === version;
 }
 
 async function fetchPackument(name: string, fetchImpl: FetchLike): Promise<unknown> {
@@ -88,13 +90,13 @@ export async function waitForNpmVisibility(
   for (;;) {
     for (const pkg of [...pending.values()]) {
       const packument = await fetchPackument(pkg.name, fetchImpl);
-      if (isVersionVisible(packument, pkg.version)) {
+      if (isLatestOnRegistry(packument, pkg.version)) {
         pending.delete(pkg.name);
-        console.log(`[wait-for-npm-visibility] visible: ${pkg.name}@${pkg.version}`);
+        console.log(`[wait-for-npm-visibility] latest tag caught up: ${pkg.name}@${pkg.version}`);
       }
     }
 
-    console.log(`[wait-for-npm-visibility] ${total - pending.size}/${total} packages visible`);
+    console.log(`[wait-for-npm-visibility] ${total - pending.size}/${total} packages at latest`);
 
     if (pending.size === 0) {
       return { ok: true, missing: [] };
@@ -114,11 +116,11 @@ if (import.meta.main) {
 
   if (!ok) {
     console.error(
-      `[wait-for-npm-visibility] timed out waiting for ${missing.length} package(s) to appear in the npm packument: ${missing
+      `[wait-for-npm-visibility] timed out waiting for ${missing.length} package(s) to become the npm "latest" tag: ${missing
         .map((pkg) => `${pkg.name}@${pkg.version}`)
         .join(", ")}`,
     );
     process.exit(1);
   }
-  console.log("[wait-for-npm-visibility] all packages visible");
+  console.log("[wait-for-npm-visibility] all packages are the npm latest tag");
 }
