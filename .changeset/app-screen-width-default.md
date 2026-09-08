@@ -10,3 +10,5 @@ Add an app-wide `screenWidth` option to `createKumikoApp` so a consumer can set 
 Also removes the now-redundant hardcoded `maxWidth` on the bundled `profile`, `privacy-center`, `tier-admin`, and admin-shell overview screens so they inherit the app default too.
 
 Fixes the Cancel button on form/detail screens having no visible hover state: it used the `link` button variant, which strips the button's box (`h-auto px-0 py-0`); it now uses `secondary` (outline + `hover:bg-accent`) like the framework's other secondary actions.
+
+Fixes the profile screen's email/password row rendering as two unevenly sized cards followed by a stray full-width row: `items-start` opted the row out of the grid's default stretch behavior, so two cards of different content height sat at their own heights instead of matching each other.

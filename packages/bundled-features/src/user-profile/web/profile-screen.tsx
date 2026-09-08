@@ -363,9 +363,9 @@ export function ProfileScreen(): ReactNode {
   return (
     <FormScreenShell className="flex flex-col gap-6" testId="profile-screen">
       <Heading variant="page">{t("profile.title")}</Heading>
-      {/* Die zwei kurzen Konto-Forms teilen sich eine Reihe (md+); die
-          Danger-Zone bleibt volle Breite darunter. */}
-      <div className="grid items-start gap-6 md:grid-cols-2">
+      {/* The two short account forms share a row from md up; the
+          danger zone stays full width below. */}
+      <div className="grid gap-6 md:grid-cols-2">
         <ChangeEmailSection me={me} onChanged={refetch} />
         <ChangePasswordSection />
       </div>

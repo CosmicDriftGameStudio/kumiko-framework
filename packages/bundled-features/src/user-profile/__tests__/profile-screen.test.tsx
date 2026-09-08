@@ -102,6 +102,17 @@ describe("ProfileScreen", () => {
     expect(view.getByTestId("profile-email").tagName).toBe("FORM");
   });
 
+  test("email/password row stretches equal-height cards instead of grid's items-start default (fw#2656)", async () => {
+    const view = renderProfile(activeMe);
+    await waitFor(() => {
+      if (view.queryByTestId("profile-screen") === null) throw new Error("not mounted yet");
+    });
+    const row = view.getByTestId("profile-email").parentElement;
+    expect(row?.className).toContain("grid");
+    expect(row?.className).toContain("md:grid-cols-2");
+    expect(row?.className).not.toContain("items-start");
+  });
+
   test("deletionRequested: Frist-Banner + Abbrechen statt Lösch-Button", async () => {
     const view = renderProfile({
       ...activeMe,
