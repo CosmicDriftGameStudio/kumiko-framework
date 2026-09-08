@@ -19,6 +19,7 @@ import {
   DraftStorageProvider,
   ExtensionSectionsProvider,
   type FeatureSchema,
+  type FormWidth,
   hasDetailScreen,
   KumikoScreen,
   kumikoDefaultTranslations,
@@ -40,7 +41,7 @@ import {
 import { type ComponentType, type ReactNode, useMemo } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { lastSegment } from "../layout/nav-tree";
-import { defaultPrimitives } from "../primitives";
+import { defaultPrimitives, ScreenWidthProvider } from "../primitives";
 import { ToastProvider } from "../primitives/toast";
 import { createEventSourceLiveEvents } from "../sse/live-events";
 import { useBrowserTokensApi } from "../tokens";
@@ -189,6 +190,13 @@ export type CreateKumikoAppOptions = {
     readonly hasWorkspaces?: boolean;
     readonly features?: readonly FeatureSchema[];
   }) => NavApi;
+  /** App-wide default width for form/detail screens that don't set their
+   *  own `layout.width` (fw#2656). Default "4xl" (unchanged behavior) — a
+   *  consumer app that wants e.g. bundled-feature screens to match its own
+   *  full-width lists passes `screenWidth: "full"` once here instead of
+   *  forking every screen it doesn't own. Per-screen `layout.width` always
+   *  wins over this default. */
+  readonly screenWidth?: FormWidth;
 };
 
 // Reads the dev-server-injected schema from the global. Guarded for
@@ -429,32 +437,34 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
       <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
         <DocumentLangSync resolver={localeResolver} />
         <PrimitivesProvider value={primitives}>
-          <AppFeaturesProvider features={app.features}>
-            <DispatcherProvider dispatcher={dispatcher}>
-              <DraftStorageProvider value={draftStorage}>
-                <LiveEventsProvider value={liveEvents}>
-                  <DashboardBodyProvider value={WebDashboardBody}>
-                    <CustomScreensProvider value={customScreens}>
-                      <ColumnRenderersProvider value={columnRenderers}>
-                        <ContentEditorsProvider value={contentEditors}>
-                          <ExtensionSectionsProvider value={extensionSectionComponents}>
-                            <NavProvidersProvider value={navProviders} entities={navEntities}>
-                              <ResolversProvider resolvers={resolvers}>
-                                <ToastProvider>
-                                  <UpdateChecker />
-                                  {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                                </ToastProvider>
-                              </ResolversProvider>
-                            </NavProvidersProvider>
-                          </ExtensionSectionsProvider>
-                        </ContentEditorsProvider>
-                      </ColumnRenderersProvider>
-                    </CustomScreensProvider>
-                  </DashboardBodyProvider>
-                </LiveEventsProvider>
-              </DraftStorageProvider>
-            </DispatcherProvider>
-          </AppFeaturesProvider>
+          <ScreenWidthProvider width={options.screenWidth ?? "4xl"}>
+            <AppFeaturesProvider features={app.features}>
+              <DispatcherProvider dispatcher={dispatcher}>
+                <DraftStorageProvider value={draftStorage}>
+                  <LiveEventsProvider value={liveEvents}>
+                    <DashboardBodyProvider value={WebDashboardBody}>
+                      <CustomScreensProvider value={customScreens}>
+                        <ColumnRenderersProvider value={columnRenderers}>
+                          <ContentEditorsProvider value={contentEditors}>
+                            <ExtensionSectionsProvider value={extensionSectionComponents}>
+                              <NavProvidersProvider value={navProviders} entities={navEntities}>
+                                <ResolversProvider resolvers={resolvers}>
+                                  <ToastProvider>
+                                    <UpdateChecker />
+                                    {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                                  </ToastProvider>
+                                </ResolversProvider>
+                              </NavProvidersProvider>
+                            </ExtensionSectionsProvider>
+                          </ContentEditorsProvider>
+                        </ColumnRenderersProvider>
+                      </CustomScreensProvider>
+                    </DashboardBodyProvider>
+                  </LiveEventsProvider>
+                </DraftStorageProvider>
+              </DispatcherProvider>
+            </AppFeaturesProvider>
+          </ScreenWidthProvider>
         </PrimitivesProvider>
       </LocaleProvider>
     </TokensBoot>

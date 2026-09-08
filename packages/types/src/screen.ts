@@ -751,8 +751,10 @@ export type FormWidth = "3xl" | "4xl" | "full";
 
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];
-  /** Default "full" (same content width as lists). Override to "sm" /
-   *  "3xl" / "4xl" only when a screen needs a narrower centered column. */
+  /** Default "4xl" (a centered column, narrower than list chrome), unless
+   *  the app overrides it via `createKumikoApp({ screenWidth })`. Override
+   *  per-screen to "3xl" for a narrower column or "full" to match list
+   *  chrome. */
   readonly width?: FormWidth;
   /** Default "single". "wizard" renders one section per step (with
    *  progress + per-step validation) instead of all sections at once —
