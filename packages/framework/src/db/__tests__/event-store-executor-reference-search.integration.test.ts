@@ -352,4 +352,30 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
     // sanity: the match is scoped to the matching tenant, not "everything"
     expect((acmeTenant as { id: string }).id).toBe(admin.tenantId);
   });
+
+  test("tenant-mode search never issues the tenantId row-meta lookup (gate)", async () => {
+    await seedRows(testDb.db, tenantMetaTable, [
+      { id: admin.tenantId, tenantId: admin.tenantId, name: "Acme Tenant" },
+    ]);
+    await seedRows(testDb.db, orderTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, note: "nothing relevant" },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+
+    // Drop the lookup target so the gated query would throw ("relation does
+    // not exist") if it were still issued — proves absence of the query, not
+    // just an equal-looking result.
+    await asRawClient(testDb.db).unsafe('DROP TABLE "read_tenants"');
+    try {
+      const res = await orderExec.list({ search: "acme" }, admin, tdbA, {
+        searchAdapter,
+        referenceSearch: referenceSearchWithTenant,
+      });
+      expect(res.rows).toHaveLength(0);
+    } finally {
+      await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
+    }
+  });
 });

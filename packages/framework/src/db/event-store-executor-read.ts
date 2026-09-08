@@ -15,7 +15,7 @@ import { collectEncryptedFieldNames } from "./entity-field-encryption";
 import type { EventStoreExecutor } from "./event-store-executor";
 import { buildFilterWhere, type ExecutorContext, type Table } from "./event-store-executor-context";
 import { buildEntityTable, toSnakeCase } from "./table-builder";
-import type { TenantDb } from "./tenant-db";
+import type { TenantDb, TenantDbMode } from "./tenant-db";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
 // of event-store-executor.ts (#1005, Welle 2) — behavior-preserving
@@ -226,6 +226,7 @@ type ReferenceSearchDescriptor = {
 function collectReferenceSearchDescriptors(
   table: Table,
   referenceSearch: NonNullable<Parameters<EventStoreExecutor["list"]>[3]>["referenceSearch"],
+  dbMode: TenantDbMode,
 ): readonly ReferenceSearchDescriptor[] {
   if (!referenceSearch) return [];
   const descriptors: ReferenceSearchDescriptor[] = referenceSearch.fields.map((f) => ({
@@ -234,13 +235,11 @@ function collectReferenceSearchDescriptors(
     labelField: f.labelField,
   }));
   for (const [ownColumn, ref] of Object.entries(LIST_ROW_META_REFERENCES)) {
-    if (table[ownColumn] !== undefined) {
-      descriptors.push({
-        ownColumn,
-        targetEntityName: ref.refEntity,
-        labelField: ref.refLabelField,
-      });
-    }
+    if (table[ownColumn] === undefined) continue;
+    // In "tenant" mode the outer tenant filter already pins tenantId to one
+    // of exactly two values, so a by-name lookup here can never narrow that further.
+    if (ownColumn === "tenantId" && dbMode === "tenant") continue;
+    descriptors.push({ ownColumn, targetEntityName: ref.refEntity, labelField: ref.refLabelField });
   }
   return descriptors;
 }
@@ -388,9 +387,11 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         // fw#2629 parity: a caller who cannot read the reference column itself
         // must not be able to infer its value by matching the target's label —
         // same probe surface as filtering/sorting on it directly.
-        const descriptors = collectReferenceSearchDescriptors(table, referenceSearch).filter(
-          (d) => fieldReadClause(d.ownColumn).kind === "pass",
-        );
+        const descriptors = collectReferenceSearchDescriptors(
+          table,
+          referenceSearch,
+          db.mode,
+        ).filter((d) => fieldReadClause(d.ownColumn).kind === "pass");
         const referenceMatches = referenceSearch
           ? (
               await Promise.all(
