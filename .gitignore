@@ -25,9 +25,9 @@ coverage/
 test-results/
 playwright-report/
 .e2e-data.json
-.kumiko-check.lock/
-.kumiko-check.log
-.kumiko-check.result
+.kumiko-check.lock*/
+.kumiko-check.log*
+.kumiko-check.result*
 
 # Codegen-Output (pro app generiert via `bun kumiko codegen`).
 # Wrapper + Type-Map-Augmentation, aus den r.defineEvent-Aufrufen

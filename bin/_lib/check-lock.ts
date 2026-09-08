@@ -7,12 +7,21 @@ export type CheckLockPaths = {
   readonly resultPath: string;
 };
 
+const SAFE_SCOPE_PATTERN = /^[A-Za-z0-9._-]+$/;
+
 /** Scopes the lock/log/result file names by `KUMIKO_CLI_SCOPE` (the repo the
  *  pre-push hook is checking) so concurrent `kumiko check` runs for
  *  different repos never share a lock — without a scope, both landed on the
  *  same literal file names once the pre-push hook cd's into the shared
  *  parent workspace, letting one repo's run adopt another's exit code. */
 export function checkLockPaths(scope: string | undefined, baseDir = ""): CheckLockPaths {
+  if (scope !== undefined && scope !== "") {
+    if (!SAFE_SCOPE_PATTERN.test(scope) || scope === "." || scope === "..") {
+      throw new Error(
+        `KUMIKO_CLI_SCOPE "${scope}" is not a safe lock-file suffix — only a single path segment of [A-Za-z0-9._-] is allowed`,
+      );
+    }
+  }
   const suffix = scope ? `.${scope}` : "";
   return {
     lockDir: join(baseDir, `.kumiko-check.lock${suffix}`),
@@ -22,9 +31,9 @@ export function checkLockPaths(scope: string | undefined, baseDir = ""): CheckLo
 }
 
 export function acquireCheckLock(lockDir: string, logPath: string, resultPath: string): boolean {
-  // mkdirSync ohne recursive ist atomar — EEXIST entscheidet ueber den
-  // Wettlauf zweier paralleler Aufrufe. Stale-Locks (Owner ist tot)
-  // werden einmal aufgeraeumt und dann neu versucht.
+  // mkdirSync without recursive is atomic — EEXIST decides the race
+  // between two concurrent calls. Stale locks (owner is dead) get
+  // cleaned up once and then retried.
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       mkdirSync(lockDir);
@@ -73,9 +82,9 @@ export function registerLockCleanup(lockDir: string): void {
 
 export async function followCheck(lockDir: string, logPath: string, resultPath: string): Promise<number> {
   console.log("kumiko check laeuft schon — haenge mich dran...\n");
-  // tail -F (capital F) folgt dem Log auch wenn er noch nicht existiert
-  // und ueberlebt File-Rotation. Das deckt den Race ab, in dem wir den
-  // Lock sehen aber der Owner die Log-Datei noch nicht angelegt hat.
+  // tail -F (capital F) follows the log even before it exists and
+  // survives file rotation. This covers the race where we see the lock
+  // but the owner hasn't created the log file yet.
   const tail = Bun.spawn(["tail", "-n", "+1", "-F", logPath], {
     stdout: "inherit",
     stderr: "inherit",

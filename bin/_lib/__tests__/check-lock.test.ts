@@ -25,6 +25,29 @@ describe("checkLockPaths", () => {
     expect(a.logPath).not.toBe(b.logPath);
     expect(a.resultPath).not.toBe(b.resultPath);
   });
+
+  test("accepts a plain repo-name scope", () => {
+    const base = tempDir();
+    expect(() => checkLockPaths("kumiko-framework", base)).not.toThrow();
+  });
+
+  test("accepts an undefined scope (no suffix)", () => {
+    const base = tempDir();
+    const paths = checkLockPaths(undefined, base);
+    expect(paths.lockDir).toBe(join(base, ".kumiko-check.lock"));
+    expect(paths.logPath).toBe(join(base, ".kumiko-check.log"));
+    expect(paths.resultPath).toBe(join(base, ".kumiko-check.result"));
+  });
+
+  test("rejects a scope that path-traverses out of baseDir", () => {
+    const base = tempDir();
+    expect(() => checkLockPaths("../evil", base)).toThrow();
+  });
+
+  test("rejects a scope that is exactly '..'", () => {
+    const base = tempDir();
+    expect(() => checkLockPaths("..", base)).toThrow();
+  });
 });
 
 describe("acquireCheckLock / followCheck: scope isolation (infra#722)", () => {
