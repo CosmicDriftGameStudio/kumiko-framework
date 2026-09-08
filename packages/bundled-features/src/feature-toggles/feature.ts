@@ -103,34 +103,30 @@ export function createFeatureTogglesFeature(
 
     r.translations({ keys: FEATURE_TOGGLES_I18N });
 
-    // toggle-cache-sync — multi-instance snapshot propagation. Every
-    // API/worker instance runs its own dispatcher cursor on this MSP
-    // (delivery: "per-instance") and converges its in-memory snapshot on
-    // every toggle-set event it observes. Named "cache-sync" (not
-    // "projection" or "audit") because it's side-effect-only
-    // infrastructure — the framework's boot-validator also rejects
-    // per-instance MSPs that carry a `table`.
+    // toggle-cache-sync — multi-instance snapshot propagation. One shared
+    // cursor reads every toggle-set event once (fw#2625); the winning
+    // process's handler calls runtime.broadcastToggle, which publishes on
+    // GlobalFeatureToggleRuntime's syncSignal so every process (including
+    // the one that won the cursor) applies the flip to its own snapshot —
+    // see toggle-runtime.ts and toggle-sync-signal.ts. Without a syncSignal
+    // configured (no REDIS_URL — single-process dev/test), broadcastToggle
+    // applies directly; there is nobody else to reach. Named "cache-sync"
+    // (not "projection" or "audit") because it's side-effect-only
+    // infrastructure.
     //
     // Why this is correct alongside the set-handler's own `runtime.apply`:
     //   - local apply = immediate response-latency optimization so the
     //     next request on the same instance sees the flip without a
-    //     dispatcher-tick round-trip
+    //     dispatcher-tick + Pub/Sub round-trip
     //   - MSP = multi-instance propagation + crash-recovery. If a process
     //     crashes between appendEvent (persisted) and the local apply
-    //     (volatile), the MSP rebuilds the snapshot on restart; if
-    //     instance B never ran the write, the MSP is how it learns. Both
-    //     paths are idempotent — apply is Map.set, replay on boot just
-    //     converges to the DB state that initialize() already loaded.
+    //     (volatile), the MSP rebuilds the snapshot on restart via
+    //     initialize(); if another instance never ran the write, the MSP
+    //     + syncSignal is how it learns. All paths are idempotent — apply
+    //     is Map.set.
     //
-    // fw#2625: unlike sse-broadcast/access-invalidation, this MSP has no
-    // Redis (or any other) transport underneath it — `runtime.apply` only
-    // ever mutates the calling process's own in-memory Map. Switching this
-    // to delivery: "shared" would mean exactly one process (whichever wins
-    // SKIP LOCKED on the shared cursor) ever runs the handler per event,
-    // so every OTHER already-running instance would never converge until
-    // its next restart. per-instance is the transport here, not a leftover
-    // — do not flip this without first giving the runtime its own
-    // cross-replica fanout (e.g. a Redis channel mirroring the SSE broker).
+    // startFrom: "now" — history is meaningless here, a flip is only ever
+    // relevant to processes already running when it happens.
     //
     // Requires: options.getRuntime() must resolve by the time the
     // dispatcher processes its first toggle-set event. The holder-based
@@ -138,7 +134,8 @@ export function createFeatureTogglesFeature(
     // this in setupTestStack and production boot.
     r.multiStreamProjection({
       name: "toggle-cache-sync",
-      delivery: "per-instance",
+      delivery: "shared",
+      startFrom: "now",
       apply: {
         [FEATURE_TOGGLE_SET_EVENT_NAME]: async (event) => {
           // The event payload shape is guaranteed by featureToggleSetSchema
@@ -152,7 +149,7 @@ export function createFeatureTogglesFeature(
                 "was wired up without `getRuntime`. Wire the accessor in your app-config.",
             );
           }
-          options.getRuntime().apply(payload.featureName, payload.enabled);
+          options.getRuntime().broadcastToggle(payload.featureName, payload.enabled);
         },
       },
     });
@@ -168,4 +165,6 @@ export { globalFeatureStateTable, globalFeatureStateTableMeta } from "./global-f
 export {
   createFeatureToggleRuntime,
   GlobalFeatureToggleRuntime,
+  type ToggleSyncSignal,
 } from "./toggle-runtime";
+export { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "./toggle-sync-signal";

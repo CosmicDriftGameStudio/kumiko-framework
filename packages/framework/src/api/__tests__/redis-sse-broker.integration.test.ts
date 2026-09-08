@@ -68,6 +68,7 @@ describe("createRedisSseBroker", () => {
       podB.publishAccessInvalidation(userId);
       return invalidated;
     });
+    expect(invalidated).toBe(true);
   });
 
   test("a client on channel A never receives an event published to channel B (no cross-tenant leak)", async () => {

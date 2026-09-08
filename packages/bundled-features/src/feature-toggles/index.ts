@@ -8,10 +8,13 @@ export {
 export {
   createFeatureToggleRuntime,
   createFeatureTogglesFeature,
+  createRedisToggleSyncSignal,
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
   type FeatureTogglesOptions,
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
   globalFeatureStateTableMeta,
+  type RedisToggleSyncSignal,
+  type ToggleSyncSignal,
 } from "./feature";

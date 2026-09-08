@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
@@ -18,21 +18,22 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createEventDispatcher, type EventConsumer } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
+  createTestRedis,
   createTestUser,
   setupTestStack,
+  type TestRedis,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { FEATURE_TOGGLE_SET_EVENT_NAME } from "../constants";
 import { createFeatureTogglesFeature } from "../feature";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../toggle-sync-signal";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
 // simple entity and a create-handler that writes via the event-store
@@ -595,98 +596,70 @@ describe("feature-toggles queries + audit automation", () => {
 
 // --- Multi-instance cache-sync (toggle-cache-sync MSP) ---
 //
-// Production scenario: two API instances share a DB. Instance A runs the
-// set-handler (flips widget off), Instance B didn't. Before this MSP,
-// B's runtime stayed stuck on the pre-flip snapshot until it was
-// restarted. Now B's dispatcher picks up the toggle-set event from the
-// events table (via the per-instance consumer cursor) and converges its
-// own snapshot.
-//
-// We simulate B with a hand-rolled second dispatcher against the same DB
-// — same pattern as the Welle-2.7 multi-instance tests in
-// event-dispatcher-multi-instance.integration.ts. Building a second
-// setupTestStack would need a shared DB pool across stacks, which adds
-// more test-infra than the scenario is worth; the hand-rolled consumer
-// mirrors exactly what the feature-toggles feature registers on the
-// primary stack.
+// Production scenario: two API instances share a DB + Redis. Instance A
+// runs the set-handler (flips widget off); its toggle-cache-sync MSP wins
+// the shared cursor and calls runtime.broadcastToggle, which publishes on
+// its syncSignal. Instance B's own GlobalFeatureToggleRuntime, subscribed
+// to the same Redis channel, applies the flip without ever running the
+// MSP itself — delivery is "shared", so only ONE process's dispatcher
+// processes a given toggle-set event; the signal is what makes every
+// OTHER already-running process learn about it. This is "der Kern" this
+// PR adds: without a real transport under broadcastToggle, only the
+// cursor-winning process would ever converge.
 describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
-  test("flip on instance A propagates to instance B after its dispatcher ticks", async () => {
-    // Instance B's runtime — same DB as instance A's `runtime`, but its
-    // own in-memory snapshot. `initialize()` loads the pre-existing rows;
-    // at this point there are no override rows (beforeEach wiped the
-    // table), so `widget` is on via its toggleable default.
-    const runtimeB = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
+  let testRedis: TestRedis;
+  let signalA: RedisToggleSyncSignal | undefined;
+  let signalB: RedisToggleSyncSignal | undefined;
+
+  beforeAll(async () => {
+    testRedis = await createTestRedis();
+  });
+
+  afterAll(async () => {
+    await testRedis.cleanup();
+  });
+
+  afterEach(async () => {
+    await Promise.all([signalA?.close(), signalB?.close()]);
+    signalA = undefined;
+    signalB = undefined;
+  });
+
+  test("flip via instance A's runtime converges instance B's runtime over Redis", async () => {
+    signalA = createRedisToggleSyncSignal(testRedis.redisUrl);
+    signalB = createRedisToggleSyncSignal(testRedis.redisUrl);
+    const runtimeA = new GlobalFeatureToggleRuntime(stack.db, stack.registry, signalA);
+    const runtimeB = new GlobalFeatureToggleRuntime(stack.db, stack.registry, signalB);
+    await runtimeA.initialize();
     await runtimeB.initialize();
+    expect(runtimeA.effectiveFeatures().has("widget")).toBe(true);
     expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
 
-    // Instance B's dispatcher — same consumer name as the feature's MSP
-    // so per-instance cursor rows stay aligned with production reality
-    // (each instance owns one cursor row keyed by (name, instance_id)).
-    // The handler mirrors the MSP's apply: narrow the payload, call
-    // runtime.apply. In production this code lives in the
-    // r.multiStreamProjection declaration; here we hand-roll it to keep
-    // the second runtime a local object.
-    const consumer: EventConsumer = {
-      name: "feature-toggles:projection:toggle-cache-sync",
-      delivery: "per-instance",
-      handler: async (event) => {
-        if (event.type !== FEATURE_TOGGLE_SET_EVENT_NAME) return;
-        const payload = event.payload as { featureName: string; enabled: boolean };
-        runtimeB.apply(payload.featureName, payload.enabled);
-      },
-    };
-    const dispatcherB = createEventDispatcher({
-      db: stack.db,
-      consumers: [consumer],
-      context: { db: stack.db, registry: stack.registry },
-      instanceId: "test-instance-B",
-      batchSize: 200,
-      pollIntervalMs: 5000,
+    // Retry the broadcast inside the predicate — same psubscribe-ack race
+    // as the SSE broker's Redis tests (a signal's subscription may not
+    // have landed the instant it's constructed).
+    await waitFor(() => {
+      runtimeA.broadcastToggle("widget", false);
+      return !runtimeB.effectiveFeatures().has("widget");
     });
-    await dispatcherB.ensureRegistered();
-
-    // Flip widget off on "instance A" via the HTTP path. This triggers:
-    //   1. DB row write (globalFeatureStateTable)
-    //   2. ctx.appendEvent (toggle-set into events-table)
-    //   3. runtime.apply on A's in-memory snapshot (fast-path)
-    await stack.http.write(
-      "feature-toggles:write:set",
-      { featureName: "widget", enabled: false },
-      admin,
-    );
-
-    // A sees the flip immediately (local apply in set-handler).
-    expect(runtime.effectiveFeatures().has("widget")).toBe(false);
-
-    // B hasn't ticked yet — its snapshot still says widget is on.
-    // This is the exact stale-cache bug this MSP is solving.
-    expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
-
-    // B's dispatcher ticks: consumes the toggle-set event, apply fires,
-    // runtimeB converges.
-    await dispatcherB.runOnce();
     expect(runtimeB.effectiveFeatures().has("widget")).toBe(false);
 
     // Flip back on — regression-check: propagation works both ways, not
     // just a one-shot on the first event.
-    await stack.http.write(
-      "feature-toggles:write:set",
-      { featureName: "widget", enabled: true },
-      admin,
-    );
-    expect(runtime.effectiveFeatures().has("widget")).toBe(true);
-    expect(runtimeB.effectiveFeatures().has("widget")).toBe(false);
-    await dispatcherB.runOnce();
+    await waitFor(() => {
+      runtimeA.broadcastToggle("widget", true);
+      return runtimeB.effectiveFeatures().has("widget");
+    });
     expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
   });
 
-  test("per-instance delivery: the primary stack's dispatcher also fires the MSP (double-apply is idempotent)", async () => {
-    // The feature registers the MSP with delivery="per-instance", so the
-    // primary stack's dispatcher also owns a cursor row and fires the
-    // handler on every toggle-set event — even on the instance that just
-    // wrote locally via the set-handler. `runtime.apply` is Map.set, so
-    // the second write is a no-op. We verify the dispatcher-tick path
-    // doesn't corrupt state.
+  test("shared delivery: the primary stack's own dispatcher tick re-applies idempotently", async () => {
+    // The feature registers the MSP with delivery="shared" — a single
+    // process (here, the primary test stack, which has no syncSignal
+    // configured) can win its own cursor and re-apply a value it already
+    // set locally via the set-handler. `runtime.apply` is Map.set, so the
+    // second write is a no-op. We verify the dispatcher-tick path doesn't
+    // corrupt state.
     await stack.http.write(
       "feature-toggles:write:set",
       { featureName: "widget", enabled: false },

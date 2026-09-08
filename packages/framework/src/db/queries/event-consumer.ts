@@ -42,12 +42,20 @@ export async function insertConsumerIfAbsent(
 export async function deleteOrphanedPerInstanceConsumerRows(
   db: AnyDb,
   consumerNames: readonly string[],
+  // Passed in rather than imported from event-consumer-state.ts (which
+  // defines SHARED_INSTANCE_SENTINEL): that module already imports from
+  // this one for the DB queries it needs, so importing back would be a
+  // require cycle. The one caller lives in that same file and has the
+  // constant in scope.
+  sharedInstanceSentinel: string,
 ): Promise<void> {
+  // skip: nothing to delete — an empty ANY($1) would still hit the table,
+  // pointlessly, on every boot for an app with no migrated consumers yet.
   if (consumerNames.length === 0) return;
   await asRawClient(db).unsafe(
     `DELETE FROM "kumiko_event_consumers"
-     WHERE "name" = ANY($1) AND "instance_id" != '__shared__'`,
-    [consumerNames],
+     WHERE "name" = ANY($1) AND "instance_id" != $2`,
+    [consumerNames, sharedInstanceSentinel],
   );
 }
 

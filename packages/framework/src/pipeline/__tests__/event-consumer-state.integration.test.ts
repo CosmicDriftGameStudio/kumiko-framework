@@ -32,9 +32,9 @@ describe("createEventConsumerStateTable — concurrent boot", () => {
   });
 });
 
-// fw#2625: sse-broadcast and access-invalidation moved from
-// delivery: "per-instance" to "shared" — their old per-instance rows are
-// orphaned and would pin pruneEvents forever if left behind.
+// fw#2625: sse-broadcast, access-invalidation and toggle-cache-sync moved
+// from delivery: "per-instance" to "shared" — their old per-instance rows
+// are orphaned and would pin pruneEvents forever if left behind.
 describe("createEventConsumerStateTable — orphaned per-instance row cleanup (fw#2625)", () => {
   let testDb: TestDb;
 
@@ -55,15 +55,16 @@ describe("createEventConsumerStateTable — orphaned per-instance row cleanup (f
     return rows.length > 0;
   }
 
-  test("deletes only the two migrated consumers' per-instance rows, leaving unrelated and shared rows intact", async () => {
+  test("deletes only the three migrated consumers' per-instance rows, leaving unrelated and shared rows intact", async () => {
     await insertConsumerIfAbsent(testDb.db, "system:consumer:sse-broadcast", "pod-a");
     await insertConsumerIfAbsent(testDb.db, "system:consumer:access-invalidation", "pod-b");
-    // Still per-instance by design (fw#2625 finding) — must survive.
     await insertConsumerIfAbsent(
       testDb.db,
       "feature-toggles:projection:toggle-cache-sync",
       "pod-c",
     );
+    // A consumer name not in the orphan list at all — must survive.
+    await insertConsumerIfAbsent(testDb.db, "feature-toggles:projection:unrelated", "pod-d");
     // A consumer name that happens to already run shared — must survive.
     await insertConsumerIfAbsent(testDb.db, "system:consumer:sse-broadcast", "__shared__");
 
@@ -73,7 +74,8 @@ describe("createEventConsumerStateTable — orphaned per-instance row cleanup (f
 
     expect(await rowExists("system:consumer:sse-broadcast", "pod-a")).toBe(false);
     expect(await rowExists("system:consumer:access-invalidation", "pod-b")).toBe(false);
-    expect(await rowExists("feature-toggles:projection:toggle-cache-sync", "pod-c")).toBe(true);
+    expect(await rowExists("feature-toggles:projection:toggle-cache-sync", "pod-c")).toBe(false);
+    expect(await rowExists("feature-toggles:projection:unrelated", "pod-d")).toBe(true);
     expect(await rowExists("system:consumer:sse-broadcast", "__shared__")).toBe(true);
   });
 });
