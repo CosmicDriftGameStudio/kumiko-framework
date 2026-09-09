@@ -448,8 +448,9 @@ export type InputProps =
       readonly name: string;
       readonly value: string;
       readonly onChange: (v: string) => void;
-      /** Anzahl sichtbarer Zeilen. Default 4 in der Default-Primitive
-       *  — hinreichend für Notes, vertikal-scrollbar drüber. */
+      /** Visible rows. Acts as a minimum height — the field starts this tall
+       *  and still grows with its content. Omitted, the default primitive
+       *  falls back to its own floor (#2677). */
       readonly rows?: number;
       readonly disabled?: boolean;
       readonly required?: boolean;
