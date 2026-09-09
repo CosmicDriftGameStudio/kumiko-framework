@@ -1889,6 +1889,114 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "x" });
   });
 
+  // #2670: a handler that writes a child record reports the child's id, but
+  // the redirect target is the parent's detail screen — `idFrom` names the
+  // payload field the navigation id comes from, so the handler keeps
+  // reporting what it actually wrote.
+  test("actionForm mit redirect-Objekt + idFrom: navigiert mit der Eltern-ID statt data.id (#2670)", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "child", leaseId: "parent" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const editScreen: EntityEditScreenDefinition = {
+      id: "task-edit",
+      type: "entityEdit",
+      entity: "task",
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: { screen: "task-edit", idFrom: "leaseId" },
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, editScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    await clickSubmitOnceEnabled();
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "parent" });
+  });
+
+  test("actionForm mit blankem String-redirect: navigiert weiter mit data.id, nicht mit einem anderen Payload-Feld (#2670)", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "child", leaseId: "parent" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const editScreen: EntityEditScreenDefinition = {
+      id: "task-edit",
+      type: "entityEdit",
+      entity: "task",
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "task-edit",
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, editScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    await clickSubmitOnceEnabled();
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "child" });
+  });
+
   // #2416: entityEdit-create passes the newly created record's id through to
   // the post-submit navigate as `entityId` (extractCreatedId); actionForm's
   // redirect did the same navigate but never extracted the id. The with-id

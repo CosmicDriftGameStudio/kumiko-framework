@@ -10,7 +10,11 @@ import type {
   WorkspaceDefinition,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasAccess, resolveAgentExposure } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  hasAccess,
+  isAgentVisibleScreen,
+  resolveAgentExposure,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import type {
   AgentManifest,
@@ -204,10 +208,15 @@ function buildNavs(
   workspaces: ReadonlyMap<string, WorkspaceDefinition>,
   translations: TranslationKeys,
   roles: readonly string[],
+  screens: ReadonlyMap<string, ScreenDefinition>,
 ): readonly AgentManifestNav[] {
   const result: AgentManifestNav[] = [];
   for (const [, nav] of navs) {
     if (!uiVisible(nav.access, roles)) continue;
+    // A nav pointing at an opted-out screen would leak its id and label back
+    // into the manifest the screen was just removed from.
+    const target = nav.screen !== undefined ? screens.get(nav.screen) : undefined;
+    if (target !== undefined && !isAgentVisibleScreen(target)) continue;
     const visibleWorkspaces = visibleWorkspaceIds(nav.workspaces, workspaces, roles);
     const hasWorkspaces = nav.workspaces !== undefined && nav.workspaces.length > 0;
     if (hasWorkspaces && visibleWorkspaces.length === 0) continue;
@@ -239,6 +248,9 @@ function buildScreens(
   const result: AgentManifestScreen[] = [];
 
   for (const [, screen] of screens) {
+    // An opted-out screen must not reach the manifest at all — the tool catalog
+    // builds `navigate`'s screen-id enum straight from `manifest.screens`.
+    if (!isAgentVisibleScreen(screen)) continue;
     const matchingNavs = allNavs.filter((nav) => nav.screen === screen.id);
     const accessibleNavs = matchingNavs.filter((nav) => uiVisible(nav.access, roles));
 
@@ -312,8 +324,9 @@ export function buildAgentManifest(
     roles,
     (qn) => registry.getHandlerEntity(qn),
   );
-  const navs = buildNavs(navMap, workspaceMap, translations, roles);
-  const screens = buildScreens(registry.getAllScreens(), navMap, workspaceMap, translations, roles);
+  const screenMap = registry.getAllScreens();
+  const navs = buildNavs(navMap, workspaceMap, translations, roles, screenMap);
+  const screens = buildScreens(screenMap, navMap, workspaceMap, translations, roles);
   const workspaces = buildWorkspaces(workspaceMap, translations, roles);
 
   return {

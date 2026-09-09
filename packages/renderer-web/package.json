@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-renderer-web",
-  "version": "0.241.0",
+  "version": "0.242.0",
   "description": "Web-platform bindings for @cosmicdrift/kumiko-renderer. HTML default-primitives, browser history-based navigation, EventSource-backed live events, and a one-call createKumikoApp that mounts the whole stack via react-dom.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -39,10 +39,10 @@
     "react-resizable-panels": "^4.12.2",
     "tailwind-merge": "^3.6.0",
     "temporal-polyfill": "^0.3.2",
-    "@tiptap/core": "^3.29.2",
-    "@tiptap/pm": "^3.29.2",
-    "@tiptap/react": "^3.29.2",
-    "@tiptap/starter-kit": "^3.29.2"
+    "@tiptap/core": "^3.30.5",
+    "@tiptap/pm": "^3.30.5",
+    "@tiptap/react": "^3.30.5",
+    "@tiptap/starter-kit": "^3.30.5"
   },
   "peerDependencies": {
     "@tailwindcss/cli": "^4.3.0",

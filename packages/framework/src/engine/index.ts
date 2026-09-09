@@ -473,7 +473,13 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "./types";
-export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, HookPhases, resolveAgentExposure } from "./types";
+export {
+  DEFAULT_CURRENCIES,
+  DEFAULT_LOCALES,
+  HookPhases,
+  isAgentVisibleScreen,
+  resolveAgentExposure,
+} from "./types";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
 export type {
   AwaitedEventType,

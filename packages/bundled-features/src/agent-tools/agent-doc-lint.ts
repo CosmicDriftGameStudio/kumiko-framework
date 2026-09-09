@@ -3,7 +3,13 @@ import type {
   QueryHandlerDef,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { QnTypes, qn, resolveAgentExposure, toKebab } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  isAgentVisibleScreen,
+  QnTypes,
+  qn,
+  resolveAgentExposure,
+  toKebab,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const AgentDocGapKinds = {
   handlerWithoutDescription: "handler-without-description",
@@ -56,13 +62,18 @@ function handlerDocGaps(
 function screenDocGaps(feature: FeatureDefinition): readonly AgentDocGap[] {
   const gaps: AgentDocGap[] = [];
   for (const [shortId, screen] of Object.entries(feature.screens ?? {})) {
-    if (screen.type !== CUSTOM_SCREEN_TYPE || screen.description !== undefined) continue;
+    if (
+      screen.type !== CUSTOM_SCREEN_TYPE ||
+      screen.description !== undefined ||
+      !isAgentVisibleScreen(screen)
+    )
+      continue;
     gaps.push({
       qn: qn(toKebab(feature.name), QnTypes.screen, toKebab(shortId)),
       feature: feature.name,
       kind: AgentDocGapKinds.customScreenWithoutDescription,
       message:
-        "This custom screen has no description, so the AI agent can't tell what it's for — set `description` to explain it.",
+        "This custom screen has no description, so the AI agent can't tell what it's for — set `description` to explain it, or `agent: { expose: false }` to hide it from the agent deliberately.",
     });
   }
   return gaps;

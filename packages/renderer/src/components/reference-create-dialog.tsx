@@ -23,10 +23,18 @@ function entityWriteCommand(featureName: string, entity: string): string {
 // The create handler's success payload is `{ kind: "save", id, ... }`
 // (see event-store-executor-write.ts) but RenderEdit's onSubmit only
 // types it as `unknown` — narrow defensively instead of casting through it.
-export function extractCreatedId(data: unknown): string | undefined {
+// `field` is author-declared (ActionFormRedirect.idFrom, fw#2670), never
+// user input; the own-property check keeps a prototype key like
+// "constructor" from resolving to anything.
+export function extractIdField(data: unknown, field: string): string | undefined {
   if (typeof data !== "object" || data === null) return undefined;
-  const id = (data as Record<string, unknown>)["id"];
-  return typeof id === "string" ? id : undefined;
+  if (!Object.hasOwn(data, field)) return undefined;
+  const value = (data as Record<string, unknown>)[field];
+  return typeof value === "string" ? value : undefined;
+}
+
+export function extractCreatedId(data: unknown): string | undefined {
+  return extractIdField(data, "id");
 }
 
 export type ReferenceCreateDialogProps = {

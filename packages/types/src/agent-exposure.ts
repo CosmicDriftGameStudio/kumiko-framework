@@ -12,3 +12,11 @@ export function resolveAgentExposure(
     risk: def.agent?.risk ?? (kind === "query" ? "low" : "mid"),
   };
 }
+
+/** Screens are the inverse of handlers: the manifest lists every role-visible
+ *  screen regardless of `description`, so only an explicit opt-out hides one.
+ *  Reusing `resolveAgentExposure`'s fail-closed default here would silently
+ *  drop every screen without a description from the agent's view. */
+export function isAgentVisibleScreen(screen: { readonly agent?: AgentHandlerHints }): boolean {
+  return screen.agent?.expose !== false;
+}

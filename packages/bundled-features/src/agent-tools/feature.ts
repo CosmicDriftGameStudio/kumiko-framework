@@ -6,7 +6,7 @@ export const AGENT_TOOLS_FEATURE_NAME = "agent-tools";
 export function createAgentToolsFeature(): FeatureDefinition {
   return defineFeature(AGENT_TOOLS_FEATURE_NAME, (r) => {
     r.describe(
-      "Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape. A handler, custom screen, or entity without a `description` stays invisible to the agent by construction (see `resolveAgentExposure`) — this feature surfaces those gaps at boot and via `kumiko agent lint` so an app author notices before an agent silently can't see a feature.",
+      "Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape. A handler or entity without a `description` stays invisible to the agent by construction (see `resolveAgentExposure`), while a screen stays visible unless it opts out with `agent: { expose: false }` (see `isAgentVisibleScreen`) — this feature surfaces the resulting gaps at boot and via `kumiko agent lint` so an app author notices before an agent silently can't see a feature.",
     );
     r.uiHints({
       displayLabel: "AI Agent Tools",

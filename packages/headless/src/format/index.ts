@@ -162,8 +162,14 @@ export function applyFormatSpec(
             : undefined,
       });
     case "boolean": {
-      if (value === true) return (spec["trueLabel"] as string | undefined) ?? "✓";
-      if (value === false) return (spec["falseLabel"] as string | undefined) ?? "";
+      if (value === true) {
+        const trueLabel = spec["trueLabel"] as string | undefined;
+        return trueLabel === undefined ? "✓" : (translate?.(trueLabel) ?? trueLabel);
+      }
+      if (value === false) {
+        const falseLabel = spec["falseLabel"] as string | undefined;
+        return falseLabel === undefined ? "" : (translate?.(falseLabel) ?? falseLabel);
+      }
       return "";
     }
     case "currency": {

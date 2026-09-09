@@ -1,6 +1,6 @@
 import type { FieldIconKey } from "./field-icon";
 import type { FieldDefinition } from "./fields";
-import type { AccessRule } from "./handlers";
+import type { AccessRule, AgentHandlerHints } from "./handlers";
 import type { IconKey, NavIconKey } from "./nav-icon";
 
 export type { FieldIconKey } from "./field-icon";
@@ -340,6 +340,7 @@ export type EntityListScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly entity: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
@@ -419,6 +420,7 @@ export type ProjectionListScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -480,6 +482,7 @@ export type ProjectionDetailScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
@@ -665,6 +668,7 @@ export type DashboardScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
@@ -862,6 +866,7 @@ export type EntityEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly entity: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
@@ -942,6 +947,7 @@ export type ActionFormScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
    *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
   readonly handler: string;
@@ -964,8 +970,13 @@ export type ActionFormScreenDefinition = {
    *  the target at boot time — an app that doesn't mount the target
    *  feature fails the boot-validator; only use this form in a reusable
    *  feature when the target feature is guaranteed to be mounted
-   *  alongside it. */
-  readonly redirect?: string;
+   *  alongside it.
+   *
+   *  The object form additionally names the success-payload field the
+   *  navigation id comes from (`ActionFormRedirect.idFrom`) — needed when
+   *  the handler creates a child record but the target screen is the
+   *  parent's detail screen (fw#2670). */
+  readonly redirect?: string | ActionFormRedirect;
   /** Target of the Cancel button. Default: `redirect` (historical
    *  behavior — Cancel and the submit-redirect then land in the same
    *  place). `false` = no Cancel button; correct for single-action
@@ -980,6 +991,22 @@ export type ActionFormScreenDefinition = {
   readonly cancelTarget?: string | false;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
+};
+
+/** Redirect target plus the success-payload field carrying the navigation
+ *  id. The write-handler reports the id of what it wrote (`data.id`); when
+ *  that record is a child and the target screen shows its parent, the
+ *  parent id has to be read from a different field instead of forcing the
+ *  handler to misreport its own result (fw#2670). */
+export type ActionFormRedirect = {
+  /** Same target forms as the string `redirect`: short screen ID
+   *  (same-feature) or a fully-qualified cross-feature screen QN. */
+  readonly screen: string;
+  /** Flat field name in the handler's success payload, e.g. "leaseId".
+   *  Only used when the target screen type carries an id (`entityEdit`,
+   *  `projectionDetail`); a non-string or missing value navigates without
+   *  an id, same as a payload without `id` does today. */
+  readonly idFrom: string;
 };
 
 // --- custom ---
@@ -998,6 +1025,8 @@ export type CustomScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  /** Only `expose` is read for screens; `risk` ranks handler tool calls. */
+  readonly agent?: AgentHandlerHints;
   readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
   /** Parent list screen for breadcrumb when this detail is not in nav. */
@@ -1054,6 +1083,7 @@ export type ConfigEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -1097,6 +1127,7 @@ export type SecretsEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
   readonly secretKeys: Readonly<Record<string, string>>;
   /** field id -> i18n key for the label. */
@@ -1134,10 +1165,10 @@ export type ScreenNavSugar = {
   readonly order?: number;
 };
 
-// `nav`/`detailFor`/`description` live directly on every variant (not only via this
+// `nav`/`detailFor`/`description`/`agent` live directly on every variant (not only via this
 // union) so a screen typed as its own concrete kind — e.g. `const screen:
 // CustomScreenDefinition = {...}` in a module split out of `feature.ts` —
-// still accepts all three; a union-only intersection drops them the
+// still accepts all four; a union-only intersection drops them the
 // moment a caller narrows to one member.
 //
 // `detailFor` applies to any screen kind because any kind can be the

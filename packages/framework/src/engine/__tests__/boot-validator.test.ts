@@ -2243,7 +2243,7 @@ describe("boot-validator", () => {
         readonly title: string;
         readonly fields: readonly string[];
       }>;
-      readonly redirect?: string;
+      readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
       readonly mode?: "single" | "wizard";
@@ -2350,6 +2350,35 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ redirect: "ghost-screen" })])).toThrow(
         /redirect "ghost-screen" does not resolve to a registered screen/,
       );
+    });
+
+    // --- redirect object form with idFrom (fw#2670) ---
+    test("redirect object → existing screen-id → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", idFrom: "leaseId" },
+            extraScreens: ["after-form"],
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("redirect object → unknown screen-id → Throw (unwrap umgeht die Validierung nicht)", () => {
+      expect(() =>
+        validateBoot([makeFeature({ redirect: { screen: "ghost-screen", idFrom: "leaseId" } })]),
+      ).toThrow(/redirect "ghost-screen" does not resolve to a registered screen/);
+    });
+
+    test("redirect object mit leerem idFrom → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", idFrom: "  " },
+            extraScreens: ["after-form"],
+          }),
+        ]),
+      ).toThrow(/redirect\.idFrom is empty/);
     });
 
     test("cancelTarget → existing screen-id → kein Throw", () => {

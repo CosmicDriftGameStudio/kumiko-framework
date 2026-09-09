@@ -528,6 +528,22 @@ function SegmentedSelect({
   );
 }
 
+// The row count reaches the textarea through an untyped view-model hint, so a
+// sloppy schema can hand over a fraction or a zero — neither renders a sane
+// attribute nor a sane min-height, so both fall back to the default instead.
+function normalizedTextareaRows(rows: number | undefined): number | undefined {
+  return rows !== undefined && Number.isInteger(rows) && rows >= 1 ? rows : undefined;
+}
+
+// The vendored shadcn Textarea carries `field-sizing: content`, which derives
+// the box height from the content and makes the `rows` attribute inert (#2677).
+// A declared row count therefore only survives as a min-height floor: the field
+// starts at `rows` lines tall and still grows with its content. The addend is
+// the textarea frame — py-2 top+bottom plus the 1px borders.
+function textareaMinHeight(rows: number): CSSProperties {
+  return { minHeight: `calc(${rows} * 1lh + 1rem + 2px)` };
+}
+
 function DefaultInput(props: InputProps): ReactNode {
   // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
   // selbst — kein manuelles border-destructive mehr nötig.
@@ -783,17 +799,20 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.hasError !== undefined && { hasError: props.hasError })}
         />
       );
-    case "textarea":
+    case "textarea": {
+      const rows = normalizedTextareaRows(props.rows);
       return (
         <Textarea
           {...common}
           readOnly={props.readOnly}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
-          rows={props.rows ?? 4}
+          rows={rows ?? 4}
           className="resize-y"
+          {...(rows !== undefined && { style: textareaMinHeight(rows) })}
         />
       );
+    }
     case "tz":
       return (
         <TzInput
