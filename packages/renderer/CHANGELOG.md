@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.241.0
+
+### Minor Changes
+
+- 8289b69: `projectionDetail` screens gain an optional `singleton: boolean` flag (`ProjectionDetailScreenDefinition`) for a self-service screen bound to a query that determines its row from the caller's session/context instead of a row id in the path (e.g. `user:query:user:me`). Without the flag, `ProjectionDetailBody` always rejected a missing path id with an error banner — the only path a singleton screen has — so `user-profile`'s `profile` screen and `user-data-rights`' `privacy-center` screen, both converted to `projectionDetail` bound to `me`-style queries, rendered nothing but that banner. Both now set `singleton: true` and render.
+
+  Under `singleton`, the query is called without the `idParam` key (there is no id to send) and any path id — even a stray or spoofed one — is ignored rather than forwarded into the query or into extension sections' entity-id resolution: a singleton row is server-picked, so no client-supplied id can reach it. The boot-validator rejects declaring `idParam` or `detailFor` together with `singleton` (both are meaningless/unsound once the server owns row selection — `detailFor`'s auto-generated "Edit" action navigates via the path id, which a singleton screen never has) instead of letting one silently win.
+
+- e6d5315: Adds an optional `JsonView` primitive (`@cosmicdrift/kumiko-renderer`'s `CorePrimitives`/`JsonViewProps`) for structured, syntax-highlighted JSON display, with a web implementation (`@cosmicdrift/kumiko-renderer-web`'s `DefaultJsonView`). Fixes `format: "json"` fields (audit `payload`/`metadata`, job `logs`) and the jsonb/embedded/files/images fallback banner rendering as an unreadable single line — HTML collapses the whitespace/newlines `applyFormatSpec("json")` already produces. `JsonView` receives the raw value (not a pre-stringified string) and stringifies + tokenizes itself; also wired into `EditorPanel`'s unresolved-target args display.
+
+  Optional (not required) on `CorePrimitives` so existing partial `CorePrimitives` mocks/providers keep compiling; every call site falls back to the prior `<Text>`/`<pre>` behavior when no `JsonView` is registered. Never throws on circular references, `BigInt`, or other non-serializable input.
+
+### Patch Changes
+
+- 24d48d5: Fixes `WriteFormSection`'s submit button rendering as a full-width, icon-less block inline with the fields (looked like a banner, not a form footer). The button now goes through `Section`'s existing `actions` slot — the same mechanism `RenderEdit` uses via `Form`'s `actions` — giving it the established right-aligned, compact footer treatment plus a `check` icon, matching every other Kumiko form's submit button. No change to submit behavior, validation, or handler dispatch.
+- Updated dependencies [43b41b5]
+- Updated dependencies [8289b69]
+  - @cosmicdrift/kumiko-headless@0.241.0
+  - @cosmicdrift/kumiko-framework@0.241.0
+
 ## 0.240.0
 
 ### Minor Changes
