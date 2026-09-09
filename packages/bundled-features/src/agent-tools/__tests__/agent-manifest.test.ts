@@ -183,4 +183,40 @@ describe("buildAgentManifest", () => {
     const entityNames = manifestA.entities.map((e) => e.name);
     expect(entityNames).toEqual([...entityNames].sort());
   });
+
+  test("a nav pointing at an opted-out screen is dropped too, so the screen id never leaks via navs", () => {
+    const feature = defineFeature("nav-leak-test", (r) => {
+      r.screen({
+        id: "sysadmin-secrets",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "Webhook secrets.",
+        agent: { expose: false },
+      });
+      r.screen({
+        id: "public-board",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "Public board.",
+      });
+      r.nav({
+        id: "sysadmin-secrets",
+        label: "nav-leak-test:nav:sysadmin-secrets",
+        screen: "nav-leak-test:screen:sysadmin-secrets",
+      });
+      r.nav({
+        id: "public-board",
+        label: "nav-leak-test:nav:public-board",
+        screen: "nav-leak-test:screen:public-board",
+      });
+    });
+
+    const manifest = buildAgentManifest(createRegistry([feature]), {
+      locale: "en",
+      roles: ["admin"],
+    });
+
+    expect(manifest.navs.map((n) => n.screen)).toEqual(["nav-leak-test:screen:public-board"]);
+    expect(manifest.screens.map((s) => s.id)).toEqual(["nav-leak-test:screen:public-board"]);
+  });
 });

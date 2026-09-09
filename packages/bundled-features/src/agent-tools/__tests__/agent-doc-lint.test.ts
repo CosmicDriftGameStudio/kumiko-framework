@@ -128,6 +128,46 @@ describe("findAgentDocGaps", () => {
     expect(findAgentDocGaps([feature])).toHaveLength(0);
   });
 
+  test("R2: custom screen with agent.expose:false opt-out -> no gap", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.screen({
+        id: "sysadmin-secrets",
+        type: "custom",
+        renderer: { react: "stub" },
+        agent: { expose: false },
+      });
+    });
+
+    expect(findAgentDocGaps([feature])).toHaveLength(0);
+  });
+
+  test("R2: custom screen with agent.expose:true but no description -> still a gap", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.screen({
+        id: "widget-editor",
+        type: "custom",
+        renderer: { react: "stub" },
+        agent: { expose: true },
+      });
+    });
+
+    const gaps = findAgentDocGaps([feature]);
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]?.qn).toBe("doc-gap-demo:screen:widget-editor");
+    expect(gaps[0]?.kind).toBe(AgentDocGapKinds.customScreenWithoutDescription);
+  });
+
+  test("R2: the custom-screen gap message names both ways out", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.screen({ id: "widget-editor", type: "custom", renderer: { react: "stub" } });
+    });
+
+    const gaps = findAgentDocGaps([feature]);
+    expect(gaps).toHaveLength(1);
+    expect(formatAgentDocGap(gaps[0]!)).toContain("agent: { expose: false }");
+    expect(formatAgentDocGap(gaps[0]!)).toContain("`description`");
+  });
+
   test("R2: non-custom screen without description -> no gap (only custom screens are linted)", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
       r.entity("widget", { fields: {}, description: "A widget." });

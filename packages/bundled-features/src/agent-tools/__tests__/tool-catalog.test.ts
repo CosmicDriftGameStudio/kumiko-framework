@@ -303,6 +303,57 @@ describe("buildToolCatalog — client tools", () => {
     expect(descriptor.screenIds.has("catalog-test:screen:widget-approve-form")).toBe(true);
   });
 
+  test("a screen with agent.expose:false is absent from the navigate enum and from the manifest", () => {
+    const feature = defineFeature("exposure-test", (r) => {
+      r.screen({
+        id: "sysadmin-secrets",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "Webhook secrets.",
+        agent: { expose: false },
+      });
+      r.screen({
+        id: "public-board",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "Public board.",
+      });
+    });
+    const registry = createRegistry([feature]);
+    const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });
+    const catalog = buildToolCatalog(registry, manifest, { mode: "edit" });
+
+    expect(manifest.screens.map((s) => s.id)).toContain("exposure-test:screen:public-board");
+    expect(manifest.screens.map((s) => s.id)).not.toContain(
+      "exposure-test:screen:sysadmin-secrets",
+    );
+
+    const descriptor = catalog.dispatchTable.get("navigate");
+    if (descriptor?.kind !== "client" || descriptor.op !== "navigate")
+      throw new Error("wrong kind");
+    expect(descriptor.screenIds.has("exposure-test:screen:sysadmin-secrets")).toBe(false);
+    expect(descriptor.screenIds.has("exposure-test:screen:public-board")).toBe(true);
+
+    const navTool = catalog.tools.find((t) => t.name === "navigate");
+    const schema = navTool?.inputSchema ?? {};
+    const properties = isRecord(schema["properties"]) ? schema["properties"] : {};
+    const screenIdSchema = isRecord(properties["screenId"]) ? properties["screenId"] : {};
+    const enumValues = Array.isArray(screenIdSchema["enum"]) ? screenIdSchema["enum"] : [];
+    expect(enumValues).toContain("exposure-test:screen:public-board");
+    expect(enumValues).not.toContain("exposure-test:screen:sysadmin-secrets");
+  });
+
+  test("a screen without an agent slot stays in the navigate enum", () => {
+    const catalog = buildCatalog(ADMIN);
+    const descriptor = catalog.dispatchTable.get("navigate");
+    if (descriptor?.kind !== "client" || descriptor.op !== "navigate")
+      throw new Error("wrong kind");
+    // None of catalog-test's screens carry a description either — this is the
+    // regression guard against a screen without an `agent` slot silently
+    // fail-closing (the way a handler without a description would).
+    expect(descriptor.screenIds.has("catalog-test:screen:widget-detail")).toBe(true);
+  });
+
   test("open_form maps the actionForm handler and the entityEdit create/update handlers", () => {
     const catalog = buildCatalog(ADMIN);
     const descriptor = catalog.dispatchTable.get("open_form");
