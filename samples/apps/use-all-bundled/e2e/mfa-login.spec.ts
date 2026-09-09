@@ -45,7 +45,7 @@ async function disableMfa(page: Page, code: string): Promise<void> {
   }
 }
 
-async function ensureSessionForDisable(page: Page, secret: Uint8Array): Promise<void> {
+async function ensureSessionForDisable(page: Page, secret: Buffer): Promise<void> {
   if (
     await page
       .getByRole("button", { name: "Dev Tenant" })
@@ -74,7 +74,7 @@ async function ensureSessionForDisable(page: Page, secret: Uint8Array): Promise<
 }
 
 test("MFA enable → logout → login challenges → TOTP → shell", async ({ page }) => {
-  let secret: Uint8Array | undefined;
+  let secret: Buffer | undefined;
   let recoveryCode: string | undefined;
   let enrolled = false;
 
