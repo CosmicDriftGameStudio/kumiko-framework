@@ -201,8 +201,10 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
               "error",
             ],
           },
+          // No section `title` here (fw#2312 label-dedup fix): the section
+          // holds exactly one field, so a title would repeat the field's own
+          // label (rendered by RenderField as the Field's heading) verbatim.
           {
-            title: "jobs.detail.logs",
             fields: [{ field: "logs", renderer: { format: "json" } }],
           },
         ],

@@ -73,8 +73,8 @@ export function createAuditFeature(): FeatureDefinition {
       fieldLabels: {
         type: "audit.log.col.type",
         createdAt: "audit.log.col.when",
-        aggregateType: "audit.log.col.aggregate",
-        aggregateId: "audit.log.col.aggregate",
+        aggregateType: "audit.log.col.aggregateType",
+        aggregateId: "audit.log.col.aggregateId",
         createdBy: "audit.log.col.actor",
         id: "audit.log.detail.field.id",
         payload: "audit.log.detail.payload",
@@ -92,12 +92,13 @@ export function createAuditFeature(): FeatureDefinition {
               "id",
             ],
           },
+          // No section `title` here (fw#2312 label-dedup fix): each section
+          // holds exactly one field, so a title would repeat the field's own
+          // label (rendered by RenderField as the Field's heading) verbatim.
           {
-            title: "audit.log.detail.payload",
             fields: [{ field: "payload", renderer: { format: "json" } }],
           },
           {
-            title: "audit.log.detail.metadata",
             fields: [{ field: "metadata", renderer: { format: "json" } }],
           },
         ],
