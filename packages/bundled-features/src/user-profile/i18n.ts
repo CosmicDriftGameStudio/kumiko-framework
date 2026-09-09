@@ -1,17 +1,16 @@
 // @runtime client
-// Default-Bundles für den ProfileScreen. Werden vom userProfileClient()
-// als Fallback-Bundle in den LocaleProvider gehängt — Apps überschreiben
-// einzelne Keys via `userProfileClient({ translations })`.
-// `auth.errors.invalidCredentials` + `user.errors.emailAlreadyExists`
-// sind hier gedoppelt, damit der Screen auch ohne die jeweiligen
-// Feature-Bundles vollständig übersetzt.
+// Default bundles for the `profile` screen. userProfileClient() hangs this
+// in the LocaleProvider as a fallback bundle — apps override individual keys
+// via `userProfileClient({ translations })`.
+// `auth.errors.invalidCredentials` + `user.errors.emailAlreadyExists` are
+// duplicated here so the screen stays fully translated even without those
+// features' own bundles.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
   en: {
-    "profile.title": "Profile",
-    "profile.loading": "Loading…",
+    "screen:profile.title": "Profile",
 
     "profile.email.title": "Email address",
     "profile.email.current": "Current email",
@@ -32,13 +31,10 @@ export const defaultTranslations: TranslationsByLocale = {
     "profile.danger.explainer":
       "Your account will be permanently deleted after a grace period. Until then you can cancel the deletion at any time.",
     "profile.danger.delete": "Delete account",
-    "profile.danger.dialogTitle": "Really delete your account?",
     "profile.danger.dialogDescription":
       "After the grace period your data will be permanently deleted. Until then you can cancel.",
-    "profile.danger.requested":
-      "Deletion requested — your account will be permanently deleted on {date}.",
+    "profile.danger.gracePeriodEnd": "Deletion date",
     "profile.danger.cancelDeletion": "Cancel deletion",
-    "profile.danger.cancelSuccess": "Deletion cancelled. Your account stays.",
 
     "profile.errors.generic": "Something went wrong.",
     "profile.errors.emailUnchanged": "That is already your email address.",

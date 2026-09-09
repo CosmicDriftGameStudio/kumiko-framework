@@ -25,7 +25,9 @@ describe("user-profile recipe — boot validation", () => {
 
   test("profile screen + nav registered with qualified ids", () => {
     const registry = createRegistry(features);
-    expect(registry.getScreen("account:screen:profile")?.id).toBe("account:screen:profile");
+    expect(registry.getScreen("user-profile:screen:profile")?.id).toBe(
+      "user-profile:screen:profile",
+    );
   });
 
   test("user-profile deklariert seine Require-Kette (Manifest-Quelle)", () => {
