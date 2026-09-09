@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.243.1",
+    "type": "fix",
+    "title": "Security fix: ChangePasswordSection/ChangeEmailSection no longer nest a <form> inside the host RenderEdit form.",
+    "detail": "Since `profile` became a declarative `projectionDetail` screen (fw#2312), RenderEdit wraps the whole singleton screen in its own host `<form>`. `ChangePasswordSection` and `ChangeEmailSection` were each rendering their own `<Form>` inside that host, creating invalid nested `<form>` DOM. The submit button silently fell back to a native GET submission of the outer form instead of dispatching a write, putting the entered password(s) in the URL query string (browser history, `Referer` header, proxy/server access logs — `ChangePasswordSection` leaked both the old and the new password). Both sections now follow the same no-nested-form pattern `write-form-section.tsx` uses: a plain container with a `type=\"button\"` that calls the write dispatcher directly. testIds are unchanged; Enter-to-submit inside these two sections is an accepted, deliberate trade-off (same one `write-form-section.tsx` already makes)."
+  },
+  {
     "version": "0.241.0",
     "type": "breaking",
     "title": "user-profile now registers its own profile screen (id user-profile:screen:profile); app-side profile screen registrations must be removed (fw#2312).",
