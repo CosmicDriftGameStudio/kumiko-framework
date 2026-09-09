@@ -1,14 +1,28 @@
 // @runtime client
-// Reine String-Konstanten — client-markiert, damit der PrivacyCenterScreen
-// (web/) sie importieren darf, ohne das runtime-Barrel des Features (und
-// damit dessen Server-/DOM-freien Code) zu ziehen. Runtime-Code
-// (feature.ts) darf client-Dateien ohnehin importieren.
+// Reine String-Konstanten — client-markiert, damit web/ (z.B. ExportSection)
+// sie importieren darf, ohne das runtime-Barrel des Features (und damit
+// dessen Server-/DOM-freien Code) zu ziehen. Runtime-Code (feature.ts) darf
+// client-Dateien ohnehin importieren.
 
 export const USER_DATA_RIGHTS_FEATURE = "user-data-rights" as const;
 
-// Dormant registriert (kein r.nav im Feature); Apps platzieren ihn via
-// r.nav. Qualifiziert: `user-data-rights:screen:privacy-center`.
+// Registered without r.nav — apps place it via their own r.nav. Qualified:
+// `user-data-rights:screen:privacy-center`.
 export const PRIVACY_CENTER_SCREEN_ID = "privacy-center" as const;
+
+// Extension-section component name for the Export (Art. 20) section of the
+// privacy-center screen — shared between feature.ts (screen def's
+// `component: { react: { __component } }`) and web/client-plugin.tsx
+// (extensionSectionComponents registration), same pattern as
+// compliance-profiles' COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME.
+export const EXPORT_SECTION_EXTENSION_NAME = "UserDataRightsExportSection" as const;
+
+// enumOption keyPrefix for the privacy-center screen's `status` field
+// (fw#2315 pattern) — resolves the raw user-lifecycle enum value
+// (active/restricted/deletionRequested/deleted) to a translated label
+// instead of showing the raw string.
+export const STATUS_OPTION_KEY_PREFIX =
+  "userDataRights.privacyCenter.field.status.option." as const;
 
 export const UserDataRightsQueries = {
   exportStatus: "user-data-rights:query:export-status",

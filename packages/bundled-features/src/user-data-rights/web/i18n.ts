@@ -37,12 +37,13 @@ const apexTranslations: TranslationsByLocale = {
       "No token found in the link. Please open the link from the email again.",
     "userDataRights.deletion.confirm.error": "Something went wrong. Please try again.",
 
-    "userDataRights.privacyCenter.title": "Privacy",
-    "userDataRights.privacyCenter.intro":
-      "Manage your GDPR rights: access, export, restrict, and delete your account.",
-    "userDataRights.privacyCenter.loading": "Loading …",
-    "userDataRights.privacyCenter.loadError": "Your data could not be loaded.",
     "userDataRights.privacyCenter.errors.generic": "Something went wrong. Please try again.",
+    "userDataRights.privacyCenter.field.status": "Account status",
+    "userDataRights.privacyCenter.field.gracePeriodEnd": "Scheduled deletion date",
+    "userDataRights.privacyCenter.field.status.option.active": "Active",
+    "userDataRights.privacyCenter.field.status.option.restricted": "Restricted",
+    "userDataRights.privacyCenter.field.status.option.deletionRequested": "Deletion requested",
+    "userDataRights.privacyCenter.field.status.option.deleted": "Deleted",
 
     "userDataRights.privacyCenter.export.title": "Export your data (Art. 20)",
     "userDataRights.privacyCenter.export.intro":
@@ -62,20 +63,14 @@ const apexTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.restriction.explainer":
       "Freeze your account: processing of your data is paused and you are signed out. Lifting the restriction afterwards is only possible via support.",
     "userDataRights.privacyCenter.restriction.restrict": "Restrict account",
-    "userDataRights.privacyCenter.restriction.dialogTitle": "Restrict your account?",
     "userDataRights.privacyCenter.restriction.dialogDescription":
       "You will be signed out immediately and cannot sign in again until support lifts the restriction.",
-    "userDataRights.privacyCenter.restriction.restricted":
-      "Your account is restricted. Contact support to lift the restriction.",
 
     "userDataRights.privacyCenter.deletion.title": "Delete account (Art. 17)",
     "userDataRights.privacyCenter.deletion.explainer":
       "Request deletion of your account. Until the grace period ends you can cancel the deletion.",
     "userDataRights.privacyCenter.deletion.delete": "Delete account",
-    "userDataRights.privacyCenter.deletion.requested": "Your account will be deleted on {date}.",
     "userDataRights.privacyCenter.deletion.cancel": "Cancel deletion",
-    "userDataRights.privacyCenter.deletion.cancelSuccess": "The deletion was cancelled.",
-    "userDataRights.privacyCenter.deletion.dialogTitle": "Delete your account?",
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
 

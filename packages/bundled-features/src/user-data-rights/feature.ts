@@ -7,7 +7,13 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks";
-import { PRIVACY_CENTER_SCREEN_ID } from "./constants";
+import {
+  EXPORT_SECTION_EXTENSION_NAME,
+  PRIVACY_CENTER_SCREEN_ID,
+  STATUS_OPTION_KEY_PREFIX,
+  USER_ME_QUERY,
+  UserDataRightsHandlers,
+} from "./constants";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
 import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query";
@@ -132,6 +138,17 @@ export type UserDataRightsOptions = {
    *  wenn der jeweilige send*Email-Opt NICHT gesetzt ist; Export-ready braucht
    *  zusaetzlich appExportDownloadUrl. */
   readonly mailDefaults?: GdprMailDefaults;
+  /** Hides the Art. 17 deletion section + its request-deletion/cancel-deletion
+   *  actions on the privacy-center screen — for apps that already offer
+   *  account deletion elsewhere (e.g. a profile danger-zone), against
+   *  duplication. Default `true` (deletion section shown).
+   *  BREAKING (fw#2312): replaces the removed client-side
+   *  `userDataRightsClient({ privacyCenter: { showDeletion } })` option —
+   *  the screen is now declared once, server-side (`type: "projectionDetail"`),
+   *  so per-app visibility can only be a boot-time option, not a client-side
+   *  component swap. Consumers that passed `showDeletion: false` client-side
+   *  must move it here. */
+  readonly privacyCenterShowDeletion?: boolean;
 };
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
@@ -139,6 +156,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
   // process, not every run). Lives in the factory scope so the cron closure
   // shares it across runs.
   let warnedMissingExportUrl = false;
+  const showDeletion = opts.privacyCenterShowDeletion ?? true;
   return defineFeature("user-data-rights", (r) => {
     r.describe(
       'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the four GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
@@ -283,24 +301,104 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
 
     r.translations({ keys: USER_DATA_RIGHTS_I18N });
 
-    // Dormant self-service screen (Art. 15/17/18/20): export, activity log,
-    // restriction, deletion in one screen. No r.nav — the app places it in
-    // its logged-in area. The React component comes from userDataRightsClient()
-    // (web/) client-side. access is openToAll because no app role name is
-    // portable; the per-user handlers enforce auth server-side, and the
-    // screen is invisible without r.nav until the app actively links it in
-    // its authed area. dormant: true so createKumikoApp's boot diagnostic
-    // (#2025) doesn't flag apps that haven't (yet) navved the screen as
-    // having a missing client plugin (#2034).
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
+    // Self-service screen (Art. 15/17/18/20): export, restriction, deletion
+    // in one projectionDetail screen bound to the user's own `me` row. No
+    // r.nav — the app places it in its logged-in area (createKumikoApp's
+    // missing-client-plugin boot diagnostic (#2025/#2034) only scans
+    // type: "custom" screens, so a non-navved projectionDetail never
+    // triggers it — no `dormant` flag needed, that field doesn't exist on
+    // this screen type). access is openToAll because no app role name is
+    // portable; the per-user handlers enforce auth server-side.
+    //
+    // Restriction/Deletion are declarative fields + actions; Export stays a
+    // custom extension section (web/client-plugin.tsx registers the
+    // component under EXPORT_SECTION_EXTENSION_NAME) since it needs
+    // async-job polling + a signed-URL download that a declarative action
+    // can't express. entityName: "export-job" names the domain entity the
+    // extension persists against (projectionDetail has no real entity of
+    // its own for the extension to default to).
     r.screen({
       id: PRIVACY_CENTER_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "PrivacyCenterScreen" } },
+      type: "projectionDetail",
+      query: USER_ME_QUERY,
       access: { openToAll: true },
-      dormant: true,
       description:
         "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
+      fieldLabels: {
+        status: "userDataRights.privacyCenter.field.status",
+        gracePeriodEnd: "userDataRights.privacyCenter.field.gracePeriodEnd",
+      },
+      layout: {
+        sections: [
+          {
+            kind: "extension",
+            title: "userDataRights.privacyCenter.export.title",
+            component: { react: { __component: EXPORT_SECTION_EXTENSION_NAME } },
+            entityName: "export-job",
+          },
+          {
+            // `status` lives here (not in Deletion) because this is the one
+            // section always on the screen — Deletion is dropped entirely
+            // when `showDeletion` is false, and status covers restriction
+            // AND deletion state, so it can't hang off the optional section.
+            title: "userDataRights.privacyCenter.restriction.title",
+            description: "userDataRights.privacyCenter.restriction.explainer",
+            fields: [
+              {
+                field: "status",
+                renderer: { format: "enumOption", keyPrefix: STATUS_OPTION_KEY_PREFIX },
+              },
+            ],
+          },
+          ...(showDeletion
+            ? [
+                {
+                  title: "userDataRights.privacyCenter.deletion.title",
+                  description: "userDataRights.privacyCenter.deletion.explainer",
+                  // gracePeriodEnd is only meaningful once a deletion is
+                  // actually pending — hide it instead of showing an empty
+                  // date when status isn't deletionRequested.
+                  fields: [
+                    {
+                      field: "gracePeriodEnd",
+                      renderer: { format: "date" as const },
+                      visible: { field: "status", eq: "deletionRequested" },
+                    },
+                  ],
+                },
+              ]
+            : []),
+        ],
+      },
+      actions: [
+        {
+          id: "restrict",
+          label: "userDataRights.privacyCenter.restriction.restrict",
+          handler: UserDataRightsHandlers.restrictAccount,
+          confirm: "userDataRights.privacyCenter.restriction.dialogDescription",
+          visible: { field: "status", ne: "restricted" },
+          style: "danger",
+        },
+        ...(showDeletion
+          ? [
+              {
+                id: "request-deletion",
+                label: "userDataRights.privacyCenter.deletion.delete",
+                handler: UserDataRightsHandlers.requestDeletion,
+                confirm: "userDataRights.privacyCenter.deletion.dialogDescription",
+                visible: { field: "status", ne: "deletionRequested" },
+                style: "danger" as const,
+              },
+              {
+                id: "cancel-deletion",
+                label: "userDataRights.privacyCenter.deletion.cancel",
+                handler: UserDataRightsHandlers.cancelDeletion,
+                visible: { field: "status", eq: "deletionRequested" },
+                style: "secondary" as const,
+              },
+            ]
+          : []),
+      ],
     });
 
     // Magic-link path (anonymous): the email link carries the token as a

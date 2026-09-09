@@ -1,16 +1,25 @@
 // @runtime client
-// Client-Feature-Factory für user-data-rights. Liefert den
-// PrivacyCenterScreen (gemappt auf die Screen-id "privacy-center") +
-// Default-Translations. Apps hängen es in
-// createKumikoApp({ clientFeatures: [userDataRightsClient()] }) ein; der
-// Screen wird server-seitig vom Feature dormant als custom-Screen
-// registriert (r.screen), die App platziert ihn via r.nav.
+// Client-Feature-Factory für user-data-rights. Liefert die ExportSection-
+// Extension-Component für den privacy-center-Screen (server-seitig
+// deklarativ als `type: "projectionDetail"` registriert, siehe feature.ts —
+// Restriction/Deletion sind Felder/Actions auf dem Screen selbst und
+// brauchen keine Client-Component) + Default-Translations. Apps hängen es
+// in createKumikoApp({ clientFeatures: [userDataRightsClient()] }) ein; der
+// Screen hat kein eigenes r.nav, die App platziert ihn via r.nav.
+//
+// fw#2312: die vormalige `privacyCenter: { showDeletion }`-Option ist
+// entfallen — ein deklarativer Screen wird einmal server-seitig für alle
+// Apps registriert, ein Client-Prop kann seine Sections/Actions nicht mehr
+// pro App umschalten. Ersatz ist die server-seitige
+// `UserDataRightsOptions.privacyCenterShowDeletion` (createUserDataRightsFeature,
+// ../feature.ts) — BREAKING, Consumer mit `showDeletion: false` (z.B.
+// money-horse) müssen die Option beim Feature-Setup nachziehen.
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { PRIVACY_CENTER_SCREEN_ID, USER_DATA_RIGHTS_FEATURE } from "../constants";
+import { EXPORT_SECTION_EXTENSION_NAME, USER_DATA_RIGHTS_FEATURE } from "../constants";
 import { defaultTranslations } from "./i18n";
-import { PrivacyCenterScreen } from "./privacy-center-screen";
+import { ExportSection } from "./privacy-center-screen";
 import { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate";
 
 export type UserDataRightsClientOptions = {
@@ -21,27 +30,16 @@ export type UserDataRightsClientOptions = {
    *  privacy-center-Screen. Den Client VOR dem Auth-Client listen, sonst
    *  landet der anonyme Besucher auf der Login-Maske. */
   readonly publicDeletion?: PublicDeletionRoutes;
-  /** Konfiguration des eingeloggten privacy-center-Screens. */
-  readonly privacyCenter?: {
-    /** `false` blendet die Konto-Lösch-Sektion aus — für Apps, die die Löschung
-     *  schon woanders anbieten (z.B. Profil-DangerZone), gegen Doppelung.
-     *  Default `true`. */
-    readonly showDeletion?: boolean;
-  };
 };
 
 export function userDataRightsClient(
   options?: UserDataRightsClientOptions,
 ): ClientFeatureDefinition {
-  const showDeletion = options?.privacyCenter?.showDeletion ?? true;
-  const privacyCenter = showDeletion
-    ? PrivacyCenterScreen
-    : () => <PrivacyCenterScreen showDeletion={false} />;
   const base: ClientFeatureDefinition = {
     name: USER_DATA_RIGHTS_FEATURE,
     translations: mergeTranslations(defaultTranslations, options?.translations ?? {}),
-    components: {
-      [PRIVACY_CENTER_SCREEN_ID]: privacyCenter,
+    extensionSectionComponents: {
+      [EXPORT_SECTION_EXTENSION_NAME]: ExportSection,
     },
   };
   if (options?.publicDeletion === undefined) return base;

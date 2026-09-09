@@ -1,8 +1,11 @@
-// Render-Test gegen echte i18n-Bundles (fängt fehlende Keys — der Screen
+// Render-Test gegen echte i18n-Bundles (fängt fehlende Keys — die Section
 // darf nie rohe "userDataRights.privacyCenter.*"-Keys zeigen) plus QN-Wiring
-// (die dispatchten Query-/Handler-Namen) und die status-getriebenen Branches.
-// Provider-Wrapper lokal (Dependency-Richtung renderer-web → bundled-features
-// verbietet test-utils-Import).
+// (die dispatchten Query-/Handler-Namen). Restriction/Deletion (Status-
+// getriebene Branches) sind mit fw#2312 auf deklarative Felder/Actions
+// umgezogen (feature.ts, gebootet in inspector-screens.boot.test.ts) — nur
+// noch Export (ExportSection) ist eine React-Komponente. Provider-Wrapper
+// lokal (Dependency-Richtung renderer-web → bundled-features verbietet
+// test-utils-Import).
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
@@ -28,7 +31,7 @@ import {
 } from "../../constants";
 import { EXPORT_JOB_STATUS as SCHEMA_EXPORT_JOB_STATUS } from "../../schema/export-job";
 import { defaultTranslations } from "../i18n";
-import { formatDate, PrivacyCenterScreen } from "../privacy-center-screen";
+import { ExportSection, formatDate } from "../privacy-center-screen";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 const stubTokens = {
@@ -40,7 +43,6 @@ const stubTokens = {
 const stubResolver = createStaticLocaleResolver();
 
 type QueryResponses = {
-  readonly me: Record<string, unknown>;
   readonly exportStatus?: unknown;
   readonly auditLog?: unknown;
   /** Signed URL returned by downloadByJob — drives postWithDownload navigation. */
@@ -55,7 +57,6 @@ function makeDispatcher(
   const statusStore = createStore<DispatcherStatus>("online");
   const query = (async (type: string, payload: unknown) => {
     queries.push({ type, payload });
-    if (type === USER_ME_QUERY) return { isSuccess: true, data: responses.me };
     if (type === UserDataRightsQueries.exportStatus) {
       return { isSuccess: true, data: responses.exportStatus ?? { hasJob: false } };
     }
@@ -85,10 +86,7 @@ function makeDispatcher(
   } as unknown as Dispatcher; // @cast-boundary test-stub
 }
 
-function renderCenter(
-  responses: QueryResponses,
-  opts: { readonly showDeletion?: boolean } = {},
-): {
+function renderExportSection(responses: QueryResponses): {
   view: ReturnType<typeof render>;
   writes: Array<{ type: string; payload: unknown }>;
   queries: Array<{ type: string; payload: unknown }>;
@@ -111,22 +109,21 @@ function renderCenter(
       </LocaleProvider>
     </TokensProvider>
   );
-  const view = render(<PrivacyCenterScreen showDeletion={opts.showDeletion ?? true} />, {
-    wrapper,
-  });
+  // ExportSection renders no Section/title of its own in production (the
+  // renderer's ExtensionSectionMount supplies that) — a plain testId wrapper
+  // here is test-only scaffolding to detect "mounted".
+  const view = render(
+    <div data-testid="export-section-root">
+      <ExportSection />
+    </div>,
+    { wrapper },
+  );
   return { view, writes, queries };
 }
 
-const activeMe = {
-  id: "00000000-0000-4000-8000-000000000042",
-  email: "marc@example.com",
-  status: "active",
-  gracePeriodEnd: null,
-};
-
 async function waitForMount(view: ReturnType<typeof render>): Promise<void> {
   await waitFor(() => {
-    if (view.queryByTestId("privacy-center-screen") === null) {
+    if (view.queryByTestId("export-section-root") === null) {
       throw new Error("not mounted yet");
     }
   });
@@ -151,22 +148,16 @@ async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<vo
 // plus accumulated global DOM/event state across ~30 prior DOM test files corrupts
 // these in-flight renders (#457-class). A fresh process has no such accumulation.
 // The QN-Drift-Pins + formatDate describes below are pure-logic and CI-stable.
-describe("PrivacyCenterScreen", () => {
-  test("aktiver User: Export/Einschränken/Löschen-Sektionen, Texte übersetzt (keine rohen Keys)", async () => {
-    const { view } = renderCenter({ me: activeMe });
+describe("ExportSection", () => {
+  test("idle: Intro + Request-Button, Texte übersetzt (keine rohen Keys)", async () => {
+    const { view } = renderExportSection({});
     await waitForMount(view);
-    expect(view.getByTestId("privacy-export")).toBeTruthy();
-    expect(view.getByTestId("privacy-restriction")).toBeTruthy();
-    expect(view.getByTestId("privacy-deletion")).toBeTruthy();
     expect(view.getByTestId("privacy-export-request")).toBeTruthy();
-    expect(view.getByTestId("privacy-restriction-restrict")).toBeTruthy();
-    expect(view.getByTestId("privacy-deletion-delete")).toBeTruthy();
     expect(view.container.textContent).not.toContain("userDataRights.privacyCenter");
   });
 
   test("export done: Download-Button + Verfügbar-bis-Datum", async () => {
-    const { view } = renderCenter({
-      me: activeMe,
+    const { view } = renderExportSection({
       exportStatus: {
         hasJob: true,
         job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
@@ -180,8 +171,7 @@ describe("PrivacyCenterScreen", () => {
   });
 
   test("export failed: Fehler-Banner + Re-Request möglich", async () => {
-    const { view } = renderCenter({
-      me: activeMe,
+    const { view } = renderExportSection({
       exportStatus: { hasJob: true, job: { id: "job-9", status: EXPORT_JOB_STATUS.Failed } },
     });
     await waitForTestId(view, "privacy-export-failed");
@@ -190,8 +180,7 @@ describe("PrivacyCenterScreen", () => {
   });
 
   test("export pending: in-progress Banner, kein Request-Button", async () => {
-    const { view } = renderCenter({
-      me: activeMe,
+    const { view } = renderExportSection({
       exportStatus: { hasJob: true, job: { id: "job-1", status: EXPORT_JOB_STATUS.Pending } },
     });
     await waitForTestId(view, "privacy-export-pending");
@@ -199,28 +188,8 @@ describe("PrivacyCenterScreen", () => {
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
   });
 
-  test("deletionRequested: Frist-Banner + Abbrechen statt Lösch-Button", async () => {
-    const { view } = renderCenter({
-      me: { ...activeMe, status: "deletionRequested", gracePeriodEnd: "2026-07-11T00:00:00Z" },
-    });
-    await waitForMount(view);
-    const banner = view.getByTestId("privacy-deletion-requested");
-    expect(banner.textContent).toContain("2026-07-11");
-    expect(banner.textContent).not.toContain("{date}");
-    expect(banner.textContent).not.toContain("T00:00");
-    expect(view.queryByTestId("privacy-deletion-delete")).toBeNull();
-    expect(view.getByTestId("privacy-deletion-cancel")).toBeTruthy();
-  });
-
-  test("restricted: Info-Banner statt Einschränken-Button", async () => {
-    const { view } = renderCenter({ me: { ...activeMe, status: "restricted" } });
-    await waitForMount(view);
-    expect(view.getByTestId("privacy-restriction-active")).toBeTruthy();
-    expect(view.queryByTestId("privacy-restriction-restrict")).toBeNull();
-  });
-
   test("Export-Request dispatcht den korrekten Handler-QN", async () => {
-    const { view, writes } = renderCenter({ me: activeMe });
+    const { view, writes } = renderExportSection({});
     await waitForMount(view);
     fireEvent.click(view.getByTestId("privacy-export-request"));
     await waitFor(() => {
@@ -229,16 +198,8 @@ describe("PrivacyCenterScreen", () => {
     expect(writes[0]?.type).toBe(UserDataRightsHandlers.requestExport);
   });
 
-  test("showDeletion=false: keine Lösch-Sektion", async () => {
-    const { view } = renderCenter({ me: activeMe }, { showDeletion: false });
-    await waitForMount(view);
-    expect(view.queryByTestId("privacy-deletion")).toBeNull();
-    expect(view.queryByTestId("privacy-deletion-delete")).toBeNull();
-  });
-
   test("Download-Button dispatcht downloadByJob mit der korrekten jobId", async () => {
-    const { view, queries } = renderCenter({
-      me: activeMe,
+    const { view, queries } = renderExportSection({
       exportStatus: {
         hasJob: true,
         job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
@@ -259,8 +220,7 @@ describe("PrivacyCenterScreen", () => {
     const signedUrl = "https://cdn.test/exports/job-123.zip?sig=abc";
     const assign = spyOn(window.location, "assign").mockImplementation(() => {});
     try {
-      const { view } = renderCenter({
-        me: activeMe,
+      const { view } = renderExportSection({
         downloadUrl: signedUrl,
         exportStatus: {
           hasJob: true,
@@ -281,8 +241,7 @@ describe("PrivacyCenterScreen", () => {
   test("Download-Button does not navigate when downloadByJob returns no url", async () => {
     const assign = spyOn(window.location, "assign").mockImplementation(() => {});
     try {
-      const { view } = renderCenter({
-        me: activeMe,
+      const { view } = renderExportSection({
         downloadUrl: undefined,
         exportStatus: {
           hasJob: true,
