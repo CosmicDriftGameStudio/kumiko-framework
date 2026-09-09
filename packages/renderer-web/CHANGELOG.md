@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.243.0
+
+### Patch Changes
+
+- c56d418: `multiline: { rows: N }` on a `text`/`longText` field now visibly changes the textarea height. The row count reached the rendered `<textarea rows>` attribute all along, but the vendored shadcn Textarea carries `field-sizing: content`, which derives the box height from the content and makes the attribute inert — a declared `rows: 16` still rendered a ~3-line field. The default textarea primitive now also derives an inline `min-height` from `rows`, so the field starts at the declared number of lines and keeps growing with its content. Textareas without an explicit `rows` are unchanged (`min-h-16` as before).
+- 91c31af: Raise the tiptap family floor to `^3.30.5` (`@tiptap/core`, `@tiptap/pm`, `@tiptap/react`, `@tiptap/starter-kit`).
+
+  `^3.29.2` allowed the fixed version but did not force it, so a lockfile resolved before the advisory stayed on the vulnerable 3.29.2. The tiptap packages are pinned exactly to each other and have to move together, which left consumers working around it with a large `overrides` block. Raising the floor here makes the old resolution impossible at the source.
+
+- Updated dependencies [1feba52]
+- Updated dependencies [349d763]
+- Updated dependencies [f1e3452]
+- Updated dependencies [c56d418]
+  - @cosmicdrift/kumiko-headless@0.243.0
+  - @cosmicdrift/kumiko-renderer@0.243.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.243.0
+
 ## 0.242.0
 
 ### Patch Changes
