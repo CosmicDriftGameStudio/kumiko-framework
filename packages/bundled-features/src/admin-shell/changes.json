@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.240.0",
+    "version": "0.241.0",
     "type": "fix",
     "title": "tenant-overview/platform-overview dashboards no longer show \"undefined\" tiles; both converted to declarative dashboard screens (fw#2312).",
     "detail": "Both overview screens sent `totalCount: true` to `tenant:query:list`/`jobs:query:list`, but neither handler's Zod schema declared the field, so it was stripped before the handler saw it and the tile rendered the literal string \"undefined\". Both handlers now accept `totalCount: boolean` and return `total` when set — `jobs:query:list`'s total is a real count (via `countWhere`), not `rows.length`, so it isn't capped by `limit`. `config:query:readiness` gains `missingCount`/`missingTone` alongside the existing `missing` array. `PlatformOverviewScreen`/`TenantOverviewScreen` (never public exports) and their `overview-layout`/`overview-query` support modules are gone — both screens are now `type: \"dashboard\"` (`kind: \"stat\"` panels) rendered by the generic renderer, using the new `DashboardStatPanel.params` (see framework changelog) to pin the failed-jobs tile's `status: \"failed\"` filter server-side. The `overview-allowlist` exports (`isOverviewQueryAllowed`, `overviewAllowedQueries`, the allow/forbidden-list constants) are unchanged and still importable — they're now checked against the screen definitions in tests instead of gating a deleted client-side dispatch call."
