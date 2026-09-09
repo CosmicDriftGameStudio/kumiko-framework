@@ -970,8 +970,13 @@ export type ActionFormScreenDefinition = {
    *  the target at boot time — an app that doesn't mount the target
    *  feature fails the boot-validator; only use this form in a reusable
    *  feature when the target feature is guaranteed to be mounted
-   *  alongside it. */
-  readonly redirect?: string;
+   *  alongside it.
+   *
+   *  The object form additionally names the success-payload field the
+   *  navigation id comes from (`ActionFormRedirect.idFrom`) — needed when
+   *  the handler creates a child record but the target screen is the
+   *  parent's detail screen (fw#2670). */
+  readonly redirect?: string | ActionFormRedirect;
   /** Target of the Cancel button. Default: `redirect` (historical
    *  behavior — Cancel and the submit-redirect then land in the same
    *  place). `false` = no Cancel button; correct for single-action
@@ -986,6 +991,22 @@ export type ActionFormScreenDefinition = {
   readonly cancelTarget?: string | false;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
+};
+
+/** Redirect target plus the success-payload field carrying the navigation
+ *  id. The write-handler reports the id of what it wrote (`data.id`); when
+ *  that record is a child and the target screen shows its parent, the
+ *  parent id has to be read from a different field instead of forcing the
+ *  handler to misreport its own result (fw#2670). */
+export type ActionFormRedirect = {
+  /** Same target forms as the string `redirect`: short screen ID
+   *  (same-feature) or a fully-qualified cross-feature screen QN. */
+  readonly screen: string;
+  /** Flat field name in the handler's success payload, e.g. "leaseId".
+   *  Only used when the target screen type carries an id (`entityEdit`,
+   *  `projectionDetail`); a non-string or missing value navigates without
+   *  an id, same as a payload without `id` does today. */
+  readonly idFrom: string;
 };
 
 // --- custom ---

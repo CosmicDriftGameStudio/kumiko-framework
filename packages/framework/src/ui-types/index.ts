@@ -55,6 +55,7 @@ export type {
 export type { AccessRule } from "../engine/types/handlers";
 export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav";
 export type {
+  ActionFormRedirect,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
