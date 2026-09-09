@@ -463,7 +463,7 @@ jobs:
         run: docker rm -f kumiko-ci-pg || true
 
   # Non-blocking (wie integration): nicht in release.needs, nicht in
-  # Branch-Protection. Fährt die 11 vorhandenen Playwright-e2e-Suiten
+  # Branch-Protection. Fährt die 12 vorhandenen Playwright-e2e-Suiten
   # (e2e/hero-demos, packages/renderer-web/e2e, samples/apps/*,
   # samples/recipes/apex-landing) sequenziell gegen denselben Stack wie
   # integration (pg/redis/meili/minio) — liefen vorher nie in CI.
@@ -547,6 +547,7 @@ jobs:
             samples/apps/workspaces/playwright.config.ts
             samples/recipes/apex-landing/playwright.config.ts
             samples/recipes/wizard-form/e2e/playwright.config.ts
+            samples/recipes/writeform-section/e2e/playwright.config.ts
           )
           failed=()
           for cfg in "${configs[@]}"; do

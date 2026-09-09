@@ -819,6 +819,22 @@
     "samples/recipes/workflow-engine": {
       "name": "@samples/workflow-engine",
     },
+    "samples/recipes/writeform-section": {
+      "name": "@cosmicdrift/kumiko-sample-writeform-section",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
+        "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+        "react": "^19.2.6",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+        "@playwright/test": "^1.62.1",
+        "@tailwindcss/cli": "^4.3.0",
+        "@types/react": "^19.2.14",
+        "tailwindcss": "^4.3.0",
+      },
+    },
   },
   "trustedDependencies": [
     "msgpackr-extract",
@@ -1064,6 +1080,8 @@
     "@cosmicdrift/kumiko-sample-wizard-form": ["@cosmicdrift/kumiko-sample-wizard-form@workspace:samples/recipes/wizard-form"],
 
     "@cosmicdrift/kumiko-sample-workspaces": ["@cosmicdrift/kumiko-sample-workspaces@workspace:samples/apps/workspaces"],
+
+    "@cosmicdrift/kumiko-sample-writeform-section": ["@cosmicdrift/kumiko-sample-writeform-section@workspace:samples/recipes/writeform-section"],
 
     "@cosmicdrift/kumiko-server-runtime": ["@cosmicdrift/kumiko-server-runtime@workspace:packages/server-runtime"],
 
