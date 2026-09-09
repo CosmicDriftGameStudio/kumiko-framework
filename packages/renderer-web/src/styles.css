@@ -89,6 +89,15 @@
   --color-status-warn: #f59e0b;
   --color-status-bad: #ef4444;
   --color-status-critical: #f87171;
+
+  /* JSON-Syntax-Highlighting (JsonView). Eigene, gedämpfte Palette statt der
+     Status-Ampel — ein `false` oder eine Zahl ist kein Fehler-/Warn-Signal.
+     Dark-Werte; Light-Overrides unten. Kontrast gegen bg-muted geprüft (>=6:1
+     in beiden Themes). */
+  --color-syntax-key: hsl(210 15% 75%);
+  --color-syntax-string: hsl(150 25% 60%);
+  --color-syntax-number: hsl(35 40% 65%);
+  --color-syntax-literal: hsl(270 25% 70%);
 }
 
 /* Card-Chrome-Maße — Framework-Defaults. Eine App überschreibt selektiv in
@@ -151,6 +160,13 @@
     --color-status-warn: #d97706;
     --color-status-bad: #dc2626;
     --color-status-critical: #991b1b;
+
+    /* JSON-Syntax-Highlighting Light — dunkler/gesättigter, Kontrast gegen
+       bg-muted geprüft (>=6:1). */
+    --color-syntax-key: hsl(210 20% 35%);
+    --color-syntax-string: hsl(150 30% 30%);
+    --color-syntax-number: hsl(30 45% 32%);
+    --color-syntax-literal: hsl(270 30% 40%);
   }
 
   * {

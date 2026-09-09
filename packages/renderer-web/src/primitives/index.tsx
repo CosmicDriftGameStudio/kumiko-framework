@@ -109,6 +109,7 @@ import {
 } from "./dropdown-menu";
 import { EmbeddedListInput } from "./embedded-list-input";
 import { FileUploadInput } from "./file-upload";
+import { DefaultJsonView } from "./json-view";
 import { screenWidthClassName } from "./layout";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
@@ -2560,4 +2561,5 @@ export const defaultPrimitives: CorePrimitives = {
   Tabs: DefaultTabs,
   StatusBadge: DefaultStatusBadge,
   Metric: DefaultMetric,
+  JsonView: DefaultJsonView,
 };

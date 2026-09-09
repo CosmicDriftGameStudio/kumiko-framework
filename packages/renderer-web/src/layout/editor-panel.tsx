@@ -13,7 +13,7 @@
 // Siehe visual-tree.md V.1.2 + V.1.1-B + V.1.4b.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
-import { useNav } from "@cosmicdrift/kumiko-renderer";
+import { useNav, usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { X } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useCallback, useMemo } from "react";
@@ -37,6 +37,7 @@ function EditorPanelInner({
   readonly resolvers: ReadonlyMap<string, ResolverComponent>;
   readonly onClose: () => void;
 }): ReactNode {
+  const { JsonView } = usePrimitives();
   const resolverKey = `${target.featureId}:${target.action}`;
   const Resolver = resolvers.get(resolverKey);
 
@@ -65,9 +66,13 @@ function EditorPanelInner({
           </code>{" "}
           registriert.
         </p>
-        <pre className="bg-muted p-2 rounded text-xs overflow-auto">
-          {JSON.stringify(target.args, null, 2)}
-        </pre>
+        {JsonView !== undefined ? (
+          <JsonView value={target.args} />
+        ) : (
+          <pre className="bg-muted p-2 rounded text-xs overflow-auto">
+            {JSON.stringify(target.args, null, 2)}
+          </pre>
+        )}
       </div>
     </div>
   );

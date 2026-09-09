@@ -83,7 +83,7 @@ export function RenderField({
   valueDisplay = "form",
   row,
 }: RenderFieldProps): ReactNode {
-  const { Field, Input, Banner, Text } = usePrimitives();
+  const { Field, Input, Banner, Text, JsonView } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
   // navigator.language (Browser-Sprache) zurück statt der gewählten
   // App-Sprache. BEWUSSTE API-Verschärfung (seit 0.38): RenderField ist
@@ -137,7 +137,19 @@ export function RenderField({
     ) : readOnlyText && !isComplexFieldType(field.type) ? (
       <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale)}</Text>
     ) : (
-      renderInput({ field, id, hasError, onChange, Input, appLocale, Banner, Text, t, row })
+      renderInput({
+        field,
+        id,
+        hasError,
+        onChange,
+        Input,
+        appLocale,
+        Banner,
+        Text,
+        JsonView,
+        t,
+        row,
+      })
     );
 
   return (
@@ -351,7 +363,7 @@ function FieldRendererOutput({
   readonly row?: Readonly<Record<string, unknown>>;
   readonly appLocale: string;
 }): ReactNode {
-  const { Text } = usePrimitives();
+  const { Text, JsonView } = usePrimitives();
   const t = useTranslation();
   const componentName =
     !isFormatSpec(renderer) && typeof renderer === "object" && renderer !== null
@@ -359,6 +371,18 @@ function FieldRendererOutput({
       : undefined;
   const Component = useColumnRenderer(componentName);
   if (isFormatSpec(renderer)) {
+    // format:"json" wants the raw value (JsonView stringifies + highlights
+    // itself) — applyFormatSpec's already-indented string is only the
+    // fallback for primitives-providers without JsonView (fw#2312).
+    if (renderer.format === "json" && JsonView !== undefined) {
+      return (
+        <JsonView
+          value={field.value}
+          indent={renderer.indent}
+          testId={`field-value-${field.field}`}
+        />
+      );
+    }
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/
     // bigInt/unit) fell back to Intl's runtime default instead of the app
@@ -495,6 +519,7 @@ function renderInput({
   appLocale,
   Banner,
   Text,
+  JsonView,
   t,
   row,
 }: {
@@ -506,6 +531,7 @@ function renderInput({
   readonly appLocale: string;
   readonly Banner: ReturnType<typeof usePrimitives>["Banner"];
   readonly Text: ReturnType<typeof usePrimitives>["Text"];
+  readonly JsonView: ReturnType<typeof usePrimitives>["JsonView"];
   readonly t: ReturnType<typeof useTranslation>;
   readonly row?: Readonly<Record<string, unknown>>;
 }): ReactNode {
@@ -710,7 +736,12 @@ function renderInput({
       return (
         <Banner id={id} variant="info">
           {t("kumiko.field.unsupported")}
-          {hasValue && <Text variant="code">{JSON.stringify(field.value)}</Text>}
+          {hasValue &&
+            (JsonView !== undefined ? (
+              <JsonView value={field.value} testId={`field-value-${field.field}`} />
+            ) : (
+              <Text variant="code">{JSON.stringify(field.value)}</Text>
+            ))}
         </Banner>
       );
     }

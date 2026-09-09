@@ -12,6 +12,7 @@ import { type ColumnRendererProps, ColumnRenderersProvider } from "@cosmicdrift/
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { defaultPrimitives, END_LABEL_MIN_ROWS, FormScreenShell } from "../primitives";
+import { DefaultJsonView } from "../primitives/json-view";
 import { PageSection, Stack } from "../primitives/layout";
 import { fireEvent, render, screen, waitFor } from "./test-utils";
 
@@ -1764,5 +1765,52 @@ describe("PageSection", () => {
   test("default maxWidth stays full-width (existing behavior)", () => {
     render(<PageSection testId="p-default">x</PageSection>);
     expect(screen.getByTestId("p-default").className).toContain("max-w-full");
+  });
+});
+
+describe("JsonView", () => {
+  test("tokenisiert statt einen flachen String zu rendern — Keys/Strings/Zahlen/Booleans/null bekommen je eigene Klasse", () => {
+    render(
+      <DefaultJsonView testId="jv" value={{ name: "job-1", attempts: 3, ok: true, error: null }} />,
+    );
+    const spans = Array.from(screen.getByTestId("jv").querySelectorAll("span"));
+    // 1 Key-Token pro Feld + 1 Value-Token (string/number/boolean/null) = 8.
+    expect(spans.length).toBe(8);
+    const classNames = new Set(spans.map((s) => s.className));
+    expect(classNames.size).toBe(5);
+  });
+
+  test("Whitespace bleibt erhalten (pre-wrap) — mehrzeiliger, eingerückter Output statt einer kollabierten Zeile", () => {
+    const value = { a: { b: 1 } };
+    render(<DefaultJsonView testId="jv" value={value} />);
+    const el = screen.getByTestId("jv");
+    expect(el.className).toContain("whitespace-pre-wrap");
+    expect(el.className).toContain("break-words");
+    expect(el.textContent).toBe(JSON.stringify(value, null, 2));
+    expect(el.textContent).toContain("\n");
+  });
+
+  test("indent-Prop steuert die Einrückung wie bei JSON.stringify", () => {
+    const value = { a: 1 };
+    render(<DefaultJsonView testId="jv" value={value} indent={4} />);
+    expect(screen.getByTestId("jv").textContent).toBe(JSON.stringify(value, null, 4));
+  });
+
+  test("zirkulärer Wert wirft nicht — rendert einen [Circular]-Marker statt die Seite zu killen", () => {
+    const circular: Record<string, unknown> = { name: "job-1" };
+    circular["self"] = circular;
+    expect(() => render(<DefaultJsonView testId="jv" value={circular} />)).not.toThrow();
+    expect(screen.getByTestId("jv").textContent).toContain("[Circular]");
+  });
+
+  test("BigInt wirft nicht — wird als String serialisiert", () => {
+    expect(() =>
+      render(<DefaultJsonView testId="jv" value={{ amount: 9007199254740993n }} />),
+    ).not.toThrow();
+    expect(screen.getByTestId("jv").textContent).toContain("9007199254740993n");
+  });
+
+  test("undefined wirft nicht", () => {
+    expect(() => render(<DefaultJsonView testId="jv" value={undefined} />)).not.toThrow();
   });
 });
