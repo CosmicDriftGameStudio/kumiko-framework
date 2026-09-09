@@ -1,4 +1,8 @@
-import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EntityDefinition,
+  FieldDefinition,
+  QueryHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { hasAccess } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   AgentManifest,
@@ -92,6 +96,14 @@ function isListHandlerQn(qn: string, entityName: string): boolean {
 
 function isDetailHandlerQn(qn: string, entityName: string): boolean {
   return qn.endsWith(`:${entityName}:detail`);
+}
+
+/** #2700: the entity CRUD tools are enumerated off the registry, not off the manifest, so
+ *  `resolveAgentExposure` never runs for them. Only an EXPLICIT opt-out may hide one here —
+ *  the resolver's own default is fail-closed on a missing `description`, and CRUD-generated
+ *  handlers never carry one, so reusing it would delete every entity tool in every app. */
+function isExplicitlyAgentHidden(def: QueryHandlerDef): boolean {
+  return def.agent?.expose === false;
 }
 
 function addToolsForListHandler(
@@ -375,11 +387,13 @@ function addTool(
 function addRegistrySearchTools(
   registry: RegistrySearchView,
   roleFilter: { roles: readonly string[] },
+  denyQns: ReadonlySet<string>,
   sink: CatalogSink,
 ): void {
   for (const [qn, def] of registry.getAllQueryHandlers()) {
     const entityName = registry.getHandlerEntity(qn);
     if (!entityName || !isListHandlerQn(qn, entityName)) continue;
+    if (denyQns.has(qn) || isExplicitlyAgentHidden(def)) continue;
     if (!hasAccess(roleFilter, def.access)) continue;
 
     const entity = registry.getEntity(entityName);
@@ -398,6 +412,7 @@ type EntityHandlerQns = {
 function collectEntityHandlerQns(
   registry: RegistrySearchView,
   roleFilter: { roles: readonly string[] },
+  denyQns: ReadonlySet<string>,
 ): EntityHandlerQns {
   const detailQnByEntity = new Map<string, string>();
   const listQnByEntity = new Map<string, string>();
@@ -413,6 +428,7 @@ function collectEntityHandlerQns(
   for (const [qn, def] of registry.getAllQueryHandlers()) {
     const entityName = registry.getHandlerEntity(qn);
     if (!entityName || !hasAccess(roleFilter, def.access)) continue;
+    if (denyQns.has(qn) || isExplicitlyAgentHidden(def)) continue;
     if (isDetailHandlerQn(qn, entityName)) detailQnByEntity.set(entityName, qn);
     if (isListHandlerQn(qn, entityName)) listQnByEntity.set(entityName, qn);
   }
@@ -459,10 +475,12 @@ function addListTools(
 function addQueryHandlerTools(
   manifest: AgentManifest,
   entityListDetailQns: ReadonlySet<string>,
+  denyQns: ReadonlySet<string>,
   sink: CatalogSink,
 ): void {
   for (const handler of manifest.handlers) {
     if (handler.kind !== "query") continue;
+    if (denyQns.has(handler.qn)) continue;
     if (entityListDetailQns.has(handler.qn)) continue;
     const name = toolNameForQn(handler.qn);
 
@@ -483,10 +501,12 @@ function addQueryHandlerTools(
 function addWriteHandlerTools(
   manifest: AgentManifest,
   detailQnByEntity: ReadonlyMap<string, string>,
+  denyQns: ReadonlySet<string>,
   sink: CatalogSink,
 ): void {
   for (const handler of manifest.handlers) {
     if (handler.kind !== "write") continue;
+    if (denyQns.has(handler.qn)) continue;
     const name = toolNameForQn(handler.qn);
 
     const detailQn =
@@ -544,7 +564,14 @@ function addClientTools(manifest: AgentManifest, mode: AgentToolMode, sink: Cata
  *  tool (custom query/write handlers, navigate/open_form/ask_user) is manifest-derived, since
  *  the manifest already carries the role-filtered handler/screen shape needed for those. Roles
  *  and locale both come from the manifest (`manifest.builtForRoles` / `manifest.tenantSettings.locale`)
- *  so the registry-derived and manifest-derived halves share one source and cannot disagree. */
+ *  so the registry-derived and manifest-derived halves share one source and cannot disagree.
+ *
+ *  `options.denyQns` is the app-side cut, applied to both halves: it is the only way to keep a
+ *  handler out of the catalog that the app does not own (a bundled feature's), and the only way
+ *  to drop an entity CRUD tool, which no `agent.expose` on the manifest side can reach. It is
+ *  NOT read off the manifest on purpose — the manifest is prompt payload, and a list of the
+ *  handlers the model may not call has no business travelling to the provider. Pass the same
+ *  list to `buildAgentManifest` so the manifest stops describing what the catalog withholds. */
 export function buildToolCatalog(
   registry: RegistrySearchView,
   manifest: AgentManifest,
@@ -554,16 +581,20 @@ export function buildToolCatalog(
   const roleFilter = { roles: manifest.builtForRoles };
   const locale = manifest.tenantSettings.locale;
   const entityByName = new Map(manifest.entities.map((entity) => [entity.name, entity]));
+  const denyQns = new Set(options.denyQns ?? []);
 
-  addRegistrySearchTools(registry, roleFilter, sink);
+  addRegistrySearchTools(registry, roleFilter, denyQns, sink);
   const { detailQnByEntity, listQnByEntity, entityListDetailQns } = collectEntityHandlerQns(
     registry,
     roleFilter,
+    denyQns,
   );
   addGetTools(detailQnByEntity, entityByName, locale, sink);
   addListTools(registry, listQnByEntity, entityByName, locale, sink);
-  addQueryHandlerTools(manifest, entityListDetailQns, sink);
-  if (options.mode !== "read-only") addWriteHandlerTools(manifest, detailQnByEntity, sink);
+  addQueryHandlerTools(manifest, entityListDetailQns, denyQns, sink);
+  if (options.mode !== "read-only") {
+    addWriteHandlerTools(manifest, detailQnByEntity, denyQns, sink);
+  }
   addClientTools(manifest, options.mode, sink);
 
   return { tools: sink.tools, dispatchTable: sink.dispatchTable };

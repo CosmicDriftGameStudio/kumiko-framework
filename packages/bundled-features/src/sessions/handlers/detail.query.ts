@@ -22,6 +22,8 @@ export const detailQuery = defineQueryHandler({
   access: { roles: access.admin },
   description:
     "Loads one session of the active tenant by its id with owner, timestamps and decrypted IP/user-agent; use it when an admin investigates a specific session found through the session list.",
+  // Decrypted IP and user-agent.
+  agent: { risk: "high" },
   outputSchema: sessionRowSchema.nullable(),
   handler: async (query, ctx) => {
     const row = await fetchOne<{

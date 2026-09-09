@@ -32,6 +32,9 @@ export function createEnableStartHandler(opts: EnableStartOptions) {
     access: { openToAll: true },
     description:
       "Begins TOTP enrollment for the signed-in user by generating a secret plus recovery codes and returning them as a short-lived setup token, an otpauth:// URI and the one-time plaintext recovery codes; nothing is persisted until enable-confirm.",
+    // The result is the TOTP secret, the otpauth:// URI and the plaintext
+    // recovery codes — an agent turn would put all three in the LLM transcript.
+    agent: { expose: false },
     handler: async (event, ctx) => {
       const existing = await findUserMfaRow(ctx.db, event.user);
       if (existing) return mfaAlreadyEnabled();

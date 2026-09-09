@@ -66,6 +66,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
     access: { roles: ["all"] },
     description:
       "Completes the enrollment that unblocks a sign-in forced into two-factor setup: verifies the code against the pre-auth setup token, stores the factor and derives the session the blocked login never got.",
+    // Changes the caller's authentication state and mints a session.
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const verify = verifyMfaSetupToken(event.payload.setupToken, opts.setupTokenSecret);
       if (!verify.ok) return invalidSetupToken();

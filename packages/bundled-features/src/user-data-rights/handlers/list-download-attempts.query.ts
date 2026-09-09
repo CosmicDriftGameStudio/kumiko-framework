@@ -25,6 +25,8 @@ export const listDownloadAttemptsQuery = defineQueryHandler({
   access: { roles: ["Admin", "SystemAdmin"] },
   description:
     "Lists invalid export-download attempts inside the caller's own tenant, filterable by failure result, source IP and time range, for a data protection officer triaging brute-force probing of download links.",
+  // Source IPs of the probing attempts.
+  agent: { risk: "high" },
   handler: async (query, ctx) => {
     const p = query.payload;
     const where: WhereObject = { tenantId: query.user.tenantId };

@@ -29,7 +29,9 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
     access: { openToAll: true },
     description:
       "Destroys every existing recovery code of the caller, including unused ones, and returns a fresh set once in plaintext; use it when recovery codes may have leaked but TOTP itself should stay enrolled.",
-    agent: { risk: "high" },
+    // Returns a fresh set of plaintext recovery codes — same transcript leak as
+    // enable-start.
+    agent: { expose: false },
     handler: async (event, ctx) => {
       const row = await findUserMfaRow(ctx.db, event.user);
       if (!row) return mfaNotEnabled();

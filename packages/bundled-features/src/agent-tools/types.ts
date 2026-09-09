@@ -14,6 +14,13 @@ export type AgentToolMode = "read-only" | "approval" | "edit";
 
 export type ToolCatalogOptions = {
   readonly mode: AgentToolMode;
+  /** Handler QNs the mounting app refuses to expose, whatever the handler's own
+   *  `agent.expose` says. Applies to every tool shape, including the entity
+   *  CRUD tools (`get_`/`list_`/`search_`/`find_*_by_*`) that are enumerated off
+   *  the registry rather than off the manifest. Pass the same list to
+   *  `buildAgentManifest`, or the manifest will still describe what the catalog
+   *  no longer offers. */
+  readonly denyQns?: readonly string[];
 };
 
 /** Mirrors `ToolDefinition` in `@cosmicdriftgamestudio/kumiko-ai-foundation` (providers/types.ts)
@@ -104,6 +111,12 @@ export type ToolCatalog = {
 export type AgentManifestOptions = {
   readonly locale: string;
   readonly roles: readonly string[];
+  /** Handler QNs the mounting app refuses to expose, whatever the handler's own
+   *  `agent.expose` says. Denied handlers are left out of `manifest.handlers`
+   *  entirely — the manifest is prompt payload, so a denied handler must not
+   *  reach the model as a description either. Pass the same list to
+   *  `buildToolCatalog`. */
+  readonly denyQns?: readonly string[];
   /** Tenant currency — the registry knows nothing about tenants, so the
    *  caller passes it through into the manifest's tenant-settings block. */
   readonly currency?: string;

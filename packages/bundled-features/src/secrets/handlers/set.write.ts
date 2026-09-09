@@ -8,6 +8,9 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
     name: "set",
     description:
       "Stores or replaces one encrypted secret for the caller's tenant under the given key, together with a redacted preview and optional hint; use it to enter or rotate a credential.",
+    // `value` is the plaintext credential: as a tool call it would travel to
+    // the model provider before it is ever encrypted at rest.
+    agent: { expose: false },
     schema: z.object({
       key: z.string().min(1).max(100),
       value: z.string(),

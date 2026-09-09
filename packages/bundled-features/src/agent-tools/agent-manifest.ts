@@ -155,7 +155,9 @@ function buildHandlerEntry(
   def: QueryHandlerDef | WriteHandlerDef,
   roles: readonly string[],
   getHandlerEntity: (qualifiedHandler: string) => string | undefined,
+  denyQns: ReadonlySet<string>,
 ): AgentManifestHandler | undefined {
+  if (denyQns.has(qn)) return undefined;
   const exposure = resolveAgentExposure(def, kind);
   if (!exposure.expose) return undefined;
   if (!hasAccess({ roles }, def.access)) return undefined;
@@ -190,14 +192,15 @@ function buildHandlers(
   writeHandlers: ReadonlyMap<string, WriteHandlerDef>,
   roles: readonly string[],
   getHandlerEntity: (qualifiedHandler: string) => string | undefined,
+  denyQns: ReadonlySet<string>,
 ): readonly AgentManifestHandler[] {
   const result: AgentManifestHandler[] = [];
   for (const [qn, def] of queryHandlers) {
-    const entry = buildHandlerEntry(qn, "query", def, roles, getHandlerEntity);
+    const entry = buildHandlerEntry(qn, "query", def, roles, getHandlerEntity, denyQns);
     if (entry) result.push(entry);
   }
   for (const [qn, def] of writeHandlers) {
-    const entry = buildHandlerEntry(qn, "write", def, roles, getHandlerEntity);
+    const entry = buildHandlerEntry(qn, "write", def, roles, getHandlerEntity, denyQns);
     if (entry) result.push(entry);
   }
   return result;
@@ -323,6 +326,7 @@ export function buildAgentManifest(
     registry.getAllWriteHandlers(),
     roles,
     (qn) => registry.getHandlerEntity(qn),
+    new Set(options.denyQns ?? []),
   );
   const screenMap = registry.getAllScreens();
   const navs = buildNavs(navMap, workspaceMap, translations, roles, screenMap);
