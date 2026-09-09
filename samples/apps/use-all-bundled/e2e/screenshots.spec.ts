@@ -56,13 +56,15 @@ const auditLogDetailFlow = () => async (page: Page) => {
 const jobRunDetailFlow = () => async (page: Page) => {
   await loginAsAdmin(page);
   await page.goto("/platform/job-runs");
-  const jobSelect = page.locator("#job-trigger-name");
-  await jobSelect.waitFor();
-  await jobSelect.click();
-  await page.getByRole("option").first().click();
-  await page.getByTestId("job-trigger-submit").click();
+  await page.getByRole("button", { name: "Run a job" }).click();
+  await page.getByTestId("render-edit-form").waitFor();
+  await page.getByTestId("field-jobName").locator("input").fill("sessions:job:cleanup");
+  await page.getByTestId("render-edit-submit").click();
   const table = page.getByTestId("job-runs-table");
-  await table.getByRole("row").nth(1).waitFor();
+  // Boot-time jobs (e.g. legal-pages-boot-check) still compete for the job
+  // queue right after server startup, so the run row can take a few seconds
+  // longer than the default timeout to land.
+  await table.getByRole("row").nth(1).waitFor({ timeout: 20_000 });
   await table.getByRole("row").nth(1).click();
   await page.getByTestId("field-logs").waitFor();
 };
