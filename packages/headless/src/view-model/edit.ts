@@ -1,11 +1,15 @@
 import type {
+  EditActionPreviewSection,
   EditWriteFormSection,
   EntityDefinition,
   EntityEditScreenDefinition,
   FieldCondition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  ACTION_PREVIEW_INPUT_ENTITY,
+  ACTION_PREVIEW_RESULT_ENTITY,
   evalFieldCondition,
+  isActionPreviewEditSection,
   isExtensionEditSection,
   isFieldsEditSection,
   isWriteFormEditSection,
@@ -21,6 +25,7 @@ import {
   fieldOptionLabelKey,
 } from "./list";
 import type {
+  EditActionPreviewSectionViewModel,
   EditFieldViewModel,
   EditSectionViewModel,
   EditViewModel,
@@ -110,6 +115,80 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
   };
 }
 
+// Same "synthesize a throwaway entityEdit screen, recurse once" idiom as
+// computeWriteFormSectionViewModel, run twice: once for the input fields
+// against the real values, once for resultFields against an empty-values
+// placeholder (no dispatch has happened yet at view-model build time — this
+// pass only resolves label/type/options/etc., not a value). `readOnly` is
+// forced true on every resultField regardless of its fieldDef, since a
+// preview result is never editable. The renderer overlays the actual
+// dispatch result onto each field's `.value` after a successful run.
+function computeActionPreviewSectionViewModel<TValues extends Readonly<Record<string, unknown>>>(
+  sectionSpec: EditActionPreviewSection,
+  screenId: string,
+  values: TValues,
+  translate: Translate,
+  featureName: string,
+): EditActionPreviewSectionViewModel {
+  const inputEntity: EntityDefinition = { fields: sectionSpec.fieldDefs } as EntityDefinition;
+  const inputScreen: EntityEditScreenDefinition = {
+    id: `${screenId}:${sectionSpec.id ?? "action-preview"}:input`,
+    type: "entityEdit",
+    entity: ACTION_PREVIEW_INPUT_ENTITY,
+    layout: {
+      sections: [{ kind: "fields", fields: sectionSpec.fields, columns: sectionSpec.columns }],
+    },
+  };
+  const input = computeEditViewModel({
+    screen: inputScreen,
+    entity: inputEntity,
+    values,
+    translate,
+    featureName,
+  });
+  const inputSection = input.sections[0];
+  const fields = inputSection?.kind === "fields" ? inputSection.fields : [];
+
+  const resultEntity: EntityDefinition = {
+    fields: sectionSpec.resultFieldDefs,
+  } as EntityDefinition;
+  const resultScreen: EntityEditScreenDefinition = {
+    id: `${screenId}:${sectionSpec.id ?? "action-preview"}:result`,
+    type: "entityEdit",
+    entity: ACTION_PREVIEW_RESULT_ENTITY,
+    layout: {
+      sections: [
+        { kind: "fields", fields: sectionSpec.resultFields, columns: sectionSpec.columns },
+      ],
+    },
+  };
+  const resultVm = computeEditViewModel({
+    screen: resultScreen,
+    entity: resultEntity,
+    values: {},
+    translate,
+    featureName,
+  });
+  const resultSection = resultVm.sections[0];
+  const resultFields = (resultSection?.kind === "fields" ? resultSection.fields : []).map(
+    (field) => ({ ...field, readOnly: true }),
+  );
+
+  return {
+    kind: "actionPreview" as const,
+    ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
+    ...(sectionSpec.description !== undefined && {
+      description: translate(sectionSpec.description),
+    }),
+    columns: sectionSpec.columns ?? 1,
+    fields,
+    ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
+    handler: sectionSpec.handler,
+    ...(sectionSpec.runLabel !== undefined && { runLabel: translate(sectionSpec.runLabel) }),
+    resultFields,
+  };
+}
+
 // Pure transform from screen-def + entity-def + row-values to the flat
 // section/field tree the renderer draws. FieldConditions are evaluated here
 // so the renderer never re-runs them during React render.
@@ -130,6 +209,15 @@ export function computeEditViewModel<
     }
     if (isWriteFormEditSection(sectionSpec)) {
       return computeWriteFormSectionViewModel(
+        sectionSpec,
+        screen.id,
+        values,
+        translate,
+        featureName,
+      );
+    }
+    if (isActionPreviewEditSection(sectionSpec)) {
+      return computeActionPreviewSectionViewModel(
         sectionSpec,
         screen.id,
         values,

@@ -27,6 +27,7 @@ export type { ParsedRefTarget } from "../engine/parse-ref-target";
 export { parseRefTarget } from "../engine/parse-ref-target";
 export {
   evalFieldCondition,
+  isActionPreviewEditSection,
   isExtensionEditSection,
   isFieldsEditSection,
   isFormatSpec,
@@ -69,6 +70,7 @@ export type {
   DashboardScreenDefinition,
   DashboardStatGroupPanel,
   DashboardStatPanel,
+  EditActionPreviewSection,
   EditExtensionSection,
   EditFieldSpec,
   EditFieldsSection,
@@ -103,6 +105,8 @@ export type { TargetRef } from "../engine/types/target-ref";
 export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node";
 export type { WorkspaceDefinition } from "../engine/types/workspace";
 export {
+  ACTION_PREVIEW_INPUT_ENTITY,
+  ACTION_PREVIEW_RESULT_ENTITY,
   PROJECTION_DETAIL_ENTITY,
   WRITE_FORM_SECTION_ENTITY,
 } from "../i18n/required-surface-keys";

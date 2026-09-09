@@ -1,4 +1,5 @@
 import {
+  isActionPreviewEditSection,
   isExtensionEditSection,
   isWriteFormEditSection,
   normalizeListColumn,
@@ -35,6 +36,17 @@ export const PROJECTION_DETAIL_ENTITY = "__projection-detail__";
  *  (distinct from PROJECTION_DETAIL_ENTITY — the section's fields aren't
  *  drawn from the host record's display entity). */
 export const WRITE_FORM_SECTION_ENTITY = "__write-form-section__";
+
+/** Pseudo-entity for an actionPreview section's own input fieldDefs. Kept
+ *  distinct from WRITE_FORM_SECTION_ENTITY so an input field and a
+ *  writeForm field with the same name on the same screen don't collide on
+ *  the same i18n label key. */
+export const ACTION_PREVIEW_INPUT_ENTITY = "__action-preview-input__";
+
+/** Pseudo-entity for an actionPreview section's own resultFieldDefs —
+ *  distinct from ACTION_PREVIEW_INPUT_ENTITY for the same reason an input
+ *  field and a result field with the same name must not share a label key. */
+export const ACTION_PREVIEW_RESULT_ENTITY = "__action-preview-result__";
 
 export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
@@ -265,6 +277,19 @@ export function requiredKeysFromScreen(
           for (const f of section.fields) {
             const fieldName = editFieldName(f);
             out.add(fieldLabelKey(featureName, WRITE_FORM_SECTION_ENTITY, fieldName));
+          }
+          continue;
+        }
+        if (isActionPreviewEditSection(section)) {
+          pushKey(out, section.title);
+          pushKey(out, section.runLabel);
+          for (const f of section.fields) {
+            const fieldName = editFieldName(f);
+            out.add(fieldLabelKey(featureName, ACTION_PREVIEW_INPUT_ENTITY, fieldName));
+          }
+          for (const f of section.resultFields) {
+            const fieldName = editFieldName(f);
+            out.add(fieldLabelKey(featureName, ACTION_PREVIEW_RESULT_ENTITY, fieldName));
           }
           continue;
         }

@@ -36,6 +36,7 @@ import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { shouldRenderActionsIconOnly, usePrimitives } from "../primitives";
+import { ActionPreviewSection } from "./action-preview-section";
 import { GridCellForField } from "./grid-cell-for-field";
 import { RelatedListSection } from "./related-list-section";
 import {
@@ -606,18 +607,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const filteredSections = useMemo(
     // A fully-hidden "fields" section (every field in it currently
     // condition-hidden) must not occupy a wizard step; it would render
-    // empty and block Back/Next on nothing. Extension, relatedList and
-    // writeForm sections carry no `visible` (they own their own lifecycle /
-    // run their own query / own submit), so they always pass through. A
-    // section with no fields at all (e.g. a review-only step) has
-    // `visible: fields.some(...)` = false vacuously; that's "no fields to
-    // hide", not "hidden", so it stays too (fw#1901).
+    // empty and block Back/Next on nothing. Extension, relatedList,
+    // writeForm and actionPreview sections carry no `visible` (they own
+    // their own lifecycle / run their own query / own submit), so they
+    // always pass through. A section with no fields at all (e.g. a
+    // review-only step) has `visible: fields.some(...)` = false vacuously;
+    // that's "no fields to hide", not "hidden", so it stays too (fw#1901).
     () =>
       filterEditSections(vm.sections, fieldsFilter).filter(
         (section) =>
           section.kind === "extension" ||
           section.kind === "relatedList" ||
           section.kind === "writeForm" ||
+          section.kind === "actionPreview" ||
           section.fields.length === 0 ||
           section.visible,
       ),
@@ -1224,6 +1226,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 translate={translate}
                 hideTitle={hideSectionTitles}
                 onSubmitted={() => onReload?.()}
+              />
+            );
+          }
+          if (section.kind === "actionPreview") {
+            // Own run button + dispatcher call. No onSubmitted/onReload prop
+            // exists on this component at all — the result is shown, never
+            // persisted, so there is nothing to reload. Rejected at boot in
+            // wizard layouts, so no WizardStepGroup here.
+            return (
+              <ActionPreviewSection
+                key={section.title ?? `action-preview-${sectionIndex}`}
+                section={section}
+                featureName={featureName}
+                translate={translate}
+                hideTitle={hideSectionTitles}
               />
             );
           }

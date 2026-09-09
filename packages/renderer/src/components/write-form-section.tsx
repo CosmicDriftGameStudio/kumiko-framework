@@ -18,13 +18,15 @@ import { GridCellForField } from "./grid-cell-for-field";
 // unavailable here: this section only ever sees computeEditViewModel's
 // already-resolved EditFieldViewModel[] (required/readOnly/visible are plain
 // booleans by the time render-edit.tsx hands the section to this component).
-function isPresent(value: unknown): boolean {
+export function isPresent(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return false;
   if (Array.isArray(value) && value.length === 0) return false;
   return true;
 }
 
-function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
+// Exported for reuse by ActionPreviewSection — same EditFieldViewModel[]
+// shape, same "required fields must have a value" rule.
+export function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z
     .object({})
     .passthrough()

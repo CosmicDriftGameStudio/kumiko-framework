@@ -41,10 +41,10 @@ export function shouldNotifyCaller(
   return !(result.isSuccess && !extensionsPersisted);
 }
 
-// Extension, relatedList and writeForm sections skip the `fields` filter
-// (writeForm's fields belong to its own independent form, not the host's);
-// a `fields` section left with zero fields after filtering is dropped, not
-// rendered empty.
+// Extension, relatedList, writeForm and actionPreview sections skip the
+// `fields` filter (their fields belong to their own independent form, not
+// the host's); a `fields` section left with zero fields after filtering is
+// dropped, not rendered empty.
 export function filterEditSections(
   sections: readonly EditSectionViewModel[],
   fieldsFilter: readonly string[] | undefined,
@@ -56,7 +56,8 @@ export function filterEditSections(
     if (
       section.kind === "extension" ||
       section.kind === "relatedList" ||
-      section.kind === "writeForm"
+      section.kind === "writeForm" ||
+      section.kind === "actionPreview"
     ) {
       result.push(section);
       continue;

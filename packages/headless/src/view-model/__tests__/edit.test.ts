@@ -6,6 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { computeEditViewModel } from "../edit";
 import type {
+  EditActionPreviewSectionViewModel,
   EditFieldsSectionViewModel,
   EditRelatedListSectionViewModel,
   EditSectionViewModel,
@@ -751,6 +752,13 @@ function asWriteForm(s: EditSectionViewModel | undefined): EditWriteFormSectionV
   return s;
 }
 
+function asActionPreview(s: EditSectionViewModel | undefined): EditActionPreviewSectionViewModel {
+  if (s === undefined || s.kind !== "actionPreview") {
+    throw new Error(`expected actionPreview-section, got ${s?.kind ?? "undefined"}`);
+  }
+  return s;
+}
+
 describe("computeEditViewModel — relatedList rowActions passthrough (fw editable-detail-screens)", () => {
   test("rowActions pass through onto the relatedList section view-model verbatim", () => {
     const rowActions: readonly RowAction[] = [
@@ -881,5 +889,123 @@ describe("computeEditViewModel — writeForm sections (fw editable-detail-screen
     expect(section.icon).toBe("plus");
     expect(section.description).toBe("orders:write-form.description");
     expect(section.submitLabel).toBe("orders:write-form.submit");
+  });
+});
+
+describe("computeEditViewModel — actionPreview sections (fw action-preview)", () => {
+  test("input fields resolve through the pipeline against real values; resultFields resolve structurally (readOnly forced, no live value yet)", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "actionPreview",
+            title: "Test run",
+            fieldDefs: { vehicleId: { type: "text", required: true } },
+            fields: ["vehicleId"],
+            handler: "orders:query:preview",
+            resultFieldDefs: {
+              current: { type: "text" },
+              generated: { type: "text" },
+            },
+            resultFields: ["current", "generated"],
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: { vehicleId: "v1" },
+      translate,
+      featureName: "orders",
+    });
+
+    const section = asActionPreview(vm.sections[0]);
+    expect(section.handler).toBe("orders:query:preview");
+    expect(section.fields).toEqual([
+      {
+        field: "vehicleId",
+        label: "orders:entity:__action-preview-input__:field:vehicleId",
+        type: "text",
+        value: "v1",
+        visible: true,
+        readOnly: false,
+        required: true,
+      },
+    ]);
+    // resultFields never see a live value at view-model build time — the
+    // renderer overlays the actual dispatch result at render time. They are
+    // forced readOnly regardless of their own fieldDef.
+    expect(section.resultFields).toEqual([
+      {
+        field: "current",
+        label: "orders:entity:__action-preview-result__:field:current",
+        type: "text",
+        value: undefined,
+        visible: true,
+        readOnly: true,
+        required: false,
+      },
+      {
+        field: "generated",
+        label: "orders:entity:__action-preview-result__:field:generated",
+        type: "text",
+        value: undefined,
+        visible: true,
+        readOnly: true,
+        required: false,
+      },
+    ]);
+  });
+
+  test("a resultFieldDefs field marked required is still forced readOnly on the view-model", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "actionPreview",
+            fieldDefs: {},
+            fields: [],
+            handler: "orders:query:preview",
+            resultFieldDefs: { total: { type: "number", required: true } },
+            resultFields: ["total"],
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asActionPreview(vm.sections[0]).resultFields[0]?.readOnly).toBe(true);
+  });
+
+  test("columns defaults to 1; icon/description/runLabel are translated and passed through when set", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "actionPreview",
+            title: "Test run",
+            description: "orders:action-preview.description",
+            icon: "plus",
+            fieldDefs: {},
+            fields: [],
+            handler: "orders:query:preview",
+            runLabel: "orders:action-preview.run",
+            resultFieldDefs: { total: { type: "number" } },
+            resultFields: ["total"],
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const section = asActionPreview(vm.sections[0]);
+    expect(section.columns).toBe(1);
+    expect(section.icon).toBe("plus");
+    expect(section.description).toBe("orders:action-preview.description");
+    expect(section.runLabel).toBe("orders:action-preview.run");
   });
 });

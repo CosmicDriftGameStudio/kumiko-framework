@@ -7,9 +7,10 @@
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 import { rowMetaFieldNames } from "../../db/table-builder";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
-import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name";
+import { isKebabSegment, isValidQn, parseQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import {
+  isActionPreviewEditSection,
   isExtensionEditSection,
   isWriteFormEditSection,
   normalizeEditField,
@@ -846,6 +847,72 @@ export function validateScreens(
           }
           continue;
         }
+        if (isActionPreviewEditSection(section)) {
+          if (Object.keys(section.fieldDefs).length === 0 && section.fields.length > 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(actionPreview) has fields but an empty fieldDefs map — declare a type for each.`,
+            );
+          }
+          for (const f of section.fields) {
+            const fieldName = normalizeEditField(f).field;
+            if (section.fieldDefs[fieldName] === undefined) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(actionPreview) input field "${fieldName}" has no entry in fieldDefs — every rendered ` +
+                  `field needs a type declared there.`,
+              );
+            }
+          }
+          if (section.resultFields.length === 0) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(actionPreview) has zero resultFields — an actionPreview section exists to show a ` +
+                `result, declare at least one.`,
+            );
+          }
+          for (const f of section.resultFields) {
+            const fieldName = normalizeEditField(f).field;
+            if (section.resultFieldDefs[fieldName] === undefined) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(actionPreview) result field "${fieldName}" has no entry in resultFieldDefs — every ` +
+                  `rendered field needs a type declared there.`,
+              );
+            }
+          }
+          if (screen.layout.mode === "wizard") {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `is kind "actionPreview" in a wizard layout — a non-persisting preview action is not ` +
+                `supported in a stepped form. Remove mode: "wizard" or drop the actionPreview section.`,
+            );
+          }
+          if (!isValidQn(section.handler)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(actionPreview) handler "${section.handler}" is not a valid qualified name (expected ` +
+                `"<feature>:query:<short>" or "<feature>:write:<short>").`,
+            );
+          }
+          const handlerType = parseQn(section.handler).type;
+          if (handlerType === "write") {
+            if (!allWriteHandlerQns.has(section.handler)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(actionPreview) handler "${section.handler}" is not a registered write-handler. Check ` +
+                  `the QN spelling and that the handler is declared via r.writeHandler(...).`,
+              );
+            }
+          } else if (handlerType !== "query") {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                `(actionPreview) handler "${section.handler}" has QN type "${handlerType}" — expected ` +
+                `"query" or "write" (queries aren't registry-tracked at boot, same as relatedList.query).`,
+            );
+          }
+          continue;
+        }
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has a section "${section.title}" ` +
@@ -953,6 +1020,12 @@ export function validateScreens(
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) writeForm section ` +
               `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+          );
+        }
+        if (isActionPreviewEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) actionPreview section ` +
+              `"${section.title}" is not supported — actionPreview is a projectionDetail-only primitive.`,
           );
         }
         if (section.fields.length === 0) {
@@ -1074,6 +1147,12 @@ export function validateScreens(
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (actionForm) writeForm section ` +
               `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+          );
+        }
+        if (isActionPreviewEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) actionPreview section ` +
+              `"${section.title}" is not supported — actionPreview is a projectionDetail-only primitive.`,
           );
         }
         if (section.fields.length === 0) {
@@ -1436,6 +1515,12 @@ export function validateScreens(
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) writeForm section ` +
               `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+          );
+        }
+        if (isActionPreviewEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) actionPreview section ` +
+              `"${section.title}" is not supported — actionPreview is a projectionDetail-only primitive.`,
           );
         }
         if (section.fields.length === 0) {

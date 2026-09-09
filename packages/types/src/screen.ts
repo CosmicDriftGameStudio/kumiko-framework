@@ -719,7 +719,8 @@ export type EditSectionSpec =
   | EditFieldsSection
   | EditExtensionSection
   | EditRelatedListSection
-  | EditWriteFormSection;
+  | EditWriteFormSection
+  | EditActionPreviewSection;
 
 export type EditFieldsSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
@@ -832,6 +833,44 @@ export type EditWriteFormSection = {
   readonly handler: string;
   /** i18n-key for the submit button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
+};
+
+// A "test run"/preview action for `projectionDetail`: the user sets input
+// parameters (same fieldDefs/fields shape as `EditWriteFormSection`),
+// dispatches a query- or write-handler QN with those values, and the return
+// value renders read-only through `resultFields` — the same field-rendering
+// machinery every other field uses (GridCellForField/valueDisplay), not a
+// freely-specifiable component. Nothing is persisted and no refetch follows
+// a run; that's what separates this from `writeForm`. Only supported on
+// projectionDetail — the boot-validator rejects it on
+// entityEdit/configEdit/actionForm, same as `relatedList`/`writeForm`.
+export type EditActionPreviewSection = {
+  /** Kebab-case tab id, used as the `?tab=` value. Required by the
+   *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
+  readonly id?: string;
+  readonly kind: "actionPreview";
+  readonly title?: string;
+  readonly description?: string;
+  readonly columns?: number;
+  readonly icon?: IconKey;
+  /** Field-type map for this section's own input form — same shape as
+   *  `EditWriteFormSection.fieldDefs`. */
+  readonly fieldDefs: Readonly<Record<string, FieldDefinition>>;
+  /** Rendered input fields, in order. May be empty (a parameterless run).
+   *  Every referenced field must have an entry in `fieldDefs`. */
+  readonly fields: readonly EditFieldSpec[];
+  /** Query- or write-handler QN dispatched on run, with the input values as
+   *  payload. The return value is shown, never persisted, and never
+   *  triggers a refetch. */
+  readonly handler: string;
+  /** i18n-key for the trigger button. Default: "kumiko.actions.run". */
+  readonly runLabel?: string;
+  /** Field-type map describing the handler's return value, resolved through
+   *  the same pipeline as `fieldDefs` but forced read-only. */
+  readonly resultFieldDefs: Readonly<Record<string, FieldDefinition>>;
+  /** Result fields rendered read-only once a run succeeds. Every referenced
+   *  field must have an entry in `resultFieldDefs`. */
+  readonly resultFields: readonly EditFieldSpec[];
 };
 
 // Max width of the form container (see FormScreenShell in renderer-web).

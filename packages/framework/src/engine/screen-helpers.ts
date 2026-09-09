@@ -1,4 +1,5 @@
 import type {
+  EditActionPreviewSection,
   EditExtensionSection,
   EditFieldSpec,
   EditFieldsSection,
@@ -19,6 +20,12 @@ export function isFieldsEditSection(section: EditSectionSpec): section is EditFi
 
 export function isWriteFormEditSection(section: EditSectionSpec): section is EditWriteFormSection {
   return section.kind === "writeForm";
+}
+
+export function isActionPreviewEditSection(
+  section: EditSectionSpec,
+): section is EditActionPreviewSection {
+  return section.kind === "actionPreview";
 }
 
 // Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer

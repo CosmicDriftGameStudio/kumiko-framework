@@ -249,7 +249,8 @@ export type EditSectionViewModel =
   | EditFieldsSectionViewModel
   | EditExtensionSectionViewModel
   | EditRelatedListSectionViewModel
-  | EditWriteFormSectionViewModel;
+  | EditWriteFormSectionViewModel
+  | EditActionPreviewSectionViewModel;
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
@@ -305,6 +306,24 @@ export type EditWriteFormSectionViewModel = {
   readonly icon?: IconKey;
   readonly handler: string;
   readonly submitLabel?: string;
+};
+
+// Mirrors EditActionPreviewSection. `fields` (input) is resolved the same
+// way EditWriteFormSectionViewModel.fields is. `resultFields` is resolved
+// through the same pipeline against a synthesized empty-values pass (no
+// dispatch has happened yet at view-model build time) with `readOnly`
+// forced true — structure only. The renderer overlays the actual dispatch
+// result onto each field's `.value` after a successful run.
+export type EditActionPreviewSectionViewModel = {
+  readonly kind: "actionPreview";
+  readonly title?: string;
+  readonly description?: string;
+  readonly columns: number;
+  readonly fields: readonly EditFieldViewModel[];
+  readonly icon?: IconKey;
+  readonly handler: string;
+  readonly runLabel?: string;
+  readonly resultFields: readonly EditFieldViewModel[];
 };
 
 export type EditViewModel = {
