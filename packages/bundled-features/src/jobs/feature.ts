@@ -168,11 +168,6 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       access: systemAdminAccess,
       description: "Manually trigger a job by name with an optional JSON object payload.",
     });
-    /*
-      description:
-        "Operator table of recent job runs with status filters, plus a panel to trigger a manual job with a payload; open it to monitor background jobs and start one.",
-      access: systemAdminAccess,
-    }); */
     r.screen({
       id: JOB_RUN_DETAIL_SCREEN_ID,
       type: "projectionDetail",
