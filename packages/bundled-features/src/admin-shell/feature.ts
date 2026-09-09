@@ -7,10 +7,10 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ConfigQueries } from "../config/constants";
-import { JobQueries } from "../jobs/constants";
-import { TenantQueries } from "../tenant/constants";
-import { UserQueries } from "../user/constants";
+import { ConfigQueries } from "../config";
+import { JobQueries } from "../jobs";
+import { TenantQueries } from "../tenant";
+import { UserQueries } from "../user";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,

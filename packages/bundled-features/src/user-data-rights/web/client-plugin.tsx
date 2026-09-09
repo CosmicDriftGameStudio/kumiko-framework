@@ -1,19 +1,19 @@
 // @runtime client
-// Client-Feature-Factory für user-data-rights. Liefert die ExportSection-
-// Extension-Component für den privacy-center-Screen (server-seitig
-// deklarativ als `type: "projectionDetail"` registriert, siehe feature.ts —
-// Restriction/Deletion sind Felder/Actions auf dem Screen selbst und
-// brauchen keine Client-Component) + Default-Translations. Apps hängen es
-// in createKumikoApp({ clientFeatures: [userDataRightsClient()] }) ein; der
-// Screen hat kein eigenes r.nav, die App platziert ihn via r.nav.
+// Client-feature factory for user-data-rights. Provides the ExportSection
+// extension component for the privacy-center screen (registered server-side
+// declaratively as `type: "projectionDetail"`, see feature.ts — restriction
+// and deletion are fields/actions on the screen itself and need no client
+// component) + default translations. Apps wire it in via
+// createKumikoApp({ clientFeatures: [userDataRightsClient()] }); the screen
+// has no own r.nav, the app places it via r.nav.
 //
-// fw#2312: die vormalige `privacyCenter: { showDeletion }`-Option ist
-// entfallen — ein deklarativer Screen wird einmal server-seitig für alle
-// Apps registriert, ein Client-Prop kann seine Sections/Actions nicht mehr
-// pro App umschalten. Ersatz ist die server-seitige
+// fw#2312: the former `privacyCenter: { showDeletion }` option is gone — a
+// declarative screen is now registered server-side once for all apps, so a
+// client prop can no longer toggle its sections/actions per app. Its
+// replacement is the server-side
 // `UserDataRightsOptions.privacyCenterShowDeletion` (createUserDataRightsFeature,
-// ../feature.ts) — BREAKING, Consumer mit `showDeletion: false` (z.B.
-// money-horse) müssen die Option beim Feature-Setup nachziehen.
+// ../feature.ts) — BREAKING, consumers with `showDeletion: false` (e.g.
+// money-horse) must carry the option over at feature setup.
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";

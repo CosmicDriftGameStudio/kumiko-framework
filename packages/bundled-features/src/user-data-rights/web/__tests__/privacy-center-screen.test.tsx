@@ -1,11 +1,10 @@
-// Render-Test gegen echte i18n-Bundles (fängt fehlende Keys — die Section
-// darf nie rohe "userDataRights.privacyCenter.*"-Keys zeigen) plus QN-Wiring
-// (die dispatchten Query-/Handler-Namen). Restriction/Deletion (Status-
-// getriebene Branches) sind mit fw#2312 auf deklarative Felder/Actions
-// umgezogen (feature.ts, gebootet in inspector-screens.boot.test.ts) — nur
-// noch Export (ExportSection) ist eine React-Komponente. Provider-Wrapper
-// lokal (Dependency-Richtung renderer-web → bundled-features verbietet
-// test-utils-Import).
+// Render test against real i18n bundles (catches missing keys — the Section
+// must never show raw "userDataRights.privacyCenter.*" keys) plus QN wiring
+// (the dispatched query/handler names). Restriction/deletion (status-driven
+// branches) moved to declarative fields/actions with fw#2312 (feature.ts,
+// booted in inspector-screens.boot.test.ts) — only Export (ExportSection) is
+// still a React component. Provider wrapper is local (the renderer-web →
+// bundled-features dependency direction forbids importing test-utils).
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
