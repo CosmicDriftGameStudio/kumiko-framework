@@ -483,6 +483,18 @@ export type ProjectionDetailScreenDefinition = {
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
+  /** The server determines the shown row from the caller's session/context
+   *  instead of a row id in the path — a self-service screen ("my profile",
+   *  "my data") that has no row to link to (unlike `EntityEditScreenDefinition.
+   *  singleton`, which still resolves via `<entity>:list` limit 1; here the
+   *  query itself owns the row selection, e.g. `user:query:user:me`). The
+   *  query is called WITHOUT the `idParam` key — there is no id to send, so
+   *  the boot-validator rejects declaring `idParam` alongside this flag
+   *  instead of letting one silently win. Stricter than an id-addressed
+   *  screen, not looser: the server picks the row, so no client-supplied id
+   *  can reach the query — a stray id on the path is ignored, never
+   *  forwarded. */
+  readonly singleton?: boolean;
   readonly layout: EditLayout;
   /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), analog zu
    *  entityEdit.fieldLabels. Die Pseudo-Entity `__projection-detail__` hat

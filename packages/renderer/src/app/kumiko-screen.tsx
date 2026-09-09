@@ -2076,6 +2076,12 @@ function ProjectionDetailBody({
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
+  // Singleton screens ignore whatever id the path happens to carry — the
+  // server picks the row from session/context, so forwarding a path id
+  // (even a stray/spoofed one) into the query or into extension sections'
+  // entityId fallback (resolveExtensionEntityId in render-edit.tsx) would
+  // let a client-controlled value leak where none is meant to reach.
+  const effectiveEntityId = screen.singleton === true ? undefined : entityId;
   const isTabsMode = screen.layout.mode === "tabs";
   const activeSection = useMemo(() => {
     if (!isTabsMode || Tabs === undefined) return undefined;
@@ -2104,7 +2110,7 @@ function ProjectionDetailBody({
   }, [screen, activeSection]);
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
     screen.query,
-    entityId !== undefined ? { [idParam]: entityId } : {},
+    effectiveEntityId !== undefined ? { [idParam]: effectiveEntityId } : {},
   );
 
   // A writeForm section's handler creates a new record (see EditWriteFormSection's
@@ -2157,9 +2163,12 @@ function ProjectionDetailBody({
       label: effectiveTranslate("kumiko.actions.edit"),
       icon: resolveActionIcon("edit"),
       onPress: () =>
-        nav.navigate({ screenId: targetScreenId, ...(entityId !== undefined && { entityId }) }),
+        nav.navigate({
+          screenId: targetScreenId,
+          ...(effectiveEntityId !== undefined && { entityId: effectiveEntityId }),
+        }),
     };
-  }, [editScreen, effectiveTranslate, nav, entityId]);
+  }, [editScreen, effectiveTranslate, nav, effectiveEntityId]);
 
   const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const record = detailQuery.data ?? {};
@@ -2282,7 +2291,7 @@ function ProjectionDetailBody({
     detailQuery.refetch,
   ]);
 
-  if (entityId === undefined) {
+  if (effectiveEntityId === undefined && screen.singleton !== true) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-projection-detail-missing-id">
         Screen <Text variant="code">{screen.id}</Text> (projectionDetail) needs a row id in the path
@@ -2308,7 +2317,13 @@ function ProjectionDetailBody({
   if (!record) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-record-missing">
-        Record <Text variant="code">{entityId}</Text> not found.
+        {screen.singleton === true ? (
+          "Record not found."
+        ) : (
+          <>
+            Record <Text variant="code">{entityId}</Text> not found.
+          </>
+        )}
       </Banner>
     );
   }
@@ -2397,7 +2412,7 @@ function ProjectionDetailBody({
       entity={entity}
       featureName={schema.featureName}
       initial={record as FormValues}
-      entityId={entityId}
+      entityId={effectiveEntityId}
       customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
       onReload={reloadDetail}
       {...(headerActions !== undefined && { actions: headerActions })}

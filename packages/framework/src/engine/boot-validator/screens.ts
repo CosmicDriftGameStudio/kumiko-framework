@@ -622,6 +622,26 @@ export function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has empty or non-string query.`,
         );
       }
+      if (screen.singleton === true && screen.idParam !== undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sets both singleton: true ` +
+            `and idParam — singleton means the server picks the row from the caller's context, so there ` +
+            `is no row id to send under idParam. Remove idParam.`,
+        );
+      }
+      // singleton has no row id in the path, but the auto-generated "Edit"
+      // action (fw#2166, defaultEditAction in kumiko-screen.tsx) navigates
+      // to the detailFor entity's entityEdit screen using that path id —
+      // under singleton it would silently open that screen in CREATE mode
+      // instead of editing the singleton row. Reject rather than let that
+      // win silently, same as the idParam check above.
+      if (screen.singleton === true && screen.detailFor !== undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sets both singleton: true ` +
+            `and detailFor — the auto-generated "Edit" action navigates using the path's row id, which a ` +
+            `singleton screen never has. Remove detailFor, or declare an explicit "edit" action instead.`,
+        );
+      }
       if (screen.layout.sections.length === 0) {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has an empty sections list — ` +

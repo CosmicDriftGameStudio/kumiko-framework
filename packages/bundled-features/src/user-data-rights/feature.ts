@@ -321,6 +321,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       id: PRIVACY_CENTER_SCREEN_ID,
       type: "projectionDetail",
       query: USER_ME_QUERY,
+      singleton: true,
       access: { openToAll: true },
       description:
         "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",

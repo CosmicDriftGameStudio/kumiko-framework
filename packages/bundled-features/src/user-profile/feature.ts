@@ -58,6 +58,7 @@ export function createUserProfileFeature(): FeatureDefinition {
       id: PROFILE_SCREEN_ID,
       type: "projectionDetail",
       query: UserProfileQueries.me,
+      singleton: true,
       access: { openToAll: true },
       description:
         "Self-service account page: change password, change email (with re-auth and " +
