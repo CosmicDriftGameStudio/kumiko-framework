@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher, EditActionPreviewSectionViewModel } from "@cosmicdrift/kumiko-headless";
+import type {
+  Dispatcher,
+  DispatcherError,
+  EditActionPreviewSectionViewModel,
+} from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
@@ -45,6 +49,15 @@ const testSection: ComponentType<SectionProps> = ({ testId, children }) => (
   <div data-testid={testId}>{children}</div>
 );
 
+// Not `passChildren` — the result grid's `testId` (used by the "no result
+// area yet" / "result area appeared" assertions below) must actually reach
+// the DOM, unlike write-form-section.test.tsx's Grid stub, which never
+// needs to be queried by testId.
+const testGrid: ComponentType<{ testId?: string; children?: ReactNode }> = ({
+  testId,
+  children,
+}) => <div data-testid={testId}>{children}</div>;
+
 const testText: ComponentType<TextProps> = ({ testId, children }) => (
   <span data-testid={testId}>{children}</span>
 );
@@ -59,7 +72,7 @@ function testPrimitives(): CorePrimitives {
     Form: noop,
     Section: testSection,
     Card: passChildren,
-    Grid: passChildren,
+    Grid: testGrid,
     GridCell: passChildren,
     Text: testText,
     Heading: noop,
@@ -72,7 +85,11 @@ function testPrimitives(): CorePrimitives {
   } as unknown as CorePrimitives;
 }
 
-function stubDispatcher(queryImpl?: Dispatcher["query"]): {
+type StubQueryResult =
+  | { readonly isSuccess: true; readonly data: unknown }
+  | { readonly isSuccess: false; readonly error: DispatcherError };
+
+function stubDispatcher(queryImpl?: (type: string, payload: unknown) => Promise<StubQueryResult>): {
   dispatcher: Dispatcher;
   writes: Array<{ type: string; payload: unknown }>;
   queries: Array<{ type: string; payload: unknown }>;
@@ -172,12 +189,12 @@ describe("ActionPreviewSection", () => {
     fireEvent.change(rtlScreen.getByLabelText("vehicleId"), { target: { value: "v1" } });
     fireEvent.click(rtlScreen.getByTestId("action-preview-section-run"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("action-preview-section-result")).toBeTruthy());
+    await waitFor(() =>
+      expect(rtlScreen.getByTestId("action-preview-section-result")).toBeTruthy(),
+    );
     expect(rtlScreen.getByTestId("field-value-current").textContent).toBe("old text");
     expect(rtlScreen.getByTestId("field-value-generated").textContent).toBe("new text");
-    expect(queries).toEqual([
-      { type: "channel-text:query:preview", payload: { vehicleId: "v1" } },
-    ]);
+    expect(queries).toEqual([{ type: "channel-text:query:preview", payload: { vehicleId: "v1" } }]);
     expect(writes).toHaveLength(0);
   });
 
@@ -191,9 +208,7 @@ describe("ActionPreviewSection", () => {
     fireEvent.change(rtlScreen.getByLabelText("vehicleId"), { target: { value: "v1" } });
     fireEvent.click(rtlScreen.getByTestId("action-preview-section-run"));
 
-    await waitFor(() =>
-      expect(rtlScreen.getByTestId("action-preview-section-error")).toBeTruthy(),
-    );
+    await waitFor(() => expect(rtlScreen.getByTestId("action-preview-section-error")).toBeTruthy());
     expect(rtlScreen.queryByTestId("action-preview-section-result")).toBeNull();
   });
 

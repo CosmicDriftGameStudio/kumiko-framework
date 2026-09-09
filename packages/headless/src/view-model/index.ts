@@ -21,6 +21,7 @@ export {
   fieldOptionLabelKeyPrefix,
 } from "./list";
 export type {
+  EditActionPreviewSectionViewModel,
   EditExtensionSectionViewModel,
   EditFieldSpec,
   EditFieldsSectionViewModel,
