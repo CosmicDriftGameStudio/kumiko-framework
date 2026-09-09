@@ -60,11 +60,8 @@ const jobRunDetailFlow = () => async (page: Page) => {
   await page.getByTestId("render-edit-form").waitFor();
   await page.getByTestId("field-jobName").locator("input").fill("sessions:job:cleanup");
   await page.getByTestId("render-edit-submit").click();
-  const table = page.getByTestId("job-runs-table");
-  // Boot-time jobs (e.g. legal-pages-boot-check) still compete for the job
-  // queue right after server startup, so the run row can take a few seconds
-  // longer than the default timeout to land.
-  await table.getByRole("row").nth(1).waitFor({ timeout: 20_000 });
+  const table = page.getByTestId(/^render-list-table/);
+  await table.getByRole("row").nth(1).waitFor();
   await table.getByRole("row").nth(1).click();
   await page.getByTestId("field-logs").waitFor();
 };
