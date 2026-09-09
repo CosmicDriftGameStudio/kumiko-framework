@@ -28,6 +28,11 @@ export const listQuery = defineQueryHandler({
   schema: z.object({
     jobName: z.string().optional(),
     status: z.enum(["queued", "running", "completed", "failed"]).optional(),
+    filters: z
+      .array(z.object({ field: z.string(), op: z.literal("in"), value: z.array(z.string()) }))
+      .optional(),
+    sort: z.enum(["jobName", "status", "startedAt", "duration"]).optional(),
+    sortDirection: z.enum(["asc", "desc"]).optional(),
     limit: z.number().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
@@ -40,12 +45,15 @@ export const listQuery = defineQueryHandler({
     const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     const where: WhereObject = {};
     if (query.payload.jobName) where["jobName"] = query.payload.jobName;
-    if (query.payload.status) where["status"] = query.payload.status;
+    const statusFilter = query.payload.filters?.find((filter) => filter.field === "status");
+    const statuses = statusFilter?.value ?? (query.payload.status ? [query.payload.status] : []);
+    if (statuses.length === 1) where["status"] = statuses[0];
+    const sortColumn = query.payload.sort ?? "startedAt";
     const rows = await selectMany(db, jobRunsTable, where, {
-      orderBy: { col: "id", direction: "desc" },
+      orderBy: { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
       limit: query.payload.limit ?? 50,
     });
     // payload/error are stored encrypted under the triggering user's DEK (#799, #2307).
-    return { rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow) };
+    return { rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow), nextCursor: null };
   },
 });

@@ -17,7 +17,7 @@ export const triggerWrite = defineWriteHandler({
     "Starts one manually-triggerable job with the given payload after validating it against the job's schema; use it to run a maintenance or import job on demand.",
   schema: z.object({
     jobName: z.string(),
-    payload: z.record(z.string(), z.unknown()).optional(),
+    payload: z.union([z.record(z.string(), z.unknown()), z.string()]).optional(),
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
@@ -43,8 +43,21 @@ export const triggerWrite = defineWriteHandler({
       );
     }
 
-    const rawPayload = event.payload.payload ?? {};
-    let payload: DbRow = rawPayload as DbRow;
+    let rawPayload: DbRow = {};
+    if (typeof event.payload.payload === "string" && event.payload.payload.trim() !== "") {
+      try {
+        const parsed: unknown = JSON.parse(event.payload.payload);
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+          return writeFailure(new UnprocessableError(JobErrors.notManual));
+        }
+        rawPayload = parsed as DbRow;
+      } catch {
+        return writeFailure(new UnprocessableError(JobErrors.notManual));
+      }
+    } else if (event.payload.payload !== undefined) {
+      rawPayload = event.payload.payload as DbRow;
+    }
+    let payload: DbRow = rawPayload;
     if (jobDef.schema !== undefined) {
       const parsed = jobDef.schema.safeParse(rawPayload);
       if (!parsed.success) {

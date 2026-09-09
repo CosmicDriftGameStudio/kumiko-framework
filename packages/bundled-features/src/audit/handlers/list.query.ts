@@ -25,12 +25,16 @@ export const listQuery = defineQueryHandler({
     "Lists the tenant's audit-trail events newest-first with cursor paging, filterable by aggregate type, aggregate id, event type, actor and time range; use it to answer who changed what and when.",
   schema: z
     .object({
+      cursor: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
       before: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
+      search: z.string().trim().optional(),
       limit: z.number().int().min(1).max(MAX_LIMIT).default(50),
       aggregateType: z.string().optional(),
       aggregateId: z.uuid().optional(),
       eventType: z.string().optional(),
       userId: z.string().optional(),
+      sort: z.enum(["createdAt", "type"]).optional(),
+      sortDirection: z.enum(["asc", "desc"]).optional(),
       from: z.iso.datetime().optional(),
       to: z.iso.datetime().optional(),
     })
@@ -44,7 +48,7 @@ export const listQuery = defineQueryHandler({
     const where: WhereObject = { tenantId: query.user.tenantId };
     if (p.aggregateType) where["aggregateType"] = p.aggregateType;
     if (p.aggregateId) where["aggregateId"] = p.aggregateId;
-    if (p.eventType) where["type"] = p.eventType;
+    if (p.eventType ?? p.search) where["type"] = p.eventType ?? p.search;
     if (p.userId) where["createdBy"] = p.userId;
     if (p.from || p.to) {
       const range: { gte?: unknown; lte?: unknown } = {};
@@ -52,7 +56,8 @@ export const listQuery = defineQueryHandler({
       if (p.to) range.lte = Temporal.Instant.from(p.to);
       where["createdAt"] = range;
     }
-    if (p.before) where["id"] = { lt: BigInt(p.before) };
+    const cursor = p.cursor ?? p.before;
+    if (cursor) where["id"] = { lt: BigInt(cursor) };
 
     const rows = await selectMany<{
       id: bigint;
@@ -65,7 +70,10 @@ export const listQuery = defineQueryHandler({
       createdAt: unknown;
       createdBy: string;
     }>(ctx.db, eventsTable, where, {
-      orderBy: { col: "id", direction: "desc" },
+      orderBy: {
+        col: query.payload.sort === "type" ? "type" : "createdAt",
+        direction: query.payload.sortDirection ?? "desc",
+      },
       limit: p.limit,
     });
 
@@ -83,6 +91,7 @@ export const listQuery = defineQueryHandler({
     const last = serialised[serialised.length - 1];
     return {
       rows: serialised,
+      nextCursor: serialised.length === p.limit && last ? last.id : null,
       nextBefore: serialised.length === p.limit && last ? last.id : null,
     };
   },

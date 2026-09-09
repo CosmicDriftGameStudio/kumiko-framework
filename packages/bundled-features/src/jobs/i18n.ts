@@ -6,6 +6,9 @@ type LocalizedString = { readonly en: string };
 export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:job-runs.title": { en: "Job runs" },
   "screen:job-run-detail.title": { en: "Job run" },
+  "screen:job-trigger.title": { en: "Trigger job" },
+  "jobs:entity:__action-form__:field:jobName": { en: "Job name" },
+  "jobs:entity:__action-form__:field:payload": { en: "JSON payload" },
   "jobs:nav.jobRuns": { en: "Jobs" },
   "jobs.runs.title": { en: "Job runs" },
   "jobs.runs.loading": { en: "Loading runs…" },

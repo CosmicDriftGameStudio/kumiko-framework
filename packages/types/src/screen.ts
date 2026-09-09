@@ -72,6 +72,8 @@ export interface FieldFormatRegistry {
   // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-headless
   // over hand-typed prefix strings.
   enumOption: { readonly keyPrefix: string };
+  /** JSON-safe structured value rendered as indented text. */
+  json: { readonly indent?: number };
 }
 
 // Discriminated union derived from the registry — one variant per key.

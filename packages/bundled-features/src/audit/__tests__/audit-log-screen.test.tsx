@@ -21,8 +21,7 @@ import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-w
 import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TenantQueries } from "../../tenant/constants";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
-import { AuditLogDetailScreen } from "../web/audit-log-detail-screen";
+import { AuditQueries } from "../constants";
 import { AuditLogScreen } from "../web/audit-log-screen";
 import { defaultTranslations } from "../web/i18n";
 
@@ -194,11 +193,6 @@ function renderScreen(dispatcher?: Dispatcher): ReturnType<typeof render> {
   return renderWithProviders(<AuditLogScreen />, { dispatcher });
 }
 
-function renderDetailScreen(entityId: string, dispatcher: Dispatcher): ReturnType<typeof render> {
-  const nav: NavApi = { ...stubNav, route: { screenId: AUDIT_LOG_DETAIL_SCREEN_ID, entityId } };
-  return renderWithProviders(<AuditLogDetailScreen />, { nav, dispatcher });
-}
-
 describe("AuditLogScreen — actor name resolution", () => {
   test("known member with displayName → cell shows the display name", async () => {
     const view = renderScreen();
@@ -272,31 +266,5 @@ describe("AuditLogScreen — members query failure", () => {
     });
     expect(view.getByTestId("cell-1-type").textContent).toBe("widget.created");
     expect(view.getByTestId("cell-1-actor").textContent).toBe("Unknown actor");
-  });
-});
-
-describe("AuditLogDetailScreen — actor name resolution", () => {
-  test("known member with displayName → detail actor field shows the display name", async () => {
-    const row = AUDIT_ROWS[0];
-    if (row === undefined) throw new Error("fixture missing");
-    const dispatcher = makeDispatcher({ detail: detailFixtureFor(row) });
-    const view = renderDetailScreen(row.id, dispatcher);
-    await waitFor(() => {
-      const cell = view.queryByTestId("audit-detail-actor");
-      if (cell === null) throw new Error("actor field not rendered yet");
-    });
-    expect(view.getByTestId("audit-detail-actor").textContent).toBe("Alice Example");
-  });
-
-  test("known member without displayName → detail actor field falls back to email", async () => {
-    const row = AUDIT_ROWS[1];
-    if (row === undefined) throw new Error("fixture missing");
-    const dispatcher = makeDispatcher({ detail: detailFixtureFor(row) });
-    const view = renderDetailScreen(row.id, dispatcher);
-    await waitFor(() => {
-      const cell = view.queryByTestId("audit-detail-actor");
-      if (cell === null) throw new Error("actor field not rendered yet");
-    });
-    expect(view.getByTestId("audit-detail-actor").textContent).toBe("bob@example.com");
   });
 });

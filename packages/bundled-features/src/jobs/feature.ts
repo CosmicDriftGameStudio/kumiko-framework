@@ -1,5 +1,10 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
+import {
+  JOB_RUN_DETAIL_SCREEN_ID,
+  JOB_RUNS_SCREEN_ID,
+  JobHandlers,
+  JobQueries,
+} from "./constants";
 import { catalogQuery } from "./handlers/catalog.query";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
@@ -109,20 +114,95 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
 
     r.translations({ keys: JOBS_I18N });
 
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: JOB_RUNS_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "JobRunsScreen" } },
+      type: "projectionList",
+      query: JobQueries.list,
+      columns: [
+        { field: "jobName", label: "jobs.runs.col.job" },
+        { field: "status", label: "jobs.runs.col.status" },
+        { field: "startedAt", label: "jobs.runs.col.started", renderer: { format: "timestamp" } },
+        { field: "duration", label: "jobs.runs.col.duration" },
+      ],
+      defaultSort: { field: "startedAt", dir: "desc" },
+      facets: [
+        {
+          field: "status",
+          type: "select",
+          label: "jobs.runs.filter.status",
+          options: [
+            { value: "queued", label: "jobs.runs.filter.queued" },
+            { value: "running", label: "jobs.runs.filter.running" },
+            { value: "completed", label: "jobs.runs.filter.completed" },
+            { value: "failed", label: "jobs.runs.filter.failed" },
+          ],
+        },
+      ],
+      rowActions: [{ kind: "navigate", id: "open", label: "jobs.runs.open", screen: JOB_RUN_DETAIL_SCREEN_ID, entityId: "id", rowClick: true }],
+      toolbarActions: [{ kind: "drawer", id: "trigger", label: "jobs.trigger.title", screen: "job-trigger", style: "primary" }],
+      pagination: "infinite",
+      access: systemAdminAccess,
+    });
+    r.screen({
+      id: "job-trigger",
+      type: "actionForm",
+      handler: JobHandlers.trigger,
+      fields: { jobName: { type: "text", required: true }, payload: { type: "longText", multiline: true, default: "{}" } },
+      layout: { sections: [{ fields: ["jobName", "payload"] }] },
+      submitLabel: "jobs.trigger.submit",
+      access: systemAdminAccess,
+      description: "Manually trigger a job by name with an optional JSON object payload.",
+    });
+    /*
       description:
         "Operator table of recent job runs with status filters, plus a panel to trigger a manual job with a payload; open it to monitor background jobs and start one.",
       access: systemAdminAccess,
-    });
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
+    }); */
     r.screen({
       id: JOB_RUN_DETAIL_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "JobRunDetailScreen" } },
+      type: "projectionDetail",
+      query: JobQueries.details,
+      idParam: "runId",
+      fieldLabels: {
+        jobName: "jobs.detail.field.job",
+        status: "jobs.detail.field.status",
+        id: "jobs.detail.field.id",
+        startedAt: "jobs.detail.field.started",
+        finishedAt: "jobs.detail.field.finished",
+        duration: "jobs.detail.field.duration",
+        error: "jobs.detail.field.error",
+        logs: "jobs.detail.logs",
+      },
+      layout: {
+        sections: [
+          {
+            fields: [
+              "jobName",
+              "status",
+              "id",
+              { field: "startedAt", renderer: { format: "timestamp" } },
+              { field: "finishedAt", renderer: { format: "timestamp" } },
+              "duration",
+              "error",
+            ],
+          },
+          {
+            title: "jobs.detail.logs",
+            fields: [{ field: "logs", renderer: { format: "json" } }],
+          },
+        ],
+      },
+      actions: [
+        {
+          kind: "writeHandler",
+          id: "retry",
+          label: "jobs.detail.retry",
+          handler: JobHandlers.retry,
+          payload: { map: { runId: "id" } },
+          visible: { field: "status", eq: "failed" },
+          style: "primary",
+        },
+      ],
       description:
         "Detail view of one job run with status, timings, error and log lines, and a retry action for failed runs; reached from a row of the job-runs list.",
       listScreenId: JOB_RUNS_SCREEN_ID,

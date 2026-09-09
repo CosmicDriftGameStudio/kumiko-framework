@@ -18,7 +18,7 @@ describe("jobs screens + handler access alignment", () => {
     const jobs = createJobsFeature();
     for (const id of [JOB_RUNS_SCREEN_ID, JOB_RUN_DETAIL_SCREEN_ID] as const) {
       const screen = jobs.screens[id];
-      expect(screen?.type).toBe("custom");
+      expect(screen?.type).toBe(id === JOB_RUN_DETAIL_SCREEN_ID ? "projectionDetail" : "custom");
       if (screen && "access" in screen && screen.access && "roles" in screen.access) {
         expect(screen.access.roles).toEqual(SYSTEM_ADMIN_ROLES);
       }
