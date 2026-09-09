@@ -7,6 +7,10 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ConfigQueries } from "../config/constants";
+import { JobQueries } from "../jobs/constants";
+import { TenantQueries } from "../tenant/constants";
+import { UserQueries } from "../user/constants";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
@@ -71,14 +75,40 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       ...(includeTierAdmin ? (["admin-shell:nav:tier-admin"] as const) : []),
     ];
 
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: TENANT_OVERVIEW_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "TenantOverviewScreen" } },
+      type: "dashboard",
       access: { roles: access.admin },
       description:
         "Landing page of the tenant-admin workspace, showing pending invitation, member and missing-config counts for the caller's own tenant so an operator sees what needs attention there.",
+      panels: [
+        {
+          kind: "stat",
+          id: "pending-invitations",
+          label: "admin-shell:overview.pendingInvitations",
+          query: TenantQueries.invitations,
+          // tenant:query:invitations returns a bare array, not a paged
+          // envelope — "length" reads record["length"], i.e. the array's
+          // own .length. Not a typo.
+          valueField: "length",
+        },
+        {
+          kind: "stat",
+          id: "members",
+          label: "admin-shell:overview.members",
+          query: TenantQueries.members,
+          // Same array-shaped response as invitations above.
+          valueField: "length",
+        },
+        {
+          kind: "stat",
+          id: "missing-config",
+          label: "admin-shell:overview.missingConfig",
+          query: ConfigQueries.readiness,
+          valueField: "missingCount",
+          toneField: "missingTone",
+        },
+      ],
     });
     r.nav({
       id: "tenant-overview",
@@ -88,14 +118,38 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       order: 1,
     });
 
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: PLATFORM_OVERVIEW_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "PlatformOverviewScreen" } },
+      type: "dashboard",
       access: { roles: access.systemAdmin },
       description:
         "Landing page of the platform-admin workspace, showing installation-wide tenant, user and failed-job counts so a system admin sees the health of the whole deployment at a glance.",
+      panels: [
+        {
+          kind: "stat",
+          id: "tenants",
+          label: "admin-shell:overview.tenants",
+          query: TenantQueries.list,
+          params: { totalCount: true },
+          valueField: "total",
+        },
+        {
+          kind: "stat",
+          id: "users",
+          label: "admin-shell:overview.users",
+          query: UserQueries.list,
+          params: { totalCount: true },
+          valueField: "total",
+        },
+        {
+          kind: "stat",
+          id: "failed-jobs",
+          label: "admin-shell:overview.failedJobs",
+          query: JobQueries.list,
+          params: { status: "failed", totalCount: true },
+          valueField: "total",
+        },
+      ],
     });
     r.nav({
       id: "platform-overview",

@@ -140,6 +140,13 @@ export const readinessQuery = defineQueryHandler({
       query.user,
       db,
     );
-    return { missing };
+    // Additive, display-ready fields for the admin-shell dashboard stat
+    // panel (fw#2312) — `missing` itself stays untouched for existing
+    // consumers that read the array directly.
+    return {
+      missing,
+      missingCount: missing.length,
+      missingTone: missing.length > 0 ? "warn" : "default",
+    };
   },
 });

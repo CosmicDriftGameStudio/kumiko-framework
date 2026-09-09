@@ -531,6 +531,10 @@ export type DashboardStatPanel = {
   /** Anzeige-Text (i18n-Key). */
   readonly label: string;
   readonly query: string;
+  /** Static, author-set query parameters merged on top of the screen's
+   *  dynamic filterParams — lets a panel pin a value (e.g. a status facet)
+   *  the screen-wide filter doesn't cover, without needing its own query. */
+  readonly params?: Readonly<Record<string, unknown>>;
   readonly valueField: string;
   readonly subField?: string;
   readonly toneField?: string;

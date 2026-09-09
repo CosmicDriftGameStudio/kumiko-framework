@@ -2,7 +2,12 @@
 // Real HTTP via setupTestStack — no mocks.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
+import {
+  defineFeature,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -10,7 +15,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { rolesOf, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/feature";
 import {
   JOB_RUN_DETAIL_SCREEN_ID,
@@ -106,5 +111,39 @@ describe("SystemAdmin can use jobs queries", () => {
       systemAdmin,
     );
     expect(Array.isArray(res.rows)).toBe(true);
+  });
+});
+
+describe("jobs:query:list totalCount (fw#2312)", () => {
+  test("without totalCount the shape carries no total field", async () => {
+    const res = await stack.http.queryOk<{ rows: readonly unknown[]; total?: number }>(
+      JobQueries.list,
+      { jobName: "jobs-sec-app:job:total-count-shape" },
+      systemAdmin,
+    );
+    expect(res.total).toBeUndefined();
+  });
+
+  test("total reflects the full match count, not capped by limit", async () => {
+    const jobName = "jobs-sec-app:job:total-count-probe";
+    for (let i = 0; i < 6; i++) {
+      await seedRow(stack.db, jobRunsTable, {
+        id: crypto.randomUUID(),
+        tenantId: SYSTEM_TENANT_ID,
+        jobName,
+        bullJobId: `total-count-${i}`,
+        status: "completed",
+        attempt: 1,
+        startedAt: sql`now()`,
+      });
+    }
+
+    const res = await stack.http.queryOk<{ rows: readonly unknown[]; total?: number }>(
+      JobQueries.list,
+      { jobName, limit: 2, totalCount: true },
+      systemAdmin,
+    );
+    expect(res.rows.length).toBe(2);
+    expect(res.total).toBe(6);
   });
 });

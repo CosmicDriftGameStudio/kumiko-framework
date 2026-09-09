@@ -1,4 +1,4 @@
-import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import { countWhere, selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -34,6 +34,7 @@ export const listQuery = defineQueryHandler({
     sort: z.enum(["jobName", "status", "startedAt", "duration"]).optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
     limit: z.number().optional(),
+    totalCount: z.boolean().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
@@ -53,10 +54,15 @@ export const listQuery = defineQueryHandler({
       orderBy: { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
       limit: query.payload.limit ?? 50,
     });
+    // countWhere reruns the SAME `where` without the limit — `rows.length` is
+    // capped at the page size and would silently undercount the total.
+    const total =
+      query.payload.totalCount === true ? await countWhere(db, jobRunsTable, where) : undefined;
     // payload/error are stored encrypted under the triggering user's DEK (#799, #2307).
     return {
       rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow),
       nextCursor: null,
+      ...(total !== undefined && { total }),
     };
   },
 });

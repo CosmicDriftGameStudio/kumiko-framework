@@ -1,35 +1,43 @@
 import { describe, expect, test } from "bun:test";
-import { access, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
-import { createAuditFeature } from "../../audit/feature";
-import { createConfigFeature } from "../../config/feature";
-import { createJobsFeature } from "../../jobs/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { tierEngineFeature } from "../../tier-engine/feature";
-import { createUserFeature } from "../../user/feature";
+import { access } from "@cosmicdrift/kumiko-framework/engine";
+import { ConfigQueries } from "../../config/constants";
+import { JobQueries } from "../../jobs/constants";
+import { TenantQueries } from "../../tenant/constants";
+import { UserQueries } from "../../user/constants";
 import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants";
 import { createAdminShellFeature } from "../feature";
 
-const features = [
-  createConfigFeature(),
-  createUserFeature(),
-  createTenantFeature(),
-  createAuditFeature(),
-  createJobsFeature(),
-  tierEngineFeature,
-  createAdminShellFeature(),
-];
+const adminShell = createAdminShellFeature();
+
+function statPanelQueries(screenId: string): readonly string[] {
+  const screen = adminShell.screens[screenId];
+  if (screen?.type !== "dashboard") throw new Error(`expected dashboard screen: ${screenId}`);
+  return screen.panels.map((panel) => {
+    if (panel.kind !== "stat") throw new Error(`expected stat panel on ${screenId}: ${panel.kind}`);
+    return panel.query;
+  });
+}
 
 describe("overview screens boot", () => {
-  test("tenant-overview screen is access.admin", () => {
-    const registry = createRegistry(features);
-    const screen = registry.getScreen(`admin-shell:screen:${TENANT_OVERVIEW_SCREEN_ID}`);
+  test("tenant-overview screen is access.admin, dashboard with 3 stat panels", () => {
+    const screen = adminShell.screens[TENANT_OVERVIEW_SCREEN_ID];
     expect(screen?.access).toEqual({ roles: access.admin });
-    expect(screen?.type).toBe("custom");
+    expect(screen?.type).toBe("dashboard");
+    expect(statPanelQueries(TENANT_OVERVIEW_SCREEN_ID)).toEqual([
+      TenantQueries.invitations,
+      TenantQueries.members,
+      ConfigQueries.readiness,
+    ]);
   });
 
-  test("platform-overview screen is SystemAdmin-only", () => {
-    const registry = createRegistry(features);
-    const screen = registry.getScreen(`admin-shell:screen:${PLATFORM_OVERVIEW_SCREEN_ID}`);
+  test("platform-overview screen is SystemAdmin-only, dashboard with 3 stat panels", () => {
+    const screen = adminShell.screens[PLATFORM_OVERVIEW_SCREEN_ID];
     expect(screen?.access).toEqual({ roles: access.systemAdmin });
+    expect(screen?.type).toBe("dashboard");
+    expect(statPanelQueries(PLATFORM_OVERVIEW_SCREEN_ID)).toEqual([
+      TenantQueries.list,
+      UserQueries.list,
+      JobQueries.list,
+    ]);
   });
 });
