@@ -54,7 +54,12 @@ globalThis.IntersectionObserver = class {
   disconnect(): void {}
 } as unknown as typeof IntersectionObserver;
 
-function fireIntersect(): void {
+// Waiting for the row alone races the observer-registering effect; each page
+// registers a fresh observer, so wait for one more than we last fired.
+let firedObservers = 0;
+async function fireIntersect(): Promise<void> {
+  await waitFor(() => expect(observers.length).toBeGreaterThan(firedObservers));
+  firedObservers = observers.length;
   observers[observers.length - 1]?.([{ isIntersecting: true }]);
 }
 
@@ -118,7 +123,7 @@ describe("InfinityList", () => {
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
     await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
-    fireIntersect();
+    await fireIntersect();
     await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
     expect(screen.getByText("Erste")).toBeTruthy();
     expect(calls).toBe(2);
@@ -157,7 +162,7 @@ describe("InfinityList", () => {
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
     await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
-    fireIntersect();
+    await fireIntersect();
     await waitFor(() => expect(screen.getByText("Dritte")).toBeTruthy());
     expect(screen.getAllByText("Zweite")).toHaveLength(1);
   });
@@ -316,7 +321,7 @@ describe("InfinityList", () => {
       );
 
       await waitFor(() => expect(screen.getByText("Alt-1")).toBeTruthy());
-      fireIntersect();
+      await fireIntersect();
       await waitFor(() => expect(screen.getByText("Alt-2")).toBeTruthy());
       expect(calls.length).toBe(2);
 
@@ -434,7 +439,7 @@ describe("InfinityList", () => {
       );
 
       await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
-      fireIntersect();
+      await fireIntersect();
       await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
       expect(calls.length).toBe(2);
 
