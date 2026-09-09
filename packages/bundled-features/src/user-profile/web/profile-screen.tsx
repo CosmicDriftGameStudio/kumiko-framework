@@ -13,7 +13,6 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { BareFormProvider } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { requestEmailVerification } from "../../auth-email-password/web";
@@ -46,12 +45,15 @@ function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode
 
 // Mounted by the renderer's ExtensionSectionMount (already wrapped in
 // <Section title={...} testId="section-extension-...">) — takes no props of
-// its own. BareFormProvider keeps <Form> from rendering a second card/title
-// inside that Section (same pattern as AuthCard, see
-// auth-email-password/web/auth-form-primitives.tsx).
+// its own. Deliberately NOT a <Form>: RenderEdit already renders a host
+// <form> around the whole singleton screen (render-edit.tsx), so a second
+// nested <form> here is invalid DOM and silently degrades the submit button
+// into a native GET navigation instead of a write dispatch (same failure
+// mode write-form-section.tsx documents and avoids the same way — a plain
+// button click, not a second <form>).
 export function ChangePasswordSection(): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button } = usePrimitives();
+  const { Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -82,55 +84,55 @@ export function ChangePasswordSection(): ReactNode {
 
   const submitting = status.kind === "submitting";
   return (
-    <BareFormProvider>
-      <Form
-        testId="profile-password"
-        onSubmit={onSubmit}
-        actions={
-          <Button type="submit" disabled={submitting} testId="profile-password-submit">
-            {t("profile.password.submit")}
-          </Button>
-        }
-      >
-        <Field id="profile-old-password" label={t("profile.password.old")} required>
-          <Input
-            kind="password"
-            id="profile-old-password"
-            name="profile-old-password"
-            value={oldPassword}
-            onChange={setOldPassword}
-            disabled={submitting}
-            required
-            autoComplete="current-password"
-          />
-        </Field>
-        <Field id="profile-new-password" label={t("profile.password.new")} required>
-          <Input
-            kind="password"
-            id="profile-new-password"
-            name="profile-new-password"
-            value={newPassword}
-            onChange={setNewPassword}
-            disabled={submitting}
-            required
-            autoComplete="new-password"
-          />
-        </Field>
-        <Field id="profile-confirm-password" label={t("profile.password.confirm")} required>
-          <Input
-            kind="password"
-            id="profile-confirm-password"
-            name="profile-confirm-password"
-            value={confirm}
-            onChange={setConfirm}
-            disabled={submitting}
-            required
-            autoComplete="new-password"
-          />
-        </Field>
-        <StatusBanner status={status} />
-      </Form>
-    </BareFormProvider>
+    <div data-testid="profile-password" className="flex flex-col gap-4">
+      <Field id="profile-old-password" label={t("profile.password.old")} required>
+        <Input
+          kind="password"
+          id="profile-old-password"
+          name="profile-old-password"
+          value={oldPassword}
+          onChange={setOldPassword}
+          disabled={submitting}
+          required
+          autoComplete="current-password"
+        />
+      </Field>
+      <Field id="profile-new-password" label={t("profile.password.new")} required>
+        <Input
+          kind="password"
+          id="profile-new-password"
+          name="profile-new-password"
+          value={newPassword}
+          onChange={setNewPassword}
+          disabled={submitting}
+          required
+          autoComplete="new-password"
+        />
+      </Field>
+      <Field id="profile-confirm-password" label={t("profile.password.confirm")} required>
+        <Input
+          kind="password"
+          id="profile-confirm-password"
+          name="profile-confirm-password"
+          value={confirm}
+          onChange={setConfirm}
+          disabled={submitting}
+          required
+          autoComplete="new-password"
+        />
+      </Field>
+      <StatusBanner status={status} />
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          disabled={submitting}
+          onClick={() => onSubmit()}
+          testId="profile-password-submit"
+        >
+          {t("profile.password.submit")}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -142,7 +144,7 @@ export function ChangePasswordSection(): ReactNode {
 // relying on a full-screen refetch to un-stale the "current email" line.
 export function ChangeEmailSection({ values, patch }: ExtensionSectionProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Text } = usePrimitives();
+  const { Field, Input, Button, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -188,45 +190,45 @@ export function ChangeEmailSection({ values, patch }: ExtensionSectionProps): Re
 
   const submitting = status.kind === "submitting";
   return (
-    <BareFormProvider>
-      <Form
-        testId="profile-email"
-        onSubmit={onSubmit}
-        actions={
-          <Button type="submit" disabled={submitting} testId="profile-email-submit">
-            {t("profile.email.submit")}
-          </Button>
-        }
-      >
-        <Text variant="muted" testId="profile-email-current">
-          {t("profile.email.current")}: {currentEmail}
-        </Text>
-        <Field id="profile-new-email" label={t("profile.email.new")} required>
-          <Input
-            kind="email"
-            id="profile-new-email"
-            name="profile-new-email"
-            value={newEmail}
-            onChange={setNewEmail}
-            disabled={submitting}
-            required
-            autoComplete="email"
-          />
-        </Field>
-        <Field id="profile-email-password" label={t("profile.email.currentPassword")} required>
-          <Input
-            kind="password"
-            id="profile-email-password"
-            name="profile-email-password"
-            value={currentPassword}
-            onChange={setCurrentPassword}
-            disabled={submitting}
-            required
-            autoComplete="current-password"
-          />
-        </Field>
-        <StatusBanner status={status} />
-      </Form>
-    </BareFormProvider>
+    <div data-testid="profile-email" className="flex flex-col gap-4">
+      <Text variant="muted" testId="profile-email-current">
+        {t("profile.email.current")}: {currentEmail}
+      </Text>
+      <Field id="profile-new-email" label={t("profile.email.new")} required>
+        <Input
+          kind="email"
+          id="profile-new-email"
+          name="profile-new-email"
+          value={newEmail}
+          onChange={setNewEmail}
+          disabled={submitting}
+          required
+          autoComplete="email"
+        />
+      </Field>
+      <Field id="profile-email-password" label={t("profile.email.currentPassword")} required>
+        <Input
+          kind="password"
+          id="profile-email-password"
+          name="profile-email-password"
+          value={currentPassword}
+          onChange={setCurrentPassword}
+          disabled={submitting}
+          required
+          autoComplete="current-password"
+        />
+      </Field>
+      <StatusBanner status={status} />
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          disabled={submitting}
+          onClick={() => onSubmit()}
+          testId="profile-email-submit"
+        >
+          {t("profile.email.submit")}
+        </Button>
+      </div>
+    </div>
   );
 }

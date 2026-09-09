@@ -105,13 +105,60 @@ async function waitForMount(view: ReturnType<typeof render>, testId: string): Pr
   });
 }
 
+// Reproduces the real host: RenderEdit renders exactly one <form
+// testId="render-edit-form"> around every singleton projectionDetail screen
+// (render-edit.tsx), and both sections mount as children of that form via
+// ExtensionSectionMount. A section that renders its own <form> nests invalid
+// DOM inside it — the security bug this guards against: the submit button
+// falls back to a native GET navigation, putting the password(s) in the URL
+// query instead of dispatching a write.
+function renderInsideHostForm(node: ReactNode) {
+  const writes: Array<{ type: string; payload: unknown }> = [];
+  const view = render(<form data-testid="render-edit-form">{node}</form>, {
+    wrapper: withProviders(writes),
+  });
+  return { view, writes };
+}
+
 describe("ChangeEmailSection", () => {
-  test("renders on a real <form> (Enter-to-submit, password-manager boundary), shows the current email, no raw i18n keys", async () => {
+  test("renders no <form> of its own (would nest inside the host RenderEdit <form>), shows the current email, no raw i18n keys", async () => {
     const { view } = renderChangeEmailSection("marc@example.com");
     await waitForMount(view, "change-email-root");
-    expect(view.getByTestId("profile-email").tagName).toBe("FORM");
+    expect(view.container.querySelector("form")).toBeNull();
     expect(view.getByTestId("profile-email-current").textContent).toContain("marc@example.com");
     expect(view.container.textContent).not.toContain("profile.");
+  });
+
+  // Security regression guard: mounted inside the real host <form> (as
+  // RenderEdit does in production), a click on the submit button must still
+  // reach the write dispatcher — not fall back to the host form's native
+  // GET submission, which would put currentPassword/newEmail in the URL.
+  test("mounted inside the host RenderEdit <form>, a click on the submit button dispatches change-email (no nested <form>, no native submit fallback)", async () => {
+    const { view, writes } = renderInsideHostForm(
+      <ChangeEmailSection
+        entityName="user"
+        entityId={null}
+        values={{ email: "old@example.com" }}
+        patch={() => {}}
+      />,
+    );
+    await waitForMount(view, "profile-email");
+    expect(view.container.querySelectorAll("form")).toHaveLength(1);
+
+    const emailInput = view.container.querySelector<HTMLInputElement>("#profile-new-email");
+    const pwInput = view.container.querySelector<HTMLInputElement>("#profile-email-password");
+    if (!emailInput || !pwInput) throw new Error("email form inputs not found");
+    fireEvent.change(emailInput, { target: { value: "new@example.com" } });
+    fireEvent.change(pwInput, { target: { value: "current-pw" } });
+    fireEvent.click(view.getByTestId("profile-email-submit"));
+
+    await waitFor(() => {
+      if (writes.length === 0) throw new Error("no write dispatched yet");
+    });
+    expect(writes[0]).toEqual({
+      type: "user-profile:write:change-email",
+      payload: { currentPassword: "current-pw", newEmail: "new@example.com" },
+    });
   });
 
   test("submits change-email with currentPassword + newEmail, patches the host's email on success", async () => {
@@ -212,11 +259,38 @@ describe("ChangeEmailSection", () => {
 });
 
 describe("ChangePasswordSection", () => {
-  test("renders on a real <form>, no raw i18n keys", async () => {
+  test("renders no <form> of its own (would nest inside the host RenderEdit <form>), no raw i18n keys", async () => {
     const { view } = renderChangePasswordSection();
     await waitForMount(view, "change-password-root");
-    expect(view.getByTestId("profile-password").tagName).toBe("FORM");
+    expect(view.container.querySelector("form")).toBeNull();
     expect(view.container.textContent).not.toContain("profile.");
+  });
+
+  // Security regression guard: mounted inside the real host <form> (as
+  // RenderEdit does in production), a click on the submit button must still
+  // reach the write dispatcher — not fall back to the host form's native
+  // GET submission, which would put old+new passwords in the URL.
+  test("mounted inside the host RenderEdit <form>, a click on the submit button dispatches change-password (no nested <form>, no native submit fallback)", async () => {
+    const { view, writes } = renderInsideHostForm(<ChangePasswordSection />);
+    await waitForMount(view, "profile-password");
+    expect(view.container.querySelectorAll("form")).toHaveLength(1);
+
+    const oldPw = view.container.querySelector<HTMLInputElement>("#profile-old-password");
+    const newPw = view.container.querySelector<HTMLInputElement>("#profile-new-password");
+    const confirmPw = view.container.querySelector<HTMLInputElement>("#profile-confirm-password");
+    if (!oldPw || !newPw || !confirmPw) throw new Error("password form inputs not found");
+    fireEvent.change(oldPw, { target: { value: "current-pw" } });
+    fireEvent.change(newPw, { target: { value: "new-pw-1" } });
+    fireEvent.change(confirmPw, { target: { value: "new-pw-1" } });
+    fireEvent.click(view.getByTestId("profile-password-submit"));
+
+    await waitFor(() => {
+      if (writes.length === 0) throw new Error("no write dispatched yet");
+    });
+    expect(writes[0]).toEqual({
+      type: "auth-email-password:write:change-password",
+      payload: { oldPassword: "current-pw", newPassword: "new-pw-1" },
+    });
   });
 
   test("mismatched confirm password blocks the submit (no write dispatched)", async () => {
