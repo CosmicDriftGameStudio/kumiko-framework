@@ -26,6 +26,8 @@ export const membersQuery = defineQueryHandler({
   access: { roles: access.admin },
   description:
     "Lists the memberships of the caller's own tenant with each member's decrypted email, display name and roles, optionally narrowed to a single user id.",
+  // Decrypted email + display name: legitimate for an agent, never unattended.
+  agent: { risk: "high" },
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

@@ -40,6 +40,8 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
     access: { openToAll: true },
     description:
       "Completes TOTP enrollment for the signed-in user by checking a code against the secret carried in the setup token from enable-start, then storing the factor and signing every other session and access token out.",
+    // Changes the caller's authentication state and signs their other sessions out.
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const verify = verifyMfaSetupToken(event.payload.setupToken, opts.setupTokenSecret);
       if (!verify.ok) return invalidSetupToken();

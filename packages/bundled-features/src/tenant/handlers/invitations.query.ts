@@ -25,6 +25,8 @@ export const invitationsQuery = defineQueryHandler({
   access: { roles: access.admin },
   description:
     "Lists the still-pending invitations of the caller's own tenant with their email and inviter decrypted; accepted, cancelled and expired ones are left out.",
+  // Decrypted invitee and inviter email.
+  agent: { risk: "high" },
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({

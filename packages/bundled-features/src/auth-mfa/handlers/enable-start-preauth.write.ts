@@ -37,6 +37,8 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
     access: { roles: ["all"] },
     description:
       "Begins TOTP enrollment for a user whose sign-in was blocked because the tenant requires two-factor authentication, taking identity from the pre-auth token login issued instead of from a session.",
+    // Same secret-bearing result as enable-start.
+    agent: { expose: false },
     handler: async (event, ctx) => {
       const verified = verifyMfaPreauthSetupToken(
         event.payload.preauthSetupToken,
