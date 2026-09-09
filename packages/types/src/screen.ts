@@ -1,6 +1,6 @@
 import type { FieldIconKey } from "./field-icon";
 import type { FieldDefinition } from "./fields";
-import type { AccessRule } from "./handlers";
+import type { AccessRule, AgentHandlerHints } from "./handlers";
 import type { IconKey, NavIconKey } from "./nav-icon";
 
 export type { FieldIconKey } from "./field-icon";
@@ -340,6 +340,7 @@ export type EntityListScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly entity: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
@@ -419,6 +420,7 @@ export type ProjectionListScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -480,6 +482,7 @@ export type ProjectionDetailScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
@@ -665,6 +668,7 @@ export type DashboardScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
@@ -862,6 +866,7 @@ export type EntityEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   readonly entity: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
@@ -942,6 +947,7 @@ export type ActionFormScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
    *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
   readonly handler: string;
@@ -998,6 +1004,8 @@ export type CustomScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  /** Only `expose` is read for screens; `risk` ranks handler tool calls. */
+  readonly agent?: AgentHandlerHints;
   readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
   /** Parent list screen for breadcrumb when this detail is not in nav. */
@@ -1054,6 +1062,7 @@ export type ConfigEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -1097,6 +1106,7 @@ export type SecretsEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  readonly agent?: AgentHandlerHints;
   /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
   readonly secretKeys: Readonly<Record<string, string>>;
   /** field id -> i18n key for the label. */
@@ -1134,10 +1144,10 @@ export type ScreenNavSugar = {
   readonly order?: number;
 };
 
-// `nav`/`detailFor`/`description` live directly on every variant (not only via this
+// `nav`/`detailFor`/`description`/`agent` live directly on every variant (not only via this
 // union) so a screen typed as its own concrete kind — e.g. `const screen:
 // CustomScreenDefinition = {...}` in a module split out of `feature.ts` —
-// still accepts all three; a union-only intersection drops them the
+// still accepts all four; a union-only intersection drops them the
 // moment a caller narrows to one member.
 //
 // `detailFor` applies to any screen kind because any kind can be the
