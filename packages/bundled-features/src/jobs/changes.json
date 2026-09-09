@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.240.0",
+    "version": "0.241.0",
     "type": "breaking",
     "title": "JobRunsScreen and JobRunDetailScreen removed; job-runs/job-run-detail are now declarative screens (fw#2312).",
     "detail": "`job-runs`/`job-run-detail` render through the generic renderer (`projectionList`/`projectionDetail`) instead of custom React components — the renderer selects a screen by its `screen.type`, not a client component registry, so `JobRunsScreen`/`JobRunDetailScreen` were dead exports the moment the screen definitions switched. Job triggering moved from an inline control on the old custom screen to a new `job-trigger` `actionForm`, opened via a `kind: \"drawer\"` `toolbarAction` on `job-runs`. `job-run-detail`'s `logs` field now uses the `format: \"json\"` field-renderer (see framework changelog) instead of a raw escaped-string dump.",

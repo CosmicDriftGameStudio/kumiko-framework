@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.240.0",
+    "version": "0.241.0",
     "type": "breaking",
     "title": "AuditLogScreen and AuditLogDetailScreen removed; audit-log/audit-log-detail are now declarative screens (fw#2312).",
     "detail": "`audit-log` and `audit-log-detail` render through the generic renderer (`projectionList`/`projectionDetail`) instead of custom React components — the renderer selects a screen by its `screen.type`, not a client component registry, so `AuditLogScreen`/`AuditLogDetailScreen` were dead exports the moment the screen definitions switched. The `payload`/`metadata` fields now use the `format: \"json\"` field-renderer (see framework changelog) instead of a raw escaped-string dump.",

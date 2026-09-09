@@ -10,7 +10,7 @@ verified: 2026-09-09
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
-## 0.240.0
+## 0.241.0
 
 ### audit
 
