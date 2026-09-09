@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.240.0",
+    "type": "improvement",
+    "title": "ProjectionDetailScreenDefinition gains singleton: boolean for self-service screens bound to a caller-scoped query (fw#2312).",
+    "detail": "A `projectionDetail` screen previously always resolved its row from a path id — the only case `ProjectionDetailBody` handled — so binding one to a `me`-style query (e.g. `user:query:user:me`) rendered nothing but a \"missing id\" error banner. With `singleton: true`, the query is called without the `idParam` key (there is no id to send) and any path id is ignored rather than forwarded into the query or into extension sections' entity-id resolution — a singleton row is server-picked, so no client-supplied id can reach it. The boot validator rejects `idParam` or `detailFor` declared together with `singleton` (both are meaningless once the server owns row selection)."
+  },
+  {
+    "version": "0.240.0",
+    "type": "improvement",
+    "title": "DashboardStatPanel gains an optional params field for static query parameters (fw#2312).",
+    "detail": "`DashboardStatPanel.params?: Readonly<Record<string, unknown>>` (`@cosmicdrift/kumiko-types`) is merged under the panel's dynamic `filterParams` by `@cosmicdrift/kumiko-renderer-web`'s dashboard body — lets a panel pin a value (e.g. a status facet) the screen-wide filter doesn't cover, without needing its own query. Additive; existing `dashboard` screens are unaffected."
+  },
+  {
+    "version": "0.240.0",
+    "type": "improvement",
+    "title": "EditFieldSpec.renderer gains a json format for pretty-printed structured fields (fw#2312).",
+    "detail": "`FieldFormatRegistry.json: { indent?: number }` (`@cosmicdrift/kumiko-types`, resolved by `@cosmicdrift/kumiko-headless`) — set `renderer: { format: \"json\", indent: 2 }` on an `EditFieldSpec` to pretty-print a JSON-string field instead of showing the raw escaped string. Pairs with the new `JsonView` primitive below when `@cosmicdrift/kumiko-renderer-web` is in use."
+  },
+  {
+    "version": "0.240.0",
+    "type": "improvement",
+    "title": "Optional JsonView primitive for structured, syntax-highlighted JSON display (fw#2312).",
+    "detail": "`CorePrimitives.JsonView` (`@cosmicdrift/kumiko-renderer`, web impl `DefaultJsonView` in `@cosmicdrift/kumiko-renderer-web`) receives the raw value (not a pre-stringified string) and stringifies + tokenizes itself; never throws on circular references, `BigInt`, or other non-serializable input. Optional on `CorePrimitives`, so an existing partial `CorePrimitives` test mock/provider keeps compiling unchanged — every call site (renderer's `format: \"json\"` fields, the jsonb/embedded/files/images fallback banner, `EditorPanel`'s unresolved-target args display) falls back to the prior `<Text>`/`<pre>` rendering when no `JsonView` is registered. A custom `PrimitivesProvider` that wants the improved rendering needs to add a `JsonView` implementation; nothing breaks if it doesn't."
+  },
+  {
     "version": "0.235.0",
     "type": "breaking",
     "title": "UnprocessableOpts.details can no longer carry its own `reason` key (fw#2460).",

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.240.0",
+    "type": "breaking",
+    "title": "AuditLogScreen and AuditLogDetailScreen removed; audit-log/audit-log-detail are now declarative screens (fw#2312).",
+    "detail": "`audit-log` and `audit-log-detail` render through the generic renderer (`projectionList`/`projectionDetail`) instead of custom React components — the renderer selects a screen by its `screen.type`, not a client component registry, so `AuditLogScreen`/`AuditLogDetailScreen` were dead exports the moment the screen definitions switched. The `payload`/`metadata` fields now use the `format: \"json\"` field-renderer (see framework changelog) instead of a raw escaped-string dump.",
+    "migration": "Breaking only if you imported these components directly (no shipped consumer app did). Remove `import { AuditLogScreen, AuditLogDetailScreen } from \"@cosmicdrift/kumiko-bundled-features/audit/web\"` and any `components: { AuditLogScreen: ..., AuditLogDetailScreen: ... }` entry in your `auditClient()`/renderer setup — the bundled feature registers its own `audit-log`/`audit-log-detail` screens now, nothing left for an app to wire."
+  },
+  {
     "version": "0.127.0",
     "type": "improvement",
     "title": "Harden admin operator UI: stricter boot i18n/entityList validation, job run logger wiring…",
