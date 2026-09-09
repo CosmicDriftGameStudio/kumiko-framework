@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.243.0
+
+### Minor Changes
+
+- 349d763: `actionForm` screens can name the success-payload field their post-submit redirect navigates by: `redirect: { screen: "lease-detail", idFrom: "leaseId" }` (`ActionFormRedirect`, `@cosmicdrift/kumiko-types`). Until now the renderer always navigated with `data.id`, so an action that creates a child record (add a lease item, add a protocol section) could only land on the child — a redirect back into the parent's detail screen resolved the parent id to the child's and 404'd.
+
+  The alternative was to make the write-handler report the parent id as its own `id`, breaking the handler's contract for every other caller. The routing decision now sits on the screen, where it belongs, and handlers keep reporting what they actually wrote.
+
+  Backwards compatible: `redirect` still accepts the plain string, which keeps navigating by `data.id`. The boot-validator resolves the object form's `screen` exactly like the string form (short id or cross-feature QN) and rejects an empty `idFrom`. As before, the id is only appended when the target screen carries one (`entityEdit`, `projectionDetail`).
+
+### Patch Changes
+
+- f1e3452: Pins two untested contracts of a `projectionDetail` `relatedList` section's `rowActions` (the capability itself landed in #2675). A `kind: "navigate"` row action must reach its target screen and carry the clicked row's own values as search params through the declarative `params` extractor, and a row action with a `visible` condition must render only on the rows that satisfy it. Both run through the shared `buildProjectionRowActions`/`runProjectionRowNavigate` helpers, which `projectionList` already covers — what was unpinned is that a relatedList row, backed by a synthesized pseudo-entity rather than a real one, reaches them intact. No behavior change.
+- c56d418: `multiline: { rows: N }` on a `text`/`longText` field now visibly changes the textarea height. The row count reached the rendered `<textarea rows>` attribute all along, but the vendored shadcn Textarea carries `field-sizing: content`, which derives the box height from the content and makes the attribute inert — a declared `rows: 16` still rendered a ~3-line field. The default textarea primitive now also derives an inline `min-height` from `rows`, so the field starts at the declared number of lines and keeps growing with its content. Textareas without an explicit `rows` are unchanged (`min-h-16` as before).
+- Updated dependencies [1feba52]
+- Updated dependencies [349d763]
+  - @cosmicdrift/kumiko-headless@0.243.0
+  - @cosmicdrift/kumiko-framework@0.243.0
+
 ## 0.242.0
 
 ### Patch Changes
