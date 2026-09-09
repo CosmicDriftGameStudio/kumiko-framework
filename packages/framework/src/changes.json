@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.242.0",
+    "type": "improvement",
+    "title": "ActionFormScreenDefinition.redirect accepts an object naming the success-payload field the navigation id comes from (fw#2670).",
+    "detail": "`redirect: { screen: \"lease-detail\", idFrom: \"leaseId\" }` (`ActionFormRedirect`, `@cosmicdrift/kumiko-types`) — the renderer previously always navigated with `data.id`, so an action that creates a child record could only land on that child; redirecting back into the parent's detail screen navigated with the child id and 404'd. Making the handler report the parent id instead would break its contract for every other caller, so the routing decision now sits on the screen. Backwards compatible: the plain string form keeps navigating by `data.id`. The boot validator resolves the object's `screen` exactly like the string form (short id or cross-feature QN) and rejects an empty `idFrom`; the id is still only appended when the target screen carries one (`entityEdit`, `projectionDetail`)."
+  },
+  {
     "version": "0.241.0",
     "type": "improvement",
     "title": "ProjectionDetailScreenDefinition gains singleton: boolean for self-service screens bound to a caller-scoped query (fw#2312).",

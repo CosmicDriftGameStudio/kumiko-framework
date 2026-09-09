@@ -1094,17 +1094,30 @@ export function validateScreens(
       }
       validateWizardLayout(feature.name, screenId, "actionForm", screen.layout, featureMap);
       if (screen.redirect !== undefined) {
-        // redirect ist entweder die kurze Screen-ID (same-feature, z.B.
-        // "item-list") oder eine voll-qualifizierte Cross-Feature-QN
-        // (`<feature>:screen:<id>`) — der Renderer strippt letztere beim
-        // Navigieren auf die kurze ID (lastSegment), die der nav-Router
-        // app-weit auflöst (#1946).
+        // redirect is either a short screen id (same-feature, e.g.
+        // "item-list") or a fully-qualified cross-feature QN
+        // (`<feature>:screen:<id>`) — the renderer strips the latter to the
+        // short id (lastSegment) when navigating, which the nav-router
+        // resolves app-wide (#1946). The object form (fw#2670) carries the
+        // same target under `screen` plus the payload field `idFrom`.
+        const redirectTarget =
+          typeof screen.redirect === "string" ? screen.redirect : screen.redirect.screen;
+        if (
+          typeof screen.redirect !== "string" &&
+          (typeof screen.redirect.idFrom !== "string" || screen.redirect.idFrom.trim() === "")
+        ) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) redirect.idFrom is empty or not a string — ` +
+              `name the success-payload field carrying the navigation id, or use the plain string ` +
+              `redirect form to navigate with the handler's own "id".`,
+          );
+        }
         validateScreenNavTarget(
           feature.name,
           screenId,
           "actionForm",
           "redirect",
-          screen.redirect,
+          redirectTarget,
           allScreenQns,
           feature.screens,
         );

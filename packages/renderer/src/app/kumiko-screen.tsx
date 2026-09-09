@@ -25,7 +25,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extractCreatedId } from "../components/reference-create-dialog";
+import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
@@ -2425,6 +2425,12 @@ function ProjectionDetailBody({
 }
 // ---- actionForm (Tier 2.7d) ----
 
+function redirectScreenTarget(
+  redirect: NonNullable<ActionFormScreenDefinition["redirect"]>,
+): string {
+  return typeof redirect === "string" ? redirect : redirect.screen;
+}
+
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses
 // RenderEdit über synthetisierte EntityDefinition + EntityEditScreen-
 // Definition (siehe action-form-shim.ts für die Schulden-Doku). Die
@@ -2476,8 +2482,10 @@ function ActionFormBody({
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
       if (screen.redirect !== undefined) {
-        const targetId = lastSegment(screen.redirect);
-        const targetFeatureName = featureNameFromQualifiedScreenId(screen.redirect);
+        const redirectScreen = redirectScreenTarget(screen.redirect);
+        const idField = typeof screen.redirect === "string" ? "id" : screen.redirect.idFrom;
+        const targetId = lastSegment(redirectScreen);
+        const targetFeatureName = featureNameFromQualifiedScreenId(redirectScreen);
         // A qualified redirect target may live in a different feature than
         // this screen's own schema (fw#2485) — resolve over all mounted
         // features (own schema first, cheap and provider-independent) same
@@ -2496,7 +2504,7 @@ function ActionFormBody({
               // pick by — fall back to the pre-fw#2485 best-effort match by
               // short id across all mounted features.
               appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId));
-        const entityId = extractCreatedId(result.data);
+        const entityId = extractIdField(result.data, idField);
         const carriesId =
           target !== undefined &&
           (target.type === "entityEdit" || target.type === "projectionDetail");
@@ -2514,7 +2522,9 @@ function ActionFormBody({
   // (Single-Action-Screens, wo Cancel nur Submit-ohne-Senden wäre).
   const handleCancel = useMemo<(() => void) | undefined>(() => {
     if (onCancelOverride !== undefined) return onCancelOverride;
-    const target = screen.cancelTarget ?? screen.redirect;
+    const target =
+      screen.cancelTarget ??
+      (screen.redirect !== undefined ? redirectScreenTarget(screen.redirect) : undefined);
     if (target === undefined || target === false) return undefined;
     return () => nav.navigate({ screenId: lastSegment(target) });
   }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride]);
