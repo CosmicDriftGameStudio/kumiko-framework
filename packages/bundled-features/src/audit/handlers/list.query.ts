@@ -19,18 +19,60 @@ import { z } from "zod";
 
 const MAX_LIMIT = 100;
 
+function buildDateRange(
+  from: string | undefined,
+  to: string | undefined,
+): { gte?: unknown; lte?: unknown } | null {
+  if (!from && !to) return null;
+  const range: { gte?: unknown; lte?: unknown } = {};
+  if (from) range.gte = Temporal.Instant.from(from);
+  if (to) range.lte = Temporal.Instant.from(to);
+  return range;
+}
+
+function buildAuditWhere(
+  tenantId: string,
+  p: {
+    aggregateType?: string;
+    aggregateId?: string;
+    eventType?: string;
+    search?: string;
+    userId?: string;
+    from?: string;
+    to?: string;
+    cursor?: string;
+    before?: string;
+  },
+): WhereObject {
+  const where: WhereObject = { tenantId };
+  if (p.aggregateType) where["aggregateType"] = p.aggregateType;
+  if (p.aggregateId) where["aggregateId"] = p.aggregateId;
+  const type = p.eventType ?? p.search;
+  if (type) where["type"] = type;
+  if (p.userId) where["createdBy"] = p.userId;
+  const range = buildDateRange(p.from, p.to);
+  if (range) where["createdAt"] = range;
+  const cursor = p.cursor ?? p.before;
+  if (cursor) where["id"] = { lt: BigInt(cursor) };
+  return where;
+}
+
 export const listQuery = defineQueryHandler({
   name: "list",
   description:
     "Lists the tenant's audit-trail events newest-first with cursor paging, filterable by aggregate type, aggregate id, event type, actor and time range; use it to answer who changed what and when.",
   schema: z
     .object({
+      cursor: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
       before: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
+      search: z.string().trim().optional(),
       limit: z.number().int().min(1).max(MAX_LIMIT).default(50),
       aggregateType: z.string().optional(),
       aggregateId: z.uuid().optional(),
       eventType: z.string().optional(),
       userId: z.string().optional(),
+      sort: z.enum(["createdAt", "type"]).optional(),
+      sortDirection: z.enum(["asc", "desc"]).optional(),
       from: z.iso.datetime().optional(),
       to: z.iso.datetime().optional(),
     })
@@ -41,18 +83,7 @@ export const listQuery = defineQueryHandler({
   access: { roles: access.admin },
   handler: async (query, ctx) => {
     const p = query.payload;
-    const where: WhereObject = { tenantId: query.user.tenantId };
-    if (p.aggregateType) where["aggregateType"] = p.aggregateType;
-    if (p.aggregateId) where["aggregateId"] = p.aggregateId;
-    if (p.eventType) where["type"] = p.eventType;
-    if (p.userId) where["createdBy"] = p.userId;
-    if (p.from || p.to) {
-      const range: { gte?: unknown; lte?: unknown } = {};
-      if (p.from) range.gte = Temporal.Instant.from(p.from);
-      if (p.to) range.lte = Temporal.Instant.from(p.to);
-      where["createdAt"] = range;
-    }
-    if (p.before) where["id"] = { lt: BigInt(p.before) };
+    const where = buildAuditWhere(query.user.tenantId, p);
 
     const rows = await selectMany<{
       id: bigint;
@@ -65,7 +96,10 @@ export const listQuery = defineQueryHandler({
       createdAt: unknown;
       createdBy: string;
     }>(ctx.db, eventsTable, where, {
-      orderBy: { col: "id", direction: "desc" },
+      orderBy: {
+        col: query.payload.sort === "type" ? "type" : "createdAt",
+        direction: query.payload.sortDirection ?? "desc",
+      },
       limit: p.limit,
     });
 
@@ -81,9 +115,11 @@ export const listQuery = defineQueryHandler({
       createdBy: r.createdBy,
     }));
     const last = serialised[serialised.length - 1];
+    const nextId = serialised.length === p.limit && last ? last.id : null;
     return {
       rows: serialised,
-      nextBefore: serialised.length === p.limit && last ? last.id : null,
+      nextCursor: nextId,
+      nextBefore: nextId,
     };
   },
 });

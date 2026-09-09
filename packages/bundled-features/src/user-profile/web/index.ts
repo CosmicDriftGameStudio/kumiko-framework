@@ -3,4 +3,4 @@ export {
   type UserProfileClientOptions,
   userProfileClient,
 } from "./client-plugin";
-export { ProfileScreen } from "./profile-screen";
+export { ChangeEmailSection, ChangePasswordSection } from "./profile-screen";

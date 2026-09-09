@@ -69,7 +69,7 @@ import { z } from "zod";
 import { tenantTable } from "../tenant";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
-import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE } from "./constants";
+import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE, TierEngineHandlers } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
@@ -187,7 +187,7 @@ export function createTierEngineFeature<
 >(opts: CreateTierEngineOptions<TCaps> = {}): FeatureDefinition {
   return defineFeature(TIER_ENGINE_FEATURE, (r) => {
     r.describe(
-      'Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually \u2014 without a billing purchase \u2014 stamping `source: "manual"` so a future Stripe\u2192tier sync won\'t overwrite the grant. Apps surface this via the `tier-admin` screen.',
+      'Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually \u2014 without a billing purchase \u2014 stamping `source: "manual"` so a future Stripe\u2192tier sync won\'t overwrite the grant. Apps surface this via the `tier-admin` screen, which is always registered — in storage-only mode (no `tierMap`) it shows an honest "no tiers configured" message instead of a tier dropdown.',
     );
     r.uiHints({
       displayLabel: "Tier Engine \u00b7 Plan Composition",
@@ -252,18 +252,44 @@ export function createTierEngineFeature<
       }),
     );
 
-    // Custom React-Screen für den manuellen Grant. SystemAdmin-only fest
-    // verdrahtet (Platform-Admin-Hoheit, nicht App-konfigurierbar). App
-    // platziert ihn nur via r.nav("tier-engine:screen:tier-admin"); die
-    // Komponente liefert tierEngineClient() aus dem ./web-subpath.
+    // Declarative form for the manual grant. SystemAdmin-only, hard-wired
+    // (platform-admin authority, not app-configurable). Apps place it only
+    // via r.nav("tier-engine:screen:tier-admin"); tier options are built
+    // statically from the tierMap closure. Always registered — even in
+    // storage-only mode (no tierMap) — so the screen shows an honest
+    // "no tiers configured" message instead of vanishing (samples like
+    // use-all-bundled deliberately mount storage-only to screenshot that
+    // empty state).
     r.translations({ keys: TIER_ENGINE_I18N });
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: TIER_ADMIN_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "TierAdminScreen" } },
+      type: "actionForm",
+      handler: TierEngineHandlers.setTenantTier,
+      fields: {
+        tenantId: {
+          type: "reference",
+          entity: "tenant:tenant",
+          labelField: "name",
+          required: true,
+        },
+        tier: {
+          type: "select",
+          options: opts.tierMap ? Object.keys(opts.tierMap) : [],
+          required: true,
+        },
+      },
+      layout: {
+        sections: [
+          {
+            fields: ["tenantId", "tier"],
+            description: opts.tierMap ? "tier-admin.explainer" : "tier-admin.error.noTiers",
+          },
+        ],
+      },
+      submitLabel: "tier-admin.submit",
+      cancelTarget: false,
       description:
-        "Operator form that picks a tenant, shows its current tier and assigns a new one as a manual grant without a billing purchase.",
+        "Operator form that assigns a tier to any tenant as a manual grant without a billing purchase.",
       access: { roles: ["SystemAdmin"] },
     });
 

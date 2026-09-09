@@ -1,17 +1,14 @@
 // @runtime client
-// PrivacyCenterScreen — eingeloggte DSGVO-Self-Service-Seite: Datenexport
-// (Art. 20), Verarbeitung einschränken (Art. 18) und Konto löschen (Art. 17)
-// in einem Screen. Das Feature registriert ihn dormant als custom-Screen
-// (r.screen, kein r.nav); die App platziert ihn via r.nav im eingeloggten
-// Bereich.
+// Export section (Art. 20) — the one part of user-data-rights' privacy-center
+// screen that stays custom (fw#2312). Registered as an EditExtensionSection
+// component (see web/client-plugin.tsx); the projectionDetail screen
+// (feature.ts) supplies the surrounding Section chrome (title, testId), so
+// this component renders only its own body content.
 //
-// `showDeletion=false` blendet die Lösch-Sektion aus — für Apps, die die
-// Konto-Löschung bereits an anderer Stelle anbieten (z.B. Profil-DangerZone),
-// damit sie nicht doppelt erscheint.
-//
-// Art. 18 Lift ist hier bewusst NICHT actionbar: ein eingeschränktes Konto ist
-// vom Login geblockt und erreicht diesen Screen gar nicht erst — das Aufheben
-// läuft über Support / Magic-Link, nicht über die Self-Service-UI.
+// Export needs async-job polling (worker-Lane-Cron, ~1 Min) plus a
+// signed-URL download — logic a declarative field/action can't express.
+// Restriction (Art. 18) and Deletion (Art. 17) moved onto the screen's
+// declarative fields/actions instead (feature.ts).
 
 import {
   useDispatcher,
@@ -19,29 +16,19 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { FormScreenShell, postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
+import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useEffect, useState } from "react";
 import {
   EXPORT_JOB_STATUS,
   type ExportJobStatus,
-  USER_ME_QUERY,
   UserDataRightsHandlers,
   UserDataRightsQueries,
 } from "../constants";
 
-const STATUS_DELETION_REQUESTED = "deletionRequested";
-const STATUS_RESTRICTED = "restricted";
 // Export-Job läuft async (worker-Lane-Cron, ~1 Min). Solange er pending/running
 // ist, pollt der Screen den Status, damit der Download ohne manuellen Reload
 // erscheint.
 const EXPORT_POLL_MS = 4000;
-
-type MeRow = {
-  readonly id: string;
-  readonly email: string;
-  readonly status?: string;
-  readonly gracePeriodEnd?: string | null;
-};
 
 type ExportJob = {
   readonly id: string;
@@ -86,9 +73,14 @@ function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode
   return null;
 }
 
-function ExportSection(): ReactNode {
+// Mounted by the renderer's ExtensionSectionMount (already wrapped in
+// <Section title={...} testId="section-extension-...">) — takes no props of
+// its own, ExtensionSectionProps (entityName/entityId/...) are unused since
+// export status/actions are scoped to the current user session, not to a
+// host entity row.
+export function ExportSection(): ReactNode {
   const t = useTranslation();
-  const { Section, Button, Banner } = usePrimitives();
+  const { Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
   const statusQuery = useQuery<ExportStatusResult | null>(UserDataRightsQueries.exportStatus, {});
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
@@ -131,26 +123,7 @@ function ExportSection(): ReactNode {
   }, [inProgress, refetch]);
 
   return (
-    <Section
-      title={t("userDataRights.privacyCenter.export.title")}
-      testId="privacy-export"
-      actions={
-        !inProgress ? (
-          <Button
-            onClick={() => void request()}
-            disabled={submitting}
-            loading={submitting}
-            testId="privacy-export-request"
-          >
-            {done
-              ? t("userDataRights.privacyCenter.export.requestNew")
-              : submitting
-                ? t("userDataRights.privacyCenter.export.requesting")
-                : t("userDataRights.privacyCenter.export.request")}
-          </Button>
-        ) : undefined
-      }
-    >
+    <>
       <p className="text-sm text-muted-foreground">
         {t("userDataRights.privacyCenter.export.intro")}
       </p>
@@ -190,209 +163,23 @@ function ExportSection(): ReactNode {
           </div>
         </Banner>
       )}
+      {!inProgress && (
+        <div className="mt-2">
+          <Button
+            onClick={() => void request()}
+            disabled={submitting}
+            loading={submitting}
+            testId="privacy-export-request"
+          >
+            {done
+              ? t("userDataRights.privacyCenter.export.requestNew")
+              : submitting
+                ? t("userDataRights.privacyCenter.export.requesting")
+                : t("userDataRights.privacyCenter.export.request")}
+          </Button>
+        </div>
+      )}
       <StatusBanner status={status} />
-    </Section>
-  );
-}
-
-function RestrictionSection({
-  me,
-  onChanged,
-}: {
-  readonly me: MeRow;
-  readonly onChanged: () => void;
-}): ReactNode {
-  const t = useTranslation();
-  const { Section, Button, Banner, Dialog } = usePrimitives();
-  const dispatcher = useDispatcher();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
-  const restricted = me.status === STATUS_RESTRICTED;
-
-  // Erfolg ⇒ alle Sessions revoked, der User wird abgemeldet. onChanged ist
-  // best-effort (das anschließende Refetch läuft typisch in 401 + Logout-
-  // Redirect der App-Auth-Schicht).
-  const restrict = async (): Promise<void> => {
-    const res = await dispatcher.write(UserDataRightsHandlers.restrictAccount, {});
-    if (!res.isSuccess) {
-      setStatus({ kind: "error", messageKey: failureKey(res.error) });
-      return;
-    }
-    onChanged();
-  };
-
-  return (
-    <Section
-      title={t("userDataRights.privacyCenter.restriction.title")}
-      testId="privacy-restriction"
-      variant="destructive"
-      actions={
-        restricted ? undefined : (
-          <Button
-            variant="danger"
-            onClick={() => setDialogOpen(true)}
-            testId="privacy-restriction-restrict"
-          >
-            {t("userDataRights.privacyCenter.restriction.restrict")}
-          </Button>
-        )
-      }
-    >
-      {restricted ? (
-        <Banner variant="error" testId="privacy-restriction-active">
-          {t("userDataRights.privacyCenter.restriction.restricted")}
-        </Banner>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            {t("userDataRights.privacyCenter.restriction.explainer")}
-          </p>
-          <StatusBanner status={status} />
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            title={t("userDataRights.privacyCenter.restriction.dialogTitle")}
-            description={t("userDataRights.privacyCenter.restriction.dialogDescription")}
-            variant="danger"
-            confirmLabel={t("userDataRights.privacyCenter.restriction.restrict")}
-            onConfirm={restrict}
-            testId="privacy-restriction-dialog"
-          />
-        </>
-      )}
-    </Section>
-  );
-}
-
-function DeletionSection({
-  me,
-  onChanged,
-}: {
-  readonly me: MeRow;
-  readonly onChanged: () => void;
-}): ReactNode {
-  const t = useTranslation();
-  const { Section, Button, Banner, Dialog } = usePrimitives();
-  const dispatcher = useDispatcher();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
-  const deletionRequested = me.status === STATUS_DELETION_REQUESTED;
-
-  const requestDeletion = async (): Promise<void> => {
-    const res = await dispatcher.write(UserDataRightsHandlers.requestDeletion, {});
-    if (!res.isSuccess) {
-      setStatus({ kind: "error", messageKey: failureKey(res.error) });
-      return;
-    }
-    setStatus({ kind: "idle" });
-    onChanged();
-  };
-
-  const cancelDeletion = async (): Promise<void> => {
-    const res = await dispatcher.write(UserDataRightsHandlers.cancelDeletion, {});
-    if (!res.isSuccess) {
-      setStatus({ kind: "error", messageKey: failureKey(res.error) });
-      return;
-    }
-    setStatus({
-      kind: "success",
-      messageKey: "userDataRights.privacyCenter.deletion.cancelSuccess",
-    });
-    onChanged();
-  };
-
-  return (
-    <Section
-      title={t("userDataRights.privacyCenter.deletion.title")}
-      testId="privacy-deletion"
-      variant="destructive"
-      actions={
-        deletionRequested ? (
-          <Button
-            variant="secondary"
-            onClick={() => void cancelDeletion()}
-            testId="privacy-deletion-cancel"
-          >
-            {t("userDataRights.privacyCenter.deletion.cancel")}
-          </Button>
-        ) : (
-          <Button
-            variant="danger"
-            onClick={() => setDialogOpen(true)}
-            testId="privacy-deletion-delete"
-          >
-            {t("userDataRights.privacyCenter.deletion.delete")}
-          </Button>
-        )
-      }
-    >
-      {deletionRequested ? (
-        <>
-          <Banner variant="error" testId="privacy-deletion-requested">
-            {t("userDataRights.privacyCenter.deletion.requested", {
-              date: formatDate(me.gracePeriodEnd),
-            })}
-          </Banner>
-          <StatusBanner status={status} />
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            {t("userDataRights.privacyCenter.deletion.explainer")}
-          </p>
-          <StatusBanner status={status} />
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            title={t("userDataRights.privacyCenter.deletion.dialogTitle")}
-            description={t("userDataRights.privacyCenter.deletion.dialogDescription")}
-            variant="danger"
-            confirmLabel={t("userDataRights.privacyCenter.deletion.delete")}
-            onConfirm={requestDeletion}
-            testId="privacy-deletion-dialog"
-          />
-        </>
-      )}
-    </Section>
-  );
-}
-
-export function PrivacyCenterScreen({
-  showDeletion = true,
-}: {
-  readonly showDeletion?: boolean;
-} = {}): ReactNode {
-  const t = useTranslation();
-  const { Banner, Heading } = usePrimitives();
-  const meQuery = useQuery<MeRow | null>(USER_ME_QUERY, {});
-
-  if (meQuery.error) {
-    return (
-      <Banner padded variant="error" testId="privacy-error">
-        {t("userDataRights.privacyCenter.loadError")}
-      </Banner>
-    );
-  }
-  const me = meQuery.data;
-  if (me === null || me === undefined) {
-    return (
-      <Banner padded variant="loading" testId="privacy-loading">
-        {t("userDataRights.privacyCenter.loading")}
-      </Banner>
-    );
-  }
-
-  const refetch = (): void => {
-    void meQuery.refetch?.();
-  };
-
-  return (
-    <FormScreenShell className="flex flex-col gap-6" testId="privacy-center-screen">
-      <Heading variant="page">{t("userDataRights.privacyCenter.title")}</Heading>
-      <p className="text-sm text-muted-foreground">{t("userDataRights.privacyCenter.intro")}</p>
-      <ExportSection />
-      <RestrictionSection me={me} onChanged={refetch} />
-      {showDeletion && <DeletionSection me={me} onChanged={refetch} />}
-    </FormScreenShell>
+    </>
   );
 }

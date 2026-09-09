@@ -1,13 +1,15 @@
-// user-profile Recipe — zeigt das App-Wiring für die Self-Service-
-// Kontoseite: das bundled feature liefert Handler (change-email) +
-// ProfileScreen-Komponente + i18n; die App deklariert den Screen als
-// `custom` mit der __component-Convention und hängt ihn in die Nav.
+// user-profile Recipe — shows the app-side wiring for the self-service
+// account page: the bundled feature ships the screen itself (fw#2312:
+// declarative `projectionDetail`, id "profile") including handler + i18n;
+// the app only has to navigate to it, no own `r.screen()` registration
+// anymore (unlike before #2312 — see user-data-rights' recipe/demo pattern:
+// `r.nav({ screen: "<feature>:screen:<id>", ... })`).
 //
-// Client-seitig registriert die App die Komponente im Renderer-Mount:
-//   import { ProfileScreen, userProfileClient } from
+// Client-side, the app only registers the two extension-section components
+// (change-password/change-email stay React, re-auth):
+//   import { userProfileClient } from
 //     "@cosmicdrift/kumiko-bundled-features/user-profile/web";
 //   createKumikoApp({
-//     components: { UserProfileScreen: ProfileScreen },
 //     clientFeatures: [emailPasswordClient(), userProfileClient()],
 //   })
 
@@ -29,22 +31,17 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 export function createAccountFeature(): FeatureDefinition {
   return defineFeature("account", (r) => {
     r.describe(
-      "App-side wiring for the user-profile bundled feature: declares the " +
-        "profile screen (custom renderer, __component UserProfileScreen) and " +
-        "its nav entry.",
+      "App-side wiring for the user-profile bundled feature: just the nav " +
+        "entry — user-profile registers the `profile` screen itself " +
+        "(fw#2312 declarative projectionDetail).",
     );
     r.requires("user-profile");
 
-    r.screen({
-      id: "profile",
-      type: "custom",
-      renderer: { react: { __component: "UserProfileScreen" } },
-    });
     r.nav({
       id: "profile",
       label: "account:nav.profile",
       icon: "user",
-      screen: "account:screen:profile",
+      screen: "user-profile:screen:profile",
       order: 90,
     });
 

@@ -3,7 +3,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID } from "./constants";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "./constants";
 import { detailsQuery } from "./handlers/details.query";
 import { listQuery } from "./handlers/list.query";
 import { AUDIT_I18N } from "./i18n";
@@ -39,20 +39,70 @@ export function createAuditFeature(): FeatureDefinition {
       details: r.queryHandler(detailsQuery),
     };
 
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: AUDIT_LOG_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "AuditLogScreen" } },
+      type: "projectionList",
+      query: AuditQueries.list,
+      columns: [
+        { field: "createdAt", label: "audit.log.col.when", renderer: { format: "timestamp" } },
+        { field: "type", label: "audit.log.col.type" },
+        { field: "createdBy", label: "audit.log.col.actor" },
+      ],
+      searchable: true,
+      defaultSort: { field: "createdAt", dir: "desc" },
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "details",
+          label: "audit.log.details",
+          screen: AUDIT_LOG_DETAIL_SCREEN_ID,
+          entityId: "id",
+          rowClick: true,
+        },
+      ],
+      pagination: "infinite",
       description:
         "Admin table of the tenant's audit-trail events with actor names and event-type/date filters; open it to browse recent changes and drill into a single event.",
       access: { roles: access.admin },
     });
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
     r.screen({
       id: AUDIT_LOG_DETAIL_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "AuditLogDetailScreen" } },
+      type: "projectionDetail",
+      query: AuditQueries.details,
+      idParam: "id",
+      fieldLabels: {
+        type: "audit.log.col.type",
+        createdAt: "audit.log.col.when",
+        aggregateType: "audit.log.col.aggregateType",
+        aggregateId: "audit.log.col.aggregateId",
+        createdBy: "audit.log.col.actor",
+        id: "audit.log.detail.field.id",
+        payload: "audit.log.detail.payload",
+        metadata: "audit.log.detail.metadata",
+      },
+      layout: {
+        sections: [
+          {
+            fields: [
+              "type",
+              { field: "createdAt", renderer: { format: "timestamp" } },
+              "aggregateType",
+              "aggregateId",
+              "createdBy",
+              "id",
+            ],
+          },
+          // No section `title` here (fw#2312 label-dedup fix): each section
+          // holds exactly one field, so a title would repeat the field's own
+          // label (rendered by RenderField as the Field's heading) verbatim.
+          {
+            fields: [{ field: "payload", renderer: { format: "json" } }],
+          },
+          {
+            fields: [{ field: "metadata", renderer: { format: "json" } }],
+          },
+        ],
+      },
       description:
         "Read-only detail view of one audit event showing actor, timestamp, aggregate and the raw event payload and metadata; reached from a row of the audit log.",
       listScreenId: AUDIT_LOG_SCREEN_ID,

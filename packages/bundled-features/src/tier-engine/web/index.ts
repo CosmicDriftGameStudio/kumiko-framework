@@ -5,4 +5,3 @@
 // `@cosmicdrift/kumiko-bundled-features/tier-engine` und hat keine React-Deps.
 
 export { type TierEngineClientOptions, tierEngineClient } from "./client-plugin";
-export { TierAdminScreen } from "./tier-admin-screen";

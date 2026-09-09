@@ -195,6 +195,8 @@ export function applyFormatSpec(
       const translated = translate(key);
       return translated === key ? raw : translated;
     }
+    case "json":
+      return JSON.stringify(value, null, (spec["indent"] as number | undefined) ?? 2);
     default:
       if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
         // biome-ignore lint/suspicious/noConsole: dev-only warning

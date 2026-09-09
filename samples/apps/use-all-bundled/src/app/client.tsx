@@ -1,9 +1,9 @@
-// Browser-Entry für den Screenshot-Render-Pfad. Registriert die ClientFeatures
-// der bundled-features, die einen eigenen /web-Renderer haben. Entity-backed
-// Screens (tenant-list, user-list, page-list) rendern generisch ohne Plugin;
-// privacy-center + tier-admin liefern ihre Komponente über das jeweilige
-// Client-Plugin. user-profile liefert NUR Translations — die ProfileScreen-
-// Komponente wird hier an die app-registrierte Screen-id "profile" gehängt.
+// Browser entry for the screenshot render path. Registers the ClientFeatures
+// of bundled features that ship their own /web renderer. Entity-backed
+// screens (tenant-list, user-list, page-list) render generically without a
+// plugin; privacy-center + tier-admin + user-profile (fw#2312) supply their
+// components via their own Client-Plugin — the app only adds its own
+// APP_TRANSLATIONS overrides here.
 //
 // APP_TRANSLATIONS: die entity-backed Admin-Screens (tenant/user/managed-pages)
 // haben kein /web-Plugin, das ihre Spalten-Labels mitbrächte. Sie nutzen die
@@ -32,10 +32,7 @@ import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-
 import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
 import { userDataRightsClient } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
-import {
-  ProfileScreen,
-  userProfileClient,
-} from "@cosmicdrift/kumiko-bundled-features/user-profile/web";
+import { userProfileClient } from "@cosmicdrift/kumiko-bundled-features/user-profile/web";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine/types";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
@@ -93,8 +90,6 @@ const APP_TRANSLATIONS: TranslationsByLocale = {
 
 const appScreens: ClientFeatureDefinition = {
   name: "app-screens",
-  // Must match screens-feature `__component: "UserProfileScreen"` (not screen id).
-  components: { UserProfileScreen: ProfileScreen },
   translations: APP_TRANSLATIONS,
 };
 

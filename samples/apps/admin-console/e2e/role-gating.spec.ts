@@ -17,7 +17,7 @@ test.describe("TenantAdmin workspace gating", () => {
 
     // Single visible workspace → WorkspaceSwitcher renders nothing (no tab row).
     await expect(page).toHaveURL(/\/tenant-admin\//);
-    await expect(page.getByTestId("tenant-overview-screen")).toBeVisible();
+    await expect(page.getByTestId("dashboard-tenant-overview")).toBeVisible();
     await expect(page.getByTestId("workspace-tab-platform")).toHaveCount(0);
   });
 
@@ -74,7 +74,7 @@ test.describe("SystemAdmin workspace gating", () => {
     await page.getByTestId("workspace-switcher-trigger").click();
     await page.getByTestId("workspace-tab-platform").click();
     await expect(page).toHaveURL(/\/platform\//);
-    await expect(page.getByTestId("platform-overview-screen")).toBeVisible();
+    await expect(page.getByTestId("dashboard-platform-overview")).toBeVisible();
   });
 });
 

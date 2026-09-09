@@ -190,6 +190,7 @@ export type {
   GridProps,
   HeadingProps,
   InputProps,
+  JsonViewProps,
   LightboxProps,
   LinkProps,
   MetricProps,

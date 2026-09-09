@@ -190,6 +190,38 @@ describe("scenario 5: tenant.list", () => {
       "SystemAdmin",
     ]);
   });
+
+  test("without totalCount the shape carries no total field (fw#2312)", async () => {
+    const result = await stack.http.queryOk<{
+      rows: Record<string, unknown>[];
+      nextCursor: string | null;
+      total?: number;
+    }>(TenantQueries.list, {}, systemAdmin);
+    expect(result.total).toBeUndefined();
+  });
+
+  test("total reflects the full match count, not capped by limit (fw#2312)", async () => {
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { key: "gamma", name: "Gamma LLC" },
+      systemAdmin,
+    );
+
+    const unpaged = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      TenantQueries.list,
+      {},
+      systemAdmin,
+    );
+    const expectedTotal = unpaged.rows.length;
+    expect(expectedTotal).toBeGreaterThanOrEqual(3);
+
+    const paged = await stack.http.queryOk<{
+      rows: Record<string, unknown>[];
+      total?: number;
+    }>(TenantQueries.list, { limit: 1, totalCount: true }, systemAdmin);
+    expect(paged.rows.length).toBe(1);
+    expect(paged.total).toBe(expectedTotal);
+  });
 });
 
 // --- Scenario 6: Config integration ---

@@ -91,9 +91,13 @@ function StatPanelBody({
     }
   }, [panel.icon, panel.id, iconName, Icon, screenId]);
 
+  // filterParams first, panel.params second: a static author-set param is a
+  // deliberate pin (e.g. status: "failed") and must win over whatever the
+  // screen-wide filter happens to contribute under the same key.
+  const queryParams = { ...filterParams, ...panel.params };
   const { data, error, loading, refetch } = useQuery<Readonly<Record<string, unknown>>>(
     panel.query,
-    filterParams,
+    queryParams,
     { live: true },
   );
   if (loading && data === null) return <LoadingState rows={2} />;

@@ -39,12 +39,10 @@ import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
+  TENANT_OVERVIEW_SCREEN_ID,
 } from "../constants";
 import { createAdminShellFeature } from "../feature";
-import {
-  TENANT_OVERVIEW_ALLOWED_QUERIES,
-  TENANT_OVERVIEW_FORBIDDEN_QUERIES,
-} from "../overview-allowlist";
+import { isOverviewQueryAllowed, TENANT_OVERVIEW_FORBIDDEN_QUERIES } from "../overview-allowlist";
 
 let stack: TestStack;
 let TENANT_ID: TenantId;
@@ -175,9 +173,20 @@ describe("SystemAdmin platform queries", () => {
 });
 
 describe("tenant overview query allowlist", () => {
-  test("static allowlist excludes every forbidden platform query", () => {
-    for (const qn of TENANT_OVERVIEW_FORBIDDEN_QUERIES) {
-      expect(TENANT_OVERVIEW_ALLOWED_QUERIES).not.toContain(qn);
+  // The tenant-overview screen dispatches only the queries baked into its
+  // own dashboard panels (no client-side allowlist gate anymore, fw#2312) —
+  // this checks the actual screen definition against the allowlist instead
+  // of the allowlist against itself.
+  test("tenant-overview screen panels stay inside the allowlist and off the forbidden list", () => {
+    const screen = createAdminShellFeature().screens[TENANT_OVERVIEW_SCREEN_ID];
+    if (screen?.type !== "dashboard")
+      throw new Error("expected tenant-overview to be a dashboard screen");
+    for (const panel of screen.panels) {
+      if (panel.kind !== "stat") throw new Error(`expected stat panel, got ${panel.kind}`);
+      expect(isOverviewQueryAllowed("tenant", panel.query)).toBe(true);
+      expect((TENANT_OVERVIEW_FORBIDDEN_QUERIES as readonly string[]).includes(panel.query)).toBe(
+        false,
+      );
     }
   });
 

@@ -16,9 +16,14 @@ describe("jobs screens + handler access alignment", () => {
 
   test("job-runs screens are SystemAdmin-gated", () => {
     const jobs = createJobsFeature();
-    for (const id of [JOB_RUNS_SCREEN_ID, JOB_RUN_DETAIL_SCREEN_ID] as const) {
+    const expectedTypeById = {
+      [JOB_RUNS_SCREEN_ID]: "projectionList",
+      [JOB_RUN_DETAIL_SCREEN_ID]: "projectionDetail",
+      "job-trigger": "actionForm",
+    } as const;
+    for (const id of Object.keys(expectedTypeById) as (keyof typeof expectedTypeById)[]) {
       const screen = jobs.screens[id];
-      expect(screen?.type).toBe("custom");
+      expect(screen?.type).toBe(expectedTypeById[id]);
       if (screen && "access" in screen && screen.access && "roles" in screen.access) {
         expect(screen.access.roles).toEqual(SYSTEM_ADMIN_ROLES);
       }

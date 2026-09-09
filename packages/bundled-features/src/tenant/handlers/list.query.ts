@@ -12,6 +12,7 @@ export const listQuery = defineQueryHandler({
     cursor: z.string().optional(),
     limit: z.number().optional(),
     search: z.string().optional(),
+    totalCount: z.boolean().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
   description:

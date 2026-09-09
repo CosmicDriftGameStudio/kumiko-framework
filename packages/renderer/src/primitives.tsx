@@ -1059,6 +1059,17 @@ export type MetricProps = {
   readonly testId?: string;
 };
 
+/** Structured JSON display (audit payload/metadata, job logs, unsupported
+ *  jsonb/embedded field fallback). Takes the raw value, not a pre-stringified
+ *  one — the implementation owns `JSON.stringify` (and must not throw on
+ *  circular refs / BigInt / other non-serializable input). `indent` mirrors
+ *  `JSON.stringify`'s space-count param, default 2. */
+export type JsonViewProps = {
+  readonly value: unknown;
+  readonly indent?: number;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -1112,6 +1123,10 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly Metric?: ComponentType<MetricProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly JsonView?: ComponentType<JsonViewProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

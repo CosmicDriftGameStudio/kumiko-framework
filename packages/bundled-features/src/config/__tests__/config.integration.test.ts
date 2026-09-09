@@ -939,6 +939,37 @@ describe("config.readiness query handler", () => {
     expect(keys).not.toContain("orders:config:max-order-count");
   });
 
+  type MissingWithSummary = Missing & { missingCount: number; missingTone: "default" | "warn" };
+
+  test("missingCount matches missing.length and missingTone is warn while something is missing (fw#2312)", async () => {
+    const result = await stack.http.queryOk<MissingWithSummary>(
+      ConfigQueries.readiness,
+      {},
+      readinessAdminFor(6),
+    );
+
+    expect(result.missingCount).toBe(result.missing.length);
+    expect(result.missingCount).toBeGreaterThan(0);
+    expect(result.missingTone).toBe("warn");
+  });
+
+  test("missingCount is 0 and missingTone is default once every required key is set (fw#2312)", async () => {
+    const admin = readinessAdminFor(7);
+    for (const [key, value] of [
+      ["transport:config:smtp-host", "smtp.example.com"],
+      ["transport:config:api-url", "https://api.example.com"],
+      ["transport:config:webhook-url", "https://webhook.example.com"],
+      ["transport:config:timeout", 30],
+    ] as const) {
+      await stack.http.writeOk(ConfigHandlers.set, { key, value }, admin);
+    }
+
+    const result = await stack.http.queryOk<MissingWithSummary>(ConfigQueries.readiness, {}, admin);
+    expect(result.missing).toEqual([]);
+    expect(result.missingCount).toBe(0);
+    expect(result.missingTone).toBe("default");
+  });
+
   test("whitespace-only text value still counts as missing (requireNonEmpty-Parität)", async () => {
     const admin = readinessAdminFor(2);
     await stack.http.writeOk(

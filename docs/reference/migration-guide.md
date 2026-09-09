@@ -2,13 +2,55 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-07
+verified: 2026-09-09
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.240.0
+
+### audit
+
+**AuditLogScreen and AuditLogDetailScreen removed; audit-log/audit-log-detail are now declarative screens (fw#2312).**
+
+`audit-log` and `audit-log-detail` render through the generic renderer (`projectionList`/`projectionDetail`) instead of custom React components — the renderer selects a screen by its `screen.type`, not a client component registry, so `AuditLogScreen`/`AuditLogDetailScreen` were dead exports the moment the screen definitions switched. The `payload`/`metadata` fields now use the `format: "json"` field-renderer (see framework changelog) instead of a raw escaped-string dump.
+
+**Migration:** Breaking only if you imported these components directly (no shipped consumer app did). Remove `import { AuditLogScreen, AuditLogDetailScreen } from "@cosmicdrift/kumiko-bundled-features/audit/web"` and any `components: { AuditLogScreen: ..., AuditLogDetailScreen: ... }` entry in your `auditClient()`/renderer setup — the bundled feature registers its own `audit-log`/`audit-log-detail` screens now, nothing left for an app to wire.
+
+### jobs
+
+**JobRunsScreen and JobRunDetailScreen removed; job-runs/job-run-detail are now declarative screens (fw#2312).**
+
+`job-runs`/`job-run-detail` render through the generic renderer (`projectionList`/`projectionDetail`) instead of custom React components — the renderer selects a screen by its `screen.type`, not a client component registry, so `JobRunsScreen`/`JobRunDetailScreen` were dead exports the moment the screen definitions switched. Job triggering moved from an inline control on the old custom screen to a new `job-trigger` `actionForm`, opened via a `kind: "drawer"` `toolbarAction` on `job-runs`. `job-run-detail`'s `logs` field now uses the `format: "json"` field-renderer (see framework changelog) instead of a raw escaped-string dump.
+
+**Migration:** Breaking only if you imported these components directly (no shipped consumer app did). Remove `import { JobRunsScreen, JobRunDetailScreen } from "@cosmicdrift/kumiko-bundled-features/jobs/web"` and any `components: { JobRunsScreen: ..., JobRunDetailScreen: ... }` entry in your `jobsClient()`/renderer setup — the bundled feature registers its own `job-runs`/`job-run-detail`/`job-trigger` screens now, nothing left for an app to wire.
+
+### tier-engine
+
+**TierAdminScreen removed; tier-admin is now a declarative actionForm (fw#2312).**
+
+`tier-engine:screen:tier-admin` is now a declarative `actionForm` (a `reference` field for the tenant, a `select` field for the tier) instead of a custom React component: it dispatches `set-tenant-tier` directly, so the renderer's generic form handles tenant lookup, validation and submit. Two behaviors are intentionally not carried over: the current tier of the selected tenant is no longer shown before submit (declarative forms have no dependent-query support), and the success state no longer names the newly assigned tier (a generic actionForm success doesn't surface write-response data). Both are visible again after a page reload / re-navigation — the assignment itself is unchanged.
+
+**Migration:** Breaking only if you imported `TierAdminScreen` directly (no shipped consumer app did — all reference the screen by its qualified id `tier-engine:screen:tier-admin`). Remove `import { TierAdminScreen } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web"` and any `components: { TierAdminScreen: ... }` entry in your renderer setup — the bundled feature registers the `tier-admin` screen itself now, nothing left for an app to wire.
+
+### user-data-rights
+
+**privacy-center is now a declarative screen; userDataRightsClient's privacyCenter.showDeletion option is removed (fw#2312).**
+
+`privacy-center` is now a declarative `projectionDetail` screen instead of a custom React component: the Restriction and Deletion sections render through the generic renderer (`EditFieldsSection` + `actions: RowAction[]`), preserving the original confirmation dialogs (`RowActionWriteHandler.confirm`) and visibility rules (`visible: {field, eq/ne}`) 1:1. The Export section (Art. 20) stays a custom `EditExtensionSection` — it needs polling + a signed-URL download — registered via the new `ClientFeatureDefinition.extensionSectionComponents` under `EXPORT_SECTION_EXTENSION_NAME`. `PrivacyCenterScreen` is a dead export (the renderer selects the screen by `screen.type`, not the client component registry). The single `status` field now renders through the `enumOption` format instead of the raw enum string; `gracePeriodEnd` is hidden when no deletion is pending instead of showing an empty date. Known UI regression, accepted for this pass: the confirm-dialog title is now always the action's `label` (the renderer hardcodes this) — the original's distinct `dialogTitle` copy and its dynamic composed banner sentence (e.g. "Your account will be deleted on {date}") are gone, replaced by the translated `status` label plus a separately labeled `gracePeriodEnd` date.
+
+**Migration:** A declarative screen is registered once and can no longer be toggled per-app on the client: `userDataRightsClient(options)`'s `privacyCenter: { showDeletion }` option is removed. Move the flag server-side instead — replace `createUserDataRightsFeature({})` with `createUserDataRightsFeature({ privacyCenterShowDeletion: false })` (default `true`) — it conditionally omits the Deletion section and its `request-deletion`/`cancel-deletion` actions from the screen definition. Then drop the now-unused `privacyCenter` option from the matching `userDataRightsClient({ privacyCenter: { showDeletion: false } })` call. Known affected consumer: `money-horse` (`src/app/client-features.tsx:74`).
+
+### user-profile
+
+**user-profile now registers its own profile screen (id user-profile:screen:profile); app-side profile screen registrations must be removed (fw#2312).**
+
+`profile` is now a declarative `projectionDetail` screen bound to `user:query:user:me` instead of a custom React component: change-password and change-email stay `EditExtensionSection` components (re-auth flows a declarative action can't express), account deletion (request/cancel via `user-data-rights`, grace period) is now fully declarative fields + `actions: RowAction[]`, preserving the original confirm dialog and `visible: {field, eq/ne}` toggle 1:1. `userProfileClient()` now registers the two extension-section components via `extensionSectionComponents` instead of exposing a `ProfileScreen` component for apps to place in a `components` map. `ProfileScreen` is a dead export. New exports: `ChangeEmailSection`, `ChangePasswordSection` (the two surviving extension components, importable for tests but not meant to be placed manually). Known UI regression, accepted for this pass (same trade-off as `privacy-center`): the deletion confirm-dialog title is now always the action's `label`; the dynamically composed grace-period banner sentence is gone, replaced by a plain `gracePeriodEnd` date field; there is no cancel-deletion success toast.
+
+**Migration:** The bundled feature now registers the `profile` screen itself (id `user-profile:screen:profile`) — an app's own `profile` custom-screen registration collides on boot with a duplicate short-id error. Delete the app-side registration entirely: `r.screen({ id: "profile", type: "custom", renderer: { react: { __component: "UserProfileScreen" } }, access: { openToAll: true } })` has no replacement to write, just remove the call. If you have an `r.nav({ screen: "profile" })` (or any other reference to the app-local `profile` screen id), repoint it at `"user-profile:screen:profile"`. Also remove `components: { UserProfileScreen: ProfileScreen }` from your renderer/client setup and the now-unused `ProfileScreen` import — the client no longer exposes that component. Known affected consumers (not modified here, out of this PR's scope): `money-horse` (`src/features/money-horse/feature.ts:286-292`) and `offlot-app` (`src/features/account/feature.ts:24-30`) both currently register their own `profile` custom screen this way.
 
 ## 0.235.0
 

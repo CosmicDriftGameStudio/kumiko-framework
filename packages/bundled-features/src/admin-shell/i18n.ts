@@ -15,9 +15,6 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
   "admin-shell:nav.tierAdmin": { en: "Assign tier" },
   "admin-shell:nav.myCaps": { en: "Plans & Caps" },
   "admin-shell:nav.tenantCaps": { en: "Plans & Caps" },
-  "admin-shell:overview.tenantTitle": { en: "Administration" },
-  "admin-shell:overview.platformTitle": { en: "Platform" },
-  "admin-shell:overview.loading": { en: "Loading…" },
   "admin-shell:overview.pendingInvitations": {
     en: "Pending invitations",
   },
@@ -25,11 +22,7 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
   "admin-shell:overview.missingConfig": {
     en: "Missing configuration",
   },
-  "admin-shell:overview.missingConfigHint": {
-    en: "Check required settings",
-  },
   "admin-shell:overview.tenants": { en: "Tenants" },
   "admin-shell:overview.users": { en: "Users" },
   "admin-shell:overview.failedJobs": { en: "Failed jobs" },
-  "admin-shell:overview.failedJobsHint": { en: "Review job runs" },
 };

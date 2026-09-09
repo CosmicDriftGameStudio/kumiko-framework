@@ -5,6 +5,7 @@ import { createConfigFeature } from "../../config/feature";
 import { createTenantFeature } from "../../tenant/feature";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
+import { AUDIT_I18N } from "../i18n";
 
 describe("audit log screen + handler access alignment", () => {
   const features = [createConfigFeature(), createTenantFeature(), createAuditFeature()];
@@ -13,11 +14,13 @@ describe("audit log screen + handler access alignment", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
-  test("audit-log screen is custom, access.admin-gated", () => {
+  test("audit-log screen is declarative, access.admin-gated", () => {
     const audit = createAuditFeature();
     const screen = audit.screens[AUDIT_LOG_SCREEN_ID];
-    if (screen?.type !== "custom") {
-      throw new Error(`expected a custom screen for ${AUDIT_LOG_SCREEN_ID}, got ${screen?.type}`);
+    if (screen?.type !== "projectionList") {
+      throw new Error(
+        `expected a projectionList screen for ${AUDIT_LOG_SCREEN_ID}, got ${screen?.type}`,
+      );
     }
     if (!("access" in screen) || !screen.access || !("roles" in screen.access)) {
       throw new Error(`expected role-gated access on ${AUDIT_LOG_SCREEN_ID}`);
@@ -25,12 +28,12 @@ describe("audit log screen + handler access alignment", () => {
     expect(screen.access.roles).toEqual(access.admin);
   });
 
-  test("audit-log-detail screen is custom, admin-gated, breadcrumb-linked to list", () => {
+  test("audit-log-detail screen is declarative, admin-gated, breadcrumb-linked to list", () => {
     const audit = createAuditFeature();
     const screen = audit.screens[AUDIT_LOG_DETAIL_SCREEN_ID];
-    if (screen?.type !== "custom") {
+    if (screen?.type !== "projectionDetail") {
       throw new Error(
-        `expected a custom screen for ${AUDIT_LOG_DETAIL_SCREEN_ID}, got ${screen?.type}`,
+        `expected a projectionDetail screen for ${AUDIT_LOG_DETAIL_SCREEN_ID}, got ${screen?.type}`,
       );
     }
     if (!("listScreenId" in screen)) {
@@ -41,6 +44,23 @@ describe("audit log screen + handler access alignment", () => {
       throw new Error(`expected role-gated access on ${AUDIT_LOG_DETAIL_SCREEN_ID}`);
     }
     expect(screen.access.roles).toEqual(access.admin);
+  });
+
+  test("audit-log-detail: aggregate type and aggregate id resolve to distinct labels", () => {
+    const audit = createAuditFeature();
+    const screen = audit.screens[AUDIT_LOG_DETAIL_SCREEN_ID];
+    if (screen?.type !== "projectionDetail") {
+      throw new Error(
+        `expected a projectionDetail screen for ${AUDIT_LOG_DETAIL_SCREEN_ID}, got ${screen?.type}`,
+      );
+    }
+    const aggregateTypeKey = screen.fieldLabels?.["aggregateType"];
+    const aggregateIdKey = screen.fieldLabels?.["aggregateId"];
+    if (aggregateTypeKey === undefined || aggregateIdKey === undefined) {
+      throw new Error("expected fieldLabels for both aggregateType and aggregateId");
+    }
+    expect(aggregateTypeKey).not.toBe(aggregateIdKey);
+    expect(AUDIT_I18N[aggregateTypeKey]?.en).not.toBe(AUDIT_I18N[aggregateIdKey]?.en);
   });
 
   test("audit queries use access.admin (screen ⊆ handler)", () => {

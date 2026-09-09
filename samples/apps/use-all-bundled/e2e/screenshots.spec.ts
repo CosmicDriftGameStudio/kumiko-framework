@@ -42,6 +42,37 @@ const admin = (path: string) => async (page: Page) => {
   await page.goto(path);
 };
 
+// Detail screens need a real row instead of a guessed URL id. Audit entries
+// are created by the screenshot seed; the job flow triggers one explicitly.
+const auditLogDetailFlow = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/tenant-admin/audit-log");
+  const table = page.getByTestId(/^render-list-table/);
+  await table.getByRole("row").nth(1).waitFor();
+  await table.getByRole("row").nth(1).click();
+  await page.getByTestId("field-payload").waitFor();
+};
+
+const jobRunDetailFlow = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/platform/job-runs");
+  await page.getByRole("button", { name: "Run a job" }).click();
+  await page.getByTestId("render-edit-form").waitFor();
+  await page.getByTestId("field-jobName").locator("input").fill("sessions:job:cleanup");
+  await page.getByTestId("render-edit-submit").click();
+  const table = page.getByTestId(/^render-list-table/);
+  await table.getByRole("row").nth(1).waitFor();
+  await table.getByRole("row").nth(1).click();
+  await page.getByTestId("field-logs").waitFor();
+};
+
+const jobTriggerFlow = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/platform/job-runs");
+  await page.getByRole("button", { name: "Run a job" }).click();
+  await page.getByTestId("render-edit-form").waitFor();
+};
+
 // template-resolver collections — the mounted "reply-snippets" collection is a
 // nav node of its own, not part of the content tree. Open it and select an
 // entry so the shot shows what the mount actually produces: the collection in
@@ -140,6 +171,9 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "tenant", flow: admin("/platform/tenant-list"), settleMs: 1000 },
   // user — SystemAdmin entity-list (not in admin-shell nav; tenant-admin prefix).
   { name: "user", flow: admin("/tenant-admin/user-list"), settleMs: 1000 },
+  // admin-shell — landing pages for the tenant and platform workspaces.
+  { name: "tenant-overview", flow: admin("/tenant-admin/tenant-overview"), settleMs: 1000 },
+  { name: "platform-overview", flow: admin("/platform/platform-overview"), settleMs: 1000 },
   // tier-engine — manueller Tier-Grant (platform workspace nav).
   { name: "tier-engine", flow: admin("/platform/tier-admin"), settleMs: 1000 },
   // user-profile — Self-Service-Kontoseite (custom screen).
@@ -183,16 +217,19 @@ const SCENARIOS: readonly Scenario[] = [
   {
     name: "audit-log",
     flow: admin("/tenant-admin/audit-log"),
-    waitFor: '[data-testid^="audit-log-table"]',
+    waitFor: '[data-testid^="render-list-table"]',
     settleMs: 1000,
   },
+  { name: "audit-log-detail", flow: auditLogDetailFlow(), settleMs: 1000 },
   // jobs — SystemAdmin operator UI on the platform workspace (run list, retry).
   {
     name: "job-runs",
     flow: admin("/platform/job-runs"),
-    waitFor: '[data-testid^="job-runs-table"]',
+    waitFor: '[data-testid^="render-list-table"]',
     settleMs: 1000,
   },
+  { name: "job-trigger", flow: jobTriggerFlow(), settleMs: 1000 },
+  { name: "job-run-detail", flow: jobRunDetailFlow(), settleMs: 1000 },
   // projectionList renders via RenderList with a fixed testId; `^=` matches
   // the empty state too, an empty log is a valid ready state here.
   {
