@@ -18,7 +18,7 @@ const NOTE_CATEGORIES = ["question", "bug", "idea"] as const;
 
 const BODY_NOT_PERSONAL = {
   personal: false,
-  reason: "sample recipe fixture text, no real user content",
+  reason: "is_business_data",
 } as const;
 
 const noteEntity = createEntity({
