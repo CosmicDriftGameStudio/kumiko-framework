@@ -4,8 +4,9 @@
 #   cd ../kumiko-framework-issue-<n>
 #   ./scripts/check-wt.sh
 #
-# Runs checks that are reliable in a worktree: tsc + Biome + unit tests.
-# These need no cross-repo import resolution and are correct in the worktree.
+# Runs checks that are reliable in a worktree: tsc + sample typecheck + Biome
+# + unit tests. These need no cross-repo import resolution and are correct in
+# the worktree.
 #
 # Import-resolving guards (runtime isolation etc.) intentionally do NOT run
 # here: worktree node_modules symlinks point at main → cross-repo targets get
@@ -22,6 +23,14 @@ echo "→ typecheck (bun run typecheck — repo-owned tsc runs)"
 # Root `tsc -b` fails with TS18003 when root tsconfig is include:[] only
 # (kumiko-platform#528). The root "typecheck" script builds real projects.
 bun run typecheck || fail=1
+
+echo
+# samples/apps/** aren't in the root tsc -b references chain (see
+# check-app-tsc.ts header), so the step above never touches them. CI runs
+# this separately as "TypeScript (framework + samples)" — mirror it here so
+# sample type errors surface locally instead of only in CI (#2679).
+echo "→ typecheck samples (bun scripts/check-app-tsc.ts — CI parity)"
+bun scripts/check-app-tsc.ts || fail=1
 
 echo
 echo "→ biome check"
@@ -61,9 +70,9 @@ fi
 
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + Biome + unit tests + component tests. (Guards run in PR CI.)"
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + unit tests + component tests. (Guards run in PR CI.)"
 elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + Biome + unit tests. (Guards run in PR CI.)"
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + unit tests. (Guards run in PR CI.)"
 else
   echo "✗ Worktree check red — see above. Do not commit until green."
 fi
