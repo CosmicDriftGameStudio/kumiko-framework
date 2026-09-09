@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.240.0
+
+### Patch Changes
+
+- ca82938: Bump `sharp` to `^0.35.4` and `nodemailer` to `^9.1.1` to clear published security advisories (GHSA-rgj7-g3m4-5g8c libheif vulnerabilities in sharp; several nodemailer advisories including a high-severity ReDoS). No behavior change.
+- 0823b37: Audit log detail, job run detail, personal access tokens, and MFA enable screens no longer hardcode `maxWidth="3xl"` on `FormScreenShell`. They now follow the app-wide `createKumikoApp({ screenWidth })` default like every other bundled screen instead of overriding it.
+- Updated dependencies [db53bbc]
+  - @cosmicdrift/kumiko-types@0.240.0
+  - @cosmicdrift/kumiko-framework@0.240.0
+  - @cosmicdrift/kumiko-headless@0.240.0
+  - @cosmicdrift/kumiko-renderer@0.240.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.240.0
+  - @cosmicdrift/kumiko-renderer-web@0.240.0
+
 ## 0.239.0
 
 ### Patch Changes
