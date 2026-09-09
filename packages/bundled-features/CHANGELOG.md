@@ -1,5 +1,69 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.241.0
+
+### Minor Changes
+
+- 33059e9: `admin-shell`'s `tenant-overview` and `platform-overview` screens now use declarative `dashboard` screens (`kind: "stat"` panels) instead of custom React components — both render through the generic renderer. Fixes the platform-overview "undefined" tile bug: `tenant:query:list` and `jobs:query:list` didn't return `total` even with `totalCount: true` requested, because their Zod schemas stripped the field before the handler ever saw it.
+
+  Adds `DashboardStatPanel.params` (`@cosmicdrift/kumiko-types`) — static, author-set query parameters merged under the panel's dynamic `filterParams` (`@cosmicdrift/kumiko-renderer-web`'s dashboard body now does that merge).
+
+  Additive query-handler changes: `tenant:query:list` and `jobs:query:list` accept `totalCount: boolean` and return `total` when set (`jobs:query:list`'s total is a real count, not `rows.length`, so it isn't capped by `limit`); `config:query:readiness` gains `missingCount`/`missingTone` alongside the existing `missing` array.
+
+  `PlatformOverviewScreen`/`TenantOverviewScreen` and their supporting `overview-layout`/`overview-query` modules are gone (never public exports — the renderer selects screens by `screen.type`, not a client component registry). The `overview-allowlist` exports (`isOverviewQueryAllowed`, `overviewAllowedQueries`, the allow/forbidden-list constants) stay — they're now checked against the screen definitions in tests instead of gating a client-side dispatch call.
+
+- 43b41b5: `audit` and `jobs` bundled features now use declarative screens (`projectionList`/`projectionDetail`) instead of custom React components: `audit-log`/`audit-log-detail` and `job-runs`/`job-run-detail` render through the generic renderer, and job triggering moved to a new `job-trigger` `actionForm` opened via a drawer `toolbarAction` on `job-runs`.
+
+  Removed exports (dead since the renderer selects screens by `screen.type`, not the client component registry): `AuditLogScreen`, `AuditLogDetailScreen`, `JobRunsScreen`, `JobRunDetailScreen` from `@cosmicdrift/kumiko-bundled-features`. No shipped consumer app imported these.
+
+  Adds a `json` field-renderer format (`EditFieldSpec.renderer.format`, `@cosmicdrift/kumiko-types` + `@cosmicdrift/kumiko-headless`) that pretty-prints a JSON-string field instead of showing the raw escaped string; used by the new `job-run-detail` screen's `logs` field.
+
+- 8289b69: `projectionDetail` screens gain an optional `singleton: boolean` flag (`ProjectionDetailScreenDefinition`) for a self-service screen bound to a query that determines its row from the caller's session/context instead of a row id in the path (e.g. `user:query:user:me`). Without the flag, `ProjectionDetailBody` always rejected a missing path id with an error banner — the only path a singleton screen has — so `user-profile`'s `profile` screen and `user-data-rights`' `privacy-center` screen, both converted to `projectionDetail` bound to `me`-style queries, rendered nothing but that banner. Both now set `singleton: true` and render.
+
+  Under `singleton`, the query is called without the `idParam` key (there is no id to send) and any path id — even a stray or spoofed one — is ignored rather than forwarded into the query or into extension sections' entity-id resolution: a singleton row is server-picked, so no client-supplied id can reach it. The boot-validator rejects declaring `idParam` or `detailFor` together with `singleton` (both are meaningless/unsound once the server owns row selection — `detailFor`'s auto-generated "Edit" action navigates via the path id, which a singleton screen never has) instead of letting one silently win.
+
+- 408729d: `tier-engine`'s `tier-admin` screen is now a declarative `actionForm` (a `reference` field for the tenant, a `select` field for the tier) instead of a custom React component: it dispatches `set-tenant-tier` directly, so the renderer's generic form handles tenant lookup, validation and submit.
+
+  Two behaviors are intentionally not carried over from the old custom screen: the current tier of the selected tenant is no longer shown before submit (no dependent-query support in declarative forms), and the success state no longer names the newly assigned tier (a generic actionForm success doesn't surface write-response data). Both are visible again after a page reload / re-navigation, since the assignment itself is unchanged.
+
+  Removed export (dead since the renderer selects screens by `screen.type`, not the client component registry): `TierAdminScreen` from `@cosmicdrift/kumiko-bundled-features/tier-engine/web`. No shipped consumer app imported it directly — all reference the screen only by its qualified id `tier-engine:screen:tier-admin`.
+
+- b68e9e7: `user-data-rights`' `privacy-center` screen is now a declarative `projectionDetail` screen instead of a custom React component: the Restriction and Deletion sections render through the generic renderer (`EditFieldsSection` + `actions: RowAction[]`), preserving the original confirmation dialogs (`RowActionWriteHandler.confirm`) and visibility rules (`visible: {field, eq/ne}`) 1:1. The Export section (Art. 20) stays a custom `EditExtensionSection` — it needs polling + a signed-URL download — registered via the new `ClientFeatureDefinition.extensionSectionComponents` under `EXPORT_SECTION_EXTENSION_NAME`.
+
+  BREAKING: `userDataRightsClient(options)`'s `privacyCenter: { showDeletion }` option is removed. A declarative screen is registered once and can no longer be toggled per-app on the client. Use the new server-side `createUserDataRightsFeature({ privacyCenterShowDeletion: false })` option instead (default `true`) — it conditionally omits the Deletion section and its `request-deletion`/`cancel-deletion` actions from the screen definition. Known consumer needing a follow-up: `money-horse` (`src/app/client-features.tsx`) currently calls `userDataRightsClient({ privacyCenter: { showDeletion: false } })`.
+
+  Removed export (dead since the renderer selects screens by `screen.type`, not the client component registry): `PrivacyCenterScreen` from `@cosmicdrift/kumiko-bundled-features`.
+
+  The screen's single `status` field (`active`/`restricted`/`deletionRequested`/`deleted`) is shown exactly once, in the Restriction section — it can't sit in the (optional) Deletion section since that section disappears entirely under `privacyCenterShowDeletion: false`. It renders through the `enumOption` format (`renderer: { format: "enumOption", keyPrefix }`, fw#2315) instead of the raw enum string. `gracePeriodEnd` in the Deletion section is hidden (`visible: { field: "status", eq: "deletionRequested" }`) rather than showing an empty date when no deletion is pending.
+
+  Known UI regression from the conversion, accepted for this pass: the confirm-dialog title is now always the action's `label` (the renderer hardcodes this), so the original's distinct `dialogTitle` copy is gone. The original's dynamic composed banner sentence (e.g. "Your account will be deleted on {date}") is also gone, replaced by the translated `status` label plus a separately labeled `gracePeriodEnd` date — the framework has no declarative way to compose a multi-field sentence server- or client-side (`FormatSpec` formats one field's raw value; there's no template/interpolation format, and no precedent for one across `audit`/`jobs`' reference `projectionDetail` screens either). Producing a true composed sentence would need either a new framework `FormatSpec` kind, or a query-side field that pre-composes a localized string (which the `user` feature's `user:query:user:me` — reused here, not owned by `user-data-rights` — must not carry, since it's a privacy-center-only need). Flagging for a follow-up decision rather than patching either.
+
+- 8d6abd4: `user-profile`'s `profile` screen is now a declarative `projectionDetail` screen bound to `user:query:user:me` instead of a custom React component: change-password and change-email stay `EditExtensionSection` components (re-auth flows a declarative action can't express — precedent: `user-data-rights`' `privacy-center` screen), account deletion (request/cancel via `user-data-rights`, grace period) is now fully declarative fields + `actions: RowAction[]`, preserving the original `RowActionWriteHandler.confirm` dialog and `visible: {field, eq/ne}` toggle 1:1.
+
+  BREAKING: the bundled feature now registers the `profile` screen itself (id `user-profile:screen:profile`) — consumer apps must remove their own `r.screen({ id: "profile", type: "custom", renderer: { react: { __component: "UserProfileScreen" } } })` registration and repoint any `r.nav({ screen: ... })` at `"user-profile:screen:profile"`, or boot fails with a duplicate short-id error. Known affected consumers (not modified here, out of this PR's scope): `money-horse` (`src/features/money-horse/feature.ts`) and `offlot-app` (`src/features/account/feature.ts`) both currently register their own `profile` custom screen.
+
+  Client wiring: `userProfileClient()` now registers the two extension-section components via `extensionSectionComponents` (mirrors `userDataRightsClient()`'s `EXPORT_SECTION_EXTENSION_NAME` pattern) instead of exposing a `ProfileScreen` component for apps to place in a `components` map. Apps no longer need `components: { UserProfileScreen: ProfileScreen }`.
+
+  Removed export (dead — the renderer now selects the screen by `screen.type`, not the client component registry): `ProfileScreen` from `@cosmicdrift/kumiko-bundled-features/user-profile/web`. New exports: `ChangeEmailSection`, `ChangePasswordSection` (the two surviving extension components, importable for tests but not meant to be placed manually).
+
+  Known UI regression from the conversion, accepted for this pass (same trade-off already made for `privacy-center`): the deletion confirm-dialog title is now always the action's `label` (the renderer hardcodes this) — the original's distinct dialog title copy is gone. The original's dynamically composed banner sentence with an interpolated grace-period date is also gone, replaced by a plain `gracePeriodEnd` date field (hidden unless a deletion is pending); there is no cancel-deletion success toast (declarative actions have no such mechanism).
+
+  Not changed in this PR, flagged for a separate decision: `ChangeEmailSection` still fires the verification-mail send (`requestEmailVerification`) client-side, fire-and-forget, after a successful `change-email` write — failures are now surfaced via `console.warn` instead of being silently swallowed, but the call itself was not moved server-side into the `change-email` write handler. Moving it there would need a cross-feature `ctx.writeAs` dispatch into `auth-email-password`'s `request-email-verification` handler, which would bypass that handler's HTTP-route-level rate limiter and touches `auth-email-password`/`mail-foundation` internals owned by a different feature — out of this PR's scope per the single-feature boundary.
+
+### Patch Changes
+
+- Updated dependencies [33059e9]
+- Updated dependencies [43b41b5]
+- Updated dependencies [8289b69]
+- Updated dependencies [e6d5315]
+- Updated dependencies [24d48d5]
+  - @cosmicdrift/kumiko-types@0.241.0
+  - @cosmicdrift/kumiko-renderer-web@0.241.0
+  - @cosmicdrift/kumiko-headless@0.241.0
+  - @cosmicdrift/kumiko-framework@0.241.0
+  - @cosmicdrift/kumiko-renderer@0.241.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.241.0
+
 ## 0.240.0
 
 ### Patch Changes

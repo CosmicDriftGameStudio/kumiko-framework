@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-types
 
+## 0.241.0
+
+### Minor Changes
+
+- 33059e9: `admin-shell`'s `tenant-overview` and `platform-overview` screens now use declarative `dashboard` screens (`kind: "stat"` panels) instead of custom React components — both render through the generic renderer. Fixes the platform-overview "undefined" tile bug: `tenant:query:list` and `jobs:query:list` didn't return `total` even with `totalCount: true` requested, because their Zod schemas stripped the field before the handler ever saw it.
+
+  Adds `DashboardStatPanel.params` (`@cosmicdrift/kumiko-types`) — static, author-set query parameters merged under the panel's dynamic `filterParams` (`@cosmicdrift/kumiko-renderer-web`'s dashboard body now does that merge).
+
+  Additive query-handler changes: `tenant:query:list` and `jobs:query:list` accept `totalCount: boolean` and return `total` when set (`jobs:query:list`'s total is a real count, not `rows.length`, so it isn't capped by `limit`); `config:query:readiness` gains `missingCount`/`missingTone` alongside the existing `missing` array.
+
+  `PlatformOverviewScreen`/`TenantOverviewScreen` and their supporting `overview-layout`/`overview-query` modules are gone (never public exports — the renderer selects screens by `screen.type`, not a client component registry). The `overview-allowlist` exports (`isOverviewQueryAllowed`, `overviewAllowedQueries`, the allow/forbidden-list constants) stay — they're now checked against the screen definitions in tests instead of gating a client-side dispatch call.
+
+- 43b41b5: `audit` and `jobs` bundled features now use declarative screens (`projectionList`/`projectionDetail`) instead of custom React components: `audit-log`/`audit-log-detail` and `job-runs`/`job-run-detail` render through the generic renderer, and job triggering moved to a new `job-trigger` `actionForm` opened via a drawer `toolbarAction` on `job-runs`.
+
+  Removed exports (dead since the renderer selects screens by `screen.type`, not the client component registry): `AuditLogScreen`, `AuditLogDetailScreen`, `JobRunsScreen`, `JobRunDetailScreen` from `@cosmicdrift/kumiko-bundled-features`. No shipped consumer app imported these.
+
+  Adds a `json` field-renderer format (`EditFieldSpec.renderer.format`, `@cosmicdrift/kumiko-types` + `@cosmicdrift/kumiko-headless`) that pretty-prints a JSON-string field instead of showing the raw escaped string; used by the new `job-run-detail` screen's `logs` field.
+
+- 8289b69: `projectionDetail` screens gain an optional `singleton: boolean` flag (`ProjectionDetailScreenDefinition`) for a self-service screen bound to a query that determines its row from the caller's session/context instead of a row id in the path (e.g. `user:query:user:me`). Without the flag, `ProjectionDetailBody` always rejected a missing path id with an error banner — the only path a singleton screen has — so `user-profile`'s `profile` screen and `user-data-rights`' `privacy-center` screen, both converted to `projectionDetail` bound to `me`-style queries, rendered nothing but that banner. Both now set `singleton: true` and render.
+
+  Under `singleton`, the query is called without the `idParam` key (there is no id to send) and any path id — even a stray or spoofed one — is ignored rather than forwarded into the query or into extension sections' entity-id resolution: a singleton row is server-picked, so no client-supplied id can reach it. The boot-validator rejects declaring `idParam` or `detailFor` together with `singleton` (both are meaningless/unsound once the server owns row selection — `detailFor`'s auto-generated "Edit" action navigates via the path id, which a singleton screen never has) instead of letting one silently win.
+
 ## 0.240.0
 
 ### Minor Changes
