@@ -209,6 +209,41 @@ describe("applyFormatSpec — enumOption (fw#2315)", () => {
   });
 });
 
+describe("applyFormatSpec — boolean labels through translate (fw#2683)", () => {
+  const TRUE_KEY = "managed-pages:entity:page:field:published:option:true";
+  const FALSE_KEY = "managed-pages:entity:page:field:published:option:false";
+  const spec = { format: "boolean", trueLabel: TRUE_KEY, falseLabel: FALSE_KEY };
+  const translate = (key: string): string => {
+    if (key === TRUE_KEY) return "Published";
+    if (key === FALSE_KEY) return "Draft";
+    return key;
+  };
+
+  test("an i18n key as trueLabel renders translated", () => {
+    expect(applyFormatSpec(spec, true, translate)).toBe("Published");
+  });
+
+  test("an i18n key as falseLabel renders translated", () => {
+    expect(applyFormatSpec(spec, false, translate)).toBe("Draft");
+  });
+
+  test("without translate the declared labels stay verbatim", () => {
+    expect(applyFormatSpec(spec, true)).toBe(TRUE_KEY);
+    expect(applyFormatSpec(spec, false)).toBe(FALSE_KEY);
+  });
+
+  test("a plain-text label is not mangled by a pass-through translate", () => {
+    const plain = { format: "boolean", trueLabel: "Yes", falseLabel: "No" };
+    expect(applyFormatSpec(plain, true, (k) => k)).toBe("Yes");
+    expect(applyFormatSpec(plain, false, (k) => k)).toBe("No");
+  });
+
+  test("undeclared labels keep the ✓ / empty defaults even with translate", () => {
+    expect(applyFormatSpec({ format: "boolean" }, true, translate)).toBe("✓");
+    expect(applyFormatSpec({ format: "boolean" }, false, translate)).toBe("");
+  });
+});
+
 describe("unit format keys stay in lockstep with UnitKey", () => {
   // Mirror of packages/types/src/screen.ts UnitKey — keep lists equal without
   // adding a kumiko-types dependency to headless.
