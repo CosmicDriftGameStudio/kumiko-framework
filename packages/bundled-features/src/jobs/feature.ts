@@ -1,10 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  JOB_RUN_DETAIL_SCREEN_ID,
-  JOB_RUNS_SCREEN_ID,
-  JobHandlers,
-  JobQueries,
-} from "./constants";
+import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID, JobHandlers, JobQueries } from "./constants";
 import { catalogQuery } from "./handlers/catalog.query";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
@@ -138,8 +133,25 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
           ],
         },
       ],
-      rowActions: [{ kind: "navigate", id: "open", label: "jobs.runs.open", screen: JOB_RUN_DETAIL_SCREEN_ID, entityId: "id", rowClick: true }],
-      toolbarActions: [{ kind: "drawer", id: "trigger", label: "jobs.trigger.title", screen: "job-trigger", style: "primary" }],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "open",
+          label: "jobs.runs.open",
+          screen: JOB_RUN_DETAIL_SCREEN_ID,
+          entityId: "id",
+          rowClick: true,
+        },
+      ],
+      toolbarActions: [
+        {
+          kind: "drawer",
+          id: "trigger",
+          label: "jobs.trigger.title",
+          screen: "job-trigger",
+          style: "primary",
+        },
+      ],
       pagination: "infinite",
       access: systemAdminAccess,
     });
@@ -147,7 +159,10 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       id: "job-trigger",
       type: "actionForm",
       handler: JobHandlers.trigger,
-      fields: { jobName: { type: "text", required: true }, payload: { type: "longText", multiline: true, default: "{}" } },
+      fields: {
+        jobName: { type: "text", required: true },
+        payload: { type: "longText", multiline: true, default: "{}" },
+      },
       layout: { sections: [{ fields: ["jobName", "payload"] }] },
       submitLabel: "jobs.trigger.submit",
       access: systemAdminAccess,

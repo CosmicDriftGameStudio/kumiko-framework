@@ -126,10 +126,6 @@ const MEMBERS: readonly MemberRowFixture[] = [
 
 type AuditDetailFixture = AuditRowFixture & { readonly metadata: Record<string, unknown> };
 
-function detailFixtureFor(row: AuditRowFixture): AuditDetailFixture {
-  return { ...row, metadata: {} };
-}
-
 type MembersResult =
   | { readonly isSuccess: true; readonly data: readonly MemberRowFixture[] }
   | { readonly isSuccess: false; readonly error: { readonly message: string } };

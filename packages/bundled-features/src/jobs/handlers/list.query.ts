@@ -54,6 +54,9 @@ export const listQuery = defineQueryHandler({
       limit: query.payload.limit ?? 50,
     });
     // payload/error are stored encrypted under the triggering user's DEK (#799, #2307).
-    return { rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow), nextCursor: null };
+    return {
+      rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow),
+      nextCursor: null,
+    };
   },
 });

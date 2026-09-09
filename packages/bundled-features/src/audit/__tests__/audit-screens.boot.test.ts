@@ -17,7 +17,9 @@ describe("audit log screen + handler access alignment", () => {
     const audit = createAuditFeature();
     const screen = audit.screens[AUDIT_LOG_SCREEN_ID];
     if (screen?.type !== "projectionList") {
-      throw new Error(`expected a projectionList screen for ${AUDIT_LOG_SCREEN_ID}, got ${screen?.type}`);
+      throw new Error(
+        `expected a projectionList screen for ${AUDIT_LOG_SCREEN_ID}, got ${screen?.type}`,
+      );
     }
     if (!("access" in screen) || !screen.access || !("roles" in screen.access)) {
       throw new Error(`expected role-gated access on ${AUDIT_LOG_SCREEN_ID}`);
