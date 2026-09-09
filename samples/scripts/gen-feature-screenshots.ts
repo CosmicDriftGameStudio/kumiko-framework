@@ -86,6 +86,15 @@ const SCREENSHOT_RUNNERS: readonly Runner[] = [
     after: () => syncLightboxAssets(SAMPLES_ROOT),
   },
   {
+    id: "writeform-section",
+    cwd: resolve(SAMPLES_ROOT, "recipes/writeform-section"),
+    command: ["bun", "run", "screenshot"],
+    out: resolve(SAMPLES_ROOT, "recipes/writeform-section/screenshots"),
+    // Only regenerates the committed PNG — the real guard is the
+    // writeform-parity Playwright suite in the CI e2e job, so a flake here
+    // shouldn't abort the runners after it.
+  },
+  {
     id: "marketing-demo",
     cwd: resolve(SAMPLES_ROOT, "apps/marketing-demo"),
     command: ["bun", "run", "screenshots"],
