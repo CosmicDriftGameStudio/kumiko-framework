@@ -103,7 +103,8 @@ describe("event-store performance — Gate A", () => {
     );
 
     expect(p95).toBeLessThan(30);
-    // Tail budget: cold-checkpoint/fsync spikes after warm-up, not connection warm-up.
+    // Tail budget: absorbs cold-checkpoint/fsync spikes (observed up to 102ms at p50=1.2ms) while still catching order-of-magnitude regressions.
+    expect(p99).toBeLessThan(250);
   });
 
   test("read-latency p95 < 25ms for loadAggregate detail reads", async () => {
@@ -144,6 +145,7 @@ describe("event-store performance — Gate A", () => {
     // 25ms budget kept from the original spike doc's 10ms — an
     // order-of-magnitude gate, not an idle-best-case one. Tracking: #325.
     expect(p95).toBeLessThan(25);
+    expect(p99).toBeLessThan(250);
   });
 
   test("update-latency p95 < 30ms — exercises predecessor-check WHERE EXISTS path", async () => {
@@ -203,6 +205,7 @@ describe("event-store performance — Gate A", () => {
     );
 
     expect(p95).toBeLessThan(30);
+    expect(p99).toBeLessThan(250);
   });
 
   test("snapshot-load < 50ms for 1000-event aggregate (Gate A)", async () => {
