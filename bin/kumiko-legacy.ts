@@ -332,6 +332,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "No-Major-Gt-Zero Guard",
     cmd: `bun ${join(frameworkRepoRoot, "scripts/guard-no-major-gt-zero.ts")}`,
   });
+  // Runs the framework's own validateChangelog()/compareVersions over every real
+  // changes.json (#2684); the infra/guards copy re-implements the rules and is
+  // skipped in a standalone checkout.
+  steps.push({
+    name: "Changes-JSON Guard",
+    cmd: `bun "${join(frameworkRepoRoot, "scripts/guard-changes-json.ts")}"`,
+  });
   // Both tiers scan + allowlist themselves; no framework-local baseline needed.
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
   steps.push({
