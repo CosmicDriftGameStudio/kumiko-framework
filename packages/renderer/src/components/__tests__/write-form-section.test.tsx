@@ -17,8 +17,8 @@ import { WriteFormSection } from "../write-form-section";
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};
 
-const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, disabled }) => (
-  <button type="button" data-testid={testId} onClick={onClick} disabled={disabled}>
+const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, disabled, icon }) => (
+  <button type="button" data-testid={testId} data-icon={icon} onClick={onClick} disabled={disabled}>
     {children}
   </button>
 );
@@ -40,8 +40,15 @@ const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testSection: ComponentType<SectionProps> = ({ testId, children }) => (
-  <div data-testid={testId}>{children}</div>
+// Mirrors DefaultSection's real actions slot closely enough to let tests
+// assert the submit button lands in the footer, not the body (fw#2675).
+const testSection: ComponentType<SectionProps> = ({ testId, children, actions }) => (
+  <div data-testid={testId}>
+    <div data-testid={testId !== undefined ? `${testId}-body` : undefined}>{children}</div>
+    {actions !== undefined && (
+      <div data-testid={testId !== undefined ? `${testId}-actions` : undefined}>{actions}</div>
+    )}
+  </div>
 );
 
 function testPrimitives(): CorePrimitives {
@@ -129,6 +136,19 @@ function renderWriteForm(
 }
 
 describe("WriteFormSection", () => {
+  test("submit button renders in the section's actions footer, not the body (fw#2675)", () => {
+    const { dispatcher } = stubDispatcher();
+    renderWriteForm(noteSection, dispatcher, noop);
+
+    const actions = rtlScreen.getByTestId("write-form-Add note-actions");
+    const body = rtlScreen.getByTestId("write-form-Add note-body");
+    const button = rtlScreen.getByTestId("write-form-section-submit");
+
+    expect(actions.contains(button)).toBe(true);
+    expect(body.contains(button)).toBe(false);
+    expect(button.dataset["icon"]).toBe("check");
+  });
+
   test("submit dispatches through the section's configured write handler with the entered values", async () => {
     const { dispatcher, writes } = stubDispatcher();
     let submittedCount = 0;

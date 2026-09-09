@@ -129,25 +129,35 @@ export function WriteFormSection({
           {error}
         </Banner>
       )}
-      <Button
-        type="button"
-        variant="primary"
-        disabled={isSubmitting}
-        loading={isSubmitting}
-        onClick={() => void handleSubmit()}
-        testId="write-form-section-submit"
-      >
-        {section.submitLabel ?? effectiveTranslate("kumiko.actions.save")}
-      </Button>
     </>
   );
 
-  if (hideTitle || section.title === undefined) return content;
+  // type="button" (not "submit") is load-bearing: this section is deliberately
+  // NOT a nested <form> (see the component doc above), so a "submit" type
+  // would instead trigger the host RenderEdit's own form submit.
+  const submitButton = (
+    <Button
+      type="button"
+      variant="primary"
+      icon="check"
+      disabled={isSubmitting}
+      loading={isSubmitting}
+      onClick={() => void handleSubmit()}
+      testId="write-form-section-submit"
+    >
+      {section.submitLabel ?? effectiveTranslate("kumiko.actions.save")}
+    </Button>
+  );
+
+  // Routed through Section's `actions` slot (same mechanism render-edit.tsx
+  // uses via Form's `actions`) so the button gets the established right-
+  // aligned footer treatment instead of stretching full-width inline.
   return (
     <Section
-      title={section.title}
+      {...(!hideTitle && section.title !== undefined && { title: section.title })}
       {...(section.icon !== undefined && { icon: section.icon })}
-      testId={`write-form-${section.title}`}
+      actions={submitButton}
+      testId={`write-form-${section.title ?? "section"}`}
     >
       {content}
     </Section>
