@@ -65,7 +65,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  RenderEdit has no `schema` to resolve the target actionForm itself —
    *  the caller (ProjectionDetailBody, which does have schema) supplies the
    *  opener and owns the actual Drawer state/rendering. Only projectionDetail
-   *  passes this; entityEdit screens have no relatedList sections. */
+   *  passes this — the boot validator rejects relatedList sections on every
+   *  other screen type that shares this layout. */
   readonly onRelatedListDrawerAction?: (
     action: RowActionDrawer,
     initialValues: Readonly<Record<string, unknown>> | undefined,

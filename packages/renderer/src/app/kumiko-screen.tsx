@@ -870,21 +870,21 @@ function EntityEditUpdateForm({
         entity={entity}
         featureName={schema.featureName}
         initial={initial}
-        // Echte route-id an die extension-section (Set-Value-UI): das
-        // Update-Form lässt `id` bewusst aus den Form-values, daher braucht
-        // die Section die id explizit — sonst create-mode trotz Edit.
+        // Real route id for the extension section (set-value UI): the update
+        // form deliberately keeps `id` out of the form values, so the section
+        // needs it explicitly — otherwise it renders in create mode.
         entityId={entityId}
-        // customFields-Bestand an die extension-section, damit sie beim Edit
-        // die gespeicherten Werte zeigt (nicht write-only).
+        // Stored customFields for the extension section, so editing shows the
+        // persisted values instead of behaving write-only.
         extensionInitialValues={extensionInitialValues}
         schema={formSchema}
         writeCommand={writeCommand}
         payloadMode="changes"
         buildPayload={buildPayload}
         onSubmit={handleSubmitted}
-        // allowDelete:false = Entity ohne CRUD-delete (History-Erhalt) —
-        // ohne das Gate dispatchte der Button gegen einen nicht
-        // registrierten `<entity>:delete`-Handler.
+        // allowDelete:false marks an entity without a CRUD delete (history is
+        // kept) — without this gate the button dispatched against an
+        // unregistered `<entity>:delete` handler.
         {...(screen.allowDelete !== false && { onDelete: handleDelete })}
         onCancel={navigateToList}
         onReload={() => void onReload()}

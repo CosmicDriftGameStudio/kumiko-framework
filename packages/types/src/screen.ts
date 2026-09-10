@@ -309,7 +309,7 @@ export type RowActionDrawer = {
   /** Declarative prefill extracted from the clicked row. `pick` extracts
    *  fields of the same name; `map` renames them. */
   readonly params?: RowFieldExtractor;
-  /** Conditional Visibility pro Row. */
+  /** Per-row conditional visibility. */
   readonly visible?: FieldCondition;
   readonly style?: "primary" | "secondary";
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in

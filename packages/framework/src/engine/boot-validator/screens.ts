@@ -375,7 +375,11 @@ function validateDrawerTargetAction(
   screenId: string,
   screenKind: string,
   actionLabel: "toolbarAction" | "rowAction" | "action",
-  action: { readonly id: string; readonly screen: string },
+  action: {
+    readonly id: string;
+    readonly screen: string;
+    readonly params?: RowFieldExtractor;
+  },
   screens: FeatureDefinition["screens"],
 ): void {
   const target = screens[action.screen];
@@ -394,6 +398,21 @@ function validateDrawerTargetAction(
         `drawer-target "${action.screen}" is a "${target.type}" screen, not an actionForm. ` +
         `kind:"drawer" mounts an actionForm inside a Drawer widget — point "screen" at an ` +
         `actionForm screen, or use kind:"navigate" for a full-page target.`,
+    );
+  }
+  // A prefill key the target form doesn't declare is dropped silently by the
+  // renderer (mergeSearchParamsIntoInitial iterates the target's fields), so
+  // the typo would only show up as an empty field at click time.
+  if (action.params === undefined) return;
+  const prefilledFields =
+    "pick" in action.params ? action.params.pick : Object.keys(action.params.map);
+  for (const fieldName of prefilledFields) {
+    if (fieldName in target.fields) continue;
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
+        `params prefills "${fieldName}", which drawer-target "${action.screen}" does not declare as a ` +
+        `field — the renderer would drop it and leave the form empty. Target fields: ` +
+        `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
     );
   }
 }
