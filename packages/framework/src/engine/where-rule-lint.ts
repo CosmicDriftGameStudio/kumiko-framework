@@ -53,6 +53,34 @@ export function tableColumnSqlNames(table: unknown): ReadonlySet<string> {
   return names;
 }
 
+function skipLineComment(sql: string, i: number): number {
+  let j = i;
+  while (j < sql.length && sql[j] !== "\n") j++;
+  return j;
+}
+
+function skipBlockComment(sql: string, i: number): number {
+  let j = i + 2;
+  while (j < sql.length && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
+  return j + 2;
+}
+
+function skipQuotedLiteral(sql: string, i: number): number {
+  let j = i + 1;
+  while (j < sql.length) {
+    if (sql[j] === "'" && sql[j + 1] === "'") {
+      j += 2;
+      continue;
+    }
+    if (sql[j] === "'") {
+      j++;
+      break;
+    }
+    j++;
+  }
+  return j;
+}
+
 function stripCommentsAndStrings(sqlText: string): string {
   let result = "";
   let i = 0;
@@ -60,30 +88,17 @@ function stripCommentsAndStrings(sqlText: string): string {
   while (i < len) {
     const ch = sqlText[i];
     if (ch === "-" && sqlText[i + 1] === "-") {
-      while (i < len && sqlText[i] !== "\n") i++;
+      i = skipLineComment(sqlText, i);
       result += " ";
       continue;
     }
     if (ch === "/" && sqlText[i + 1] === "*") {
-      i += 2;
-      while (i < len && !(sqlText[i] === "*" && sqlText[i + 1] === "/")) i++;
-      i += 2;
+      i = skipBlockComment(sqlText, i);
       result += " ";
       continue;
     }
     if (ch === "'") {
-      i++;
-      while (i < len) {
-        if (sqlText[i] === "'" && sqlText[i + 1] === "'") {
-          i += 2;
-          continue;
-        }
-        if (sqlText[i] === "'") {
-          i++;
-          break;
-        }
-        i++;
-      }
+      i = skipQuotedLiteral(sqlText, i);
       result += " ";
       continue;
     }
@@ -167,6 +182,9 @@ export function assertQualifiedWhereFragment(
     );
   }
 
+  // skip: without a subquery there is no inner table to shadow — a bare
+  // column reference cannot bind against anything but the outer table, so
+  // the fail-open shape this lint targets is impossible here.
   if (!/\bSELECT\b/i.test(cleaned)) return;
 
   const unqualified = findUnqualifiedColumnReference(cleaned, columnSqlNames);

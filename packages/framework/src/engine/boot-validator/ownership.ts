@@ -238,6 +238,9 @@ export function probeWhereRule(
   probe: WhereRuleProbe | undefined,
   scope: string,
 ): void {
+  // skip: no probe means the entity's column set could not be derived above;
+  // without it there is nothing to check the rule's SQL against, so the
+  // runtime backstop in ruleToFragment is the only line of defense left.
   if (!probe) return;
   let fragment: SqlFragment;
   try {
@@ -247,9 +250,11 @@ export function probeWhereRule(
       paramStart: 1,
     });
   } catch {
-    // a rule that needs real claims cannot be probed at boot; ruleToFragment is the backstop
+    // skip: a rule that needs real claims cannot be probed at boot; ruleToFragment is the backstop
     return;
   }
+  // skip: a rule producing no SQL fragment for the probe user has nothing to
+  // lint here; ruleToFragment still validates it against a real request.
   if (typeof fragment?.sqlText !== "string") return;
   assertQualifiedWhereFragment(fragment.sqlText, probe.columns, `${scope} (role "${roleName}")`);
 }
