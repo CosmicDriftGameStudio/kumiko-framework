@@ -197,10 +197,9 @@ describe("userCanReadFieldRow() — multi-role OR", () => {
   });
 
   // fw#1700: matchesRule() throws on a where-rule (SQL-layer only, can't
-  // evaluate in-memory). Field-level access is boot-validator-rejected for
-  // where-rules, but this function is also reachable from hand-rolled
-  // entity-level reads — a role backed by a where-rule must fail closed
-  // (deny, no throw) instead of crashing the caller with an uncaught 500.
+  // evaluate in-memory). A read map may legitimately carry one — it belongs
+  // on the SQL path (buildOwnershipClause) — so an in-memory read check must
+  // fail closed (deny, no throw) instead of crashing the caller with a 500.
   test("role backed by a where-rule → fails closed (deny), does not throw", () => {
     const whereMap: OwnershipMap = {
       Support: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },
@@ -282,6 +281,18 @@ describe("userCanWriteFieldRow() — Straddle-attack prevention", () => {
   test("undefined access map → public (always write)", () => {
     const user = mkUser();
     expect(userCanWriteFieldRow(user, undefined, {}, {})).toBe(true);
+  });
+
+  // fw#2626: the write path never reaches SQL, so a where-rule there can only
+  // deny. Boot validation rejects the shape; this is the runtime backstop for
+  // maps assembled outside validateBoot.
+  test("role backed by a where-rule → fails closed (deny), does not throw", () => {
+    const user = mkUser({ roles: ["Support"] });
+    const whereMap: OwnershipMap = {
+      Support: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },
+    };
+    expect(() => userCanWriteFieldRow(user, whereMap, { a: 1 }, { a: 2 })).not.toThrow();
+    expect(userCanWriteFieldRow(user, whereMap, { a: 1 }, { a: 2 })).toBe(false);
   });
 });
 
@@ -439,5 +450,26 @@ describe("userCanCreateFieldRow() — create case (no old row)", () => {
   test("Admin 'all' creates anything", () => {
     const user = mkUser({ roles: ["Admin"] });
     expect(userCanCreateFieldRow(user, accessMap, { teamId: "ops" })).toBe(true);
+  });
+
+  // fw#2626: create used to hand a where-rule to matchesRule(), which throws —
+  // every create against such an entity ended as a 500. It now denies, exactly
+  // like userCanWriteFieldRow does for update/delete.
+  test("role backed by a where-rule → fails closed (deny), does not throw", () => {
+    const user = mkUser({ roles: ["Support"] });
+    const whereMap: OwnershipMap = {
+      Support: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },
+    };
+    expect(() => userCanCreateFieldRow(user, whereMap, { teamId: "ops" })).not.toThrow();
+    expect(userCanCreateFieldRow(user, whereMap, { teamId: "ops" })).toBe(false);
+  });
+
+  test("where-rule role does not block a later 'all' role in the same access map", () => {
+    const user = mkUser({ roles: ["Support", "Admin"] });
+    const mixedMap: OwnershipMap = {
+      Support: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },
+      Admin: "all",
+    };
+    expect(userCanCreateFieldRow(user, mixedMap, { teamId: "ops" })).toBe(true);
   });
 });

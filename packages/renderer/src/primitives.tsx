@@ -322,6 +322,12 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Requested presentation. `"radio"` renders the options as a visible
+       *  radio group (WAI-ARIA radiogroup, one click per choice),
+       *  `"dropdown"` renders the combobox. Omitted = the implementation
+       *  decides; the web impl keeps its short-option-set heuristic. Custom
+       *  impls may ignore it — it is a request, not a contract. */
+      readonly display?: "radio" | "dropdown";
     }
   | ({
       // Tier 2.1c: Combobox / Searchable-Select. Single-Mode (multiple

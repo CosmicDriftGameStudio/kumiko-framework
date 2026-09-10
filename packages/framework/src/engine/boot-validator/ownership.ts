@@ -15,6 +15,13 @@ import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule
 // fw#2639: also probes every `{ kind: "where" }` rule against the where-rule
 // lint (see ../where-rule-lint.ts) so a fail-open unqualified-column bug
 // fails the boot instead of waiting for a request from the right role.
+//
+// fw#2626: `access.write` maps reject `{ kind: "where" }` outright. A
+// where-rule is raw SQL and the write path never reaches SQL — it evaluates
+// rules in memory against the concrete row (userCanCreateFieldRow /
+// userCanWriteFieldRow), and a create has no row to run a predicate against
+// at all. Such a rule can therefore only ever deny, so the boot fails instead
+// of shipping an access map that silently locks the role out.
 
 // A rule that reads real claims off the user can't be evaluated at boot —
 // PROBE_USER carries none — so probing is best-effort: rules that throw on
@@ -32,6 +39,10 @@ export type WhereRuleProbe = {
   readonly tableName: string;
   readonly columns: ReadonlySet<string>;
 };
+
+// Which half of an access map is being validated. Only "read" ever reaches
+// SQL, so it is the only path on which a where-rule is admissible.
+export type AccessPath = "read" | "write";
 
 export function validateOwnershipRules(
   feature: FeatureDefinition,
@@ -68,6 +79,7 @@ export function validateOwnershipRules(
         scope: `entity "${entityName}".access.read`,
         featureName: feature.name,
         probe,
+        path: "read",
       });
     }
     if (entity.access?.write) {
@@ -79,6 +91,7 @@ export function validateOwnershipRules(
         scope: `entity "${entityName}".access.write`,
         featureName: feature.name,
         probe,
+        path: "write",
       });
     }
 
@@ -94,6 +107,7 @@ export function validateOwnershipRules(
         scope: `${entityName}.${fieldName}.access.read`,
         featureName: feature.name,
         probe,
+        path: "read",
       });
       checkFieldAccess({
         access: field.access?.write,
@@ -103,6 +117,7 @@ export function validateOwnershipRules(
         scope: `${entityName}.${fieldName}.access.write`,
         featureName: feature.name,
         probe,
+        path: "write",
       });
     }
   }
@@ -116,6 +131,7 @@ export function checkFieldAccess(args: {
   readonly scope: string;
   readonly featureName: string;
   readonly probe?: WhereRuleProbe;
+  readonly path: AccessPath;
 }): void {
   // skip: no access rules on this field, nothing to validate
   if (!args.access) return;
@@ -140,6 +156,7 @@ export function checkFieldAccess(args: {
     scope: args.scope,
     featureName: args.featureName,
     probe: args.probe,
+    path: args.path,
   });
 }
 
@@ -179,6 +196,7 @@ export function checkOwnershipMap(args: {
   readonly scope: string;
   readonly featureName: string;
   readonly probe?: WhereRuleProbe;
+  readonly path: AccessPath;
 }): void {
   for (const [roleName, rawRule] of Object.entries(args.map)) {
     // Role-existence check — typos like `{"Admi": "all"}` where no handler
@@ -195,6 +213,9 @@ export function checkOwnershipMap(args: {
     const rule = rawRule as OwnershipRule;
     if (rule === "all") continue;
     if (rule.kind === "where") {
+      if (args.path === "write") {
+        throw new Error(buildWhereOnWritePathMessage(roleName, args.scope, args.featureName));
+      }
       probeWhereRule(rule, roleName, args.probe, args.scope);
       continue; // escape hatch — feature author owns the SQL
     }
@@ -257,6 +278,23 @@ export function probeWhereRule(
   // lint here; ruleToFragment still validates it against a real request.
   if (typeof fragment?.sqlText !== "string") return;
   assertQualifiedWhereFragment(fragment.sqlText, probe.columns, `${scope} (role "${roleName}")`);
+}
+
+export function buildWhereOnWritePathMessage(
+  roleName: string,
+  scope: string,
+  featureName: string,
+): string {
+  return (
+    `[Kumiko Ownership] ${scope} uses a \`{ kind: "where" }\` rule for role ` +
+    `"${roleName}" (feature: "${featureName}"). where-rules are raw SQL and only ` +
+    `the read path runs SQL (buildOwnershipClause); write access is decided in ` +
+    `memory against the concrete row, and a create has no row yet — so the rule ` +
+    `could only ever deny this role. Use a from()-rule (e.g. ` +
+    `from("user:id", "ownerId") or from("claim:<feature>:<key>")) on access.write, ` +
+    `or enforce the condition in the write-handler's preSave hook. ` +
+    `where-rules stay supported on access.read.`
+  );
 }
 
 export function buildUnknownRoleMessage(

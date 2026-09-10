@@ -78,6 +78,7 @@ const projectFixtureFeature = defineFeature("notes-ownership-test-project-fixtur
 const PROJ_1 = "20000000-0000-4000-8000-000000000001";
 const PROJ_9 = "20000000-0000-4000-8000-000000000009";
 const PROJ_2 = "20000000-0000-4000-8000-000000000002";
+const PROJ_B = "20000000-0000-4000-8000-00000000000b";
 
 type TestUser = ReturnType<typeof createTestUser>;
 
@@ -267,14 +268,23 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
     // on this rule: PROBE_USER carries no claims, so `where()` throws before
     // the lint ever sees the bad SQL, and boot-validator/ownership.ts's
     // probeWhereRule swallows that and moves on.
+    //
+    // add-note's parent-visibility check is unconditional since fw#2627, so
+    // this stack also needs the PASS_CLAUSE project fixture mounted — this
+    // block otherwise stays focused on the note-entry ownership rule.
     unqualifiedStack = await setupTestStack({
-      features: [createNotesHistoryFeature({ ownership: unqualifiedOwnership })],
+      features: [
+        createNotesHistoryFeature({ ownership: unqualifiedOwnership }),
+        projectFixtureFeature,
+      ],
     });
     await unsafeCreateEntityTable(unqualifiedStack.db, createNoteEntryEntity(unqualifiedOwnership));
+    await unsafeCreateEntityTable(unqualifiedStack.db, projectEntity);
     await createEventsTable(unqualifiedStack.db);
     await asRawClient(unqualifiedStack.db).unsafe(
       `CREATE TABLE IF NOT EXISTS ${TEAMS_TABLE} (entity_id text PRIMARY KEY, team_id text NOT NULL)`,
     );
+    await insertProjects(unqualifiedStack, userB.tenantId, [PROJ_B]);
   });
 
   afterAll(async () => {
@@ -282,10 +292,10 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
   });
 
   test("list() fails closed instead of leaking userB's row to userA", async () => {
-    await addNote(unqualifiedStack, "proj-b", userB);
+    await addNote(unqualifiedStack, PROJ_B, userB);
     await asRawClient(unqualifiedStack.db).unsafe(
       `INSERT INTO ${TEAMS_TABLE} (entity_id, team_id) VALUES ($1, $2)`,
-      ["proj-b", "team-b"],
+      [PROJ_B, "team-b"],
     );
 
     // Pre-fix: this query returned HTTP 200 with userB's row (the tautology
@@ -308,7 +318,7 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
 });
 
 describe("notes-history — boot guard rejects a where-rule in ownership.write", () => {
-  test("createNotesHistoryFeature throws instead of shipping a create()-time landmine", () => {
+  test("createNotesHistoryFeature throws instead of shipping a deny-only ownership map", () => {
     expect(() =>
       createNotesHistoryFeature({
         ownership: {

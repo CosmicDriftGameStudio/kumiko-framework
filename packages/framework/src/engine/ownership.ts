@@ -114,12 +114,13 @@ export function matchesRule(
 ): boolean {
   if (rule === "all") return true;
   if (rule.kind === "where") {
-    // `where` rules produce Drizzle SQL for the DB-side filter. They don't
-    // have a straightforward in-memory evaluator — the feature author owns
-    // the semantics. Field-level filters can't use `{ where }` rules; the
-    // boot-validator rejects them with a clear error at registration time.
+    // `where` rules produce SQL for the DB-side filter and have no in-memory
+    // evaluator — the feature author owns the semantics. Only the read path
+    // reaches SQL (buildOwnershipClause); on write maps the boot-validator
+    // rejects them outright (fw#2626), and the in-memory write helpers below
+    // fail closed rather than calling in here.
     throw new Error(
-      "where-rules can only be evaluated at the SQL layer; boot-validator should reject them on field-level access.",
+      "where-rules can only be evaluated at the SQL layer (buildOwnershipClause); they are rejected on access.write at boot.",
     );
   }
 
@@ -159,10 +160,10 @@ export function userCanReadFieldRow(
   for (const role of user.roles) {
     const rule = accessMap[role];
     if (!rule) continue;
-    // where-rules are entity-level SQL predicates (buildOwnershipClause);
-    // matchesRule can't evaluate them in-memory and throws. Field-level
-    // access is boot-validator-rejected for where-rules, but this function
-    // is also reachable from hand-rolled entity-level reads.
+    // where-rules are SQL predicates (buildOwnershipClause); matchesRule
+    // can't evaluate them in-memory and throws. Read maps may legitimately
+    // carry one — it just belongs on the SQL path, so an in-memory read
+    // check denies rather than crashing.
     // skip: where-rules are SQL-layer only — fail closed instead of throwing.
     if (rule !== "all" && rule.kind === "where") continue;
     if (matchesRule(rule, user, row)) return true;
@@ -226,6 +227,10 @@ export function userCanCreateFieldRow(
     const rule = accessMap[role];
     if (!rule) continue;
     if (rule === "all") return true;
+    // skip: where-rules are SQL-layer only — fail closed instead of throwing.
+    // Mirrors userCanWriteFieldRow; a create has no row to run SQL against
+    // at all, so the boot-validator rejects the shape on access.write.
+    if (rule.kind === "where") continue;
     if (matchesRule(rule, user, newRow)) return true;
   }
   return false;
