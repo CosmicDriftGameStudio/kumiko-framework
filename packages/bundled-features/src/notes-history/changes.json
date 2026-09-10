@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.244.0",
+    "type": "improvement",
+    "title": "add-note now always verifies entityType/entityId against the parent entity's own read path",
+    "detail": "Before this change, add-note took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could attach a note to any parent object, including one they couldn't otherwise see. add-note now unconditionally verifies that entityType names a registered entity and that the row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before accepting the write; entries that fail either check are rejected with a not_found response. createNotesHistoryFeature also accepts a `parents` option — an allowlist further narrowing which registered entities may be a note's parent — but this option is additive-only; the parent-visibility check itself is not gated behind it.",
+    "migration": "entityType must now name an entity registered in the same app (via r.entity(...) or a bundled feature), and the caller must be able to see the target row through that entity's own read path. Any consumer that called add-note with an entityType that is NOT a registered entity name, or with an entityId the caller could not otherwise read, will now get a not_found error instead of a successful write — register the parent entity (and, if it needs row-level ownership, its `access.read` rule) before upgrading."
+  },
+  {
     "version": "0.215.3",
     "type": "improvement",
     "title": "note-entry gains authorName, stamped at write time",

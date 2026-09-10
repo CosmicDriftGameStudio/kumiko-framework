@@ -4,6 +4,8 @@
 // confirm it doesn't touch the row.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -21,10 +23,34 @@ let stack: TestStack;
 const author = createTestUser({ id: 1, roles: ["TenantMember"] });
 const other = createTestUser({ id: 2, roles: ["TenantMember"] });
 
+// fw#2627 made add-note's parent-visibility check unconditional — entityType
+// must name a registered entity whose row is visible to the caller. This
+// fixture stands in for that parent; it deliberately has no `access` (PASS_CLAUSE)
+// so it never gates on its own, keeping this file focused on author filtering.
+const CONTACT_TABLE = "notes_user_data_test_contacts";
+const contactEntity = createEntity({
+  table: CONTACT_TABLE,
+  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+});
+const contactFixtureFeature = defineFeature("notes-user-data-test-contact-fixture", (r) => {
+  r.entity("contact", contactEntity);
+});
+
+// author and other share the same tenantId (both from TestUsers.admin), so
+// one contact row is visible to both.
+const CONTACT_1 = "30000000-0000-4000-8000-000000000001";
+
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createNotesHistoryFeature()] });
+  stack = await setupTestStack({
+    features: [createNotesHistoryFeature(), contactFixtureFeature],
+  });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(stack.db, contactEntity);
   await createEventsTable(stack.db);
+  await asRawClient(stack.db).unsafe(
+    `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
+    [CONTACT_1, author.tenantId, "Contact 1"],
+  );
 });
 
 afterAll(async () => {
@@ -35,12 +61,12 @@ describe("noteEntryExportHook", () => {
   test("includes only the requesting user's own authored notes", async () => {
     await stack.http.writeOk(
       NotesHistoryHandlers.addNote,
-      { entityType: "contact", entityId: "c-1", body: "by author" },
+      { entityType: "contact", entityId: CONTACT_1, body: "by author" },
       author,
     );
     await stack.http.writeOk(
       NotesHistoryHandlers.addNote,
-      { entityType: "contact", entityId: "c-1", body: "by other" },
+      { entityType: "contact", entityId: CONTACT_1, body: "by other" },
       other,
     );
 
