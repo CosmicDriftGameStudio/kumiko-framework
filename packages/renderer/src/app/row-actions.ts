@@ -159,6 +159,20 @@ type OpenDrawer = (
   initialValues: Readonly<Record<string, unknown>> | undefined,
 ) => void;
 
+// buildProjectionRowActions runs inside a useMemo (re-evaluated on every dep
+// change), so this dedupes the "openDrawer not wired" warning per action id
+// instead of firing on every recompute.
+const warnedDrawerRowActionIds = new Set<string>();
+
+function warnDrawerActionDropped(actionId: string): void {
+  if (warnedDrawerRowActionIds.has(actionId)) return;
+  warnedDrawerRowActionIds.add(actionId);
+  // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
+  console.warn(
+    `[kumiko] rowAction "${actionId}" is kind:"drawer", but the host did not wire openDrawer (RelatedListSection: pass onOpenDrawer) — it will not render.`,
+  );
+}
+
 function buildDrawerRowAction(
   action: RowActionDrawer,
   translate: Translate,
@@ -193,7 +207,8 @@ export function buildProjectionRowActions(options: {
   readonly nav: NavApi;
   readonly refetch: () => Promise<unknown>;
   /** Opens the drawer-kind action's target actionForm, prefilled from the
-   *  clicked row. Omitted callers (none today) simply drop drawer actions —
+   *  clicked row. Omitted callers (e.g. RelatedListSection embedded directly
+   *  without onOpenDrawer) drop drawer actions and get a dev warning —
    *  mirrors the `dispatcher === undefined` skip below for writeHandler. */
   readonly openDrawer?: OpenDrawer;
 }): readonly DataTableRowAction[] | undefined {
@@ -206,7 +221,10 @@ export function buildProjectionRowActions(options: {
       continue;
     }
     if (action.kind === "drawer") {
-      if (openDrawer === undefined) continue;
+      if (openDrawer === undefined) {
+        warnDrawerActionDropped(action.id);
+        continue;
+      }
       out.push(buildDrawerRowAction(action, translate, openDrawer));
       continue;
     }
