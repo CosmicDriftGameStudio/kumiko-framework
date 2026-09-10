@@ -105,4 +105,78 @@ describe("resolveDetailBreadcrumb", () => {
   test("unknown screen returns undefined", () => {
     expect(resolveDetailBreadcrumb([], "missing", t)).toBeUndefined();
   });
+
+  // fw#2724: explicit `listScreenId` on entityEdit/actionForm must win over
+  // the rowAction/entity heuristics, not just supplement them (the way it
+  // already did for custom/projectionDetail above).
+  test("explicit listScreenId on entityEdit wins over the rowAction heuristic", () => {
+    const screens: ScreenDefinition[] = [
+      {
+        id: "user-list",
+        type: "entityList",
+        entity: "user",
+        columns: ["email"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "kumiko.actions.view",
+            screen: "user-edit",
+            entityId: "id",
+          },
+        ],
+      },
+      {
+        id: "user-archive",
+        type: "entityList",
+        entity: "user",
+        columns: ["email"],
+        rowActions: [],
+      },
+      {
+        id: "user-edit",
+        type: "entityEdit",
+        entity: "user",
+        listScreenId: "user-archive",
+        layout: { sections: [{ fields: ["email"] }] },
+      },
+    ];
+    // Without the explicit field, the rowAction heuristic would resolve
+    // "user-list" (see "entityList navigate rowAction..." above) — the
+    // declared listScreenId overrides that guess.
+    expect(resolveDetailBreadcrumb(screens, "user-edit", t)?.[0]?.screenId).toBe("user-archive");
+  });
+
+  // Regression guard: an actionForm without listScreenId (the common case —
+  // the field is new and optional) must keep resolving exactly like before,
+  // via the rowAction heuristic. Pins that existing apps see no change.
+  test("actionForm without listScreenId still resolves via the rowAction heuristic", () => {
+    const screens: ScreenDefinition[] = [
+      {
+        id: "invoice-list",
+        type: "entityList",
+        entity: "invoice",
+        columns: ["status"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "approve",
+            label: "kumiko.actions.view",
+            screen: "invoice-approve",
+            entityId: "id",
+          },
+        ],
+      },
+      {
+        id: "invoice-approve",
+        type: "actionForm",
+        handler: "billing:write:invoice:approve",
+        fields: { notes: { type: "text" } },
+        layout: { sections: [{ fields: ["notes"] }] },
+      },
+    ];
+    expect(resolveDetailBreadcrumb(screens, "invoice-approve", t)?.[0]?.screenId).toBe(
+      "invoice-list",
+    );
+  });
 });

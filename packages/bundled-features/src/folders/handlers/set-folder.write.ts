@@ -1,5 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { parentRowIsVisible } from "../../shared";
 import { folderAssignmentAggregateId } from "../aggregate-id";
 import { DEFAULT_FOLDER_ACCESS } from "../constants";
 import { folderAssignmentExecutor, folderExecutor } from "../executor";
@@ -23,6 +24,11 @@ import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas";
 // Referential integrity: there is no FK (event-sourced, no JOIN), so we verify
 // the target folder exists before writing — a malformed call with an unknown
 // folderId would otherwise point an entity at a phantom folder.
+//
+// Host reference: entityType/entityId are never trusted client input either —
+// the aggregate-id is tenant-scoped, so this is not a cross-tenant hole, but
+// without the check any dispatch-eligible tenant user could file an object they
+// are not allowed to read. See shared/parent-visibility.ts.
 export function createSetFolderHandler(
   access: AccessRule = DEFAULT_FOLDER_ACCESS,
 ): WriteHandlerDef {
@@ -34,6 +40,24 @@ export function createSetFolderHandler(
       "Files a host entity into one existing folder and moves it out of whatever folder it was in, since an entity belongs to at most one folder; use it for both the first filing and every later move.",
     handler: async (event, ctx) => {
       const payload = event.payload as SetFolderPayload; // @cast-boundary engine-payload
+      // entityType/entityId are client input: the caller must be able to see
+      // the host row through that entity's own read path (tenant scope plus its
+      // `access.read` ownership) before its assignment row may be written.
+      // Checked FIRST, ahead of every lookup below, so a denied caller can't tell
+      // an invisible parent apart from a missing assignment or an unknown folder —
+      // every path answers with the same NotFoundError.
+      if (
+        !(await parentRowIsVisible(
+          ctx.registry,
+          payload.entityType,
+          payload.entityId,
+          event.user,
+          ctx.db,
+        ))
+      ) {
+        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
+      }
+
       const id = folderAssignmentAggregateId(
         event.user.tenantId,
         payload.entityType,

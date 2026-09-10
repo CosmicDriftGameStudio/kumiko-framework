@@ -28,6 +28,7 @@ import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
+import { RenderEditActionButton } from "../components/render-edit-action-button";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
@@ -37,6 +38,7 @@ import { useTranslation } from "../i18n";
 import {
   type DataTableFacet,
   type DataTableRowAction,
+  shouldRenderActionsIconOnly,
   statusToneForValue,
   usePrimitives,
 } from "../primitives";
@@ -2174,7 +2176,7 @@ function ProjectionDetailBody({
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
-  const { Banner, Text, Heading, Grid, GridCell, Card, Tabs, StatusBadge, Metric } =
+  const { Banner, Button, Dialog, Text, Heading, Grid, GridCell, Card, Tabs, StatusBadge, Metric } =
     usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -2228,6 +2230,11 @@ function ProjectionDetailBody({
     await detailQuery.refetch();
     setReloadNonce((n) => n + 1);
   }, [detailQuery.refetch]);
+
+  // Header actions render directly via RenderEditActionButton (fw#2713,
+  // headerActions moved out of RenderEdit's footer) — this component owns
+  // the failure-surfacing state RenderEdit used to own for them.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Default edit action (fw#2166): resolved cross-feature over ALL mounted
   // features, not just this feature's own schema — detailFor itself is
@@ -2455,6 +2462,30 @@ function ProjectionDetailBody({
   const hasHeader = screen.header !== undefined;
   const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
   const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
+  // ?? [] rather than threading `headerActions !== undefined` through every
+  // use below — an empty array is a safe no-op for .map/.length/icon-collapse.
+  const headerActionsList = headerActions ?? [];
+  const hasHeaderActions = headerActionsList.length > 0;
+  const headerActionsIconOnly = shouldRenderActionsIconOnly(headerActionsList);
+  // Grouped into the head Card alongside title/status/metrics (fw#2713):
+  // these are actions on the record the head shows, not on whichever tab is
+  // open, so they must stay in place across tab switches instead of
+  // trailing the active tab's content in the card footer.
+  const headerActionsContent = hasHeaderActions && (
+    <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
+      {headerActionsList.map((action) => (
+        <RenderEditActionButton
+          key={action.id}
+          action={action}
+          iconOnly={headerActionsIconOnly}
+          Button={Button}
+          Dialog={Dialog}
+          onError={setActionError}
+        />
+      ))}
+    </Grid>
+  );
+  const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions;
   // Rendered as RenderEdit's headerRegion (not as JSX siblings before it) so
   // this shares the same page padding/width as the record's edit card below
   // it, instead of sitting flush against the screen edge (fw record-screen
@@ -2462,7 +2493,7 @@ function ProjectionDetailBody({
   const header = screen.header;
   const headerContent = (
     <>
-      {(hasHeader || hasMetrics) && (
+      {hasHeaderCard && (
         <Card>
           {header !== undefined && (
             <>
@@ -2515,6 +2546,12 @@ function ProjectionDetailBody({
               })}
             </Grid>
           )}
+          {headerActionsContent}
+          {actionError !== null && (
+            <Banner variant="error" testId="render-edit-action-error">
+              {actionError}
+            </Banner>
+          )}
         </Card>
       )}
       {hasTabs && activeSection !== undefined && (
@@ -2542,10 +2579,9 @@ function ProjectionDetailBody({
         customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
         onReload={reloadDetail}
         onRelatedListDrawerAction={openDrawer}
-        {...(headerActions !== undefined && { actions: headerActions })}
         {...(translate !== undefined && { translate })}
         {...(hasTabs && { hideSectionTitles: true })}
-        {...((hasHeader || hasMetrics || hasTabs) && { headerRegion: headerContent })}
+        {...((hasHeaderCard || hasTabs) && { headerRegion: headerContent })}
         valueDisplay={screen.valueDisplay ?? "text"}
       />
       <DrawerHost

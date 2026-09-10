@@ -80,6 +80,9 @@
       "path": "./packages/dev-server"
     },
     {
+      "path": "./packages/cli"
+    },
+    {
       "path": "./packages/create-kumiko-app"
     },
     {

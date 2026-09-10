@@ -1,7 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-cli",
-  "version": "0.2.368",
-  "description": "Standalone CLI for scaffolding Kumiko apps. `bunx @cosmicdrift/kumiko-cli new app <name>` produces a runnable workspace; `add feature <name>` mounts a feature automatically.",
+  "version": "0.3.1",
+  "description": "CLI for Kumiko apps. `bunx @cosmicdrift/kumiko-cli new app <name>` scaffolds a runnable workspace; `add feature <name>` mounts a feature; `agent lint`, `project` and `consumer` operate on an existing app.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -24,9 +24,15 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./commands": {
+      "types": "./src/commands/index.ts",
+      "default": "./src/commands/index.ts"
     }
   },
   "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-dev-server": "workspace:*"
   },
   "publishConfig": {
@@ -36,6 +42,7 @@
   "files": [
     "bin",
     "src",
+    "!src/**/__tests__/**",
     "README.md",
     "LICENSE"
   ]

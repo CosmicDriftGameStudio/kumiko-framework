@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.246.0",
+    "type": "improvement",
+    "title": "assign-tag and remove-tag now verify entityType/entityId against the host entity's own read path",
+    "detail": "Before this change, assign-tag and remove-tag took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could attach a catalog tag to, or detach one from, any object in their tenant, including one they could not otherwise read. The tag-assignment aggregate-id is derived from the tenant, so this was never a cross-tenant hole; it was tagging inside your own tenant across a row-level ownership boundary. Both handlers now unconditionally verify that entityType names a registered entity and that the host row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before touching the assignment; either check failing returns a not_found response, the same answer a genuinely missing row gets, so nothing doubles as an existence oracle. The check runs before the assignment and tag lookups, so a denied caller cannot tell an invisible host row apart from a missing assignment. This mirrors the add-note gate shipped in 0.244.0 and shares its helper.",
+    "migration": "entityType must now name an entity registered in the same app (via r.entity(...) or a bundled feature), and the caller must be able to see the target row through that entity's own read path. Any consumer that called assign-tag or remove-tag with an entityType that is NOT a registered entity name, or with an entityId the caller could not otherwise read, will now get a not_found error instead of a successful write — register the host entity (and, if it needs row-level ownership, its `access.read` rule) before upgrading. Note the consequence for hard-deleted host rows: once the host row is gone, its assignment can no longer be removed through remove-tag; delete-tag's cascade still detaches it."
+  }
+]

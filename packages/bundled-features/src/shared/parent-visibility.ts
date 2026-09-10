@@ -15,10 +15,12 @@ function idShapeMatchesEntity(entity: EntityDefinition, entityId: string): boole
   return entity.idType === "serial" ? /^\d+$/.test(entityId) : isUuid(entityId);
 }
 
-// Checks whether a note's proposed (entityType, entityId) parent is one the
-// caller can see via the parent entity's own read path — tenant scope plus
-// its `access.read` ownership. Used to gate add-note when a `parents`
-// allowlist is configured (see feature.ts).
+// Checks whether a client-supplied (entityType, entityId) host reference is one
+// the caller can see via that entity's own read path — tenant scope plus its
+// `access.read` ownership. Shared by every handler that attaches something to a
+// host entity the client names (add-note, assign-tag, remove-tag, set-folder,
+// clear-folder); those handlers deny with NotFoundError so the response never
+// doubles as an existence oracle.
 export async function parentRowIsVisible(
   registry: Registry,
   entityType: string,

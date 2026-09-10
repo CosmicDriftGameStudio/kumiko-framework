@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.246.0",
+    "type": "improvement",
+    "title": "set-folder and clear-folder now verify entityType/entityId against the host entity's own read path",
+    "detail": "Before this change, set-folder and clear-folder took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could file, move or unfile any object in their tenant, including one they could not otherwise read, and moving it out of whatever folder its owning team had put it in. The folder-assignment aggregate-id is derived from the tenant, so this was never a cross-tenant hole; it was filing inside your own tenant across a row-level ownership boundary. Both handlers now unconditionally verify that entityType names a registered entity and that the host row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before touching the membership; either check failing returns a not_found response, the same answer a genuinely missing row gets, so nothing doubles as an existence oracle. The check runs before the folder lookup, so a denied caller learns nothing about which folder ids exist. This mirrors the add-note gate shipped in 0.244.0 and shares its helper.",
+    "migration": "entityType must now name an entity registered in the same app (via r.entity(...) or a bundled feature), and the caller must be able to see the target row through that entity's own read path. Any consumer that called set-folder or clear-folder with an entityType that is NOT a registered entity name, or with an entityId the caller could not otherwise read, will now get a not_found error instead of a successful write — register the host entity (and, if it needs row-level ownership, its `access.read` rule) before upgrading. Note the consequence for hard-deleted host rows: once the host row is gone, its folder-assignment can no longer be cleared, and folder:delete keeps refusing while that assignment points at the folder."
+  }
+]

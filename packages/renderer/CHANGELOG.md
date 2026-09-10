@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.246.0
+
+### Minor Changes
+
+- 0f9687f: fw#2723: `EntityEditScreenDefinition.description` / `ActionFormScreenDefinition.description` (and, by the same `RenderEdit` render path, `ProjectionDetailScreenDefinition.description`) now render as the form's subtitle, in the same visual slot a section's own `description` already fills. The value is run through translate(): an i18n key (the established convention for `description`) resolves to its translation, plain prose passes through unchanged. An i18n `screen:<id>.subtitle` key still wins when present; the field falls back to nothing (no empty subtitle) when neither is set. The existing use of `description` as agent/API metadata is unaffected. Bumped `minor` rather than `patch`: this makes a previously inert, already-shipped field visible in the UI for the first time — an author who set it purely as metadata now sees it rendered.
+
+  fw#2722 (partial — search/sort and list height are still open): a `relatedList` section in a tabs-mode Akte no longer shows a card frame around its table. The tab panel is already the visual boundary — a card nested inside it separated nothing further. `DataTableProps` gained a `chromeless` flag (off by default, so every other `DataTable` consumer — `entityList`, `projectionList` — is unaffected); `RelatedListSection` sets it whenever the enclosing layout already hid the section title (`hideSectionTitles: true`, tabs mode).
+
+  https://claude.ai/code/session_0135cRvFdyV956Aae8PxyyDd
+
+### Patch Changes
+
+- Updated dependencies [b4d5b20]
+- Updated dependencies [f2c9178]
+  - @cosmicdrift/kumiko-framework@0.246.0
+  - @cosmicdrift/kumiko-headless@0.246.0
+
+## 0.245.0
+
+### Minor Changes
+
+- eb6fe2f: fw#2711: a `select` field can now request a radio group instead of hoping for one.
+
+  The web renderer already rendered `kind: "select"` as a WAI-ARIA radio group, but only behind a heuristic — at most 4 options, every label at most 14 characters. An app that wanted the radio group had no way to ask for it; one 15-character label silently turned the whole group into a dropdown. The next consumer then reached for raw `<input type="radio">`, because that was the only way to decide the presentation.
+
+  `SelectFieldDef` and the `Input` primitive's `kind: "select"` both gain an optional `display: "radio" | "dropdown"`. `"radio"` always renders the radio group, whatever the label lengths and option count; `"dropdown"` always renders the combobox. Omitted keeps the existing heuristic, so no existing field changes its rendering.
+
+  `display` is a request, not a contract: custom primitives implementations may ignore it and keep their own presentation. An empty `options` list still renders the dropdown even with `display: "radio"` — an empty radio group has nothing to operate.
+
+### Patch Changes
+
+- Updated dependencies [3359dae]
+- Updated dependencies [eb6fe2f]
+  - @cosmicdrift/kumiko-framework@0.245.0
+  - @cosmicdrift/kumiko-headless@0.245.0
+
 ## 0.244.0
 
 ### Patch Changes
