@@ -4,7 +4,10 @@
 // (packages/framework/src/api/server.ts). RenderEdit now renders it as the
 // form's subtitle, same visual slot section.description already fills for a
 // section (render-edit.tsx's `Section`), falling back to it only when no
-// `screen:<id>.subtitle` i18n override is set.
+// `screen:<id>.subtitle` i18n override is set. `description` is run through
+// translate(): an i18n key (the established convention, e.g.
+// user-data-rights/feature.ts) resolves to its translation, plain prose
+// passes through unchanged (review finding on this PR).
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -13,7 +16,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
+import { createStaticLocaleResolver, LocaleProvider, type TranslationsByLocale } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives";
 import { RenderEdit } from "../render-edit";
@@ -29,7 +32,10 @@ function buildEntity(): EntityDefinition {
   };
 }
 
-function renderEditCapturingForm(screen: EntityEditScreenDefinition): {
+function renderEditCapturingForm(
+  screen: EntityEditScreenDefinition,
+  extraTranslations?: TranslationsByLocale,
+): {
   captured: FormProps | undefined;
 } {
   let captured: FormProps | undefined;
@@ -60,7 +66,11 @@ function renderEditCapturingForm(screen: EntityEditScreenDefinition): {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={
+        extraTranslations !== undefined
+          ? [extraTranslations, kumikoDefaultTranslations]
+          : [kumikoDefaultTranslations]
+      }
     >
       <PrimitivesProvider value={primitives}>
         <RenderEdit
@@ -88,6 +98,22 @@ describe("RenderEdit — screen.description as form subtitle (fw#2723)", () => {
     const { captured } = renderEditCapturingForm(screen);
 
     expect(captured?.subtitle).toBe("Edit the widget's basic details.");
+  });
+
+  test("a description that is a known i18n key renders translated, not as the raw key", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "widget-edit",
+      type: "entityEdit",
+      entity: "widget",
+      description: "widgets:widget-edit.explainer",
+      layout: { sections: [{ title: "Basics", fields: ["name"] }] },
+    };
+
+    const { captured } = renderEditCapturingForm(screen, {
+      "en-US": { "widgets:widget-edit.explainer": "Every field here is optional." },
+    });
+
+    expect(captured?.subtitle).toBe("Every field here is optional.");
   });
 
   test("a screen without description renders no subtitle prop at all (no empty placeholder)", () => {

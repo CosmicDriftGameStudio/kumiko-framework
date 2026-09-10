@@ -1036,9 +1036,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle
   // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
-  // title falls back to screenId; subtitle falls back to screen.description
-  // (untranslated, same as section.description → Section subtitle), then to
-  // undefined (no subtitle).
+  // title falls back to screenId; subtitle falls back to screen.description,
+  // itself run through translate() so an i18n key (the established
+  // convention for description, e.g. bundled-features) resolves instead of
+  // showing the raw key — translate() returns the input unchanged for plain
+  // prose, same as it does for an unknown key (fw#2723 review). Same slot
+  // section.description already fills for a section. Falls back to
+  // undefined (no subtitle) when neither is set.
   const isCreate = (() => {
     const id = resolveExtensionEntityId(entityIdProp, vm.id);
     return id == null || id === "";
@@ -1055,7 +1059,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return undefined;
   };
   const formTitle = resolveScreenText("title") ?? screen.id;
-  const formSubtitle = resolveScreenText("subtitle") ?? screen.description;
+  const formSubtitle =
+    resolveScreenText("subtitle") ??
+    (screen.description !== undefined ? translate(screen.description) : undefined);
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
