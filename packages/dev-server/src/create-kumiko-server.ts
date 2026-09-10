@@ -42,6 +42,7 @@ import {
   resolveTailwindCli,
 } from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
 import {
+  type HonoLikeApp,
   stripNoRouteMatchHeader,
   tryHonoFirst,
 } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
@@ -372,36 +373,25 @@ function resolvePublicFilePath(pathname: string, publicDir: string): string | un
 // server-runtime's public exports (its own package.json "exports" map),
 // so this is a small self-contained copy rather than a new cross-package
 // export for one call site.
+const PUBLIC_FILE_MIME_TYPES = new Map<string, string>([
+  ["html", "text/html; charset=utf-8"],
+  ["js", "text/javascript; charset=utf-8"],
+  ["mjs", "text/javascript; charset=utf-8"],
+  ["css", "text/css; charset=utf-8"],
+  ["json", "application/json; charset=utf-8"],
+  ["svg", "image/svg+xml"],
+  ["png", "image/png"],
+  ["jpg", "image/jpeg"],
+  ["jpeg", "image/jpeg"],
+  ["ico", "image/x-icon"],
+  ["txt", "text/plain; charset=utf-8"],
+  ["xml", "application/xml; charset=utf-8"],
+  ["webmanifest", "application/manifest+json"],
+]);
+
 function publicFileMimeType(filePath: string): string {
   const ext = filePath.toLowerCase().split(".").pop() ?? "";
-  switch (ext) {
-    case "html":
-      return "text/html; charset=utf-8";
-    case "js":
-    case "mjs":
-      return "text/javascript; charset=utf-8";
-    case "css":
-      return "text/css; charset=utf-8";
-    case "json":
-      return "application/json; charset=utf-8";
-    case "svg":
-      return "image/svg+xml";
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "ico":
-      return "image/x-icon";
-    case "txt":
-      return "text/plain; charset=utf-8";
-    case "xml":
-      return "application/xml; charset=utf-8";
-    case "webmanifest":
-      return "application/manifest+json";
-    default:
-      return "application/octet-stream";
-  }
+  return PUBLIC_FILE_MIME_TYPES.get(ext) ?? "application/octet-stream";
 }
 
 // Reads a file under publicDir for the dev-server's static-asset fallback
@@ -427,6 +417,36 @@ async function servePublicFile(
     if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR") return undefined;
     throw err;
   }
+}
+
+// Static assets under public/ — prod serves these via buildStaticFallback's
+// disk lookup (run-prod-app-static-files.ts), dev previously had no
+// equivalent: a dotted path (e.g. /marketing/hero.png) fell straight
+// through to the API stack and 404ed. Hono still goes first (an
+// r.httpRoute could itself own a dotted path), then the file on disk,
+// then the router-miss 404 — mirrors handleFetch's SPA branch. undefined
+// means "not a static-asset request", caller falls through to the next
+// route.
+async function tryServePublicAsset(
+  req: Request,
+  pathname: string,
+  app: HonoLikeApp,
+  publicDir: string,
+): Promise<Response | undefined> {
+  if (!isRoutableGetOrHead(req, pathname) || !pathname.includes(".")) return undefined;
+  const honoTry = await tryHonoFirst(app, req);
+  if (honoTry.matched) {
+    return honoTry.response;
+  }
+  const file = await servePublicFile(pathname, publicDir);
+  if (file !== undefined) {
+    // @cast-boundary Buffer satisfies BodyInit at runtime, bun-types
+    // just doesn't say so — same cast run-prod-app-static-files.ts uses.
+    return new Response(file.bytes as unknown as BodyInit, {
+      headers: { "Content-Type": file.mime },
+    });
+  }
+  return honoTry.response;
 }
 
 // injectSchema lebt in `./inject-schema.ts` damit dev-server + prod-
@@ -1043,27 +1063,10 @@ export async function createKumikoServer(
       return htmlResponse("client", true);
     }
 
-    // Static assets under public/ — prod serves these via buildStaticFallback's
-    // disk lookup (run-prod-app-static-files.ts), dev previously had no
-    // equivalent: a dotted path (e.g. /marketing/hero.png) fell straight
-    // through to the API stack and 404ed. Hono still goes first (an
-    // r.httpRoute could itself own a dotted path), then the file on disk,
-    // then the router-miss 404 — mirrors the SPA branch above.
-    if (isRoutableGetOrHead(req, url.pathname) && url.pathname.includes(".")) {
-      const honoTry = await tryHonoFirst(stack.app, req);
-      if (honoTry.matched) {
-        return honoTry.response;
-      }
-      const file = await servePublicFile(url.pathname, publicDir);
-      if (file !== undefined) {
-        // @cast-boundary Buffer satisfies BodyInit at runtime, bun-types
-        // just doesn't say so — same cast run-prod-app-static-files.ts uses.
-        return new Response(file.bytes as unknown as BodyInit, {
-          headers: { "Content-Type": file.mime },
-        });
-      }
-      return honoTry.response;
-    }
+    // Static assets under public/ — see tryServePublicAsset's own comment
+    // for the Hono → file → router-miss ordering.
+    const staticAsset = await tryServePublicAsset(req, url.pathname, stack.app, publicDir);
+    if (staticAsset !== undefined) return staticAsset;
 
     // Bypasses tryHonoFirst entirely (API paths, /sse, non-GET/HEAD), so the
     // router-miss marker must be stripped here too — otherwise an unmatched
