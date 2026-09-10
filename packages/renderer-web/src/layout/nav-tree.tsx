@@ -56,6 +56,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "../ui/sidebar";
+import { resolveParentScreenId } from "./shell-breadcrumb";
 import { useDispatchTarget } from "./target-resolver-stub";
 import { parseTargetFromSearchParams } from "./target-url";
 
@@ -92,6 +93,24 @@ const NavBadgesContext = createContext<ReadonlyMap<string, ReactNode>>(EMPTY_BAD
 type NavFilter = { readonly q: string; readonly matches: (rawLabel: string) => boolean };
 const NavFilterContext = createContext<NavFilter>({ q: "", matches: () => true });
 
+// Which nav node should highlight for the current route. `exact` means the
+// active screen has its own node in {tree} (aria-current="page" belongs
+// here); otherwise {screenId} is the resolved parent from
+// resolveParentScreenId — a screen reachable only through a list stays
+// orientable, but a Screen-Reader shouldn't be told it IS that list.
+type ActiveScreenMarker = { readonly screenId: string; readonly exact: boolean } | undefined;
+const ActiveScreenMarkerContext = createContext<ActiveScreenMarker>(undefined);
+
+// Walks only the static `children` — provider-emitted nodes (treeNodeToNavNode
+// below) never set `screen`, so they can't hide a match this walk would miss.
+function treeContainsScreen(nodes: readonly NavNode[], screenId: string): boolean {
+  return nodes.some(
+    (n) =>
+      (n.screen !== undefined && lastSegment(n.screen) === screenId) ||
+      treeContainsScreen(n.children, screenId),
+  );
+}
+
 // Ein Knoten überlebt den Filter, wenn er selbst oder ein Nachfahre matcht.
 // Provider-Kinder sind zur Filterzeit schon materialisiert (Provider-Knoten
 // sind default-expanded → eager geladen), darum reicht die statische
@@ -114,6 +133,19 @@ export function NavTree({
     const source = buildNavRegistrySliceForApp(app, allowedNavQns);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
   }, [app, user, allowedNavQns]);
+
+  const nav = useNav();
+  const activeScreenId = nav.route?.screenId;
+  // Same "no nav entry of its own" gap the breadcrumb closes (fw#2724):
+  // when the routed screen has no node in {tree}, fall back to its
+  // resolved parent so a detail/edit/form screen still orients the user.
+  const activeMarker = useMemo((): ActiveScreenMarker => {
+    if (activeScreenId === undefined) return undefined;
+    if (treeContainsScreen(tree, activeScreenId)) return { screenId: activeScreenId, exact: true };
+    const allScreens = app.features.flatMap((f) => f.screens);
+    const parentScreenId = resolveParentScreenId(allScreens, activeScreenId);
+    return parentScreenId !== undefined ? { screenId: parentScreenId, exact: false } : undefined;
+  }, [tree, app.features, activeScreenId]);
 
   // Collapsed-Set: nur die explizit zugeklappten qualified-names. Default
   // ist also "alles auf" — neue Features tauchen sofort offen auf, ohne
@@ -148,34 +180,36 @@ export function NavTree({
   const navFilter = useMemo<NavFilter>(() => ({ q, matches }), [q, matches]);
 
   return (
-    <NavFilterContext.Provider value={navFilter}>
-      <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
-        <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
-          <div className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden">
-            <SidebarInput
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder={t("kumiko.nav.search")}
-              aria-label={t("kumiko.nav.search")}
-            />
-          </div>
-          {tree.map((node) =>
-            isPureSection(node) ? (
-              <NavSection
-                key={node.qualifiedName}
-                node={node}
-                collapsed={collapsed}
-                onToggle={onToggle}
+    <ActiveScreenMarkerContext.Provider value={activeMarker}>
+      <NavFilterContext.Provider value={navFilter}>
+        <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
+          <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
+            <div className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden">
+              <SidebarInput
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder={t("kumiko.nav.search")}
+                aria-label={t("kumiko.nav.search")}
               />
-            ) : (
-              <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
-                <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
-              </SidebarMenu>
-            ),
-          )}
-        </div>
-      </NavBadgesContext.Provider>
-    </NavFilterContext.Provider>
+            </div>
+            {tree.map((node) =>
+              isPureSection(node) ? (
+                <NavSection
+                  key={node.qualifiedName}
+                  node={node}
+                  collapsed={collapsed}
+                  onToggle={onToggle}
+                />
+              ) : (
+                <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
+                  <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
+                </SidebarMenu>
+              ),
+            )}
+          </div>
+        </NavBadgesContext.Provider>
+      </NavFilterContext.Provider>
+    </ActiveScreenMarkerContext.Provider>
   );
 }
 
@@ -387,6 +421,9 @@ type NavNodeState = {
   readonly expandable: boolean;
   readonly isExpanded: boolean;
   readonly active: boolean;
+  // Narrower than `active`: true only for the node that IS the routed
+  // screen — never for a parent-fallback match. Drives aria-current="page".
+  readonly ariaCurrent: boolean;
   readonly childNodes: readonly NavNode[];
   readonly hidden: boolean;
   readonly providerLoading: boolean;
@@ -416,8 +453,12 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
     () => parseTargetFromSearchParams(nav.searchParams),
     [nav.searchParams],
   );
+  const activeMarker = useContext(ActiveScreenMarkerContext);
   const screenActive =
-    node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
+    node.screen !== undefined &&
+    activeMarker !== undefined &&
+    lastSegment(node.screen) === activeMarker.screenId;
+  const screenIsExactMatch = screenActive && activeMarker?.exact === true;
   const targetActive = node.target !== undefined && targetsEqual(node.target, activeTarget);
   const childNodes = node.provider === true ? (providerChildren ?? []) : node.children;
   const visibleChildNodes = filterActive
@@ -429,6 +470,7 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
     expandable,
     isExpanded,
     active: screenActive || targetActive,
+    ariaCurrent: screenIsExactMatch || targetActive,
     childNodes: visibleChildNodes,
     // Ein gefilterter Knoten verschwindet nur, wenn weder er selbst noch ein
     // sichtbar gebliebenes Kind matcht — sonst bliebe ein leerer Ordner-Header.
@@ -595,7 +637,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         <SidebarMenuButton asChild isActive={s.active} tooltip={s.displayLabel}>
           <KumikoLink
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
-            {...(s.active && { "aria-current": "page" })}
+            {...(s.ariaCurrent && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
             <span
@@ -715,7 +757,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         <SidebarMenuSubButton asChild isActive={s.active}>
           <KumikoLink
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
-            {...(s.active && { "aria-current": "page" })}
+            {...(s.ariaCurrent && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
             <span
