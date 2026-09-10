@@ -5,6 +5,7 @@
     "": {
       "name": "kumiko-framework",
       "dependencies": {
+        "@cosmicdrift/kumiko-cli": "workspace:*",
         "hono": "^4.13.5",
         "ink": "^7.1.1",
         "ink-select-input": "^6.2.0",
@@ -66,7 +67,9 @@
         "kumiko": "./bin/cli.ts",
       },
       "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
     "packages/create-kumiko-app": {
