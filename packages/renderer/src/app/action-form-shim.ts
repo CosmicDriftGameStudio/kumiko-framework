@@ -45,6 +45,7 @@ export function synthesizeActionFormScreen(
     type: "entityEdit",
     entity: ACTION_FORM_PSEUDO_ENTITY,
     layout: screen.layout,
+    ...(screen.description !== undefined && { description: screen.description }),
     ...(screen.access !== undefined && { access: screen.access }),
   };
 }

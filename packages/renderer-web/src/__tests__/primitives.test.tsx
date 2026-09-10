@@ -437,6 +437,34 @@ describe("DataTable", () => {
     expect(onRowClick).toHaveBeenCalledWith(row);
   });
 
+  // chromeless (fw#2722): a relatedList section in a tabs-mode Akte already
+  // sits inside a tab panel — the table's own card frame would nest a card
+  // inside that boundary without separating anything further.
+  describe("chromeless", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const oneRow = [{ id: "r1", values: { name: "Alice" } }];
+
+    // Table itself renders its own [data-slot="table-container"] wrapper div
+    // (ui/table.tsx) around the <table data-testid> — the card frame lives
+    // one level up, on DefaultDataTable's own wrapping div.
+    test("default: table renders with its own card frame", () => {
+      render(<DataTable columns={cols} rows={oneRow} testId="t" />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).toContain("border");
+      expect(wrapper?.className).toContain("rounded-lg");
+      expect(wrapper?.className).toContain("bg-card");
+    });
+
+    test("chromeless: table drops the card frame, table markup is unchanged", () => {
+      render(<DataTable columns={cols} rows={oneRow} testId="t" chromeless />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).not.toContain("border");
+      expect(wrapper?.className).not.toContain("rounded-lg");
+      expect(wrapper?.className).not.toContain("bg-card");
+      expect(screen.getByTestId("row-r1")).not.toBeNull();
+    });
+  });
+
   // Sort-Header pinnt das 3-State-Toggle-Verhalten + Visual-Indicator
   // + aria-sort. Renderer-Vertrag mit dem Caller (RenderList): jede
   // sortable-Column liefert beim Click den nächsten Sort-State zurück

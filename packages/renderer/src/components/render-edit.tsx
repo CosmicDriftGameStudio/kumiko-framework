@@ -1036,7 +1036,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle
   // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
-  // title falls back to screenId; subtitle to undefined (no subtitle).
+  // title falls back to screenId; subtitle falls back to screen.description
+  // (untranslated, same as section.description → Section subtitle), then to
+  // undefined (no subtitle).
   const isCreate = (() => {
     const id = resolveExtensionEntityId(entityIdProp, vm.id);
     return id == null || id === "";
@@ -1053,7 +1055,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return undefined;
   };
   const formTitle = resolveScreenText("title") ?? screen.id;
-  const formSubtitle = resolveScreenText("subtitle");
+  const formSubtitle = resolveScreenText("subtitle") ?? screen.description;
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>

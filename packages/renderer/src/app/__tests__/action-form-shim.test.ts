@@ -23,4 +23,25 @@ describe("synthesizeActionFormScreen", () => {
     expect(screen.entity).toBe("__action-form__");
     expect(screen.layout).toEqual({ sections: [{ title: "Invite", fields: ["email"] }] });
   });
+
+  test("carries description through so RenderEdit can render it as the form subtitle (fw#2723)", () => {
+    const withDescription = synthesizeActionFormScreen({
+      id: "invite-user",
+      type: "actionForm",
+      description: "Invite a new team member by email.",
+      handler: "users:write:invite-user",
+      layout: { sections: [{ title: "Invite", fields: ["email"] }] },
+      fields: { email: { type: "text" } },
+    });
+    expect(withDescription.description).toBe("Invite a new team member by email.");
+
+    const withoutDescription = synthesizeActionFormScreen({
+      id: "invite-user",
+      type: "actionForm",
+      handler: "users:write:invite-user",
+      layout: { sections: [{ title: "Invite", fields: ["email"] }] },
+      fields: { email: { type: "text" } },
+    });
+    expect("description" in withoutDescription).toBe(false);
+  });
 });

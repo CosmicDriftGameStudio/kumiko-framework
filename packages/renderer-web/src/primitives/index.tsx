@@ -898,6 +898,7 @@ function DefaultDataTable({
   onCellChange,
   getRowTestId,
   getCellTestId,
+  chromeless,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell (fw#2345).
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -930,7 +931,8 @@ function DefaultDataTable({
       // trägt den bg-muted-Grauton. `bg-card` (statt transparent) → die Liste
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
-      <div className="overflow-hidden rounded-lg border bg-card">
+      // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
+      <div className={cn("overflow-hidden", chromeless !== true && "rounded-lg border bg-card")}>
         <Table data-testid={testId}>
           <TableHeader className="bg-muted">
             <TableRow className="hover:bg-transparent">

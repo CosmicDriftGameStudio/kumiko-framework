@@ -155,14 +155,14 @@ export function RelatedListSection({
         {...(onRowClick !== undefined && { onRowClick })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
+        {...(hideTitle === true && { chromeless: true })}
       />
     );
 
-  // hideTitle (tabs mode) → this section carries no header content of its
-  // own, and RenderList's DataTable already draws its own card frame — a
-  // Section wrapper here would only add a second, nested card (fw record-
-  // screen-type polish). Stacked (non-tabs) sections keep their Section
-  // card since they render a visible title.
+  // hideTitle (tabs mode) → the tab panel is already the boundary: no
+  // Section card wrapper here, and `chromeless` above drops the table's own
+  // card frame too (fw#2722) — the list sits directly in the tab. Stacked
+  // (non-tabs) sections keep both cards since they render a visible title.
   if (hideTitle) return content;
 
   return (

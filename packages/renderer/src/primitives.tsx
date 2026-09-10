@@ -612,6 +612,11 @@ export type DataTableProps = {
   readonly getRowTestId?: (row: ListRowViewModel) => string;
   /** Overrides the cell `data-testid` (default `cell-${row.id}-${field}`). */
   readonly getCellTestId?: (row: ListRowViewModel, field: string) => string;
+  /** Drops the table's own rounded/border/card background — for a host
+   *  that already provides the surrounding boundary (a tab panel, fw#2722)
+   *  and would otherwise show a card nested inside that boundary. Default
+   *  false: unchanged card-framed table. */
+  readonly chromeless?: boolean;
 };
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----

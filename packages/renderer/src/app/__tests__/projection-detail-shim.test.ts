@@ -40,4 +40,23 @@ describe("synthesizeProjectionDetailScreen", () => {
     }
     expect(writeFormSection.fields[0]).toEqual({ field: "note", readOnly: false });
   });
+
+  test("carries description through so RenderEdit can render it as the form subtitle (fw#2723)", () => {
+    const withDescription = synthesizeProjectionDetailScreen({
+      id: "order-detail",
+      type: "projectionDetail",
+      description: "Read-only view of a placed order.",
+      query: "orders:query:order:detail",
+      layout: { sections: [{ title: "Basics", fields: ["name"] }] },
+    });
+    expect(withDescription.description).toBe("Read-only view of a placed order.");
+
+    const withoutDescription = synthesizeProjectionDetailScreen({
+      id: "order-detail",
+      type: "projectionDetail",
+      query: "orders:query:order:detail",
+      layout: { sections: [{ title: "Basics", fields: ["name"] }] },
+    });
+    expect("description" in withoutDescription).toBe(false);
+  });
 });
