@@ -465,6 +465,41 @@ describe("DataTable", () => {
     });
   });
 
+  // scrollBody (fw#2722): a relatedList section in a tabs-mode Akte must not
+  // stretch the whole page with a long list, or leave dead space below a
+  // short one — bounds the table to a fixed height and scrolls rows inside
+  // it, regardless of how many rows there are.
+  describe("scrollBody", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const shortRows = [{ id: "r1", values: { name: "Alice" } }];
+    const longRows = Array.from({ length: 50 }, (_, i) => ({
+      id: `r${i}`,
+      values: { name: `Row ${i}` },
+    }));
+
+    test("default: table has no fixed height and grows with its content", () => {
+      render(<DataTable columns={cols} rows={longRows} testId="t" />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).not.toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("overflow-hidden");
+    });
+
+    test("scrollBody: a long list gets a bounded height + internal vertical scroll", () => {
+      render(<DataTable columns={cols} rows={longRows} testId="t" scrollBody />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("h-[60vh]");
+      expect(screen.getAllByTestId(/^row-/)).toHaveLength(50);
+    });
+
+    test("scrollBody: a short list gets the same bounded height (fills space instead of shrinking)", () => {
+      render(<DataTable columns={cols} rows={shortRows} testId="t" scrollBody />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("h-[60vh]");
+    });
+  });
+
   // Sort-Header pinnt das 3-State-Toggle-Verhalten + Visual-Indicator
   // + aria-sort. Renderer-Vertrag mit dem Caller (RenderList): jede
   // sortable-Column liefert beim Click den nächsten Sort-State zurück

@@ -130,6 +130,11 @@ export type ListColumnSpec =
       /** Row field on the referenced entity shown as the label (default
        *  "id"). Only meaningful together with `refEntity`. */
       readonly refLabelField?: string;
+      /** Marks this column as sortable via a clickable header — for
+       *  relatedList columns, which have no `EntityDefinition` field to carry
+       *  `sortable` on. Ignored on `entityList` columns, where the entity
+       *  field's own `sortable` flag wins. */
+      readonly sortable?: boolean;
     };
 
 // Pagination-Modi für entityList:
@@ -811,6 +816,11 @@ export type EditRelatedListSection = {
   readonly parentParam?: string;
   readonly columns: readonly ListColumnSpec[];
   readonly pageSize?: number;
+  /** Initial sort on mount, applied client-side over the already-loaded rows
+   *  (this section has no pager, so there is no "loaded subset" to mislead).
+   *  `field` must name a column with `sortable: true` — boot-validator pins
+   *  that, same as `entityList.defaultSort`. */
+  readonly defaultSort?: ListSortSpec;
   /** Row click opens the target entity's detail screen via ObjectTarget —
    *  the `detailFor` lookup owns the entity→screen mapping, so no screenId
    *  is named here. `idColumn` names the row key holding that id (default

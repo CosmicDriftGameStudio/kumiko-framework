@@ -147,6 +147,7 @@ export function computeEditViewModel<
         ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
         columns: sectionSpec.columns,
         ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
+        ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
         ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
         ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
       };

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
-import { render, screen as rtlScreen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { type NavApi, NavProvider } from "../../app/nav";
 import { DispatcherProvider } from "../../context/dispatcher-context";
@@ -168,11 +168,13 @@ function renderRelatedList(
 }
 
 describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
-  test("hideTitle (tabs mode) renders the list without a Section wrapper and marks the table chromeless", async () => {
+  test("hideTitle (tabs mode) renders the list without a Section wrapper and marks the table chromeless + scrollBody", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
+    let capturedScrollBody: boolean | undefined;
     const capturingDataTable: ComponentType<DataTableProps> = (props) => {
       capturedChromeless = props.chromeless;
+      capturedScrollBody = props.scrollBody;
       return testDataTable(props);
     };
     render(
@@ -198,13 +200,16 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.queryByTestId(`related-list-${historySection.title}`)).toBeNull();
     expect(capturedChromeless).toBe(true);
+    expect(capturedScrollBody).toBe(true);
   });
 
-  test("without hideTitle (stacked mode), the same section keeps its Section wrapper and an un-chromeless table", async () => {
+  test("without hideTitle (stacked mode), the same section keeps its Section wrapper and an un-chromeless, unbounded-height table", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
+    let capturedScrollBody: boolean | undefined;
     const capturingDataTable: ComponentType<DataTableProps> = (props) => {
       capturedChromeless = props.chromeless;
+      capturedScrollBody = props.scrollBody;
       return testDataTable(props);
     };
     render(
@@ -229,6 +234,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.getByTestId(`related-list-${historySection.title}`)).toBeTruthy();
     expect(capturedChromeless).toBeUndefined();
+    expect(capturedScrollBody).toBeUndefined();
   });
 });
 
@@ -377,5 +383,141 @@ describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
     expect(rtlScreen.queryByTestId("action-adjust-rent-item-7")).toBeNull();
+  });
+});
+
+// A DataTable stub that renders one row per query row (DOM order == passed
+// `rows` order, so a re-sort is observable as a re-ordered row list) plus a
+// button that calls `onSortChange` the same way a real SortableHeader click
+// would — enough to prove RelatedListSection actually re-orders rows, not
+// just that a header is clickable.
+const orderedDataTable: ComponentType<DataTableProps> = ({ rows, onSortChange }) => (
+  <div>
+    <table>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.id} data-testid={`row-${row.id}`} />
+        ))}
+      </tbody>
+    </table>
+    {onSortChange !== undefined && (
+      <button
+        type="button"
+        data-testid="sort-amount-desc"
+        onClick={() => onSortChange({ field: "amount", dir: "desc" })}
+      >
+        sort
+      </button>
+    )}
+  </div>
+);
+
+function renderedRowOrder(): string[] {
+  return rtlScreen
+    .getAllByTestId(/^row-/)
+    .map((el) => el.getAttribute("data-testid")?.replace("row-", "") ?? "");
+}
+
+describe("RelatedListSection — sorting (fw#2722)", () => {
+  const unsortedRows = [
+    { id: "r1", name: "Charlie", amount: 300 },
+    { id: "r2", name: "Alice", amount: 100 },
+    { id: "r3", name: "Bob", amount: 200 },
+  ];
+
+  test("defaultSort sorts the already-loaded rows client-side, independent of query response order", async () => {
+    const { dispatcher } = stubDispatcher(unsortedRows);
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "amount", sortable: true }],
+                  defaultSort: { field: "amount", dir: "asc" },
+                }}
+                parentId="order-1"
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(renderedRowOrder()).toEqual(["r2", "r3", "r1"]);
+  });
+
+  test("toggling sort via onSortChange re-orders rows without a refetch", async () => {
+    const { dispatcher, queryCount } = stubDispatcher(unsortedRows);
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "amount", sortable: true }],
+                }}
+                parentId="order-1"
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
+
+    fireEvent.click(rtlScreen.getByTestId("sort-amount-desc"));
+
+    await waitFor(() => expect(renderedRowOrder()).toEqual(["r1", "r3", "r2"]));
+    expect(queryCount()).toBe(1);
+  });
+
+  test("a section without defaultSort renders rows in the original query order (unchanged behavior)", async () => {
+    const { dispatcher } = stubDispatcher(unsortedRows);
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "amount" }],
+                }}
+                parentId="order-1"
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
   });
 });

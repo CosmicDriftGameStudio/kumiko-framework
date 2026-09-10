@@ -10,7 +10,7 @@ import type {
   ListRowViewModel,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useNav } from "../app/nav";
 import {
   buildProjectionRowActions,
@@ -19,9 +19,11 @@ import {
 } from "../app/row-actions";
 import { dispatcherErrorText } from "../app/write-failed-error";
 import { useOptionalDispatcher } from "../context/dispatcher-context";
+import type { ListSort } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
+import { sortByAccessor } from "../sort-by-accessor";
 import { RenderList } from "./render-list";
 
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
@@ -36,14 +38,16 @@ type PagedRows = {
 };
 
 // Minimal EntityDefinition from the section's own columns — same shape as
-// projection-list-shim's synthesizeProjectionEntity, but relatedList columns
-// aren't sortable (no sort UI on this section, see RelatedListSection below).
+// projection-list-shim's synthesizeProjectionEntity, but sortable is read
+// per-column (ListColumnSpec.sortable) instead of screen-wide, since a
+// relatedList section has no single Zod schema to derive it from.
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
 ): EntityDefinition {
-  const fields: Record<string, { type: "text" }> = {};
+  const fields: Record<string, { type: "text"; sortable: boolean }> = {};
   for (const col of columns) {
-    fields[normalizeListColumn(col).field] = { type: "text" };
+    const normalized = normalizeListColumn(col);
+    fields[normalized.field] = { type: "text", sortable: normalized.sortable === true };
   }
   return { fields } as unknown as EntityDefinition;
 }
@@ -100,6 +104,28 @@ export function RelatedListSection({
 
   const rowsQuery = useQuery<PagedRows>(section.query, payload);
 
+  // Sorted client-side over the already-loaded rows — this section has no
+  // pager (see `payload` above: a one-shot fetch, no cursor/offset), so the
+  // loaded set already IS the full display set and there is no "other page"
+  // a client-side sort could misleadingly hide (fw#2722).
+  const [sort, setSort] = useState<ListSort | null>(section.defaultSort ?? null);
+  const sortAccessors = useMemo(() => {
+    const accessors: Record<string, (row: Readonly<Record<string, unknown>>) => string | number> =
+      {};
+    for (const col of section.columns) {
+      const field = normalizeListColumn(col).field;
+      accessors[field] = (row) => {
+        const value = row[field];
+        return typeof value === "number" ? value : String(value ?? "");
+      };
+    }
+    return accessors;
+  }, [section.columns]);
+  const sortedRows = useMemo(
+    () => sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors),
+    [rowsQuery.data, sort, sortAccessors],
+  );
+
   const rowClick = section.rowClick;
   // A row-body click target comes from EITHER the legacy `rowClick` field OR
   // a `rowActions` entry marked rowClick:true — the boot-validator rejects
@@ -149,20 +175,25 @@ export function RelatedListSection({
       <RenderList
         screen={listScreen}
         entity={entity}
-        rows={rowsQuery.data?.rows ?? []}
+        rows={sortedRows}
         featureName={featureName}
         translate={effectiveTranslate}
+        sort={sort}
+        onSortChange={setSort}
         {...(onRowClick !== undefined && { onRowClick })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
-        {...(hideTitle === true && { chromeless: true })}
+        {...(hideTitle === true && { chromeless: true, scrollBody: true })}
       />
     );
 
   // hideTitle (tabs mode) → the tab panel is already the boundary: no
-  // Section card wrapper here, and `chromeless` above drops the table's own
-  // card frame too (fw#2722) — the list sits directly in the tab. Stacked
-  // (non-tabs) sections keep both cards since they render a visible title.
+  // Section card wrapper here, `chromeless` above drops the table's own
+  // card frame too, and `scrollBody` bounds the table height so a long
+  // Akte tab scrolls internally instead of stretching the page (fw#2722)
+  // — the list sits directly in the tab. Stacked (non-tabs) sections keep
+  // the card frame and document-flow height since they render a visible
+  // title and aren't confined to a tab panel.
   if (hideTitle) return content;
 
   return (

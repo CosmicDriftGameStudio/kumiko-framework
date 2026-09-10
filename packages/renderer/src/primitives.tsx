@@ -617,6 +617,12 @@ export type DataTableProps = {
    *  and would otherwise show a card nested inside that boundary. Default
    *  false: unchanged card-framed table. */
   readonly chromeless?: boolean;
+  /** Bounds the table to a fixed viewport-relative height and scrolls rows
+   *  internally instead of growing with row count — for a host that would
+   *  otherwise have a long table stretch the whole page, or a short table
+   *  leave dead space below it (a tab panel, fw#2722). Default false:
+   *  unchanged document-flow table that grows with its content. */
+  readonly scrollBody?: boolean;
 };
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----

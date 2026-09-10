@@ -899,6 +899,7 @@ function DefaultDataTable({
   getRowTestId,
   getCellTestId,
   chromeless,
+  scrollBody,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell (fw#2345).
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -932,7 +933,16 @@ function DefaultDataTable({
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
-      <div className={cn("overflow-hidden", chromeless !== true && "rounded-lg border bg-card")}>
+      // `scrollBody` bounds the table to a fixed viewport-relative height and
+      // scrolls rows internally, instead of `overflow-hidden` (document-flow
+      // height, grows with row count) — for a host where a long list must
+      // not stretch the whole page (a tab panel, fw#2722).
+      <div
+        className={cn(
+          scrollBody === true ? "h-[60vh] overflow-y-auto" : "overflow-hidden",
+          chromeless !== true && "rounded-lg border bg-card",
+        )}
+      >
         <Table data-testid={testId}>
           <TableHeader className="bg-muted">
             <TableRow className="hover:bg-transparent">
