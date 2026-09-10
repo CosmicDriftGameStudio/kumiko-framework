@@ -5,16 +5,24 @@ export type EntityHandlerOptions = {
   readonly access?: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
-};
-
-export type EntityQueryHandlerOptions = EntityHandlerOptions & {
-  /** Reads across every tenant instead of the caller's own — for a
-   *  SystemAdmin-only operator inspector over an otherwise tenant-scoped
-   *  entity. Scope this to the ONE handler that needs it rather than making
-   *  the whole feature r.systemScope(), which would drop tenant isolation
-   *  from every other handler the feature registers too. */
+  /** Reads and writes across every tenant instead of the caller's own — for a
+   *  SystemAdmin-only operator handler over an otherwise tenant-scoped entity.
+   *  Scope this to the ONE handler that needs it rather than making the whole
+   *  feature r.systemScope(), which would drop tenant isolation from every
+   *  other handler the feature registers too. This only lifts row filtering;
+   *  who may call the handler at all stays gated by `access`.
+   *
+   *  On write handlers it additionally addresses the event stream by the
+   *  target row's tenant instead of the acting user's, so update/delete/
+   *  restore hit the row's own stream. `create` has no target row and stays
+   *  on the acting user's tenant. On write handlers this also satisfies
+   *  entity write-ownership rules that compare against the acting user's
+   *  tenant, so `access` is the only remaining gate — grant it to operator
+   *  roles only. */
   readonly crossTenant?: boolean;
 };
+
+export type EntityQueryHandlerOptions = EntityHandlerOptions;
 
 export type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
 

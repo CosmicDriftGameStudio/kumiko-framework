@@ -17,6 +17,7 @@ import type {
   EntityDefinition,
   HandlerContext,
   QueryHandlerDef,
+  SessionUser,
   WriteHandlerDef,
 } from "./types";
 import type {
@@ -190,12 +191,38 @@ export function defineEntityWriteHandler(
   // acknowledges cross-tenant access on the feature's behalf. This is
   // behavior-preserving: ctx.db was already an unfiltered "system"-mode
   // TenantDb for these handlers before the ctx.db cutover.
-  const dbFor = (ctx: HandlerContext): TenantDb =>
-    ctx.systemDb
-      ? ctx.systemDb.acknowledgeCrossTenant(
-          `entity convention handler for r.systemScope() feature (${name})`,
-        )
-      : ctx.db;
+  //
+  // options.crossTenant mirrors the query-handler branch below: this ONE
+  // write handler reads/writes across every tenant without making the
+  // whole feature r.systemScope().
+  const crossTenant = options?.crossTenant === true;
+
+  const dbFor = (ctx: HandlerContext): TenantDb => {
+    if (ctx.systemDb) {
+      return ctx.systemDb.acknowledgeCrossTenant(
+        `entity convention handler for r.systemScope() feature (${name})`,
+      );
+    }
+    return crossTenant ? createTenantDb(ctx.db.raw, ctx.db.tenantId, "system") : ctx.db;
+  };
+
+  // The event stream is keyed by the acting user's tenantId (streamTenantFor in
+  // event-store-executor-context.ts), not by the db handed to the executor — an
+  // unfiltered "system"-mode db alone reads the foreign row but appends to an
+  // empty stream in the operator's own tenant, surfacing as a bogus
+  // version_conflict. Rewriting the acting tenant also keeps PII envelope keys
+  // derived from the row's tenant rather than the operator's.
+  const actingUserFor = async (
+    user: SessionUser,
+    id: unknown,
+    db: TenantDb,
+  ): Promise<SessionUser> => {
+    if (!crossTenant || entity.systemStream) return user;
+    const row = await db.fetchOne<Record<string, unknown>>(table, { id });
+    const rowTenantId = row?.["tenantId"];
+    if (typeof rowTenantId !== "string" || rowTenantId === user.tenantId) return user;
+    return { ...user, tenantId: rowTenantId };
+  };
 
   let schema: ZodType;
   let handler: WriteHandlerDef["handler"];
@@ -220,29 +247,40 @@ export function defineEntityWriteHandler(
       });
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
+        const db = dbFor(ctx);
+        const payload = event.payload as UpdatePayload; // @cast-boundary engine-payload
+        const user = await actingUserFor(event.user, payload.id, db);
         // skipUnchanged (#464): API-driven updates diff against the stored
         // row so a resubmitted-but-identical field doesn't force a fresh
         // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
         // KEK-rotation, the user-data-rights #494 backfill) don't go through
         // this handler and keep today's always-re-encrypt behavior, which
         // they rely on to intentionally force a fresh event/ciphertext.
-        return executor.update(event.payload as UpdatePayload, event.user, dbFor(ctx), {
+        return executor.update(payload, user, db, {
           skipUnchanged: true,
           preSave:
             runPreSave &&
             ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),
-        }); // @cast-boundary engine-payload
+        });
       };
       break;
     case "delete":
       schema = idSchema;
-      handler = async (event, ctx) =>
-        executor.delete(event.payload as IdPayload, event.user, dbFor(ctx)); // @cast-boundary engine-payload
+      handler = async (event, ctx) => {
+        const db = dbFor(ctx);
+        const payload = event.payload as IdPayload; // @cast-boundary engine-payload
+        const user = await actingUserFor(event.user, payload.id, db);
+        return executor.delete(payload, user, db);
+      };
       break;
     case "restore":
       schema = idSchema;
-      handler = async (event, ctx) =>
-        executor.restore(event.payload as IdPayload, event.user, dbFor(ctx)); // @cast-boundary engine-payload
+      handler = async (event, ctx) => {
+        const db = dbFor(ctx);
+        const payload = event.payload as IdPayload; // @cast-boundary engine-payload
+        const user = await actingUserFor(event.user, payload.id, db);
+        return executor.restore(payload, user, db);
+      };
       break;
     default:
       assertUnreachable(verb, "write verb");
