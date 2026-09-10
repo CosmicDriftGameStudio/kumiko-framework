@@ -9,10 +9,24 @@
 // stress shiftParams: the ownership fragment's `$N` placeholder must be
 // renumbered past the tenant-scope filter's already-consumed slots
 // (event-store-executor-read.ts), not just happen to work at `$1`.
+//
+// fw#2627 made add-note's parent-visibility check unconditional: entityType
+// must now name a registered entity, and the row must exist and be visible
+// to the caller. This file tests NOTE-level ownership, not parent-level, so
+// the fixture `project` entity below is deliberately registered with NO
+// `access` (PASS_CLAUSE) — any tenant member can write a note onto it — and
+// every project row used below is inserted before its add-note call, so the
+// parent-visibility check never interferes with what this file is actually
+// proving.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type EntityDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -49,6 +63,22 @@ const teamOwnership: NonNullable<EntityDefinition["access"]> = {
   },
 };
 
+// The `project` parent entity add-note now always checks for. No `access` —
+// PASS_CLAUSE — so it never gates on its own; this file's team split is
+// entirely on the note-entry side (teamOwnership above).
+const PROJECT_TABLE = "notes_ownership_test_projects";
+const projectEntity: EntityDefinition = createEntity({
+  table: PROJECT_TABLE,
+  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+});
+const projectFixtureFeature = defineFeature("notes-ownership-test-project-fixture", (r) => {
+  r.entity("project", projectEntity);
+});
+
+const PROJ_1 = "20000000-0000-4000-8000-000000000001";
+const PROJ_9 = "20000000-0000-4000-8000-000000000009";
+const PROJ_2 = "20000000-0000-4000-8000-000000000002";
+
 type TestUser = ReturnType<typeof createTestUser>;
 
 let scopedStack: TestStack;
@@ -67,23 +97,42 @@ const userB: TestUser = createTestUser({
   claims: { team: "team-b" },
 });
 
+async function insertProjects(
+  stack: TestStack,
+  tenantId: string,
+  ids: readonly string[],
+): Promise<void> {
+  for (const id of ids) {
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
+      [id, tenantId, id],
+    );
+  }
+}
+
 beforeAll(async () => {
   scopedStack = await setupTestStack({
-    features: [createNotesHistoryFeature({ ownership: teamOwnership })],
+    features: [createNotesHistoryFeature({ ownership: teamOwnership }), projectFixtureFeature],
   });
   await unsafeCreateEntityTable(scopedStack.db, createNoteEntryEntity(teamOwnership));
+  await unsafeCreateEntityTable(scopedStack.db, projectEntity);
   await createEventsTable(scopedStack.db);
   await asRawClient(scopedStack.db).unsafe(
     `CREATE TABLE IF NOT EXISTS ${TEAMS_TABLE} (entity_id text PRIMARY KEY, team_id text NOT NULL)`,
   );
+  await insertProjects(scopedStack, userA.tenantId, [PROJ_1, PROJ_9, PROJ_2]);
 
   // Regression control, dedicated stack (mirrors tags.integration.test.ts's
   // openStack/defaultStack): a plain (unscoped) mount of the SAME feature,
   // used to prove the 0-rows result below is the ownership rule doing real
   // work, not an empty table or a broken query.
-  defaultStack = await setupTestStack({ features: [createNotesHistoryFeature()] });
+  defaultStack = await setupTestStack({
+    features: [createNotesHistoryFeature(), projectFixtureFeature],
+  });
   await unsafeCreateEntityTable(defaultStack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(defaultStack.db, projectEntity);
   await createEventsTable(defaultStack.db);
+  await insertProjects(defaultStack, userA.tenantId, [PROJ_1]);
 });
 
 afterAll(async () => {
@@ -128,16 +177,16 @@ describe("notes-history integration — row ownership (where-rule)", () => {
     // weaker test would miss: a broken shiftParams (team_id compared against
     // the tenant UUID or nothing → everyone sees 0) and a trivially-true
     // subquery (EXISTS matches regardless of team_id → everyone sees both).
-    await addNote(scopedStack, "proj-1", userA); // will be team-a
-    await addNote(scopedStack, "proj-9", userA); // will be team-b — same author, different team
+    await addNote(scopedStack, PROJ_1, userA); // will be team-a
+    await addNote(scopedStack, PROJ_9, userA); // will be team-b — same author, different team
     await asRawClient(scopedStack.db).unsafe(
       `INSERT INTO ${TEAMS_TABLE} (entity_id, team_id) VALUES ($1, $2), ($3, $4)`,
-      ["proj-1", "team-a", "proj-9", "team-b"],
+      [PROJ_1, "team-a", PROJ_9, "team-b"],
     );
 
     // User B (different team) sees nothing, even filtered down to the exact row.
     expect(
-      await listNotes(scopedStack, userB, { field: "entityId", op: "eq", value: "proj-1" }),
+      await listNotes(scopedStack, userB, { field: "entityId", op: "eq", value: PROJ_1 }),
     ).toHaveLength(0);
 
     // User A (own team) sees it. This is the real shiftParams exercise: the
@@ -148,7 +197,7 @@ describe("notes-history integration — row ownership (where-rule)", () => {
     const ownRows = await listNotes(scopedStack, userA, {
       field: "entityId",
       op: "eq",
-      value: "proj-1",
+      value: PROJ_1,
     });
     expect(ownRows).toHaveLength(1);
     expect(ownRows[0]?.["body"]).toBe("note");
@@ -158,17 +207,17 @@ describe("notes-history integration — row ownership (where-rule)", () => {
     // subquery (which would return both).
     const aRows = await listNotes(scopedStack, userA);
     expect(aRows).toHaveLength(1);
-    expect(aRows[0]?.["entityId"]).toBe("proj-1");
+    expect(aRows[0]?.["entityId"]).toBe(PROJ_1);
 
     // B authored NEITHER note, yet must see exactly the team-b one — proves
     // the rule grants access by team membership, not by who wrote the row.
     const bRows = await listNotes(scopedStack, userB);
     expect(bRows).toHaveLength(1);
-    expect(bRows[0]?.["entityId"]).toBe("proj-9");
+    expect(bRows[0]?.["entityId"]).toBe(PROJ_9);
   });
 
   test("the same data on an unscoped mount leaks across teams (regression control)", async () => {
-    await addNote(defaultStack, "proj-1", userA);
+    await addNote(defaultStack, PROJ_1, userA);
     // No ownership option on this stack's feature — the pre-fix behavior.
     // Proves the 0-rows result above comes from the ownership rule, not
     // from an unrelated empty-table/broken-query artifact.
@@ -176,10 +225,10 @@ describe("notes-history integration — row ownership (where-rule)", () => {
   });
 
   test("no explicit filter — ownership fragment still shifts correctly against the bare tenant scope", async () => {
-    await addNote(scopedStack, "proj-2", userA);
+    await addNote(scopedStack, PROJ_2, userA);
     await asRawClient(scopedStack.db).unsafe(
       `INSERT INTO ${TEAMS_TABLE} (entity_id, team_id) VALUES ($1, $2)`,
-      ["proj-2", "team-a"],
+      [PROJ_2, "team-a"],
     );
 
     expect(await listNotes(scopedStack, userB)).toHaveLength(0);

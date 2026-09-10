@@ -14,9 +14,12 @@ import { type AddNotePayload, addNotePayloadSchema } from "../schemas";
 // delete counterpart is registered — see entity.ts for why append-only is
 // deliberate.
 //
-// When `parents` is set (see feature.ts), entityType/entityId are no longer
-// trusted client input: both the allowlist membership and the row's
-// visibility through the parent entity's own read path are checked first.
+// entityType/entityId are never trusted client input: entityType must name a
+// registered entity, and the row must be visible to the caller through that
+// entity's own read path (tenant scope plus its `access.read` ownership) —
+// see parent-visibility.ts. `parents`, when set, is an ADDITIONAL allowlist
+// narrowing which registered entities may be a note's parent at all; it is
+// not what turns the check on.
 export function createAddNoteHandler(
   access: AccessRule = DEFAULT_NOTES_HISTORY_ACCESS,
   parents?: ReadonlySet<string>,
@@ -30,23 +33,21 @@ export function createAddNoteHandler(
     handler: async (event, ctx) => {
       const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
 
-      if (parents !== undefined) {
-        // NotFoundError, not an access-denied error, so the response doesn't
-        // double as an existence oracle — same policy as executor.detail,
-        // which never distinguishes "no access" from "doesn't exist".
-        if (!parents.has(payload.entityType)) {
-          return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
-        }
-        const visible = await parentRowIsVisible(
-          ctx.registry,
-          payload.entityType,
-          payload.entityId,
-          event.user,
-          ctx.db,
-        );
-        if (!visible) {
-          return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
-        }
+      // NotFoundError, not an access-denied error, so the response doesn't
+      // double as an existence oracle — same policy as executor.detail,
+      // which never distinguishes "no access" from "doesn't exist".
+      if (parents !== undefined && !parents.has(payload.entityType)) {
+        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
+      }
+      const visible = await parentRowIsVisible(
+        ctx.registry,
+        payload.entityType,
+        payload.entityId,
+        event.user,
+        ctx.db,
+      );
+      if (!visible) {
+        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
       }
 
       let authorName: string | null = null;

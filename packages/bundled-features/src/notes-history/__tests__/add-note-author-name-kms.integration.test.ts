@@ -5,15 +5,25 @@
 // KMS adapter so the round-trip is proven end-to-end, not assumed from a
 // no-op-encrypt test env — a later refactor that silently reintroduces the
 // raw UUID or gets stuck on the placeholder would fail this.
+//
+// fw#2627 made add-note's parent-visibility check unconditional, so a
+// minimal `contact` fixture entity (PASS_CLAUSE) is mounted below and seeded
+// with the one row this file writes a note to — orthogonal to what this file
+// actually tests (authorName stamping).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type SessionUser,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -30,6 +40,16 @@ import { createNotesHistoryFeature } from "../feature";
 const notesHistoryFeature = createNotesHistoryFeature();
 const tenantId = testTenantId(1);
 
+const CONTACT_TABLE = "notes_kms_test_contacts";
+const contactEntity = createEntity({
+  table: CONTACT_TABLE,
+  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+});
+const contactFixtureFeature = defineFeature("notes-kms-test-contact-fixture", (r) => {
+  r.entity("contact", contactEntity);
+});
+const CONTACT_KMS_AUTHOR = "40000000-0000-4000-8000-000000000001";
+
 let stack: TestStack;
 
 function memberUser(userId: string): SessionUser {
@@ -37,9 +57,14 @@ function memberUser(userId: string): SessionUser {
 }
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [notesHistoryFeature] });
+  stack = await setupTestStack({ features: [notesHistoryFeature, contactFixtureFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, contactEntity);
+  await asRawClient(stack.db).unsafe(
+    `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
+    [CONTACT_KMS_AUTHOR, tenantId, CONTACT_KMS_AUTHOR],
+  );
 });
 
 afterAll(async () => {
@@ -70,13 +95,13 @@ describe("add-note — authorName stamped from the writer's own user row", () =>
 
     const { id: noteId } = await stack.http.writeOk<{ id: string }>(
       NotesHistoryHandlers.addNote,
-      { entityType: "contact", entityId: "contact-kms-author", body: "Called back." },
+      { entityType: "contact", entityId: CONTACT_KMS_AUTHOR, body: "Called back." },
       memberUser(userId),
     );
 
     const { rows } = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
       NotesHistoryQueries.noteList,
-      { filter: { field: "entityId", op: "eq", value: "contact-kms-author" } },
+      { filter: { field: "entityId", op: "eq", value: CONTACT_KMS_AUTHOR } },
       memberUser(userId),
     );
 

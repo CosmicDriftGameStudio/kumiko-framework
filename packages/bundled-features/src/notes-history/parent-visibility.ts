@@ -26,6 +26,8 @@ export async function parentRowIsVisible(
   user: SessionUser,
   db: TenantDb,
 ): Promise<boolean> {
+  // Default-deny: an entityType that names no registered entity has no read
+  // path to check visibility against, so it can never be a valid parent.
   const entity = registry.getEntity(entityType);
   if (!entity) return false;
 

@@ -1,10 +1,13 @@
 // fw#2627 — add-note previously trusted entityType/entityId straight from the
 // client, so any dispatch-eligible tenant user could attach a note to a
-// parent object they had no read access to. The `parents` option closes
-// this: it allowlists which entity names may be a note's parent, and for
-// allowlisted types verifies the target row is visible through that
-// entity's own read path (tenant scope plus its `access.read` ownership)
-// before accepting the write.
+// parent object they had no read access to. The parent-visibility check is
+// unconditional (default-on, no opt-in): entityType must name a registered
+// entity, and the row must be visible through that entity's own read path
+// (tenant scope plus its `access.read` ownership) before add-note accepts
+// the write — on every mount, `parents` or not. `parents`, when set, only
+// narrows FURTHER to an allowlist of permitted parent entity names; it is
+// not what turns the check on (see `openStack` tests below, which mount
+// notes-history with no `parents` at all and still enforce the check).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -85,9 +88,8 @@ const PROJECT_A = "a0000000-0000-4000-8000-000000000001";
 // A second team-a project, dedicated to the cross-team-denial case so its
 // note-count stays independent of PROJECT_A's.
 const PROJECT_A2 = "a0000000-0000-4000-8000-000000000002";
-// Regression-control-only id — never inserted (openStack has no project
-// table, and the check never runs there), and never reused as PROJECT_A2 so
-// the two tests stay order-independent.
+// openStack-only team-a project row — never reused as PROJECT_A2 so the two
+// stacks' tests stay order-independent.
 const PROJECT_OPEN = "a0000000-0000-4000-8000-000000000009";
 
 let guardedStack: TestStack;
@@ -107,14 +109,19 @@ beforeAll(async () => {
     [PROJECT_A, userA.tenantId, PROJECT_A2],
   );
 
-  // Regression control: the SAME feature mounted without `parents` — proves
-  // any deny below comes from the new check, not from an unrelated
-  // empty-table/broken-query artifact.
+  // Unguarded mount: the SAME feature with no `parents` at all — proves the
+  // parent-visibility check itself is default-on, not something `parents`
+  // switches on.
   openStack = await setupTestStack({
     features: [createNotesHistoryFeature(), fixturesFeature],
   });
+  await unsafeCreateEntityTable(openStack.db, guardedProjectEntity);
   await unsafeCreateEntityTable(openStack.db, createNoteEntryEntity());
   await createEventsTable(openStack.db);
+  await asRawClient(openStack.db).unsafe(
+    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,
+    [PROJECT_OPEN, userA.tenantId],
+  );
 });
 
 afterAll(async () => {
@@ -199,8 +206,20 @@ describe("notes-history integration — add-note parent-visibility (parents opti
     expect(result.id).toBeTruthy();
   });
 
-  test("regression control: the same call on an unguarded mount succeeds (proves the deny above is the new check)", async () => {
-    const result = await addNote(openStack, "project", PROJECT_OPEN, userB);
+  test("on an unguarded mount (no `parents`), an unregistered entityType is still denied — the check is default-on", async () => {
+    const err = await addNoteErr(openStack, "totally-unknown-entity", "y", userA);
+    expect(err.code).toBe("not_found");
+  });
+
+  test("on an unguarded mount, a registered and visible parent still succeeds", async () => {
+    const result = await addNote(openStack, "project", PROJECT_OPEN, userA);
     expect(result.id).toBeTruthy();
+    expect(await noteCountFor(openStack, PROJECT_OPEN)).toBe(1);
+  });
+
+  test("on an unguarded mount, a registered parent from a foreign team is still denied", async () => {
+    const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userB);
+    expect(err.code).toBe("not_found");
+    expect(err.httpStatus).toBe(404);
   });
 });

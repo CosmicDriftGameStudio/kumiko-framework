@@ -84,13 +84,15 @@ export type NotesHistoryFeatureOptions = {
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
    *  sure any `ownership.write` you set covers that role, or leave it unset. */
   readonly ownership?: EntityDefinition["access"];
-  /** Allowlist of entity names that may be used as a note's parent
-   *  (entityType). When set, add-note rejects any entityType not in the
-   *  list, and — for entityType values that are in the list — accepts only
-   *  rows the caller can already see through the parent entity's own read
-   *  path (tenant scope plus that entity's `access.read` ownership). When
-   *  unset (the default), today's behavior is unchanged: any client-supplied
-   *  entityType/entityId is accepted without verification. */
+  /** Allowlist further narrowing which registered entities may be used as a
+   *  note's parent (entityType). This is NOT what turns parent-checking on —
+   *  add-note always verifies that entityType names a registered entity and
+   *  that the row is visible to the caller through that entity's own read
+   *  path (tenant scope plus its `access.read` ownership); an entityType
+   *  that names no registered entity is rejected regardless of this option.
+   *  Setting `parents` narrows further, to a specific set of entity names —
+   *  useful when a host entity is registered but should never be a valid
+   *  note parent. */
   readonly parents?: readonly string[];
 };
 
