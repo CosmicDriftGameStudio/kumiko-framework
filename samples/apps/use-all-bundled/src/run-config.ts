@@ -15,6 +15,7 @@
 // boot-validation — no real transport/provider call happens.
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
+import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
@@ -365,6 +366,7 @@ export const APP_FEATURES = [
   // document-ingest-foundation: Phase-1 skeleton — documentExtract entity +
   // ocrLanguage/maxPagesPerFile config, no handlers yet (kumiko-framework#1497).
   documentIngestFoundationFeature,
+  createAgentToolsFeature(),
 ] as const;
 
 // Fixed dev-only signing key for the reset/verify/unlock magic-links. The
