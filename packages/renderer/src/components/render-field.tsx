@@ -689,6 +689,10 @@ function renderInput({
         labels !== undefined
           ? rawOptions.map((value: string) => ({ value, label: labels[value] ?? value }))
           : rawOptions;
+      // `display` is shared with multiSelect's "checkboxes", which is not a
+      // select presentation — narrow to the two a select field can request.
+      const display =
+        field.display === "radio" || field.display === "dropdown" ? field.display : undefined;
       return (
         <Input
           kind="select"
@@ -696,6 +700,7 @@ function renderInput({
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
           options={selectOptions}
+          {...(display !== undefined && { display })}
         />
       );
     }

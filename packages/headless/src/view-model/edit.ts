@@ -203,9 +203,13 @@ export function computeEditViewModel<
               options,
             )
           : undefined;
-      // Checkbox-grid rendering hints for `type: "multiSelect"` — pass
-      // through unchanged so the renderer can pick the grid layout.
-      const display = fieldDef.type === "multiSelect" ? fieldDef.display : undefined;
+      // Checkbox-grid rendering hint for `type: "multiSelect"` and the
+      // radio-vs-dropdown hint for `type: "select"` — pass through unchanged
+      // so the renderer can skip its own layout heuristic.
+      const display =
+        fieldDef.type === "multiSelect" || fieldDef.type === "select"
+          ? fieldDef.display
+          : undefined;
       const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
       const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
       // Multiline hint for `type: "text"` — the renderer then switches to a
