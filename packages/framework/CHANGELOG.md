@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.244.0
+
+### Minor Changes
+
+- dc4e6a2: fw#2710: `RowAction` gains a third variant, `kind: "drawer"`, alongside `navigate` and `writeHandler` — the row-level counterpart to `ToolbarAction`'s `kind: "drawer"` (fw#2225). It references an `actionForm` screen by id and an optional `params` extractor that prefills the form from the clicked row's own values. Clicking the row action mounts that actionForm inline in the same shared slide-in Drawer used by toolbar actions, instead of navigating to a full page. A successful submit closes the Drawer and reloads the underlying screen; Cancel closes it without navigating.
+
+  Supported at every `RowAction` call site: `entityList.rowActions`, `projectionList.rowActions`, `projectionDetail.actions`, `entityEdit.actions`, and `relatedList` sections' `rowActions`. The boot validator rejects a `screen` reference that doesn't resolve to a same-feature `actionForm` screen, mirroring the `ToolbarAction` drawer check. A `params` key that the target actionForm does not declare as a field is rejected too — the renderer would silently drop it and leave the form empty.
+
+### Patch Changes
+
+- 2cb949e: The four `agent.*` reason codes now have en/de i18n texts, so the docs generator
+  stops skipping them and renders a reference page per reason instead of leaving
+  the agent error pages absent. `feature-manifest.json` additionally lists
+  `agent-tools`, which the use-all-bundled sample now mounts — the manifest is
+  introspected from that sample, so the bundled-feature reference had no entry for
+  it before.
+  - @cosmicdrift/kumiko-types@0.244.0
+
 ## 0.243.4
 
 ### Patch Changes

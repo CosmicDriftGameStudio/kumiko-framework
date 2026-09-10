@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.244.0
+
+### Patch Changes
+
+- 37fd2ad: Unify screen padding across `PageSection` and `FormScreenShell` (fw#2640). Both now render the shared `screenPaddingClassName` (`px-6 pt-6 pb-12`) instead of `p-6` vs. `px-6 pt-6 pb-12`, so the footer inset below a custom screen or dashboard no longer depends on the screen type. Visible change: custom screens and dashboard screens gain 24px of bottom inset; form screens are unchanged.
+  - @cosmicdrift/kumiko-headless@0.244.0
+  - @cosmicdrift/kumiko-renderer@0.244.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.244.0
+
 ## 0.243.4
 
 ### Patch Changes

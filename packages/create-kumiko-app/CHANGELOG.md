@@ -1,5 +1,21 @@
 # create-kumiko-app
 
+## 0.4.282
+
+### Patch Changes
+
+- 2cb949e: The four `agent.*` reason codes now have en/de i18n texts, so the docs generator
+  stops skipping them and renders a reference page per reason instead of leaving
+  the agent error pages absent. `feature-manifest.json` additionally lists
+  `agent-tools`, which the use-all-bundled sample now mounts — the manifest is
+  introspected from that sample, so the bundled-feature reference had no entry for
+  it before.
+- Updated dependencies [2cb949e]
+- Updated dependencies [dc4e6a2]
+  - @cosmicdrift/kumiko-framework@0.244.0
+  - @cosmicdrift/kumiko-dev-server@0.244.0
+  - @cosmicdrift/kumiko-server-runtime@0.244.0
+
 ## 0.4.281
 
 ### Patch Changes
