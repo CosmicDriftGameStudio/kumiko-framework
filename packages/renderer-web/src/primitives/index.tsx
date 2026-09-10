@@ -25,6 +25,7 @@ import {
   type DataTableFacet,
   type DataTableProps,
   type FieldProps,
+  type FillContainerProps,
   type FormProps,
   type FormWidth,
   type GridCellProps,
@@ -2414,6 +2415,14 @@ function DefaultSection({
   );
 }
 
+function DefaultFillContainer({ children, testId }: FillContainerProps): ReactNode {
+  return (
+    <div data-testid={testId} className="flex flex-1 min-h-0 flex-col">
+      {children}
+    </div>
+  );
+}
+
 function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
   // "auto": content-sized items in a wrapping row (e.g. a metrics band of
   // self-sized tiles) instead of N equal-width, container-stretched tracks.
@@ -2669,4 +2678,5 @@ export const defaultPrimitives: CorePrimitives = {
   StatusBadge: DefaultStatusBadge,
   Metric: DefaultMetric,
   JsonView: DefaultJsonView,
+  FillContainer: DefaultFillContainer,
 };

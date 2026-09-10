@@ -73,7 +73,7 @@ export function RelatedListSection({
     initialValues: Readonly<Record<string, unknown>> | undefined,
   ) => void;
 }): ReactNode {
-  const { Banner, Section } = usePrimitives();
+  const { Banner, Section, FillContainer } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
@@ -208,15 +208,18 @@ export function RelatedListSection({
   // Section card wrapper here, `chromeless` above drops the table's own
   // card frame too, and `scrollBody` fills this wrapper's height so a long
   // Akte tab scrolls internally instead of stretching the page (fw#2722) —
-  // the list sits directly in the tab. The `flex-1 min-h-0 flex-col`
-  // wrapper is this section's link in RenderEdit's `fillHeight` chain (see
-  // render-edit.tsx): it is always this section's own root whenever
-  // hideTitle is set, since tabs mode narrows RenderEdit to exactly this
-  // one active section. Stacked (non-tabs) sections keep the card frame
-  // and document-flow height since they render a visible title and aren't
-  // confined to a tab panel.
+  // the list sits directly in the tab. `FillContainer` is this section's
+  // link in RenderEdit's `fillHeight` chain (see render-edit.tsx): it is
+  // always this section's own root whenever hideTitle is set, since tabs
+  // mode narrows RenderEdit to exactly this one active section. A platform
+  // primitive (not a raw `<div>`) because `renderer` stays DOM-free —
+  // `Section`/`Card` were rejected for this spot in favor of a dedicated
+  // chromeless primitive; see `FillContainerProps` in primitives.tsx.
+  // Stacked (non-tabs) sections keep the card frame and document-flow
+  // height since they render a visible title and aren't confined to a tab
+  // panel.
   if (hideTitle) {
-    return <div className="flex flex-1 min-h-0 flex-col">{content}</div>;
+    return FillContainer !== undefined ? <FillContainer>{content}</FillContainer> : content;
   }
 
   return (

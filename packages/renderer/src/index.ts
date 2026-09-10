@@ -184,6 +184,7 @@ export type {
   EmbeddedListInputProps,
   EmbeddedListTotal,
   FieldProps,
+  FillContainerProps,
   FormProps,
   FormWidth,
   GridCellProps,
