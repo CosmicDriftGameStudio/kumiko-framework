@@ -43,13 +43,19 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-// Form's `actions`/`secondaryActions` slots carry the header buttons under
-// test — passChildren alone would drop them. Wrapped in distinct testid'd
-// containers so a test can assert a banner rendered as a Form CHILD
-// (formError/actionError region) rather than inside the actions row — the
-// review finding this proves.
-const FormWithActions: ComponentType<FormProps> = ({ children, actions, secondaryActions }) => (
+// Header actions (and their error banner) now render inside ProjectionDetail's
+// own head Card, passed through as `headerRegion` (fw#2713) rather than
+// through Form's `actions`/`secondaryActions` slots — wrapped in a distinct
+// testid'd container so a test can assert both live there, not in the
+// actions/body regions Form itself owns.
+const FormWithActions: ComponentType<FormProps> = ({
+  children,
+  actions,
+  secondaryActions,
+  headerRegion,
+}) => (
   <>
+    {headerRegion !== undefined && <div data-testid="form-header">{headerRegion}</div>}
     <div data-testid="form-body">{children}</div>
     <div data-testid="form-actions">
       {secondaryActions}
@@ -410,7 +416,7 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     expect(navigated).toEqual({ screenId: "rent-edit", entityId: "rent-1" });
   });
 
-  test("a failed writeHandler action shows its error in the shared error region, NOT inside the action button row", async () => {
+  test("a failed writeHandler action shows its error in the head region, alongside the action button, NOT in Form's own actions/body regions (fw#2713)", async () => {
     const schema: FeatureSchema = {
       featureName: "app",
       entities: {},
@@ -441,13 +447,17 @@ describe("projectionDetail default edit action (fw#2166)", () => {
 
     const errorBanner = await waitFor(() => getByTestId("render-edit-action-error"));
     expect(errorBanner.textContent).toBe("archive failed: rent is still active");
-    // The banner must be a Form child (formError-adjacent region), not a
-    // descendant of the actions row — a full-width Banner inside the
-    // `justify-end` button row breaks its layout (fw#2166 review finding 5).
-    expect(errorBanner.closest('[data-testid="form-body"]')).not.toBeNull();
+    // Header actions (and their failure banner) render in the head Card via
+    // `headerRegion` now (fw#2713) — not through Form's own actions/body
+    // slots, so both a tab switch and Form's own footer leave them untouched.
+    expect(errorBanner.closest('[data-testid="form-header"]')).not.toBeNull();
+    expect(errorBanner.closest('[data-testid="form-body"]')).toBeNull();
     expect(errorBanner.closest('[data-testid="form-actions"]')).toBeNull();
     expect(
-      getByTestId("render-edit-action-archive").closest('[data-testid="form-actions"]'),
+      getByTestId("render-edit-action-archive").closest('[data-testid="form-header"]'),
     ).not.toBeNull();
+    expect(
+      getByTestId("render-edit-action-archive").closest('[data-testid="form-actions"]'),
+    ).toBeNull();
   });
 });

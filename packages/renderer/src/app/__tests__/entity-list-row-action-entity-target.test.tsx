@@ -292,8 +292,17 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-const FormWithActions: ComponentType<FormProps> = ({ children, actions, secondaryActions }) => (
+// headerRegion carries projectionDetail's header actions since fw#2713 — a
+// stub that only forwards children/actions/secondaryActions drops them
+// silently, as this test's own action button did until it grew this slot.
+const FormWithActions: ComponentType<FormProps> = ({
+  children,
+  actions,
+  secondaryActions,
+  headerRegion,
+}) => (
   <>
+    {headerRegion !== undefined && <div data-testid="form-header">{headerRegion}</div>}
     <div data-testid="form-body">{children}</div>
     <div data-testid="form-actions">
       {secondaryActions}
