@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.243.3",
+    "type": "improvement",
+    "title": "add-note gains an opt-in parents allowlist for entityType/entityId",
+    "detail": "Before this change, add-note took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could attach a note to any parent object, including one they couldn't otherwise see. createNotesHistoryFeature now accepts a `parents` option: an allowlist of entity names allowed as a note's parent. When set, add-note rejects any entityType not in the list, and for allowlisted types accepts only rows the caller can already see through that entity's own read path (tenant scope plus its `access.read` ownership). This is additive and opt-in — without `parents`, add-note's behavior is unchanged from before this release, so existing mounts keep working exactly as they do today."
+  },
+  {
     "version": "0.215.3",
     "type": "improvement",
     "title": "note-entry gains authorName, stamped at write time",

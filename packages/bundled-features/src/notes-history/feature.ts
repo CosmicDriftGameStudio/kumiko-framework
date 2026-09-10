@@ -30,6 +30,7 @@ function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,
   access: AccessRule,
   ownership: EntityDefinition["access"] | undefined,
+  parents: ReadonlySet<string> | undefined,
 ): void {
   r.describe(
     "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: true } }) or pin roles with createNotesHistoryFeature({ roles }).",
@@ -43,7 +44,7 @@ function registerNotesHistory(
   const entity = createNoteEntryEntity(ownership);
   r.entity("note-entry", entity);
 
-  r.writeHandler(createAddNoteHandler(access));
+  r.writeHandler(createAddNoteHandler(access, parents));
   r.queryHandler(
     defineEntityListHandler("note-entry", entity, {
       access,
@@ -56,7 +57,7 @@ function registerNotesHistory(
 }
 
 export const notesHistoryFeature = defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-  registerNotesHistory(r, DEFAULT_NOTES_HISTORY_ACCESS, undefined),
+  registerNotesHistory(r, DEFAULT_NOTES_HISTORY_ACCESS, undefined, undefined),
 );
 
 export type NotesHistoryFeatureOptions = {
@@ -83,6 +84,14 @@ export type NotesHistoryFeatureOptions = {
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
    *  sure any `ownership.write` you set covers that role, or leave it unset. */
   readonly ownership?: EntityDefinition["access"];
+  /** Allowlist of entity names that may be used as a note's parent
+   *  (entityType). When set, add-note rejects any entityType not in the
+   *  list, and — for entityType values that are in the list — accepts only
+   *  rows the caller can already see through the parent entity's own read
+   *  path (tenant scope plus that entity's `access.read` ownership). When
+   *  unset (the default), today's behavior is unchanged: any client-supplied
+   *  entityType/entityId is accepted without verification. */
+  readonly parents?: readonly string[];
 };
 
 function resolveAccess(opts: NotesHistoryFeatureOptions): AccessRule {
@@ -96,7 +105,12 @@ function resolveAccess(opts: NotesHistoryFeatureOptions): AccessRule {
 export function createNotesHistoryFeature(
   opts: NotesHistoryFeatureOptions = {},
 ): typeof notesHistoryFeature {
-  if (opts.access === undefined && opts.roles === undefined && opts.ownership === undefined) {
+  if (
+    opts.access === undefined &&
+    opts.roles === undefined &&
+    opts.ownership === undefined &&
+    opts.parents === undefined
+  ) {
     return notesHistoryFeature;
   }
   if (hasWhereRule(opts.ownership?.write)) {
@@ -109,7 +123,18 @@ export function createNotesHistoryFeature(
         "silently deny. Use a `from()` rule for ownership.write, or leave it unset.",
     );
   }
+  // A mount that accepts no parents at all can never take a note write —
+  // that's a config mistake, not a valid allowlist. Omit `parents` instead
+  // of passing an empty array.
+  if (opts.parents !== undefined && opts.parents.length === 0) {
+    throw new Error(
+      "createNotesHistoryFeature({ parents }): parents must not be an empty array — " +
+        "an empty allowlist rejects every add-note call. Omit `parents` to keep " +
+        "today's unrestricted behavior instead.",
+    );
+  }
+  const parents = opts.parents === undefined ? undefined : new Set(opts.parents);
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-    registerNotesHistory(r, resolveAccess(opts), opts.ownership),
+    registerNotesHistory(r, resolveAccess(opts), opts.ownership, parents),
   );
 }
