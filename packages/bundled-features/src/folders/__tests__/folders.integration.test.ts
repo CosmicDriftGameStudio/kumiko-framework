@@ -8,9 +8,16 @@
 //     defining difference from tags' many-to-many
 //   - clear-folder unfiles; set → clear → set resurrects the deterministic stream
 //   - referential integrity (unknown folderId rejected) + multi-tenant isolation
+//
+// set-folder/clear-folder verify that entityType names a registered entity and
+// that the host row is visible to the caller. This file's assertions are about
+// membership mechanics, not parent ownership, so the `credit` fixture below
+// stays unrestricted (no `access`) on purpose — every host row this file files
+// is seeded in beforeAll.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -18,6 +25,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { v5 as uuidv5 } from "uuid";
 import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks";
 import { FoldersHandlers, FoldersQueries } from "../constants";
 import { folderAssignmentEntity, folderEntity } from "../entity";
@@ -25,13 +33,65 @@ import { createFoldersFeature } from "../feature";
 
 const foldersFeature = createFoldersFeature();
 
+const CREDIT_TABLE = "folders_test_credits";
+const creditEntity = createEntity({
+  table: CREDIT_TABLE,
+  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+});
+const hostFixturesFeature = defineFeature("folders-test-host-fixtures", (r) => {
+  r.entity("credit", creditEntity);
+});
+
+// The parent entity's ids are uuid-shaped, but the readable labels below carry
+// the intent of each case — derive one from the other instead of scattering
+// opaque uuid literals through the assertions.
+const HOST_FIXTURE_NAMESPACE = "2c8a5f13-7d64-4b90-ae52-0f3d6c9b81e4";
+function hostId(label: string): string {
+  return uuidv5(label, HOST_FIXTURE_NAMESPACE);
+}
+
+const CREDIT_LABELS = [
+  "credit-1",
+  "credit-2",
+  "credit-3",
+  "credit-8",
+  "credit-never",
+  "credit-r",
+  "credit-x",
+  "credit-occupied",
+  "credit-occupied-2",
+  "credit-erase",
+  "c-y",
+];
+
+async function seedHostRows(
+  target: TestStack,
+  labels: readonly string[],
+  tenantId: string,
+): Promise<void> {
+  for (const label of labels) {
+    await asRawClient(target.db).unsafe(
+      `INSERT INTO ${CREDIT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
+      [hostId(label), tenantId, label],
+    );
+  }
+}
+
 let stack: TestStack;
 
+const admin = createTestUser({ roles: ["TenantAdmin"] });
+const otherTenant = createTestUser({
+  roles: ["TenantAdmin"],
+  tenantId: "00000000-0000-4000-8000-0000000000aa",
+});
+
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [foldersFeature] });
+  stack = await setupTestStack({ features: [foldersFeature, hostFixturesFeature] });
   await unsafeCreateEntityTable(stack.db, folderEntity);
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);
+  await unsafeCreateEntityTable(stack.db, creditEntity);
   await createEventsTable(stack.db);
+  await seedHostRows(stack, CREDIT_LABELS, admin.tenantId);
 });
 
 afterAll(async () => {
@@ -42,12 +102,6 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
   await asRawClient(stack.db).unsafe("DELETE FROM read_folders");
   await asRawClient(stack.db).unsafe("DELETE FROM read_folder_assignments");
-});
-
-const admin = createTestUser({ roles: ["TenantAdmin"] });
-const otherTenant = createTestUser({
-  roles: ["TenantAdmin"],
-  tenantId: "00000000-0000-4000-8000-0000000000aa",
 });
 
 async function createFolder(name: string, parentId?: string, user = admin): Promise<string> {
@@ -126,9 +180,9 @@ describe("folders integration — catalog (tree)", () => {
 describe("folders integration — single-membership set / move / clear", () => {
   test("set-folder files an entity; assignment is queryable", async () => {
     const f = await createFolder("Gruppe A");
-    await setFolder(f, "credit-1");
+    await setFolder(f, hostId("credit-1"));
 
-    const rows = await assignmentsOf("credit-1");
+    const rows = await assignmentsOf(hostId("credit-1"));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["folderId"]).toBe(f);
     expect(rows[0]?.["entityType"]).toBe("credit");
@@ -137,56 +191,56 @@ describe("folders integration — single-membership set / move / clear", () => {
   test("re-setting to a different folder MOVES (still exactly one row)", async () => {
     const a = await createFolder("A");
     const b = await createFolder("B");
-    await setFolder(a, "credit-1");
+    await setFolder(a, hostId("credit-1"));
     expect(await countAssignments(admin.tenantId)).toBe(1);
 
-    await setFolder(b, "credit-1"); // MOVE, not a second assignment
+    await setFolder(b, hostId("credit-1")); // MOVE, not a second assignment
     expect(await countAssignments(admin.tenantId)).toBe(1);
-    const rows = await assignmentsOf("credit-1");
+    const rows = await assignmentsOf(hostId("credit-1"));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["folderId"]).toBe(b);
   });
 
   test("set the same folder twice is an idempotent no-op (one row)", async () => {
     const f = await createFolder("dup");
-    await setFolder(f, "credit-2");
-    await setFolder(f, "credit-2");
+    await setFolder(f, hostId("credit-2"));
+    await setFolder(f, hostId("credit-2"));
     expect(await countAssignments(admin.tenantId)).toBe(1);
   });
 
   test("clear-folder unfiles the entity", async () => {
     const f = await createFolder("temp");
-    await setFolder(f, "credit-3");
+    await setFolder(f, hostId("credit-3"));
     expect(await countAssignments(admin.tenantId)).toBe(1);
 
-    await clearFolder("credit-3");
+    await clearFolder(hostId("credit-3"));
     expect(await countAssignments(admin.tenantId)).toBe(0);
-    expect(await assignmentsOf("credit-3")).toHaveLength(0);
+    expect(await assignmentsOf(hostId("credit-3"))).toHaveLength(0);
   });
 
   test("clearing a never-filed entity succeeds (idempotent end-state)", async () => {
-    await clearFolder("credit-never");
+    await clearFolder(hostId("credit-never"));
     expect(await countAssignments(admin.tenantId)).toBe(0);
   });
 
   test("set → clear → set resurrects the same deterministic stream", async () => {
     const f = await createFolder("recurring");
-    await setFolder(f, "credit-r");
-    await clearFolder("credit-r");
+    await setFolder(f, hostId("credit-r"));
+    await clearFolder(hostId("credit-r"));
     expect(await countAssignments(admin.tenantId)).toBe(0);
 
-    await setFolder(f, "credit-r"); // restore, not 409
+    await setFolder(f, hostId("credit-r")); // restore, not 409
     expect(await countAssignments(admin.tenantId)).toBe(1);
-    expect((await assignmentsOf("credit-r"))[0]?.["folderId"]).toBe(f);
+    expect((await assignmentsOf(hostId("credit-r")))[0]?.["folderId"]).toBe(f);
   });
 
   test("set → clear → set into a DIFFERENT folder lands in the new folder", async () => {
     const a = await createFolder("A");
     const b = await createFolder("B");
-    await setFolder(a, "credit-x");
-    await clearFolder("credit-x");
-    await setFolder(b, "credit-x"); // restore + update folderId to b
-    const rows = await assignmentsOf("credit-x");
+    await setFolder(a, hostId("credit-x"));
+    await clearFolder(hostId("credit-x"));
+    await setFolder(b, hostId("credit-x")); // restore + update folderId to b
+    const rows = await assignmentsOf(hostId("credit-x"));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["folderId"]).toBe(b);
   });
@@ -195,7 +249,7 @@ describe("folders integration — single-membership set / move / clear", () => {
 describe("folders integration — delete blocks on live assignments (658/1)", () => {
   test("deleting a folder that still holds an assignment is rejected, row survives", async () => {
     const f = await createFolder("occupied");
-    await setFolder(f, "credit-occupied");
+    await setFolder(f, hostId("credit-occupied"));
 
     const err = await stack.http.writeErr(FoldersHandlers.deleteFolder, { id: f }, admin);
     expect(err.httpStatus).toBe(422);
@@ -210,8 +264,8 @@ describe("folders integration — delete blocks on live assignments (658/1)", ()
 
   test("clearing the assignment first unblocks the delete", async () => {
     const f = await createFolder("occupied-then-cleared");
-    await setFolder(f, "credit-occupied-2");
-    await clearFolder("credit-occupied-2");
+    await setFolder(f, hostId("credit-occupied-2"));
+    await clearFolder(hostId("credit-occupied-2"));
 
     await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: f }, admin);
     expect((await listFolders()).some((row) => row["id"] === f)).toBe(false);
@@ -240,7 +294,11 @@ describe("folders integration — referential integrity", () => {
   test("set-folder with an unknown folderId is rejected (no dangling assignment)", async () => {
     const err = await stack.http.writeErr(
       FoldersHandlers.setFolder,
-      { folderId: "00000000-0000-4000-8000-00000000dead", entityType: "credit", entityId: "c-y" },
+      {
+        folderId: "00000000-0000-4000-8000-00000000dead",
+        entityType: "credit",
+        entityId: hostId("c-y"),
+      },
       admin,
     );
     expect(err.httpStatus).toBe(404);
@@ -251,10 +309,10 @@ describe("folders integration — referential integrity", () => {
 describe("folders integration — multi-tenant isolation", () => {
   test("tenant B sees neither tenant A's folders nor assignments", async () => {
     const f = await createFolder("A-only", undefined, admin);
-    await setFolder(f, "credit-8", admin);
+    await setFolder(f, hostId("credit-8"), admin);
 
     expect(await listFolders(otherTenant)).toHaveLength(0);
-    expect(await assignmentsOf("credit-8", otherTenant)).toHaveLength(0);
+    expect(await assignmentsOf(hostId("credit-8"), otherTenant)).toHaveLength(0);
 
     expect(await listFolders(admin)).toHaveLength(1);
     expect(await countAssignments(admin.tenantId)).toBe(1);
@@ -271,11 +329,13 @@ describe("folders integration — openToAll access model", () => {
 
   beforeAll(async () => {
     openStack = await setupTestStack({
-      features: [createFoldersFeature({ access: { openToAll: true } })],
+      features: [createFoldersFeature({ access: { openToAll: true } }), hostFixturesFeature],
     });
     await unsafeCreateEntityTable(openStack.db, folderEntity);
     await unsafeCreateEntityTable(openStack.db, folderAssignmentEntity);
+    await unsafeCreateEntityTable(openStack.db, creditEntity);
     await createEventsTable(openStack.db);
+    await seedHostRows(openStack, ["c-1"], unprivileged.tenantId);
   });
 
   afterAll(async () => {
@@ -290,7 +350,7 @@ describe("folders integration — openToAll access model", () => {
     );
     await openStack.http.writeOk(
       FoldersHandlers.setFolder,
-      { folderId: folder.id, entityType: "credit", entityId: "c-1" },
+      { folderId: folder.id, entityType: "credit", entityId: hostId("c-1") },
       unprivileged,
     );
     const folders = await openStack.http.queryOk<{ rows: unknown[] }>(
@@ -301,7 +361,7 @@ describe("folders integration — openToAll access model", () => {
     expect(folders.rows).toHaveLength(1);
     await openStack.http.writeOk(
       FoldersHandlers.clearFolder,
-      { entityType: "credit", entityId: "c-1" },
+      { entityType: "credit", entityId: hostId("c-1") },
       unprivileged,
     );
   });
@@ -324,7 +384,7 @@ describe("folders integration — openToAll access model", () => {
 describe("folders-user-data — tenantScopedDelete hooks", () => {
   async function seedOneFolderWithAssignment(): Promise<void> {
     const f = await createFolder("to-be-erased");
-    await setFolder(f, "credit-erase");
+    await setFolder(f, hostId("credit-erase"));
   }
 
   test("multi-user tenant: no-op, rows survive", async () => {
