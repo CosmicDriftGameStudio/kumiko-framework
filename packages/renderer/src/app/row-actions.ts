@@ -135,6 +135,51 @@ export function runProjectionRowNavigate(
   }
 }
 
+function buildNavigateRowAction(
+  action: RowActionNavigate,
+  translate: Translate,
+  nav: NavApi,
+): DataTableRowAction {
+  const { visible } = action;
+  const actionIcon = resolveActionIcon(action.id, action.icon);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row),
+    ...(visible !== undefined && {
+      isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+    }),
+  };
+}
+
+type OpenDrawer = (
+  action: RowActionDrawer,
+  initialValues: Readonly<Record<string, unknown>> | undefined,
+) => void;
+
+function buildDrawerRowAction(
+  action: RowActionDrawer,
+  translate: Translate,
+  openDrawer: OpenDrawer,
+): DataTableRowAction {
+  const { visible, params } = action;
+  const actionIcon = resolveActionIcon(action.id, action.icon);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    onTrigger: (row: ListRowViewModel) => {
+      openDrawer(action, params !== undefined ? evalRowExtractor(params, row.values) : undefined);
+    },
+    ...(visible !== undefined && {
+      isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+    }),
+  };
+}
+
 // Builds the DataTable-ready row-action set for a query-driven row source
 // (projectionList, relatedList) — navigate dispatches through
 // runProjectionRowNavigate, writeHandler dispatches through the shared
@@ -150,52 +195,19 @@ export function buildProjectionRowActions(options: {
   /** Opens the drawer-kind action's target actionForm, prefilled from the
    *  clicked row. Omitted callers (none today) simply drop drawer actions —
    *  mirrors the `dispatcher === undefined` skip below for writeHandler. */
-  readonly openDrawer?: (
-    action: RowActionDrawer,
-    initialValues: Readonly<Record<string, unknown>> | undefined,
-  ) => void;
+  readonly openDrawer?: OpenDrawer;
 }): readonly DataTableRowAction[] | undefined {
   const { rowActions, translate, dispatcher, nav, refetch, openDrawer } = options;
   if (rowActions === undefined) return undefined;
   const out: DataTableRowAction[] = [];
   for (const action of rowActions) {
     if (action.kind === "navigate") {
-      const navigateAction = action;
-      const visible = action.visible;
-      const actionIcon = resolveActionIcon(action.id, action.icon);
-      out.push({
-        id: action.id,
-        label: translate(action.label),
-        ...(action.style !== undefined && { style: action.style }),
-        ...(actionIcon !== undefined && { icon: actionIcon }),
-        onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, navigateAction, row),
-        ...(visible !== undefined && {
-          isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
-        }),
-      });
+      out.push(buildNavigateRowAction(action, translate, nav));
       continue;
     }
     if (action.kind === "drawer") {
       if (openDrawer === undefined) continue;
-      const drawerAction = action;
-      const visible = action.visible;
-      const actionIcon = resolveActionIcon(action.id, action.icon);
-      out.push({
-        id: action.id,
-        label: translate(action.label),
-        ...(action.style !== undefined && { style: action.style }),
-        ...(actionIcon !== undefined && { icon: actionIcon }),
-        onTrigger: (row: ListRowViewModel) => {
-          const initialValues =
-            drawerAction.params !== undefined
-              ? evalRowExtractor(drawerAction.params, row.values)
-              : undefined;
-          openDrawer(drawerAction, initialValues);
-        },
-        ...(visible !== undefined && {
-          isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
-        }),
-      });
+      out.push(buildDrawerRowAction(action, translate, openDrawer));
       continue;
     }
     // writeHandler (default-kind) — a swallowed failure result must become a

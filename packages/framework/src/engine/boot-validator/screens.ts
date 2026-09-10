@@ -403,6 +403,7 @@ function validateDrawerTargetAction(
   // A prefill key the target form doesn't declare is dropped silently by the
   // renderer (mergeSearchParamsIntoInitial iterates the target's fields), so
   // the typo would only show up as an empty field at click time.
+  // skip: no params extractor — nothing to check against the target's fields.
   if (action.params === undefined) return;
   const prefilledFields =
     "pick" in action.params ? action.params.pick : Object.keys(action.params.map);
