@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
@@ -569,5 +569,98 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () =>
     const deniedRes = await h.fetch(new Request("http://localhost/probe/missing"));
     expect(missRes.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
     expect(deniedRes.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+  });
+});
+
+// A dotted GET path (e.g. /marketing/hero.png) used to fall through the SPA
+// catch-all's "no dot" filter straight to the API stack and 404 — works in
+// prod (buildStaticFallback's disk lookup under staticDir) but not dev,
+// which had no public/-serving at all. publicDir is process.cwd()-relative
+// (same App-Root convention as resolveStylesheet's src/styles.css lookup),
+// so these tests chdir into a fixture directory for the boot.
+describe("createKumikoServer — public/ static files", () => {
+  test("GET on an existing file under public/ → 200, correct content-type + content", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-")));
+    const publicDir = join(tmpDir, "public");
+    mkdirSync(join(publicDir, "marketing"), { recursive: true });
+    writeFileSync(join(publicDir, "marketing", "hero.png"), "PNGDATA");
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/marketing/hero.png"));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
+      expect(await res.text()).toBe("PNGDATA");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("traversal attempts never serve a file from outside public/", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-traversal-")));
+    const publicDir = join(tmpDir, "public");
+    mkdirSync(publicDir, { recursive: true });
+    // Secret sits as a SIBLING of public/ — a traversal that escapes
+    // containment would read this instead of 404ing.
+    writeFileSync(join(tmpDir, "secret.txt"), "TOP-SECRET");
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+
+      // WHATWG URL parsing already collapses a literal ".." segment (it's
+      // delimited by a real "/"), so this pins the composed behavior —
+      // request never reaches secret.txt — rather than the guard itself.
+      const literal = await handle.fetch(new Request("http://localhost/../secret.txt"));
+      expect(literal.status).not.toBe(200);
+
+      // %2e%2e%2f is the actual vector the decode+resolve+containment guard
+      // exists for: URL path-parsing only normalizes dot-segments split by a
+      // literal "/", so an encoded slash survives untouched into pathname —
+      // without the explicit decode in resolvePublicFilePath this would
+      // resolve straight to tmpDir/secret.txt.
+      const encoded = await handle.fetch(new Request("http://localhost/%2e%2e%2fsecret.txt"));
+      expect(encoded.status).not.toBe(200);
+
+      // Neither attempt leaked the secret's content through any other path
+      // (e.g. as an error body).
+      expect(await literal.clone().text()).not.toContain("TOP-SECRET");
+      expect(await encoded.clone().text()).not.toContain("TOP-SECRET");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("a dot-less path still hits the SPA catch-all, not the public/-file lookup", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-spa-")));
+    const publicDir = join(tmpDir, "public");
+    mkdirSync(publicDir, { recursive: true });
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/some/client-route"));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toMatch(/text\/html/);
+      expect(await res.text()).toMatch(/<div id="root">/);
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

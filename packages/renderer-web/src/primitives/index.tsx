@@ -1238,12 +1238,12 @@ function DefaultDataTable({
       {hasToolbar && (
         <div
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
-          className="flex items-center gap-3"
+          className="flex flex-wrap items-center gap-3"
         >
           {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
           {facetCluster}
           {toolbarEnd !== undefined && (
-            <div className="flex items-center gap-2 ml-auto">{toolbarEnd}</div>
+            <div className="flex flex-wrap items-center gap-2 ml-auto">{toolbarEnd}</div>
           )}
         </div>
       )}
