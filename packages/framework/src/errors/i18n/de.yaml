@@ -1,7 +1,9 @@
-# i18n-Texte für FrameworkReasons (deutsch).
+# i18n-Texte für die Reason-Kataloge aus reasons.ts (deutsch).
 #
-# Schema pro Reason-Key (snake_case, identisch mit Wert in reasons.ts
-# FrameworkReasons):
+# Schema pro Reason-Key — der Key ist wörtlich der Reason-Wert, Punkte
+# inklusive: FrameworkReasons bleibt präfixfrei (`stale_state`), AgentReasons
+# behält seinen Namespace innerhalb eines flachen Keys
+# (`agent.tool_not_allowed`), nie als verschachtelte `agent:`-Map:
 #
 #   <reason_key>:
 #     endUser: |
@@ -81,3 +83,59 @@ feature_disabled:
     `details.feature` und `details.handler` zeigen welches Feature/Handler.
     Aktiviere das Feature via Feature-Toggle oder Routing-Config (siehe
     [Feature-Toggles](/en/feature-reference/feature-toggles/)).
+
+agent.tool_not_allowed:
+  endUser: |
+    Dieses Tool ist im aktuellen Modus nicht verfügbar.
+    Stell den Assistenten auf einen Modus um, der diese Aktion abdeckt, oder
+    führe sie selbst in der App aus.
+  developer: |
+    `AccessDeniedError` aus dem Tool-Dispatch des Agenten: das Modell hat einen
+    Tool-Namen außerhalb des für diesen Lauf gebauten Katalogs angefragt — ein
+    halluzinierter Name, oder ein Handler, den der aktuelle Agent-Modus nicht
+    freigibt.
+
+    Der Katalog wird aus der gemounteten Registry abgeleitet
+    (`buildToolCatalog`) — ein Handler ohne `description` wird also gar nicht
+    erst zum Tool. Handler beschreiben oder den Agent-Modus weiten, wenn der
+    Call funktionieren sollte.
+
+agent.iteration_limit:
+  endUser: |
+    Der Assistent hat die maximale Anzahl an Schritten erreicht, ohne eine
+    eindeutige Antwort zu finden.
+    Bitte formuliere die Anfrage um oder teile sie in kleinere Schritte.
+  developer: |
+    `UnprocessableError` aus der Agent-Loop: der Lauf hat sein Runden-Limit
+    erreicht, bevor das Modell eine Endantwort produziert hat — meist ein Tool,
+    das immer wieder denselben Fehler liefert, oder eine Aufgabe, die mehr
+    Schritte braucht als das Limit erlaubt.
+
+    Runden-Limit für den Lauf anheben oder die Aufgabe verkleinern. Die
+    Turn-Historie der Unterhaltung zeigt, welcher Tool-Call sich wiederholt hat.
+
+agent.permission_denied:
+  endUser: |
+    Dir fehlt die Berechtigung für diese Aktion.
+    Der Assistent darf nur das, was dein eigener Account darf.
+  developer: |
+    `AccessDeniedError` aus dem Tool-Dispatch des Agenten: das Tool steht im
+    Katalog, aber die Rollen des Aufrufers decken den dahinterliegenden Handler
+    nicht ab. Der Agent läuft strikt mit den Rechten des aufrufenden Users — er
+    eskaliert nie.
+
+    Rolle am Handler ergänzen, oder hinnehmen, dass dieses Tool für diesen User
+    nicht verfügbar ist.
+
+agent.high_risk_no_always:
+  endUser: |
+    Für risikoreiche Aktionen kann „immer erlauben“ nicht gesetzt werden.
+    Jeder Lauf dieser Aktion braucht deine ausdrückliche Bestätigung.
+  developer: |
+    `AccessDeniedError` aus dem Risiko-Gate des Agenten: ein Handler mit
+    `agent: { risk: "high" }` wurde ohne die ausdrückliche Einzel-Bestätigung
+    aufgerufen, die solche Handler verlangen, oder es sollte eine
+    „immer erlauben“-Regel dafür gesetzt werden.
+
+    Deklariertes Risiko senken, wenn die Aktion wirklich Routine ist —
+    ansonsten ist der Bestätigungsdialog genau das gewollte Verhalten.

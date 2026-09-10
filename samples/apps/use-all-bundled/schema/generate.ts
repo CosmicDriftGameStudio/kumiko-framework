@@ -312,6 +312,14 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/admin-shell",
     factory: "createAdminShellFeature",
   },
+  // agent-tools: tool catalog + boot-time doc lint only, no r.entity — the
+  // generator skips it and it is listed purely for the schema-check ↔
+  // mounted-set consistency.
+  "agent-tools": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/agent-tools",
+    factory: "createAgentToolsFeature",
+  },
   // compliance-profiles-ops: just a cross-tenant read on tenant/
   // compliance-profiles, no own r.entity → generate.ts skips silently.
   "compliance-profiles-ops": {

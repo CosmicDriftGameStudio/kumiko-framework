@@ -1,7 +1,9 @@
-# i18n texts for FrameworkReasons (english).
+# i18n texts for the reason catalogs in reasons.ts (english).
 #
-# Schema per reason key (snake_case, matches the value in
-# reasons.ts FrameworkReasons):
+# Schema per reason key — the key is the reason value verbatim, dots
+# included: FrameworkReasons stays prefix-free (`stale_state`), AgentReasons
+# keeps its namespace inside a flat key (`agent.tool_not_allowed`), never a
+# nested `agent:` map:
 #
 #   <reason_key>:
 #     endUser: |
@@ -78,3 +80,56 @@ feature_disabled:
     `details.feature` and `details.handler` indicate which feature and
     handler. Enable the feature via feature toggle or routing config (see
     [Feature Toggles](/en/feature-reference/feature-toggles/)).
+
+agent.tool_not_allowed:
+  endUser: |
+    This tool is not available in the current mode.
+    Switch the assistant to a mode that covers this action, or do it yourself
+    in the app.
+  developer: |
+    `AccessDeniedError` from the agent's tool dispatch: the model asked for a
+    tool name outside the catalog built for this run — a hallucinated name, or
+    a handler the current agent mode doesn't expose.
+
+    The catalog is derived from the mounted registry (`buildToolCatalog`), so a
+    handler without a `description` never becomes a tool at all. Describe the
+    handler, or widen the agent mode, if the call was meant to work.
+
+agent.iteration_limit:
+  endUser: |
+    The assistant reached the maximum number of steps without a clear answer.
+    Please rephrase the request or split it into smaller steps.
+  developer: |
+    `UnprocessableError` from the agent loop: the run hit its maximum round
+    count before the model produced a final answer — usually a tool that keeps
+    returning the same error, or a task that needs more steps than the limit
+    allows.
+
+    Raise the round limit for the run, or narrow the task. The conversation's
+    turn history shows which tool call kept repeating.
+
+agent.permission_denied:
+  endUser: |
+    You don't have permission for this action.
+    The assistant can only do what your own account is allowed to do.
+  developer: |
+    `AccessDeniedError` from the agent's tool dispatch: the tool exists in the
+    catalog, but the caller's roles don't cover the handler behind it. The
+    agent runs strictly with the calling user's permissions — it never
+    escalates.
+
+    Grant the role on the handler, or accept that this tool stays unavailable
+    for that user.
+
+agent.high_risk_no_always:
+  endUser: |
+    High-risk actions can't be set to "always allow".
+    Every run of this action needs your explicit confirmation.
+  developer: |
+    `AccessDeniedError` from the agent's risk gate: a handler declared
+    `agent: { risk: "high" }` was invoked without the explicit per-call
+    confirmation such handlers require, or an "always allow" rule was requested
+    for one.
+
+    Lower the declared risk if the action really is routine; otherwise the
+    confirmation prompt is the intended behaviour.

@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 72,
+  "featureCount": 73,
   "features": [
     {
       "name": "admin-shell",
@@ -25,6 +25,25 @@
       "uiHints": {
         "displayLabel": "Admin Shell",
         "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "agent-tools",
+      "description": "Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape. A handler or entity without a `description` stays invisible to the agent by construction (see `resolveAgentExposure`), while a screen stays visible unless it opts out with `agent: { expose: false }` (see `isAgentVisibleScreen`) — this feature surfaces the resulting gaps at boot and via `kumiko agent lint` so an app author notices before an agent silently can't see a feature.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "AI Agent Tools",
+        "category": "ai",
         "recommended": false
       }
     },
