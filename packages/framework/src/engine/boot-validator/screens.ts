@@ -407,7 +407,7 @@ function validateDrawerTargetAction(
   const prefilledFields =
     "pick" in action.params ? action.params.pick : Object.keys(action.params.map);
   for (const fieldName of prefilledFields) {
-    if (fieldName in target.fields) continue;
+    if (Object.hasOwn(target.fields, fieldName)) continue;
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
         `params prefills "${fieldName}", which drawer-target "${action.screen}" does not declare as a ` +

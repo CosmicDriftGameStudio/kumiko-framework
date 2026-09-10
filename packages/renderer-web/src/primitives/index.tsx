@@ -2063,6 +2063,59 @@ export function ScreenWidthProvider({
   return <ScreenWidthContext.Provider value={width}>{children}</ScreenWidthContext.Provider>;
 }
 
+// Extension sections that render their own <form> via BareFormProvider
+// (legacy custom-form pattern, e.g. ChangeEmailSection before fw#2703) land
+// inside RenderEdit's host <form> (ExtensionSectionMount, render-edit.tsx) —
+// nested <form> elements are invalid DOM, and real browsers can silently
+// fall back to a native GET submit of the OUTER form, leaking field values
+// into the URL (fw#2312, fw#2705). Degrading to a <div> when already inside
+// a form avoids the nesting; the captured click still routes to THIS form's
+// onSubmit instead of activating the real ancestor <form>.
+function FormRoot({
+  onSubmit,
+  testId,
+  className,
+  children,
+}: {
+  readonly onSubmit: FormProps["onSubmit"];
+  readonly testId?: string;
+  readonly className?: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  if (useContext(InsideFormContext)) {
+    return (
+      <div
+        onClickCapture={(e) => {
+          // @cast-boundary dom-event-target: closest() needs an Element, and
+          // click targets are always one in the browser/happy-dom.
+          const submitButton = (e.target as HTMLElement).closest(
+            "button[type=submit], button:not([type])",
+          );
+          if (submitButton === null) return;
+          e.preventDefault();
+          onSubmit();
+        }}
+        data-testid={testId}
+        className={className}
+      >
+        {children}
+      </div>
+    );
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(e);
+      }}
+      data-testid={testId}
+      className={className}
+    >
+      {children}
+    </form>
+  );
+}
+
 function DefaultForm({
   onSubmit,
   children,
@@ -2079,12 +2132,9 @@ function DefaultForm({
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
   if (useContext(BareFormContext)) {
     return (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(e);
-        }}
-        data-testid={testId}
+      <FormRoot
+        onSubmit={onSubmit}
+        testId={testId}
         className={cn(
           "flex flex-col gap-4",
           // Bare forms stack sections without a card; without a divider a
@@ -2099,7 +2149,7 @@ function DefaultForm({
             {actions}
           </div>
         )}
-      </form>
+      </FormRoot>
     );
   }
 
@@ -2107,14 +2157,7 @@ function DefaultForm({
   // between each other, muted action footer. Shell width defaults to full
   // (same chrome as lists); pass width to narrow (auth-adjacent / dense).
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(e);
-      }}
-      data-testid={testId}
-      className="flex flex-col w-full"
-    >
+    <FormRoot onSubmit={onSubmit} testId={testId} className="flex flex-col w-full">
       <FormScreenShell {...(width !== undefined && { maxWidth: width })}>
         {headerRegion !== undefined && (
           <div className="flex flex-col gap-6 mb-8">{headerRegion}</div>
@@ -2191,7 +2234,7 @@ function DefaultForm({
           )}
         </div>
       </FormScreenShell>
-    </form>
+    </FormRoot>
   );
 }
 
