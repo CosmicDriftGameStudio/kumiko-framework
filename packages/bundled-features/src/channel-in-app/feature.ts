@@ -19,7 +19,7 @@ export function createChannelInAppFeature(): FeatureDefinition {
     r.requires("delivery");
 
     r.storeTable(inAppMessagesTableMeta, {
-      reason: "in-app inbox: direct-write store of delivered notifications",
+      reason: "read_side.in_app_messages",
     });
 
     // Register as delivery channel via extension system
