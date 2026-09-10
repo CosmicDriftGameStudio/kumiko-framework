@@ -187,8 +187,9 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFea
         '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
         "layer (the read path, via buildOwnershipClause). Write paths that " +
         "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
-        "evaluate them: create throws at runtime, update/delete/forget/restore " +
-        "silently deny. Use a `from()` rule for ownership.write, or leave it unset.",
+        "evaluate them, so such a rule can only ever deny — boot validation " +
+        "rejects it too (fw#2626). Use a `from()` rule for ownership.write, or " +
+        "leave it unset.",
     );
   }
   const access = resolveAccess(opts);
