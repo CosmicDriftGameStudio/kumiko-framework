@@ -617,10 +617,13 @@ export type DataTableProps = {
    *  and would otherwise show a card nested inside that boundary. Default
    *  false: unchanged card-framed table. */
   readonly chromeless?: boolean;
-  /** Bounds the table to a fixed viewport-relative height and scrolls rows
+  /** Fills the available height of its flex container and scrolls rows
    *  internally instead of growing with row count — for a host that would
    *  otherwise have a long table stretch the whole page, or a short table
-   *  leave dead space below it (a tab panel, fw#2722). Default false:
+   *  leave dead space below it (a tab panel, fw#2722). Requires the same
+   *  flex-fill chain FormProps.fillHeight sets up above it; without that
+   *  ancestor chain this collapses to zero height (Web: `flex-1 min-h-0`
+   *  has no effect outside a sized flex-col ancestor). Default false:
    *  unchanged document-flow table that grows with its content. */
   readonly scrollBody?: boolean;
 };
@@ -755,6 +758,14 @@ export type FormProps = {
    *  instead of rendering as unpadded siblings before it. Native impls may
    *  ignore this prop. */
   readonly headerRegion?: ReactNode;
+  /** Sizes the form to fill its container's height (instead of the page's
+   *  natural content height) so a single scrolling child — a lone
+   *  relatedList tab's table — can scroll internally instead of stretching
+   *  the whole page (fw#2722). Only set by RenderEdit for a lone relatedList
+   *  tab section; every other caller leaves it unset and keeps normal
+   *  document-flow height. Native impls may ignore this prop (already a
+   *  bounded viewport there). */
+  readonly fillHeight?: boolean;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:

@@ -628,6 +628,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // true when editable fields exist or an extension opted into composed submit (fw#2359).
   const isFormEditable = hasEditableSection(filteredSections);
 
+  // A lone relatedList tab (hideSectionTitles is only ever set by the tabs
+  // layout, which also narrows filteredSections to that one active section)
+  // needs its own tab panel to fill the available height so its table
+  // scrolls inside the panel instead of the whole page stretching to the
+  // row count (fw#2722). Any other layout — multiple sections, a non-
+  // relatedList tab, stacked (non-tabs) forms — keeps normal document-flow
+  // height untouched.
+  const fillHeight = hideSectionTitles === true && filteredSections[0]?.kind === "relatedList";
+
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
   // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
@@ -1077,6 +1086,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
         {...(headerRegion !== undefined && { headerRegion })}
+        {...(fillHeight && { fillHeight })}
       >
         {draftCandidates !== null && (
           <Banner

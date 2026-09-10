@@ -79,7 +79,10 @@ function testPrimitives(): CorePrimitives {
   } as unknown as CorePrimitives;
 }
 
-function stubDispatcher(rows: readonly Record<string, unknown>[] = [{ id: "r1", name: "Alice" }]): {
+function stubDispatcher(
+  rows: readonly Record<string, unknown>[] = [{ id: "r1", name: "Alice" }],
+  nextCursor: string | null = null,
+): {
   dispatcher: Dispatcher;
   writes: Array<{ type: string; payload: unknown }>;
   queryCount: () => number;
@@ -93,7 +96,7 @@ function stubDispatcher(rows: readonly Record<string, unknown>[] = [{ id: "r1", 
     }) as Dispatcher["write"],
     query: (async () => {
       queryCalls += 1;
-      return { isSuccess: true, data: { rows, nextCursor: null } };
+      return { isSuccess: true, data: { rows, nextCursor } };
     }) as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
     statusStore: {
@@ -519,5 +522,47 @@ describe("RelatedListSection — sorting (fw#2722)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
+  });
+});
+
+describe("RelatedListSection — truncation banner (fw#2722 review)", () => {
+  test("nextCursor !== null renders a truncation banner", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], "cursor-abc");
+    renderRelatedList(dispatcher);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    const banner = rtlScreen.getByTestId("related-list-truncated");
+    expect(banner).toBeTruthy();
+    // Proves {count} actually interpolates (single-brace, the renderer's own
+    // i18n.tsx interpolate() syntax) rather than rendering as literal braces.
+    expect(banner.textContent).toContain("Showing the first 1 entries.");
+  });
+
+  test("nextCursor === null renders no truncation banner", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], null);
+    renderRelatedList(dispatcher);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
+  });
+
+  test("the banner shows regardless of an active sort — an unsorted truncated list is equally misleading", async () => {
+    const { dispatcher } = stubDispatcher(
+      [
+        { id: "r1", name: "Charlie", amount: 300 },
+        { id: "r2", name: "Alice", amount: 100 },
+      ],
+      "cursor-abc",
+    );
+    renderRelatedList(dispatcher, {
+      kind: "relatedList",
+      title: "Positions",
+      query: "lease:query:items:list",
+      columns: [{ field: "amount", sortable: true }],
+      defaultSort: { field: "amount", dir: "asc" },
+    });
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("related-list-truncated")).toBeTruthy();
   });
 });

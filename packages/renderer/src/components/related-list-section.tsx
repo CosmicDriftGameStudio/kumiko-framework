@@ -162,6 +162,14 @@ export function RelatedListSection({
   );
   const rowActionMode = rowActionModeFor(rowActions);
 
+  // A truncated fetch means `sortedRows` is a sort of a partial set, not of
+  // the full related-row set — the client-side sort above (or even plain
+  // unsorted display) would silently claim "these are the top N" when they
+  // are really just "the first N in the server's own order" (fw#2722 review).
+  // `nextCursor` is exactly how the paged envelope marks that: non-null means
+  // more rows exist server-side beyond what was fetched.
+  const truncated = rowsQuery.data !== null && rowsQuery.data.nextCursor !== null;
+
   const content =
     rowsQuery.loading && rowsQuery.data === null ? (
       <Banner padded variant="loading" testId="related-list-loading">
@@ -172,29 +180,44 @@ export function RelatedListSection({
         {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
       </Banner>
     ) : (
-      <RenderList
-        screen={listScreen}
-        entity={entity}
-        rows={sortedRows}
-        featureName={featureName}
-        translate={effectiveTranslate}
-        sort={sort}
-        onSortChange={setSort}
-        {...(onRowClick !== undefined && { onRowClick })}
-        {...(rowActions !== undefined && { rowActions })}
-        {...(rowActionMode !== undefined && { rowActionMode })}
-        {...(hideTitle === true && { chromeless: true, scrollBody: true })}
-      />
+      <>
+        {truncated && (
+          <Banner variant="info" testId="related-list-truncated">
+            {effectiveTranslate("kumiko.list.related-list-truncated", {
+              count: sortedRows.length,
+            })}
+          </Banner>
+        )}
+        <RenderList
+          screen={listScreen}
+          entity={entity}
+          rows={sortedRows}
+          featureName={featureName}
+          translate={effectiveTranslate}
+          sort={sort}
+          onSortChange={setSort}
+          {...(onRowClick !== undefined && { onRowClick })}
+          {...(rowActions !== undefined && { rowActions })}
+          {...(rowActionMode !== undefined && { rowActionMode })}
+          {...(hideTitle === true && { chromeless: true, scrollBody: true })}
+        />
+      </>
     );
 
   // hideTitle (tabs mode) → the tab panel is already the boundary: no
   // Section card wrapper here, `chromeless` above drops the table's own
-  // card frame too, and `scrollBody` bounds the table height so a long
-  // Akte tab scrolls internally instead of stretching the page (fw#2722)
-  // — the list sits directly in the tab. Stacked (non-tabs) sections keep
-  // the card frame and document-flow height since they render a visible
-  // title and aren't confined to a tab panel.
-  if (hideTitle) return content;
+  // card frame too, and `scrollBody` fills this wrapper's height so a long
+  // Akte tab scrolls internally instead of stretching the page (fw#2722) —
+  // the list sits directly in the tab. The `flex-1 min-h-0 flex-col`
+  // wrapper is this section's link in RenderEdit's `fillHeight` chain (see
+  // render-edit.tsx): it is always this section's own root whenever
+  // hideTitle is set, since tabs mode narrows RenderEdit to exactly this
+  // one active section. Stacked (non-tabs) sections keep the card frame
+  // and document-flow height since they render a visible title and aren't
+  // confined to a tab panel.
+  if (hideTitle) {
+    return <div className="flex flex-1 min-h-0 flex-col">{content}</div>;
+  }
 
   return (
     <Section title={section.title} testId={`related-list-${section.title}`}>
