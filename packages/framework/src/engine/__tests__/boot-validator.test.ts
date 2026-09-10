@@ -1099,6 +1099,58 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
+    test("fw#2639: a where-rule with an unqualified column inside a subquery fails boot", () => {
+      const features = [
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { entityId: createTextField({ required: true }) },
+              access: {
+                read: {
+                  Auditor: {
+                    kind: "where",
+                    where: (_user, ctx) => ({
+                      sqlText: `EXISTS (SELECT 1 FROM teams t WHERE t.entity_id = entity_id AND t.team_id = $${ctx.paramStart})`,
+                      params: ["team-a"],
+                    }),
+                  },
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/unqualified/i);
+    });
+
+    test("fw#2639: the same where-rule, correctly qualified, passes boot", () => {
+      const features = [
+        defineFeature("orders", (r) => {
+          r.entity(
+            "order",
+            createEntity({
+              table: "orders",
+              fields: { entityId: createTextField({ required: true }) },
+              access: {
+                read: {
+                  Auditor: {
+                    kind: "where",
+                    where: (_user, ctx) => ({
+                      sqlText: `EXISTS (SELECT 1 FROM teams t WHERE t.entity_id = ${ctx.tableName}.entity_id AND t.team_id = $${ctx.paramStart})`,
+                      params: ["team-a"],
+                    }),
+                  },
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
     test("framework columns (id, tenantId, version, ...) are acceptable targets", () => {
       const features = [
         defineFeature("teams", (r) => {

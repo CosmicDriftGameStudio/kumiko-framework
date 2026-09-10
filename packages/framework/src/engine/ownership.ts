@@ -23,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { toSnakeCase } from "../db/table-builder";
 import type { SessionUser } from "./types";
+import { assertQualifiedWhereFragment, tableColumnSqlNames } from "./where-rule-lint";
 
 // Types live in engine/types/ownership.ts (no runtime dependency); re-exported
 // here for backwards compatibility with existing importers of this file.
@@ -349,6 +350,14 @@ function ruleToFragment(
       tableName: tableNameOf(table),
       paramStart,
     });
+    // Runtime backstop for the boot-time probe (boot-validator/ownership.ts):
+    // an unqualified column in a correlated subquery silently turns into a
+    // fail-open tautology (fw#2639) — throw instead of shipping it.
+    assertQualifiedWhereFragment(
+      frag.sqlText,
+      tableColumnSqlNames(table),
+      `ownership where-rule on "${tableNameOf(table)}"`,
+    );
     return { kind: "sql", sqlText: frag.sqlText, params: frag.params };
   }
   // FromRule

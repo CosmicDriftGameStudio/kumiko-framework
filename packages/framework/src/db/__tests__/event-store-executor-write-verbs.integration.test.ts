@@ -8,9 +8,16 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, transaction } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import { from } from "../../engine/ownership";
+import { createSystemUser } from "../../engine/system-user";
 import { createEventsTable } from "../../event-store";
 import type { EntityCache } from "../../pipeline/entity-cache";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import {
+  createTestDb,
+  createTestUser,
+  type TestDb,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -116,6 +123,40 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
       `SELECT type FROM kumiko_events WHERE type = 'esWriteRestricted.forgotten'`,
     )) as unknown[];
     expect(events).toHaveLength(1);
+  });
+
+  test("forget: framework system user bypasses ownership (fw#2639 — GDPR erasure runs as SYSTEM)", async () => {
+    const created = await crud.create({ email: "erase-me@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const systemUser = createSystemUser(admin.tenantId);
+    const result = await crud.forget({ id: created.data.id }, systemUser, tdb);
+    expect(result.isSuccess).toBe(true);
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT id FROM read_es_write_restricted WHERE email = 'erase-me@test.de'`,
+    )) as unknown[];
+    expect(rows).toHaveLength(0);
+
+    const events = (await asRawClient(testDb.db).unsafe(
+      `SELECT type FROM kumiko_events WHERE type = 'esWriteRestricted.forgotten' AND aggregate_id = $1`,
+      [String(created.data.id)],
+    )) as unknown[];
+    expect(events).toHaveLength(1);
+  });
+
+  test('forget: a role named "system" that isn\'t the framework SYSTEM_USER_ID is still denied', async () => {
+    // Proves the bypass is keyed on the id, not just the role name — a
+    // tenant-defined "system" role must not get an accidental Art.17
+    // shortcut around access.write.
+    const created = await crud.create({ email: "not-system@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const impostor = createTestUser({ id: 42, roles: ["system"] });
+    const result = await crud.forget({ id: created.data.id }, impostor, tdb);
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect((result.error.details as { reason?: string }).reason).toBe("ownership_denied");
   });
 
   test("restore: role without a write-rule → ownership_denied", async () => {

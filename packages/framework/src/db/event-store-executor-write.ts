@@ -1,6 +1,7 @@
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership";
-import type { EntityId } from "../engine/types";
+import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
+import type { EntityId, SessionUser } from "../engine/types";
 import {
   VersionConflictError as FrameworkVersionConflict,
   IdempotentReplayError,
@@ -27,6 +28,13 @@ import {
   tryMapUniqueViolation,
 } from "./event-store-executor-context";
 import { runInSavepointIfSupported, selectMany } from "./query";
+
+// Art. 17 erasure runs as the framework operator, not as a row owner; a
+// per-role ownership map can never cover it, and a silent deny means the
+// erasure never happened.
+function isFrameworkSystemUser(user: SessionUser): boolean {
+  return user.id === SYSTEM_USER_ID && user.roles.includes(SYSTEM_ROLE);
+}
 
 // The five write verbs (create/update/delete/forget/restore) of the event-
 // store-executor. Split out of event-store-executor.ts (#1005, Welle 2) —
@@ -616,7 +624,10 @@ export function createWriteVerbs(
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
       const existing = await decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
 
-      if (!userCanWriteFieldRow(user, entity.access?.write, existing, existing)) {
+      if (
+        !isFrameworkSystemUser(user) &&
+        !userCanWriteFieldRow(user, entity.access?.write, existing, existing)
+      ) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
             i18nKey: "errors.ownershipDenied",

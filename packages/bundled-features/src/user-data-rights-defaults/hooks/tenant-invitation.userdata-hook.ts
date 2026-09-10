@@ -6,7 +6,7 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared";
+import { assertErased, decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
 import { userTable } from "../../user";
 import { featureMounted } from "./feature-mounted";
@@ -100,7 +100,7 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
       const id = row["id"]; // @cast-boundary db-row
       if (typeof id !== "string") continue;
       if (strategy === "delete") {
-        await crud.forget({ id }, systemUser, tdb);
+        assertErased(await crud.forget({ id }, systemUser, tdb), "tenant-invitation", id);
       } else {
         // Row-id in the pseudonym keeps the (tenantId, email) unique index
         // collision-free when a user has invitations in several states.
