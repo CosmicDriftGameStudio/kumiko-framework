@@ -44,10 +44,40 @@ export type WhereRuleProbe = {
 // SQL, so it is the only path on which a where-rule is admissible.
 export type AccessPath = "read" | "write";
 
+// Qualified-name → definition map of every claim key in the mounted feature
+// set. `from("claim:<feature>:<key>")` rules resolve against exactly this.
+export function collectClaimKeys(
+  features: readonly FeatureDefinition[],
+): Map<string, ClaimKeyDefinition> {
+  const claimKeys = new Map<string, ClaimKeyDefinition>();
+  for (const f of features) {
+    for (const def of Object.values(f.claimKeys)) {
+      claimKeys.set(def.qualifiedName, def);
+    }
+  }
+  return claimKeys;
+}
+
+// Subset-safe ownership validation for callers that mount a deliberate slice
+// of the app rather than all of it (setupTestStack). Both cross-feature
+// corpora go in as undefined — a three-feature stack genuinely does not know
+// which roles and claims the whole app declares, and answering that question
+// from a slice produces false "unknown role"/"unknown claim" errors. The
+// subset-invariant checks (#2639 where-lint, #2626 where-on-write, unknown
+// column) run in full: those hold or fail per feature, whatever else is
+// mounted.
+export function validateOwnershipBoot(features: readonly FeatureDefinition[]): void {
+  for (const feature of features) {
+    validateOwnershipRules(feature, undefined, undefined);
+  }
+}
+
+// undefined corpus = "this caller cannot answer that question", not "skip the
+// check" — see validateOwnershipBoot. validateBoot passes the real corpora.
 export function validateOwnershipRules(
   feature: FeatureDefinition,
-  allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>,
-  knownRoles: ReadonlySet<string>,
+  allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition> | undefined,
+  knownRoles: ReadonlySet<string> | undefined,
 ): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const columnNames = new Set<string>(Object.keys(entity.fields));
@@ -126,8 +156,8 @@ export function validateOwnershipRules(
 export function checkFieldAccess(args: {
   readonly access: OwnershipMap | readonly string[] | undefined;
   readonly columnNames: ReadonlySet<string>;
-  readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>;
-  readonly knownRoles: ReadonlySet<string>;
+  readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition> | undefined;
+  readonly knownRoles: ReadonlySet<string> | undefined;
   readonly scope: string;
   readonly featureName: string;
   readonly probe?: WhereRuleProbe;
@@ -162,12 +192,12 @@ export function checkFieldAccess(args: {
 
 export function checkLegacyRoleList(
   roles: readonly string[],
-  knownRoles: ReadonlySet<string>,
+  knownRoles: ReadonlySet<string> | undefined,
   scope: string,
   featureName: string,
 ): void {
-  // skip: no handler-declared roles in this app, role-validation disabled
-  if (!shouldValidateRoles(knownRoles)) return;
+  // skip: corpus cannot answer "is this role real?" — see canValidateRoles
+  if (!canValidateRoles(knownRoles)) return;
   for (const roleName of roles) {
     if (!knownRoles.has(roleName)) {
       throw new Error(buildUnknownRoleMessage(roleName, knownRoles, scope, featureName));
@@ -175,13 +205,15 @@ export function checkLegacyRoleList(
   }
 }
 
-// Only validate role-existence when at least one handler in the system has
-// declared a non-builtin role. Apps that run entirely on openToAll +
-// system-role handlers don't benefit from role-typo detection and would
-// otherwise get false-positive errors on every OwnershipMap — their
-// knownRoles corpus is empty beyond "all"/"system", so any app-defined
-// role would flag as unknown.
-export function shouldValidateRoles(knownRoles: ReadonlySet<string>): boolean {
+// A role corpus can only answer "is this role real?" when it actually holds
+// app-defined roles. undefined means the caller could not derive one at all
+// (a test stack mounts a deliberate subset of the app), and a corpus of
+// nothing but "all"/"system" belongs to an app whose handlers never declare
+// a role — in both cases every app-defined role would flag as unknown.
+export function canValidateRoles(
+  knownRoles: ReadonlySet<string> | undefined,
+): knownRoles is ReadonlySet<string> {
+  if (!knownRoles) return false;
   for (const r of knownRoles) {
     if (r !== "all" && r !== "system") return true;
   }
@@ -191,8 +223,8 @@ export function shouldValidateRoles(knownRoles: ReadonlySet<string>): boolean {
 export function checkOwnershipMap(args: {
   readonly map: OwnershipMap;
   readonly columnNames: ReadonlySet<string>;
-  readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>;
-  readonly knownRoles: ReadonlySet<string>;
+  readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition> | undefined;
+  readonly knownRoles: ReadonlySet<string> | undefined;
   readonly scope: string;
   readonly featureName: string;
   readonly probe?: WhereRuleProbe;
@@ -201,9 +233,8 @@ export function checkOwnershipMap(args: {
   for (const [roleName, rawRule] of Object.entries(args.map)) {
     // Role-existence check — typos like `{"Admi": "all"}` where no handler
     // or other map mentions "Admi" would otherwise silently grant nothing.
-    // Skip when no app-defined roles exist anywhere (handler-less or
-    // system-only apps — shouldValidateRoles returns false there).
-    if (shouldValidateRoles(args.knownRoles) && !args.knownRoles.has(roleName)) {
+    // Cross-feature, so it needs a corpus that can answer the question.
+    if (canValidateRoles(args.knownRoles) && !args.knownRoles.has(roleName)) {
       throw new Error(
         buildUnknownRoleMessage(roleName, args.knownRoles, args.scope, args.featureName),
       );
@@ -216,12 +247,14 @@ export function checkOwnershipMap(args: {
       if (args.path === "write") {
         throw new Error(buildWhereOnWritePathMessage(roleName, args.scope, args.featureName));
       }
-      probeWhereRule(rule, roleName, args.probe, args.scope);
+      probeWhereRule(rule, roleName, args.probe, args.scope, args.featureName);
       continue; // escape hatch — feature author owns the SQL
     }
 
     // FromRule — validate ref + column.
-    if (rule.refKind === "claim") {
+    // Claim-existence is cross-feature: only the whole-app corpus can tell a
+    // typo from a claim declared in a feature this caller did not mount.
+    if (rule.refKind === "claim" && args.allClaimKeys) {
       // refPath is the qualified claim name ("feature:shortName").
       const claim = args.allClaimKeys.get(rule.refPath);
       if (!claim) {
@@ -258,6 +291,7 @@ export function probeWhereRule(
   roleName: string,
   probe: WhereRuleProbe | undefined,
   scope: string,
+  featureName: string,
 ): void {
   // skip: no probe means the entity's column set could not be derived above;
   // without it there is nothing to check the rule's SQL against, so the
@@ -277,7 +311,11 @@ export function probeWhereRule(
   // skip: a rule producing no SQL fragment for the probe user has nothing to
   // lint here; ruleToFragment still validates it against a real request.
   if (typeof fragment?.sqlText !== "string") return;
-  assertQualifiedWhereFragment(fragment.sqlText, probe.columns, `${scope} (role "${roleName}")`);
+  assertQualifiedWhereFragment(
+    fragment.sqlText,
+    probe.columns,
+    `${scope} (role "${roleName}", feature: "${featureName}")`,
+  );
 }
 
 export function buildWhereOnWritePathMessage(

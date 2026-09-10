@@ -11,7 +11,7 @@ import type { OwnershipMap, WhereRule } from "../../types/ownership";
 import { validateOwnershipRules } from "../ownership";
 
 const NO_CLAIMS: ReadonlyMap<string, ClaimKeyDefinition> = new Map();
-// Empty corpus keeps shouldValidateRoles() false, so role-existence checks
+// Empty corpus keeps canValidateRoles() false, so role-existence checks
 // stay out of the way of the where-rule assertions below.
 const NO_ROLES: ReadonlySet<string> = new Set();
 
