@@ -110,6 +110,10 @@ export type RenderListProps = {
   readonly onFilterChange?: (field: string, values: readonly string[]) => void;
   /** Reset aller aktiven Facets. */
   readonly onFilterReset?: () => void;
+  /** Forwarded to `DataTableProps.chromeless` — drops the table's own card
+   *  frame for a host that already provides one (relatedList in a tabs-mode
+   *  section, fw#2722). Default false. */
+  readonly chromeless?: boolean;
 };
 
 // Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
@@ -158,6 +162,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     filterValues,
     onFilterChange,
     onFilterReset,
+    chromeless,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -372,6 +377,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(filterValues !== undefined && { filterValues })}
         {...(onFilterChange !== undefined && { onFilterChange })}
         {...(onFilterReset !== undefined && { onFilterReset })}
+        {...(chromeless !== undefined && { chromeless })}
         testId="render-list-table"
       />
     </>

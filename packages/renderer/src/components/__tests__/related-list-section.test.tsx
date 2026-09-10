@@ -167,6 +167,71 @@ function renderRelatedList(
   );
 }
 
+describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
+  test("hideTitle (tabs mode) renders the list without a Section wrapper and marks the table chromeless", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedChromeless: boolean | undefined;
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedChromeless = props.chromeless;
+      return testDataTable(props);
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={historySection}
+                parentId="order-1"
+                featureName="orders"
+                hideTitle
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId(`related-list-${historySection.title}`)).toBeNull();
+    expect(capturedChromeless).toBe(true);
+  });
+
+  test("without hideTitle (stacked mode), the same section keeps its Section wrapper and an un-chromeless table", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedChromeless: boolean | undefined;
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedChromeless = props.chromeless;
+      return testDataTable(props);
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={historySection}
+                parentId="order-1"
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.getByTestId(`related-list-${historySection.title}`)).toBeTruthy();
+    expect(capturedChromeless).toBeUndefined();
+  });
+});
+
 describe("RelatedListSection — rowActions", () => {
   test("clicking a row action dispatches through the configured write-handler with the extracted payload, then refetches", async () => {
     const { dispatcher, writes, queryCount } = stubDispatcher();
