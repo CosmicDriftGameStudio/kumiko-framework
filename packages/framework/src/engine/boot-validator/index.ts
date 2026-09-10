@@ -1,6 +1,6 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
-import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
+import type { FeatureDefinition } from "../types";
 import { warnOnUniqueAccessRoles } from "./access-roles";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
@@ -44,7 +44,7 @@ import {
   validateNavs,
   warnOnNavAccessInversion,
 } from "./nav";
-import { validateOwnershipRules } from "./ownership";
+import { collectClaimKeys, validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
 import { validateProjectionListScreens } from "./projection-list-screens";
 import { validateQueryOutputColumns } from "./query-output-columns";
@@ -119,12 +119,7 @@ export function validateBoot(
   // `from("claim:<feature>:<key>")` strings against this map. Qualified name
   // is how the resolver / readClaim / ownership system all reference claims,
   // so we key on the qualifiedName here too.
-  const allClaimKeys = new Map<string, ClaimKeyDefinition>();
-  for (const f of features) {
-    for (const def of Object.values(f.claimKeys)) {
-      allClaimKeys.set(def.qualifiedName, def);
-    }
-  }
+  const allClaimKeys = collectClaimKeys(features);
 
   // Cross-feature role set — derived from handler-access rules + framework
   // built-ins ("all", "system"). We don't have a dedicated role-registry

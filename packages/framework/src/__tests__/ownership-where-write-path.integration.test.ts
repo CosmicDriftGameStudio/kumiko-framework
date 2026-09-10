@@ -4,9 +4,10 @@
 // (userCanCreateFieldRow / userCanWriteFieldRow); there is no SQL layer on the
 // write path to run a where-rule against, and on create there is not even a
 // row yet. Boot validation rejects the shape outright
-// (boot-validator/ownership.ts), but setupTestStack wires the registry without
-// validateBoot, so this suite still reaches the runtime path the boot guard
-// protects and pins it to a fail-closed deny instead of a 500.
+// (boot-validator/ownership.ts) and setupTestStack now runs that guard too, so
+// the rule is installed after the stack is up — that is the only way left to
+// reach the runtime path behind the guard and pin it to a fail-closed deny
+// instead of a 500.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../db/query";
@@ -17,7 +18,7 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "../engine";
-import type { SessionUser, WhereRule } from "../engine/types";
+import type { OwnershipRule, SessionUser, WhereRule } from "../engine/types";
 import {
   createTestUser,
   setupTestStack,
@@ -36,6 +37,10 @@ const ownerWhereRule: WhereRule = {
   }),
 };
 
+// Admin keeps a plain rule so the suite can seed rows over real HTTP; Member
+// is the shape under test and is swapped in after boot (see beforeAll).
+const memoWriteAccess: Record<string, OwnershipRule> = { Admin: "all", Member: "all" };
+
 const memoEntity = createEntity({
   table: "fw2626_memos",
   softDelete: true,
@@ -45,9 +50,7 @@ const memoEntity = createEntity({
   },
   access: {
     read: { Admin: "all", Member: "all" },
-    // Admin keeps a plain rule so the suite can seed rows over real HTTP;
-    // Member is the shape under test.
-    write: { Admin: "all", Member: ownerWhereRule },
+    write: memoWriteAccess,
   },
 });
 
@@ -81,6 +84,7 @@ let seeded: { id: string; version: number };
 beforeAll(async () => {
   stack = await setupTestStack({ features: [memosFeature] });
   await unsafeCreateEntityTable(stack.db, memoEntity, "memo");
+  memoWriteAccess["Member"] = ownerWhereRule;
 });
 
 afterAll(async () => {

@@ -1266,7 +1266,7 @@ describe("boot-validator", () => {
       // Apps running only on openToAll / system handlers have no corpus
       // of known roles beyond "all"/"system" — validator must not flag
       // their OwnershipMap roles as unknown. This is the regression test
-      // for the shouldValidateRoles gate.
+      // for the canValidateRoles gate.
       const features = [
         defineFeature("orders", (r) => {
           r.entity(

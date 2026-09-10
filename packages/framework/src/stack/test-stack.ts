@@ -5,6 +5,7 @@ import { buildServer } from "../api/server";
 import { createSseBroker, type SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import { extractTableInfo } from "../db/query";
+import { validateOwnershipBoot } from "../engine/boot-validator/ownership";
 import { createRegistry } from "../engine/registry";
 import type { AppContext, FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
@@ -179,6 +180,14 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // Temporal ein No-Op.
   const { ensureTemporalPolyfill } = await import("../time/polyfill");
   await ensureTemporalPolyfill();
+
+  // Ownership boot-guards (fw#2639 unqualified where-fragments, fw#2626
+  // where-rules on the write path) otherwise run only in the prod boot via
+  // validateBoot, leaving every test stack blind to a broken access map.
+  // Runs after the polyfill (buildEntityTable needs it to derive the probe
+  // columns) and before the ephemeral DB/Redis exist, so a throw can't leak
+  // a database that nothing will clean up.
+  validateOwnershipBoot(options.features);
 
   // Forward db-name/persistent-flag through to createTestDb. The
   // defaults (undefined dbName, persistent:false) keep the legacy
