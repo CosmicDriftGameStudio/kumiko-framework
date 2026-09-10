@@ -20,8 +20,8 @@ type WriteResult = Awaited<ReturnType<typeof fieldDefinitionExecutor.create>>;
 // restore-before-create matters: a create() version_conflict aborts the
 // surrounding tx, so a follow-up restore()/update() on the same connection would
 // fail with "current transaction is aborted". detail() (a read) + restore()
-// (which sees soft-deleted rows via selectMany and only writes on success) keep
-// the tx clean until the single terminal write.
+// (which sees soft-deleted rows via a tenant-scoped fetch and only writes on
+// success) keep the tx clean until the single terminal write.
 export async function defineOrResurrectFieldDefinition(
   aggregateId: string,
   columns: FieldDefinitionColumns,
