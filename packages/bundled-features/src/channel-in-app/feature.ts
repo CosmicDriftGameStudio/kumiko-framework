@@ -4,6 +4,7 @@ import { markAllReadWrite } from "./handlers/mark-all-read.write";
 import { markReadWrite } from "./handlers/mark-read.write";
 import { unreadCountQuery } from "./handlers/unread-count.query";
 import { inAppChannel } from "./in-app-channel";
+import { inAppMessagesTableMeta } from "./tables";
 
 export function createChannelInAppFeature(): FeatureDefinition {
   return defineFeature("channel-in-app", (r) => {
@@ -16,6 +17,10 @@ export function createChannelInAppFeature(): FeatureDefinition {
       recommended: false,
     });
     r.requires("delivery");
+
+    r.storeTable(inAppMessagesTableMeta, {
+      reason: "in-app inbox: direct-write store of delivered notifications",
+    });
 
     // Register as delivery channel via extension system
     r.useExtension("deliveryChannel", "inApp", {
