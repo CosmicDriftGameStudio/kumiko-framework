@@ -1,5 +1,38 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.246.0
+
+### Minor Changes
+
+- 137191d: Close the same write-path gap in tags and folders that 0.244.0 closed for notes-history: `assign-tag`, `remove-tag`, `set-folder` and `clear-folder` took `entityType`/`entityId` straight from the client with no check, so any dispatch-eligible tenant user could tag, untag, file or unfile an object they had no read access to. The assignment aggregate-ids are derived from the tenant, so this was never cross-tenant — it was crossing a row-level ownership boundary inside one's own tenant. All four handlers now unconditionally verify that `entityType` names a registered entity and that the host row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before writing; either check failing returns a not_found response, the same answer a genuinely missing row gets. The check runs first, ahead of the assignment/tag/folder lookups, so a denied caller cannot use the response as an existence oracle. `parentRowIsVisible` moved from `notes-history/` to `shared/` and is now the single implementation behind all five handlers.
+
+  **Migration:** `entityType` must now name an entity registered in the mounting app. Any existing caller that used an `entityType` with no matching registered entity, or targeted a row the caller couldn't otherwise read, will start getting not_found instead of a successful write. Register the host entity (with an `access.read` ownership rule if it needs row-level scoping) before upgrading. One consequence to plan for: after a host row is hard-deleted its assignment can no longer be removed through `remove-tag`/`clear-folder`, and `folder:delete` keeps refusing while that assignment points at the folder — unfile before deleting the host row.
+
+### Patch Changes
+
+- b4d5b20: fw#2626: `{ kind: "where" }` ownership rules are now rejected on `access.write` at boot instead of misbehaving at request time.
+
+  A where-rule hands the framework raw SQL, and only the read path ever runs SQL (`buildOwnershipClause`). Write access is decided in memory against the concrete row (`userCanCreateFieldRow` / `userCanWriteFieldRow`), and a create has no row to run a predicate against at all — so a where-rule on a write map can never do anything but deny. Nothing said so, and the two sibling helpers disagreed about _how_ it failed: `userCanWriteFieldRow` skipped the rule and denied silently, while `userCanCreateFieldRow` passed it to `matchesRule()`, which throws — every create against such an entity ended as a 500. The comment claiming the boot validator rejected the shape described a check that did not exist.
+
+  **Boot validation now fails hard** on a where-rule in `entity.access.write` or any `field.access.write`, naming the role, the feature and the alternative (`from("user:id", "ownerId")` / `from("claim:<feature>:<key>")`, or a `preSave` hook in the write handler). `access.read` is unchanged — where-rules stay fully supported there, including the fw#2639 boot probe that lints their SQL.
+
+  **`userCanCreateFieldRow` now fails closed** like its update/delete sibling instead of throwing, so an access map assembled outside `validateBoot` denies with `ownership_denied` (422) rather than a 500. This is the runtime backstop, not the fix — the boot guard is.
+
+  There is no opt-out and no flag: an ownership rule that can only ever deny is a configuration error, not a mode. No consumer used the shape, so nothing that boots today stops booting.
+
+  The build-time guards in `createNotesHistoryFeature`/`createTagsFeature` stay — they fire earlier and name the `ownership` option instead of an entity scope; their messages now point at the framework-level rejection.
+
+- Updated dependencies [0f9687f]
+- Updated dependencies [b5e44ad]
+- Updated dependencies [b4d5b20]
+- Updated dependencies [f2c9178]
+  - @cosmicdrift/kumiko-renderer@0.246.0
+  - @cosmicdrift/kumiko-renderer-web@0.246.0
+  - @cosmicdrift/kumiko-types@0.246.0
+  - @cosmicdrift/kumiko-framework@0.246.0
+  - @cosmicdrift/kumiko-headless@0.246.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.246.0
+
 ## 0.245.0
 
 ### Minor Changes
