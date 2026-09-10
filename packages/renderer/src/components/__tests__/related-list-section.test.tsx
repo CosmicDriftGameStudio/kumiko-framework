@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
@@ -386,6 +386,78 @@ describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
     expect(rtlScreen.queryByTestId("action-adjust-rent-item-7")).toBeNull();
+  });
+
+  test("a dropped drawer rowAction without onOpenDrawer logs a dev warning naming the action id (fw#2733)", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      renderRelatedList(dispatcher, {
+        kind: "relatedList",
+        title: "Positions",
+        query: "lease:query:items:list",
+        columns: [{ field: "name" }],
+        rowActions: [
+          {
+            kind: "drawer",
+            id: "adjust-rent-warn-only-2733",
+            label: "actions.adjustRent",
+            screen: "adjust-rent-form",
+          },
+        ],
+      });
+
+      await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0]).toContain("adjust-rent-warn-only-2733");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test("a drawer rowAction with onOpenDrawer wired renders without a dev warning (fw#2733)", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver({ locale: "en-US" })}
+          fallbackBundles={[kumikoDefaultTranslations]}
+        >
+          <DispatcherProvider dispatcher={dispatcher}>
+            <PrimitivesProvider value={testPrimitives()}>
+              <NavProvider value={stubNav().nav}>
+                <RelatedListSection
+                  section={{
+                    kind: "relatedList",
+                    title: "Positions",
+                    query: "lease:query:items:list",
+                    columns: [{ field: "name" }],
+                    rowActions: [
+                      {
+                        kind: "drawer",
+                        id: "adjust-rent-warn-wired-2733",
+                        label: "actions.adjustRent",
+                        screen: "adjust-rent-form",
+                      },
+                    ],
+                  }}
+                  parentId="order-1"
+                  featureName="orders"
+                  onOpenDrawer={noop}
+                />
+              </NavProvider>
+            </PrimitivesProvider>
+          </DispatcherProvider>
+        </LocaleProvider>,
+      );
+
+      await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+      expect(rtlScreen.getByTestId("action-adjust-rent-warn-wired-2733-item-7")).toBeTruthy();
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
 
