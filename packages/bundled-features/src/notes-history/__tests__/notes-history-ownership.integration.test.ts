@@ -269,7 +269,10 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
     // the lint ever sees the bad SQL, and boot-validator/ownership.ts's
     // probeWhereRule swallows that and moves on.
     unqualifiedStack = await setupTestStack({
-      features: [createNotesHistoryFeature({ ownership: unqualifiedOwnership }), projectFixtureFeature],
+      features: [
+        createNotesHistoryFeature({ ownership: unqualifiedOwnership }),
+        projectFixtureFeature,
+      ],
     });
     await unsafeCreateEntityTable(unqualifiedStack.db, createNoteEntryEntity(unqualifiedOwnership));
     await unsafeCreateEntityTable(unqualifiedStack.db, projectEntity);
