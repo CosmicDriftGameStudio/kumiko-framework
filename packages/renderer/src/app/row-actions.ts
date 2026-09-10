@@ -165,6 +165,7 @@ type OpenDrawer = (
 const warnedDrawerRowActionIds = new Set<string>();
 
 function warnDrawerActionDropped(actionId: string): void {
+  // skip: already warned for this id — suppresses the repeat, not the warning itself.
   if (warnedDrawerRowActionIds.has(actionId)) return;
   warnedDrawerRowActionIds.add(actionId);
   // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
