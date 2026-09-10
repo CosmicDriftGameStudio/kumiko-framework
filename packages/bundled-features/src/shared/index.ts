@@ -1,3 +1,4 @@
+export { assertErased } from "./assert-erased";
 export {
   type ChunkedMigrationOptions,
   type ChunkedMigrationResult,

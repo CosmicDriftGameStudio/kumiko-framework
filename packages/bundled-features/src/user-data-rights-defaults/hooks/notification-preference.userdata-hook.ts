@@ -6,6 +6,7 @@ import {
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "../../delivery";
+import { assertErased } from "../../shared";
 import { featureMounted } from "./feature-mounted";
 
 // userData-Hooks for delivery's notification-preference rows. Event-sourced
@@ -49,6 +50,6 @@ export const notificationPreferenceDeleteHook: UserDataDeleteHook = async (ctx) 
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    await crud.forget({ id }, systemUser, tdb);
+    assertErased(await crud.forget({ id }, systemUser, tdb), "notification-preference", id);
   }
 };

@@ -18,6 +18,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { assertErased } from "../../shared";
 
 // Forget writes go through the executor (events), not deleteMany/updateMany:
 // a projection rebuild replays the events, so the erasure survives. Eventless
@@ -258,6 +259,6 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    await crud.forget({ id }, systemUser, tdb);
+    assertErased(await crud.forget({ id }, systemUser, tdb), "fileRef", id);
   }
 };

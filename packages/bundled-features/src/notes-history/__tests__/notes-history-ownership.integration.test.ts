@@ -236,6 +236,77 @@ describe("notes-history integration — row ownership (where-rule)", () => {
   });
 });
 
+describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
+  // Same shape as `teamOwnership` above, but the subquery's inner reference
+  // is left unqualified (`entity_id` instead of `t.entity_id`/`${ctx.tableName}.entity_id`).
+  // Postgres binds the unqualified name to the innermost table (`t`) first,
+  // so `t.entity_id = entity_id` silently becomes `t.entity_id = t.entity_id`
+  // — a self-join tautology that matches every row regardless of team.
+  const unqualifiedOwnership: NonNullable<EntityDefinition["access"]> = {
+    read: {
+      TenantMember: {
+        kind: "where",
+        where: (user, ctx) => {
+          const team = user.claims?.["team"];
+          // Boot probe has no claims and bails out here; the runtime lint in
+          // ruleToFragment is what must catch the unqualified reference.
+          if (typeof team !== "string") throw new Error("team claim required");
+          return {
+            sqlText: `EXISTS (SELECT 1 FROM ${TEAMS_TABLE} t WHERE t.entity_id = entity_id AND t.team_id = $${ctx.paramStart})`,
+            params: [team],
+          };
+        },
+      },
+    },
+  };
+
+  let unqualifiedStack: TestStack;
+
+  beforeAll(async () => {
+    // Reaching this point at all proves the boot guard doesn't false-positive
+    // on this rule: PROBE_USER carries no claims, so `where()` throws before
+    // the lint ever sees the bad SQL, and boot-validator/ownership.ts's
+    // probeWhereRule swallows that and moves on.
+    unqualifiedStack = await setupTestStack({
+      features: [createNotesHistoryFeature({ ownership: unqualifiedOwnership })],
+    });
+    await unsafeCreateEntityTable(unqualifiedStack.db, createNoteEntryEntity(unqualifiedOwnership));
+    await createEventsTable(unqualifiedStack.db);
+    await asRawClient(unqualifiedStack.db).unsafe(
+      `CREATE TABLE IF NOT EXISTS ${TEAMS_TABLE} (entity_id text PRIMARY KEY, team_id text NOT NULL)`,
+    );
+  });
+
+  afterAll(async () => {
+    await unqualifiedStack.cleanup();
+  });
+
+  test("list() fails closed instead of leaking userB's row to userA", async () => {
+    await addNote(unqualifiedStack, "proj-b", userB);
+    await asRawClient(unqualifiedStack.db).unsafe(
+      `INSERT INTO ${TEAMS_TABLE} (entity_id, team_id) VALUES ($1, $2)`,
+      ["proj-b", "team-b"],
+    );
+
+    // Pre-fix: this query returned HTTP 200 with userB's row (the tautology
+    // matches every row) — queryErr would throw "Expected query to fail but
+    // it succeeded". Post-fix: the runtime lint in ruleToFragment throws
+    // before the query ever runs, so the request fails loud instead of
+    // leaking. Asserting the concrete status (not just "isSuccess: false")
+    // documents exactly how it fails: an uncaught Error auto-wraps into
+    // InternalError (500), not a handled 4xx.
+    const error = await unqualifiedStack.http.queryErr(NotesHistoryQueries.noteList, {}, userA);
+    expect(error.httpStatus).toBe(500);
+    expect(error.code).toBe("internal_error");
+  });
+
+  // Green-path twin: `scopedStack` above (built with the correctly-qualified
+  // `teamOwnership` rule) already proves the lint doesn't reject every
+  // subquery rule — its first test asserts userA sees exactly its own
+  // team's row via HTTP 200 and never userB's. Relying on that coverage
+  // instead of duplicating a second correctly-qualified stack here.
+});
+
 describe("notes-history — boot guard rejects a where-rule in ownership.write", () => {
   test("createNotesHistoryFeature throws instead of shipping a create()-time landmine", () => {
     expect(() =>
