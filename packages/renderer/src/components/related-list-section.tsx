@@ -1,6 +1,7 @@
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
+  RowActionDrawer,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -53,12 +54,20 @@ export function RelatedListSection({
   featureName,
   translate,
   hideTitle,
+  onOpenDrawer,
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
+  /** Opens a drawer-kind rowAction (fw#2710). Supplied by the parent
+   *  (ProjectionDetailBody), which owns schema + the actual Drawer render —
+   *  this component only ever invokes the callback. */
+  readonly onOpenDrawer?: (
+    action: RowActionDrawer,
+    initialValues: Readonly<Record<string, unknown>> | undefined,
+  ) => void;
 }): ReactNode {
   const { Banner, Section } = usePrimitives();
   const t = useTranslation();
@@ -121,8 +130,9 @@ export function RelatedListSection({
         dispatcher,
         nav,
         refetch: rowsQuery.refetch,
+        openDrawer: onOpenDrawer,
       }),
-    [section.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch],
+    [section.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, onOpenDrawer],
   );
   const rowActionMode = rowActionModeFor(rowActions);
 

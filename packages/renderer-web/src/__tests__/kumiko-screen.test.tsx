@@ -18,7 +18,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils";
 
 const taskEntity = {
   fields: {
@@ -1395,6 +1395,210 @@ describe("KumikoScreen", () => {
     });
   });
 
+  // rowActions kind:"drawer" (fw#2710): row-level pendant to toolbarActions
+  // kind:"drawer" (fw#2225) above — same DrawerHost/useDrawerAction
+  // machinery, generalized to also serve a row-derived prefill.
+  describe("entityList rowActions drawer-kind (fw#2710)", () => {
+    const noteForm: ActionFormScreenDefinition = {
+      id: "task-note-drawer",
+      type: "actionForm",
+      handler: "tasks:write:task:note",
+      fields: {
+        title: { type: "text" },
+        note: { type: "text", required: true },
+        secret: { type: "text", sensitive: true },
+      },
+      layout: { sections: [{ fields: ["title", "note", "secret"] }] },
+    };
+    // A single rowAction keeps the DataTable's inline-button rendering
+    // (>2 actions collapse to a kebab dropdown, see ListColumnSpec.rowActions
+    // doc) — each test below only exercises one action at a time.
+    function screenWithRowAction(
+      rowAction: NonNullable<EntityListScreenDefinition["rowActions"]>[number],
+    ): EntityListScreenDefinition {
+      return {
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title"],
+        rowActions: [rowAction],
+      };
+    }
+
+    function makeRowDrawerDispatcher(write?: Dispatcher["write"]): {
+      dispatcher: Dispatcher;
+      getQueryCallCount: () => number;
+    } {
+      let queryCallCount = 0;
+      const dispatcher = makeDispatcher({
+        query: (async () => {
+          queryCallCount += 1;
+          return {
+            isSuccess: true,
+            data: {
+              rows: [{ id: "r1", title: "Alpha", count: 1, done: false, secret: "topsecret" }],
+              nextCursor: null,
+            },
+          };
+        }) as unknown as Dispatcher["query"],
+        ...(write !== undefined && { write }),
+      });
+      return { dispatcher, getQueryCallCount: () => queryCallCount };
+    }
+
+    test("Click opens the Drawer with the row's value prefilled via `pick`", async () => {
+      const rowDrawerSchema: FeatureSchema = {
+        ...schema,
+        screens: [
+          screenWithRowAction({
+            kind: "drawer",
+            id: "add-note",
+            label: "actions.addNote",
+            screen: "task-note-drawer",
+            params: { pick: ["title"] },
+          }),
+          noteForm,
+        ],
+      };
+      const { dispatcher } = makeRowDrawerDispatcher();
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={rowDrawerSchema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+      expect(screen.queryByTestId("field-title")).toBeNull();
+
+      await user.click(screen.getByTestId("row-r1-action-add-note"));
+      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      const titleInput = screen.getByTestId("field-title").querySelector("input");
+      if (titleInput === null) throw new Error("expected an <input> inside field-title");
+      expect(titleInput.value).toBe("Alpha");
+    });
+
+    test("Click opens the Drawer with the row's value prefilled via `map`", async () => {
+      const rowDrawerSchema: FeatureSchema = {
+        ...schema,
+        screens: [
+          screenWithRowAction({
+            kind: "drawer",
+            id: "add-note-mapped",
+            label: "actions.addNoteMapped",
+            screen: "task-note-drawer",
+            params: { map: { note: "title" } },
+          }),
+          noteForm,
+        ],
+      };
+      const { dispatcher } = makeRowDrawerDispatcher();
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={rowDrawerSchema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+      await user.click(screen.getByTestId("row-r1-action-add-note-mapped"));
+      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      const noteInput = screen.getByTestId("field-note").querySelector("input");
+      if (noteInput === null) throw new Error("expected an <input> inside field-note");
+      expect(noteInput.value).toBe("Alpha");
+    });
+
+    // Locks in the mergeSearchParamsIntoInitial `sensitive` gate for the
+    // drawer's direct-object overrides path — a `params` extractor naming a
+    // sensitive field must not leak the row's value into the form.
+    test("A sensitive field named by `params` is not prefilled", async () => {
+      const rowDrawerSchema: FeatureSchema = {
+        ...schema,
+        screens: [
+          screenWithRowAction({
+            kind: "drawer",
+            id: "reveal",
+            label: "actions.reveal",
+            screen: "task-note-drawer",
+            params: { pick: ["secret"] },
+          }),
+          noteForm,
+        ],
+      };
+      const { dispatcher } = makeRowDrawerDispatcher();
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={rowDrawerSchema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+      await user.click(screen.getByTestId("row-r1-action-reveal"));
+      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      const secretInput = screen.getByTestId("field-secret").querySelector("input");
+      if (secretInput === null) throw new Error("expected an <input> inside field-secret");
+      expect(secretInput.value).toBe("");
+    });
+
+    test("Successful submit dispatches the handler, closes the Drawer without navigating, and reloads the list", async () => {
+      const rowDrawerSchema: FeatureSchema = {
+        ...schema,
+        screens: [
+          screenWithRowAction({
+            kind: "drawer",
+            id: "add-note",
+            label: "actions.addNote",
+            screen: "task-note-drawer",
+            params: { pick: ["title"] },
+          }),
+          noteForm,
+        ],
+      };
+      const writeCalls: { type: string; payload: unknown }[] = [];
+      const { dispatcher, getQueryCallCount } = makeRowDrawerDispatcher((async (
+        type: string,
+        payload: unknown,
+      ) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["write"]);
+      const navigateCalls: unknown[] = [];
+      const memoryNav = {
+        route: { screenId: "task-list" },
+        navigate: (target: NavTarget) => {
+          navigateCalls.push(target);
+        },
+        replace: () => undefined,
+        hrefFor: () => "",
+        searchParams: {},
+        setSearchParams: () => undefined,
+      };
+      const user = userEvent.setup();
+      render(
+        <NavProvider value={memoryNav}>
+          <DispatcherProvider dispatcher={dispatcher}>
+            <KumikoScreen schema={rowDrawerSchema} qn="tasks:screen:task-list" />
+          </DispatcherProvider>
+        </NavProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+      await user.click(screen.getByTestId("row-r1-action-add-note"));
+      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      const queryCallsBeforeSubmit = getQueryCallCount();
+
+      const noteInput = screen.getByTestId("field-note").querySelector("input");
+      if (noteInput === null) throw new Error("expected an <input> inside field-note");
+      fireEvent.change(noteInput, { target: { value: "hello" } });
+      await clickSubmitOnceEnabled();
+
+      await waitFor(() => expect(writeCalls.length).toBe(1));
+      expect(writeCalls[0]?.type).toBe("tasks:write:task:note");
+      await waitFor(() => expect(screen.queryByTestId("render-edit-form")).toBeNull());
+      await waitFor(() => expect(getQueryCallCount()).toBeGreaterThan(queryCallsBeforeSubmit));
+      expect(navigateCalls).toEqual([]);
+    });
+  });
+
   // Tier 2.7c: Screen-Level filter wird vom Schema in den Query-
   // Payload propagiert. Drei Buckets ("scheduled" / "active" / "done")
   // teilen sich denselben Query-Handler — der Filter unterscheidet
@@ -2679,6 +2883,86 @@ describe("KumikoScreen: entityEdit header actions", () => {
     expect(screen.queryByTestId("render-edit-action-publish")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-duplicate")).toBeNull();
+  });
+});
+
+// entityEdit.actions kind:"drawer" (fw#2710) — EntityEditUpdateForm owns its
+// own DrawerHost directly (5th RowAction/action call site, not covered by
+// the shared ToolbarAction plumbing's original scope). The outer update
+// form and the drawer's own ActionFormBody are both `RenderEdit` instances
+// mounted at once, so drawer-scoped queries use `within(...)` to avoid
+// colliding with the outer form's own render-edit-form/field-* testids.
+describe("KumikoScreen: entityEdit actions drawer-kind (fw#2710)", () => {
+  const noteForm: ActionFormScreenDefinition = {
+    id: "task-note-drawer",
+    type: "actionForm",
+    handler: "tasks:write:task:note",
+    fields: { title: { type: "text" }, note: { type: "text", required: true } },
+    layout: { sections: [{ fields: ["title", "note"] }] },
+  };
+  const editScreenWithDrawer: EntityEditScreenDefinition = {
+    id: "task-edit-drawer",
+    type: "entityEdit",
+    entity: "task",
+    layout: { sections: [{ title: "Basics", fields: ["title"] }] },
+    actions: [
+      {
+        kind: "drawer",
+        id: "add-note",
+        label: "Add note",
+        screen: "task-note-drawer",
+        params: { pick: ["title"] },
+      },
+    ],
+  };
+  const drawerSchema: FeatureSchema = {
+    featureName: "tasks",
+    entities: { task: taskEntity },
+    screens: [editScreenWithDrawer, noteForm],
+  };
+
+  test("Click opens the Drawer prefilled from the record; submit dispatches, closes without navigating, and reloads the record", async () => {
+    let queryCallCount = 0;
+    const writeCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async () => {
+        queryCallCount += 1;
+        return {
+          isSuccess: true,
+          data: { id: "task-1", version: 1, title: "loaded", count: 0, done: false },
+        };
+      }) as unknown as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={drawerSchema} qn="tasks:screen:task-edit-drawer" entityId="task-1" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.queryByTestId("field-note")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("render-edit-action-add-note"));
+    const drawer = () => within(screen.getByTestId("toolbar-drawer-add-note"));
+    await waitFor(() => expect(drawer().getByTestId("field-note")).toBeTruthy());
+    const titleInput = drawer().getByTestId("field-title").querySelector("input");
+    if (titleInput === null) throw new Error("expected an <input> inside field-title");
+    expect(titleInput.value).toBe("loaded");
+    const queryCallsBeforeSubmit = queryCallCount;
+
+    const noteInput = drawer().getByTestId("field-note").querySelector("input");
+    if (noteInput === null) throw new Error("expected an <input> inside field-note");
+    fireEvent.change(noteInput, { target: { value: "hello" } });
+    fireEvent.click(drawer().getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(writeCalls.length).toBe(1));
+    expect(writeCalls[0]?.type).toBe("tasks:write:task:note");
+    await waitFor(() => expect(screen.queryByTestId("field-note")).toBeNull());
+    await waitFor(() => expect(queryCallCount).toBeGreaterThan(queryCallsBeforeSubmit));
   });
 });
 

@@ -147,9 +147,12 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
       handler: "user-data-rights:write:restrict-account",
       visible: { field: "status", ne: "restricted" },
     });
-    expect(byId["restrict"]?.kind === "navigate" ? undefined : byId["restrict"]?.confirm).toBe(
-      "userDataRights.privacyCenter.restriction.dialogDescription",
-    );
+    const restrictAction = byId["restrict"];
+    expect(
+      restrictAction?.kind === "navigate" || restrictAction?.kind === "drawer"
+        ? undefined
+        : restrictAction?.confirm,
+    ).toBe("userDataRights.privacyCenter.restriction.dialogDescription");
 
     expect(byId["request-deletion"]).toMatchObject({
       handler: "user-data-rights:write:request-deletion",

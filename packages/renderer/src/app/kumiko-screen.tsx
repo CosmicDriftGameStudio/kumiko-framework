@@ -10,6 +10,7 @@ import type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
+  RowActionDrawer,
   RowActionNavigate,
   ScreenDefinition,
   ToolbarAction,
@@ -372,6 +373,12 @@ export function mergeSearchParamsIntoInitial(
   searchParams: Readonly<Record<string, string>>,
   renderableFields?: ReadonlySet<string>,
   defaultCurrency?: string,
+  // Drawer-kind row actions (fw#2710) prefill directly from the clicked
+  // row's already-typed values — no URL round-trip, so no string coercion.
+  // Goes through the same renderableFields/sensitive gates as searchParams
+  // (a `params` extractor could still name a hidden or sensitive field) and
+  // wins over searchParams for a name present in both.
+  overrides?: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
   const defaults = buildInitialValues(fields, defaultCurrency) as Record<string, unknown>;
   const merged: Record<string, unknown> = { ...defaults };
@@ -383,6 +390,10 @@ export function mergeSearchParamsIntoInitial(
       options?: readonly (string | { readonly value: string })[];
     };
     if (shape.sensitive === true) continue;
+    if (overrides !== undefined && name in overrides) {
+      merged[name] = overrides[name];
+      continue;
+    }
     const raw = searchParams[name];
     if (raw === undefined) continue;
     if (shape.type === "number") {
@@ -721,6 +732,9 @@ function EntityEditUpdateForm({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
+  const userRoles = useUserRoles();
+  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
+    useDrawerAction(schema);
   // Header action buttons (fw entityEdit-actions) — same shape/dispatch
   // pattern as ProjectionDetailBody.headerActions above (the edited record
   // stands in for the "row"), minus the cross-feature defaultEditAction
@@ -779,6 +793,24 @@ function EntityEditUpdateForm({
         }
         continue;
       }
+      if (action.kind === "drawer") {
+        const drawerActionEntry = action;
+        const actionIcon = resolveActionIcon(action.id, action.icon);
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          ...(actionIcon !== undefined && { icon: actionIcon }),
+          onPress: () => {
+            const initialValues =
+              drawerActionEntry.params !== undefined
+                ? evalRowExtractor(drawerActionEntry.params, record)
+                : undefined;
+            openDrawer(drawerActionEntry, initialValues);
+          },
+        });
+        continue;
+      }
       // writeHandler — same dispatch/reload/failure-surfacing pattern as
       // ProjectionDetailBody's headerActions above.
       const writeAction = action;
@@ -810,7 +842,7 @@ function EntityEditUpdateForm({
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.actions, effectiveTranslate, nav, dispatcher, record, entityId, onReload]);
+  }, [screen.actions, effectiveTranslate, nav, dispatcher, record, entityId, onReload, openDrawer]);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
@@ -832,34 +864,49 @@ function EntityEditUpdateForm({
   }, [dispatcher, deleteCommand, entityId, navigateToList, onDeleted]);
 
   return (
-    <RenderEdit
-      screen={screen}
-      entity={entity}
-      featureName={schema.featureName}
-      initial={initial}
-      // Echte route-id an die extension-section (Set-Value-UI): das
-      // Update-Form lässt `id` bewusst aus den Form-values, daher braucht
-      // die Section die id explizit — sonst create-mode trotz Edit.
-      entityId={entityId}
-      // customFields-Bestand an die extension-section, damit sie beim Edit
-      // die gespeicherten Werte zeigt (nicht write-only).
-      extensionInitialValues={extensionInitialValues}
-      schema={formSchema}
-      writeCommand={writeCommand}
-      payloadMode="changes"
-      buildPayload={buildPayload}
-      onSubmit={handleSubmitted}
-      // allowDelete:false = Entity ohne CRUD-delete (History-Erhalt) —
-      // ohne das Gate dispatchte der Button gegen einen nicht
-      // registrierten `<entity>:delete`-Handler.
-      {...(screen.allowDelete !== false && { onDelete: handleDelete })}
-      onCancel={navigateToList}
-      onReload={() => void onReload()}
-      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
-      {...(translate !== undefined && { translate })}
-      {...(onCopyLink !== undefined && { onCopyLink })}
-      {...(headerActions !== undefined && { actions: headerActions })}
-    />
+    <>
+      <RenderEdit
+        screen={screen}
+        entity={entity}
+        featureName={schema.featureName}
+        initial={initial}
+        // Echte route-id an die extension-section (Set-Value-UI): das
+        // Update-Form lässt `id` bewusst aus den Form-values, daher braucht
+        // die Section die id explizit — sonst create-mode trotz Edit.
+        entityId={entityId}
+        // customFields-Bestand an die extension-section, damit sie beim Edit
+        // die gespeicherten Werte zeigt (nicht write-only).
+        extensionInitialValues={extensionInitialValues}
+        schema={formSchema}
+        writeCommand={writeCommand}
+        payloadMode="changes"
+        buildPayload={buildPayload}
+        onSubmit={handleSubmitted}
+        // allowDelete:false = Entity ohne CRUD-delete (History-Erhalt) —
+        // ohne das Gate dispatchte der Button gegen einen nicht
+        // registrierten `<entity>:delete`-Handler.
+        {...(screen.allowDelete !== false && { onDelete: handleDelete })}
+        onCancel={navigateToList}
+        onReload={() => void onReload()}
+        {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
+        {...(translate !== undefined && { translate })}
+        {...(onCopyLink !== undefined && { onCopyLink })}
+        {...(headerActions !== undefined && { actions: headerActions })}
+      />
+      <DrawerHost
+        schema={schema}
+        drawerAction={drawerAction}
+        drawerScreen={drawerScreen}
+        {...(drawerInitialValues !== undefined && { drawerInitialValues })}
+        userRoles={userRoles}
+        {...(translate !== undefined && { translate })}
+        onClose={closeDrawer}
+        onSuccess={() => {
+          closeDrawer();
+          void onReload();
+        }}
+      />
+    </>
   );
 }
 
@@ -1145,24 +1192,35 @@ function resolveProjectionFacetSpecs(
   );
 }
 
-// ---- toolbarAction kind:"drawer" (fw#2225) ----
+// ---- drawer-kind actions: ToolbarAction (fw#2225) + RowAction (fw#2710) ----
 //
-// Shared between EntityListBody and ProjectionListBody: state for "which
-// drawer-kind toolbar action is currently open" plus a host component that
-// mounts the referenced actionForm inside the Drawer primitive. Reuses
-// ActionFormBody (no second, parallel form renderer) with onSuccess/
-// onCancelOverride so submit-success closes the drawer + refetches the
-// list instead of navigating, mirroring what a full-page actionForm would
-// do via `redirect`.
-type ToolbarDrawerAction = Extract<ToolbarAction, { kind: "drawer" }>;
+// Shared across EntityListBody, ProjectionListBody, ProjectionDetailBody and
+// EntityEditUpdateForm: state for "which drawer-kind action is currently
+// open" plus a host component that mounts the referenced actionForm inside
+// the Drawer primitive. Reuses ActionFormBody (no second, parallel form
+// renderer) with onSuccess/onCancelOverride so submit-success closes the
+// drawer + refetches the host screen instead of navigating, mirroring what
+// a full-page actionForm would do via `redirect`. The only difference
+// between the toolbar and row variants is prefill: a row action extracts
+// `initialValues` from the clicked row (see buildProjectionRowActions /
+// EntityListBody's rowActions builder); the toolbar variant has none.
+type DrawerLikeAction = Extract<ToolbarAction, { kind: "drawer" }> | RowActionDrawer;
 
-function useToolbarDrawerAction(schema: FeatureSchema): {
-  readonly drawerAction: ToolbarDrawerAction | null;
+function useDrawerAction(schema: FeatureSchema): {
+  readonly drawerAction: DrawerLikeAction | null;
   readonly drawerScreen: ActionFormScreenDefinition | undefined;
-  readonly openDrawer: (action: ToolbarDrawerAction) => void;
+  readonly drawerInitialValues: Readonly<Record<string, unknown>> | undefined;
+  readonly openDrawer: (
+    action: DrawerLikeAction,
+    initialValues?: Readonly<Record<string, unknown>>,
+  ) => void;
   readonly closeDrawer: () => void;
 } {
-  const [drawerAction, setDrawerAction] = useState<ToolbarDrawerAction | null>(null);
+  const [drawerState, setDrawerState] = useState<{
+    readonly action: DrawerLikeAction;
+    readonly initialValues: Readonly<Record<string, unknown>> | undefined;
+  } | null>(null);
+  const drawerAction = drawerState?.action ?? null;
   const drawerScreen = useMemo(() => {
     if (drawerAction === null) return undefined;
     // Same same-feature, short-id resolution as runNavigate — the drawer's
@@ -1172,23 +1230,35 @@ function useToolbarDrawerAction(schema: FeatureSchema): {
         s.type === "actionForm" && lastSegment(s.id) === drawerAction.screen,
     );
   }, [drawerAction, schema.screens]);
-  const openDrawer = useCallback((action: ToolbarDrawerAction) => setDrawerAction(action), []);
-  const closeDrawer = useCallback(() => setDrawerAction(null), []);
-  return { drawerAction, drawerScreen, openDrawer, closeDrawer };
+  const openDrawer = useCallback(
+    (action: DrawerLikeAction, initialValues?: Readonly<Record<string, unknown>>) =>
+      setDrawerState({ action, initialValues }),
+    [],
+  );
+  const closeDrawer = useCallback(() => setDrawerState(null), []);
+  return {
+    drawerAction,
+    drawerScreen,
+    drawerInitialValues: drawerState?.initialValues,
+    openDrawer,
+    closeDrawer,
+  };
 }
 
-function ToolbarDrawerHost({
+function DrawerHost({
   schema,
   drawerAction,
   drawerScreen,
+  drawerInitialValues,
   userRoles,
   translate,
   onClose,
   onSuccess,
 }: {
   readonly schema: FeatureSchema;
-  readonly drawerAction: ToolbarDrawerAction | null;
+  readonly drawerAction: DrawerLikeAction | null;
   readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly drawerInitialValues?: Readonly<Record<string, unknown>>;
   readonly userRoles: readonly string[] | undefined;
   readonly translate?: Translate;
   readonly onClose: () => void;
@@ -1241,6 +1311,7 @@ function ToolbarDrawerHost({
           schema={schema}
           screen={drawerScreen}
           {...(translate !== undefined && { translate })}
+          {...(drawerInitialValues !== undefined && { initialOverrides: drawerInitialValues })}
           onSuccess={onSuccess}
           onCancelOverride={onClose}
         />
@@ -1303,7 +1374,8 @@ function EntityListBody({
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
   const userRoles = useUserRoles();
-  const { drawerAction, drawerScreen, openDrawer, closeDrawer } = useToolbarDrawerAction(schema);
+  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
+    useDrawerAction(schema);
 
   // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
   // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
@@ -1545,6 +1617,27 @@ function EntityListBody({
             }),
           };
         }
+        if (action.kind === "drawer") {
+          const drawerAction = action;
+          const actionVisible = action.visible;
+          const actionIcon = resolveActionIcon(action.id, action.icon);
+          return {
+            id: action.id,
+            label: effectiveTranslate(action.label),
+            ...(action.style !== undefined && { style: action.style }),
+            ...(actionIcon !== undefined && { icon: actionIcon }),
+            onTrigger: (row: ListRowViewModel) => {
+              const initialValues =
+                drawerAction.params !== undefined
+                  ? evalRowExtractor(drawerAction.params, row.values)
+                  : undefined;
+              openDrawer(drawerAction, initialValues);
+            },
+            ...(actionVisible !== undefined && {
+              isVisible: (row: ListRowViewModel) => evalFieldCondition(actionVisible, row.values),
+            }),
+          };
+        }
         if (dispatcher === undefined) return null;
         if (!isWriteHandlerRowAction(action)) return null;
         const writeAction = action;
@@ -1585,7 +1678,14 @@ function EntityListBody({
         };
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
-  }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate, refreshRowsAfterWrite]);
+  }, [
+    screen.rowActions,
+    effectiveTranslate,
+    dispatcher,
+    runNavigate,
+    refreshRowsAfterWrite,
+    openDrawer,
+  ]);
 
   // Row actions that all resolve an icon render inline and collapse to
   // icon-only (fw#2580) — the adaptive default would bury more than two of
@@ -1751,10 +1851,11 @@ function EntityListBody({
           onFilterReset: urlState.clearFilters,
         })}
       />
-      <ToolbarDrawerHost
+      <DrawerHost
         schema={schema}
         drawerAction={drawerAction}
         drawerScreen={drawerScreen}
+        {...(drawerInitialValues !== undefined && { drawerInitialValues })}
         userRoles={userRoles}
         {...(translate !== undefined && { translate })}
         onClose={closeDrawer}
@@ -1793,7 +1894,8 @@ function ProjectionListBody({
   const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
   const userRoles = useUserRoles();
-  const { drawerAction, drawerScreen, openDrawer, closeDrawer } = useToolbarDrawerAction(schema);
+  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
+    useDrawerAction(schema);
 
   // searchable/sortable/paginated are derived at buildAppSchema time from the
   // query handler's Zod schema (fw#2165) — not authored on the screen.
@@ -1893,8 +1995,9 @@ function ProjectionListBody({
         dispatcher,
         nav,
         refetch: rowsQuery.refetch,
+        openDrawer,
       }),
-    [screen.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch],
+    [screen.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, openDrawer],
   );
 
   // Same icon-only collapse as entityList (fw#2580) — projectionList rows go
@@ -2030,10 +2133,11 @@ function ProjectionListBody({
           onFilterReset: urlState.clearFilters,
         })}
       />
-      <ToolbarDrawerHost
+      <DrawerHost
         schema={schema}
         drawerAction={drawerAction}
         drawerScreen={drawerScreen}
+        {...(drawerInitialValues !== undefined && { drawerInitialValues })}
         userRoles={userRoles}
         {...(translate !== undefined && { translate })}
         onClose={closeDrawer}
@@ -2136,6 +2240,8 @@ function ProjectionDetailBody({
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
   const dispatcher = useOptionalDispatcher();
+  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
+    useDrawerAction(schema);
   const editScreen = useMemo(() => {
     const detailFor = screen.detailFor;
     if (detailFor === undefined) return undefined;
@@ -2247,6 +2353,24 @@ function ProjectionDetailBody({
         }
         continue;
       }
+      if (action.kind === "drawer") {
+        const drawerActionEntry = action;
+        const actionIcon = resolveActionIcon(action.id, action.icon);
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          ...(actionIcon !== undefined && { icon: actionIcon }),
+          onPress: () => {
+            const initialValues =
+              drawerActionEntry.params !== undefined
+                ? evalRowExtractor(drawerActionEntry.params, record)
+                : undefined;
+            openDrawer(drawerActionEntry, initialValues);
+          },
+        });
+        continue;
+      }
       // writeHandler — same dispatch/refetch/failure-surfacing pattern as
       // ProjectionListBody's rowActions/toolbarActions above.
       if (dispatcher === undefined) continue;
@@ -2289,6 +2413,7 @@ function ProjectionDetailBody({
     dispatcher,
     detailQuery.data,
     detailQuery.refetch,
+    openDrawer,
   ]);
 
   if (effectiveEntityId === undefined && screen.singleton !== true) {
@@ -2406,21 +2531,37 @@ function ProjectionDetailBody({
     </>
   );
   return (
-    <RenderEdit
-      key={`${entityId}:${reloadNonce}`}
-      screen={detailScreen}
-      entity={entity}
-      featureName={schema.featureName}
-      initial={record as FormValues}
-      entityId={effectiveEntityId}
-      customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
-      onReload={reloadDetail}
-      {...(headerActions !== undefined && { actions: headerActions })}
-      {...(translate !== undefined && { translate })}
-      {...(hasTabs && { hideSectionTitles: true })}
-      {...((hasHeader || hasMetrics || hasTabs) && { headerRegion: headerContent })}
-      valueDisplay={screen.valueDisplay ?? "text"}
-    />
+    <>
+      <RenderEdit
+        key={`${entityId}:${reloadNonce}`}
+        screen={detailScreen}
+        entity={entity}
+        featureName={schema.featureName}
+        initial={record as FormValues}
+        entityId={effectiveEntityId}
+        customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
+        onReload={reloadDetail}
+        onRelatedListDrawerAction={openDrawer}
+        {...(headerActions !== undefined && { actions: headerActions })}
+        {...(translate !== undefined && { translate })}
+        {...(hasTabs && { hideSectionTitles: true })}
+        {...((hasHeader || hasMetrics || hasTabs) && { headerRegion: headerContent })}
+        valueDisplay={screen.valueDisplay ?? "text"}
+      />
+      <DrawerHost
+        schema={schema}
+        drawerAction={drawerAction}
+        drawerScreen={drawerScreen}
+        {...(drawerInitialValues !== undefined && { drawerInitialValues })}
+        userRoles={userRoles}
+        {...(translate !== undefined && { translate })}
+        onClose={closeDrawer}
+        onSuccess={() => {
+          closeDrawer();
+          void reloadDetail();
+        }}
+      />
+    </>
   );
 }
 // ---- actionForm (Tier 2.7d) ----
@@ -2442,12 +2583,17 @@ function ActionFormBody({
   schema,
   screen,
   translate,
+  initialOverrides,
   onSuccess,
   onCancelOverride,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
   readonly translate?: Translate;
+  /** Row-drawer usage (RowAction kind:"drawer", fw#2710): prefill extracted
+   *  from the clicked row, applied on top of searchParams through the same
+   *  renderableFields/sensitive gates (see mergeSearchParamsIntoInitial). */
+  readonly initialOverrides?: Readonly<Record<string, unknown>>;
   /** Drawer-hosted usage (toolbarAction kind:"drawer", fw#2225): called
    *  instead of the redirect-based navigation on successful submit, so the
    *  host closes the drawer + refetches its list regardless of whether
@@ -2468,8 +2614,10 @@ function ActionFormBody({
         screen.fields,
         nav.searchParams,
         layoutFieldNames(synthScreen),
+        undefined,
+        initialOverrides,
       ) as FormValues,
-    [screen.fields, nav.searchParams, synthScreen],
+    [screen.fields, nav.searchParams, synthScreen, initialOverrides],
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {

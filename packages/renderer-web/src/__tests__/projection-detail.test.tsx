@@ -6,7 +6,10 @@
 //   - fehlende entityId → Error-Banner statt Crash
 
 import { describe, expect, test } from "bun:test";
-import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ActionFormScreenDefinition,
+  ProjectionDetailScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavApi, NavTarget } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -15,7 +18,15 @@ import {
   KumikoScreen,
   NavProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import {
+  act,
+  createMockDispatcher,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "./test-utils";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "session-detail",
@@ -611,5 +622,87 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     await waitFor(() => screen.getByTestId("session-notes"));
     expect(screen.getByTestId("session-notes").textContent).toBe("user-session:sess-1");
     expect(screen.queryByTestId("field-userId")).toBeNull();
+  });
+});
+
+// projectionDetail.actions kind:"drawer" (fw#2710) — same shared DrawerHost
+// as toolbarActions/rowActions, wired into ProjectionDetailBody's own
+// headerActions builder (ProjectionDetailBody owns the Drawer directly,
+// unlike relatedList sections which only forward through onOpenDrawer).
+describe("KumikoScreen / projectionDetail actions drawer-kind (fw#2710)", () => {
+  const noteForm: ActionFormScreenDefinition = {
+    id: "session-note-drawer",
+    type: "actionForm",
+    handler: "sessions:write:session:note",
+    fields: { userId: { type: "text" }, note: { type: "text", required: true } },
+    layout: { sections: [{ fields: ["userId", "note"] }] },
+  };
+  const screenWithDrawerAction: ProjectionDetailScreenDefinition = {
+    ...detailScreen,
+    actions: [
+      {
+        kind: "drawer",
+        id: "add-note",
+        label: "actions.addNote",
+        screen: "session-note-drawer",
+        params: { pick: ["userId"] },
+      },
+    ],
+  };
+  const drawerSchema: FeatureSchema = {
+    featureName: "sessions",
+    entities: {},
+    screens: [screenWithDrawerAction, noteForm],
+  };
+
+  test("Click opens the Drawer prefilled from the record; submit dispatches, closes without navigating, and reloads the detail", async () => {
+    let queryCallCount = 0;
+    const write = (async (_type: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    })) as unknown as Dispatcher["write"];
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => {
+        queryCallCount += 1;
+        return {
+          isSuccess: true,
+          data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+        };
+      }) as unknown as Dispatcher["query"],
+      write,
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={drawerSchema} qn="sessions:screen:session-detail" entityId="sess-1" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("field-note")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("render-edit-action-add-note"));
+    // The outer detail RenderEdit and the drawer's own ActionFormBody
+    // RenderEdit are both mounted at once — scope queries to the drawer
+    // container so they don't collide with the outer screen's own
+    // render-edit-form/field-userId testids.
+    const drawer = () => within(screen.getByTestId("toolbar-drawer-add-note"));
+    await waitFor(() => expect(drawer().getByTestId("field-note")).toBeTruthy());
+    const userIdInput = drawer().getByTestId("field-userId").querySelector("input");
+    if (userIdInput === null) throw new Error("expected an <input> inside field-userId");
+    expect(userIdInput.value).toBe("user-42");
+    const queryCallsBeforeSubmit = queryCallCount;
+
+    const noteInput = drawer().getByTestId("field-note").querySelector("input");
+    if (noteInput === null) throw new Error("expected an <input> inside field-note");
+    await act(async () => {
+      fireEvent.change(noteInput, { target: { value: "hello" } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("field-note")).toBeNull());
+    await waitFor(() => expect(queryCallCount).toBeGreaterThan(queryCallsBeforeSubmit));
+    expect(screen.getByTestId("field-userId").textContent).toContain("user-42");
   });
 });

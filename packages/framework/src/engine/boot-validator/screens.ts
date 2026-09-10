@@ -367,18 +367,21 @@ function validateScreenNavTarget(
 // validateScreens below), the drawer mounts the target inline using this
 // feature's schema, so a cross-feature reference could never actually
 // render. Two distinct failure messages: dangling reference vs. wrong
-// screen type (fw#2225).
-function validateToolbarDrawerAction(
+// screen type. Shared by ToolbarAction (fw#2225) and RowAction (fw#2710)
+// drawer variants — same target-resolution rule, only the label in the
+// error message ("toolbarAction" vs. "rowAction" vs. "action") differs.
+function validateDrawerTargetAction(
   featureName: string,
   screenId: string,
   screenKind: string,
-  action: Extract<ToolbarAction, { kind: "drawer" }>,
+  actionLabel: "toolbarAction" | "rowAction" | "action",
+  action: { readonly id: string; readonly screen: string },
   screens: FeatureDefinition["screens"],
 ): void {
   const target = screens[action.screen];
   if (target === undefined) {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) toolbarAction "${action.id}" ` +
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
         `drawer-target "${action.screen}" does not resolve to a registered screen in this feature. ` +
         `kind:"drawer" only resolves same-feature screens (unlike kind:"navigate", which can target ` +
         `screens in any feature) — the drawer mounts the target inline using this feature's schema. ` +
@@ -387,7 +390,7 @@ function validateToolbarDrawerAction(
   }
   if (target.type !== "actionForm") {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) toolbarAction "${action.id}" ` +
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
         `drawer-target "${action.screen}" is a "${target.type}" screen, not an actionForm. ` +
         `kind:"drawer" mounts an actionForm inside a Drawer widget — point "screen" at an ` +
         `actionForm screen, or use kind:"navigate" for a full-page target.`,
@@ -590,6 +593,15 @@ export function validateScreens(
               action,
               target,
             );
+          } else if (action.kind === "drawer") {
+            validateDrawerTargetAction(
+              feature.name,
+              screenId,
+              "projectionList",
+              "rowAction",
+              action,
+              feature.screens,
+            );
           }
         }
         validateAtMostOneRowClick(feature.name, screenId, "projectionList", screen.rowActions);
@@ -600,10 +612,11 @@ export function validateScreens(
       if (screen.toolbarActions !== undefined) {
         for (const action of screen.toolbarActions) {
           if (action.kind === "drawer") {
-            validateToolbarDrawerAction(
+            validateDrawerTargetAction(
               feature.name,
               screenId,
               "projectionList",
+              "toolbarAction",
               action,
               feature.screens,
             );
@@ -779,6 +792,15 @@ export function validateScreens(
                   action,
                   target,
                 );
+              } else if (action.kind === "drawer") {
+                validateDrawerTargetAction(
+                  feature.name,
+                  screenId,
+                  "projectionDetail",
+                  "rowAction",
+                  action,
+                  feature.screens,
+                );
               } else if (!allWriteHandlerQns.has(action.handler)) {
                 throw new Error(
                   `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section ` +
@@ -885,6 +907,15 @@ export function validateScreens(
               screen.detailFor,
               action,
               target,
+            );
+          } else if (action.kind === "drawer") {
+            validateDrawerTargetAction(
+              feature.name,
+              screenId,
+              "projectionDetail",
+              "action",
+              action,
+              feature.screens,
             );
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
@@ -1356,6 +1387,15 @@ export function validateScreens(
               action,
               target,
             );
+          } else if (action.kind === "drawer") {
+            validateDrawerTargetAction(
+              feature.name,
+              screenId,
+              "entityList",
+              "rowAction",
+              action,
+              feature.screens,
+            );
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {
               throw new Error(
@@ -1391,10 +1431,11 @@ export function validateScreens(
               );
             }
           } else if (action.kind === "drawer") {
-            validateToolbarDrawerAction(
+            validateDrawerTargetAction(
               feature.name,
               screenId,
               "entityList",
+              "toolbarAction",
               action,
               feature.screens,
             );
@@ -1506,6 +1547,15 @@ export function validateScreens(
               screen.entity,
               action,
               target,
+            );
+          } else if (action.kind === "drawer") {
+            validateDrawerTargetAction(
+              feature.name,
+              screenId,
+              "entityEdit",
+              "action",
+              action,
+              feature.screens,
             );
           } else {
             if (!allWriteHandlerQns.has(action.handler)) {

@@ -237,3 +237,80 @@ describe("RelatedListSection — rowActions", () => {
     expect(rtlScreen.queryByTestId("action-end-item-ended-1")).toBeNull();
   });
 });
+
+// RelatedListSection never renders the Drawer itself (require-cycle with
+// kumiko-screen.tsx, which owns the shared Drawer state) — it only forwards
+// a drawer-kind rowAction to the injected `onOpenDrawer` callback. This
+// pins that hand-off, not the Drawer UI itself (covered by kumiko-screen's
+// own tests).
+describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
+  test("clicking a drawer rowAction calls onOpenDrawer with the action and the row's extracted values", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
+    const openDrawerCalls: unknown[][] = [];
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={testPrimitives()}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "name" }],
+                  rowActions: [
+                    {
+                      kind: "drawer",
+                      id: "adjust-rent",
+                      label: "actions.adjustRent",
+                      screen: "adjust-rent-form",
+                      params: { map: { itemId: "id", currentAmount: "amount" } },
+                    },
+                  ],
+                }}
+                parentId="order-1"
+                featureName="orders"
+                onOpenDrawer={(action, initialValues) =>
+                  openDrawerCalls.push([action, initialValues])
+                }
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+    rtlScreen.getByTestId("action-adjust-rent-item-7").click();
+
+    await waitFor(() => expect(openDrawerCalls).toHaveLength(1));
+    const call = openDrawerCalls[0];
+    if (call === undefined) throw new Error("expected onOpenDrawer to have been called");
+    expect((call[0] as { readonly id: string }).id).toBe("adjust-rent");
+    expect(call[1]).toEqual({ itemId: "item-7", currentAmount: 1200 });
+  });
+
+  test("a drawer rowAction is dropped (not rendered) when no onOpenDrawer is wired", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
+    renderRelatedList(dispatcher, {
+      kind: "relatedList",
+      title: "Positions",
+      query: "lease:query:items:list",
+      columns: [{ field: "name" }],
+      rowActions: [
+        {
+          kind: "drawer",
+          id: "adjust-rent",
+          label: "actions.adjustRent",
+          screen: "adjust-rent-form",
+        },
+      ],
+    });
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("action-adjust-rent-item-7")).toBeNull();
+  });
+});

@@ -210,6 +210,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onReload,
     onCopyLink,
     actions,
+    onRelatedListDrawerAction,
     submitLabel,
     labelAppendix,
     fieldAppendix,
@@ -1209,6 +1210,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 featureName={featureName}
                 translate={translate}
                 hideTitle={hideSectionTitles}
+                {...(onRelatedListDrawerAction !== undefined && {
+                  onOpenDrawer: onRelatedListDrawerAction,
+                })}
               />
             );
           }

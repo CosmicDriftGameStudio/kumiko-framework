@@ -32,8 +32,8 @@ src/features/<name>/
 ## Regeln
 
 - **Screens deklarativ zuerst**: `entityList` (CRUD über die Entity),
-  `projectionList` (query-getrieben: columns, rowActions inkl. writeHandler,
-  Pager), `dashboard` (stat/chart/list-Panels). `type: "custom"` ist die
+  `projectionList` (query-getrieben: columns, rowActions inkl. writeHandler/
+  navigate/drawer, Pager), `dashboard` (stat/chart/list-Panels). `type: "custom"` ist die
   Ausnahme und braucht einen Allowlist-Tag
   (`// kumiko-lint-ignore app-feature-structure <Grund>`).
 - **Screen-Refs gegen outputSchema validiert**: `projectionList`-Columns,
