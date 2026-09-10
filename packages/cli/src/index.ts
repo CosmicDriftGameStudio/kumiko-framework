@@ -4,17 +4,17 @@
 // (../bin/cli.ts) is a 3-line wrapper that forwards process.argv. Tests
 // drive runCli directly with a captured Output so no subprocess is needed.
 //
-// Scope (DX-1.2 minimum-viable): `new app <name>` + `add feature <name>`.
-// Other commands (dev, build, check, …) stay in the in-repo bin/kumiko.ts
-// for now — that one operates on the framework workspace, not on a
-// user-app workspace.
+// Scope: scaffolding (`new app <name>`, `add feature <name>`) plus the
+// app-facing ops commands (`agent`, `project`, `consumer`). Framework-
+// maintainer commands (check, ci:guards, dev, build, …) stay in the
+// framework repo's bin/kumiko.ts, which operates on that workspace only.
 
 import { scaffoldApp, scaffoldAppFeature } from "@cosmicdrift/kumiko-dev-server";
+import type { CliCommand } from "./commands";
+import { APP_COMMANDS, findAppCommand } from "./commands";
+import type { Output } from "./output";
 
-export type Output = {
-  readonly log: (line: string) => void;
-  readonly err: (line: string) => void;
-};
+export type { Output } from "./output";
 
 export type RunCliOptions = {
   readonly argv: readonly string[];
@@ -47,6 +47,16 @@ export async function runCli(options: RunCliOptions): Promise<number> {
 
   if (first === "new") return await runNew(argv.slice(1), out, cwd);
   if (first === "add") return runAdd(argv.slice(1), out, cwd);
+
+  const appCommand = findAppCommand(first);
+  if (appCommand) {
+    const rest = argv.slice(1);
+    if (rest.includes("--help") || rest.includes("-h")) {
+      printCommandHelp(appCommand, out);
+      return 0;
+    }
+    return await appCommand.run({ argv: rest, cwd, out });
+  }
 
   out.err(`kumiko: unknown command "${first}". Run \`kumiko --help\` for usage.`);
   return 1;
@@ -111,8 +121,19 @@ function printHelp(out: Output): void {
   out.log("Commands:");
   out.log("  kumiko new app <name>        Scaffold a new app workspace");
   out.log("  kumiko add feature <name>    Add + auto-mount a feature");
+  for (const cmd of APP_COMMANDS) {
+    out.log(`  kumiko ${cmd.id.padEnd(22)}${cmd.description}`);
+  }
   out.log("  kumiko --version             Print version");
   out.log("  kumiko --help                This help");
   out.log("");
   out.log("Docs: https://docs.kumiko.rocks");
+}
+
+function printCommandHelp(cmd: CliCommand, out: Output): void {
+  out.log("");
+  out.log(`  kumiko ${cmd.id} — ${cmd.description}`);
+  out.log("");
+  for (const line of cmd.help.split("\n")) out.log(`  ${line}`);
+  out.log("");
 }
