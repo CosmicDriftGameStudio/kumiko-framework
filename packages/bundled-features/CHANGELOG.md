@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.244.0
+
+### Patch Changes
+
+- 9179815: Fix `channel-in-app` never registering its `in_app_messages` table via `r.storeTable()`. The table was declared as a plain `pgTable` but never showed up in `collectTableMetas()`, so no migration was ever generated for it — any app using the feature hit `relation "in_app_messages" does not exist` on the first read/write to the in-app inbox. Added `inAppMessagesTableMeta`, derived from the existing `inAppMessagesTable` so the two cannot drift, and registered it with `r.storeTable(...)` in `createChannelInAppFeature`. No schema/data-model change — this only makes the migration generator aware of a table that already existed in code.
+- Updated dependencies [2cb949e]
+- Updated dependencies [dc4e6a2]
+- Updated dependencies [37fd2ad]
+  - @cosmicdrift/kumiko-framework@0.244.0
+  - @cosmicdrift/kumiko-renderer-web@0.244.0
+  - @cosmicdrift/kumiko-headless@0.244.0
+  - @cosmicdrift/kumiko-renderer@0.244.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.244.0
+  - @cosmicdrift/kumiko-types@0.244.0
+
 ## 0.243.4
 
 ### Patch Changes
