@@ -16,9 +16,9 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, statSync } from "node:fs";
-import { readFile, watch } from "node:fs/promises";
+import { readFile, realpath, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
@@ -334,6 +334,99 @@ function injectStylesheet(html: string): string {
   return html.includes("</head>")
     ? html.replace("</head>", `  ${link}\n</head>`)
     : `${link}${html}`;
+}
+
+// GET/HEAD to a non-API, non-SSE path — the dispatch-worthy set shared by
+// the SPA catch-all and the public/-file lookup below (they split on
+// whether the path has a dot).
+function isRoutableGetOrHead(req: Request, pathname: string): boolean {
+  return (
+    (req.method === "GET" || req.method === "HEAD") &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/sse")
+  );
+}
+
+// Resolves a request pathname to a file inside publicDir, or undefined if
+// it isn't one. Two traversal vectors, both must be blocked:
+//   - literal ".." segments (new URL() already collapses these in
+//     `pathname`, but resolve()+containment is checked regardless — no
+//     path-safety may depend on caller behavior upstream).
+//   - percent-encoded slashes (e.g. "%2e%2e%2f"): WHATWG URL parsing only
+//     normalizes dot-segments that are delimited by a literal "/", so an
+//     encoded slash survives into `pathname` untouched. decodeURIComponent
+//     resolves it to "../" before the containment check runs.
+function resolvePublicFilePath(pathname: string, publicDir: string): string | undefined {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return undefined;
+  }
+  const resolved = resolve(publicDir, `.${decoded}`);
+  return resolved === publicDir || resolved.startsWith(publicDir + sep) ? resolved : undefined;
+}
+
+// Same extension → content-type mapping as prod's
+// run-prod-app-static-files.ts#mimeTypeFor — that function isn't part of
+// server-runtime's public exports (its own package.json "exports" map),
+// so this is a small self-contained copy rather than a new cross-package
+// export for one call site.
+function publicFileMimeType(filePath: string): string {
+  const ext = filePath.toLowerCase().split(".").pop() ?? "";
+  switch (ext) {
+    case "html":
+      return "text/html; charset=utf-8";
+    case "js":
+    case "mjs":
+      return "text/javascript; charset=utf-8";
+    case "css":
+      return "text/css; charset=utf-8";
+    case "json":
+      return "application/json; charset=utf-8";
+    case "svg":
+      return "image/svg+xml";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "ico":
+      return "image/x-icon";
+    case "txt":
+      return "text/plain; charset=utf-8";
+    case "xml":
+      return "application/xml; charset=utf-8";
+    case "webmanifest":
+      return "application/manifest+json";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+// Reads a file under publicDir for the dev-server's static-asset fallback
+// (dev-parity with prod's disk lookup in buildStaticFallback). undefined
+// means "not a servable file here" — caller treats that as a router miss,
+// same as ENOENT/EISDIR/ENOTDIR further down.
+async function servePublicFile(
+  pathname: string,
+  publicDir: string,
+): Promise<{ readonly bytes: Uint8Array; readonly mime: string } | undefined> {
+  const filePath = resolvePublicFilePath(pathname, publicDir);
+  if (filePath === undefined) return undefined;
+  try {
+    const bytes = await readFile(filePath);
+    // Lexical containment (above) only catches "..", not a symlink inside
+    // publicDir that points outside it on disk — realpath resolves the
+    // actual target and the same containment check runs against it.
+    const real = await realpath(filePath);
+    if (real !== publicDir && !real.startsWith(publicDir + sep)) return undefined;
+    return { bytes, mime: publicFileMimeType(filePath) };
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR") return undefined;
+    throw err;
+  }
 }
 
 // injectSchema lebt in `./inject-schema.ts` damit dev-server + prod-
@@ -829,6 +922,10 @@ export async function createKumikoServer(
   const bundleByAssetPath = new Map<string, string>();
   for (const e of entries) bundleByAssetPath.set(assetPathFor(e.name), e.name);
 
+  // App-root convention (same as expandWatchPatterns/resolveStylesheet above):
+  // process.cwd() is the app workspace, so public/ is its static asset dir.
+  const publicDir = resolve(process.cwd(), "public");
+
   const handleFetch = async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
 
@@ -913,9 +1010,7 @@ export async function createKumikoServer(
     if (
       // HEAD mitnehmen — prod (runProdApp) fällt für GET UND HEAD auf die
       // SPA zurück; ohne das liefert dev 404 wo prod 200 liefert.
-      (req.method === "GET" || req.method === "HEAD") &&
-      !url.pathname.startsWith("/api/") &&
-      !url.pathname.startsWith("/sse") &&
+      isRoutableGetOrHead(req, url.pathname) &&
       !url.pathname.includes(".")
     ) {
       const honoTry = await tryHonoFirst(stack.app, req);
@@ -948,10 +1043,32 @@ export async function createKumikoServer(
       return htmlResponse("client", true);
     }
 
-    // Bypasses tryHonoFirst entirely (API paths, dotted paths, /sse,
-    // non-GET/HEAD), so the router-miss marker must be stripped here too —
-    // otherwise an unmatched path would leak it straight to the client
-    // (see try-hono-first.ts's header-hygiene note).
+    // Static assets under public/ — prod serves these via buildStaticFallback's
+    // disk lookup (run-prod-app-static-files.ts), dev previously had no
+    // equivalent: a dotted path (e.g. /marketing/hero.png) fell straight
+    // through to the API stack and 404ed. Hono still goes first (an
+    // r.httpRoute could itself own a dotted path), then the file on disk,
+    // then the router-miss 404 — mirrors the SPA branch above.
+    if (isRoutableGetOrHead(req, url.pathname) && url.pathname.includes(".")) {
+      const honoTry = await tryHonoFirst(stack.app, req);
+      if (honoTry.matched) {
+        return honoTry.response;
+      }
+      const file = await servePublicFile(url.pathname, publicDir);
+      if (file !== undefined) {
+        // @cast-boundary Buffer satisfies BodyInit at runtime, bun-types
+        // just doesn't say so — same cast run-prod-app-static-files.ts uses.
+        return new Response(file.bytes as unknown as BodyInit, {
+          headers: { "Content-Type": file.mime },
+        });
+      }
+      return honoTry.response;
+    }
+
+    // Bypasses tryHonoFirst entirely (API paths, /sse, non-GET/HEAD), so the
+    // router-miss marker must be stripped here too — otherwise an unmatched
+    // path would leak it straight to the client (see try-hono-first.ts's
+    // header-hygiene note).
     return stripNoRouteMatchHeader(await stack.app.fetch(req));
   };
 
