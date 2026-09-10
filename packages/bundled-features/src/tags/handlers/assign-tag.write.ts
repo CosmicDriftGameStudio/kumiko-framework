@@ -1,5 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { parentRowIsVisible } from "../../shared";
 import { tagAssignmentAggregateId } from "../aggregate-id";
 import { DEFAULT_TAG_ACCESS } from "../constants";
 import { tagAssignmentExecutor, tagExecutor } from "../executor";
@@ -21,6 +22,11 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 // Referential integrity: there is no FK (event-sourced, no JOIN), so before a
 // first-time create we verify the tag exists in the catalog — a malformed call
 // with an unknown tagId would otherwise project a dangling assignment.
+//
+// Host reference: entityType/entityId are never trusted client input either —
+// the aggregate-id is tenant-scoped, so this is not a cross-tenant hole, but
+// without the check any dispatch-eligible tenant user could tag an object they
+// are not allowed to read. See shared/parent-visibility.ts.
 export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
   return {
     name: "assign-tag",
@@ -30,6 +36,24 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       "Attaches an existing catalog tag to one host entity addressed by its type and id, reporting success when the tag was already attached; use it to tag a record, not to create the tag.",
     handler: async (event, ctx) => {
       const payload = event.payload as AssignTagPayload; // @cast-boundary engine-payload
+      // entityType/entityId are client input: the caller must be able to see
+      // the host row through that entity's own read path (tenant scope plus its
+      // `access.read` ownership) before its assignment row may be written.
+      // Checked FIRST, ahead of every lookup below, so a denied caller can't tell
+      // an invisible parent apart from a missing assignment or an unknown tag —
+      // every path answers with the same NotFoundError.
+      if (
+        !(await parentRowIsVisible(
+          ctx.registry,
+          payload.entityType,
+          payload.entityId,
+          event.user,
+          ctx.db,
+        ))
+      ) {
+        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
+      }
+
       const id = tagAssignmentAggregateId(
         event.user.tenantId,
         payload.tagId,

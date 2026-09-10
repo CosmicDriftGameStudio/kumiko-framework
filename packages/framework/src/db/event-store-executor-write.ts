@@ -27,7 +27,7 @@ import {
   entityEventName,
   tryMapUniqueViolation,
 } from "./event-store-executor-context";
-import { runInSavepointIfSupported, selectMany } from "./query";
+import { runInSavepointIfSupported } from "./query";
 
 // Art. 17 erasure runs as the framework operator, not as a row owner; a
 // per-role ownership map can never cover it, and a silent deny means the
@@ -714,7 +714,12 @@ export function createWriteVerbs(
         );
       }
 
-      const [row] = await selectMany(db.raw, table, { id: payload.id });
+      // Tenant boundary: db.fetchOne applies TenantDb's tenant predicate,
+      // selectMany(db.raw, ...) did not — any caller could un-delete a foreign
+      // tenant's row by id. "system"-mode dbs (r.systemScope() / crossTenant
+      // handlers) still read unfiltered. No isDeleted filter here: restore
+      // targets exactly the soft-deleted row.
+      const row = await db.fetchOne(table, { id: payload.id });
       if (!row) return writeFailure(new NotFoundError(entityName, payload.id));
       const data = row as DbRow;
       if (!data["isDeleted"]) {
@@ -783,9 +788,9 @@ export function createWriteVerbs(
         throw e;
       }
 
-      // Live==Rebuild via applyEntityEvent. Restore schreibt nur isDeleted=
-      // false + version-Bump in die Tabelle — keine sensitive-Drift, daher
-      // kein payload-override nötig.
+      // Live==Rebuild via applyEntityEvent. Restore only writes isDeleted=false
+      // plus the version bump, so there is no sensitive-field drift and no
+      // payload override is needed.
       const restoreResult = await runInSavepointIfSupported(db.raw, async (sp) =>
         applyEntityEvent(event, table, entity, sp),
       );
@@ -798,11 +803,11 @@ export function createWriteVerbs(
         await entityCache.del(user.tenantId, entityName, payload.id);
       }
 
-      // Read-Side Auto-Convert für Compound-Types (parallel zu update/list).
+      // Read-side auto-convert for compound types, same as update/list.
       // decryptForRead matches create/update/list/detail: the caller-facing
       // row and `previous` snapshot must be plaintext for `encrypted` fields,
       // same as every other executor method — `data`/`restored` are raw rows
-      // (selectMany / applyEntityEvent), never decrypted before this point.
+      // (db.fetchOne / applyEntityEvent), never decrypted before this point.
       const restoredHydrated = await decryptForRead(
         rehydrateCompoundTypes(restored as DbRow, entity) as DbRow,
       );

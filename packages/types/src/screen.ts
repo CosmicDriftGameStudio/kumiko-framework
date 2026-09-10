@@ -938,6 +938,11 @@ export type EntityEditScreenDefinition = {
    *  reusable feature when the target feature is guaranteed to be
    *  mounted alongside it. */
   readonly redirect?: string;
+  /** Parent list screen (short id) for breadcrumb + nav highlighting when
+   *  this screen has no nav entry of its own. Same field/semantics as on
+   *  `custom`/`projectionDetail`; an explicit value here wins over the
+   *  entity-list heuristic (rowAction target / same-entity entityList). */
+  readonly listScreenId?: string;
   /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), überschreibt
    *  die Default-Konvention `<feature>:entity:<entity>:field:<name>`.
    *  Primär für configEdit: dessen Pseudo-Entity `__config-edit__` hat
@@ -1023,6 +1028,11 @@ export type ActionFormScreenDefinition = {
    *  reusable feature when the target feature is guaranteed to be
    *  mounted alongside it. */
   readonly cancelTarget?: string | false;
+  /** Parent list screen (short id) for breadcrumb + nav highlighting when
+   *  this screen has no nav entry of its own. Same field/semantics as on
+   *  `custom`/`projectionDetail`/`entityEdit`; an explicit value here wins
+   *  over the rowAction heuristic. */
+  readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

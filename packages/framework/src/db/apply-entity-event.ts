@@ -14,15 +14,14 @@
 // (DEK erased → Wert unlesbar, bidx NULL). Load-bearing Test:
 // db/__tests__/implicit-projection-equivalence.integration.test.ts.
 //
-// Tenant-Isolation: applyEntityEvent erwartet einen rohen DbRunner (TX
-// oder pool), KEINEN TenantDb-Wrapper. Schutz kommt aus zwei Quellen:
-//   1. Live-Pfad ruft VOR der Schreibung loadById (tenant-scoped) für
-//      update/delete/restore — die aggregateId ist also schon tenant-
-//      validiert bevor wir hier ankommen.
-//   2. Bei create wird tenantId explizit aus event.tenantId gesetzt, also
-//      nie über den TenantDb-Wrapper-Default abgeleitet.
-// Damit ist der TenantDb-Wrapper-Loss in dieser Funktion funktional ohne
-// Sicherheitslücke.
+// Tenant isolation: applyEntityEvent expects a raw DbRunner (tx or pool), NOT
+// a TenantDb wrapper. Two sources keep it safe:
+//   1. The live path reads the target row through the tenant-scoped TenantDb
+//      before writing — loadById() for update/delete/forget, db.fetchOne() for
+//      restore — so the aggregateId is already tenant-validated on arrival.
+//   2. create sets tenantId explicitly from event.tenantId, never derived from
+//      the TenantDb wrapper default.
+// The missing TenantDb wrapper in this function is therefore not a hole.
 //
 // Auto-Verben:
 //   <entity>.created   → INSERT

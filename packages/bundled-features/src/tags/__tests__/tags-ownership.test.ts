@@ -1,15 +1,14 @@
-// H.2 boot guard — mirrors notes-history-ownership.integration.test.ts's
-// guard test. A where-rule in ownership.write boots fine (the boot-validator
-// has no where-specific handling) and only blows up the first time
-// assign-tag's create() hits it (userCanCreateFieldRow throws on
-// `kind: "where"`, unlike update/delete/forget which silently deny). No DB
-// needed — the guard fires at feature-construction time.
+// H.2 build-time guard — mirrors notes-history-ownership.integration.test.ts's
+// guard test. A where-rule in ownership.write can only ever deny (the write
+// path has no SQL layer); framework boot validation rejects it too, this guard
+// just fires earlier with the option name in the message. No DB needed — it
+// runs at feature-construction time.
 
 import { describe, expect, test } from "bun:test";
 import { createTagsFeature } from "../feature";
 
 describe("tags — boot guard rejects a where-rule in ownership.write", () => {
-  test("createTagsFeature throws instead of shipping a create()-time landmine", () => {
+  test("createTagsFeature throws instead of shipping a deny-only ownership map", () => {
     expect(() =>
       createTagsFeature({
         ownership: {

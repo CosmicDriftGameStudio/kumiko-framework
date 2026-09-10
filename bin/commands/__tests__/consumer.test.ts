@@ -9,9 +9,10 @@ afterEach(() => {
 });
 
 describe("consumer command", () => {
-  test("registered + maintainer-only", () => {
+  test("registered + both roles", () => {
     expect(consumerCommand.id).toBe("consumer");
-    expect(consumerCommand.roles).toEqual(["maintainer"]);
+    expect(consumerCommand.roles).toContain("maintainer");
+    expect(consumerCommand.roles).toContain("app-dev");
   });
 
   test("missing kumiko.config.ts emits helpful error", async () => {

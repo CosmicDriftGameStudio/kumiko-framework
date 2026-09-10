@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [b4d5b20]
+- Updated dependencies [f2c9178]
+- Updated dependencies [137191d]
+  - @cosmicdrift/kumiko-framework@0.246.0
+  - @cosmicdrift/kumiko-bundled-features@0.246.0
+  - @cosmicdrift/kumiko-dev-server@0.246.0
+
+## 0.3.0
+
+### Minor Changes
+
+- 63454f4: Ship the app-facing `agent`, `project` and `consumer` commands in the published `kumiko` binary. They previously existed only in the framework repo's private root package, so app repos installing `@cosmicdrift/kumiko-cli` got the scaffolding-only CLI under the same binary name (#2707).
+
+  Also fixes `kumiko project list` and `kumiko project status` crashing on the projection timestamps — they are `Temporal.Instant`, which has no `toISOString()`.
+
+### Patch Changes
+
+- Updated dependencies [3359dae]
+- Updated dependencies [d669ad6]
+  - @cosmicdrift/kumiko-framework@0.245.0
+  - @cosmicdrift/kumiko-bundled-features@0.245.0
+  - @cosmicdrift/kumiko-dev-server@0.245.0
+
 ## 0.2.368
 
 ### Patch Changes

@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-types
 
+## 0.246.0
+
+### Minor Changes
+
+- b5e44ad: Fix a double orientation loss (fw#2724): navigating from a list into a sub-screen that has no nav entry of its own (an `entityEdit`/`actionForm` reached via a row action, for example) used to mark nothing in the sidebar AND shrink the breadcrumb to a single crumb — nearly every non-nav-listed screen in a real consumer app.
+
+  - `listScreenId` (already available on `custom`/`projectionDetail`) is now also accepted on `entityEdit` and `actionForm` screens, naming the parent list screen for breadcrumb and nav-highlight resolution.
+  - An explicit `listScreenId` now wins over the existing rowAction/entity-list heuristics on every screen type that carries it (previously the heuristic could override a declared `listScreenId` on `custom`/`projectionDetail`; both resolutions agree on every screen shipped in bundled-features, so no visible change there).
+  - `NavTree`'s active-item marking now shares this exact resolution with the breadcrumb (`resolveParentScreenId` in `shell-breadcrumb.ts`): when the routed screen has no node of its own in the nav tree, the resolved parent's nav entry is highlighted instead of nothing. `aria-current="page"` stays reserved for the screen that IS the routed one — the parent-fallback match gets the visual highlight only, not that assertion.
+  - This is a visible behavior change for existing apps, by design: any `entityEdit` screen without its own nav entry that shares an entity with a listed `entityList` (or is a rowAction target of one) now lights up that list's nav entry — nothing needs to be declared for this, the existing heuristic just now also drives nav highlighting, not only the breadcrumb.
+
+## 0.245.0
+
+### Minor Changes
+
+- eb6fe2f: fw#2711: a `select` field can now request a radio group instead of hoping for one.
+
+  The web renderer already rendered `kind: "select"` as a WAI-ARIA radio group, but only behind a heuristic — at most 4 options, every label at most 14 characters. An app that wanted the radio group had no way to ask for it; one 15-character label silently turned the whole group into a dropdown. The next consumer then reached for raw `<input type="radio">`, because that was the only way to decide the presentation.
+
+  `SelectFieldDef` and the `Input` primitive's `kind: "select"` both gain an optional `display: "radio" | "dropdown"`. `"radio"` always renders the radio group, whatever the label lengths and option count; `"dropdown"` always renders the combobox. Omitted keeps the existing heuristic, so no existing field changes its rendering.
+
+  `display` is a request, not a contract: custom primitives implementations may ignore it and keep their own presentation. An empty `options` list still renders the dropdown even with `display: "radio"` — an empty radio group has nothing to operate.
+
 ## 0.244.0
 
 ## 0.243.4

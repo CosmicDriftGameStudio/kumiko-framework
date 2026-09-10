@@ -1,5 +1,5 @@
-// Tasks-Feature i18n-Bundle. Plattform-neutral — Web und (zukünftig)
-// Native konsumieren das gleiche Bundle.
+// Tasks feature i18n bundle. Platform-neutral — web and (later) native
+// consume the same bundle.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
@@ -14,6 +14,7 @@ export const tasksTranslations: TranslationsByLocale = {
 
     "tasks:entity:task:field:title": "Titel",
     "tasks:entity:task:field:status": "Status",
+    "tasks:entity:task:field:area": "Bereich",
     "tasks:entity:task:field:priority": "Priorität",
     "tasks:entity:task:field:isUrgent": "Dringend",
     "tasks:entity:task:field:notes": "Notizen",
@@ -28,6 +29,7 @@ export const tasksTranslations: TranslationsByLocale = {
 
     "tasks:entity:task:field:title": "Title",
     "tasks:entity:task:field:status": "Status",
+    "tasks:entity:task:field:area": "Area",
     "tasks:entity:task:field:priority": "Priority",
     "tasks:entity:task:field:isUrgent": "Urgent",
     "tasks:entity:task:field:notes": "Notes",

@@ -146,8 +146,10 @@ export type EditFieldViewModel = {
   readonly optionLabels?: Readonly<Record<string, string>>;
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.display is
    *  "checkboxes" — the renderer shows a checkbox grid with a select-all
-   *  toggle instead of the default combobox dropdown. */
-  readonly display?: "checkboxes" | "dropdown";
+   *  toggle instead of the default combobox dropdown. Set for
+   *  `type: "select"` when SelectFieldDef.display is "radio" or "dropdown" —
+   *  the renderer then skips its own radio-vs-dropdown heuristic. */
+  readonly display?: "checkboxes" | "dropdown" | "radio";
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is
    *  defined — column count for the checkbox grid at the widest breakpoint.
    *  Ignored unless `display` is "checkboxes". */
