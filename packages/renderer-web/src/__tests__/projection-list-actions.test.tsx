@@ -201,3 +201,77 @@ describe("projectionList toolbarActions drawer-kind (fw#2225)", () => {
     await waitFor(() => expect(queryCallCount).toBeGreaterThan(queryCallsBeforeSubmit));
   });
 });
+
+// rowActions kind:"drawer" (fw#2710) — buildProjectionRowActions is shared
+// between entityList and projectionList; this pins the projectionList call
+// site (openDrawer wired through ProjectionListBody).
+describe("projectionList rowActions drawer-kind (fw#2710)", () => {
+  const noteForm: ActionFormScreenDefinition = {
+    id: "maintenance-note",
+    type: "actionForm",
+    handler: "status:write:maintenance:note",
+    fields: { name: { type: "text" }, note: { type: "text", required: true } },
+    layout: { sections: [{ fields: ["name", "note"] }] },
+  };
+  const screenWithRowDrawer: ProjectionListScreenDefinition = {
+    ...projectionScreen,
+    rowActions: [
+      {
+        kind: "drawer",
+        id: "add-note",
+        label: "status:action:add-note",
+        screen: "maintenance-note",
+        params: { pick: ["name"] },
+      },
+    ],
+  };
+  const drawerSchema: FeatureSchema = {
+    featureName: "status",
+    entities: {},
+    screens: [screenWithRowDrawer, noteForm],
+  };
+
+  test("Click opens the Drawer prefilled from the row; submit dispatches, closes without navigating, and reloads the list", async () => {
+    let queryCallCount = 0;
+    const write = mock(async (_type: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    }));
+    const dispatcher: Dispatcher = {
+      ...createMockDispatcher({
+        query: (async () => {
+          queryCallCount += 1;
+          return {
+            isSuccess: true,
+            data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
+          };
+        }) as unknown as Dispatcher["query"],
+      }),
+      write: write as unknown as Dispatcher["write"],
+    };
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={drawerSchema} qn="status:screen:maintenance-list" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    expect(screen.queryByTestId("field-name")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("row-m1-action-add-note"));
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    const nameInput = screen.getByTestId("field-name").querySelector("input");
+    if (nameInput === null) throw new Error("expected an <input> inside field-name");
+    expect(nameInput.value).toBe("DB-Upgrade");
+    const queryCallsBeforeSubmit = queryCallCount;
+
+    const noteInput = screen.getByTestId("field-note").querySelector("input");
+    if (noteInput === null) throw new Error("expected an <input> inside field-note");
+    fireEvent.change(noteInput, { target: { value: "hello" } });
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]?.[0]).toBe("status:write:maintenance:note");
+    await waitFor(() => expect(screen.queryByTestId("render-edit-form")).toBeNull());
+    await waitFor(() => expect(queryCallCount).toBeGreaterThan(queryCallsBeforeSubmit));
+  });
+});

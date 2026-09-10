@@ -23,6 +23,7 @@ import {
   from,
   registerEntityCrud,
 } from "../index";
+import type { RowFieldExtractor } from "../types/screen";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -3696,6 +3697,110 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- action/rowAction drawer-target reachability across the remaining
+  //     RowAction call sites (fw#2710): projectionDetail.actions,
+  //     entityEdit.actions, and a relatedList section's rowActions. The
+  //     entityList/projectionList rowAction and toolbarAction drawer cases
+  //     are covered above — this pins the drawer branch actually being
+  //     reached (not skipped/mis-nested) at the other three sites, and the
+  //     "action" actionLabel used by both non-list call sites. ---
+  describe("drawer-target reachability at the remaining RowAction call sites (fw#2710)", () => {
+    test('projectionDetail.actions drawer-target unknown → throw with actionLabel "action"', () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: { sections: [{ fields: ["total"] }] },
+          actions: [
+            { kind: "drawer", id: "add-note", label: "actions.addNote", screen: "ghost-form" },
+          ],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /action "add-note" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+
+    test('entityEdit.actions drawer-target unknown → throw with actionLabel "action"', () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: { sections: [{ title: "Basics", fields: ["name"] }] },
+          actions: [
+            { kind: "drawer", id: "add-note", label: "actions.addNote", screen: "ghost-form" },
+          ],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /action "add-note" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+
+    test("entityEdit.actions drawer-target → registered actionForm → no throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.writeHandler(
+          "add-note",
+          z.object({ note: z.string() }),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: { sections: [{ title: "Basics", fields: ["name"] }] },
+          actions: [
+            { kind: "drawer", id: "add-note", label: "actions.addNote", screen: "note-form" },
+          ],
+        });
+        r.screen({
+          id: "note-form",
+          type: "actionForm",
+          handler: "shop:write:add-note",
+          fields: { note: { type: "text" } } as never,
+          layout: { sections: [{ fields: ["note"] }] },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test('projectionDetail relatedList section rowAction drawer-target unknown → throw with actionLabel "rowAction"', () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "Positions",
+                query: "shop:query:order-positions",
+                columns: [{ field: "name" }],
+                rowActions: [
+                  {
+                    kind: "drawer",
+                    id: "add-note",
+                    label: "actions.addNote",
+                    screen: "ghost-form",
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /rowAction "add-note" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+  });
+
   // --- Screen short-id collision across features ---
   describe("screen short-id collisions across features", () => {
     test("two features registering the same short screen-id → Throw", () => {
@@ -4109,6 +4214,149 @@ describe("boot-validator", () => {
       expect(() => validateBoot([list, consumer])).toThrow(
         /toolbarAction "open-drawer" drawer-target "restock-form" does not resolve to a registered screen in this feature/,
       );
+    });
+  });
+
+  // --- entityList rowAction drawer (fw#2710) ---
+  describe("entityList rowAction drawer (fw#2710)", () => {
+    function makeFeature(opts: {
+      readonly targetId?: string;
+      readonly targetType?: "actionForm" | "entityList";
+    }) {
+      const targetId = opts.targetId ?? "restock-form";
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            { kind: "drawer", id: "open-drawer", label: "actions.restock", screen: targetId },
+          ],
+        });
+        if (opts.targetType === "entityList") {
+          r.screen({
+            id: targetId,
+            type: "entityList",
+            entity: "product",
+            columns: ["name"],
+          });
+          return;
+        }
+        if (opts.targetType === "actionForm") {
+          r.writeHandler(
+            "restock",
+            z.object({ qty: z.number() }),
+            async () => ({ isSuccess: true as const, data: null }),
+            { access: { roles: ["Admin"] } },
+          );
+          r.screen({
+            id: targetId,
+            type: "actionForm",
+            handler: "shop:write:restock",
+            fields: { qty: { type: "number" } } as never,
+            layout: { sections: [{ fields: ["qty"] }] },
+          });
+        }
+      });
+    }
+
+    test("drawer-target → registered actionForm → no throw", () => {
+      expect(() => validateBoot([makeFeature({ targetType: "actionForm" })])).not.toThrow();
+    });
+
+    test("drawer-target → unknown → throw with a clear message", () => {
+      expect(() => validateBoot([makeFeature({ targetId: "ghost-form" })])).toThrow(
+        /rowAction "open-drawer" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+
+    test("drawer-target → screen exists but is not an actionForm → throw with a clear message", () => {
+      expect(() =>
+        validateBoot([makeFeature({ targetId: "product-list-2", targetType: "entityList" })]),
+      ).toThrow(
+        /rowAction "open-drawer" drawer-target "product-list-2" is a "entityList" screen, not an actionForm/,
+      );
+    });
+  });
+
+  // --- projectionList rowAction drawer + params prefill (fw#2710) ---
+  // projectionList is the second list call site; its rowActions run through a
+  // different branch of validateScreens than entityList's. The params cases
+  // pin the prefill check: a key the target actionForm doesn't declare is
+  // dropped by the renderer, so it has to fail at boot instead.
+  describe("projectionList rowAction drawer (fw#2710)", () => {
+    function makeFeature(opts: {
+      readonly targetId?: string;
+      readonly params?: RowFieldExtractor;
+    }) {
+      const targetId = opts.targetId ?? "restock-form";
+      return defineFeature("shop", (r) => {
+        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: true },
+        });
+        r.writeHandler(
+          "restock",
+          z.object({ qty: z.number() }),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "product-projection",
+          type: "projectionList",
+          query: "shop:query:products",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "drawer",
+              id: "open-drawer",
+              label: "actions.restock",
+              screen: targetId,
+              ...(opts.params !== undefined && { params: opts.params }),
+            },
+          ],
+        });
+        r.screen({
+          id: "restock-form",
+          type: "actionForm",
+          handler: "shop:write:restock",
+          fields: { qty: { type: "number" } } as never,
+          layout: { sections: [{ fields: ["qty"] }] },
+        });
+      });
+    }
+
+    test("drawer-target → registered actionForm → no throw", () => {
+      expect(() => validateBoot([makeFeature({})])).not.toThrow();
+    });
+
+    test("drawer-target → unknown → throw with a clear message", () => {
+      expect(() => validateBoot([makeFeature({ targetId: "ghost-form" })])).toThrow(
+        /rowAction "open-drawer" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+
+    test("params pick a field the target actionForm declares → no throw", () => {
+      expect(() => validateBoot([makeFeature({ params: { pick: ["qty"] } })])).not.toThrow();
+    });
+
+    test("params pick a field the target actionForm does not declare → throw", () => {
+      expect(() => validateBoot([makeFeature({ params: { pick: ["nope"] } })])).toThrow(
+        /rowAction "open-drawer" params prefills "nope", which drawer-target "restock-form" does not declare as a field/,
+      );
+    });
+
+    test("params map to a target key the actionForm does not declare → throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ params: { map: { nope: "productQty" } } })]),
+      ).toThrow(/params prefills "nope", which drawer-target "restock-form" does not declare/);
+    });
+
+    test("params map to a declared target key → no throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ params: { map: { qty: "productQty" } } })]),
+      ).not.toThrow();
     });
   });
 

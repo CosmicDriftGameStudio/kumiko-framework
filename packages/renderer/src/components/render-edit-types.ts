@@ -2,6 +2,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   IconKey,
+  RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FormSnapshot,
@@ -60,6 +61,16 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  same split as `onCopyLink`) — RenderEdit only wires the button, its
    *  busy state and its confirm dialog. */
   readonly actions?: readonly RenderEditAction[];
+  /** Opens a relatedList section row's drawer-kind action (fw#2710).
+   *  RenderEdit has no `schema` to resolve the target actionForm itself —
+   *  the caller (ProjectionDetailBody, which does have schema) supplies the
+   *  opener and owns the actual Drawer state/rendering. Only projectionDetail
+   *  passes this — the boot validator rejects relatedList sections on every
+   *  other screen type that shares this layout. */
+  readonly onRelatedListDrawerAction?: (
+    action: RowActionDrawer,
+    initialValues: Readonly<Record<string, unknown>> | undefined,
+  ) => void;
   /** i18n key for the submit button. Default: "kumiko.actions.save".
    *  Action forms (tier 2.7d) pass their screen.submitLabel here so that
    *  "Save" can be replaced by domain-specific strings ("Approve" /

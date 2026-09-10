@@ -208,7 +208,10 @@ export type RowFieldExtractor =
 //   - "navigate" (Tier 2.7e): navigiert zu einem anderen Screen,
 //     optional mit URL-Search-Params aus `params`. Use-case: "Edit",
 //     "View Audit-Log", "Open in actionForm" etc.
-export type RowAction = RowActionWriteHandler | RowActionNavigate;
+//   - "drawer" (fw#2710): mounts an actionForm in a Drawer without leaving
+//     the list/detail screen, prefilled from the clicked row via `params`.
+//     Row-level pendant to ToolbarAction's "drawer" variant (fw#2225).
+export type RowAction = RowActionWriteHandler | RowActionNavigate | RowActionDrawer;
 
 export type RowActionWriteHandler = {
   /** Default für RowActions ohne explizit gesetzten `kind` —
@@ -293,6 +296,27 @@ export type RowActionNavigate = RowActionNavigateBase &
         readonly screen?: never;
       }
   );
+
+export type RowActionDrawer = {
+  readonly kind: "drawer";
+  readonly id: string;
+  readonly label: string;
+  /** Short, unqualified id of an `actionForm` screen in the same feature.
+   *  Boot validator rejects a missing screen and a screen whose `type`
+   *  isn't `actionForm` — same check as ToolbarAction's drawer variant
+   *  (see docs/plans/bundled-features-screen-standardisierung.md §2.6c). */
+  readonly screen: string;
+  /** Declarative prefill extracted from the clicked row. `pick` extracts
+   *  fields of the same name; `map` renames them. */
+  readonly params?: RowFieldExtractor;
+  /** Per-row conditional visibility. */
+  readonly visible?: FieldCondition;
+  readonly style?: "primary" | "secondary";
+  /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
+   *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
+   *  (renderer-web), analogous to EditFieldSpec.icon. */
+  readonly icon?: IconKey;
+};
 
 // ToolbarAction — button in the list header. Three variants: navigate to
 // another screen (e.g. a full-page actionForm), dispatch a handler directly

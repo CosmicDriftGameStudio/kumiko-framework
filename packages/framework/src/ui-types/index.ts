@@ -89,6 +89,7 @@ export type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
+  RowActionDrawer,
   RowActionNavigate,
   RowActionWriteHandler,
   RowFieldExtractor,
