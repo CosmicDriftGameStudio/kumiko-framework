@@ -923,3 +923,143 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
     expect(outerSubmitFired).toBe(false);
   });
 });
+
+// fw#2713: `actions` are on the record the head shows, not on whichever tab
+// is open — they used to render in the card footer, below the active tab's
+// content, so a long tab pushed them off-screen and they visually "moved"
+// as the tab content's length changed. They now render inside the head
+// region (title/status/metrics), before any tab content, in both layout
+// modes — `single` gets the same treatment as `tabs` since the actions
+// belong to the header regardless of how the body is laid out.
+describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", () => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    query: (async () => ({
+      isSuccess: true,
+      data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+    })) as unknown as Dispatcher["query"],
+  });
+
+  test("with actions declared: the action button renders in the head region, before the tab content, not in the form footer", async () => {
+    const screenWithActions: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      header: { title: "userId" },
+      layout: { mode: "tabs", sections: detailScreen.layout.sections },
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
+    };
+    const schemaWithActions: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [screenWithActions],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaWithActions}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    const actionButton = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
+    // The footer regions RenderEdit's Form would otherwise draw the action
+    // into are gone entirely — the action moved out, it didn't just gain a
+    // second home.
+    expect(screen.queryByTestId("render-edit-form-actions")).toBeNull();
+    expect(screen.queryByTestId("render-edit-form-actions-secondary")).toBeNull();
+    // The action sits in the head Card, ahead of the field it shares a
+    // screen with in document order — i.e. inside headerRegion, not the
+    // card body below it.
+    const field = screen.getByTestId("field-userId");
+    expect(
+      actionButton.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test("without actions: no action area renders at all (no empty strip, no leftover footer)", async () => {
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="sessions:screen:session-detail" entityId="sess-1" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-actions")).toBeNull();
+    expect(screen.queryByTestId("render-edit-form-actions")).toBeNull();
+    expect(screen.queryByTestId("render-edit-form-actions-secondary")).toBeNull();
+  });
+
+  test("switching tabs leaves the action in place — same head placement regardless of which tab is active", async () => {
+    const tabsScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      header: { title: "userId" },
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Session", fields: ["userId"] },
+          { id: "meta", title: "Meta", fields: ["createdAt"] },
+        ],
+      },
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
+    };
+    const tabsSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsScreen],
+    };
+    function navWithTab(tab: string | undefined): NavApi {
+      return {
+        route: undefined,
+        navigate: () => {},
+        replace: () => {},
+        hrefFor: () => "",
+        searchParams: tab !== undefined ? { tab } : {},
+        setSearchParams: () => {},
+      };
+    }
+
+    const { unmount } = render(
+      <NavProvider value={navWithTab("overview")}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={tabsSchema} qn="sessions:screen:session-detail" entityId="sess-1" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    const buttonOnOverview = await waitFor(() =>
+      screen.getByTestId("render-edit-action-open-user"),
+    );
+    expect(buttonOnOverview.textContent).toBe("sessions.detail.action.openUser");
+    unmount();
+
+    render(
+      <NavProvider value={navWithTab("meta")}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={tabsSchema} qn="sessions:screen:session-detail" entityId="sess-1" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    const buttonOnMeta = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
+    expect(buttonOnMeta.textContent).toBe("sessions.detail.action.openUser");
+    // Same head placement on both tabs — ahead of whichever field the
+    // active tab shows, not trailing it.
+    const fieldOnMeta = screen.getByTestId("field-createdAt");
+    expect(
+      buttonOnMeta.compareDocumentPosition(fieldOnMeta) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
