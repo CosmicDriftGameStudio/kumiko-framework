@@ -21,8 +21,8 @@ import type {
   TreeChildrenSubscribe,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { FeatureSchema, LiveEventSubscriber } from "@cosmicdrift/kumiko-renderer";
-import { LiveEventsProvider } from "@cosmicdrift/kumiko-renderer";
+import type { FeatureSchema, LiveEventSubscriber, NavApi } from "@cosmicdrift/kumiko-renderer";
+import { LiveEventsProvider, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import { act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NavProvidersProvider } from "../app/nav-providers-context";
@@ -460,6 +460,90 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
     );
     expect(screen.queryByText("Ghost")).toBeNull();
     expect(screen.getByText("Tarif & Limits")).toBeTruthy();
+  });
+});
+
+// fw#2724: leaving a list for a sub-screen (entityEdit/actionForm/...) used
+// to lose BOTH orientation cues at once — nav marks nothing, breadcrumb
+// shrinks to one crumb. NavTree now falls back to resolveParentScreenId
+// (same resolution shell-breadcrumb.ts uses) when the routed screen has no
+// node of its own in the tree.
+function navWithRoute(screenId: string): NavApi {
+  return {
+    route: { screenId },
+    navigate: () => {},
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams: {},
+    setSearchParams: () => {},
+  };
+}
+
+describe("NavTree active-marker parent fallback", () => {
+  test("screen without its own nav entry highlights the resolved parent, without aria-current", () => {
+    const schema: FeatureSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "user-list", type: "entityList", entity: "profile", columns: [] },
+        {
+          id: "user-edit",
+          type: "entityEdit",
+          // Deliberately a DIFFERENT entity than "user-list" — the old
+          // same-entity heuristic must NOT be what resolves this; only the
+          // explicit listScreenId does.
+          entity: "user-detail",
+          listScreenId: "user-list",
+          layout: { sections: [{ fields: [] }] },
+        },
+      ],
+      navs: [{ id: "user-list", label: "Users", screen: "user-list", order: 10 }],
+    } as FeatureSchema;
+
+    render(
+      <NavProvider value={navWithRoute("user-edit")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+
+    const link = screen.getByText("Users").closest("a");
+    expect(link?.getAttribute("data-active")).toBe("true");
+    expect(link?.hasAttribute("aria-current")).toBe(false);
+  });
+
+  test("screen with its own nav entry still marks itself and keeps aria-current=page", () => {
+    const schema: FeatureSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "user-list", type: "entityList", entity: "profile", columns: [] },
+        {
+          id: "user-edit",
+          type: "entityEdit",
+          entity: "profile",
+          layout: { sections: [{ fields: [] }] },
+        },
+      ],
+      navs: [
+        { id: "user-list", label: "Users", screen: "user-list", order: 10 },
+        { id: "user-edit", label: "Edit User", screen: "user-edit", order: 20 },
+      ],
+    } as FeatureSchema;
+
+    render(
+      <NavProvider value={navWithRoute("user-edit")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+
+    const editLink = screen.getByText("Edit User").closest("a");
+    expect(editLink?.getAttribute("data-active")).toBe("true");
+    expect(editLink?.getAttribute("aria-current")).toBe("page");
+
+    // The list is not silently highlighted too — only the exact match is.
+    const listLink = screen.getByText("Users").closest("a");
+    expect(listLink?.getAttribute("data-active")).toBe("false");
+    expect(listLink?.hasAttribute("aria-current")).toBe(false);
   });
 });
 
