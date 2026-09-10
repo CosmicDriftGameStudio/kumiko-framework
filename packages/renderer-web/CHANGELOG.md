@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.243.4
+
+### Patch Changes
+
+- 8c7b961: Fix `DataTable`'s toolbar cutting off `toolbarEnd` buttons on narrow viewports (e.g. `coa-mapping-list`, `statement-upload-list` at 390px). Neither the toolbar container nor its `toolbarEnd` wrapper allowed wrapping, so extra buttons ran off the right edge instead of onto a new line. Both now carry `flex-wrap`; `ml-auto` still right-aligns `toolbarEnd` on its own flex line once wrapped, so the desktop layout is unchanged when there's enough width.
+  - @cosmicdrift/kumiko-dispatcher-live@0.243.4
+  - @cosmicdrift/kumiko-headless@0.243.4
+  - @cosmicdrift/kumiko-renderer@0.243.4
+
 ## 0.243.3
 
 ### Patch Changes
