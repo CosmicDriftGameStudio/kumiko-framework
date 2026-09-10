@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.243.2
+
+### Patch Changes
+
+- 3667747: Close a secret-disclosure hole in the AI-agent tool catalog: several bundled handlers whose _result_ or _input_ carries a live credential were reachable as agent tools, and an app mounting the agent had no way to take them out.
+
+  `auth-mfa:write:enable-start` and `auth-mfa:write:enable-start-preauth` return the TOTP secret, the `otpauth://` URI and the one-time plaintext recovery codes; `auth-mfa:write:regenerate-recovery` returns a fresh set of plaintext recovery codes; `personal-access-tokens:write:create` returns the plaintext token exactly once; `secrets:write:set` takes the plaintext credential as its `value` argument; `crypto-shredding:write:forget-subject` erases a subject key with no undo. Every one of them was in the catalog for User/TenantAdmin/SystemAdmin — so a single agent turn would have written the secret into the LLM transcript and shipped it to the model provider. All six now carry `agent: { expose: false }` and are gone from the catalog and from the manifest under every role. Handlers that return decrypted PII but that an agent legitimately needs (`tenant:query:members`, `tenant:query:invitations`, `sessions:query:user-session:detail`, `user-data-rights:query:list-download-attempts`, `user-data-rights:write:request-deletion-by-email`) stay visible but are now `agent: { risk: "high" }`, so they never run without approval; `auth-mfa`'s two `enable-confirm` handlers are `risk: "high"` for the same reason.
+
+  New: `buildAgentManifest(registry, { …, denyQns })` and `buildToolCatalog(registry, manifest, { mode, denyQns })` both accept a list of handler QNs the mounting app refuses to expose. This is the app-side cut for handlers the app does not own — a bundled feature's — and, unlike `agent.expose`, it also reaches the entity CRUD tools (`get_`/`list_`/`search_`/`find_*_by_*`), which are enumerated straight off the registry. Pass the same list to both calls: the catalog deliberately does not read it off the manifest, because the manifest is prompt payload and a list of forbidden handler names has no business travelling to the provider.
+
+  Also fixes fw#2700: the registry-derived entity CRUD tools now honour an explicit `agent: { expose: false }` on a `:list`/`:detail` handler. Only an explicit opt-out hides one — the fail-closed `resolveAgentExposure` default is deliberately not applied there, since CRUD-generated handlers carry no `description` and applying it would delete every entity tool in every app.
+
+  No behaviour change for apps that do not mount `agent-tools`. Apps that do lose the six tools above from the catalog; there is no opt-in to get them back, by design.
+
+  - @cosmicdrift/kumiko-framework@0.243.2
+  - @cosmicdrift/kumiko-types@0.243.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.243.2
+  - @cosmicdrift/kumiko-headless@0.243.2
+  - @cosmicdrift/kumiko-renderer@0.243.2
+  - @cosmicdrift/kumiko-renderer-web@0.243.2
+
 ## 0.243.1
 
 ### Patch Changes
