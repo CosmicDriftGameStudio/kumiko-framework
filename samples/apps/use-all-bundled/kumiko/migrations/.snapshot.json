@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-04T08:26:03.459Z",
+  "generatedAt": "2026-09-10T07:22:56.373Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -105,6 +105,66 @@
       ],
       "source": "managed",
       "piiSubjectFields": ["fileName"]
+    },
+    {
+      "tableName": "in_app_messages",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "serial",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "notification_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "body",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "data",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "is_read",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "read_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [],
+      "source": "unmanaged"
     },
     {
       "tableName": "read_cap_counters",
@@ -1521,7 +1581,7 @@
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["authorName", "body"]
+      "piiSubjectFields": ["authorName"]
     },
     {
       "tableName": "read_notification_preferences",
