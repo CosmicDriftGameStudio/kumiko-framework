@@ -110,7 +110,7 @@ import {
 import { EmbeddedListInput } from "./embedded-list-input";
 import { FileUploadInput } from "./file-upload";
 import { DefaultJsonView } from "./json-view";
-import { screenWidthClassName } from "./layout";
+import { screenPaddingClassName, screenWidthClassName } from "./layout";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
 import { DefaultMetric } from "./metric";
@@ -2261,7 +2261,7 @@ export function FormScreenShell({
   return (
     <div
       data-testid={testId}
-      className={cn("px-6 pt-6 pb-12 w-full", screenWidthClassName[width], className)}
+      className={cn(screenPaddingClassName, "w-full", screenWidthClassName[width], className)}
     >
       {children}
     </div>

@@ -1,5 +1,5 @@
 // Layout primitives for custom screens: one place for vertical spacing and
-// screen padding, so consumers don't hand-roll `flex flex-col gap-*` / `p-6`.
+// screen padding, so consumers don't hand-roll `flex flex-col gap-*` / screen insets.
 // Deliberately thin — not a generic box-with-20-props system.
 
 import type { FormWidth } from "@cosmicdrift/kumiko-renderer";
@@ -16,6 +16,12 @@ export const screenWidthClassName: Record<ScreenWidth, string> = {
   "4xl": "max-w-4xl mx-auto",
   full: "max-w-full",
 };
+
+// Shared screen padding for both screen containers (PageSection and
+// FormScreenShell). The wider bottom inset keeps the last field or table row
+// off the viewport edge; applying it everywhere makes footer spacing
+// independent of the screen type (fw#2640).
+export const screenPaddingClassName = "px-6 pt-6 pb-12";
 
 const STACK_GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6" } as const;
 
@@ -50,7 +56,10 @@ export function PageSection({
   maxWidth = "full",
 }: PageSectionProps): ReactNode {
   return (
-    <div data-testid={testId} className={cn("p-6", screenWidthClassName[maxWidth], className)}>
+    <div
+      data-testid={testId}
+      className={cn(screenPaddingClassName, screenWidthClassName[maxWidth], className)}
+    >
       {children}
     </div>
   );

@@ -1743,8 +1743,25 @@ describe("PageSection", () => {
         <span data-testid="child">x</span>
       </PageSection>,
     );
-    expect(screen.getByTestId("p").className).toContain("p-6");
+    expect(screen.getByTestId("p").className).toContain("px-6");
     expect(screen.getByTestId("child")).toBeDefined();
+  });
+
+  test("renders the same padding classes as FormScreenShell (fw#2640)", () => {
+    render(
+      <>
+        <PageSection testId="page-pad">x</PageSection>
+        <FormScreenShell testId="shell-pad">x</FormScreenShell>
+      </>,
+    );
+    const paddingOf = (testId: string): string[] =>
+      screen
+        .getByTestId(testId)
+        .className.split(" ")
+        .filter((c) => /^p[xytblr]?-/.test(c))
+        .sort();
+    expect(paddingOf("page-pad")).toEqual(["pb-12", "pt-6", "px-6"]);
+    expect(paddingOf("page-pad")).toEqual(paddingOf("shell-pad"));
   });
 
   test("maxWidth=4xl sets the same width class as FormScreenShell maxWidth=4xl (fw#2640)", () => {
