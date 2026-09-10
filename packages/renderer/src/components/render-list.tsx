@@ -114,6 +114,10 @@ export type RenderListProps = {
    *  frame for a host that already provides one (relatedList in a tabs-mode
    *  section, fw#2722). Default false. */
   readonly chromeless?: boolean;
+  /** Forwarded to `DataTableProps.scrollBody` — bounds the table height and
+   *  scrolls rows internally instead of growing the page (relatedList in a
+   *  tabs-mode section, fw#2722). Default false. */
+  readonly scrollBody?: boolean;
 };
 
 // Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
@@ -163,6 +167,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     onFilterChange,
     onFilterReset,
     chromeless,
+    scrollBody,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -378,6 +383,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(onFilterChange !== undefined && { onFilterChange })}
         {...(onFilterReset !== undefined && { onFilterReset })}
         {...(chromeless !== undefined && { chromeless })}
+        {...(scrollBody !== undefined && { scrollBody })}
         testId="render-list-table"
       />
     </>

@@ -623,6 +623,15 @@ export type DataTableProps = {
    *  and would otherwise show a card nested inside that boundary. Default
    *  false: unchanged card-framed table. */
   readonly chromeless?: boolean;
+  /** Fills the available height of its flex container and scrolls rows
+   *  internally instead of growing with row count — for a host that would
+   *  otherwise have a long table stretch the whole page, or a short table
+   *  leave dead space below it (a tab panel, fw#2722). Requires the same
+   *  flex-fill chain FormProps.fillHeight sets up above it; without that
+   *  ancestor chain this collapses to zero height (Web: `flex-1 min-h-0`
+   *  has no effect outside a sized flex-col ancestor). Default false:
+   *  unchanged document-flow table that grows with its content. */
+  readonly scrollBody?: boolean;
 };
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----
@@ -755,6 +764,14 @@ export type FormProps = {
    *  instead of rendering as unpadded siblings before it. Native impls may
    *  ignore this prop. */
   readonly headerRegion?: ReactNode;
+  /** Sizes the form to fill its container's height (instead of the page's
+   *  natural content height) so a single scrolling child — a lone
+   *  relatedList tab's table — can scroll internally instead of stretching
+   *  the whole page (fw#2722). Only set by RenderEdit for a lone relatedList
+   *  tab section; every other caller leaves it unset and keeps normal
+   *  document-flow height. Native impls may ignore this prop (already a
+   *  bounded viewport there). */
+  readonly fillHeight?: boolean;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
@@ -782,6 +799,21 @@ export type SectionProps = {
    *  size as the title. No effect without a `title` — an icon alone would
    *  have nothing to sit next to. */
   readonly icon?: IconKey;
+};
+
+/** Chromeless flex-fill layout host — no title, no card frame, no padding,
+ *  just a container that sizes to fill its parent and lets one scrolling
+ *  child scroll internally instead of the page growing (fw#2722). Web:
+ *  `<div className="flex flex-1 min-h-0 flex-col">`. Native: Views are
+ *  already flex-column and the parent is already a bounded viewport there,
+ *  so a native impl may render this as a bare Fragment. Used only as the
+ *  terminal link in `RenderEdit`'s `fillHeight` chain (`RelatedListSection`'s
+ *  `hideTitle` branch) — `Section`/`Card` were rejected here because both
+ *  carry title/padding/border chrome this spot doesn't want and would double
+ *  up with the table's own padding. */
+export type FillContainerProps = {
+  readonly children: ReactNode;
+  readonly testId?: string;
 };
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit
@@ -1139,6 +1171,10 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly JsonView?: ComponentType<JsonViewProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly FillContainer?: ComponentType<FillContainerProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

@@ -5,6 +5,7 @@ import type {
   FieldRenderer,
   IconKey,
   ListColumnSpec,
+  ListSortSpec,
   PlatformComponent,
   RowAction,
   ScreenSlots,
@@ -290,6 +291,7 @@ export type EditRelatedListSectionViewModel = {
   readonly parentParam?: string;
   readonly columns: readonly ListColumnSpec[];
   readonly pageSize?: number;
+  readonly defaultSort?: ListSortSpec;
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
   readonly rowActions?: readonly RowAction[];
 };

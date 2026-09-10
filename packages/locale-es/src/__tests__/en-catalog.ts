@@ -533,6 +533,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.empty.title": "No entries yet.",
   "kumiko.list.end-of-list": "— End of list —",
   "kumiko.list.no-entries": "No entries.",
+  "kumiko.list.related-list-truncated":
+    "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
   "kumiko.list.search-placeholder": "Search…",
   "kumiko.list.sort.label": "Sort",
   "kumiko.list.sort.unsorted": "Unsorted",

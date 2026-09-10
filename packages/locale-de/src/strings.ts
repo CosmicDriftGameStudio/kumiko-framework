@@ -551,6 +551,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.empty.title": "Noch keine Einträge.",
   "kumiko.list.end-of-list": "— Ende der Liste —",
   "kumiko.list.no-entries": "Keine Einträge.",
+  "kumiko.list.related-list-truncated":
+    "Zeigt die ersten {count} Einträge. Es gibt weitere, die nicht geladen sind — diese Liste paginiert nicht.",
   "kumiko.list.search-placeholder": "Suchen…",
   "kumiko.list.sort.label": "Sortieren",
   "kumiko.list.sort.unsorted": "Unsortiert",

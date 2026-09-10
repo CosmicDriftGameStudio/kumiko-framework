@@ -846,6 +846,23 @@ export function validateScreens(
               );
             }
           }
+          if (section.defaultSort !== undefined) {
+            const sortField = section.defaultSort.field;
+            const col = section.columns.find((c) => normalizeListColumn(c).field === sortField);
+            if (col === undefined) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(relatedList) defaultSort.field "${sortField}" is not a listed column.`,
+              );
+            }
+            if (normalizeListColumn(col).sortable !== true) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
+                  `(relatedList) defaultSort.field "${sortField}" is not sortable. Set sortable: true on ` +
+                  `the column or pick another field.`,
+              );
+            }
+          }
           continue;
         }
         if (isWriteFormEditSection(section)) {

@@ -25,6 +25,7 @@ import {
   type DataTableFacet,
   type DataTableProps,
   type FieldProps,
+  type FillContainerProps,
   type FormProps,
   type FormWidth,
   type GridCellProps,
@@ -904,6 +905,7 @@ function DefaultDataTable({
   getRowTestId,
   getCellTestId,
   chromeless,
+  scrollBody,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell (fw#2345).
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -937,7 +939,19 @@ function DefaultDataTable({
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
-      <div className={cn("overflow-hidden", chromeless !== true && "rounded-lg border bg-card")}>
+      // `scrollBody` fills the remaining height of its flex-col ancestor
+      // (see DefaultForm/FormScreenShell's `fillHeight` and this table's own
+      // outer wrapper below) and scrolls rows internally, instead of
+      // `overflow-hidden` (document-flow height, grows with row count) — for
+      // a host where a long list must not stretch the whole page (a tab
+      // panel, fw#2722). `min-h-0` overrides flex's default min-height:auto,
+      // which would otherwise let this grow past its flex-1 share to fit content.
+      <div
+        className={cn(
+          scrollBody === true ? "flex-1 min-h-0 overflow-y-auto" : "overflow-hidden",
+          chromeless !== true && "rounded-lg border bg-card",
+        )}
+      >
         <Table data-testid={testId}>
           <TableHeader className="bg-muted">
             <TableRow className="hover:bg-transparent">
@@ -1139,7 +1153,10 @@ function DefaultDataTable({
     return (
       <div
         data-testid={testId !== undefined ? `${testId}-cards` : "render-list-cards"}
-        className="flex flex-col gap-3"
+        className={cn(
+          "flex flex-col gap-3",
+          scrollBody === true && "flex-1 min-h-0 overflow-y-auto",
+        )}
       >
         {onSortChange !== undefined && sortableColumns.length > 0 && (
           <select
@@ -1241,7 +1258,7 @@ function DefaultDataTable({
   // der Tabelle im selben Padding-Block — kein separater bg-Bar, kein Screen-
   // Titel (der steht im Breadcrumb der Shell).
   return (
-    <div className="flex flex-col gap-4 p-6 w-full">
+    <div className={cn("flex flex-col gap-4 p-6 w-full", scrollBody === true && "flex-1 min-h-0")}>
       {hasToolbar && (
         <div
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
@@ -2134,6 +2151,7 @@ function DefaultForm({
   width,
   stickyActions,
   headerRegion,
+  fillHeight,
 }: FormProps): ReactNode {
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
@@ -2164,12 +2182,25 @@ function DefaultForm({
   // between each other, muted action footer. Shell width defaults to full
   // (same chrome as lists); pass width to narrow (auth-adjacent / dense).
   return (
-    <FormRoot onSubmit={onSubmit} testId={testId} className="flex flex-col w-full">
-      <FormScreenShell {...(width !== undefined && { maxWidth: width })}>
+    <FormRoot
+      onSubmit={onSubmit}
+      testId={testId}
+      className={cn("flex flex-col w-full", fillHeight === true && "h-full min-h-0")}
+    >
+      <FormScreenShell
+        {...(width !== undefined && { maxWidth: width })}
+        {...(fillHeight === true && { fillHeight: true })}
+      >
         {headerRegion !== undefined && (
           <div className="flex flex-col gap-6 mb-8">{headerRegion}</div>
         )}
-        <div className={cn(cardSurface(), "overflow-hidden")}>
+        <div
+          className={cn(
+            cardSurface(),
+            "overflow-hidden",
+            fillHeight === true && "flex-1 min-h-0 flex flex-col",
+          )}
+        >
           {(title !== undefined || subtitle !== undefined) && (
             <div className={cn(cardHeaderBorder, "px-6 pb-4 pt-5")}>
               {title !== undefined && (
@@ -2203,6 +2234,7 @@ function DefaultForm({
               // safe-area, fw#2528) — widen further if a wizard step's last field
               // ever renders visibly clipped under three or more wrapped rows.
               stickyActions === true && "max-sm:pb-32",
+              fillHeight === true && "flex-1 min-h-0",
             )}
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
@@ -2257,18 +2289,30 @@ export function FormScreenShell({
   className,
   testId,
   maxWidth,
+  fillHeight,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
   readonly testId?: string;
   readonly maxWidth?: FormScreenShellWidth;
+  /** Stacks children in a `h-full` flex column instead of normal document
+   *  flow, so a `flex-1 min-h-0` child can claim the remaining height below
+   *  the others (fw#2722 — DefaultForm's tabs+relatedList case). Default
+   *  false: unchanged, content-sized height. */
+  readonly fillHeight?: boolean;
 }): ReactNode {
   const contextWidth = useContext(ScreenWidthContext);
   const width = maxWidth ?? contextWidth;
   return (
     <div
       data-testid={testId}
-      className={cn(screenPaddingClassName, "w-full", screenWidthClassName[width], className)}
+      className={cn(
+        screenPaddingClassName,
+        "w-full",
+        screenWidthClassName[width],
+        fillHeight === true && "h-full flex flex-col min-h-0",
+        className,
+      )}
     >
       {children}
     </div>
@@ -2372,6 +2416,14 @@ function DefaultSection({
           {actions}
         </div>
       )}
+    </div>
+  );
+}
+
+function DefaultFillContainer({ children, testId }: FillContainerProps): ReactNode {
+  return (
+    <div data-testid={testId} className="flex flex-1 min-h-0 flex-col">
+      {children}
     </div>
   );
 }
@@ -2631,4 +2683,5 @@ export const defaultPrimitives: CorePrimitives = {
   StatusBadge: DefaultStatusBadge,
   Metric: DefaultMetric,
   JsonView: DefaultJsonView,
+  FillContainer: DefaultFillContainer,
 };

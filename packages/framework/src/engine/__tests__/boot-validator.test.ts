@@ -3851,6 +3851,83 @@ describe("boot-validator", () => {
         /rowAction "add-note" drawer-target "ghost-form" does not resolve to a registered screen/,
       );
     });
+
+    test("projectionDetail relatedList defaultSort.field not a listed column → throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "Positions",
+                query: "shop:query:order-positions",
+                columns: [{ field: "name", sortable: true }],
+                defaultSort: { field: "price", dir: "asc" },
+              },
+            ],
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /defaultSort\.field "price" is not a listed column/,
+      );
+    });
+
+    test("projectionDetail relatedList defaultSort.field not sortable → throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "Positions",
+                query: "shop:query:order-positions",
+                columns: [{ field: "name" }],
+                defaultSort: { field: "name", dir: "asc" },
+              },
+            ],
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/defaultSort\.field "name" is not sortable/);
+    });
+
+    test("projectionDetail relatedList defaultSort.field sortable → kein Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.queryHandler("order-detail", z.object({}), async () => ({ id: "o1" }), {
+          access: { openToAll: true },
+        });
+        r.queryHandler(
+          "order-positions",
+          z.object({}),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "Positions",
+                query: "shop:query:order-positions",
+                columns: [{ field: "name", sortable: true }],
+                defaultSort: { field: "name", dir: "asc" },
+              },
+            ],
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
   });
 
   // --- Screen short-id collision across features ---

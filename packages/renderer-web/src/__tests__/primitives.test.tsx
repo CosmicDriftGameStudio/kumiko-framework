@@ -465,6 +465,43 @@ describe("DataTable", () => {
     });
   });
 
+  // scrollBody (fw#2722): a relatedList section in a tabs-mode Akte must not
+  // stretch the whole page with a long list, or leave dead space below a
+  // short one — bounds the table to a fixed height and scrolls rows inside
+  // it, regardless of how many rows there are.
+  describe("scrollBody", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const shortRows = [{ id: "r1", values: { name: "Alice" } }];
+    const longRows = Array.from({ length: 50 }, (_, i) => ({
+      id: `r${i}`,
+      values: { name: `Row ${i}` },
+    }));
+
+    test("default: table has no fixed height and grows with its content", () => {
+      render(<DataTable columns={cols} rows={longRows} testId="t" />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).not.toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("overflow-hidden");
+    });
+
+    test("scrollBody: a long list fills its flex container and scrolls internally", () => {
+      render(<DataTable columns={cols} rows={longRows} testId="t" scrollBody />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("flex-1");
+      expect(wrapper?.className).toContain("min-h-0");
+      expect(screen.getAllByTestId(/^row-/)).toHaveLength(50);
+    });
+
+    test("scrollBody: a short list gets the same flex-fill treatment (fills space instead of shrinking)", () => {
+      render(<DataTable columns={cols} rows={shortRows} testId="t" scrollBody />);
+      const wrapper = screen.getByTestId("t").parentElement?.parentElement;
+      expect(wrapper?.className).toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("flex-1");
+      expect(wrapper?.className).toContain("min-h-0");
+    });
+  });
+
   // Sort-Header pinnt das 3-State-Toggle-Verhalten + Visual-Indicator
   // + aria-sort. Renderer-Vertrag mit dem Caller (RenderList): jede
   // sortable-Column liefert beim Click den nächsten Sort-State zurück
@@ -1477,6 +1514,37 @@ describe("Form", () => {
     expect(footer.className).not.toContain("max-sm:fixed");
     const contentContainer = footer.previousElementSibling as HTMLElement;
     expect(contentContainer.className).not.toContain("max-sm:pb-32");
+  });
+
+  // fillHeight (fw#2722): the flex-fill chain RenderEdit opts a lone
+  // relatedList tab into, so its table can scroll inside the tab panel
+  // instead of the whole page stretching to the row count.
+  test("fillHeight: form root and its content container size to h-full/flex-1 min-h-0", () => {
+    render(
+      <Form onSubmit={() => undefined} testId="form" fillHeight>
+        <div>content</div>
+      </Form>,
+    );
+    const form = screen.getByTestId("form");
+    expect(form.className).toContain("h-full");
+    expect(form.className).toContain("min-h-0");
+    // form > FormScreenShell > card(overflow-hidden) — the card is the
+    // flex-1 min-h-0 child that claims the remaining height below headerRegion.
+    const card = form.firstElementChild?.firstElementChild as HTMLElement;
+    expect(card.className).toContain("flex-1");
+    expect(card.className).toContain("min-h-0");
+  });
+
+  test("without fillHeight: form root keeps its normal, content-sized height", () => {
+    render(
+      <Form onSubmit={() => undefined} testId="form">
+        <div>content</div>
+      </Form>,
+    );
+    const form = screen.getByTestId("form");
+    expect(form.className).not.toContain("h-full");
+    const card = form.firstElementChild?.firstElementChild as HTMLElement;
+    expect(card.className).not.toContain("flex-1");
   });
 });
 

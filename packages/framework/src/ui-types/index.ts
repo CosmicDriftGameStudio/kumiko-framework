@@ -85,6 +85,7 @@ export type {
   FormWidth,
   ListColumnSpec,
   ListFacetSpec,
+  ListSortSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,

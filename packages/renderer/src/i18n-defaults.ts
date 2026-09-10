@@ -64,6 +64,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.end-of-list": "— End of list —",
     "kumiko.list.sort.label": "Sort",
     "kumiko.list.sort.unsorted": "Unsorted",
+    "kumiko.list.related-list-truncated":
+      "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
     "kumiko.reference.system-tenant": "System",
 
     "kumiko.pager.status": "{from}–{to} of {total}",
