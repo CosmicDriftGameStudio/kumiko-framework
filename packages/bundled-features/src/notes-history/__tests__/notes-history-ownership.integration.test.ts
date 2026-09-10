@@ -308,7 +308,7 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
 });
 
 describe("notes-history — boot guard rejects a where-rule in ownership.write", () => {
-  test("createNotesHistoryFeature throws instead of shipping a create()-time landmine", () => {
+  test("createNotesHistoryFeature throws instead of shipping a deny-only ownership map", () => {
     expect(() =>
       createNotesHistoryFeature({
         ownership: {
