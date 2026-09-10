@@ -626,21 +626,19 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
 // fw#2312 mounts extension sections (ExtensionSectionMount, render-edit.tsx)
 // INSIDE RenderEdit's own host <form testId="render-edit-form"> (render-edit.tsx:1059).
 // A section that renders its own <form> — the pattern ChangeEmailSection/
-// ChangePasswordSection used before fw#2703 via BareFormProvider — therefore
-// produces two nested <form> elements, which is invalid DOM. In a real
-// browser the submit button binds to its nearest ancestor form per the HTML
-// spec, but which form that is (and whether a browser even preserves the
-// nesting instead of hoisting the inner form out, as HTML parsers do) is
-// exactly the ambiguity that made ChangeEmailSection's real-browser submit
-// silently degrade into a native GET navigation (offlot-app e2e, currentPassword
-// leaked into the URL). jsdom builds the DOM via React's appendChild path, so
-// it does not hoist the inner form the way an HTML parser would — the nested
-// structure survives, which is what the "exactly one form" assertion below
-// checks for. jsdom's own submit-button-to-form association still finds the
-// *inner* form correctly, so the dispatch assertion passes in jsdom even
-// though the real-browser bug (fw#2312 offlot-app repro) does not depend on
-// jsdom agreeing — see the comment on the dispatch assertion.
-describe("KumikoScreen / projectionDetail extension section with its own <form> (fw#2312 nested-form regression)", () => {
+// ChangePasswordSection used before fw#2703 via BareFormProvider — used to
+// produce two nested <form> elements, invalid DOM that let real browsers
+// silently degrade the inner submit into a native GET navigation of the
+// OUTER form (offlot-app e2e, currentPassword leaked into the URL). fw#2705
+// fixes the cause in DefaultForm (primitives/index.tsx): it degrades to a
+// <div> whenever InsideFormContext says it is already nested in a form, and
+// intercepts a click on its own submit button (onClickCapture +
+// preventDefault) instead of relying on the browser to associate the button
+// with a form. The tests below assert that structurally (exactly one
+// <form>) and prove the degraded section's own submit still reaches its
+// dispatcher, without depending on the button-to-form association the
+// removed nested <form> used to rely on.
+describe("KumikoScreen / projectionDetail extension section with its own <form> (fw#2312/fw#2705 nested-form regression)", () => {
   function FormExtensionSection({ entityId }: ExtensionSectionProps): ReactNode {
     const dispatcher = useDispatcher();
     const { Form, Button } = usePrimitives();
@@ -667,7 +665,7 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
     );
   }
 
-  test("mounted through KumikoScreen -> ProjectionDetailBody -> RenderEdit, the host form and the section's own form both land in the DOM (invalid nested <form>)", async () => {
+  test("mounted through KumikoScreen -> ProjectionDetailBody -> RenderEdit, the section's own form degrades to a <div> so only one <form> lands in the DOM", async () => {
     const extensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -707,14 +705,15 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
     );
 
     await waitFor(() => screen.getByTestId("nested-section-form"));
-    // Structural proof of the regression: RenderEdit already renders one
-    // <form testId="render-edit-form"> around the whole screen. The section
-    // renders a second one inside it — this must be exactly one to be valid
-    // DOM, and it isn't.
+    // Structural proof of the fix: RenderEdit renders one
+    // <form testId="render-edit-form"> around the whole screen. The
+    // nested section's own <Form> (still wrapped in BareFormProvider) must
+    // degrade to a <div> (FormRoot, primitives/index.tsx) instead of
+    // adding a second <form>.
     expect(container.querySelectorAll("form")).toHaveLength(1);
   });
 
-  test("clicking the nested section's own submit button dispatches its write (jsdom-observable half of the regression; the real-browser failure mode is the native-GET-fallback the offlot-app e2e caught, which jsdom's submit-to-form association does not reproduce)", async () => {
+  test("clicking the nested section's own submit button dispatches its write, even though FormRoot degraded its <Form> to a <div>", async () => {
     const writes: Array<{ type: string; payload: unknown }> = [];
     const extensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -768,5 +767,66 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
       type: "sessions:write:user-session:update",
       payload: { id: "sess-1", note: "updated" },
     });
+  });
+
+  // Complements the dispatch test above: with the section's own <Form>
+  // degraded to a <div>, its submit button sits inside the SAME real <form>
+  // as render-edit-form. Without FormRoot's onClickCapture + preventDefault,
+  // activating that type="submit" button would fire the OUTER form's native
+  // submit instead of routing to the section's onSubmit — the exact fw#2705
+  // hazard the nested-<form> version produced, just surfacing here as a
+  // wrong dispatch target rather than a URL GET (the dispatch test above
+  // cannot tell the two apart: RenderEdit's own handleSubmit is a no-op for
+  // this readOnly projectionDetail screen either way).
+  test("clicking the nested section's own submit button does not also fire a native submit on the outer host <form>", async () => {
+    const extensionScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          ...detailScreen.layout.sections,
+          {
+            kind: "extension",
+            title: "Note",
+            component: { react: { __component: "FormExtensionSection" } },
+            entityName: "user-session",
+          },
+        ],
+      },
+    };
+    const extensionSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [extensionScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const { container } = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ FormExtensionSection }}>
+          <KumikoScreen
+            schema={extensionSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("nested-section-submit"));
+    const outerForm = container.querySelector('[data-testid="render-edit-form"]');
+    expect(outerForm).not.toBeNull();
+    let outerSubmitFired = false;
+    outerForm?.addEventListener("submit", () => {
+      outerSubmitFired = true;
+    });
+
+    fireEvent.click(screen.getByTestId("nested-section-submit"));
+
+    expect(outerSubmitFired).toBe(false);
   });
 });
