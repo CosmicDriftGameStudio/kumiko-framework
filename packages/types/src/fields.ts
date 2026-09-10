@@ -316,6 +316,12 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly sensitive?: boolean;
   readonly default?: TOptions[number];
   readonly access?: FieldAccess;
+  /** Renderer metadata: `"radio"` always renders the option set as a visible
+   *  radio group, `"dropdown"` always renders the combobox. Omitted = the
+   *  renderer's own heuristic picks (radio group for a few short labels,
+   *  dropdown otherwise). A `"radio"` group with many or long labels wraps —
+   *  the author owns that trade-off, the renderer does not override it. */
+  readonly display?: "radio" | "dropdown";
 } & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als

@@ -422,11 +422,10 @@ function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
-// Segmented control for `kind: "select"` with a small closed option set —
+// Default presentation for `kind: "select"` with a small closed option set —
 // a 4-value Status field looked wrong stretched into a full-width dropdown
-// (edit-existing screenshot feedback). Purely a rendering choice inside the
-// "select" branch below; the primitives contract is untouched (still
-// `options` + string value/onChange).
+// (edit-existing screenshot feedback). Only consulted when the caller states
+// no `display` of its own; an explicit `display` wins (#2711).
 const SEGMENTED_SELECT_MAX_OPTIONS = 4;
 const SEGMENTED_SELECT_MAX_LABEL_LENGTH = 14;
 
@@ -699,7 +698,13 @@ function DefaultInput(props: InputProps): ReactNode {
       const comboOptions = props.options.map((o) =>
         typeof o === "string" ? { value: o, label: o } : o,
       );
-      if (isSegmentedSelectEligible(comboOptions)) {
+      // An explicit `display` is an author decision and outranks the
+      // heuristic in both directions — a requested radio group renders as
+      // one even when the labels are long or numerous (#2711).
+      const wantsRadioGroup =
+        props.display === "radio" ||
+        (props.display === undefined && isSegmentedSelectEligible(comboOptions));
+      if (wantsRadioGroup && comboOptions.length > 0) {
         return (
           <SegmentedSelect
             id={props.id}
