@@ -14,7 +14,7 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition, isWriteFormEditSection } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -2475,10 +2475,19 @@ function ProjectionDetailBody({
       {hasTabs && activeSection !== undefined && (
         <Tabs
           testId="kumiko-screen-projection-detail-tabs"
-          items={screen.layout.sections.map((section) => ({
-            id: section.id ?? "",
-            label: effectiveTranslate(section.title ?? section.id ?? ""),
-          }))}
+          items={screen.layout.sections.map((section) => {
+            const countField = isWriteFormEditSection(section) ? undefined : section.countField;
+            const countValue = countField !== undefined ? record[countField] : undefined;
+            const count =
+              typeof countValue === "number" && Number.isFinite(countValue)
+                ? countValue
+                : undefined;
+            return {
+              id: section.id ?? "",
+              label: effectiveTranslate(section.title ?? section.id ?? ""),
+              ...(count !== undefined && { count }),
+            };
+          })}
           activeId={activeSection.id ?? ""}
           onSelect={(id) => nav.setSearchParams({ tab: id })}
         />

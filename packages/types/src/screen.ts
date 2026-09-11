@@ -790,6 +790,11 @@ export type EditFieldsSection = {
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives
    *  one from the title (titles are free i18n strings). */
   readonly icon?: IconKey;
+  /** Record field rendered as a count badge in the tab label when the
+   *  enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
+   *  Ignored outside tabs mode or when the field's value is not a finite
+   *  number. */
+  readonly countField?: string;
 };
 
 export type EditExtensionSection = {
@@ -811,6 +816,11 @@ export type EditExtensionSection = {
    *  like NotesSection filters/writes against the right domain entity. Takes
    *  precedence over the host value on every screen type. */
   readonly entityName?: string;
+  /** Record field rendered as a count badge in the tab label when the
+   *  enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
+   *  Ignored outside tabs mode or when the field's value is not a finite
+   *  number. */
+  readonly countField?: string;
 };
 
 // Read-only list of related records, driven by its own query — for a
@@ -860,6 +870,11 @@ export type EditRelatedListSection = {
    *  writeHandler action re-runs this section's own query, same as a
    *  projectionList row action re-running its list query. */
   readonly rowActions?: readonly RowAction[];
+  /** Record field rendered as a count badge in the tab label when the
+   *  enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
+   *  Ignored outside tabs mode or when the field's value is not a finite
+   *  number. */
+  readonly countField?: string;
 };
 
 // A declarative, self-persisting form section for `projectionDetail`

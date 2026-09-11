@@ -15,6 +15,14 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
             data-testid={testId !== undefined ? `${testId}-${item.id}` : undefined}
           >
             {item.label}
+            {item.count !== undefined && (
+              <span
+                className="ml-1.5 text-muted-foreground"
+                data-testid={testId !== undefined ? `${testId}-${item.id}-count` : undefined}
+              >
+                {item.count}
+              </span>
+            )}
           </TabsTrigger>
         ))}
       </TabsList>

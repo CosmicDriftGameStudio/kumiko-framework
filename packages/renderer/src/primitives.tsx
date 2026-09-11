@@ -1063,7 +1063,13 @@ export type WizardStepGroupProps = {
  *  Keyboard/ARIA (role=tablist/tab, arrow-key navigation) is the
  *  implementation's job. */
 export type TabsProps = {
-  readonly items: readonly { readonly id: string; readonly label: string }[];
+  readonly items: readonly {
+    readonly id: string;
+    readonly label: string;
+    /** Shown dimmed after the label (e.g. an open-items count). Omit for
+     *  tabs without a counter. */
+    readonly count?: number;
+  }[];
   readonly activeId: string;
   readonly onSelect: (id: string) => void;
   readonly testId?: string;

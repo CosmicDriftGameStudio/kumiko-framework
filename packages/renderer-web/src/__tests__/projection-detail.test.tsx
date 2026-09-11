@@ -684,6 +684,56 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     // structural marker, not a Tailwind class string.
     expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
   });
+
+  test("layout.mode: 'tabs' with countField — tab label carries the record's count, sections without it stay unchanged", async () => {
+    const tabsCountScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Overview", fields: ["userId"], countField: "openCount" },
+          { id: "meta", title: "Meta", fields: ["createdAt"] },
+        ],
+      },
+    };
+    const tabsCountSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsCountScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z", openCount: 3 },
+      })) as unknown as Dispatcher["query"],
+    });
+    const nav: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+
+    render(
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={tabsCountSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-tabs-overview-count").textContent,
+    ).toBe("3");
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs-meta-count")).toBeNull();
+  });
 });
 
 // projectionDetail.actions kind:"drawer" (fw#2710) — same shared DrawerHost
