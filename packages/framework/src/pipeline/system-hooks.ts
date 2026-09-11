@@ -6,9 +6,18 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "../crypto";
-import type { DbRow } from "../db/connection";
+import { createTenantDb, entityTableFromRegistry, rehydrateCompoundTypes } from "../db";
+import type { DbConnection, DbRow } from "../db/connection";
 import { tenantChannel } from "../engine/constants";
-import type { EntityId, JobRunnerRef, Registry, SessionUser } from "../engine/types";
+import type {
+  AppContext,
+  EntityDefinition,
+  EntityId,
+  JobRunnerRef,
+  Registry,
+  SessionUser,
+  TenantId,
+} from "../engine/types";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { EventConsumer } from "./event-dispatcher";
 
@@ -21,25 +30,29 @@ import type { EventConsumer } from "./event-dispatcher";
 //
 // Event → Search-Op Mapping:
 //
-//   <entity>.created     → index(tenantId, doc)
-//   <entity>.updated     → index(tenantId, doc)   // re-index mit neuem state
-//   <entity>.restored    → index(tenantId, doc)   // wiederbeleben
+//   <entity>.created     → index(tenantId, doc)   // state = event.payload
+//   <entity>.updated     → index(tenantId, doc)   // state = { ...previous, ...changes }
+//   <entity>.restored    → index(tenantId, doc)   // state = event.payload.previous
 //   <entity>.deleted     → remove(tenantId, type, id)
+//   <entity>.forgotten   → remove(tenantId, type, id)
+//   <entity>.<named>     → index or remove, state read from the live
+//                          projection row (#2765) — a named domain event
+//                          carries only a payload slice, not the full
+//                          entity, so there's no fixed shape to reconstruct
+//                          state from the way created/updated/restored do.
+//                          Only queried when the entity declares searchable
+//                          fields/extensions; no row (hard/soft-deleted) →
+//                          remove, same as the deleted branch.
 //
-// Der Document-State wird aus dem Event rekonstruiert (kein SaveContext
-// mehr available). Regel:
+// Sensitive fields never reach this consumer for created/updated/restored —
+// event-store-executor.ts strips them before they land in the event log.
+// The projection-row path (named events) reads them from the live table
+// instead, so the same sensitive+searchable boot-guard (entity-handler.ts)
+// keeps them out there too.
 //
-//   created:  state = event.payload            // ganze entity ist im payload
-//   updated:  state = { ...previous, ...changes }  // rekonstruiert neuen state
-//   restored: state = event.payload.previous   // restored field-set
-//
-// Sensitive fields sind aus dem event log bereits gestrippt (event-store-
-// executor.ts), also kriegt der Search-Index sie ebenfalls nicht — das ist
-// die gleiche Garantie wie vorher beim postSave-hook.
-//
-// Batch-Variante gibt's aktuell nicht mehr — jeder Event triggert einen
-// eigenen index()-call. Wenn Performance nach Scale-Messung das erfordert,
-// kann der event-dispatcher später eine Batch-Handler-Variante bekommen.
+// No batch variant right now — every event triggers its own index() call.
+// If a scale measurement later calls for it, the event-dispatcher could
+// grow a batch-handler variant.
 export const SEARCH_CONSUMER_NAME = "system:consumer:search";
 
 export function createSearchEventConsumer(
@@ -55,7 +68,7 @@ export function createSearchEventConsumer(
     // killing the consumer near-instantly). Upgrade path: time-based
     // dead-lettering in event-dispatcher-delivery.ts if 2min isn't enough.
     errorPolicy: { maxAttempts: 1200 },
-    handler: async (event) => {
+    handler: async (event, ctx) => {
       const entityName = event.aggregateType;
       const verb = event.type.split(".").pop();
       const tenantId = event.tenantId;
@@ -67,14 +80,39 @@ export function createSearchEventConsumer(
         return;
       }
 
-      if (verb !== "created" && verb !== "updated" && verb !== "restored") {
-        // skip: other event types (custom domain events, future verbs) don't
-        // carry a search-indexable payload shape. If a future feature needs
-        // them indexed, it registers its own multiStreamProjection.
-        return;
+      let state: Record<string, unknown>;
+      if (verb === "created" || verb === "updated" || verb === "restored") {
+        state = reconstructStateForSearch(event.payload, verb);
+      } else {
+        // #2765 — named domain event: no fixed payload shape to reconstruct
+        // state from. Only worth a projection read when the entity actually
+        // declared searchable fields/extensions — same check
+        // buildSearchDocument makes below, done here first so a non-
+        // searchable entity's named events stay a no-op like before.
+        const entity = registry.getEntity(entityName);
+        const isSearchable =
+          entity !== undefined &&
+          (registry.getSearchableFields(entityName).length > 0 ||
+            registry.getSearchPayloadExtensions(entityName).length > 0);
+        if (!entity || !isSearchable) return;
+
+        const row = await readProjectionRowForSearch(
+          ctx,
+          registry,
+          entityName,
+          entity,
+          tenantId,
+          event.aggregateId,
+        );
+        // skip: no live row (hard-deleted stream, or soft-deleted) — same
+        // outcome as the deleted/forgotten branch above.
+        if (!row) {
+          await searchAdapter.remove(tenantId, entityName, event.aggregateId);
+          return;
+        }
+        state = row;
       }
 
-      let state = reconstructStateForSearch(event.payload, verb);
       state = await decryptSearchableSubjectFields(entityName, state, registry);
       // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
       if (hasErasedSearchableSubjectField(entityName, state, registry)) {
@@ -89,6 +127,35 @@ export function createSearchEventConsumer(
       await searchAdapter.index(tenantId, doc);
     },
   };
+}
+
+// #2765 — reads the live projection row for a named domain event, tenant-
+// scoped through createTenantDb the same way MultiStreamProjection appliers
+// scope their apply()-writes (see api/server.ts), on the table the registry
+// actually booted (entityTableFromRegistry) rather than one freshly derived
+// from the entity definition alone. undefined means "no live row" — a hard
+// delete or a soft-delete — which the caller treats as a remove.
+async function readProjectionRowForSearch(
+  ctx: AppContext,
+  registry: Registry,
+  entityName: string,
+  entity: EntityDefinition,
+  tenantId: TenantId,
+  entityId: EntityId,
+): Promise<Record<string, unknown> | undefined> {
+  // @cast-boundary engine-bridge — consumer ctx.db is always the outer
+  // DbConnection: event-dispatcher creation is gated on it being set
+  // (api/server.ts), never a HandlerContext's already-tenant-scoped TenantDb.
+  const baseDb = ctx.db as DbConnection | undefined;
+  if (!baseDb) return undefined;
+  const table = entityTableFromRegistry(registry, entityName, entity);
+  const where: Record<string, unknown> = { id: entityId };
+  if (entity.softDelete && table["isDeleted"]) {
+    where["isDeleted"] = false;
+  }
+  const row = await createTenantDb(baseDb, tenantId).fetchOne(table, where);
+  if (!row) return undefined;
+  return rehydrateCompoundTypes(row, entity);
 }
 
 // #1610 — subject-annotated searchable fields are ciphertext in the event
