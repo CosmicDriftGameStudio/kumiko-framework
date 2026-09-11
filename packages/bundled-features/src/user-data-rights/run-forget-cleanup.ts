@@ -573,19 +573,26 @@ async function resolveEffectiveTenantModel(
 // rows.
 //
 // Filter by payload->>'tenantId' (not the event column tenant_id): cross-
-// tenant SystemAdmin adds land under the actor's tenant_id (#2347). SQL
-// aggregation stays fail-safe when userId payloads are unreadable: more
-// created-rows than distinct userIds ⇒ treat as multi-user.
+// tenant SystemAdmin adds land under the actor's tenant_id (#2347).
+//
+// Counting created-ROWS against distinct userIds latched a tenant to
+// multi-user as soon as its sole member was removed and re-added (#2608) —
+// two created-events, one identity, no co-member ever. The fail-safe only
+// needs to cover payloads whose userId cannot be READ, so the unreadable
+// remainder is measured directly instead of inferred from the row count.
+// NULLIF folds an empty-string userId into that remainder (it names nobody).
 async function everHadMultipleMembers(db: DbRunner, tenantId: TenantId): Promise<boolean> {
   const eventType = entityEventName("tenant-membership", "created");
   const rows = await executeRawQuery<{
     event_count: number;
+    readable_users: number;
     distinct_users: number;
   }>(
     db,
     `SELECT
        COUNT(*)::int AS event_count,
-       COUNT(DISTINCT payload->>'userId')::int AS distinct_users
+       COUNT(NULLIF(payload->>'userId', ''))::int AS readable_users,
+       COUNT(DISTINCT NULLIF(payload->>'userId', ''))::int AS distinct_users
      FROM kumiko_events
      WHERE aggregate_type = 'tenant-membership'
        AND type = $1
@@ -595,11 +602,9 @@ async function everHadMultipleMembers(db: DbRunner, tenantId: TenantId): Promise
   const row = rows[0];
   if (!row) return false;
   if (row.distinct_users > 1) return true;
-  // Unreadable / missing userId payloads: fail-safe to multi-user
-  // (including a lone created-event with no readable userId).
-  if (row.event_count >= 1 && row.distinct_users < 1) return true;
-  if (row.event_count > 1 && row.distinct_users <= 1) return true;
-  return false;
+  // Unreadable / missing userId payloads: fail-safe to multi-user, each one
+  // could name a second member.
+  return row.event_count > row.readable_users;
 }
 
 // Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.

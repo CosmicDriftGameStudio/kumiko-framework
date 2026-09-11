@@ -15,7 +15,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  entityEventName,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createSystemUser,
@@ -335,6 +339,112 @@ describe("forget pipeline honours the effective tenant model", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.processedUserIds).toContain(FORGET_USER);
     // Payload-tenant latch must still see 2 historical members.
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("single-user, sole member removed and re-added → rows still erased (#2608)", async () => {
+    await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c7");
+    await seed(stack.db).seedForgetUser(FORGET_USER);
+
+    // Remove + re-add of the SAME person: removeMemberWrite only drops the
+    // projection row, so two `tenant-membership.created` events survive for a
+    // tenant that never had a co-member. Counting rows instead of identities
+    // latched such a tenant to multi-user forever, and every tenantScopedOnly
+    // erase hook skipped on the "co-members keep shared data" grounds.
+    const first = await seedTenantMembership(stack.db, {
+      userId: FORGET_USER,
+      tenantId: TENANT,
+      roles: ["Member"],
+    });
+    const deleteResult = await membershipExecutor.delete(
+      { id: first.id },
+      createSystemUser(TENANT),
+      createTenantDb(stack.db, TENANT, "system"),
+    );
+    if (!deleteResult.isSuccess) {
+      throw new Error(`test setup: member removal failed: ${deleteResult.error.code}`);
+    }
+    await seedTenantMembership(stack.db, {
+      userId: FORGET_USER,
+      tenantId: TENANT,
+      roles: ["Member"],
+    });
+
+    // Pins the premise: 2 created-events, 1 distinct userId, 1 live member.
+    const createdEvents = await asRawClient(stack.db).unsafe(
+      `SELECT payload->>'userId' AS user_id FROM kumiko_events
+        WHERE aggregate_type = 'tenant-membership' AND type = $1 AND payload->>'tenantId' = $2`,
+      [entityEventName("tenant-membership", "created"), TENANT],
+    );
+    expect(createdEvents.length).toBe(2);
+    const liveMemberships = await asRawClient(stack.db).unsafe(
+      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1",
+      [TENANT],
+    );
+    expect(liveMemberships.length).toBe(1);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: nowInstant(),
+      tenantModel: "single-user",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.processedUserIds).toContain(FORGET_USER);
+    expect(await rowCount()).toBe(0);
+  });
+
+  test("single-user, sole member, but a created-event with unreadable userId → rows preserved", async () => {
+    await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c8");
+    await seed(stack.db).seedForgetUser(FORGET_USER);
+    await seedTenantMembership(stack.db, {
+      userId: FORGET_USER,
+      tenantId: TENANT,
+      roles: ["Member"],
+    });
+
+    // A created-event whose userId payload cannot be read may name a second
+    // member — the fail-safe branch must survive the #2608 fix.
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO kumiko_events
+         (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+       VALUES ($1, 'tenant-membership', $2, 1, $3, $4, '{}'::jsonb, 'system')`,
+      [
+        "eeeeeeee-eeee-4eee-8eee-0000000000c8",
+        TENANT,
+        entityEventName("tenant-membership", "created"),
+        // Object, not JSON.stringify: a string param into a jsonb column is
+        // encoded a second time and lands as a JSON scalar, which no
+        // payload->>'...' lookup would ever match.
+        { tenantId: TENANT },
+      ],
+    );
+
+    const createdEvents = await asRawClient(stack.db).unsafe(
+      `SELECT payload->>'userId' AS user_id FROM kumiko_events
+        WHERE aggregate_type = 'tenant-membership' AND type = $1 AND payload->>'tenantId' = $2`,
+      [entityEventName("tenant-membership", "created"), TENANT],
+    );
+    expect(createdEvents.length).toBe(2);
+
+    // Without exactly one live member the live gate would answer multi-user
+    // before the history latch runs, and this test would prove nothing.
+    const liveMemberships = await asRawClient(stack.db).unsafe(
+      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1",
+      [TENANT],
+    );
+    expect(liveMemberships.length).toBe(1);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: nowInstant(),
+      tenantModel: "single-user",
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.processedUserIds).toContain(FORGET_USER);
     expect(await rowCount()).toBe(1);
   });
 });
