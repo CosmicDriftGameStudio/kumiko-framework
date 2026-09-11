@@ -1,10 +1,12 @@
 # Integration-Test bunfig.toml — Template pro Repo anpassen
 #
 # Aufruf via package.json script (nicht direkt):
-#   "test:integration": "bun scripts/test-db-setup.ts && bun test --preload ./test-setup/integration.preload.ts 'packages/**/*.integration.ts'; STATUS=$?; bun scripts/test-db-teardown.ts; exit $STATUS"
+#   "test:integration": "bun scripts/test-db-setup.ts && bun test --preload ./test-setup/integration.preload.ts --timeout=15000 'packages/**/*.integration.ts'; STATUS=$?; bun scripts/test-db-teardown.ts; exit $STATUS"
 #
 # WARUM: globalSetup-Pendant fehlt in bun-test — Setup+Teardown als separate Scripts.
+# WHY --timeout on the CLI, not a `timeout` key here: bun ignores `[test]
+# timeout` in the config file (kumiko-framework#2796) — only the CLI flag
+# actually raises the per-test default above bun's 5s built-in.
 
 [test]
 preload = ["./test-setup/integration.preload.ts"]
-timeout = 15000
