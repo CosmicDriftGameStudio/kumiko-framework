@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.253.0
+
+### Minor Changes
+
+- e626ea3: `crypto-shredding:write:forget-subject`'s record-subject path now consults the host entity's own `retention.strategy` before shredding a row: a `blockDelete` entity (legally mandated physical retention, e.g. ledger/invoice text) refuses the request instead of silently proceeding, and the refusal is audited via the existing `forget-denied` event. This closes the operator-path gap from kumiko-framework#2596/#2789 — a DPO/SystemAdmin can now target a single row that structured mentions never found, with the retention check and the Art. 17 runbook documented in `docs/reference/crypto-shredding-row-subject.md`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.253.0
+- @cosmicdrift/kumiko-types@0.253.0
+- @cosmicdrift/kumiko-dispatcher-live@0.253.0
+- @cosmicdrift/kumiko-headless@0.253.0
+- @cosmicdrift/kumiko-renderer@0.253.0
+- @cosmicdrift/kumiko-renderer-web@0.253.0
+
 ## 0.252.1
 
 ### Patch Changes
