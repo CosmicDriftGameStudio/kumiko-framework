@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.250.0
+
+### Minor Changes
+
+- efe22b1: fw#2762: cap-overview's `my-caps` dashboard is now reachable for regular tenant members, not just admins. The `my-caps` screen and the `caps:usage` query that fills its cards both move from `access.admin` to the new exported `MY_CAPS_ACCESS_ROLES` (`["User", "Editor", "TenantAdmin", "Admin", "SystemAdmin"]` — every built-in membership rank from `role-assignment.ts`). Both had to change together: loosening only the screen would render the dashboard and then 403 every card.
+
+  This is a strict superset of the previous `access.admin`, so TenantAdmin/Admin/SystemAdmin keep exactly the access they had — no consumer needs to change anything. Deliberately NOT `access.authenticated`, which omits `TenantAdmin` and would have revoked access instead of granting it.
+
+  Scope is `my-caps` only. `tenant-cap-list`, `platform-tenant-caps`, the `tenant-caps:list` query and the `tenant-options` query all show foreign tenants and stay `SystemAdmin`-only. The tenant boundary is unchanged: `crossTenantOverrideDenied` still rejects the `tenantId` override for anyone but SystemAdmin, so a regular member can only ever read their own tenant's caps.
+
+  Apps that gate the nav entry themselves (and `admin-shell:nav:my-caps`, which stays `access.admin` because it lives in an admin-only workspace) still control visibility on their side — `MY_CAPS_ACCESS_ROLES` is exported so they can mirror the exact rule instead of duplicating the list.
+
+### Patch Changes
+
+- e349f03: fw#2593: an explicitly declared UNIQUE index on an entity with `softDelete: true` now automatically gets the predicate `"is_deleted" = false`, so a value freed up by a soft-delete becomes reusable even when the entity's PII/blind-index isn't configured. Previously that predicate was only applied to the generated `*_bidx` twin (fw#2464); the plaintext index stayed a full unique index, so `read_users_email_unique` kept blocking email reuse whenever no blind-index key was set up. An author-provided `where` on the index definition is unchanged and still suppresses the `*_bidx` twin — that escape hatch remains the way to opt out of the auto-appended predicate. This is a pure loosening of the constraint: every row that satisfied the old full unique index still satisfies the new partial one, so no duplicate-cleanup migration is needed. Apps must run `kumiko-schema generate` to pick up the updated index definition for any entity with `softDelete: true` and an explicit unique index.
+- a8955dd: fw#2608: `user-data-rights` no longer latches a tenant to `multi-user` when its sole member was removed and re-added. The historical membership check now compares created-events against those with a _readable_ `userId` instead of against the distinct-identity count, so repeated memberships of the same person stay `single-user` and `tenantScopedOnly` erase hooks keep running. Events with an unreadable/empty `userId` still fail safe to `multi-user`.
+- Updated dependencies [86e18dd]
+- Updated dependencies [a4a25ee]
+- Updated dependencies [e349f03]
+- Updated dependencies [0be08d9]
+- Updated dependencies [d9f9337]
+- Updated dependencies [3737271]
+- Updated dependencies [5c1c606]
+  - @cosmicdrift/kumiko-framework@0.250.0
+  - @cosmicdrift/kumiko-types@0.250.0
+  - @cosmicdrift/kumiko-headless@0.250.0
+  - @cosmicdrift/kumiko-renderer@0.250.0
+  - @cosmicdrift/kumiko-renderer-web@0.250.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.250.0
+
 ## 0.249.0
 
 ### Minor Changes

@@ -1,6 +1,0 @@
----
-"@cosmicdrift/kumiko-framework": minor
-"@cosmicdrift/kumiko-types": minor
----
-
-fw#2585: `JobContext` gains `writeAs(user, qn, payload)`, the explicit-identity counterpart to the existing `queryAs` — a job could read as any identity but only ever write as its own systemUser. Since `hasAccess` has no system bypass, every write handler whose `access` lists concrete roles (e.g. `["TenantAdmin"]`) was unreachable from a job: the dispatch came back `access_denied` and the only signal was a failed job. `writeAs` routes through the same `DispatchWriteRef.write` the dispatcher already exposes, so the write runs the full pipeline (access check, validation, hooks) as the passed identity and the resulting events are attributed to it rather than to SYSTEM. The job assembles the `SessionUser` itself — `ctx.triggeredBy` carries only id + tenantId and no roles, so the roles have to come from a trusted lookup, and the passed `tenantId` decides the target tenant with nothing cross-checking it against the job's own (same as the existing `queryAs` and `ctx.db`). `writeAs` is a required field on `JobContext`, so app code that hand-builds a `JobContext` object literal instead of letting the JobRunner build one (e.g. a boot seed) has to add it when bumping. `ctx.write` is unchanged and still runs as the job's systemUser.
