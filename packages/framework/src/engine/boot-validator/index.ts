@@ -46,7 +46,10 @@ import {
 } from "./nav";
 import { collectClaimKeys, validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
-import { validateProjectionListScreens } from "./projection-list-screens";
+import {
+  validateProjectionListScreens,
+  validateRelatedListSectionQueries,
+} from "./projection-list-screens";
 import { validateQueryOutputColumns } from "./query-output-columns";
 import { validateQueryRefs } from "./query-refs";
 import {
@@ -224,6 +227,7 @@ export function validateBoot(
   // assume every `query` string already resolves to a registered handler.
   validateQueryOutputColumns(features);
   validateProjectionListScreens(features);
+  validateRelatedListSectionQueries(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
   validateFeatureBootChecks(features);

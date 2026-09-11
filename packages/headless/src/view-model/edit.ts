@@ -148,6 +148,8 @@ export function computeEditViewModel<
         columns: sectionSpec.columns,
         ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
         ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
+        ...(sectionSpec.searchable !== undefined && { searchable: sectionSpec.searchable }),
+        ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),
         ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
         ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
       };

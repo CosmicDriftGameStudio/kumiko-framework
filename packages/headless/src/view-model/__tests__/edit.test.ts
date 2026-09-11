@@ -794,6 +794,59 @@ describe("computeEditViewModel — relatedList rowActions passthrough (fw editab
   });
 });
 
+describe("computeEditViewModel — relatedList searchable/facets passthrough (fw#2740)", () => {
+  test("searchable and facets pass through onto the relatedList section view-model untranslated", () => {
+    const facets = [
+      {
+        field: "status",
+        type: "select" as const,
+        label: "app:facet.status.label",
+        options: [{ value: "active", label: "app:facet.status.active" }],
+      },
+    ];
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "relatedList",
+            title: "History",
+            query: "app:query:history",
+            columns: ["name", "status"],
+            searchable: true,
+            facets,
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const section = asRelatedList(vm.sections[0]);
+    expect(section.searchable).toBe(true);
+    expect(section.facets).toEqual(facets);
+  });
+
+  test("searchable and facets are absent from the view-model when the section spec has none", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          { kind: "relatedList", title: "History", query: "app:query:history", columns: ["name"] },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const section = asRelatedList(vm.sections[0]);
+    expect(section.searchable).toBeUndefined();
+    expect(section.facets).toBeUndefined();
+  });
+});
+
 describe("computeEditViewModel — writeForm sections (fw editable-detail-screens)", () => {
   test("resolves the section's own fieldDefs/fields through the same per-field pipeline as a fields section", () => {
     const vm = computeEditViewModel({

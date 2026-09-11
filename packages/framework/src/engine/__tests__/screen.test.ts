@@ -362,6 +362,190 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  describe("relatedList search + facets (fw#2740)", () => {
+    test("rejects searchable: true when the bound query's schema has no search parameter", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: true },
+          });
+          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+            access: { openToAll: true },
+          });
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name"],
+                  searchable: true,
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/searchable: true.*"search"/);
+    });
+
+    test("accepts searchable: true when the bound query's schema accepts search", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: true },
+          });
+          r.queryHandler(
+            "foo:list",
+            z.object({ search: z.string().optional() }),
+            async () => ({ rows: [], nextCursor: null }),
+            { access: { openToAll: true } },
+          );
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name"],
+                  searchable: true,
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("rejects facets when the bound query's schema has no filters parameter", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: true },
+          });
+          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+            access: { openToAll: true },
+          });
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name", "status"],
+                  facets: [
+                    {
+                      field: "status",
+                      type: "select",
+                      label: "Status",
+                      options: [{ value: "active", label: "Active" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/declares facets but query.*"filters"/);
+    });
+
+    test("rejects a facet whose field is not a declared column", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: true },
+          });
+          r.queryHandler(
+            "foo:list",
+            z.object({ filters: z.array(z.object({})).optional() }),
+            async () => ({ rows: [], nextCursor: null }),
+            { access: { openToAll: true } },
+          );
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name"],
+                  facets: [
+                    {
+                      field: "status",
+                      type: "select",
+                      label: "Status",
+                      options: [{ value: "active", label: "Active" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /relatedList section "s".*facet references field "status" which is not a declared column/,
+      );
+    });
+
+    test("accepts valid facets when the bound query's schema accepts filters", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: true },
+          });
+          r.queryHandler(
+            "foo:list",
+            z.object({ filters: z.array(z.object({})).optional() }),
+            async () => ({ rows: [], nextCursor: null }),
+            { access: { openToAll: true } },
+          );
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name", "status"],
+                  facets: [
+                    {
+                      field: "status",
+                      type: "select",
+                      label: "Status",
+                      options: [{ value: "active", label: "Active" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
   test("validateBoot rejects a relatedList section on entityEdit (fw#2166)", () => {
     const features = [
       defineFeature("shop", (r) => {
