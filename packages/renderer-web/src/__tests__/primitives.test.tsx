@@ -1516,10 +1516,15 @@ describe("Form", () => {
     expect(contentContainer.className).not.toContain("max-sm:pb-32");
   });
 
-  // fillHeight (fw#2722): the flex-fill chain RenderEdit opts a lone
-  // relatedList tab into, so its table can scroll inside the tab panel
-  // instead of the whole page stretching to the row count.
-  test("fillHeight: form root and its content container size to h-full/flex-1 min-h-0", () => {
+  // fillHeight (fw#2722, height fw#2778): the flex chain RenderEdit opts a
+  // lone relatedList tab into, so its table can scroll inside the tab panel
+  // instead of the whole page stretching to the row count. The chain caps
+  // at h-full but does NOT flex-1/grow past its content — a short table
+  // must not stretch the card to the bottom of the panel (fw#2778); only
+  // the innermost table wrapper (primitives.test.tsx's DataTable coverage)
+  // keeps flex-1 to actually claim the leftover height once the ancestor
+  // chain is force-shrunk.
+  test("fillHeight: form root caps at h-full/min-h-0, its card sizes to content instead of growing (fw#2778)", () => {
     render(
       <Form onSubmit={() => undefined} testId="form" fillHeight>
         <div>content</div>
@@ -1528,10 +1533,11 @@ describe("Form", () => {
     const form = screen.getByTestId("form");
     expect(form.className).toContain("h-full");
     expect(form.className).toContain("min-h-0");
-    // form > FormScreenShell > card(overflow-hidden) — the card is the
-    // flex-1 min-h-0 child that claims the remaining height below headerRegion.
+    // form > FormScreenShell > card(overflow-hidden) — the card sizes to
+    // its content (no flex-1) and only shrinks (min-h-0) once the chain
+    // above it is itself height-constrained.
     const card = form.firstElementChild?.firstElementChild as HTMLElement;
-    expect(card.className).toContain("flex-1");
+    expect(card.className).not.toContain("flex-1");
     expect(card.className).toContain("min-h-0");
   });
 

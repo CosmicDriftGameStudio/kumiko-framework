@@ -938,13 +938,16 @@ function DefaultDataTable({
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
-      // `scrollBody` fills the remaining height of its flex-col ancestor
-      // (see DefaultForm/FormScreenShell's `fillHeight` and this table's own
-      // outer wrapper below) and scrolls rows internally, instead of
-      // `overflow-hidden` (document-flow height, grows with row count) — for
-      // a host where a long list must not stretch the whole page (a tab
-      // panel, fw#2722). `min-h-0` overrides flex's default min-height:auto,
-      // which would otherwise let this grow past its flex-1 share to fit content.
+      // `scrollBody` is the terminal link in the DefaultForm/FormScreenShell
+      // `fillHeight` chain (fw#2722) — every ancestor in that chain sizes to
+      // its own content (no flex-1) and only shrinks once the chain's
+      // `h-full` root runs out of room, so THIS is the one div that still
+      // claims the leftover height (`flex-1`) and scrolls rows internally
+      // instead of `overflow-hidden` (document-flow height, grows with row
+      // count) — a short list keeps a content-sized card, a long one scrolls
+      // in place instead of stretching the whole page (fw#2722, fw#2778).
+      // `min-h-0` overrides flex's default min-height:auto, which would
+      // otherwise keep this at its content's height regardless of flex-shrink.
       <div
         className={cn(
           scrollBody === true ? "flex-1 min-h-0 overflow-y-auto" : "overflow-hidden",
@@ -1264,13 +1267,18 @@ function DefaultDataTable({
       className={cn(
         "flex flex-col gap-4 w-full",
         screenPadding === true ? screenPaddingClassName : "p-6",
-        scrollBody === true && "flex-1 min-h-0",
+        // No flex-1: this wrapper sizes to its content (toolbar + table) and
+        // only shrinks (min-h-0) once its ancestor chain is itself
+        // height-constrained — the actual scroll surface is tableInner/
+        // cardsInner below, which do keep flex-1 to claim whatever height
+        // that shrink leaves them (fw#2778).
+        scrollBody === true && "min-h-0",
       )}
     >
       {hasToolbar && (
         <div
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
-          className="flex flex-wrap items-center gap-3"
+          className={cn("flex flex-wrap items-center gap-3", scrollBody === true && "shrink-0")}
         >
           {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
           {facetCluster}
@@ -2203,17 +2211,27 @@ function DefaultForm({
         {...(fillHeight === true && { fillHeight: true })}
       >
         {headerRegion !== undefined && (
-          <div className="flex flex-col gap-6 mb-8">{headerRegion}</div>
+          <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
+            {headerRegion}
+          </div>
         )}
         <div
           className={cn(
             cardSurface(),
             "overflow-hidden",
-            fillHeight === true && "flex-1 min-h-0 flex flex-col",
+            // No flex-1: a fillHeight card sizes to its content (flex's
+            // initial 0 1 auto) and only claims more than that once its
+            // FormScreenShell ancestor is itself height-constrained and
+            // shrinks it back down via min-h-0 — flex-1 would instead force
+            // it to always fill the remaining height, stretching a short
+            // relatedList tab to the bottom of the panel (fw#2778).
+            fillHeight === true && "min-h-0 flex flex-col",
           )}
         >
           {(title !== undefined || subtitle !== undefined) && (
-            <div className={cn(cardHeaderBorder, "px-6 pb-4 pt-5")}>
+            <div
+              className={cn(cardHeaderBorder, "px-6 pb-4 pt-5", fillHeight === true && "shrink-0")}
+            >
               {title !== undefined && (
                 <h2
                   data-testid={testId !== undefined ? `${testId}-title` : undefined}
@@ -2245,7 +2263,10 @@ function DefaultForm({
               // safe-area, fw#2528) — widen further if a wizard step's last field
               // ever renders visibly clipped under three or more wrapped rows.
               stickyActions === true && "max-sm:pb-32",
-              fillHeight === true && "flex-1 min-h-0",
+              // Same "no flex-1" reasoning as the card above: this is the
+              // one section allowed to shrink (min-h-0) inside the card, not
+              // one forced to grow past its content.
+              fillHeight === true && "min-h-0",
             )}
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
@@ -2255,6 +2276,7 @@ function DefaultForm({
               className={cn(
                 "flex flex-col-reverse gap-3 px-[var(--card-padding)] py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
                 cardFooterBorder,
+                fillHeight === true && "shrink-0",
                 // Below sm (640px): pin to the viewport bottom instead of normal
                 // flow, so a virtual keyboard shrinking the viewport can't push
                 // this out of reach (fw#1918). `fixed` escapes the card's
@@ -2432,8 +2454,12 @@ function DefaultSection({
 }
 
 function DefaultFillContainer({ children, testId }: FillContainerProps): ReactNode {
+  // No flex-1: sizes to its content (the relatedList table) and only
+  // shrinks (min-h-0) once the ancestor FormScreenShell chain is itself
+  // height-constrained — flex-1 would instead always stretch to fill the
+  // remaining tab-panel height, even for a two-row table (fw#2778).
   return (
-    <div data-testid={testId} className="flex flex-1 min-h-0 flex-col">
+    <div data-testid={testId} className="flex min-h-0 flex-col">
       {children}
     </div>
   );

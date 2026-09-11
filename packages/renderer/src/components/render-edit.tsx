@@ -631,11 +631,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // A lone relatedList tab (hideSectionTitles is only ever set by the tabs
   // layout, which also narrows filteredSections to that one active section)
-  // needs its own tab panel to fill the available height so its table
+  // needs its own tab panel capped at the available height so its table
   // scrolls inside the panel instead of the whole page stretching to the
-  // row count (fw#2722). Any other layout — multiple sections, a non-
-  // relatedList tab, stacked (non-tabs) forms — keeps normal document-flow
-  // height untouched.
+  // row count (fw#2722) — a short table still sizes to its content instead
+  // of stretching the panel to the bottom (fw#2778). Any other layout —
+  // multiple sections, a non-relatedList tab, stacked (non-tabs) forms —
+  // keeps normal document-flow height untouched.
   const fillHeight = hideSectionTitles === true && filteredSections[0]?.kind === "relatedList";
 
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.

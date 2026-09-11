@@ -815,9 +815,10 @@ export type SectionProps = {
 };
 
 /** Chromeless flex-fill layout host — no title, no card frame, no padding,
- *  just a container that sizes to fill its parent and lets one scrolling
- *  child scroll internally instead of the page growing (fw#2722). Web:
- *  `<div className="flex flex-1 min-h-0 flex-col">`. Native: Views are
+ *  just a container that sizes to its content and, once the ancestor chain
+ *  is height-constrained, shrinks so one scrolling child can scroll
+ *  internally instead of the page growing (fw#2722, height fw#2778). Web:
+ *  `<div className="flex min-h-0 flex-col">`. Native: Views are
  *  already flex-column and the parent is already a bounded viewport there,
  *  so a native impl may render this as a bare Fragment. Used only as the
  *  terminal link in `RenderEdit`'s `fillHeight` chain (`RelatedListSection`'s
