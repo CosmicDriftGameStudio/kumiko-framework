@@ -864,8 +864,8 @@ export async function createKumikoServer(
     context: stack.context,
     redisUrl,
     // Same dispatcher the request path writes through — without this,
-    // ctx.write/ctx.queryAs inside a dev-run job throw on their first call
-    // (kumiko-framework#2553).
+    // ctx.write/ctx.writeAs/ctx.queryAs inside a dev-run job throw on their
+    // first call (kumiko-framework#2553).
     dispatcher: stack.dispatcher,
   });
 

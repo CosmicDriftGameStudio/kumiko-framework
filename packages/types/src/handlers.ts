@@ -589,15 +589,29 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
 // write path into the same dispatcher pipeline write-handlers use.
 //
-// write/queryAs throw until JobRunner.attachDispatcher() has run — a call
-// this early is a framework boot bug, not a job-author mistake.
+// write/writeAs/queryAs throw until JobRunner.attachDispatcher() has run — a
+// call this early is a framework boot bug, not a job-author mistake.
 //
-// Identity is implicit: write runs as the job's own systemUser, tenant-
-// scoped via the job's _tenantId (falls back to SYSTEM_TENANT_ID for jobs
-// with no tenant context, e.g. plain cron jobs). A job that writes without
-// fanning out per-tenant (`_perTenant:` trigger) silently writes into the
-// system tenant instead of each tenant it may have meant to reach — no
-// guard against this, only this warning.
+// `write` runs as the job's own systemUser, tenant-scoped via the job's
+// _tenantId (falls back to SYSTEM_TENANT_ID for jobs with no tenant context,
+// e.g. plain cron jobs). A job that writes without fanning out per-tenant
+// (`_perTenant:` trigger) silently writes into the system tenant instead of
+// each tenant it may have meant to reach — no guard against this, only this
+// warning.
+//
+// `writeAs` is the explicit-identity counterpart, symmetric with `queryAs`:
+// `hasAccess` has no system bypass, so a write handler whose `access` lists
+// concrete roles is unreachable through `write` — the job's systemUser only
+// carries SYSTEM_ROLE and the dispatch comes back `access_denied`
+// (kumiko-framework#2585). The job has to assemble a full SessionUser for it:
+// `triggeredBy` alone is not enough, it carries only id + tenantId and no
+// roles, so the roles have to come from the job's own lookup.
+//
+// The passed identity also decides the target tenant — `writeAs` hands
+// `user.tenantId` straight to the dispatcher with nothing cross-checking it
+// against the job's own tenant, exactly as `queryAs` and the raw `db` above
+// already do. Building an identity from job payload data is therefore a
+// cross-tenant write path; derive it from a trusted lookup instead.
 export type JobContext = SharedContextFields & {
   readonly db: DbConnection;
   readonly registry: Registry;
@@ -614,6 +628,7 @@ export type JobContext = SharedContextFields & {
   // pass it to code that trusts the connection to already be scoped.
   readonly systemDb?: UncheckedSystemDb;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
