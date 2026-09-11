@@ -517,7 +517,29 @@ export type RecordHeaderSpec = {
   readonly title: string;
   readonly subtitle?: string;
   readonly status?: string;
+  /** Record field holding an absolute http(s) URL. When present and the
+   *  field's value is such a URL, the subtitle renders as an external link
+   *  (`target="_blank"`) instead of plain text. */
+  readonly subtitleHref?: string;
 };
+
+// A metric can navigate on click, so the plain string shorthand (field name,
+// same as before) sits alongside an object form carrying an explicit i18n
+// `label` and a `navigate` target — same shape as `RowActionNavigate`'s
+// screen/entity choice, minus the fields a metric click has no use for
+// (id, confirm, style).
+export type MetricSpec =
+  | string
+  | {
+      readonly field: string;
+      readonly label?: string;
+      readonly navigate?: {
+        readonly screen?: string;
+        readonly entity?: string;
+        readonly entityId?: string;
+        readonly params?: RowFieldExtractor;
+      };
+    };
 
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;
@@ -551,8 +573,9 @@ export type ProjectionDetailScreenDefinition = {
    *  in the query row (not literals). Rendered only when set. */
   readonly header?: RecordHeaderSpec;
   /** Metric band above the layout — column names in the query row, labeled
-   *  via `fieldLabels`. Rendered only when set. */
-  readonly metrics?: readonly string[];
+   *  via `fieldLabels` (string shorthand) or the object form's own `label`.
+   *  Rendered only when set. */
+  readonly metrics?: readonly MetricSpec[];
   /** Parent list screen (kurze id) für eine "Zurück"-Navigation. */
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;

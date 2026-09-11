@@ -390,6 +390,7 @@ export type {
   ListSortSpec,
   LongTextFindability,
   ManyToManyRelation,
+  MetricSpec,
   MspErrorMode,
   MspErrorPolicy,
   MultiSelectFieldDef,

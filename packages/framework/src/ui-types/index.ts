@@ -86,6 +86,7 @@ export type {
   ListColumnSpec,
   ListFacetSpec,
   ListSortSpec,
+  MetricSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,

@@ -292,6 +292,7 @@ export type {
   ListPaginationMode,
   ListSortDir,
   ListSortSpec,
+  MetricSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,

@@ -1130,6 +1130,9 @@ export type MetricProps = {
   readonly label: string;
   readonly value: string;
   readonly testId?: string;
+  /** Click handler — set when the metric declares a `navigate` target
+   *  (see `MetricSpec`). Omitted for a plain, non-interactive metric. */
+  readonly onPress?: () => void;
 };
 
 /** Structured JSON display (audit payload/metadata, job logs, unsupported

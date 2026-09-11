@@ -6,11 +6,13 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   RowActionDrawer,
   RowActionNavigate,
+  RowFieldExtractor,
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -23,7 +25,7 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
+import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
@@ -54,7 +56,7 @@ import {
   type ResolvedFacetSpec,
   resolveProjectionFacetSpecs,
 } from "./list-facets";
-import { useNav } from "./nav";
+import { type NavApi, useNav } from "./nav";
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
@@ -2069,6 +2071,62 @@ function ProjectionListBody({
   );
 }
 
+function metricField(metric: MetricSpec): string {
+  return typeof metric === "string" ? metric : metric.field;
+}
+
+function metricLabelKey(
+  metric: MetricSpec,
+  fieldLabels: Readonly<Record<string, string>> | undefined,
+): string | undefined {
+  if (typeof metric !== "string" && metric.label !== undefined) return metric.label;
+  return fieldLabels?.[metricField(metric)];
+}
+
+function metricNavigateSpec(
+  metric: MetricSpec,
+): { screen?: string; entity?: string; entityId?: string; params?: RowFieldExtractor } | undefined {
+  return typeof metric === "string" ? undefined : metric.navigate;
+}
+
+// Reuses runProjectionRowNavigate (row-actions.ts) instead of re-deriving
+// navigate execution — a metric click has the same entity/screen/params
+// shape as a RowActionNavigate, minus the fields (id, label, style) that
+// function never reads.
+function runMetricNavigate(
+  nav: NavApi,
+  navigate: { screen?: string; entity?: string; entityId?: string; params?: RowFieldExtractor },
+  record: Readonly<Record<string, unknown>>,
+): void {
+  const base = { kind: "navigate" as const, id: "metric-navigate", label: "" };
+  const action: RowActionNavigate | undefined =
+    navigate.entity !== undefined
+      ? {
+          ...base,
+          entity: navigate.entity,
+          ...(navigate.entityId !== undefined && { entityId: navigate.entityId }),
+          ...(navigate.params !== undefined && { params: navigate.params }),
+        }
+      : navigate.screen !== undefined
+        ? {
+            ...base,
+            screen: navigate.screen,
+            ...(navigate.entityId !== undefined && { entityId: navigate.entityId }),
+            ...(navigate.params !== undefined && { params: navigate.params }),
+          }
+        : undefined;
+  if (action === undefined) return;
+  runProjectionRowNavigate(nav, action, { id: "", values: record });
+}
+
+// Absolute http(s) check for RecordHeaderSpec.subtitleHref — deliberately
+// stricter than isSafeHref (which also allows relative paths and mailto:),
+// since a relative/mailto value here should render as plain text, not a
+// "_blank" external link.
+function isAbsoluteHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) && isSafeHref(value);
+}
+
 // Projection-Detail-Body — read-only single-row inspector über eine explizite
 // Query statt einer Entity (siehe projection-detail-shim.ts für die Schulden-
 // Doku). Fetcht selbst über `screen.query` + `idParam` (analog zu
@@ -2093,8 +2151,20 @@ function ProjectionDetailBody({
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
-  const { Banner, Button, Dialog, Text, Heading, Grid, GridCell, Card, Tabs, StatusBadge, Metric } =
-    usePrimitives();
+  const {
+    Banner,
+    Button,
+    Dialog,
+    Text,
+    Heading,
+    Grid,
+    GridCell,
+    Card,
+    Tabs,
+    StatusBadge,
+    Metric,
+    Link,
+  } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
@@ -2420,11 +2490,31 @@ function ProjectionDetailBody({
               </Heading>
               {(header.subtitle !== undefined || header.status !== undefined) && (
                 <Grid columns="auto">
-                  {header.subtitle !== undefined && (
-                    <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                      {String(record[header.subtitle] ?? "")}
-                    </Text>
-                  )}
+                  {header.subtitle !== undefined &&
+                    (() => {
+                      const subtitleText = String(record[header.subtitle] ?? "");
+                      const hrefValue =
+                        header.subtitleHref !== undefined
+                          ? record[header.subtitleHref]
+                          : undefined;
+                      const href =
+                        typeof hrefValue === "string" && isAbsoluteHttpUrl(hrefValue)
+                          ? hrefValue
+                          : undefined;
+                      return href !== undefined ? (
+                        <Link
+                          href={href}
+                          target="_blank"
+                          testId="kumiko-screen-projection-detail-subtitle"
+                        >
+                          {subtitleText}
+                        </Link>
+                      ) : (
+                        <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                          {subtitleText}
+                        </Text>
+                      );
+                    })()}
                   {header.status !== undefined &&
                     (StatusBadge !== undefined ? (
                       <StatusBadge
@@ -2447,14 +2537,24 @@ function ProjectionDetailBody({
               testId="kumiko-screen-projection-detail-metrics"
             >
               {screen.metrics?.map((metric) => {
-                const labelKey = screen.fieldLabels?.[metric];
-                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : metric;
-                const value = String(record[metric] ?? "");
-                const testId = `kumiko-screen-projection-detail-metric-${metric}`;
+                const field = metricField(metric);
+                const labelKey = metricLabelKey(metric, screen.fieldLabels);
+                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
+                const value = String(record[field] ?? "");
+                const testId = `kumiko-screen-projection-detail-metric-${field}`;
+                const navigate = metricNavigateSpec(metric);
+                const onPress =
+                  navigate !== undefined ? () => runMetricNavigate(nav, navigate, record) : undefined;
                 return Metric !== undefined ? (
-                  <Metric key={metric} label={label} value={value} testId={testId} />
+                  <Metric
+                    key={field}
+                    label={label}
+                    value={value}
+                    testId={testId}
+                    {...(onPress !== undefined && { onPress })}
+                  />
                 ) : (
-                  <GridCell key={metric}>
+                  <GridCell key={field}>
                     <Text variant="small" testId={`${testId}-label`}>
                       {label}
                     </Text>
