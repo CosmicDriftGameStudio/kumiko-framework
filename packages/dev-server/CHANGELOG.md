@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.249.0
+
+### Patch Changes
+
+- 14fb8a2: Fix `runCodegen` (and thus `kumiko-build`) deleting an already-generated `WriteHandlerQn` union / `TypedDispatcher` block from `.kumiko/` when no `feature-manifest.json` is present; the block is now preserved as-is with a warning instead of being silently dropped.
+- Updated dependencies [812795d]
+- Updated dependencies [f268c17]
+  - @cosmicdrift/kumiko-framework@0.249.0
+  - @cosmicdrift/kumiko-bundled-features@0.249.0
+  - @cosmicdrift/kumiko-server-runtime@0.249.0
+
 ## 0.248.0
 
 ### Patch Changes
