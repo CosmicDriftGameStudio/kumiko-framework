@@ -106,13 +106,24 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   ): void {
     const shape = schema instanceof ZodObject ? schema.shape : undefined;
     for (const [field, spec] of Object.entries(piiFields)) {
-      const { ownerField } = normalizeEventPiiSubject(spec);
-      if (field === ownerField) {
+      const normalized = normalizeEventPiiSubject(spec);
+      // Only the user form names an owner field — tenant/self subjects come
+      // from the write-time envelope (tenantId / aggregateType+aggregateId),
+      // so there is no owner-field existence or self-reference check for them.
+      if (normalized.kind !== "user") {
+        if (shape && !(field in shape)) {
+          throw new Error(
+            `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${field}" which is not a field of the payload schema.`,
+          );
+        }
+        continue;
+      }
+      if (field === normalized.ownerField) {
         throw new Error(
           `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as the owner field — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
         );
       }
-      for (const required of [field, ownerField]) {
+      for (const required of [field, normalized.ownerField]) {
         if (shape && !(required in shape)) {
           throw new Error(
             `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
@@ -240,7 +251,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       // an event without declaring whether its payload carries personal data.
       const missingStanceError = () =>
         new Error(
-          `[Feature ${name}] defineEvent("${eventName}") must declare an explicit PII stance. Pass { piiFields: { <payloadField>: { personal: { of: "<userIdField>" } } } } for payload fields holding personal data, or { piiFields: "none" } when the payload holds none.`,
+          `[Feature ${name}] defineEvent("${eventName}") must declare an explicit PII stance. Pass { piiFields: { <payloadField>: { personal: { of: "<userIdField>" } } } } for payload fields owned by a user (or { personal: "tenant" } / { personal: "self" } for tenant- or record-scoped subjects), or { piiFields: "none" } when the payload holds none.`,
         );
       if (options === undefined || options.piiFields === undefined) {
         throw missingStanceError();

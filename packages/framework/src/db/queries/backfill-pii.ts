@@ -11,7 +11,8 @@
 //     same collectPiiSubjectFields/resolveSubjectForField the live write
 //     path uses
 //   - custom events from the event-PII catalog (r.defineEvent piiFields) —
-//     user-subject only, see the note at its call site (fw#2801)
+//     user/tenant/self subjects, via the same resolveEventSubject the live
+//     append path uses (fw#2801)
 //
 // Already-forgotten subjects must NOT get a fresh key minted for their old
 // plaintext — three erased-detection layers write [[erased]] instead:
@@ -41,7 +42,6 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
-import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import { asRawClient } from "../../bun-db";
 import { quoteIdent } from "../../crypto/ciphertext-pattern";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii";
@@ -60,6 +60,7 @@ import {
 } from "../../crypto/pii-field-encryption";
 import {
   collectPiiSubjectFields,
+  resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
 } from "../../crypto/subject-resolver";
@@ -285,12 +286,13 @@ export async function backfillEventPiiEncryption(
     const catalogFields = eventCatalog.get(row.type);
     if (catalogFields) {
       for (const [field, spec] of Object.entries(catalogFields)) {
-        const { ownerField } = normalizeEventPiiSubject(spec);
-        const subjectId = payload[ownerField];
-        if (typeof subjectId !== "string" || subjectId.length === 0) continue;
-        // Catalog entries only ever resolve a user subject — a tenant/record
-        // subject in a custom event is not backfillable today (fw#2801).
-        const outcome = await encryptField(payload, field, { kind: "user", userId: subjectId });
+        const subject = resolveEventSubject(field, spec, payload, {
+          tenantId: row.tenant_id as TenantId, // @cast-boundary db-read — tenant_id column is the branded TenantId
+          aggregateType: row.aggregate_type,
+          aggregateId: row.aggregate_id,
+        });
+        if (subject === null) continue;
+        const outcome = await encryptField(payload, field, subject);
         bump(outcome);
       }
     } else {

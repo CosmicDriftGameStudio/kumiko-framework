@@ -59,6 +59,18 @@ const mailerFeature = defineFeature("mailer", (r) => {
   );
 });
 
+// fw#2801 step 2: custom events declaring a tenant/self subject — no entity,
+// pure catalog events — proving the catalog branch resolves through the
+// same resolveEventSubject the live append path uses.
+const signalsFeature = defineFeature("signals", (r) => {
+  r.defineEvent("tenantNote", z.object({ note: z.string().nullable() }), {
+    piiFields: { note: { personal: "tenant" } },
+  });
+  r.defineEvent("selfNote", z.object({ note: z.string().nullable() }), {
+    piiFields: { note: { personal: "self" } },
+  });
+});
+
 // personal: { of } (not "self") — the named owner field can legitimately be
 // absent from an old event's payload, unlike contact.email (self-subject via row id).
 const noteEntity = createEntity({
@@ -111,7 +123,13 @@ async function appendPlain(
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  registry = createRegistry([crmFeature, mailerFeature, notesFeature, surveyFeature]);
+  registry = createRegistry([
+    crmFeature,
+    mailerFeature,
+    notesFeature,
+    surveyFeature,
+    signalsFeature,
+  ]);
   await createEventsTable(testDb.db);
   await unsafeCreateEntityTable(testDb.db, contactEntity, "contact");
   await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
@@ -728,5 +746,106 @@ describe("backfillEventPiiEncryption: raw jsonb column type (fw#2253)", () => {
     )) as ReadonlyArray<{ t: string }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]?.t).toBe("object");
+  });
+});
+
+// The security-critical invariant this PR exists for: a catalogued field
+// must resolve to the IDENTICAL subject key whether it was encrypted at
+// live-append time or re-encrypted by the backfill — both paths now go
+// through the same resolveEventSubject (subject-resolver.ts). If they ever
+// diverged, an Art. 17 erase of one subject key would leave the same field's
+// other-path ciphertext readable under a different key.
+describe("backfillEventPiiEncryption: catalog subject kinds match live append (fw#2801)", () => {
+  test("user subject: backfill and live append encrypt under the same subject key", async () => {
+    const preKmsId = generateId();
+    await appendPlain(preKmsId, "ping", "mailer:event:ping", {
+      targetId: "u-42",
+      address: "pre-kms@x.com",
+    });
+
+    armKms();
+    const liveId = generateId();
+    await append(testDb.db, {
+      aggregateId: liveId,
+      aggregateType: "ping",
+      tenantId: TENANT,
+      expectedVersion: 0,
+      type: "mailer:event:ping",
+      payload: { targetId: "u-42", address: "live@x.com" },
+      metadata: { userId: "system" },
+    });
+
+    await backfillEventPiiEncryption(testDb.db, registry);
+
+    const backfilled = (await loadAggregate(testDb.db, preKmsId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    const live = (await loadAggregate(testDb.db, liveId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(String(backfilled["address"])).toContain("user:u-42");
+    expect(String(live["address"])).toContain("user:u-42");
+  });
+
+  test("tenant subject: backfill and live append encrypt under the same subject key", async () => {
+    const preKmsId = generateId();
+    await appendPlain(preKmsId, "signal", "signals:event:tenantNote", { note: "pre-kms" });
+
+    armKms();
+    const liveId = generateId();
+    await append(testDb.db, {
+      aggregateId: liveId,
+      aggregateType: "signal",
+      tenantId: TENANT,
+      expectedVersion: 0,
+      type: "signals:event:tenantNote",
+      payload: { note: "live" },
+      metadata: { userId: "system" },
+    });
+
+    await backfillEventPiiEncryption(testDb.db, registry);
+
+    const backfilled = (await loadAggregate(testDb.db, preKmsId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    const live = (await loadAggregate(testDb.db, liveId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(String(backfilled["note"])).toContain(`tenant:${TENANT}`);
+    expect(String(live["note"])).toContain(`tenant:${TENANT}`);
+  });
+
+  test("self (record) subject: backfill and live append encrypt each under its own aggregate's key", async () => {
+    const preKmsId = generateId();
+    await appendPlain(preKmsId, "signal", "signals:event:selfNote", { note: "pre-kms" });
+
+    armKms();
+    const liveId = generateId();
+    await append(testDb.db, {
+      aggregateId: liveId,
+      aggregateType: "signal",
+      tenantId: TENANT,
+      expectedVersion: 0,
+      type: "signals:event:selfNote",
+      payload: { note: "live" },
+      metadata: { userId: "system" },
+    });
+
+    await backfillEventPiiEncryption(testDb.db, registry);
+
+    const backfilled = (await loadAggregate(testDb.db, preKmsId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    const live = (await loadAggregate(testDb.db, liveId, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(String(backfilled["note"])).toContain(`record:signal:${preKmsId}`);
+    expect(String(live["note"])).toContain(`record:signal:${liveId}`);
   });
 });

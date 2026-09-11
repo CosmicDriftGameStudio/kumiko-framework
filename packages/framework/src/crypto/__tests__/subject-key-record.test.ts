@@ -56,6 +56,16 @@ describe("record subject key round-trip", () => {
     expect(() => subjectKeyForRecord("bad:name", UUID_A)).toThrow();
   });
 
+  test("subjectKeyForRecord rejects entity names that subjectIdSchema (forget-subject) could never shred (fw#2801)", () => {
+    expect(() => subjectKeyForRecord("v2.digest", UUID_A)).toThrow();
+    expect(() => subjectKeyForRecord("_internal", UUID_A)).toThrow();
+    expect(() => subjectKeyForRecord("3rd", UUID_A)).toThrow();
+  });
+
+  test("subjectKeyForRecord accepts a kebab-case registry entity name", () => {
+    expect(subjectKeyForRecord("mail-account", UUID_A)).toBe(`record:mail-account:${UUID_A}`);
+  });
+
   test("ciphertext round-trip for a record-owned field", async () => {
     const kms = new InMemoryKmsAdapter();
     const fields = collectPiiSubjectFields(recordEntity);
