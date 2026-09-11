@@ -2,7 +2,21 @@
   "name": "@cosmicdrift/kumiko-sample-record-detail-layout",
   "description": "projectionDetail record header, metrics band, and layout.mode: \"tabs\" — an order screen with two relatedList tabs and a fields tab.",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "bun x playwright test --config=e2e/playwright.config.ts"
+  },
   "dependencies": {
-    "@cosmicdrift/kumiko-framework": "workspace:*"
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/cli": "^4.3.0",
+    "@types/react": "^19.2.14",
+    "tailwindcss": "^4.3.0"
   }
 }

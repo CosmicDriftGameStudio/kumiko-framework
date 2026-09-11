@@ -259,9 +259,11 @@ export function RelatedListSection({
 
   // hideTitle (tabs mode) → the tab panel is already the boundary: no
   // Section card wrapper here, `chromeless` above drops the table's own
-  // card frame too, and `scrollBody` fills this wrapper's height so a long
-  // Akte tab scrolls internally instead of stretching the page (fw#2722) —
-  // the list sits directly in the tab. `FillContainer` is this section's
+  // card frame too, and `scrollBody` caps this wrapper at the panel's
+  // available height so a long Akte tab scrolls internally instead of
+  // stretching the page, while a short one still sizes to its content
+  // instead of stretching to the bottom (fw#2722, fw#2778) — the list sits
+  // directly in the tab. `FillContainer` is this section's
   // link in RenderEdit's `fillHeight` chain (see render-edit.tsx): it is
   // always this section's own root whenever hideTitle is set, since tabs
   // mode narrows RenderEdit to exactly this one active section. A platform
