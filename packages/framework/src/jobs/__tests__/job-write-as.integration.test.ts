@@ -37,7 +37,10 @@ function recordOutcome(sink: ProbeOutcome[], result: WriteResult): void {
 }
 
 const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
-  const noted = r.defineEvent("adminNoted", z.object({ note: z.string() }), { version: 1 });
+  const noted = r.defineEvent("adminNoted", z.object({ note: z.string() }), {
+    piiFields: "none",
+    version: 1,
+  });
 
   r.writeHandler(
     "adminNote",
