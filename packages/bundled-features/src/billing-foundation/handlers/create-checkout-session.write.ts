@@ -32,13 +32,16 @@ const createCheckoutSessionSchema = z.object({
   /** Optional: existierender provider-customer wenn der Tenant schon
    *  einen account beim Provider hat (= Plan-Wechsel statt Neuregistrierung). */
   providerCustomerId: z.string().max(200).optional(),
+  /** Optional: `"payment"` for a one-off checkout (e.g. credit top-up)
+   *  instead of a recurring subscription. Defaults to `"subscription"`. */
+  mode: z.enum(["subscription", "payment"]).optional(),
 });
 type CreateCheckoutSessionPayload = z.infer<typeof createCheckoutSessionSchema>;
 
 export const createCheckoutSessionHandler: WriteHandlerDef = {
   name: "create-checkout-session",
   description:
-    "Opens a hosted checkout page at the named subscription provider for the caller's tenant and returns its URL; use it when a tenant admin wants to subscribe or switch to a paid plan.",
+    'Opens a hosted checkout page at the named subscription provider for the caller\'s tenant and returns its URL; use it when a tenant admin wants to subscribe, switch plans, or make a one-off payment (mode: "payment").',
   schema: createCheckoutSessionSchema,
   // Tenant-Admin-only — der Tenant muss bewusst seine Subscription
   // konfigurieren. SystemAdmin als Fallback für Operator-Initiated-Flows.
@@ -71,6 +74,7 @@ export const createCheckoutSessionHandler: WriteHandlerDef = {
       successUrl: payload.successUrl,
       cancelUrl: payload.cancelUrl,
       ...(payload.providerCustomerId && { providerCustomerId: payload.providerCustomerId }),
+      ...(payload.mode && { mode: payload.mode }),
     });
 
     return {

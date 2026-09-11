@@ -116,6 +116,55 @@ describe("createStripeCheckoutSession", () => {
     );
   });
 
+  test("mode='payment': ruft stripe.checkout.sessions.create mit mode=payment + payment_intent_data.metadata (KEIN subscription_data)", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/topup" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
+    const result = await checkout(stubCtx, {
+      priceId: "price_credits_topup",
+      tenantId: "tenant-003",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+      mode: "payment",
+    });
+
+    expect(result).toEqual({ url: "https://checkout.stripe.com/c/pay/topup" });
+    expect(createMock).toHaveBeenCalledWith({
+      mode: "payment",
+      line_items: [{ price: "price_credits_topup", quantity: 1 }],
+      success_url: "https://example.com/success",
+      cancel_url: "https://example.com/cancel",
+      // Drift-Pin: payment-mode carries tenantId via payment_intent_data,
+      // NOT subscription_data — Stripe rejects subscription_data outside
+      // subscription-mode.
+      payment_intent_data: {
+        metadata: { tenantId: "tenant-003" },
+      },
+    });
+  });
+
+  test("mode omitted defaults to 'subscription' (Regression-Pin für bestehende Aufrufer)", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://x" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
+    await checkout(stubCtx, {
+      priceId: "price_x",
+      tenantId: "tenant-004",
+      successUrl: "https://x/s",
+      cancelUrl: "https://x/c",
+    });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "subscription", subscription_data: expect.anything() }),
+    );
+  });
+
   test("throws wenn Stripe keine url returnt (defensive — sollte nie passieren bei mode=subscription)", async () => {
     const stripe = buildStripe();
     spyOn(stripe.checkout.sessions, "create")
