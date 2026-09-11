@@ -41,6 +41,7 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
+import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import { asRawClient } from "../../bun-db";
 import { quoteIdent } from "../../crypto/ciphertext-pattern";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii";
@@ -284,7 +285,8 @@ export async function backfillEventPiiEncryption(
     const catalogFields = eventCatalog.get(row.type);
     if (catalogFields) {
       for (const [field, spec] of Object.entries(catalogFields)) {
-        const subjectId = payload[spec.subjectField];
+        const { ownerField } = normalizeEventPiiSubject(spec);
+        const subjectId = payload[ownerField];
         if (typeof subjectId !== "string" || subjectId.length === 0) continue;
         // Catalog entries only ever resolve a user subject — a tenant/record
         // subject in a custom event is not backfillable today (fw#2801).

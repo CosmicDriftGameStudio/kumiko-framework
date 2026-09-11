@@ -732,10 +732,32 @@ export type QualifiedEventName<
 > = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
 
 // PII payload fields on a custom event (#799): `field` is encrypted under
-// the DEK of the user named by the payload's `subjectField` (crypto-
-// shredding). A null subject field leaves the value plaintext — there is
-// no user key to shred for system-triggered events.
-export type EventPiiFields = Readonly<Record<string, { readonly subjectField: string }>>;
+// the DEK of the user the subject spec names (crypto-shredding). A null
+// subject field leaves the value plaintext — there is no user key to shred
+// for system-triggered events.
+//
+// `{ personal: { of: "<ownerField>" } }` is the canonical form, matching the
+// entity-field `personal` vocabulary (see fields.ts). Only a user subject is
+// resolvable today (fw#2801) — "self"/"tenant"/"ref" are not valid here yet.
+export type EventPiiSubject =
+  | { readonly personal: { readonly of: string } }
+  | {
+      /** @deprecated use `{ personal: { of: "<ownerField>" } }` instead. */
+      readonly subjectField: string;
+    };
+
+export type EventPiiFields = Readonly<Record<string, EventPiiSubject>>;
+
+export type NormalizedEventPiiSubject = {
+  readonly kind: "user";
+  readonly ownerField: string;
+};
+
+export function normalizeEventPiiSubject(spec: EventPiiSubject): NormalizedEventPiiSubject {
+  return "personal" in spec
+    ? { kind: "user", ownerField: spec.personal.of }
+    : { kind: "user", ownerField: spec.subjectField };
+}
 
 // The full set of PII stances a defineEvent() call may declare. "none" is a
 // distinct value from `{}` — an empty object is indistinguishable from "the

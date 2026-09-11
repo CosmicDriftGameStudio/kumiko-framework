@@ -1,3 +1,4 @@
+import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import { ZodObject, type ZodType, type z } from "zod";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { resolveName } from "./handler-helpers";
@@ -96,7 +97,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   }
 
   // piiFields misconfiguration is a boot-time error, not a silent
-  // plaintext leak: both the pii field and its subjectField must exist
+  // plaintext leak: both the pii field and its owner field must exist
   // on the payload schema (checkable when the schema is a ZodObject).
   function validateEventPiiFields(
     eventName: string,
@@ -105,12 +106,13 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   ): void {
     const shape = schema instanceof ZodObject ? schema.shape : undefined;
     for (const [field, spec] of Object.entries(piiFields)) {
-      if (field === spec.subjectField) {
+      const { ownerField } = normalizeEventPiiSubject(spec);
+      if (field === ownerField) {
         throw new Error(
-          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as subjectField — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
+          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as the owner field — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
         );
       }
-      for (const required of [field, spec.subjectField]) {
+      for (const required of [field, ownerField]) {
         if (shape && !(required in shape)) {
           throw new Error(
             `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
@@ -238,7 +240,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       // an event without declaring whether its payload carries personal data.
       const missingStanceError = () =>
         new Error(
-          `[Feature ${name}] defineEvent("${eventName}") must declare an explicit PII stance. Pass { piiFields: { <payloadField>: { subjectField: "<userIdField>" } } } for payload fields holding personal data, or { piiFields: "none" } when the payload holds none.`,
+          `[Feature ${name}] defineEvent("${eventName}") must declare an explicit PII stance. Pass { piiFields: { <payloadField>: { personal: { of: "<userIdField>" } } } } for payload fields holding personal data, or { piiFields: "none" } when the payload holds none.`,
         );
       if (options === undefined || options.piiFields === undefined) {
         throw missingStanceError();

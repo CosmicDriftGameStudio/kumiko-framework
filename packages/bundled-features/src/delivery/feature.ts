@@ -64,7 +64,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // recipientAddress is the real PII (email address); recipientId stays
     // plaintext — pseudonymous fk, same line as config.userId (#821).
     r.defineEvent("attempt", deliveryAttemptSchema, {
-      piiFields: { recipientAddress: { subjectField: "recipientId" } },
+      piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
     });
 
     // Inline projection that materialises every delivery attempt into

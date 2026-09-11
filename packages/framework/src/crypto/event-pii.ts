@@ -12,8 +12,8 @@
 // silent no-op (forgetting the option) is now either an explicit "none" or a
 // missing subject KMS at encrypt-time, both visible states, not a gap.
 
+import { type EventPiiFields, normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext } from "../api/request-context";
-import type { EventPiiFields } from "../engine/types/handlers";
 import { configuredPiiSubjectKms, encryptPiiValueForSubject } from "./pii-field-encryption";
 
 export type EventPiiCatalog = ReadonlyMap<string, EventPiiFields>;
@@ -58,7 +58,8 @@ export async function encryptEventPayloadPii(
         `Event "${eventType}" piiFields."${field}" must be a string payload field, got ${typeof value}`,
       );
     }
-    const subjectId = payload[spec.subjectField];
+    const { ownerField } = normalizeEventPiiSubject(spec);
+    const subjectId = payload[ownerField];
     if (typeof subjectId !== "string" || subjectId.length === 0) continue;
     const encrypted = await encryptPiiValueForSubject(
       kms,
