@@ -7,6 +7,7 @@ import { Glob } from "bun";
 import {
   INTEGRATION_BUNFIG,
   INTEGRATION_GUARD,
+  INTEGRATION_TEST_TIMEOUT_MS,
   type IntegrationDiscovery,
   type IntegrationRunMode,
   integrationRunModeFromArgv,
@@ -161,7 +162,12 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
 
   for (const dir of discovery.includedDirs) {
     const relDir = `./${relative(process.cwd(), dir)}`;
-    const args = ["test", "--dots", `--config=${INTEGRATION_BUNFIG}`];
+    const args = [
+      "test",
+      "--dots",
+      `--config=${INTEGRATION_BUNFIG}`,
+      `--timeout=${INTEGRATION_TEST_TIMEOUT_MS}`,
+    ];
 
     if (mode === "perf") {
       for (const file of filesByDir.get(dir) ?? []) {

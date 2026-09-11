@@ -4,6 +4,10 @@ export const INTEGRATION_BUNFIG = "bunfig.integration.toml";
 export const INTEGRATION_GUARD = "integration.guard.ts";
 export const INTEGRATION_RUNNER = "scripts/run-integration-tests.ts";
 export const INTEGRATION_PERF_ENV = "KUMIKO_PERF_GATE";
+// bun ignores `[test] timeout` in bunfig.integration.toml (kumiko-framework#2796) —
+// only the CLI flag actually raises the per-test default, so every direct
+// `bun test --config=bunfig.integration.toml` invocation must pass it explicitly.
+export const INTEGRATION_TEST_TIMEOUT_MS = 15000;
 
 export type IntegrationRunMode = "bulk" | "perf";
 

@@ -20,6 +20,7 @@ import {
   isPiiCiphertext,
   KeyNotFoundError,
   PgKmsAdapter,
+  PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
 } from "../../crypto";
 import { applyEntityEvent } from "../../db/apply-entity-event";
@@ -72,6 +73,20 @@ const notesFeature = defineFeature("notes", (r) => {
   r.entity("note", noteEntity);
 });
 
+// personal: { of: "id" } → recordOwned (kumiko-framework#2786): the row
+// itself is the subject, not a user/tenant reachable via an owner field.
+// fw#2790 — this fixture proves the pre-existing generic backfill already
+// covers the record subject kind for lifecycle events, no new code needed.
+const surveyEntity = createEntity({
+  fields: {
+    answer: createTextField({ personal: { of: "id" }, find: "none" }),
+  },
+});
+const surveyTable = buildEntityTable("survey", surveyEntity);
+const surveyFeature = defineFeature("survey", (r) => {
+  r.entity("survey", surveyEntity);
+});
+
 let testDb: TestDb;
 let registry: Registry;
 let kms: InMemoryKmsAdapter;
@@ -96,10 +111,11 @@ async function appendPlain(
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  registry = createRegistry([crmFeature, mailerFeature, notesFeature]);
+  registry = createRegistry([crmFeature, mailerFeature, notesFeature, surveyFeature]);
   await createEventsTable(testDb.db);
   await unsafeCreateEntityTable(testDb.db, contactEntity, "contact");
   await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
+  await unsafeCreateEntityTable(testDb.db, surveyEntity, "survey");
 });
 
 afterAll(async () => {
@@ -111,6 +127,7 @@ beforeEach(async () => {
   await raw.unsafe(`TRUNCATE "kumiko_events" RESTART IDENTITY`);
   await raw.unsafe(`TRUNCATE "${contactTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${noteTable.tableName}"`);
+  await raw.unsafe(`TRUNCATE "${surveyTable.tableName}"`);
   // Plaintext era: NO KMS while the legacy events are appended.
   resetPiiSubjectKmsForTests();
   resetBlindIndexKeyForTests();
@@ -587,6 +604,104 @@ describe("backfillEventPiiEncryption: owner-resolution chain (fw#2266)", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.updatedEvents).toBe(0);
+  });
+});
+
+// fw#2790 — "Altbestand: Freitext-Klartext in kumiko_events". #2596 added
+// the recordOwned ("record") subject kind for row-scoped free text with no
+// user/tenant owner. Nothing in this file's resolution path (subject-
+// resolver.ts / pii-field-encryption.ts) special-cases subject kind, so the
+// expectation is that this backfill already covers it for lifecycle events
+// with zero new code — these tests pin that down rather than assume it.
+describe("backfillEventPiiEncryption: record subject (kumiko-framework#2786)", () => {
+  test("encrypts a lifecycle payload under record:<entity>:<id>, not user:<id>", async () => {
+    const s1 = generateId();
+    await appendPlain(s1, "survey", "survey.created", { id: s1, answer: "plaintext answer" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    expect(result.updatedEvents).toBe(1);
+    expect(result.encryptedFields).toBe(1);
+    // Neither owner-resolution fallback is needed: the subject is the row's
+    // own id, always present on the event — stage 2/3 stay unused.
+    expect(result.ownerFromProjection).toBe(0);
+    expect(result.erasedUnresolvable).toBe(0);
+
+    const events = await loadAggregate(testDb.db, s1, TENANT);
+    const created = events[0]?.payload as Record<string, unknown>;
+    expect(isPiiCiphertext(created["answer"])).toBe(true);
+    // Exact prefix, not just "contains": the entity segment must be the
+    // registry name forget-subject resolves ("survey"), not the table name
+    // or a divergent aggregate_type — a wrong segment here would make the
+    // ciphertext unreachable by record-forget (fw#2790).
+    expect(String(created["answer"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}record:survey:${s1}:`);
+    expect(String(created["answer"])).not.toContain(`user:${s1}`);
+  });
+
+  test("encrypts changes+previous on an update the same way", async () => {
+    const s2 = generateId();
+    await appendPlain(s2, "survey", "survey.created", { id: s2, answer: "first" });
+    await appendPlain(
+      s2,
+      "survey",
+      "survey.updated",
+      { changes: { answer: "second" }, previous: { id: s2, answer: "first" } },
+      1,
+    );
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(result.failures).toEqual([]);
+    expect(result.updatedEvents).toBe(2);
+
+    const events = await loadAggregate(testDb.db, s2, TENANT);
+    const updated = events[1]?.payload as {
+      changes: Record<string, unknown>;
+      previous: Record<string, unknown>;
+    };
+    expect(String(updated.changes["answer"])).toStartWith(
+      `${PII_CIPHERTEXT_PREFIX}record:survey:${s2}:`,
+    );
+    expect(String(updated.previous["answer"])).toStartWith(
+      `${PII_CIPHERTEXT_PREFIX}record:survey:${s2}:`,
+    );
+  });
+
+  test("a pre-KMS-forgotten row gets [[erased]], not a fresh record key", async () => {
+    const s3 = generateId();
+    await appendPlain(s3, "survey", "survey.created", { id: s3, answer: "secret" });
+    await appendPlain(
+      s3,
+      "survey",
+      "survey.forgotten",
+      { previous: { id: s3, answer: "secret" } },
+      1,
+    );
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    expect(result.erasedFields).toBe(2);
+    const events = await loadAggregate(testDb.db, s3, TENANT);
+    const created = events[0]?.payload as Record<string, unknown>;
+    expect(created["answer"]).toBe(PII_ERASED_SENTINEL);
+    const forgotten = events[1]?.payload as { previous: Record<string, unknown> };
+    expect(forgotten.previous["answer"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("idempotent: a second run touches nothing", async () => {
+    const s4 = generateId();
+    await appendPlain(s4, "survey", "survey.created", { id: s4, answer: "once" });
+
+    armKms();
+    const first = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(first.updatedEvents).toBe(1);
+    const second = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(second.updatedEvents).toBe(0);
+    expect(second.failures).toEqual([]);
   });
 });
 

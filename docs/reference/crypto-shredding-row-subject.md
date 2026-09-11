@@ -102,6 +102,61 @@ it applies to SystemAdmin too — a retention obligation is not a permission
 that a higher role can waive, so `blockDelete` refuses the request
 regardless of actor role.
 
+## Backfilling pre-declaration plaintext (fw#2790)
+
+Declaring a field `personal: { of: "id" }` protects writes **from that point
+on**. Any event appended before the declaration still carries the field as
+plaintext in `kumiko_events` — the executor appends a row exactly as it
+looked at write time (`event-store-executor-write.ts`), and crypto-shredding
+has no forward-acting effect on history.
+
+Two ways to close that gap were on the table: a backfill job that
+re-encrypts the historical payloads in place, or a documented, permanent
+boundary (only stream deletion erases the backlog). The framework already
+answers this — `backfillEventPiiEncryption`
+(`packages/framework/src/db/queries/backfill-pii.ts`, fw#799) re-encrypts
+pre-KMS/pre-declaration plaintext PII in `kumiko_events` in place, per
+field, under the owning subject's key, and it is a **generic** pass over
+every field with a subject annotation (`collectPiiSubjectFields` /
+`resolveSubjectForField`) — it does not special-case which of the three
+subject kinds a field carries. Adding the `record` kind in fw#2786 needed
+no change to this backfill: it already covers a freshly-declared row-subject
+field on any entity that uses the normal event-store-executor lifecycle
+(`<entity>.created` / `.updated` / `.deleted` / `.forgotten` / `.restored`).
+See `packages/framework/src/event-store/__tests__/backfill-pii.integration.test.ts`,
+describe block `"backfillEventPiiEncryption: record subject (kumiko-framework#2786)"`,
+for the regression coverage that pins this down (encrypts under
+`record:<entity>:<id>`, handles updates, erases a pre-KMS-forgotten row
+instead of minting a fresh key, is idempotent).
+
+This is not "rewriting history" in the sense the append-only log guards
+against: the backfill changes a field's *representation*
+(plaintext → key-gated ciphertext), never what the event *asserts* happened.
+Replay stays deterministic — `applyEntityEvent` materializes the same
+ciphertext plus its blind-index column, which is why a backfill run must be
+followed by a projection rebuild. The framework already has a more invasive
+precedent for in-place event mutation (fw#762, `stream-tenant-backfill.ts`,
+renumbers `version` and rewrites `tenant_id` to merge split streams) —
+representation-only re-encryption is the milder case of the same category.
+Refusing it in the name of append-only purity would leave stream deletion as
+the only Art. 17 remedy for the backlog, which destroys far more of the log
+than re-encrypting one field.
+
+**Operator action:** after declaring a field `record`-owned (or any subject
+kind) on a field that pre-existed, run `backfillEventPiiEncryption(db,
+registry)` once against the estate — `dryRun: true` first to see the
+projected counts — then rebuild the affected projections.
+
+**Known residual gap:** `backfillEventPiiEncryption` only walks two event
+shapes: registry-entity lifecycle events (covered above) and the custom
+event catalog (`r.defineEvent(..., { piiFields })`). The catalog path
+hardcodes `{ kind: "user", userId }` for every catalogued field — it cannot
+target a `tenant` or `record` subject. A free-text field carried in a custom
+domain event (not a registry entity) under a tenant/record subject is
+**not** backfillable today; that field is a documented, permanent
+boundary (Weg 2) until the catalog path is generalized. Tracked as a
+follow-up: fw#2801.
+
 ## Operator runbook: an Art. 17 request the mentions never found
 
 A row's structured-mention forget hook (#2787, still open) will eventually
@@ -150,7 +205,8 @@ production path.
    stays in `kumiko_events` in that (now-erased) form — there is no
    retroactive rewrite of the event log (tracked separately: #2790 covers
    entities whose plaintext PII predates a row-subject declaration
-   entirely, which is a different gap).
+   entirely, which is a different gap; see "Backfilling pre-declaration
+   plaintext" above for how that gap is closed).
 5. **Keep the paper trail.** The `subject-forgotten` (or, if refused,
    `forget-denied`) audit event is the system's proof; log the external
    request (ticket/authority reference) against the same `subjectKey`

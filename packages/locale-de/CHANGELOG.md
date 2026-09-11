@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.252.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.252.1
+
 ## 0.252.0
 
 ### Patch Changes

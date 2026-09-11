@@ -22,7 +22,20 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Main pushes get a SHA-scoped group, never shared with another main push:
+  # GitHub evicts an already-QUEUED run the moment a new run lands in the same
+  # group, regardless of cancel-in-progress below (that only protects a run
+  # that already started a job). Two main pushes 31s apart hit exactly that —
+  # the version-PR merge's run was still queued (zero jobs had started) when
+  # the very next push (the breaking change from #2779) landed in the same
+  # `ci-refs/heads/main` group and evicted it, so its release job never got to
+  # publish 0.250.0 from the correct source tree (#2785). Main runs no longer
+  # need to serialize against each other for correctness — publish-with-oidc.sh
+  # is a registry-diff, so two release jobs overlapping just both see "already
+  # published" or race harmlessly on E403/E409 (already handled there). PR
+  # runs keep the shared ref-scoped group so a new push still cancels that
+  # PR's own superseded run.
+  group: ${{ github.ref == 'refs/heads/main' && format('ci-main-{0}', github.sha) || format('ci-{0}', github.ref) }}
   # Never cancel main runs: the release job publishes to npm and moves
   # dist-tags — a cancel mid-publish strands a version under the throwaway
   # tag, a state the publish script's registry diff cannot heal (#1781).
@@ -440,11 +453,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
 
+      # #2798: this container only exists to be measured and thrown away —
+      # durability guarantees buy nothing here but add write-path variance
+      # (commit fsync wait, post-checkpoint full-page-write amplification)
+      # that showed up as scattered p95 spikes unrelated to event-store code.
+      # fsync/synchronous_commit/full_page_writes off removes that noise;
+      # checkpoint_timeout keeps a time-triggered checkpoint from firing
+      # mid-run (the ~5k rows this job writes never approach the default
+      # max_wal_size, so a volume-triggered checkpoint isn't a factor here).
+      # Correctness jobs keep default (production) commit semantics — only
+      # this measurement job is tuned.
       - name: Start postgres
         run: |
           docker run -d --name kumiko-ci-pg -p 15432:5432 \
             -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.4-alpine
+            postgres:18.4-alpine \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
+            -c checkpoint_timeout=1h
           for i in $(seq 1 30); do
             if pg_isready -h 127.0.0.1 -p 15432 -U kumiko >/dev/null 2>&1; then break; fi
             sleep 2
@@ -726,6 +751,22 @@ jobs:
         # same version (#2586). Rescued versions get git tags (pushed here,
         # since no action parses the "New tag:" lines in this path) but no
         # GitHub Release.
+        #
+        # #2785: the #1781 rescue is retired for exactly the case it exists
+        # for — pending changesets at $GITHUB_SHA. That's the only situation
+        # where package.json's version was computed BEFORE those changesets
+        # landed, so publishing it here would ship whatever the pending
+        # changeset(s) touch under an already-computed, un-updated version
+        # number (0.250.0 shipped #2779's breaking change this way — the
+        # source tree at that SHA already had it, the version didn't).
+        # Skipping is self-healing, not a lost release: changesets/action's
+        # own `version` step (above) already folds the pending changeset(s)
+        # into a fresh changeset-release/main PR: merging that PR computes
+        # the next, correct version and publishes it normally. What still
+        # runs below on a no-pending-changesets SHA is the registry-diff
+        # repair this step was also doing all along (moving a `latest` a
+        # prior run stranded, dropping a leftover `kumiko-tmp` tag, the
+        # E403/E409-staged paths) — not just the #1781 rescue-publish.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -733,6 +774,11 @@ jobs:
         run: |
           git checkout -f ${{ github.sha }}
           git clean -fd
+          if find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
+            echo "::warning::Pending changesets at ${GITHUB_SHA} — the computed versions predate them. Skipping the rescue publish; a fresh changeset-release/main PR will supersede it (kumiko-framework#2785)."
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           new_tags="$(git tag --points-at "$GITHUB_SHA")"

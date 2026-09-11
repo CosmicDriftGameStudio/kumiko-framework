@@ -6,7 +6,9 @@ linker = "hoisted"
 
 [test]
 preload = ["./test-setup/integration.preload.ts"]
-timeout = 15000
+# bun ignores `timeout` here (kumiko-framework#2796) — the real 15s budget is
+# `--timeout=15000` on every `bun test --config=bunfig.integration.toml` call
+# (scripts/run-integration-tests.ts, package.json test:integration:perf:*).
 concurrency = 1
 
 # Same product-code scope as bunfig.ci.toml (integration coverage pass
