@@ -6,8 +6,12 @@
 // them in place, per field, under the owning subject's DEK:
 //
 //   - entity lifecycle events (<entity>.created/updated/deleted/forgotten/
-//     restored) for every entity with PII subject annotations
-//   - custom events from the event-PII catalog (r.defineEvent piiFields)
+//     restored) for every entity with PII subject annotations — generic over
+//     subject kind (user/tenant/record, fw#2790), since it goes through the
+//     same collectPiiSubjectFields/resolveSubjectForField the live write
+//     path uses
+//   - custom events from the event-PII catalog (r.defineEvent piiFields) —
+//     user-subject only, see the note at its call site (fw#2801)
 //
 // Already-forgotten subjects must NOT get a fresh key minted for their old
 // plaintext — three erased-detection layers write [[erased]] instead:
@@ -282,6 +286,8 @@ export async function backfillEventPiiEncryption(
       for (const [field, spec] of Object.entries(catalogFields)) {
         const subjectId = payload[spec.subjectField];
         if (typeof subjectId !== "string" || subjectId.length === 0) continue;
+        // Catalog entries only ever resolve a user subject — a tenant/record
+        // subject in a custom event is not backfillable today (fw#2801).
         const outcome = await encryptField(payload, field, { kind: "user", userId: subjectId });
         bump(outcome);
       }
