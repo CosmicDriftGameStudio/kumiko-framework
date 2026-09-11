@@ -32,7 +32,9 @@ const itemTable = buildEntityTable("arch-item", itemEntity);
 const archFeature = defineFeature("archtest", (r) => {
   r.entity("arch-item", itemEntity);
 
-  const labelChanged = r.defineEvent("label-changed", z.object({ label: z.string() }));
+  const labelChanged = r.defineEvent("label-changed", z.object({ label: z.string() }), {
+    piiFields: "none",
+  });
 
   const executor = createEventStoreExecutor(itemTable, itemEntity, {
     entityName: "arch-item",

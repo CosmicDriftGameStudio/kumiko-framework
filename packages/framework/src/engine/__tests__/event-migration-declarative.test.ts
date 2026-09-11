@@ -9,6 +9,7 @@ const upcastCtx = {} as EventUpcastCtx;
 function compile(spec: DeclarativeEventMigration) {
   const feature = defineFeature("billing", (r) => {
     r.defineEvent("invoicePaid", z.unknown(), {
+      piiFields: "none",
       version: 2,
       migrations: [{ fromVersion: 1, toVersion: 2, transform: spec }],
     });
@@ -56,6 +57,7 @@ describe("declarative eventMigration", () => {
     const fn = (payload: unknown) => payload;
     const feature = defineFeature("billing", (r) => {
       r.defineEvent("invoicePaid", z.unknown(), {
+        piiFields: "none",
         version: 2,
         migrations: [{ fromVersion: 1, toVersion: 2, transform: fn }],
       });

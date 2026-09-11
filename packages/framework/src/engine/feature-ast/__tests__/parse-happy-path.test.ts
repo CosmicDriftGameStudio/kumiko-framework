@@ -42,7 +42,7 @@ defineFeature("todoList", (r) => {
     },
   });
 
-  r.defineEvent("taskCompleted", z.object({ id: z.string() }), { version: 1 });
+  r.defineEvent("taskCompleted", z.object({ id: z.string() }), { piiFields: "none", version: 1 });
 
   r.writeHandler(
     "task:create",

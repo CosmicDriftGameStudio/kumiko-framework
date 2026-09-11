@@ -58,7 +58,9 @@ const shippingFeature = defineFeature("shipping", (r) => {
   r.entity("domain-shipment", shipmentEntity);
 
   // Domain event. Qualified name is "shipping:event:billed".
-  const shipmentBilled = r.defineEvent("billed", z.object({ cost: z.number() }));
+  const shipmentBilled = r.defineEvent("billed", z.object({ cost: z.number() }), {
+    piiFields: "none",
+  });
 
   r.projection({
     name: "shipment-billing",

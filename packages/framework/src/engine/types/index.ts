@@ -158,6 +158,7 @@ export type {
   EventDef,
   EventMigrationDef,
   EventPiiFields,
+  EventPiiStance,
   EventUpcastCtx,
   EventUpcastFn,
   FetchForWritingArgs,

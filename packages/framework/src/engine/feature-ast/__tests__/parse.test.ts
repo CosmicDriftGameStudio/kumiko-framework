@@ -2224,7 +2224,7 @@ describe("extractDefineEvent", () => {
   test("captures eventName + version", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.defineEvent("incidentOpened", z.object({ id: z.string() }), { version: 2 });
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), { piiFields: "none", version: 2 });
 });
 `);
 
@@ -2241,6 +2241,7 @@ defineFeature("f", (r) => {
   r.defineEvent({
     name: "incidentOpened",
     schema: z.object({ id: z.string() }),
+    piiFields: "none",
     version: 2,
     migrations: { "1": (payload) => payload },
   });
@@ -2285,6 +2286,17 @@ defineFeature("f", (r) => {
     expect(result.errors[0]?.methodName).toBe("defineEvent");
   });
 
+  test("emits ParseError when object form is missing the piiFields property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent({ name: "incidentOpened", schema: z.object({ id: z.string() }) });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
+    expect(result.errors[0]?.reason).toContain("piiFields");
+  });
+
   test("emits ParseError when the event name is not a string literal", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
@@ -2304,6 +2316,17 @@ defineFeature("f", (r) => {
 
     expect(result.errors[0]?.methodName).toBe("defineEvent");
   });
+
+  test("emits ParseError when the positional form is missing the piiFields option", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), { version: 2 });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("defineEvent");
+    expect(result.errors[0]?.reason).toContain("piiFields");
+  });
 });
 
 describe("extractDefineEvent — migrations (formerly extractEventMigration)", () => {
@@ -2311,6 +2334,7 @@ describe("extractDefineEvent — migrations (formerly extractEventMigration)", (
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.defineEvent("incidentOpened", z.object({ id: z.string() }), {
+    piiFields: "none",
     version: 2,
     migrations: [
       { fromVersion: 1, toVersion: 2, transform: (payload) => ({ ...payload, severity: "low" }) },
@@ -2333,6 +2357,7 @@ defineFeature("f", (r) => {
   r.defineEvent({
     name: "incidentOpened",
     schema: z.object({ id: z.string() }),
+    piiFields: "none",
     version: 2,
     migrations: {
       "1": (payload) => ({ ...payload, severity: "low" }),
@@ -2353,6 +2378,7 @@ defineFeature("f", (r) => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.defineEvent("incidentOpened", z.object({ id: z.string() }), {
+    piiFields: "none",
     migrations: [
       "skip-me",
       { fromVersion: "bad", transform: (payload) => payload },

@@ -722,6 +722,12 @@ export type QualifiedEventName<
 // no user key to shred for system-triggered events.
 export type EventPiiFields = Readonly<Record<string, { readonly subjectField: string }>>;
 
+// The full set of PII stances a defineEvent() call may declare. "none" is a
+// distinct value from `{}` — an empty object is indistinguishable from "the
+// author forgot to list fields", while "none" is an explicit assertion that
+// the payload carries no personal data.
+export type EventPiiStance = EventPiiFields | "none";
+
 export type EventDef<TPayload = unknown, TName extends string = string> = {
   readonly name: TName;
   readonly schema: ZodType<TPayload>;
@@ -730,7 +736,7 @@ export type EventDef<TPayload = unknown, TName extends string = string> = {
   // upcasts older stored events. Reads consult this to decide if upcasters
   // need to run before the payload hits consumer code.
   readonly version: number;
-  readonly piiFields?: EventPiiFields;
+  readonly piiFields?: EventPiiStance;
 };
 
 // Args for ctx.appendEvent — explicit aggregate target, Marten-style.

@@ -136,6 +136,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice-approved",
     z.object({ amountCents: z.number().int(), approvedBy: z.string() }),
     {
+      piiFields: "none",
       version: 2,
       migrations: [
         {
@@ -150,7 +151,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     },
   );
 
-  const paid = r.defineEvent("invoice-paid", z.object({ amountCents: z.number().int() }));
+  const paid = r.defineEvent("invoice-paid", z.object({ amountCents: z.number().int() }), {
+    piiFields: "none",
+  });
 
   // Acknowledged event with an ASYNC upcaster: v1 had only the approverId,
   // v2 carries the human-readable display name too. The migration looks the
@@ -161,6 +164,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice-acknowledged",
     z.object({ approverId: z.string(), approverDisplayName: z.string() }),
     {
+      piiFields: { approverDisplayName: { subjectField: "approverId" } },
       version: 2,
       migrations: [
         {

@@ -153,7 +153,7 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
     // discover the type; secrets-context.get parses payloads against
     // `secretReadSchema` at write time because the low-level append() path
     // skips ctx.appendEvent's schema-validation guard.
-    r.defineEvent("read", secretReadSchema);
+    r.defineEvent("read", secretReadSchema, { piiFields: "none" });
 
     // Per-tenant handlers (set/delete/list) run in the default tenant-scope,
     // giving them the automatic ctx.db tenant-filter as extra defense.

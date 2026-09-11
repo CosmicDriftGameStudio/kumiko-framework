@@ -4,7 +4,13 @@
 // path at all. `r.defineEvent(name, schema, { piiFields })` declares which
 // payload fields are PII and which payload field names the owning user;
 // createRegistry publishes the catalog and append() — the single write funnel
-// into kumiko_events — encrypts every catalogued field. No caller can forget.
+// into kumiko_events — encrypts every catalogued field.
+//
+// `piiFields` is a mandatory, explicit stance (fw#2558): a payload can only
+// go uncatalogued through a declared `piiFields: "none"`, never by omission —
+// defineEvent refuses to register an event without one. What used to be a
+// silent no-op (forgetting the option) is now either an explicit "none" or a
+// missing subject KMS at encrypt-time, both visible states, not a gap.
 
 import { requestContext } from "../api/request-context";
 import type { EventPiiFields } from "../engine/types/handlers";

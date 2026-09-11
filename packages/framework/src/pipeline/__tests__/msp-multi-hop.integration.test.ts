@@ -42,9 +42,11 @@ const confirmLoadCounts: number[] = [];
 const mmhFeature = defineFeature("mmh", (r) => {
   r.entity("mmh-order", orderEntity);
 
-  const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }));
-  const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }));
-  const shipped = r.defineEvent("shipped", z.object({ orderId: z.uuid() }));
+  const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
+  const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }), {
+    piiFields: "none",
+  });
+  const shipped = r.defineEvent("shipped", z.object({ orderId: z.uuid() }), { piiFields: "none" });
 
   const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
     entityName: "mmh-order",

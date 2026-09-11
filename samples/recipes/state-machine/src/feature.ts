@@ -45,16 +45,17 @@ export const stateMachineFeature = defineFeature("billing", (r) => {
   // and the projection stay in sync. The auto "invoice.created" event from
   // the executor's create-path covers the initial insert, so we only declare
   // the state-change events here.
-  r.defineEvent(INVOICE_EVENTS.sent, z.object({}));
-  r.defineEvent(INVOICE_EVENTS.markedPaid, z.object({}));
-  r.defineEvent(INVOICE_EVENTS.cancelled, z.object({}));
-  r.defineEvent(INVOICE_EVENTS.reopened, z.object({}));
+  r.defineEvent(INVOICE_EVENTS.sent, z.object({}), { piiFields: "none" });
+  r.defineEvent(INVOICE_EVENTS.markedPaid, z.object({}), { piiFields: "none" });
+  r.defineEvent(INVOICE_EVENTS.cancelled, z.object({}), { piiFields: "none" });
+  r.defineEvent(INVOICE_EVENTS.reopened, z.object({}), { piiFields: "none" });
   r.defineEvent(
     INVOICE_EVENTS.statusForced,
     z.object({
       newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
       fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
     }),
+    { piiFields: "none" },
   );
 
   // The aggregate table (sample_sm_invoices) is INSERTed by the executor on

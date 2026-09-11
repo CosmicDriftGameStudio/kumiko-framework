@@ -333,6 +333,7 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         source: PLACEHOLDER_LOC,
         eventName: "x",
         schemaSource: PLACEHOLDER_BODY_LOC,
+        piiFields: PLACEHOLDER_BODY_LOC,
       };
     case "extendsRegistrar":
       return {

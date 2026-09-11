@@ -71,6 +71,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
   const orderPlaced = r.defineEvent(
     "order-placed",
     z.object({ id: z.string(), customer: z.string(), product: z.string() }),
+    { piiFields: "none" },
   );
 
   const { executor: orderExecutor } = createEntityExecutor("pubsub-order", orderEntity);

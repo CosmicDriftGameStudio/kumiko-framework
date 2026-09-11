@@ -113,7 +113,9 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
   // multiStreamProjection jemals an (Prod hatte deshalb leere Projektionen
   // + leere kumiko_event_consumers). Der Write appended das Event; die MSP
   // schreibt async in prod_probe_pings — der Test pollt darauf.
-  const pingedEvent = r.defineEvent("probe-pinged", z.object({ note: z.string() }));
+  const pingedEvent = r.defineEvent("probe-pinged", z.object({ note: z.string() }), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "probe-append",
     schema: z.object({ aggregateId: z.string(), note: z.string() }),

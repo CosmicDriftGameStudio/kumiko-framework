@@ -150,7 +150,9 @@ describe("defineFeature", () => {
   test("r.defineEvent returns typed EventDef and registers on feature", () => {
     let eventRef: { name: string } | undefined;
     const feature = defineFeature("orders", (r) => {
-      eventRef = r.defineEvent("order:created", z.object({ orderId: z.number() }));
+      eventRef = r.defineEvent("order:created", z.object({ orderId: z.number() }), {
+        piiFields: "none",
+      });
     });
 
     // E.3: defineEvent returns the fully-qualified name so callers can
@@ -185,7 +187,7 @@ describe("defineFeature", () => {
 
   test("registry prefixes event names with feature name", () => {
     const feature = defineFeature("orders", (r) => {
-      r.defineEvent("order:created", z.object({ orderId: z.number() }));
+      r.defineEvent("order:created", z.object({ orderId: z.number() }), { piiFields: "none" });
     });
     const registry = createRegistry([feature]);
     expect(registry.getEvent("orders:event:order:created")).toBeDefined();

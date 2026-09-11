@@ -63,7 +63,9 @@ async function emitUserCreated(
 const userFeature = defineFeature("users", (r) => {
   const user = r.entity("user", userEntity);
 
-  const userCreated = r.defineEvent("user.created", z.object({ id: z.any(), email: z.string() }));
+  const userCreated = r.defineEvent("user.created", z.object({ id: z.any(), email: z.string() }), {
+    piiFields: "none",
+  });
   USER_CREATED_EVENT = userCreated.name;
 
   // r.multiStreamProjection: capture USER_CREATED_EVENT asynchronously via

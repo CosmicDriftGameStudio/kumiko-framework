@@ -14,6 +14,7 @@ import type {
   DeclarativeEventMigration,
   EventDef,
   EventPiiFields,
+  EventPiiStance,
   EventUpcastFn,
   JobDefinition,
   JobHandlerFn,
@@ -217,9 +218,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     defineEvent: <const TInner extends string, TPayload>(
       eventName: TInner,
       schema: ZodType<TPayload>,
-      options?: {
+      options: {
         readonly version?: number;
-        readonly piiFields?: EventPiiFields;
+        readonly piiFields: EventPiiStance;
         // Step-wise upcast chain for this event, folded in from the former
         // standalone r.eventMigration() call (#1082 step 8) — an event and
         // its schema evolution are one lifecycle, not two registrar
@@ -232,6 +233,33 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         }[];
       },
     ): EventDef<TPayload, QualifiedEventName<TName, TInner>> => {
+      // Fail-closed PII stance gate (fw#2558) — runs before anything else so
+      // an untyped JS consumer (no compiler to stop it) still can't register
+      // an event without declaring whether its payload carries personal data.
+      const missingStanceError = () =>
+        new Error(
+          `[Feature ${name}] defineEvent("${eventName}") must declare an explicit PII stance. Pass { piiFields: { <payloadField>: { subjectField: "<userIdField>" } } } for payload fields holding personal data, or { piiFields: "none" } when the payload holds none.`,
+        );
+      if (options === undefined || options.piiFields === undefined) {
+        throw missingStanceError();
+      }
+      const piiFields = options.piiFields;
+      // @cast-boundary runtime-guard — an untyped JS caller can hand
+      // anything through `piiFields` (including null), so re-check the
+      // shape before trusting it as EventPiiStance: `typeof null === "object"`
+      // would otherwise pass through to Object.keys(null) below and throw a
+      // raw TypeError instead of this guidance message.
+      if (piiFields !== "none" && (typeof piiFields !== "object" || piiFields === null)) {
+        throw missingStanceError();
+      }
+      if (piiFields !== "none" && Object.keys(piiFields).length === 0) {
+        throw new Error(
+          `[Feature ${name}] defineEvent("${eventName}"): piiFields: {} is not a stance — use piiFields: "none" to declare the payload holds no personal data.`,
+        );
+      }
+      if (piiFields !== "none") {
+        validateEventPiiFields(eventName, schema, piiFields);
+      }
       // Return the fully-qualified event name so callers can pass it
       // straight to ctx.appendEvent without hand-building the
       // "<feature>:event:<name>" shape. Registry keeps events keyed by
@@ -243,15 +271,11 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       // returned `name` carries the literal qualified shape that the
       // augmented `KumikoEventTypeMap` keys against.
       const qualified = qn(toKebab(name), "event", toKebab(eventName));
-      const version = options?.version ?? 1;
+      const version = options.version ?? 1;
       if (!Number.isInteger(version) || version < 1) {
         throw new Error(
           `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
         );
-      }
-      const piiFields = options?.piiFields;
-      if (piiFields) {
-        validateEventPiiFields(eventName, schema, piiFields);
       }
       // @cast-boundary engine-bridge — runtime-string mirrors the
       // template-literal-type via QualifiedEventName + toKebab. Both
@@ -261,10 +285,10 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         name: qualified as QualifiedEventName<TName, TInner>,
         schema,
         version,
-        ...(piiFields !== undefined && { piiFields }),
+        piiFields,
       };
       state.events[eventName] = def;
-      for (const m of options?.migrations ?? []) {
+      for (const m of options.migrations ?? []) {
         registerEventMigration(eventName, m.fromVersion, m.toVersion, m.transform);
       }
       return def;

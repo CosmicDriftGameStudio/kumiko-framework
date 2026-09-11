@@ -109,11 +109,25 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
   r.requires("tenant-lifecycle");
 
   // 5 fine-grained domain-events (Payload-Schemas: events.ts).
-  r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema);
-  r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema);
-  r.defineEvent(MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema);
-  r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema);
-  r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema);
+  // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
+  // "displayName" stays plaintext (often the mailbox owner's real name for
+  // personal accounts); encrypting it would break the entity-projection read
+  // path that carries it as `personal: false` (#2776).
+  r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema, {
+    piiFields: "none",
+  });
 
   // Inline projections — apply in derselben TX wie der Append.
   r.projection({

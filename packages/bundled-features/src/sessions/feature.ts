@@ -146,7 +146,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // sessionRevokedSchema explicitly, same guarantee via a different path.
     // No projection: the payload IS the read, consumed directly off the
     // event-store NOTIFY (#1560).
-    r.defineEvent(SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema);
+    r.defineEvent(SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema, { piiFields: "none" });
 
     const handlers = {
       revoke: r.writeHandler(revokeWrite),

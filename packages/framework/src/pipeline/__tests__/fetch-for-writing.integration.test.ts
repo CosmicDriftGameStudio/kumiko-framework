@@ -31,8 +31,12 @@ const cartTable = buildEntityTable("f4wCart", cartEntity);
 const cartFeature = defineFeature("f4w", (r) => {
   r.entity("f4wCart", cartEntity);
 
-  const itemAdded = r.defineEvent("itemAdded", z.object({ sku: z.string(), qty: z.number() }));
-  const checkedOut = r.defineEvent("checkedOut", z.object({ totalCents: z.number() }));
+  const itemAdded = r.defineEvent("itemAdded", z.object({ sku: z.string(), qty: z.number() }), {
+    piiFields: "none",
+  });
+  const checkedOut = r.defineEvent("checkedOut", z.object({ totalCents: z.number() }), {
+    piiFields: "none",
+  });
 
   const cartExecutor = createEventStoreExecutor(cartTable, cartEntity, {
     entityName: "f4wCart",

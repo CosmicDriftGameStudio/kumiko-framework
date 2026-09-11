@@ -60,24 +60,41 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     // guard's "tenant-lifecycle mounted" gate exactly.
     r.bootCheck(({ features }) => validateTenantDataHookCoverage(features));
 
-    r.defineEvent(DESTRUCTION_REQUESTED_EVENT_SHORT, destructionRequestedSchema);
-    r.defineEvent(DESTRUCTION_CANCELLED_EVENT_SHORT, destructionCancelledSchema);
-    r.defineEvent(TENANT_DESTRUCTION_STARTED_EVENT_SHORT, tenantDestructionStartedSchema);
+    r.defineEvent(DESTRUCTION_REQUESTED_EVENT_SHORT, destructionRequestedSchema, {
+      piiFields: "none",
+    });
+    r.defineEvent(DESTRUCTION_CANCELLED_EVENT_SHORT, destructionCancelledSchema, {
+      piiFields: "none",
+    });
+    r.defineEvent(TENANT_DESTRUCTION_STARTED_EVENT_SHORT, tenantDestructionStartedSchema, {
+      piiFields: "none",
+    });
     r.defineEvent(
       TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT,
       tenantDestructionStageStartedSchema,
+      {
+        piiFields: "none",
+      },
     );
     r.defineEvent(
       TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
       tenantDestructionStageSucceededSchema,
+      { piiFields: "none" },
     );
-    r.defineEvent(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT, tenantDestructionStageFailedSchema);
+    r.defineEvent(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT, tenantDestructionStageFailedSchema, {
+      piiFields: "none",
+    });
     r.defineEvent(
       TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT,
       tenantDestructionStageAbandonedSchema,
+      { piiFields: "none" },
     );
-    r.defineEvent(TENANT_DESTRUCTION_COMPLETED_EVENT_SHORT, tenantDestructionCompletedSchema);
-    r.defineEvent(TENANT_DESTRUCTION_FAILED_EVENT_SHORT, tenantDestructionFailedSchema);
+    r.defineEvent(TENANT_DESTRUCTION_COMPLETED_EVENT_SHORT, tenantDestructionCompletedSchema, {
+      piiFields: "none",
+    });
+    r.defineEvent(TENANT_DESTRUCTION_FAILED_EVENT_SHORT, tenantDestructionFailedSchema, {
+      piiFields: "none",
+    });
 
     r.writeHandler(requestDestructionWrite);
     r.writeHandler(cancelDestructionWrite);

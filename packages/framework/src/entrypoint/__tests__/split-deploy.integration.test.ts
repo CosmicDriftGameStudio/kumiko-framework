@@ -23,7 +23,10 @@ import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
 const splitFeature = defineFeature("split", (r) => {
-  const tick = r.defineEvent("tick", z.object({ note: z.string() }), { version: 1 });
+  const tick = r.defineEvent("tick", z.object({ note: z.string() }), {
+    piiFields: "none",
+    version: 1,
+  });
   r.multiStreamProjection({
     name: "spy",
     apply: {
@@ -38,7 +41,10 @@ const splitFeature = defineFeature("split", (r) => {
 const consumedNotes: string[] = [];
 
 const workerWriteFeature = defineFeature("workerWrite", (r) => {
-  const noted = r.defineEvent("noted", z.object({ note: z.string() }), { version: 1 });
+  const noted = r.defineEvent("noted", z.object({ note: z.string() }), {
+    piiFields: "none",
+    version: 1,
+  });
   r.writeHandler(
     "note",
     z.object({ note: z.string() }),
@@ -76,6 +82,7 @@ const jobSawFilesRef: string[] = [];
 
 const fileJobFeature = defineFeature("fileJob", (r) => {
   const requested = r.defineEvent("bytes-requested", z.object({ storageKey: z.string() }), {
+    piiFields: "none",
     version: 1,
   });
   // Stands in for file-foundation, which this package cannot import.
@@ -310,7 +317,7 @@ describe("entrypoint factories", () => {
 // process's lane are skipped during buildServer()".
 
 const laneFeature = defineFeature("lane", (r) => {
-  const ping = r.defineEvent("ping", z.object({}), { version: 1 });
+  const ping = r.defineEvent("ping", z.object({}), { piiFields: "none", version: 1 });
   // Three MSPs: one pinned to api, one to worker (explicit), one to both.
   // A fourth would be a default-undefined-runIn MSP which resolves to
   // "worker" — covered implicitly by the worker test below.

@@ -61,7 +61,7 @@ export function createFeatureTogglesFeature(
     // alongside every other write — audit.list picks it up automatically,
     // no dedicated projection needed. Qualified name after prefixing:
     // "feature-toggles:event:toggle-set" (see constants.FEATURE_TOGGLE_SET_EVENT_NAME).
-    r.defineEvent("toggle-set", featureToggleSetSchema);
+    r.defineEvent("toggle-set", featureToggleSetSchema, { piiFields: "none" });
 
     const handlers = {
       set: r.writeHandler(createSetWriteHandler(options.getRuntime)),

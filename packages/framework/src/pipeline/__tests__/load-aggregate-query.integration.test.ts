@@ -46,6 +46,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     "approved",
     z.object({ amount: z.number().int(), approvedBy: z.string() }),
     {
+      piiFields: "none",
       version: 2,
       migrations: [
         {

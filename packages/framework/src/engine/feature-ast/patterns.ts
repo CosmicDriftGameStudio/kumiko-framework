@@ -561,6 +561,12 @@ export type DefineEventPattern = {
   readonly eventNameRaw?: string;
   readonly schemaSource: SourceLocation;
   readonly version?: number;
+  // Raw source of the `piiFields` option value ("none", an object literal,
+  // or a constant reference) — mandatory because `r.defineEvent` itself
+  // requires an explicit PII stance (fw#2558); round-tripping it verbatim
+  // avoids the extractor ever having to invent a stance the author didn't
+  // author.
+  readonly piiFields: SourceLocation;
   // Map fromVersion (as string, e.g. "1") → SourceLocation of the transform
   // closure for the fromVersion → fromVersion+1 step.
   readonly migrations?: Readonly<Record<string, SourceLocation>>;

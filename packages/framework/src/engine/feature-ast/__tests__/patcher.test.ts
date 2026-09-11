@@ -178,6 +178,7 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     p.addDefineEvent({
       name: "stepCompleted",
       schemaSource: "z.object({ id: z.string() })",
+      piiFieldsSource: '"none"',
       version: 2,
       migrations: { "1": '(old) => ({ id: old.id ?? "" })' },
     });

@@ -84,7 +84,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   // dasselbe Schema für Append-Time-Validation. QN nach Prefixing:
   // "cap-counter:event:rolling-incremented" (siehe
   // ROLLING_INCREMENTED_EVENT_QN).
-  r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema);
+  r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema, { piiFields: "none" });
 
   // Custom write-handlers.
   // - increment: Calendar-Period (CRUD via projection-row).

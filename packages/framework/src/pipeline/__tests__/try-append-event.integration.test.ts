@@ -50,7 +50,9 @@ const admin = TestUsers.admin;
 
 const tryAppendFeature = defineFeature("tae", (r) => {
   r.entity("taeMarker", markerEntity);
-  const appended = r.defineEvent("appended", z.object({ note: z.string() }));
+  const appended = r.defineEvent("appended", z.object({ note: z.string() }), {
+    piiFields: "none",
+  });
 
   r.writeHandler(
     "doc:try-append",
