@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-types
 
+## 0.249.0
+
+### Minor Changes
+
+- 812795d: fw#2756: `FieldCondition` gains `{ field, in }` and `{ field, notIn }` set-membership variants alongside the existing `eq`/`ne`, evaluated by `evalFieldCondition`.
+
 ## 0.248.0
 
 ### Minor Changes
