@@ -50,7 +50,7 @@ export const tenantSecretEntity = createEntity({
   description:
     "One encrypted secret per tenant and key, holding the sealed envelope, the key-encryption-key version it was sealed under and its last rotation time; plaintext values are never stored or returned.",
   fields: {
-    key: createTextField({ required: true }),
+    key: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     kekVersion: createNumberField({ required: true, integer: true }),
   },
 });

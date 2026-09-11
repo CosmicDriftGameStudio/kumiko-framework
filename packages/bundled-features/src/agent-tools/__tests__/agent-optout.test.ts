@@ -147,7 +147,12 @@ describe("denyQns removes a tool", () => {
 
 const gadgetEntity = createEntity({
   fields: {
-    name: createTextField({ searchable: true, filterable: true }),
+    name: createTextField({
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
 
@@ -193,10 +198,24 @@ describe("denyQns reaches the entity CRUD tools", () => {
 });
 
 const plainItemEntity = createEntity({
-  fields: { label: createTextField({ searchable: true, filterable: true }) },
+  fields: {
+    label: createTextField({
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 const cloakedItemEntity = createEntity({
-  fields: { label: createTextField({ searchable: true, filterable: true }) },
+  fields: {
+    label: createTextField({
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 
 // Both entities mounted in the same feature so the "default stays exposed"

@@ -49,8 +49,8 @@ import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 const itemEntity = createEntity({
   table: "read_rebuild_items",
   fields: {
-    groupId: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    groupId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
 const itemTable = buildEntityTable("rebuild-item", itemEntity);

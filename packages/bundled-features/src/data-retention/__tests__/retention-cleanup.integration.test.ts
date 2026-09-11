@@ -28,7 +28,9 @@ import { runRetentionCleanup } from "../run-retention-cleanup";
 // hardDelete, default-reference (createdAt → alias insertedAt → Spalte inserted_at).
 const widgetEntity = createEntity({
   table: "read_c7_widget",
-  fields: { label: createTextField({ required: true }) },
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+  },
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 
@@ -36,21 +38,27 @@ const widgetEntity = createEntity({
 const gadgetEntity = createEntity({
   table: "read_c7_gadget",
   softDelete: true,
-  fields: { label: createTextField({ required: true }) },
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+  },
   retention: { keepFor: "30d", strategy: "softDelete" },
 });
 
 // Keine Policy → darf nie angefasst werden.
 const plainEntity = createEntity({
   table: "read_c7_plain",
-  fields: { label: createTextField({ required: true }) },
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+  },
 });
 
 // reference="lastSeenAt" ist Boot-valide (Framework-Timestamp-Allowlist), aber
 // die Spalte existiert auf diesem Entity nicht → Guard muss skippen.
 const staleEntity = createEntity({
   table: "read_c7_stale",
-  fields: { label: createTextField({ required: true }) },
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+  },
   retention: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
 });
 

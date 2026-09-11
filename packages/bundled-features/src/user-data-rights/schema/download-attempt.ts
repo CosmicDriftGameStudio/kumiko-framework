@@ -16,17 +16,35 @@ export const downloadAttemptEntity = createEntity({
     "One rejected attempt to fetch a GDPR data-export download, recording the failure result, the path used (magic-link token or logged-in job id), the source IP, user agent and time, so brute-force probing of download links is visible.",
   fields: {
     // notFound | expired | failed | signedUrlNotSupported
-    result: createTextField({ required: true, maxLength: 32 }),
+    result: createTextField({
+      required: true,
+      maxLength: 32,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Welcher Pfad: "token" | "job"
-    via: createTextField({ required: true, maxLength: 16 }),
+    via: createTextField({
+      required: true,
+      maxLength: 16,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Token-Hash (token-Pfad) oder NULL (job-Pfad / unbekannter Token).
-    tokenHash: createTextField({ maxLength: 64 }),
+    tokenHash: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
     // Job-ID wenn der attempt einen kannte. NULL bei unbekanntem Token.
-    jobId: createTextField({}),
+    jobId: createTextField({ personal: false, reason: "technical_reference" }),
     // User-ID wenn auth-Pfad (job). NULL bei anonymous (token-Pfad).
-    attemptedByUserId: createTextField({}),
-    ip: createTextField({ maxLength: 64 }),
-    userAgent: createTextField({ maxLength: 256 }),
+    attemptedByUserId: createTextField({ personal: false, reason: "pseudonymous_fk" }),
+    // Same reasoning as download-token.ts's lastUsedFromIp/lastUsedUserAgent
+    // (sibling entity, same feature): DPO brute-force-audit data belongs to
+    // the tenant operator, not the (often anonymous) requester. Also avoids
+    // a real hazard on this buildEntityTable-managed entity: attemptedByUserId
+    // is null-by-design for the anonymous token path, so a subject annotation
+    // (`personal: { of: "attemptedByUserId" }`) would throw
+    // SubjectResolutionError on every such row once a KMS is configured
+    // (crypto/subject-resolver.ts resolveUserOwnedSubject).
+    ip: createTextField({ maxLength: 64, personal: false, reason: "is_business_data" }),
+    userAgent: createTextField({ maxLength: 256, personal: false, reason: "is_business_data" }),
     attemptedAt: createTimestampField({ required: true }),
   },
   // 90d hardDelete: unbounded growth = disk-bomb genau gegen das System

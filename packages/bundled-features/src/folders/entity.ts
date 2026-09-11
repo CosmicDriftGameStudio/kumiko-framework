@@ -10,10 +10,17 @@ export const folderEntity = createEntity({
   description:
     "One folder of a tenant's hierarchical catalog: a name plus an optional parentId pointing at another folder, so the rows together form a tree whose roots have no parent.",
   fields: {
-    name: createTextField({ required: true, maxLength: 64 }),
+    // Catalog label, same reasoning as tags/entity.ts name: no author to
+    // anchor a subject key to, not user-identifying content.
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "catalog_label",
+    }),
     // Parent folder id, or absent for a root folder. No FK (event-sourced); a
     // dangling parentId renders the folder at root — folders-view guards cycles.
-    parentId: createTextField({ maxLength: 64 }),
+    parentId: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
   },
 });
 
@@ -38,9 +45,24 @@ export const folderAssignmentEntity = createEntity({
     "The membership row recording which folder one host entity, addressed by entityType and entityId, is filed in. At most one row exists per entity, so filing it elsewhere changes this row's folderId rather than adding a second.",
   softDelete: true,
   fields: {
-    folderId: createTextField({ required: true, maxLength: 64 }),
-    entityType: createTextField({ required: true, maxLength: 64 }),
+    folderId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    entityType: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
-    entityId: createTextField({ required: true, maxLength: 128 }),
+    entityId: createTextField({
+      required: true,
+      maxLength: 128,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });

@@ -29,8 +29,8 @@ import { createAuditFeature } from "../feature";
 const widgetEntity = createEntity({
   table: "audit_widgets",
   fields: {
-    name: createTextField({ required: true }),
-    color: createTextField(),
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    color: createTextField({ personal: false, reason: "technical_reference" }),
   },
 });
 

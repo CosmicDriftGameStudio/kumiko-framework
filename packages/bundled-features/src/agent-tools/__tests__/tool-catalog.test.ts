@@ -17,13 +17,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const widgetEntity = createEntity({
   fields: {
-    name: createTextField({ searchable: true, filterable: true }),
+    name: createTextField({
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
     status: createSelectField({ options: ["open", "closed"] as const, filterable: true }),
-    notes: createTextField(),
+    notes: createTextField({ personal: false, reason: "technical_reference" }),
   },
 });
 
-const orphanEntity = createEntity({ fields: { label: createTextField() } });
+const orphanEntity = createEntity({
+  fields: { label: createTextField({ personal: false, reason: "technical_reference" }) },
+});
 
 function buildCatalogTestFeature() {
   return defineFeature("catalog-test", (r) => {
@@ -104,7 +111,7 @@ function buildCatalogTestFeature() {
       id: "widget-approve-form",
       type: "actionForm",
       handler: "catalog-test:write:widget:approve",
-      fields: { note: createTextField() },
+      fields: { note: createTextField({ personal: false, reason: "technical_reference" }) },
       layout: { sections: [{ title: "s", fields: ["note"] }] },
     });
   });

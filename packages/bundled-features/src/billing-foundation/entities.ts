@@ -39,7 +39,12 @@ import {
 export const subscriptionEntity = createEntity({
   table: "read_subscriptions",
   fields: {
-    providerName: createTextField({ required: true, maxLength: 50 }),
+    providerName: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // `personal: "tenant"` (not `encrypted`): the field must crypto-shred when
     // eraseSubjectKeys erases the tenant's subject key on tenant-destroy
     // (#800). `encrypted: true` uses the app-wide master key instead — that
@@ -61,8 +66,18 @@ export const subscriptionEntity = createEntity({
       personal: "tenant",
       find: "none",
     }),
-    status: createTextField({ required: true, maxLength: 30 }),
-    tier: createTextField({ required: true, maxLength: 50 }),
+    status: createTextField({
+      required: true,
+      maxLength: 30,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    tier: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "catalog_label",
+    }),
     currentPeriodEnd: createTimestampField({ required: true }),
   },
 });
@@ -88,7 +103,12 @@ export const SUBSCRIPTION_PII_FIELDS = collectPiiSubjectFields(subscriptionEntit
 export const paymentEntity = createEntity({
   table: "read_payments",
   fields: {
-    providerName: createTextField({ required: true, maxLength: 50 }),
+    providerName: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Same `personal: "tenant"` rationale as subscriptionEntity above —
     // crypto-shreds on tenant-destroy (#800) via eraseSubjectKeys.
     providerCustomerId: createTextField({
@@ -97,7 +117,12 @@ export const paymentEntity = createEntity({
       personal: "tenant",
       find: "none",
     }),
-    priceId: createTextField({ required: true, maxLength: 200 }),
+    priceId: createTextField({
+      required: true,
+      maxLength: 200,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
 

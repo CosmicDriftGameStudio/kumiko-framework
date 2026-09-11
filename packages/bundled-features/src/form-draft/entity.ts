@@ -28,7 +28,12 @@ export const formDraftEntity = createEntity({
       personal: "ref",
       required: true,
     }),
-    draftKey: createTextField({ required: true, maxLength: FORM_DRAFT_KEY_MAX_LENGTH }),
+    draftKey: createTextField({
+      required: true,
+      maxLength: FORM_DRAFT_KEY_MAX_LENGTH,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // The blob shape is fixed by issue #1889, not left to the caller:
     // { values: Record<string, unknown>, stepIndex: number, savedAt: string }.
     // Free-form because `values` mirrors whatever fields the in-progress

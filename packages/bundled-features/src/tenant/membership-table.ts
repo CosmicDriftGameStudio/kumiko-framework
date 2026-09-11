@@ -18,11 +18,11 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
   fields: {
-    userId: createTextField({ required: true }),
+    userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
     // JSON-encoded string[] — parseRoles() deserializes at read time.
     // Mirrors how roles were stored under the pre-ES row model so the
     // read-side stays byte-compatible and no MSP/consumer needs rewrites.
-    roles: createTextField({ required: true }),
+    roles: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
   indexes: [
     { unique: true, columns: ["userId", "tenantId"], name: "read_tenant_memberships_unique" },

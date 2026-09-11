@@ -37,8 +37,8 @@ const cipher = createTestEnvelopeCipher();
 const vaultNoteEntity = createEntity({
   table: "read_vault_notes",
   fields: {
-    ownerId: createTextField({ required: true }),
-    note: createTextField({ encrypted: true }),
+    ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
+    note: createTextField({ encrypted: true, personal: false, reason: "technical_reference" }),
   },
 });
 

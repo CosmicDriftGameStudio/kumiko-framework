@@ -34,13 +34,23 @@ import {
 export const mailAccountEntity = createEntity({
   table: "read_mail_accounts",
   fields: {
-    provider: createTextField({ required: true, maxLength: 50 }),
-    authMethod: createTextField({ required: true, maxLength: 30 }),
+    provider: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    authMethod: createTextField({
+      required: true,
+      maxLength: 30,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // null = tenant-geteiltes Postfach (info@), gesetzt = persönliches
     // Postfach dieses Users. Sichtbarkeits-Filter in den list-queries:
     // Owner + TenantAdmin (Compliance); KEIN Crypto-Subject-Wechsel in
     // V1 (Subject bleibt Tenant, siehe Header).
-    ownerUserId: createTextField({ maxLength: 36 }),
+    ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
     // Tenant-authored mailbox label, not a person's name.
     displayName: createTextField({
       maxLength: 200,
@@ -49,8 +59,13 @@ export const mailAccountEntity = createEntity({
     }),
     // Postfach-Adresse — PII des Tenants.
     address: createTextField({ required: true, maxLength: 1000, personal: "tenant", find: "none" }),
-    status: createTextField({ required: true, maxLength: 30 }),
-    watchState: createTextField({ maxLength: 100 }),
+    status: createTextField({
+      required: true,
+      maxLength: 30,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    watchState: createTextField({ maxLength: 100, personal: false, reason: "technical_reference" }),
     connectedAt: createTimestampField({ required: true }),
   },
 });
@@ -61,13 +76,28 @@ export const mailAccountEntity = createEntity({
 export const inboundMessageEntity = createEntity({
   table: "read_inbound_messages",
   fields: {
-    accountId: createTextField({ required: true, maxLength: 36 }),
+    accountId: createTextField({
+      required: true,
+      maxLength: 36,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Scope-Vererbung vom Account zum Ingest-Zeitpunkt — Messages eines
     // persönlichen Postfachs sind nur für den Owner (+ TenantAdmin)
     // sichtbar, ohne Join auf read_mail_accounts.
-    ownerUserId: createTextField({ maxLength: 36 }),
-    messageIdHeader: createTextField({ required: true, maxLength: 500 }),
-    threadKey: createTextField({ required: true, maxLength: 500 }),
+    ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
+    messageIdHeader: createTextField({
+      required: true,
+      maxLength: 500,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    threadKey: createTextField({
+      required: true,
+      maxLength: 500,
+      personal: false,
+      reason: "technical_reference",
+    }),
     from: createTextField({ required: true, maxLength: 2000, personal: "tenant", find: "none" }),
     // JSON-stringified string[] — als Ganzes encrypted.
     to: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
@@ -75,8 +105,8 @@ export const inboundMessageEntity = createEntity({
     subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
     snippet: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
     receivedAt: createTimestampField({ required: true }),
-    bodyRef: createTextField({ maxLength: 500 }),
-    scope: createTextField({ maxLength: 200 }),
+    bodyRef: createTextField({ maxLength: 500, personal: false, reason: "technical_reference" }),
+    scope: createTextField({ maxLength: 200, personal: false, reason: "technical_reference" }),
   },
 });
 
@@ -85,7 +115,12 @@ export const inboundMessageEntity = createEntity({
 export const mailThreadEntity = createEntity({
   table: "read_mail_threads",
   fields: {
-    threadKey: createTextField({ required: true, maxLength: 500 }),
+    threadKey: createTextField({
+      required: true,
+      maxLength: 500,
+      personal: false,
+      reason: "technical_reference",
+    }),
     subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
     lastMessageAt: createTimestampField({ required: true }),
     messageCount: createNumberField({ required: true, integer: true }),
@@ -123,16 +158,22 @@ export const syncCursorEntity = createEntity({
       required: true,
       maxLength: 36,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
     scope: createTextField({
       required: true,
       maxLength: 200,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
     cursor: createTextField({
       required: true,
       maxLength: 2000,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
     updatedAt: createTimestampField({
       required: true,
@@ -153,11 +194,15 @@ export const seenMessageEntity = createEntity({
       required: true,
       maxLength: 36,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
     providerMessageId: createTextField({
       required: true,
       maxLength: 500,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
     seenAt: createTimestampField({
       required: true,

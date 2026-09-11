@@ -19,11 +19,13 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 export const configValueEntity = createEntity({
   table: "read_config_values",
   fields: {
-    key: createTextField({ required: true }),
+    key: createTextField({ required: true, personal: false, reason: "system_metadata" }),
     // value is JSON-encoded primitive (or encrypted blob). Nullable so a
     // deleted-then-recreated stream can signal "reset to default" without
     // breaking the null-vs-missing distinction the resolver already draws.
-    value: createTextField({}),
+    // App/system/tenant config values (service urls, feature toggles,
+    // mail-server settings), not user-authored content.
+    value: createTextField({ personal: false, reason: "system_metadata" }),
     // user-scope row: userId populated. tenant- / system-scope: null.
     userId: createTextField({
       personal: false,

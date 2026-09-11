@@ -27,7 +27,13 @@ const FEATURE_NAME = "agent-tools-int-test";
 const widgetEntity = createEntity({
   table: "agent_tools_int_test_widgets",
   fields: {
-    name: createTextField({ required: true, searchable: true, filterable: true }),
+    name: createTextField({
+      required: true,
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
     status: createSelectField({ options: ["pending", "approved"] as const, filterable: true }),
   },
 });

@@ -36,7 +36,14 @@ const notesHistoryFeature = createNotesHistoryFeature();
 const CONTACT_TABLE = "notes_history_test_contacts";
 const contactEntity = createEntity({
   table: CONTACT_TABLE,
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 const contactFixtureFeature = defineFeature("notes-history-test-contact-fixture", (r) => {
   r.entity("contact", contactEntity);

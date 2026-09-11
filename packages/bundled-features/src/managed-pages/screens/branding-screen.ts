@@ -38,16 +38,30 @@ export function createBrandingSettingsScreen(opts: {
       layoutPreset: BRANDING_QN.layoutPreset,
     },
     fields: {
-      title: createTextField({ maxLength: 200 }),
+      title: createTextField({ maxLength: 200, personal: false, reason: "is_business_data" }),
       description: createTextField({
         maxLength: 500,
         multiline: { rows: 3 },
         personal: false,
         reason: "is_business_data",
       }),
-      siteUrl: createTextField({ maxLength: 2000, format: "url" }),
-      accentColor: createTextField({ maxLength: 9 }),
-      logoUrl: createTextField({ maxLength: 2000, format: "url" }),
+      siteUrl: createTextField({
+        maxLength: 2000,
+        format: "url",
+        personal: false,
+        reason: "is_business_data",
+      }),
+      accentColor: createTextField({
+        maxLength: 9,
+        personal: false,
+        reason: "is_business_data",
+      }),
+      logoUrl: createTextField({
+        maxLength: 2000,
+        format: "url",
+        personal: false,
+        reason: "is_business_data",
+      }),
       layoutPreset: createSelectField({ options: LAYOUT_PRESETS }),
     },
     layout: {
@@ -74,7 +88,15 @@ export function createBrandingSettingsScreen(opts: {
     configKeys: { ...base.configKeys, customCss: BRANDING_QN.customCss },
     fields: {
       ...base.fields,
-      customCss: createTextField({ maxLength: 8000, multiline: { rows: 12 } }),
+      // Tenant-admin-authored branding CSS (raw-CSS gated behind
+      // allowCustomCss), not end-user input — same category as the other
+      // branding fields above.
+      customCss: createTextField({
+        maxLength: 8000,
+        multiline: { rows: 12 },
+        personal: false,
+        reason: "is_business_data",
+      }),
     },
     layout: {
       sections: [

@@ -8,7 +8,7 @@ import { resolveRetentionPolicy } from "../resolver";
 describe("resolveRetentionPolicy — Layer-Resolution", () => {
   test("Layer 1 Entity-Default greift wenn weder Preset noch Override", () => {
     const entity = createEntity({
-      fields: { foo: createTextField() },
+      fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "30d", strategy: "hardDelete", reference: "createdAt" },
     });
 
@@ -29,7 +29,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
 
   test("Layer 2 Preset überschreibt Entity-Default", () => {
     const entity = createEntity({
-      fields: { foo: createTextField() },
+      fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "7d", strategy: "hardDelete" },
     });
 
@@ -74,7 +74,9 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
   });
 
   test("Entity ohne retention + kein Preset + kein Override → policy=null + source=none", () => {
-    const entity = createEntity({ fields: { foo: createTextField() } });
+    const entity = createEntity({
+      fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
+    });
 
     const result = resolveRetentionPolicy({
       entityName: "ticket",
@@ -172,7 +174,7 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
 describe("resolveRetentionPolicy — Edge-Cases", () => {
   test("default-Preset ist leer → fällt zurück auf entity-default", () => {
     const entity = createEntity({
-      fields: { foo: createTextField() },
+      fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "30d", strategy: "hardDelete" },
     });
 

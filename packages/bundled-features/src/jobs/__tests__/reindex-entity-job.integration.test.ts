@@ -38,7 +38,12 @@ const REINDEX_ENTITY_JOB = "jobs:job:reindex-entity";
 const widgetEntity = createEntity({
   table: "read_reindex_job_widgets",
   fields: {
-    name: createTextField({ required: true, searchable: true }),
+    name: createTextField({
+      required: true,
+      searchable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
 

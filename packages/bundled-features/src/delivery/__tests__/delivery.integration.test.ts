@@ -181,9 +181,9 @@ const appFeature = defineFeature("app", (r) => {
 // Feature with CRUD entity + declarative r.notification()
 const ticketEntity = createEntity({
   fields: {
-    title: createTextField({ required: true }),
-    assigneeId: createTextField(),
-    status: createTextField({ required: true }),
+    title: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    assigneeId: createTextField({ personal: false, reason: "pseudonymous_fk" }),
+    status: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
 const ticketTable = buildEntityTable("ticket", ticketEntity);

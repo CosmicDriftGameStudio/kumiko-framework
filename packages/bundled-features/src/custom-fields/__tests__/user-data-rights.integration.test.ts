@@ -62,7 +62,7 @@ const PAST = (): Instant => getTemporal().Now.instant().subtract({ minutes: 1 })
 const propertyEntity = createEntity({
   table: "read_t15c_properties",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });

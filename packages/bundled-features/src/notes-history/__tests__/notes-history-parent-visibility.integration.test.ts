@@ -48,8 +48,18 @@ function createProjectEntity(access?: EntityDefinition["access"]): EntityDefinit
   return createEntity({
     table: PROJECT_TABLE,
     fields: {
-      teamId: createTextField({ required: true, maxLength: 64 }),
-      name: createTextField({ required: true, maxLength: 64 }),
+      teamId: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      name: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
     },
     access,
   });
@@ -62,7 +72,14 @@ const guardedProjectEntity = createProjectEntity(projectOwnership);
 // too, not just made-up names.
 const contactEntity = createEntity({
   table: "notes_pv_test_contacts",
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 
 const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {

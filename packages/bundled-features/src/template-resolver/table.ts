@@ -18,16 +18,17 @@ import { CONTENT_FORMATS, TEMPLATE_KINDS, TEMPLATE_SCOPES, TEMPLATE_STATUSES } f
 export const templateResourceEntity = createEntity({
   table: "read_template_resources",
   fields: {
-    slug: createTextField({ required: true }),
+    slug: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     kind: createSelectField({ required: true, options: [...TEMPLATE_KINDS] }),
-    locale: createTextField({ required: true }),
+    locale: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     // Human-facing heading for kind="text-block" (legal pages, marketing
     // copy). Nullable because render templates carry their subject inside
     // the body; a NOT NULL here would break every existing mail row.
-    title: createTextField({}),
+    // Same authorship class as `content` below.
+    title: createTextField({ personal: false, reason: "is_business_data" }),
     // Folder path for the content tree, `/`-separated ("page/marketing").
     // null = root node.
-    folder: createTextField({}),
+    folder: createTextField({ personal: false, reason: "technical_reference" }),
     // Template-body is authored by TenantAdmin/Operator (email-templates etc.),
     // business data — kein end-user UGC.
     content: createLongTextField({
@@ -35,10 +36,10 @@ export const templateResourceEntity = createEntity({
       reason: "is_business_data",
     }),
     contentFormat: createSelectField({ required: true, options: [...CONTENT_FORMATS] }),
-    variableSchema: createLongTextField({}),
-    linkedResources: createLongTextField({}),
+    variableSchema: createLongTextField({ personal: false, reason: "technical_reference" }),
+    linkedResources: createLongTextField({ personal: false, reason: "technical_reference" }),
     scope: createSelectField({ required: true, options: [...TEMPLATE_SCOPES] }),
-    parentTemplateId: createTextField({}),
+    parentTemplateId: createTextField({ personal: false, reason: "technical_reference" }),
     status: createSelectField({ required: true, options: [...TEMPLATE_STATUSES] }),
   },
   indexes: [

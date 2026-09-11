@@ -61,7 +61,12 @@ export const tenantInvitationEntity = createEntity({
     email: createTextField({ required: true, maxLength: 320, personal: "self", find: "exact" }),
     // Membership-Rolle die dem User nach Accept gegeben wird. Default
     // im handler ist "Admin" (Co-Admin-Pattern für kleine Teams).
-    role: createTextField({ required: true, maxLength: 50 }),
+    role: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Lifecycle-State. Default "pending"; transitions:
     //   pending → accepted | cancelled | expired
     status: createSelectField({
