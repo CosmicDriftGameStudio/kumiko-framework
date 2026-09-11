@@ -63,6 +63,42 @@ export function validateNavs(
         }
       }
     }
+    if (navDef.createAction !== undefined) {
+      validateTreeAction(feature.name, navId, "createAction", navDef.createAction, allScreenQns);
+    }
+    for (const [i, action] of (navDef.actions ?? []).entries()) {
+      validateTreeAction(feature.name, navId, `actions[${i}]`, action, allScreenQns);
+    }
+  }
+}
+
+// A TreeAction (createAction or an actions[] entry) navigates via `screen`
+// XOR dispatches via `target` — same polymorphism as the node's own
+// `screen`/`target`. Without this check an action with neither is a
+// Hover-Icon that does nothing; one with both is ambiguous about which
+// click-mode wins.
+function validateTreeAction(
+  featureName: string,
+  navId: string,
+  actionPath: string,
+  action: { readonly screen?: string; readonly target?: unknown },
+  allScreenQns: ReadonlySet<string>,
+): void {
+  const { screen, target } = action;
+  const hasScreen = screen !== undefined;
+  const hasTarget = target !== undefined;
+  if (hasScreen === hasTarget) {
+    throw new Error(
+      `[Feature ${featureName}] Nav entry "${navId}" ${actionPath} must set exactly one of ` +
+        `"screen"/"target" (${hasScreen ? "both are set" : "neither is set"}).`,
+    );
+  }
+  if (screen !== undefined && !allScreenQns.has(screen)) {
+    throw new Error(
+      `[Feature ${featureName}] Nav entry "${navId}" ${actionPath} references screen ` +
+        `"${screen}" which is not registered. Expected a qualified name of the form ` +
+        `"<feature>:screen:<id>" pointing at an r.screen() declaration.`,
+    );
   }
 }
 

@@ -32,9 +32,14 @@ export type TreeAction = {
   // i18n-Translation-Key oder roher String. Vom Renderer aufgelöst, Engine
   // behandelt opak (mirrors NavDefinition.label, WorkspaceDefinition.label).
   readonly label: string;
-  // Klick-Ziel der Action. Pflicht — Action ohne target ist semantisch
-  // sinnlos (Hover-Icon das nichts tut).
-  readonly target: TargetRef;
+  // Qualified screen name ("<feature>:screen:<id>") — renders as a route
+  // link. Exactly one of `screen`/`target` must be set; an action with
+  // neither is a Hover-Icon that does nothing, the boot validator rejects
+  // it.
+  readonly screen?: string;
+  // EditorPanel dispatch target — renders as a click-dispatch button.
+  // Exactly one of `screen`/`target` must be set.
+  readonly target?: TargetRef;
 };
 
 export type TreeNode = {
@@ -59,12 +64,12 @@ export type TreeNode = {
   // erst beim Ausklappen aufgerufen (lazy); die Function-Form erlaubt
   // SSE-gefütterte Live-Updates wenn neue Entity-Rows reinkommen.
   readonly children?: readonly TreeNode[] | TreeChildrenSubscribe;
-  // Provider-deklarierte „+ create"-Action für Knoten mit `state: "empty"`.
-  // Tree-Component zeigt automatisch ein „+"-Icon und dispatcht
-  // `createAction.target` bei Klick — Provider weiß was „leer befüllen"
-  // für ihn bedeutet (z.B. „neuer Page-Slug" vs „neue Entity-Row"),
-  // Convention könnte das nicht raten. Konsistent zu `state` (auch
-  // Provider-explizit). Siehe visual-tree.md V.1.1-Decision D3.
+  // Provider-declared "+ create" action for nodes with `state: "empty"`.
+  // The tree component automatically shows a "+" icon; click navigates to
+  // `createAction.screen` or dispatches `createAction.target` — the
+  // provider knows what "create empty" means for it (e.g. "new page slug"
+  // vs. "new entity row"), convention couldn't guess that. Consistent with
+  // `state` (also provider-explicit). See visual-tree.md V.1.1 Decision D3.
   readonly createAction?: TreeAction;
 };
 

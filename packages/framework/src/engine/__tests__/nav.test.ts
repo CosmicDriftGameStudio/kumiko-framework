@@ -359,6 +359,91 @@ describe("validateBoot — nav validation", () => {
   });
 });
 
+// fw#2750: createAction + actions[] entries carry the same screen-XOR-target
+// polymorphism as the node itself — the validator must reject the same
+// classes of mistake for actions that it already rejects for nodes.
+describe("validateBoot — nav action validation (fw#2750)", () => {
+  test("createAction with neither screen nor target fails boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.nav({
+        id: "catalog",
+        label: "x",
+        createAction: { icon: "plus", label: "New" },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/createAction.*must set exactly one/);
+  });
+
+  test("createAction with both screen and target fails boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "products",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+      r.nav({
+        id: "catalog",
+        label: "x",
+        createAction: {
+          icon: "plus",
+          label: "New",
+          screen: "shop:screen:products",
+          target: { featureId: "shop", action: "create" },
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/createAction.*must set exactly one/);
+  });
+
+  test("actions[] entry referencing an unregistered screen fails boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.nav({
+        id: "catalog",
+        label: "x",
+        actions: [{ icon: "edit", label: "Edit", screen: "shop:screen:does-not-exist" }],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /actions\[0\] references screen "shop:screen:does-not-exist"/,
+    );
+  });
+
+  test("createAction with a target-only action still passes boot (regression)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.nav({
+        id: "catalog",
+        label: "x",
+        createAction: {
+          icon: "plus",
+          label: "New",
+          target: { featureId: "shop", action: "create" },
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("createAction with a screen-only action referencing a registered screen passes boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "products",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+      r.nav({
+        id: "catalog",
+        label: "x",
+        createAction: { icon: "plus", label: "New", screen: "shop:screen:products" },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+});
+
 describe("nav access inversion warning (fw#2640)", () => {
   test("leaf role-gate disjoint from its parent section's → warns but boot still succeeds", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});

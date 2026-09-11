@@ -47,8 +47,9 @@ export type NavDefinition = {
   // Hover-Actions rechts in der Zeile (VS-Code-Pattern) — erst bei Hover
   // sichtbar. Reihenfolge wie deklariert.
   readonly actions?: readonly TreeAction[];
-  // „+"-Affordance am Knoten. Klick dispatcht createAction.target; der
-  // Provider weiß was „leer befüllen" für ihn heißt (neuer Page-Slug etc.).
+  // "+" affordance on the node. Click navigates to createAction.screen or
+  // dispatches createAction.target; the provider knows what "create empty"
+  // means for it (new page slug, etc.).
   readonly createAction?: TreeAction;
   // Children kommen zur Laufzeit aus einem registrierten nav-provider
   // (lazy beim Ausklappen, SSE-live via treeEntities), keyed auf diese
