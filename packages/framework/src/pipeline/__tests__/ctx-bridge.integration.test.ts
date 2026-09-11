@@ -47,7 +47,7 @@ const secretEntity = createEntity({
 const secretTable = buildEntityTable("secret", secretEntity);
 
 // Target entity for the afterCommit-hook-writes-a-second-entity test below
-// (fw#… dead-tx-in-afterCommit-hooks). Plain Admin access — kept separate
+// (dead-tx-in-afterCommit-hooks). Plain Admin access — kept separate
 // from `secret` so that test doesn't entangle with the privileged-access
 // assertions the other describe blocks make about it.
 const echoEntity = createEntity({
@@ -223,7 +223,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
   // going through the real event-store append path (crud.create ->
   // runInSavepointIfSupported). Proves the afterCommit context's ctx.db
   // is a live, usable handle rather than the already-committed tx
-  // (fw#… dead-tx-in-afterCommit-hooks). Explicit phase so the test says
+  // (dead-tx-in-afterCommit-hooks). Explicit phase so the test says
   // what it means, even though afterCommit is already the default.
   r.hook(
     "postSave",

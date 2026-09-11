@@ -1,4 +1,4 @@
-// fw#… dead-tx-in-afterCommit-hooks: runInSavepointIfSupported must fail
+// dead-tx-in-afterCommit-hooks: runInSavepointIfSupported must fail
 // loudly on a transaction handle that has already committed, instead of
 // silently re-running `fn` outside the savepoint's isolation. Uses a real
 // Postgres connection — a mock handle can't produce the driver's actual
