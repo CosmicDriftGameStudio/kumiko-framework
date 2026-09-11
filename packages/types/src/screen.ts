@@ -89,15 +89,19 @@ export type FormatSpec = {
 export type FieldRenderer = PlatformComponent | string | FormatSpec;
 
 // Declarative field-state condition. Evaluated by the renderer against the
-// current row/form values. Three forms:
+// current row/form values. Five forms:
 //   boolean          — static on/off (e.g. readOnly: true)
 //   { field, eq }    — true when row[field] === eq
 //   { field, ne }    — true when row[field] !== ne
+//   { field, in }    — true when row[field] is one of the given values
+//   { field, notIn } — true when row[field] is none of the given values
 // JSON-safe: survives buildAppSchema → window.__KUMIKO_SCHEMA__ stringify.
 export type FieldCondition =
   | boolean
   | { readonly field: string; readonly eq: unknown }
-  | { readonly field: string; readonly ne: unknown };
+  | { readonly field: string; readonly ne: unknown }
+  | { readonly field: string; readonly in: readonly unknown[] }
+  | { readonly field: string; readonly notIn: readonly unknown[] };
 
 // --- entityList ---
 

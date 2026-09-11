@@ -56,6 +56,8 @@ export function evalFieldCondition(cond: FieldCondition, values: Record<string, 
   if (typeof cond === "boolean") return cond;
   const val = values[cond.field];
   if ("eq" in cond) return val === cond.eq;
+  if ("in" in cond) return cond.in.includes(val);
+  if ("notIn" in cond) return !cond.notIn.includes(val);
   return val !== cond.ne;
 }
 
