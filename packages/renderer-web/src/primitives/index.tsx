@@ -426,16 +426,14 @@ function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
 // Default presentation for `kind: "select"` with a small closed option set —
 // a 4-value Status field looked wrong stretched into a full-width dropdown
 // (edit-existing screenshot feedback). Only consulted when the caller states
-// no `display` of its own; an explicit `display` wins (#2711).
+// no `display` of its own; an explicit `display` wins (#2711). The option
+// count is the only criterion: labels arrive already translated, so the former
+// label-length threshold made the widget type depend on the active UI language
+// (#2606). Labels that no longer fit wrap inside the group.
 const SEGMENTED_SELECT_MAX_OPTIONS = 4;
-const SEGMENTED_SELECT_MAX_LABEL_LENGTH = 14;
 
-function isSegmentedSelectEligible(options: readonly { readonly label: string }[]): boolean {
-  return (
-    options.length > 0 &&
-    options.length <= SEGMENTED_SELECT_MAX_OPTIONS &&
-    options.every((o) => o.label.length <= SEGMENTED_SELECT_MAX_LABEL_LENGTH)
-  );
+function isSegmentedSelectEligible(options: readonly unknown[]): boolean {
+  return options.length > 0 && options.length <= SEGMENTED_SELECT_MAX_OPTIONS;
 }
 
 // WAI-ARIA radiogroup pattern (role="radiogroup" + role="radio" children):
@@ -701,7 +699,7 @@ function DefaultInput(props: InputProps): ReactNode {
       );
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
-      // one even when the labels are long or numerous (#2711).
+      // one even when the options outnumber the heuristic's threshold (#2711).
       const wantsRadioGroup =
         props.display === "radio" ||
         (props.display === undefined && isSegmentedSelectEligible(comboOptions));
@@ -1327,10 +1325,13 @@ function RowActionsCell({
 // Components hatten denselben State-Block dupliziert + parallel zur
 // Confirm-Dialog-Render-Logic — der Hook konsolidiert das.
 //
-// "needsConfirm" Helper kapselt die Regel: explizites confirm ODER
-// style=danger triggert den Dialog, alles andere fired direkt.
+// The rule: an explicit confirm OR style=danger opens the dialog,
+// everything else fires straight through.
+// `confirmRequired` overrides the danger-implies-confirm default (e.g.
+// schema-driven navigate/drawer actions where the target form is itself
+// the confirmation).
 function needsConfirm(action: DataTableRowAction): boolean {
-  return action.confirm !== undefined || action.style === "danger";
+  return action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
 }
 
 function useRowActionTrigger(row: ListRowViewModel) {

@@ -95,7 +95,9 @@ describe("resolveKmsWiring", () => {
   test("falls back to plaintext PII when the trio is entirely absent", () => {
     const wiring = resolveKmsWiring({});
 
-    expect(wiring).toEqual({ allowPlaintextPii: "local dev without subject-keys KMS (fw#818)" });
+    expect("kms" in wiring).toBe(false);
+    if ("kms" in wiring) throw new Error("unreachable");
+    expect(wiring.allowPlaintextPii).toBe("local dev without subject-keys KMS (fw#818)");
   });
 
   // Regression: every member being optional made TypeScript's weak-type
@@ -111,7 +113,18 @@ describe("resolveKmsWiring", () => {
   test("carries an app-supplied fallback reason into the boot log", () => {
     const wiring = resolveKmsWiring({}, { plaintextReason: "solon pre-UI gate" });
 
-    expect(wiring).toEqual({ allowPlaintextPii: "solon pre-UI gate" });
+    expect("kms" in wiring).toBe(false);
+    if ("kms" in wiring) throw new Error("unreachable");
+    expect(wiring.allowPlaintextPii).toBe("solon pre-UI gate");
+  });
+
+  // fw#2551: an ops script must be able to release the subject-keys pool in a
+  // `finally` without knowing which branch it got — this compiles only while
+  // `close` sits on BOTH union members, and the plaintext branch must resolve
+  // rather than blow up on a wiring that opened nothing.
+  test("exposes close on both branches, callable without narrowing", async () => {
+    await expect(resolveKmsWiring({}).close()).resolves.toBeUndefined();
+    await expect(resolveKmsWiring(fullTrio).close()).resolves.toBeUndefined();
   });
 
   // All-or-none is the core of this module: a partial trio means someone

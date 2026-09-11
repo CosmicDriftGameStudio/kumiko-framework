@@ -76,7 +76,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       const userRow = await fetchOne<{ id: string; status: string; email: string }>(
         ctx.db.raw,
         userTable,
-        { email: event.payload.email },
+        { email: event.payload.email, isDeleted: false },
       );
       if (!userRow || userRow["status"] !== USER_STATUS.Active || !userRow["email"]) {
         return success;

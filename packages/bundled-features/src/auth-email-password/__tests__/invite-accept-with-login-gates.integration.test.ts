@@ -353,3 +353,72 @@ describe("invite-accept-with-login: account-status gate", () => {
     expect(memberships).toHaveLength(0);
   });
 });
+
+describe("invite-accept-with-login: soft-deleted email predecessor (fw#2593)", () => {
+  // read_users_email_unique is now a partial index (WHERE is_deleted = false),
+  // so a soft-deleted row and a live row can share an email. The password
+  // lookup must resolve the live row, never the soft-deleted one.
+  test("logs in as the live user, not the soft-deleted predecessor with the same email", async () => {
+    const email = "reused-invitee@example.com";
+    const deletedUserId = crypto.randomUUID();
+    const liveUserId = crypto.randomUUID();
+    const deletedPassword = "deleted-predecessor-pw-1234";
+    const livePassword = "live-successor-pw-5678";
+
+    await seedRow(stack.db, userTable, {
+      id: deletedUserId,
+      tenantId: TENANT_A_ID,
+      email,
+      passwordHash: await hashPassword(deletedPassword),
+      displayName: "Deleted Predecessor",
+      locale: "de",
+      emailVerified: true,
+      roles: "[]",
+      status: USER_STATUS.Active,
+    });
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET is_deleted = true WHERE id = $1`,
+      [deletedUserId],
+    );
+
+    await seedRow(stack.db, userTable, {
+      id: liveUserId,
+      tenantId: TENANT_A_ID,
+      email,
+      passwordHash: await hashPassword(livePassword),
+      displayName: "Live Successor",
+      locale: "de",
+      emailVerified: true,
+      roles: "[]",
+      status: USER_STATUS.Active,
+    });
+
+    const token = await inviteEmail(email, "Editor");
+
+    // The deleted predecessor's password must never authenticate this
+    // invite, even though it shares the email — proves the lookup didn't
+    // just happen to land on the live row by insertion order. A failed
+    // password check unburns the token (see the handler's `finally`), so
+    // the same token is still usable for the real attempt below.
+    const deletedAttempt = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email,
+      password: deletedPassword,
+    });
+    expect(deletedAttempt.status).not.toBe(200);
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email,
+      password: livePassword,
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      user?: { id: string };
+    };
+    expect(body.isSuccess).toBe(true);
+    expect(body.user?.id).toBe(liveUserId);
+  });
+});

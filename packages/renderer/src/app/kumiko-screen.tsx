@@ -763,6 +763,7 @@ function EntityEditUpdateForm({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onPress: () => {
               if (id === "") return;
@@ -783,6 +784,7 @@ function EntityEditUpdateForm({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onPress: () => {
               nav.navigate({
@@ -802,6 +804,7 @@ function EntityEditUpdateForm({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          confirmRequired: false,
           ...(actionIcon !== undefined && { icon: actionIcon }),
           onPress: () => {
             const initialValues =
@@ -1612,6 +1615,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
             ...(actionVisible !== undefined && {
@@ -1627,6 +1631,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => {
               const initialValues =
@@ -1709,6 +1714,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: () => nav.navigate({ screenId: action.screen }),
           };
@@ -1718,6 +1724,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: () => openDrawer(action),
           };
@@ -2017,6 +2024,7 @@ function ProjectionListBody({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          confirmRequired: false,
           ...(actionIcon !== undefined && { icon: actionIcon }),
           onTrigger: () => nav.navigate({ screenId: target }),
         });
@@ -2027,6 +2035,7 @@ function ProjectionListBody({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          confirmRequired: false,
           ...(actionIcon !== undefined && { icon: actionIcon }),
           onTrigger: () => openDrawer(action),
         });
@@ -2315,6 +2324,7 @@ function ProjectionDetailBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onPress: () => {
               if (id === "") return;
@@ -2348,6 +2358,7 @@ function ProjectionDetailBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onPress: () => {
               nav.navigate({
@@ -2367,6 +2378,7 @@ function ProjectionDetailBody({
           id: action.id,
           label: effectiveTranslate(action.label),
           ...(action.style !== undefined && { style: action.style }),
+          confirmRequired: false,
           ...(actionIcon !== undefined && { icon: actionIcon }),
           onPress: () => {
             const initialValues =
@@ -2728,6 +2740,7 @@ function ActionFormBody({
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
+      {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
       {...(translate !== undefined && { translate })}
     />
   );

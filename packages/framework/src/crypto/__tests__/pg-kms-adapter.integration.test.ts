@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { createTestDb } from "../../stack/db";
 import { type KmsContext, type SubjectId, subjectIdToKey } from "../kms-adapter";
+import { resolveKmsWiring } from "../kms-wiring";
 import { PgKmsAdapter } from "../pg-kms-adapter";
 import { describeKmsAdapterContract } from "./kms-adapter-contract";
 
@@ -132,5 +133,22 @@ describe("PgKmsAdapter — pg specifics", () => {
       WHERE subject_id = ${subjectIdToKey(user)}`;
     expect(rows[0]?.["erased_by"]).toBe("operator-1");
     expect(rows[0]?.["erase_reason"]).toBe("user-forget");
+  });
+
+  // fw#2551: the pool resolveKmsWiring opens is what kept ops scripts from
+  // exiting. Proving release needs a pool that was genuinely open, so the
+  // health() before close is half the assertion.
+  test("resolveKmsWiring's close releases the pool it opened", async () => {
+    const wiring = resolveKmsWiring({
+      PLATFORM_KEK: platformKek,
+      SUBJECT_KEYS_DATABASE_URL: databaseUrl,
+      KUMIKO_BLIND_INDEX_KEY: "blind-index-key",
+    });
+    if (!("kms" in wiring)) throw new Error("unreachable");
+
+    expect((await wiring.kms.health()).ok).toBe(true);
+    await wiring.close();
+
+    await expect(wiring.kms.health()).rejects.toThrow();
   });
 });

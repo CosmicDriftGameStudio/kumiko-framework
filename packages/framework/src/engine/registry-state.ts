@@ -60,6 +60,12 @@ export type SearchableReferenceField = {
   readonly labelField: string;
 };
 
+// One entry per `ReferenceFieldDef` with `sortable: true` (fw#2741). Same
+// resolved shape as the searchable variant and the same boot guarantee on
+// `labelField` — ORDER BY on the UUID column would look meaningful and be
+// arbitrary.
+export type SortableReferenceField = SearchableReferenceField;
+
 const IMPLICIT_PROJECTION_SUFFIX = "-entity" as const;
 
 // Pro r.entity-Registration eine ImplicitProjection mit auto-generierten
@@ -235,6 +241,7 @@ export type RegistryState = {
   searchableFieldsCache: Map<string, readonly string[]>;
   sortableFieldsCache: Map<string, readonly string[]>;
   searchableReferencesCache: Map<string, readonly SearchableReferenceField[]>;
+  sortableReferencesCache: Map<string, readonly SortableReferenceField[]>;
   incomingRelationsCache: Map<string, IncomingRelation[]>;
   hasRateLimitedHandlerCached: boolean;
 };
@@ -298,6 +305,7 @@ export function createInitialState(): RegistryState {
     searchableFieldsCache: new Map(),
     sortableFieldsCache: new Map(),
     searchableReferencesCache: new Map(),
+    sortableReferencesCache: new Map(),
     incomingRelationsCache: new Map(),
     hasRateLimitedHandlerCached: false,
   };

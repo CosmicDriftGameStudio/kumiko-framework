@@ -700,6 +700,134 @@ describe("createRegistry", () => {
 
     expect(() => createRegistry([feature])).toThrow(/multiple/);
   });
+
+  test("returns sortable reference fields for entity, without leaking them into getSortableFields (fw#2741)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            note: createTextField({ sortable: true }),
+            customerId: {
+              type: "reference",
+              entity: "customer",
+              labelField: "name",
+              sortable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    const registry = createRegistry([feature]);
+    // getSortableFields lists plain columns the read path can ORDER BY
+    // directly — a reference sorts through its target's label instead.
+    expect(registry.getSortableFields("order")).toEqual(["note"]);
+    expect(registry.getSortableReferences("order")).toEqual([
+      { fieldName: "customerId", targetEntityName: "customer", labelField: "name" },
+    ]);
+    expect(registry.getSortableReferences("nonexistent")).toEqual([]);
+  });
+
+  test("resolves a cross-feature sortable reference to its bare entity name (fw#2741)", () => {
+    const users = defineFeature("users", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+    });
+    const crm = defineFeature("crm", (r) => {
+      r.entity(
+        "ticket",
+        createEntity({
+          table: "Tickets",
+          fields: {
+            ownerId: {
+              type: "reference",
+              entity: "users:user",
+              labelField: "email",
+              sortable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    const registry = createRegistry([users, crm]);
+    expect(registry.getSortableReferences("ticket")).toEqual([
+      { fieldName: "ownerId", targetEntityName: "user", labelField: "email" },
+    ]);
+  });
+
+  test("throws at boot when a sortable reference field has no explicit labelField (fw#2741)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            customerId: { type: "reference", entity: "customer", sortable: true },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/labelField/);
+  });
+
+  test("throws at boot when a sortable reference field uses labelField: 'id' (fw#2741)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            customerId: {
+              type: "reference",
+              entity: "customer",
+              labelField: "id",
+              sortable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/labelField/);
+  });
+
+  test("throws at boot when sortable is combined with multiple on a reference field (fw#2741)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity("tag", createEntity({ table: "Tags", fields: { name: createTextField() } }));
+      r.entity(
+        "post",
+        createEntity({
+          table: "Posts",
+          fields: {
+            tagIds: {
+              type: "reference",
+              entity: "tag",
+              labelField: "name",
+              sortable: true,
+              multiple: true,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/multiple/);
+  });
 });
 
 // --- Access ---

@@ -130,6 +130,10 @@ export type ToolbarActionButton = {
   readonly style?: "primary" | "secondary" | "danger";
   readonly confirm?: string;
   readonly confirmLabel?: string;
+  /** Overrides the default "danger implies a confirm dialog" rule. Schema-driven
+   *  navigate/drawer actions set it to false: the colour marks the action as
+   *  destructive, but the target form is the confirmation. */
+  readonly confirmRequired?: boolean;
   readonly onTrigger: () => Promise<void> | void;
   /** Id-derived default icon (ACTION_ICON_BY_ID in kumiko-screen.tsx) —
    *  ToolbarAction has no author-declared icon field, unlike RowAction. */
@@ -492,7 +496,8 @@ function ToolbarActionView({
   };
 
   const variant: "primary" | "secondary" | "danger" = action.style ?? "secondary";
-  const needsConfirm = action.confirm !== undefined || action.style === "danger";
+  const needsConfirm =
+    action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
   const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (

@@ -816,6 +816,69 @@ describe("KumikoScreen", () => {
     expect(screen.queryByText("raw fallback — must NOT appear")).toBeNull();
   });
 
+  // fw#2752: navigate rowActions may now carry style="danger" — it renders
+  // red like the writeHandler variant, but does NOT force a confirm dialog
+  // (the target form/screen is itself the confirmation).
+  test("entityList rowActions kind=navigate mit style=danger: rot, aber navigiert sofort ohne Dialog", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithDangerNav: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "terminate",
+          label: "actions.terminate",
+          screen: "task-edit",
+          style: "danger",
+        },
+      ],
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithDangerNav] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    const button = screen.getByTestId("row-r1-action-terminate");
+    expect(button.className).toContain("text-destructive");
+
+    await user.click(button);
+    await waitFor(() => expect(navigateCalls).toEqual([{ screenId: "task-edit" }]));
+    expect(screen.queryByTestId("row-r1-action-terminate-dialog")).toBeNull();
+  });
+
   // Tier 2.7e-1: rowAction kind="navigate" — Click ruft nav.navigate
   // mit screen-id, ggf. mit URL-Search-Params aus params(row).
   // Reihenfolge ist Teil des Contracts: navigate ZUERST, dann
@@ -1227,6 +1290,65 @@ describe("KumikoScreen", () => {
 
     await user.click(screen.getByTestId("render-list-toolbar-action-open"));
     expect(navigateCalls).toEqual([{ screenId: "task-edit" }]);
+  });
+
+  // fw#2752: same decoupling as the rowAction variant — style="danger" on a
+  // navigate toolbarAction renders the destructive button variant without
+  // forcing a confirm dialog.
+  test("entityList toolbarActions navigate-kind mit style=danger: destructive Button, navigiert sofort ohne Dialog", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const screenWithToolbar: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "terminate-all",
+          label: "actions.terminate-all",
+          screen: "task-edit",
+          style: "danger",
+        },
+      ],
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithToolbar] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    const button = screen.getByTestId("render-list-toolbar-action-terminate-all");
+    expect(button.getAttribute("data-variant")).toBe("destructive");
+
+    await user.click(button);
+    await waitFor(() => expect(navigateCalls).toEqual([{ screenId: "task-edit" }]));
+    expect(screen.queryByTestId("render-list-toolbar-action-terminate-all-dialog")).toBeNull();
   });
 
   test("entityList toolbarActions writeHandler-kind: Click → dispatcher.write", async () => {
@@ -1787,6 +1909,67 @@ describe("KumikoScreen", () => {
     // payloadMode="values" — alle Form-Werte landen im Payload, nicht
     // nur die geänderten. Defaults (priority=1) bleiben drin.
     expect(writeCalls[0]?.payload).toEqual({ title: "New Task", priority: 1 });
+  });
+
+  // fw#2752: actionForm submitStyle reaches the submit button.
+  test("actionForm submitStyle='danger': submit button renders destructive variant", async () => {
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "new-id" },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      submitStyle: "danger",
+      fields: {
+        title: { type: "text", required: true },
+        priority: { type: "number", default: 1 },
+      },
+      layout: { sections: [{ title: "Basics", fields: ["title", "priority"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={{ ...schema, screens: [actionScreen] }} qn="tasks:screen:quick-add" />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-submit").getAttribute("data-variant")).toBe(
+      "destructive",
+    );
+  });
+
+  // fw#2752: actionForm submitStyle reaches the submit button.
+  test("actionForm ohne submitStyle: submit button renders default variant", async () => {
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "new-id" },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: {
+        title: { type: "text", required: true },
+        priority: { type: "number", default: 1 },
+      },
+      layout: { sections: [{ title: "Basics", fields: ["title", "priority"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={{ ...schema, screens: [actionScreen] }} qn="tasks:screen:quick-add" />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-submit").getAttribute("data-variant")).toBe("default");
   });
 
   test("actionForm mit redirect auf entityList: nach success → navigate ohne entityId (#2419)", async () => {

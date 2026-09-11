@@ -1,7 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
-  access,
   crossTenantOverrideDenied,
   defineQueryHandler,
   type QueryHandlerDefinition,
@@ -9,6 +8,7 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { tierAssignmentEntity } from "../../tier-engine";
+import { MY_CAPS_ACCESS_ROLES } from "../access";
 import type { CapSpec, CapUsageWithMeta } from "../types";
 import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math";
 
@@ -20,9 +20,9 @@ export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefi
   return defineQueryHandler({
     name: "caps:usage",
     description:
-      "Returns one tenant's configured caps with used amount, tier limit and utilisation fraction; use it to answer how close a tenant is to its quota (SystemAdmin may target another tenant via tenantId).",
+      "Returns the calling user's own tenant's configured caps with used amount, tier limit and utilisation fraction; use it to answer how close a tenant is to its quota (only SystemAdmin may target another tenant via tenantId).",
     schema: z.object({ tenantId: z.string().min(1).optional() }),
-    access: { roles: access.admin },
+    access: { roles: MY_CAPS_ACCESS_ROLES },
     handler: async (query, ctx) => {
       if (!ctx.systemDb) {
         throw new InternalError({

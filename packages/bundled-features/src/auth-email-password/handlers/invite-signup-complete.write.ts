@@ -129,8 +129,11 @@ export function createInviteSignupCompleteHandler() {
         // muss der User Branch 2 (acceptWithLogin) nutzen. Hier ist
         // explizit "neue Email" — sonst hätten wir zwei Wege ein
         // Password zu setzen für denselben User.
+        // Email uniqueness is partial on live rows (framework#2593) — without
+        // this filter the lookup can resolve a soft-deleted row.
         const existingUser = await fetchOne(ctx.db.raw, userTable, {
           email: invitationEmail,
+          isDeleted: false,
         });
         if (existingUser) return invalidInviteToken();
 

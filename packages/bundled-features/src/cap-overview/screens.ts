@@ -1,4 +1,5 @@
-import { access, type ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { MY_CAPS_ACCESS_ROLES } from "./access";
 import {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_USAGE_CELL_COMPONENT,
@@ -78,7 +79,7 @@ export const myCapsScreen: ScreenDefinition = {
       component: { react: { __component: CAP_CARDS_PANEL_COMPONENT } },
     },
   ],
-  access: { roles: access.admin },
+  access: { roles: MY_CAPS_ACCESS_ROLES },
 };
 
 export const platformTenantCapsScreen: ScreenDefinition = {

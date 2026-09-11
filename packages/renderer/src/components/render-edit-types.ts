@@ -76,6 +76,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  "Save" can be replaced by domain-specific strings ("Approve" /
    *  "Dispatch" / etc.). */
   readonly submitLabel?: string;
+  /** Visual style of the submit button (actionForm `submitStyle`). Default "primary". */
+  readonly submitVariant?: "primary" | "danger";
   /** Per-field extra content inline after the label (e.g.
    *  ConfigSourceBadge). Called with the field name, returns a ReactNode or
    *  undefined. */
@@ -168,6 +170,10 @@ export type RenderEditAction = {
   readonly style?: "primary" | "secondary" | "danger";
   readonly confirm?: string;
   readonly confirmLabel?: string;
+  /** Overrides the default "danger implies a confirm dialog" rule. Schema-driven
+   *  navigate/drawer actions set it to false: the colour marks the action as
+   *  destructive, but the target form is the confirmation. */
+  readonly confirmRequired?: boolean;
   /** Resolved icon (author `RowAction.icon` or the id-derived default) —
    *  drives both the icon-left-of-text render and the icon-only collapse
    *  rule (see `shouldRenderActionsIconOnly`). */

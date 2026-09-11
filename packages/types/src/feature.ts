@@ -891,6 +891,11 @@ export type Registry = {
     targetEntityName: string;
     labelField: string;
   }>;
+  getSortableReferences(entityName: string): ReadonlyArray<{
+    fieldName: string;
+    targetEntityName: string;
+    labelField: string;
+  }>;
   getIncomingRelations(entityName: string): ReadonlyArray<{
     sourceEntity: string;
     relationName: string;

@@ -275,7 +275,9 @@ export type RowActionNavigateBase = {
   readonly params?: RowFieldExtractor;
   /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
-  readonly style?: "primary" | "secondary";
+  /** Visual style only — unlike the writeHandler variants, "danger" does not
+   *  force a confirm dialog here: the target form is the confirmation. */
+  readonly style?: "primary" | "secondary" | "danger";
   /** Wenn true, löst ein Klick auf die ganze Zeile (nicht nur das Aktionsmenü)
    *  diese navigate-Action aus. Max. eine pro Liste (Boot-Validator prüft). Nur
    *  auf navigate — ein Row-Klick darf keinen (evtl. destruktiven, unbestätigten)
@@ -320,7 +322,9 @@ export type RowActionDrawer = {
   readonly params?: RowFieldExtractor;
   /** Per-row conditional visibility. */
   readonly visible?: FieldCondition;
-  readonly style?: "primary" | "secondary";
+  /** Visual style only — unlike the writeHandler variants, "danger" does not
+   *  force a confirm dialog here: the target form is the confirmation. */
+  readonly style?: "primary" | "secondary" | "danger";
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
    *  (renderer-web), analogous to EditFieldSpec.icon. */
@@ -338,7 +342,10 @@ export type ToolbarAction =
       readonly label: string;
       /** Screen-id (kurz, unqualified) zu dem navigiert wird. */
       readonly screen: string;
-      readonly style?: "primary" | "secondary";
+      /** Visual style only — unlike the writeHandler variant, "danger" does
+       *  not force a confirm dialog here: the target form is the
+       *  confirmation. */
+      readonly style?: "primary" | "secondary" | "danger";
     }
   | {
       readonly kind: "writeHandler";
@@ -364,7 +371,10 @@ export type ToolbarAction =
        *  vs. drawer, not the form (see docs/plans/bundled-features-screen-
        *  standardisierung.md §2.6c). */
       readonly screen: string;
-      readonly style?: "primary" | "secondary";
+      /** Visual style only — unlike the writeHandler variant, "danger" does
+       *  not force a confirm dialog here: the target form is the
+       *  confirmation. */
+      readonly style?: "primary" | "secondary" | "danger";
     };
 
 export type EntityListScreenDefinition = {
@@ -1004,6 +1014,10 @@ export type ActionFormScreenDefinition = {
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
+  /** Visual style of the submit button. "danger" renders it red — for a form
+   *  whose handler is destructive (terminate, revoke, delete), so the warning
+   *  isn't lost on the way from the calling screen to this one. Default "primary". */
+  readonly submitStyle?: "primary" | "danger";
   /** Navigate to this screen ID after a successful submit: either a short
    *  ID (e.g. "item-list" — same feature, the nav-router resolves to the
    *  full path) or a fully-qualified cross-feature QN
