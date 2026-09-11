@@ -437,9 +437,15 @@ function PanelBody({
 export function WebDashboardBody({ screen, translate }: DashboardBodyProps): ReactNode {
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+  const { Text } = usePrimitives();
   const { params: filterParams, picker } = useFilterParams(screen);
   return (
     <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
+      {screen.description !== undefined && (
+        <Text variant="muted" testId={`dashboard-${screen.id}-description`}>
+          {effectiveTranslate(screen.description)}
+        </Text>
+      )}
       {picker}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {screen.panels.map((panel) => {

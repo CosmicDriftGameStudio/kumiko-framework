@@ -93,6 +93,9 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
         void handleSubmit();
       }}
       testId="secrets-edit-form"
+      {...(screen.description !== undefined && {
+        subtitle: effectiveTranslate(screen.description),
+      })}
       actions={
         <Button
           type="submit"
