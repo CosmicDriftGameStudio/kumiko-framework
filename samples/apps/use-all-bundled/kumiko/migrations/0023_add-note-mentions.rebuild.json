@@ -1,6 +1,4 @@
 {
   "version": 1,
-  "tables": [
-    "read_note_mentions"
-  ]
+  "tables": ["read_note_mentions"]
 }
