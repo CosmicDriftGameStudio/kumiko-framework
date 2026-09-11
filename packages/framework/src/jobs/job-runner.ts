@@ -144,9 +144,9 @@ export type JobRunner = {
     payload: Record<string, unknown>,
     user?: SessionUser,
   ): Promise<void>;
-  // Wires JobContext.write/queryAs to the real dispatcher — called once at
-  // boot, after the dispatcher exists (job-runner construction happens
-  // before it). Before this runs, JobContext.write/queryAs throw.
+  // Wires JobContext.write/writeAs/queryAs to the real dispatcher — called
+  // once at boot, after the dispatcher exists (job-runner construction happens
+  // before it). Before this runs, JobContext.write/writeAs/queryAs throw.
   attachDispatcher(ref: DispatchWriteRef): void;
 };
 
@@ -362,7 +362,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // at job-execution time (after start()), so it is always defined by then.
   let selfRunner: JobRunner | undefined;
   // Set by attachDispatcher() once the boot-level dispatcher exists.
-  // JobContext.write/queryAs throw until this is set — see JobContext doc.
+  // JobContext.write/writeAs/queryAs throw until this is set — see JobContext doc.
   let dispatchWriteRef: DispatchWriteRef | undefined;
 
   // Counts active + waiting jobs with this name for this tenant across
@@ -580,6 +580,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           );
         }
         return dispatchWriteRef.write(jobSystemUser, qn, payload);
+      },
+      writeAs: (user: SessionUser, qn: string, payload: unknown) => {
+        if (!dispatchWriteRef) {
+          throw new Error(
+            "JobContext.writeAs called before dispatcher attached — call attachDispatcher() first",
+          );
+        }
+        return dispatchWriteRef.write(user, qn, payload);
       },
       queryAs: (user: SessionUser, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
