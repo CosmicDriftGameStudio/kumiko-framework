@@ -52,11 +52,13 @@ export const noteEntryExportHook: UserDataExportHook = async (ctx) => {
 // mount one.
 export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
   const kms = configuredPiiSubjectKms();
+  // skip: no KMS adapter mounted — record-owned fields stay plaintext framework-wide, forget is a true no-op
   if (!kms) return;
 
   const mentions = await selectMany<{ noteId: string }>(ctx.db, noteMentionTable, {
     subjectId: ctx.userId,
   });
+  // skip: no note-mention rows for this user — nothing structurally reaches this user's data to shred
   if (mentions.length === 0) return;
 
   const noteIds = new Set(mentions.map((m) => m.noteId));
