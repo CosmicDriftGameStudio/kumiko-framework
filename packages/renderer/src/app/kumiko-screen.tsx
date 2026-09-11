@@ -37,7 +37,6 @@ import { useTranslation } from "../i18n";
 import {
   type DataTableFacet,
   type DataTableRowAction,
-  shouldRenderActionsIconOnly,
   statusToneForValue,
   usePrimitives,
 } from "../primitives";
@@ -2397,10 +2396,9 @@ function ProjectionDetailBody({
   const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
   const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
   // ?? [] rather than threading `headerActions !== undefined` through every
-  // use below — an empty array is a safe no-op for .map/.length/icon-collapse.
+  // use below — an empty array is a safe no-op for .map/.length.
   const headerActionsList = headerActions ?? [];
   const hasHeaderActions = headerActionsList.length > 0;
-  const headerActionsIconOnly = shouldRenderActionsIconOnly(headerActionsList);
   // Grouped into the head Card alongside title/status/metrics (fw#2713):
   // these are actions on the record the head shows, not on whichever tab is
   // open, so they must stay in place across tab switches instead of
@@ -2411,7 +2409,6 @@ function ProjectionDetailBody({
         <RenderEditActionButton
           key={action.id}
           action={action}
-          iconOnly={headerActionsIconOnly}
           Button={Button}
           Dialog={Dialog}
           onError={setActionError}

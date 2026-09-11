@@ -416,6 +416,33 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     expect(navigated).toEqual({ screenId: "rent-edit", entityId: "rent-1" });
   });
 
+  test("three header actions → all three render their text label, none collapses to icon-only (fw bedienkonzept L4)", async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+            { kind: "navigate", id: "audit-log", label: "actions.auditLog", screen: "rent-edit" },
+          ],
+        }),
+        editScreen("rent"),
+      ],
+    };
+    const { getByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    expect(getByTestId("render-edit-action-edit").textContent).toBe("actions.edit");
+    expect(getByTestId("render-edit-action-duplicate").textContent).toBe("actions.duplicate");
+    expect(getByTestId("render-edit-action-audit-log").textContent).toBe("actions.auditLog");
+  });
+
   test("a failed writeHandler action shows its error in the head region, alongside the action button, NOT in Form's own actions/body regions (fw#2713)", async () => {
     const schema: FeatureSchema = {
       featureName: "app",
