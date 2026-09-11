@@ -1,8 +1,10 @@
 // Public API of the subscription-foundation bundled-feature.
 
-export { subscriptionAggregateId } from "./aggregate-id";
+export { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id";
 export {
   BILLING_FOUNDATION_FEATURE,
+  type BillingEventKind,
+  BillingEventKinds,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   type SubscriptionEventType,
   SubscriptionEventTypes,
@@ -11,12 +13,18 @@ export {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "./constants";
-export { subscriptionEntity } from "./entities";
+export { paymentEntity, subscriptionEntity } from "./entities";
 export {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
   INVOICE_PAYMENT_FAILED_EVENT_SHORT,
+  PAYMENT_AGGREGATE_TYPE,
+  PAYMENT_RECEIVED_EVENT_QN,
+  PAYMENT_RECEIVED_EVENT_SHORT,
+  type PaymentEventHeaders,
+  type PaymentEventPayload,
+  paymentEventPayloadSchema,
   SUBSCRIPTION_AGGREGATE_TYPE,
   SUBSCRIPTION_CANCELED_EVENT_QN,
   SUBSCRIPTION_CANCELED_EVENT_SHORT,
@@ -30,7 +38,7 @@ export {
 } from "./events";
 export { billingFoundationFeature } from "./feature";
 export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant";
-export { subscriptionsProjectionTable } from "./projection";
+export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection";
 export {
   createSubscriptionTierSync,
   effectiveTierFromSubscription,
@@ -39,6 +47,7 @@ export {
   type SystemWriteResult,
 } from "./subscription-tier-sync";
 export type {
+  PaymentEvent,
   SubscriptionEvent,
   SubscriptionProviderPlugin,
 } from "./types";

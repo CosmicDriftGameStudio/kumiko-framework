@@ -45,6 +45,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Context, Hono } from "hono";
 import {
   BILLING_FOUNDATION_FEATURE,
+  BillingEventKinds,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
 } from "./constants";
@@ -153,9 +154,31 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
       return c.json({ ignored: true }, 200);
     }
 
-    // 6. Dispatch process-event-handler durch den Standard-Dispatcher.
-    //    Idempotency macht der handler intern via deterministic
-    //    aggregate-id + UNIQUE-constraint.
+    // 6. Dispatch to the type-matching write-handler. Payment-events (own
+    //    aggregate, own `read_payments`-row) go to process-payment-event;
+    //    everything else (kind is undefined or "subscription") keeps going
+    //    through process-event, unchanged. Every handler handles idempotency
+    //    internally via deterministic aggregate-id + stream-scan.
+    if (parsed.kind === BillingEventKinds.payment) {
+      const dispatched = await deps.dispatchWrite({
+        handlerQn: SubscriptionFoundationHandlers.processPaymentEvent,
+        tenantId: parsed.tenantId,
+        payload: {
+          providerEventId: parsed.providerEventId,
+          providerName: parsed.providerName,
+          providerCustomerId: parsed.providerCustomerId,
+          priceId: parsed.priceId,
+          rawPayload: parsed.rawPayload,
+        },
+      });
+      return respondFromDispatch(
+        c,
+        dispatched,
+        "subscription_payment_webhook_processing_failed",
+        "Internal error processing payment event",
+      );
+    }
+
     const dispatched = await deps.dispatchWrite({
       handlerQn: SubscriptionFoundationHandlers.processEvent,
       tenantId: parsed.tenantId,
@@ -171,24 +194,30 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
         rawPayload: parsed.rawPayload,
       },
     });
-
-    if (!dispatched.isSuccess) {
-      // Internal error — Provider soll retry'n. 500 statt 401/404 weil
-      // das transient ist (DB down etc.) nicht config-bug.
-      return c.json(
-        {
-          error: {
-            code: "subscription_webhook_processing_failed",
-            message: "Internal error processing subscription event",
-            details: dispatched.error,
-          },
-        },
-        500,
-      );
-    }
-
-    return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200); // @cast-boundary engine-bridge
+    return respondFromDispatch(
+      c,
+      dispatched,
+      "subscription_webhook_processing_failed",
+      "Internal error processing subscription event",
+    );
   };
+}
+
+/** Shared 500/200-mapping for both dispatch branches above. Internal error →
+ *  provider should retry, hence 500 instead of 401/404 (transient, not a config-bug). */
+function respondFromDispatch(
+  c: Context,
+  dispatched: Awaited<ReturnType<SubscriptionWebhookDeps["dispatchWrite"]>>,
+  errorCode: string,
+  errorMessage: string,
+): Response {
+  if (!dispatched.isSuccess) {
+    return c.json(
+      { error: { code: errorCode, message: errorMessage, details: dispatched.error } },
+      500,
+    );
+  }
+  return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200); // @cast-boundary engine-bridge
 }
 
 /**

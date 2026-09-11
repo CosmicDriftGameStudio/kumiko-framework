@@ -109,6 +109,8 @@ describe("constants — Stripe-event-types die wir mappen", () => {
       "customer.subscription.deleted",
       "invoice.paid",
       "invoice.payment_failed",
+      "checkout.session.completed",
+      "checkout.session.async_payment_succeeded",
     ]);
   });
 });

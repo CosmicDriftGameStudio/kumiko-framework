@@ -26,7 +26,7 @@
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import type { SubscriptionEventType, SubscriptionStatus } from "./constants";
+import type { BillingEventKinds, SubscriptionEventType, SubscriptionStatus } from "./constants";
 
 // =============================================================================
 // Normalisierter Webhook-Event
@@ -37,6 +37,12 @@ import type { SubscriptionEventType, SubscriptionStatus } from "./constants";
 // Plugin abstrahiert.
 
 export type SubscriptionEvent = {
+  /** Discriminator against PaymentEvent. Optional (instead of required) so
+   *  existing plugins like subscription-mollie, which don't set this field,
+   *  stay backward-compatible without changes — TS still narrows
+   *  `parsed.kind === BillingEventKinds.payment` correctly, because only
+   *  PaymentEvent["kind"] can take that value. */
+  readonly kind?: typeof BillingEventKinds.subscription;
   /** Provider-eigene Event-ID — UNIQUE-key für Idempotency.
    *  Stripe: "evt_..."; Mollie: payment-id oder subscription-id. */
   readonly providerEventId: string;
@@ -69,37 +75,77 @@ export type SubscriptionEvent = {
 };
 
 // =============================================================================
+// Normalized One-off-Payment-Event
+// =============================================================================
+//
+// Separate type instead of a sixth SubscriptionEventTypes value: a one-off-
+// payment is not a subscription-state transition (no status/tier/
+// currentPeriodEnd — a purchase either happened or it didn't) and
+// materializes into its own `read_payments`-row instead of overwriting the
+// subscription-row. Provider-plugins that don't support one-off-payments
+// (e.g. Mollie-recurring-only) never deliver this type — verifyAndParseWebhook
+// still returns just SubscriptionEvent | null for them, unchanged.
+
+export type PaymentEvent = {
+  /** Required — distinguishes this union member at runtime from
+   *  SubscriptionEvent (whose `kind` is optional and never "payment"). */
+  readonly kind: typeof BillingEventKinds.payment;
+  /** Provider's own event-ID — UNIQUE key for idempotency. */
+  readonly providerEventId: string;
+  /** Discriminator — which plugin delivered this event. */
+  readonly providerName: string;
+  /** Platform-tenant-ID. **Must** come from provider-verified metadata
+   *  (e.g. the PaymentIntent metadata the app itself set at checkout-
+   *  create time) — never from a freely-choosable payload field, or an
+   *  attacker could attribute payments to someone else's tenant. */
+  readonly tenantId: string;
+  /** Provider's own customer-id. */
+  readonly providerCustomerId: string;
+  /** Provider's own price/plan-ID of the purchased item. */
+  readonly priceId: string;
+  /** Raw provider-payload — archived 1:1 into payment-event.rawPayload.
+   *  Plugin delivers this as a JSON-stringified string. */
+  readonly rawPayload: string;
+};
+
+// =============================================================================
 // Plugin-Contract
 // =============================================================================
 
 export type SubscriptionProviderPlugin = {
   /**
    * Verify webhook signature + parse provider-event into normalized
-   * form. **Pre-tenant-resolution** — kein HandlerContext, weil zum
-   * Zeitpunkt des sig-verify der Tenant noch nicht aufgelöst ist
-   * (Plugin macht die Tenant-Resolution selbst aus dem provider-
-   * payload metadata).
+   * form. **Pre-tenant-resolution** — no HandlerContext, because at
+   * sig-verify time the tenant hasn't been resolved yet (the plugin
+   * does the tenant-resolution itself from the provider-payload
+   * metadata).
    *
-   * App-wide-secret = App-Owner's eigener Provider-Account. Der Plugin
-   * liest ihn entweder aus einem mount-time-Closure ODER — zur Laufzeit
-   * rotierbar — aus dem optionalen `systemSecrets`-Arg (system-scoped
-   * SecretsContext, vom webhook-handler durchgereicht). `systemSecrets`
-   * ist undefined, wenn der App-Owner keinen wired; Plugins müssen dann
-   * auf ihren Closure-Fallback zurückfallen.
+   * App-wide-secret = the App-Owner's own provider account. The plugin
+   * reads it either from a mount-time closure OR — rotatable at
+   * runtime — from the optional `systemSecrets` arg (system-scoped
+   * SecretsContext, passed through by the webhook-handler).
+   * `systemSecrets` is undefined when the App-Owner hasn't wired one;
+   * plugins then fall back to their closure fallback.
    *
-   * Returns null für events die der Plugin nicht versteht oder die
-   * foundation nicht braucht (= filter out, foundation returnt 200
+   * Returns null for events the plugin doesn't understand or that the
+   * foundation doesn't need (= filter out, foundation returns 200
    * "ignored").
    *
-   * **Throws** bei sig-mismatch — der webhook-handler mapped das auf
-   * 401 damit der Provider keine retries macht (sig-fail = config-bug,
-   * nicht transient).
+   * **Throws** on sig-mismatch — the webhook-handler maps that to 401
+   * so the provider doesn't retry (sig-fail = config-bug, not
+   * transient).
+   *
+   * Returns `PaymentEvent` for one-off-payment-webhooks (checkout mode
+   * "payment"). Plugins without one-off-payment support never deliver this
+   * union member — the return-type extension is covariant, so a
+   * `Promise<SubscriptionEvent | null>` implementor stays assignable
+   * without any change.
    */
   readonly verifyAndParseWebhook: (
     rawBody: string,
     headers: Record<string, string>,
     systemSecrets?: SecretsContext,
-  ) => Promise<SubscriptionEvent | null>;
+  ) => Promise<SubscriptionEvent | PaymentEvent | null>;
 
   /**
    * **Post-tenant-resolution** — wird aus dem

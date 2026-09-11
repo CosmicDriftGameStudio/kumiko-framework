@@ -2,10 +2,13 @@
 // event-mapping. Wird vom Plugin-Build (feature.ts) als
 // `verifyAndParseWebhook` registriert.
 //
-// **Drei Schritte:**
+// **Steps:**
 //   1. Sig-verify via stripe.webhooks.constructEvent (HMAC-SHA-256
 //      gegen rawBody + Stripe-Signature-Header). Wirft bei mismatch
 //      oder älter als 5min (Replay-Protection).
+//   1b. checkout.session.completed / .async_payment_succeeded branch off
+//       here into a PaymentEvent (one-off-payment, own aggregate) — see
+//       "One-off-payment" section below. Everything else falls through.
 //   2. Event-type-Filter: nur die 5 event-types die wir auf
 //      SubscriptionEventTypes mappen kommen weiter; alles andere
 //      returnt null (foundation antwortet 200 ignored).
@@ -31,8 +34,12 @@
 // returnt der Plugin defensiv null — der nächste subscription-event
 // wird den state korrekt handhaben.
 
-import type { SubscriptionEvent } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import type {
+  PaymentEvent,
+  SubscriptionEvent,
+} from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
+  BillingEventKinds,
   type SubscriptionEventType,
   SubscriptionEventTypes,
   type SubscriptionStatus,
@@ -69,7 +76,7 @@ export function verifyAndParseStripeWebhook(
   rawBody: string,
   headers: Record<string, string>,
   systemSecrets?: SecretsContext,
-) => Promise<SubscriptionEvent | null> {
+) => Promise<SubscriptionEvent | PaymentEvent | null> {
   return async (rawBody, headers, systemSecrets) => {
     const sigHeader = headers["stripe-signature"];
     if (!sigHeader) {
@@ -83,13 +90,24 @@ export function verifyAndParseStripeWebhook(
 
     // 1. Sig-verify. constructEvent throws bei mismatch (= invalid sig)
     //    oder timestamp-tolerance-violation (default 5min). Foundation
-    //    mapped throw → HTTP 401.
+    //    mapped throw → HTTP 401. Applies to BOTH branches below — the
+    //    payment-branch only branches off AFTER this check; there's no
+    //    path that bypasses signature verification.
     let event: Stripe.Event;
     try {
       event = await stripe.webhooks.constructEventAsync(rawBody, sigHeader, webhookSecret);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`subscription-stripe: webhook signature verify failed — ${msg}`);
+    }
+
+    // 1b. One-off-payment events (checkout mode "payment") branch off BEFORE
+    //     the mapStripeEventType filter below — they don't map to a
+    //     SubscriptionEventType and must not touch mapStripeEventType's
+    //     5-item whitelist (drift-pin in verify-webhook.test.ts still
+    //     expects null for "checkout.session.completed").
+    if (isCheckoutSessionEventType(event.type)) {
+      return await parsePaymentEvent(event, stripe);
     }
 
     // 2. Event-type-Filter — wir kennen nur 5.
@@ -246,4 +264,92 @@ async function extractSubscriptionFromEvent(
     default:
       return null;
   }
+}
+
+// =============================================================================
+// One-off-payment (checkout mode "payment") extraction
+// =============================================================================
+
+function isCheckoutSessionEventType(stripeType: string): boolean {
+  return (
+    stripeType === StripeEventTypes.checkoutSessionCompleted ||
+    stripeType === StripeEventTypes.checkoutSessionAsyncPaymentSucceeded
+  );
+}
+
+/** Parses a checkout.session.completed / .async_payment_succeeded event into
+ *  a PaymentEvent, or null if it isn't a paid one-off-payment session. */
+async function parsePaymentEvent(
+  event: Stripe.Event,
+  stripe: Stripe,
+): Promise<PaymentEvent | null> {
+  const session = event.data.object as Stripe.Checkout.Session; // @cast-boundary engine-bridge
+  // mode !== "payment" excludes subscription-checkout sessions (same event types);
+  // payment_status !== "paid" excludes an unpaid/expired session. Null here — not an
+  // error — maps to foundation's 200 "ignored", same as the subscription-path's filters.
+  if (session.mode !== "payment" || session.payment_status !== "paid") {
+    return null;
+  }
+
+  // Lazy-fetch with expand: the raw webhook payload carries neither
+  // line_items (needed for priceId) nor an expanded payment_intent (needed
+  // for tenantId — see below). Same lazy-fetch pattern as
+  // extractSubscriptionFromEvent's invoice-branch above, same defensive
+  // null on API failure (session gone/expired between webhook + retrieve).
+  let expanded: Stripe.Checkout.Session;
+  try {
+    expanded = await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["line_items", "payment_intent"],
+    });
+  } catch {
+    return null;
+  }
+
+  // Tenant-resolution: mode:"payment" checkout sessions carry tenantId on
+  // the PaymentIntent's OWN metadata (plugin-methods.ts sets it via
+  // payment_intent_data.metadata), NOT on session-level metadata —
+  // session.metadata is unset for this mode. Reading it off the expanded,
+  // Stripe-verified PaymentIntent (not a freely-choosable payload field) is
+  // what keeps tenant-attribution trustworthy: the webhook signature proves
+  // this whole object chain came from Stripe, and the metadata itself was
+  // set by our own backend at checkout-creation time.
+  const paymentIntent = expanded.payment_intent;
+  if (!paymentIntent || typeof paymentIntent === "string") {
+    // Not expanded (Stripe-API-drift) or absent — no verified tenant-claim
+    // to trust. Drop silent, same as the subscription-path's missing-
+    // metadata case.
+    return null;
+  }
+  const tenantId = paymentIntent.metadata?.["tenantId"];
+  if (!tenantId || tenantId.length === 0) {
+    return null;
+  }
+
+  const priceId = expanded.line_items?.data[0]?.price?.id;
+  if (!priceId) {
+    return null;
+  }
+
+  // providerCustomerId: session.customer is null for guest checkouts (no
+  // customer_creation configured) — fall back to the PaymentIntent's own
+  // customer, which Stripe sets independently of the session-level field.
+  const sessionCustomer = expanded.customer;
+  const providerCustomerId =
+    (typeof sessionCustomer === "string" ? sessionCustomer : sessionCustomer?.id) ??
+    (typeof paymentIntent.customer === "string"
+      ? paymentIntent.customer
+      : paymentIntent.customer?.id);
+  if (!providerCustomerId) {
+    return null;
+  }
+
+  return {
+    kind: BillingEventKinds.payment,
+    providerEventId: event.id,
+    providerName: STRIPE_PROVIDER_NAME,
+    tenantId,
+    providerCustomerId,
+    priceId,
+    rawPayload: JSON.stringify(event),
+  };
 }

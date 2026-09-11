@@ -1,7 +1,7 @@
 // feature.ts contract tests for subscription-foundation.
 
 import { describe, expect, test } from "bun:test";
-import { subscriptionAggregateId } from "../aggregate-id";
+import { paymentAggregateId, paymentRowId, subscriptionAggregateId } from "../aggregate-id";
 import {
   BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
@@ -84,6 +84,14 @@ describe("billingFoundationFeature — events + projection + handlers registered
 describe("aggregate-id namespace — drift-pin", () => {
   test("subscriptionAggregateId stable per tenantId", () => {
     expect(subscriptionAggregateId("tenant-1")).toBe("bfe0d98f-293c-5215-af7a-3282629aa5d3");
+  });
+
+  test("paymentAggregateId stable per tenantId", () => {
+    expect(paymentAggregateId("tenant-1")).toBe("ea425f43-38a8-53c5-98b2-084affd718c1");
+  });
+
+  test("paymentRowId stable per (tenantId, providerName, providerEventId)", () => {
+    expect(paymentRowId("tenant-1", "mock", "evt_1")).toBe("51117d31-4394-5f4e-a123-b30bc37f30b8");
   });
 });
 

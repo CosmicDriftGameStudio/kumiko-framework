@@ -22,7 +22,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEventsTable,
   isStreamArchived,
@@ -36,6 +36,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { Hono } from "hono";
 import {
   ComplianceProfileHandlers,
   createComplianceProfilesFeature,
@@ -44,16 +45,18 @@ import {
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { subscriptionAggregateId } from "../aggregate-id";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id";
 import {
+  BillingEventKinds,
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
 import { billingFoundationFeature } from "../feature";
-import { subscriptionsProjectionTable } from "../projection";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection";
 import { subscriptionTenantDestroyHook } from "../tenant-destroy-hook";
-import type { SubscriptionProviderPlugin } from "../types";
+import type { PaymentEvent, SubscriptionProviderPlugin } from "../types";
+import { createSubscriptionWebhookHandler } from "../webhook-handler";
 
 // =============================================================================
 // Mock-plugin für create-checkout-session + create-portal-session-Tests.
@@ -98,12 +101,35 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
   r.useExtension("subscriptionProvider", "mock", plugin);
 });
 
+// Second mock provider — parses its rawBody straight into a PaymentEvent
+// (no real Stripe-signing needed here, that's subscription-stripe's job).
+// Exercises the webhook-handler's payment branch end-to-end (scenario 11).
+const mockPaymentProviderFeature = defineFeature("test-mock-payment-provider", (r) => {
+  r.requires("billing-foundation");
+  const plugin: SubscriptionProviderPlugin = {
+    verifyAndParseWebhook: async (rawBody): Promise<PaymentEvent | null> => {
+      const parsed = JSON.parse(rawBody) as Record<string, string>;
+      return {
+        kind: BillingEventKinds.payment,
+        providerEventId: parsed["providerEventId"] ?? "evt_mock_payment",
+        providerName: "mock-payment",
+        tenantId: parsed["tenantId"] ?? "tenant-mock",
+        providerCustomerId: parsed["providerCustomerId"] ?? "cus_mock",
+        priceId: parsed["priceId"] ?? "price_mock",
+        rawPayload: rawBody,
+      };
+    },
+  };
+  r.useExtension("subscriptionProvider", "mock-payment", plugin);
+});
+
 // =============================================================================
 // Setup
 // =============================================================================
 
 let stack: TestStack;
 let db: DbConnection;
+let paymentWebhookApp: Hono;
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -114,6 +140,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       billingFoundationFeature,
       mockProviderFeature,
+      mockPaymentProviderFeature,
     ],
   });
   db = stack.db;
@@ -126,6 +153,34 @@ beforeAll(async () => {
   // see feature.ts), so process-event.write.ts calls configuredPiiSubjectKms()
   // directly and needs one configured, same as run{Prod,Dev}App do at boot.
   configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+  // Webhook-app for scenario 11 — same mountWebhook shape as
+  // stripe-foundation.integration.test.ts, exercising the real
+  // createSubscriptionWebhookHandler payment-branch (webhook-handler.ts).
+  paymentWebhookApp = new Hono();
+  paymentWebhookApp.post(
+    "/api/subscription/webhook/:providerName",
+    createSubscriptionWebhookHandler({
+      dispatchWrite: async ({ handlerQn, payload, tenantId }) => {
+        const systemUser = createTestUser({
+          id: 1,
+          tenantId: tenantId as TenantId,
+          roles: ["SystemAdmin"],
+        });
+        const res = await stack.http.write(handlerQn, payload, systemUser);
+        const body = await res.json();
+        return body.isSuccess
+          ? { isSuccess: true, data: body.data }
+          : { isSuccess: false, error: body.error };
+      },
+      resolveProvider: (providerName) => {
+        const usage = stack.registry
+          .getExtensionUsages("subscriptionProvider")
+          .find((u) => u.entityName === providerName);
+        return usage?.options as SubscriptionProviderPlugin | undefined;
+      },
+    }),
+  );
 });
 
 afterAll(async () => {
@@ -806,4 +861,167 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
   // and its custom-event catalog only supports user-subject fields
   // (`{kind: "user"}`), not the tenant-subject fields billing uses. Closing
   // that gap is new framework capability, not a wiring fix.
+});
+
+// =============================================================================
+// Scenario 11 — one-off payments (fw#2791): own aggregate, own
+// read_payments-row, idempotent like process-event above.
+// =============================================================================
+
+function buildPaymentEventPayload(
+  overrides: Partial<{
+    providerEventId: string;
+    providerCustomerId: string;
+    priceId: string;
+    rawPayload: string;
+  }> = {},
+) {
+  return {
+    providerEventId: overrides.providerEventId ?? "evt_payment_default",
+    providerName: "stripe",
+    providerCustomerId: overrides.providerCustomerId ?? "cus_payment_default",
+    priceId: overrides.priceId ?? "price_topup_test",
+    rawPayload: overrides.rawPayload ?? '{"raw":"payment-payload"}',
+  };
+}
+
+describe("scenario 11: one-off payment — own aggregate, own read_payments-row", () => {
+  test("first payment for tenant → read_payments-row created, duplicate=false", async () => {
+    const admin = adminFor(4001);
+    const result = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({
+        providerEventId: "evt_4001_payment",
+        providerCustomerId: "cus_4001",
+        priceId: "price_topup_test",
+      }),
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["duplicate"]).toBe(false);
+    expect(result["paymentAggregateId"]).toBe(paymentAggregateId(admin.tenantId));
+
+    const rows = await selectMany<{ tenantId: string; priceId: string; providerName: string }>(
+      db,
+      paymentsProjectionTable,
+      { tenantId: admin.tenantId },
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.priceId).toBe("price_topup_test");
+    expect(rows[0]?.providerName).toBe("stripe");
+  });
+
+  test("idempotency: second call with same providerEventId → duplicate=true, no second row", async () => {
+    const admin = adminFor(4002);
+
+    const first = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({
+        providerEventId: "evt_4002_retry",
+        providerCustomerId: "cus_4002",
+      }),
+      admin,
+    )) as Record<string, unknown>;
+    expect(first["duplicate"]).toBe(false);
+
+    const second = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({
+        providerEventId: "evt_4002_retry",
+        providerCustomerId: "cus_4002",
+        priceId: "price_should_be_ignored",
+      }),
+      admin,
+    )) as Record<string, unknown>;
+    expect(second["duplicate"]).toBe(true);
+
+    const rows = await selectMany(db, paymentsProjectionTable, { tenantId: admin.tenantId });
+    expect(rows).toHaveLength(1); // dedup'd — no second row
+
+    const esEvents = await loadAggregate(db, paymentAggregateId(admin.tenantId), admin.tenantId);
+    expect(esEvents).toHaveLength(1);
+  });
+
+  test("second payment for the same tenant → second row (payments are facts, not state — no upsert)", async () => {
+    const admin = adminFor(4003);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({
+        providerEventId: "evt_4003_first",
+        providerCustomerId: "cus_4003",
+      }),
+      admin,
+    );
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({
+        providerEventId: "evt_4003_second",
+        providerCustomerId: "cus_4003",
+      }),
+      admin,
+    );
+
+    const rows = await selectMany(db, paymentsProjectionTable, { tenantId: admin.tenantId });
+    expect(rows).toHaveLength(2);
+  });
+
+  test("idempotency anchor is tenant-scoped — same providerEventId for TWO tenants is NOT duplicate, each gets its own row", async () => {
+    // Same shape as scenario 4's cross-tenant pin: two tenants can
+    // legitimately see the same providerEventId (multiple Stripe accounts,
+    // test/prod mix). paymentRowId includes tenantId in its key — without
+    // that, the second INSERT would silently no-op (ON CONFLICT DO NOTHING)
+    // against the first tenant's row instead of creating its own.
+    const adminA = adminFor(4005);
+    const adminB = adminFor(4006);
+    const SHARED_EVT = "evt_shared_payment_id";
+
+    const a = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({ providerEventId: SHARED_EVT, providerCustomerId: "cus_a_shared" }),
+      adminA,
+    )) as Record<string, unknown>;
+    const b = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      buildPaymentEventPayload({ providerEventId: SHARED_EVT, providerCustomerId: "cus_b_shared" }),
+      adminB,
+    )) as Record<string, unknown>;
+
+    expect(a["duplicate"]).toBe(false);
+    expect(b["duplicate"]).toBe(false);
+
+    const rowsA = await selectMany(db, paymentsProjectionTable, { tenantId: adminA.tenantId });
+    const rowsB = await selectMany(db, paymentsProjectionTable, { tenantId: adminB.tenantId });
+    expect(rowsA).toHaveLength(1);
+    expect(rowsB).toHaveLength(1);
+  });
+
+  test("webhook-handler payment-branch (createSubscriptionWebhookHandler): POST → row, retry POST → duplicate:true, still one row", async () => {
+    const tenantId = testTenantId(4004);
+    const body = JSON.stringify({
+      providerEventId: "evt_webhook_payment_001",
+      tenantId,
+      providerCustomerId: "cus_webhook_4004",
+      priceId: "price_webhook_test",
+    });
+
+    const first = await paymentWebhookApp.request("/api/subscription/webhook/mock-payment", {
+      method: "POST",
+      body,
+    });
+    expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as Record<string, unknown>;
+    expect(firstBody["processed"]).toBe(true);
+    expect(firstBody["duplicate"]).toBe(false);
+
+    const second = await paymentWebhookApp.request("/api/subscription/webhook/mock-payment", {
+      method: "POST",
+      body,
+    });
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as Record<string, unknown>;
+    expect(secondBody["duplicate"]).toBe(true);
+
+    const rows = await selectMany(db, paymentsProjectionTable, { tenantId });
+    expect(rows).toHaveLength(1);
+  });
 });
