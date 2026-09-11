@@ -158,6 +158,55 @@ describe("cap-overview tenant isolation", () => {
   });
 });
 
+describe("cap-overview my-caps for regular tenant members", () => {
+  test("a regular User(A) reads A's own usage, not a 403", async () => {
+    const memberA = createTestUser({ id: 90041, tenantId: TENANT_A, roles: ["User"] });
+    const result = await stack.http.queryOk<{
+      rows: readonly { id: string; used: number | null }[];
+    }>(CapOverviewQueries.capsUsage, {}, memberA);
+    const widgetsRow = result.rows.find((row) => row.id === testCap.id);
+    expect(widgetsRow?.used).toBe(USAGE_BY_TENANT[TENANT_A]);
+  });
+
+  test("an Editor(B) reads B's own usage, not A's", async () => {
+    const editorB = createTestUser({ id: 90042, tenantId: TENANT_B, roles: ["Editor"] });
+    const result = await stack.http.queryOk<{
+      rows: readonly { id: string; used: number | null }[];
+    }>(CapOverviewQueries.capsUsage, {}, editorB);
+    const widgetsRow = result.rows.find((row) => row.id === testCap.id);
+    expect(widgetsRow?.used).toBe(USAGE_BY_TENANT[TENANT_B]);
+    expect(widgetsRow?.used).not.toBe(USAGE_BY_TENANT[TENANT_A]);
+  });
+
+  test("a regular User(A) cannot read tenant B's usage via override", async () => {
+    const memberA = createTestUser({ id: 90043, tenantId: TENANT_A, roles: ["User"] });
+    const res = await stack.http.query(
+      CapOverviewQueries.capsUsage,
+      { tenantId: TENANT_B },
+      memberA,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  test("a regular User(A) cannot list all tenants", async () => {
+    const memberA = createTestUser({ id: 90044, tenantId: TENANT_A, roles: ["User"] });
+    const res = await stack.http.query(CapOverviewQueries.tenantCapsList, {}, memberA);
+    expect(res.status).toBe(403);
+  });
+
+  test("a regular User(A) cannot enumerate tenant names via the platform picker", async () => {
+    const memberA = createTestUser({ id: 90045, tenantId: TENANT_A, roles: ["User"] });
+    const res = await stack.http.query(CapOverviewQueries.tenantOptions, {}, memberA);
+    expect(res.status).toBe(403);
+  });
+
+  test("an unranked app role still cannot reach my-caps", async () => {
+    const viewerA = createTestUser({ id: 90046, tenantId: TENANT_A, roles: ["Viewer"] });
+    const res = await stack.http.query(CapOverviewQueries.capsUsage, {}, viewerA);
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("cap-overview tier filter operators", () => {
   test("op:ne excludes tenants matching the value, not just those matching it", async () => {
     const sysAdmin = createTestUser({ id: 90017, tenantId: TENANT_A, roles: ["SystemAdmin"] });

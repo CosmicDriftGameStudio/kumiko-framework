@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFoundationFeature } from "../../billing-foundation";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config/feature";
 import { createTenantFeature } from "../../tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { tierEngineFeature } from "../../tier-engine";
+import { MY_CAPS_ACCESS_ROLES } from "../access";
 import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
@@ -56,6 +58,29 @@ describe("cap-overview boot", () => {
     expect(feature.screens[TENANT_CAP_LIST_SCREEN_ID]?.type).toBe("projectionList");
     expect(feature.screens[MY_CAPS_SCREEN_ID]?.type).toBe("dashboard");
     expect(feature.screens[PLATFORM_TENANT_CAPS_SCREEN_ID]?.type).toBe("dashboard");
+  });
+
+  test("my-caps screen and the query filling its cards carry the SAME rule", () => {
+    const feature = createCapOverviewFeature({ caps: [testCap] });
+    expect(rolesOf(feature.screens[MY_CAPS_SCREEN_ID]?.access)).toEqual([...MY_CAPS_ACCESS_ROLES]);
+    expect(rolesOf(feature.queryHandlers["caps:usage"]?.access)).toEqual([...MY_CAPS_ACCESS_ROLES]);
+  });
+
+  test("my-caps stays reachable for every role that reached it before", () => {
+    for (const role of access.admin) {
+      expect(MY_CAPS_ACCESS_ROLES).toContain(role);
+    }
+    expect(MY_CAPS_ACCESS_ROLES).toContain("User");
+  });
+
+  test("the platform-wide screens and their queries stay SystemAdmin-only", () => {
+    const feature = createCapOverviewFeature({ caps: [testCap] });
+    expect(rolesOf(feature.screens[TENANT_CAP_LIST_SCREEN_ID]?.access)).toEqual(["SystemAdmin"]);
+    expect(rolesOf(feature.screens[PLATFORM_TENANT_CAPS_SCREEN_ID]?.access)).toEqual([
+      "SystemAdmin",
+    ]);
+    expect(rolesOf(feature.queryHandlers["tenant-caps:list"]?.access)).toEqual(["SystemAdmin"]);
+    expect(rolesOf(feature.queryHandlers["tenant-options"]?.access)).toEqual(["SystemAdmin"]);
   });
 
   test("tenant-cap-list facet field is a declared column and the list handler schema accepts filters", () => {

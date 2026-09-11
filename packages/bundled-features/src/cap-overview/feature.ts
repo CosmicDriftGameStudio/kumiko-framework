@@ -5,8 +5,8 @@
 //      platform-wide table of every tenant's tier, billing status, and
 //      usage against a configurable set of caps.
 //   2. caps:usage query + my-caps / platform-tenant-caps dashboards —
-//      per-tenant usage cards. TenantAdmin sees their own tenant;
-//      SystemAdmin can additionally view any tenant via `tenantId`.
+//      per-tenant usage cards. Every member of a tenant sees their own
+//      tenant; SystemAdmin can additionally view any tenant via `tenantId`.
 //
 // **What this feature does NOT do:**
 //   - No writes. Reads tier-engine's read_tier_assignments, billing-
@@ -52,7 +52,7 @@ export function createCapOverviewFeature(opts: CreateCapOverviewOptions): Featur
 
   return defineFeature(CAP_OVERVIEW_FEATURE, (r) => {
     r.describe(
-      "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; TenantAdmin gets their own usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
+      "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; every member of a tenant gets their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
     );
     r.uiHints({
       displayLabel: "Cap Overview · Tier & Usage Visibility",

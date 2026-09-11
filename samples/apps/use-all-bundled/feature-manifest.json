@@ -307,7 +307,7 @@
     },
     {
       "name": "cap-overview",
-      "description": "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; TenantAdmin gets their own usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
+      "description": "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; every member of a tenant gets their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
       "toggleableDefault": null,
       "requires": [
         "tenant",

@@ -1,5 +1,6 @@
 // Public API of the cap-overview bundled-feature.
 
+export { MY_CAPS_ACCESS_ROLES } from "./access";
 export {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_OVERVIEW_FEATURE,
