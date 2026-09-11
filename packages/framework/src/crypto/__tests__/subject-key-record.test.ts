@@ -76,9 +76,9 @@ describe("record subject key round-trip", () => {
 
 describe("resolveSubjectForField: recordOwned fail-closed", () => {
   test("recordOwned field without opts.entityName throws", () => {
-    expect(() => resolveSubjectForField(recordEntity, "body", { id: UUID_A })).toThrow(
-      SubjectResolutionError,
-    );
+    expect(() =>
+      resolveSubjectForField(recordEntity, "body", { id: UUID_A }, { entityName: "" }),
+    ).toThrow(SubjectResolutionError);
   });
 
   test("recordOwned field with row missing id throws", () => {

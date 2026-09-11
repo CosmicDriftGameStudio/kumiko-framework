@@ -333,6 +333,7 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
         ["email", "displayName"],
         kms,
         { requestId: "test" },
+        { entityName: "user" },
       );
       await asRawClient(stack.db).unsafe(
         `UPDATE read_users SET email = $1, display_name = $2 WHERE id = $3`,
@@ -366,6 +367,7 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
       ["email"],
       kms,
       { requestId: "test" },
+      { entityName: "user" },
     );
     await asRawClient(stack.db).unsafe(`UPDATE read_users SET email = $1 WHERE id = $2`, [
       String(encrypted["email"]),
@@ -414,6 +416,7 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
       ["email"],
       kms,
       { requestId: "test" },
+      { entityName: "user" },
     );
     await asRawClient(stack.db).unsafe(`UPDATE read_users SET email = $1 WHERE id = $2`, [
       String(encryptedUser["email"]),
@@ -550,6 +553,7 @@ describe("runUserExport :: fileRef PII export via the fileRefs side-channel (#19
       ["fileName"],
       kms,
       { requestId: "test" },
+      { entityName: "fileRef" },
     );
     await asRawClient(stack.db).unsafe(
       `

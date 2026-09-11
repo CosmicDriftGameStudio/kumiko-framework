@@ -80,10 +80,14 @@ export const connectAccountHandler: WriteHandlerDef = {
     const piiKms = configuredPiiSubjectKms();
     const plainPii = { tenantId, address: payload.address };
     const encryptedFields = piiKms
-      ? await encryptPiiFieldValues(plainPii, mailAccountEntity, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
-          requestId: `inbound-mail-foundation:connect-account:${accountId}`,
-          tenantId,
-        })
+      ? await encryptPiiFieldValues(
+          plainPii,
+          mailAccountEntity,
+          MAIL_ACCOUNT_PII_FIELDS,
+          piiKms,
+          { requestId: `inbound-mail-foundation:connect-account:${accountId}`, tenantId },
+          { tenantId, entityName: MAIL_ACCOUNT_AGGREGATE_TYPE },
+        )
       : plainPii;
 
     const eventPayload: MailAccountEventPayload = {

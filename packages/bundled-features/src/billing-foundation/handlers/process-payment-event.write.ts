@@ -84,6 +84,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
             requestId: `billing-foundation:process-payment-event:${payload.providerEventId}`,
             tenantId,
           },
+          { tenantId, entityName: PAYMENT_AGGREGATE_TYPE },
         )
       : { providerCustomerId: payload.providerCustomerId };
 

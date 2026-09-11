@@ -21,7 +21,7 @@ export interface ResolveSubjectOptions {
   readonly tenantId?: TenantId;
   // Canonical source is the registry entity name (executor `entityName` /
   // event `aggregate_type`) — required to resolve recordOwned fields.
-  readonly entityName?: string;
+  readonly entityName: string;
 }
 
 function nonEmptyString(value: unknown): string | null {
@@ -101,7 +101,7 @@ export function resolveSubjectForField(
   entity: EntityDefinition,
   fieldName: string,
   row: Record<string, unknown>,
-  opts: ResolveSubjectOptions = {},
+  opts: ResolveSubjectOptions,
 ): SubjectId | null {
   const field = entity.fields[fieldName];
   if (!field) throw new SubjectResolutionError(fieldName, "field is not defined on the entity");

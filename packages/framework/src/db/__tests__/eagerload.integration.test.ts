@@ -147,9 +147,14 @@ beforeAll(async () => {
     email: "grace@acme.test",
     iban: "DE12345",
   };
-  const piiEncrypted = await encryptPiiFieldValues(plainContact, contactEntity, ["email"], kms, {
-    requestId: "test",
-  });
+  const piiEncrypted = await encryptPiiFieldValues(
+    plainContact,
+    contactEntity,
+    ["email"],
+    kms,
+    { requestId: "test" },
+    { entityName: "contact" },
+  );
   const encrypted = await encryptEntityFieldValues(
     piiEncrypted,
     collectEncryptedFieldNames(contactEntity),
@@ -170,6 +175,7 @@ beforeAll(async () => {
     ["email"],
     kms,
     { requestId: "test" },
+    { entityName: "owned-contact" },
   );
   const ownedEncrypted = await encryptEntityFieldValues(
     ownedPiiEncrypted,

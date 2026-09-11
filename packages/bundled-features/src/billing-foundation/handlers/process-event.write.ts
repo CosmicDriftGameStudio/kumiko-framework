@@ -155,6 +155,7 @@ export const processEventHandler: WriteHandlerDef = {
           SUBSCRIPTION_PII_FIELDS,
           piiKms,
           { requestId: `billing-foundation:process-event:${payload.providerEventId}`, tenantId },
+          { tenantId, entityName: SUBSCRIPTION_AGGREGATE_TYPE },
         )
       : {
           providerCustomerId: payload.providerCustomerId,

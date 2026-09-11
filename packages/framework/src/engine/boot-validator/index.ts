@@ -52,6 +52,7 @@ import {
 } from "./projection-list-screens";
 import { validateQueryOutputColumns } from "./query-output-columns";
 import { validateQueryRefs } from "./query-refs";
+import { validateRecordOwnedSubjects } from "./record-owned";
 import {
   collectScreenQns,
   collectScreensByShortId,
@@ -174,6 +175,7 @@ export function validateBoot(
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
     if (validateFileFields(feature)) hasFileFields = true;
     validatePiiAndRetention(feature);
+    validateRecordOwnedSubjects(feature);
     validateApiExposureMatching(feature, allExposedApis, featureMap);
     validateEmbeddedFields(feature, featureMap);
     validateMultiSelectFields(feature);

@@ -12,12 +12,18 @@ import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/engine";
 // true } at the registration site (enforced by the registry, #820).
 export async function encryptForDirectWrite(
   entity: EntityDefinition,
+  entityName: string,
   row: Record<string, unknown>,
   fallbackRequestId: string,
 ): Promise<Record<string, unknown>> {
   const kms = configuredPiiSubjectKms();
   if (!kms) return row;
-  return encryptPiiFieldValues(row, entity, collectPiiSubjectFields(entity), kms, {
-    requestId: requestContext.get()?.requestId ?? fallbackRequestId,
-  });
+  return encryptPiiFieldValues(
+    row,
+    entity,
+    collectPiiSubjectFields(entity),
+    kms,
+    { requestId: requestContext.get()?.requestId ?? fallbackRequestId },
+    { entityName },
+  );
 }
