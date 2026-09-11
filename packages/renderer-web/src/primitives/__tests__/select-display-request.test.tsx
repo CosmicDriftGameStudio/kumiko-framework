@@ -10,8 +10,8 @@ import { defaultPrimitives } from "../index";
 
 const { Field, Input } = defaultPrimitives;
 
-// Six options, every label past the 14-char threshold — the heuristic would
-// render a dropdown for these.
+// Six options, past the heuristic's four-option threshold — it would render a
+// dropdown for these.
 const HEURISTIC_REJECTS = [
   "Background Jobs Queue",
   "Inbound Mail Processing",
@@ -21,7 +21,7 @@ const HEURISTIC_REJECTS = [
   "Search Index Rebuild",
 ];
 
-// Three short labels — the heuristic would render the radio group for these.
+// Three options — the heuristic would render the radio group for these.
 const HEURISTIC_ACCEPTS = ["Draft", "Review", "Done"];
 
 function renderSelect(
