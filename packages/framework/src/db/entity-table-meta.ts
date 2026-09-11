@@ -338,13 +338,20 @@ export function deriveEntityTableMeta(
     );
     const suffix = def.unique === true ? "unique" : "idx";
     const indexName = def.name ?? `${tableName}_${cols.join("_")}_${suffix}`;
-    const whereSql = sqlExpressionText(def.where);
+    const explicitWhereSql = sqlExpressionText(def.where);
+    // Soft-deleted rows keep their value, so a full unique index would
+    // permanently block reuse; kept in lock-step with table-builder.ts (framework#2593).
+    const whereSql =
+      explicitWhereSql ??
+      (def.where === undefined && def.unique === true && entity.softDelete === true
+        ? `"is_deleted" = false`
+        : undefined);
     indexes.push({
       name: indexName,
       columns: cols,
       ...(def.unique === true && { unique: true }),
       ...(whereSql !== undefined && { whereSql }),
-      ...(def.where !== undefined && whereSql === undefined && { needsManualWhere: true }),
+      ...(def.where !== undefined && explicitWhereSql === undefined && { needsManualWhere: true }),
     });
     // Unique index over lookupable columns: partial bidx counterpart, so
     // uniqueness also holds for encrypted rows. The original stays
