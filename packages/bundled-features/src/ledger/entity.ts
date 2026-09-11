@@ -19,12 +19,17 @@ export const accountEntity = createEntity({
   description:
     "One node of a tenant's chart of accounts: a name, an asset/liability/equity/income/expense type that decides how reports read its balance, an optional account code and an optional parent account forming the account tree; balances are derived from postings, never stored here.",
   fields: {
-    name: createTextField({ required: true, maxLength: 120 }),
+    name: createTextField({
+      required: true,
+      maxLength: 120,
+      personal: false,
+      reason: "is_business_data",
+    }),
     type: createSelectField({ options: ACCOUNT_TYPES, required: true }),
     // Optional account number (Kontonummer / SKR code) — free text in v1.
-    code: createTextField({ maxLength: 32 }),
+    code: createTextField({ maxLength: 32, personal: false, reason: "technical_reference" }),
     // Parent account id, or absent for a root account. No FK (event-sourced).
-    parentId: createTextField({ maxLength: 64 }),
+    parentId: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
   },
 });
 
@@ -52,8 +57,13 @@ export const transactionEntity = createEntity({
       personal: false,
       reason: "is_business_data",
     }),
-    // For a Storno entry this points at the reversed transaction's id.
-    reference: createTextField({ maxLength: 120 }),
+    // Free-text memo (a reversal or confirmed schedule period overwrites it with
+    // a system-generated id, but a manual entry can carry caller-supplied text).
+    reference: createTextField({
+      maxLength: 120,
+      personal: false,
+      reason: "is_business_data",
+    }),
     status: createSelectField({ options: TRANSACTION_STATUS, required: true }),
     // Posting lines are born with the entry and never change on their own —
     // a correction is a new (reversing) entry. The embedded list validates
@@ -94,7 +104,17 @@ export const scheduleEntity = createEntity({
     endDate: createDateField(),
     interval: createSelectField({ options: SCHEDULE_INTERVALS, required: true }),
     amount: createNumberField({ required: true, min: 1, integer: true }),
-    debitAccountId: createTextField({ required: true, maxLength: 64 }),
-    creditAccountId: createTextField({ required: true, maxLength: 64 }),
+    debitAccountId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    creditAccountId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
