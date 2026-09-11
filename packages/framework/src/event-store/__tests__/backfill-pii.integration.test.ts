@@ -51,24 +51,31 @@ const crmFeature = defineFeature("crm", (r) => {
   r.entity("contact", contactEntity);
 });
 
+// Qualified event-type strings are kebab-case (qn/toKebab, feature-config-
+// events-jobs.ts) — captured from defineEvent's own return value instead of
+// hand-written, so a camelCase event name (tenantNote → tenant-note) can
+// never drift from what the catalog is actually keyed by (fw#2801).
+let PING_EVENT_TYPE: string;
 const mailerFeature = defineFeature("mailer", (r) => {
-  r.defineEvent(
+  PING_EVENT_TYPE = r.defineEvent(
     "ping",
     z.object({ targetId: z.string().nullable(), address: z.string().nullable() }),
     { piiFields: { address: { subjectField: "targetId" } } },
-  );
+  ).name;
 });
 
 // fw#2801 step 2: custom events declaring a tenant/self subject — no entity,
 // pure catalog events — proving the catalog branch resolves through the
 // same resolveEventSubject the live append path uses.
+let TENANT_NOTE_EVENT_TYPE: string;
+let SELF_NOTE_EVENT_TYPE: string;
 const signalsFeature = defineFeature("signals", (r) => {
-  r.defineEvent("tenantNote", z.object({ note: z.string().nullable() }), {
+  TENANT_NOTE_EVENT_TYPE = r.defineEvent("tenantNote", z.object({ note: z.string().nullable() }), {
     piiFields: { note: { personal: "tenant" } },
-  });
-  r.defineEvent("selfNote", z.object({ note: z.string().nullable() }), {
+  }).name;
+  SELF_NOTE_EVENT_TYPE = r.defineEvent("selfNote", z.object({ note: z.string().nullable() }), {
     piiFields: { note: { personal: "self" } },
-  });
+  }).name;
 });
 
 // personal: { of } (not "self") — the named owner field can legitimately be
@@ -238,15 +245,15 @@ describe("backfillEventPiiEncryption", () => {
     const p1 = generateId();
     const p2 = generateId();
     const p3 = generateId();
-    await appendPlain(p1, "ping", "mailer:event:ping", {
+    await appendPlain(p1, "ping", PING_EVENT_TYPE, {
       targetId: "u-7",
       address: "u7@x.com",
     });
-    await appendPlain(p2, "ping", "mailer:event:ping", {
+    await appendPlain(p2, "ping", PING_EVENT_TYPE, {
       targetId: forgottenUser,
       address: "f@x.com",
     });
-    await appendPlain(p3, "ping", "mailer:event:ping", { targetId: null, address: "ops@x.com" });
+    await appendPlain(p3, "ping", PING_EVENT_TYPE, { targetId: null, address: "ops@x.com" });
 
     armKms();
     const result = await backfillEventPiiEncryption(testDb.db, registry);
@@ -404,7 +411,7 @@ describe("backfillEventPiiEncryption", () => {
 
   test("dryRun over a catalogued custom event mints no key for its payload-resolved subject", async () => {
     const p1 = generateId();
-    await appendPlain(p1, "ping", "mailer:event:ping", {
+    await appendPlain(p1, "ping", PING_EVENT_TYPE, {
       targetId: "u-7",
       address: "u7@x.com",
     });
@@ -758,7 +765,7 @@ describe("backfillEventPiiEncryption: raw jsonb column type (fw#2253)", () => {
 describe("backfillEventPiiEncryption: catalog subject kinds match live append (fw#2801)", () => {
   test("user subject: backfill and live append encrypt under the same subject key", async () => {
     const preKmsId = generateId();
-    await appendPlain(preKmsId, "ping", "mailer:event:ping", {
+    await appendPlain(preKmsId, "ping", PING_EVENT_TYPE, {
       targetId: "u-42",
       address: "pre-kms@x.com",
     });
@@ -770,7 +777,7 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
       aggregateType: "ping",
       tenantId: TENANT,
       expectedVersion: 0,
-      type: "mailer:event:ping",
+      type: PING_EVENT_TYPE,
       payload: { targetId: "u-42", address: "live@x.com" },
       metadata: { userId: "system" },
     });
@@ -791,7 +798,7 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
 
   test("tenant subject: backfill and live append encrypt under the same subject key", async () => {
     const preKmsId = generateId();
-    await appendPlain(preKmsId, "signal", "signals:event:tenantNote", { note: "pre-kms" });
+    await appendPlain(preKmsId, "signal", TENANT_NOTE_EVENT_TYPE, { note: "pre-kms" });
 
     armKms();
     const liveId = generateId();
@@ -800,7 +807,7 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
       aggregateType: "signal",
       tenantId: TENANT,
       expectedVersion: 0,
-      type: "signals:event:tenantNote",
+      type: TENANT_NOTE_EVENT_TYPE,
       payload: { note: "live" },
       metadata: { userId: "system" },
     });
@@ -821,7 +828,7 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
 
   test("self (record) subject: backfill and live append encrypt each under its own aggregate's key", async () => {
     const preKmsId = generateId();
-    await appendPlain(preKmsId, "signal", "signals:event:selfNote", { note: "pre-kms" });
+    await appendPlain(preKmsId, "signal", SELF_NOTE_EVENT_TYPE, { note: "pre-kms" });
 
     armKms();
     const liveId = generateId();
@@ -830,7 +837,7 @@ describe("backfillEventPiiEncryption: catalog subject kinds match live append (f
       aggregateType: "signal",
       tenantId: TENANT,
       expectedVersion: 0,
-      type: "signals:event:selfNote",
+      type: SELF_NOTE_EVENT_TYPE,
       payload: { note: "live" },
       metadata: { userId: "system" },
     });
