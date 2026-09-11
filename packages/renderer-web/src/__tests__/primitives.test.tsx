@@ -1832,6 +1832,16 @@ describe("Stack", () => {
   });
 });
 
+// Padding utilities of one element, sorted — every screen container must
+// resolve to the same set (fw#2640).
+const paddingClasses = (el: Element | null | undefined): string[] =>
+  (el?.className ?? "")
+    .split(" ")
+    .filter((c) => /^p[xytblr]?-/.test(c))
+    .sort();
+
+const paddingOf = (testId: string): string[] => paddingClasses(screen.getByTestId(testId));
+
 describe("PageSection", () => {
   test("wrappt children mit einheitlichem Padding", () => {
     render(
@@ -1850,12 +1860,6 @@ describe("PageSection", () => {
         <FormScreenShell testId="shell-pad">x</FormScreenShell>
       </>,
     );
-    const paddingOf = (testId: string): string[] =>
-      screen
-        .getByTestId(testId)
-        .className.split(" ")
-        .filter((c) => /^p[xytblr]?-/.test(c))
-        .sort();
     expect(paddingOf("page-pad")).toEqual(["pb-12", "pt-6", "px-6"]);
     expect(paddingOf("page-pad")).toEqual(paddingOf("shell-pad"));
   });
@@ -1878,6 +1882,35 @@ describe("PageSection", () => {
   test("default maxWidth stays full-width (existing behavior)", () => {
     render(<PageSection testId="p-default">x</PageSection>);
     expect(screen.getByTestId("p-default").className).toContain("max-w-full");
+  });
+});
+
+// A list screen has no PageSection/FormScreenShell around it — its screen
+// chrome is DataTable's own outer wrapper, which is why that wrapper had its
+// own inset and list screens ended 24px above the viewport edge instead of
+// 48px (fw#2640).
+describe("DataTable screenPadding", () => {
+  const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+  const oneRow = [{ id: "r1", values: { name: "Alice" } }];
+  // table → [data-slot="table-container"] → card frame → padding wrapper.
+  const paddingWrapperOf = (testId: string): Element | null | undefined =>
+    screen.getByTestId(testId).parentElement?.parentElement?.parentElement;
+
+  test("screenPadding: the table's screen chrome matches PageSection and FormScreenShell", () => {
+    render(
+      <>
+        <PageSection testId="page-pad">x</PageSection>
+        <FormScreenShell testId="shell-pad">x</FormScreenShell>
+        <DataTable columns={cols} rows={oneRow} testId="list-table" screenPadding />
+      </>,
+    );
+    expect(paddingClasses(paddingWrapperOf("list-table"))).toEqual(paddingOf("page-pad"));
+    expect(paddingClasses(paddingWrapperOf("list-table"))).toEqual(paddingOf("shell-pad"));
+  });
+
+  test("default: an embedded table keeps its symmetric inset (relatedList unchanged)", () => {
+    render(<DataTable columns={cols} rows={oneRow} testId="embedded-table" />);
+    expect(paddingClasses(paddingWrapperOf("embedded-table"))).toEqual(["p-6"]);
   });
 });
 

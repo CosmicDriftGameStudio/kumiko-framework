@@ -904,6 +904,7 @@ function DefaultDataTable({
   getCellTestId,
   chromeless,
   scrollBody,
+  screenPadding,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell (fw#2345).
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -1256,7 +1257,16 @@ function DefaultDataTable({
   // der Tabelle im selben Padding-Block — kein separater bg-Bar, kein Screen-
   // Titel (der steht im Breadcrumb der Shell).
   return (
-    <div className={cn("flex flex-col gap-4 p-6 w-full", scrollBody === true && "flex-1 min-h-0")}>
+    // `screenPadding`: on a list screen this wrapper IS the screen container,
+    // so it takes the same token as FormScreenShell/PageSection instead of its
+    // own inset — a list ends at the same footer distance as a form (fw#2640).
+    <div
+      className={cn(
+        "flex flex-col gap-4 w-full",
+        screenPadding === true ? screenPaddingClassName : "p-6",
+        scrollBody === true && "flex-1 min-h-0",
+      )}
+    >
       {hasToolbar && (
         <div
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}

@@ -1841,6 +1841,7 @@ function EntityListBody({
         onSearchChange={urlState.setQ}
         sort={effectiveSort}
         onSortChange={urlState.setSort}
+        screenPadding
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
@@ -2131,6 +2132,7 @@ function ProjectionListBody({
         onSearchChange={urlState.setQ}
         sort={activeSort}
         onSortChange={urlState.setSort}
+        screenPadding
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}

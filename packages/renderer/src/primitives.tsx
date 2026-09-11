@@ -637,6 +637,14 @@ export type DataTableProps = {
    *  has no effect outside a sized flex-col ancestor). Default false:
    *  unchanged document-flow table that grows with its content. */
   readonly scrollBody?: boolean;
+  /** Uses the shared screen padding (wider bottom inset) instead of the
+   *  table's symmetric embedded inset — for a table that IS the screen body
+   *  (entityList/projectionList), so a list screen ends at the same footer
+   *  distance as a form or custom screen (fw#2640). Hosts set this or
+   *  `scrollBody`, not both: the wider bottom inset competes with
+   *  `scrollBody`'s flex-fill height budget.
+   *  Default false: unchanged symmetric inset for an embedded table. */
+  readonly screenPadding?: boolean;
 };
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----
