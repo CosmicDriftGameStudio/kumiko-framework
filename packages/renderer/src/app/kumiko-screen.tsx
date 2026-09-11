@@ -16,7 +16,11 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition, isWriteFormEditSection } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  evalFieldCondition,
+  isFieldsEditSection,
+  isWriteFormEditSection,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -2183,6 +2187,7 @@ function ProjectionDetailBody({
       screen.layout.sections.find((section) => section.id === tabParam) ?? screen.layout.sections[0]
     );
   }, [isTabsMode, Tabs, screen.layout.sections, nav.searchParams]);
+  const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
   // Tabs is an optional Core-Primitive: without it the screen falls back to
   // the stacked all-sections layout instead of silently truncating to section 1.
   useEffect(() => {
@@ -2269,12 +2274,14 @@ function ProjectionDetailBody({
         }),
     };
   }, [editScreen, effectiveTranslate, nav, effectiveEntityId]);
+  const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
 
   const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const record = detailQuery.data ?? {};
-    const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
     const out: RenderEditAction[] = [];
-    if (defaultEditAction !== undefined && !declaredHasEdit) {
+    // In tabs mode the fields-kind tab carries its own [Bearbeiten] (bedienkonzept
+    // A8) — keeping it here too would show it twice (head card + tab).
+    if (defaultEditAction !== undefined && !declaredHasEdit && !hasTabs) {
       out.push(defaultEditAction);
     }
     for (const action of screen.actions ?? []) {
@@ -2411,6 +2418,8 @@ function ProjectionDetailBody({
     detailQuery.data,
     detailQuery.refetch,
     openDrawer,
+    hasTabs,
+    declaredHasEdit,
   ]);
 
   if (effectiveEntityId === undefined && screen.singleton !== true) {
@@ -2451,7 +2460,6 @@ function ProjectionDetailBody({
   }
   const hasHeader = screen.header !== undefined;
   const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
-  const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
   // ?? [] rather than threading `headerActions !== undefined` through every
   // use below — an empty array is a safe no-op for .map/.length.
   const headerActionsList = headerActions ?? [];
@@ -2592,6 +2600,20 @@ function ProjectionDetailBody({
           onSelect={(id) => nav.setSearchParams({ tab: id })}
         />
       )}
+      {hasTabs &&
+        activeSection !== undefined &&
+        isFieldsEditSection(activeSection) &&
+        defaultEditAction !== undefined &&
+        !declaredHasEdit && (
+          <Grid columns="end" testId="kumiko-screen-projection-detail-fields-tab-actions">
+            <RenderEditActionButton
+              action={defaultEditAction}
+              Button={Button}
+              Dialog={Dialog}
+              onError={setActionError}
+            />
+          </Grid>
+        )}
     </>
   );
   return (

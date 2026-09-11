@@ -2612,12 +2612,16 @@ function DefaultFillContainer({ children, testId }: FillContainerProps): ReactNo
 }
 
 function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
-  // "auto": content-sized items in a wrapping row (e.g. a metrics band of
-  // self-sized tiles) instead of N equal-width, container-stretched tracks.
-  // maxRows/scrolling don't apply — the row just wraps.
-  if (columns === "auto") {
+  // "auto"/"end": content-sized items in a wrapping row (e.g. a metrics band
+  // of self-sized tiles, or a single right-aligned action) instead of N
+  // equal-width, container-stretched tracks. maxRows/scrolling don't apply —
+  // the row just wraps.
+  if (columns === "auto" || columns === "end") {
     return (
-      <div data-testid={testId} className="flex flex-wrap gap-4">
+      <div
+        data-testid={testId}
+        className={cn("flex flex-wrap gap-4", columns === "end" && "justify-end")}
+      >
         {children}
       </div>
     );
