@@ -4,6 +4,7 @@
 // are testable without a database.
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import {
@@ -40,6 +41,19 @@ afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
+describe("normalizeEventPiiSubject", () => {
+  test("canonical personal.of and legacy subjectField normalize to the same form", () => {
+    expect(normalizeEventPiiSubject({ personal: { of: "recipientId" } })).toEqual({
+      kind: "user",
+      ownerField: "recipientId",
+    });
+    expect(normalizeEventPiiSubject({ subjectField: "recipientId" })).toEqual({
+      kind: "user",
+      ownerField: "recipientId",
+    });
+  });
+});
+
 describe("defineEvent piiFields validation", () => {
   test("valid piiFields land on the EventDef and in the registry catalog", () => {
     const feature = defineFeature("mailer", (r) => {
@@ -73,14 +87,46 @@ describe("defineEvent piiFields validation", () => {
     ).toThrow(/piiFields references "ownerId"/);
   });
 
-  test("field cannot be its own subjectField", () => {
+  test("field cannot be its own subjectField (legacy form)", () => {
     expect(() =>
       defineFeature("mailer", (r) => {
         r.defineEvent("attempt", attemptSchema, {
           piiFields: { recipientAddress: { subjectField: "recipientAddress" } },
         });
       }),
-    ).toThrow(/cannot use itself as subjectField/);
+    ).toThrow(/cannot use itself as the owner field/);
+  });
+
+  test("valid canonical personal.of piiFields land on the EventDef and in the registry catalog", () => {
+    const feature = defineFeature("mailer", (r) => {
+      r.defineEvent("attempt", attemptSchema, {
+        piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
+      });
+    });
+    createRegistry([feature]);
+    expect(configuredEventPiiCatalog().get(EVENT_TYPE)).toEqual({
+      recipientAddress: { personal: { of: "recipientId" } },
+    });
+  });
+
+  test("unknown owner field throws at definition time (canonical form)", () => {
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", attemptSchema, {
+          piiFields: { recipientAddress: { personal: { of: "ownerId" } } },
+        });
+      }),
+    ).toThrow(/piiFields references "ownerId"/);
+  });
+
+  test("field cannot be its own owner field (canonical form)", () => {
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", attemptSchema, {
+          piiFields: { recipientAddress: { personal: { of: "recipientAddress" } } },
+        });
+      }),
+    ).toThrow(/cannot use itself as the owner field/);
   });
 
   test("omitting the options argument throws an explicit PII stance error (fw#2558)", () => {
@@ -142,6 +188,23 @@ describe("encryptEventPayloadPii", () => {
       requestId: "test",
     });
     expect(back["recipientAddress"]).toBe("u1@example.com");
+  });
+
+  test("legacy subjectField and canonical personal.of encrypt under the same subject key", async () => {
+    const LEGACY_TYPE = "mailer:event:legacy-attempt";
+    const CANONICAL_TYPE = "mailer:event:canonical-attempt";
+    configureEventPiiCatalog(
+      new Map([
+        [LEGACY_TYPE, { recipientAddress: { subjectField: "recipientId" } }],
+        [CANONICAL_TYPE, { recipientAddress: { personal: { of: "recipientId" } } }],
+      ]),
+    );
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const legacy = await encryptEventPayloadPii(LEGACY_TYPE, payload);
+    const canonical = await encryptEventPayloadPii(CANONICAL_TYPE, payload);
+    expect(String(legacy["recipientAddress"])).toContain("user:u-1");
+    expect(String(canonical["recipientAddress"])).toContain("user:u-1");
   });
 
   test("null subject field → value stays plaintext (no user key to shred)", async () => {
