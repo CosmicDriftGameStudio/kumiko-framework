@@ -26,7 +26,14 @@ import { folderAssignmentExportHook } from "../hooks";
 const CREDIT_TABLE = "folders_export_test_credits";
 const creditEntity = createEntity({
   table: CREDIT_TABLE,
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 const hostFixturesFeature = defineFeature("folders-export-test-host-fixtures", (r) => {
   r.entity("credit", creditEntity);

@@ -43,7 +43,7 @@ const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-0000000000f1";
 const noteEntity = createEntity({
   table: "read_forget_purge_notes",
   fields: {
-    authorId: createTextField({ required: true }),
+    authorId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
     body: createTextField({
       required: true,
       personal: { of: "authorId" },

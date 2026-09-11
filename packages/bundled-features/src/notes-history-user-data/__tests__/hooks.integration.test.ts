@@ -30,7 +30,14 @@ const other = createTestUser({ id: 2, roles: ["TenantMember"] });
 const CONTACT_TABLE = "notes_user_data_test_contacts";
 const contactEntity = createEntity({
   table: CONTACT_TABLE,
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 const contactFixtureFeature = defineFeature("notes-user-data-test-contact-fixture", (r) => {
   r.entity("contact", contactEntity);

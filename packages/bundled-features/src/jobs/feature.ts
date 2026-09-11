@@ -48,6 +48,11 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     r.systemScope();
     r.storeTable(jobRunsTableMeta, {
       reason: "direct_write.job_runs",
+      // payload/error carry personal:{of:"triggeredById"} (job-run-table.ts).
+      // job-run-logger.ts manually encrypts both before every insert/update
+      // (encryptStartedPayload/encryptFailureError) since this store bypasses
+      // the executor's automatic PII pipeline (#2243).
+      piiEncryptedOnWrite: true,
     });
     r.storeTable(jobRunLogsTableMeta, {
       reason: "read_side.job_run_logs",

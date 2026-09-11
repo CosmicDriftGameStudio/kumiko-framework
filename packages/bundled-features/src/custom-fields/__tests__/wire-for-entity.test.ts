@@ -10,7 +10,7 @@ import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
 const propertyEntity = createEntity({
   table: "read_test_properties",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });

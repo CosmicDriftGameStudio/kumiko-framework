@@ -14,7 +14,7 @@ const gatedEntity = createEntity({
   fields: {
     status: createSelectField({ options: ["draft", "active"] as const, filterable: true }),
     ownerId: { type: "reference", entity: "user" } satisfies ReferenceFieldDef,
-    title: createTextField({ searchable: true }),
+    title: createTextField({ searchable: true, personal: false, reason: "technical_reference" }),
     // Raw ResolvedPiiFlags form — the manifest is schema, not rows, so this
     // must never surface a value, only the marker.
     secretNote: { type: "text", pii: true } satisfies TextFieldDef,
@@ -58,7 +58,7 @@ function buildTestFeature() {
 
 const otherEntity = createEntity({
   fields: {
-    label: createTextField({ searchable: true }),
+    label: createTextField({ searchable: true, personal: false, reason: "technical_reference" }),
   },
 });
 

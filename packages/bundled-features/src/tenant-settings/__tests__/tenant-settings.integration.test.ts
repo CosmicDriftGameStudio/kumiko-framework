@@ -30,7 +30,7 @@ import { defineCreateWithTenantDefaults } from "../tenant-defaults";
 const invoiceEntity = createEntity({
   table: "read_invoices",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ required: true, personal: false, reason: "is_business_data" }),
     amount: createMoneyField({ required: true }),
     language: createSelectField({ options: ["en", "de"] as const }),
   },

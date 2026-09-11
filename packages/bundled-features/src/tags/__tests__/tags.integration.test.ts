@@ -33,7 +33,9 @@ const tagsFeature = createTagsFeature();
 
 const CREDIT_TABLE = "tags_test_credits";
 const NOTE_TABLE = "tags_test_notes";
-const hostFields = { name: createTextField({ required: true, maxLength: 64 }) };
+const hostFields = {
+  name: createTextField({ required: true, maxLength: 64, personal: false, reason: "technical_reference" }),
+};
 const creditEntity = createEntity({ table: CREDIT_TABLE, fields: hostFields });
 const noteEntity = createEntity({ table: NOTE_TABLE, fields: hostFields });
 const hostFixturesFeature = defineFeature("tags-test-host-fixtures", (r) => {

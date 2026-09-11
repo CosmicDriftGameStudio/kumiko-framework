@@ -23,8 +23,19 @@ import { dispatchToolCall } from "../tool-dispatch";
 const vendorEntity = createEntity({
   table: "agent_tools_test_vendors",
   fields: {
-    name: createTextField({ required: true, searchable: true, filterable: true }),
-    iban: createTextField({ required: true, filterable: true }),
+    name: createTextField({
+      required: true,
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
+    iban: createTextField({
+      required: true,
+      filterable: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
   },
 });
 

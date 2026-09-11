@@ -14,7 +14,8 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
+import { createRegistry, defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
@@ -29,9 +30,12 @@ import {
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
+  seedRow,
   sleep,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { JobHandlers, JobQueries } from "../constants";
+import { STALE_JOB_RUN_ERROR, markStaleJobRunsFailed } from "../db/queries/stale-run-sweep";
 import { createJobsFeature } from "../feature";
 import { createJobRunLogger } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
@@ -328,6 +332,108 @@ describe("jobs run-failed error column under KMS (#2307)", () => {
     await logger.onJobFailed?.("app:job:export", "bull-e5", SECRET_ERROR, []);
     const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e5") });
     expect(row?.["error"]).toBe(SECRET_ERROR);
+  });
+});
+
+// markStaleJobRunsFailed (stale-run-sweep.ts) is a second, separate writer
+// of the `error` column outside onJobFailed's per-row encrypt above — a
+// crash-recovery batch sweep that can match many rows belonging to
+// different triggering users in one pass. It must encrypt `error` per row
+// under each row's own subject instead of writing STALE_JOB_RUN_ERROR in
+// the clear, or a live KMS would leave plaintext sitting next to
+// ciphertext siblings and detail.query.ts's decrypt would fail loud on it.
+describe("jobs stale-run sweep error column under KMS", () => {
+  async function seedStaleRunning(triggeredById?: string): Promise<string> {
+    const id = generateId();
+    await seedRow(testDb.db, jobRunsTable, {
+      id,
+      tenantId: SYSTEM_TENANT_ID,
+      insertedById: "system",
+      jobName: "app:job:export",
+      bullJobId: `bull-${id}`,
+      status: "running",
+      attempt: 1,
+      startedAt: sql`now() - interval '48 hours'`,
+      ...(triggeredById !== undefined ? { triggeredById } : {}),
+    });
+    return id;
+  }
+
+  test("stale row's error is stored as ciphertext under its own triggering user, not the sentinel", async () => {
+    const id = await seedStaleRunning(USER_ID);
+
+    const result = await markStaleJobRunsFailed(testDb.db, 24);
+    expect(result.runsMarkedFailed).toBe(1);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { id });
+    expect(row?.["status"]).toBe("failed");
+    expect(isPiiCiphertext(row?.["error"])).toBe(true);
+    expect(String(row?.["error"])).toContain(`user:${USER_ID}`);
+
+    const back = await decryptPiiFieldValues({ error: row?.["error"] }, ["error"], kms, {
+      requestId: "t",
+    });
+    expect(back["error"]).toBe(STALE_JOB_RUN_ERROR);
+  });
+
+  test("two stale rows from different users each decrypt under their own key", async () => {
+    const OTHER_USER_ID = "u-pii-stale-other";
+    const idA = await seedStaleRunning(USER_ID);
+    const idB = await seedStaleRunning(OTHER_USER_ID);
+
+    const result = await markStaleJobRunsFailed(testDb.db, 24);
+    expect(result.runsMarkedFailed).toBe(2);
+
+    const rowA = await fetchOne(testDb.db, jobRunsTable, { id: idA });
+    const rowB = await fetchOne(testDb.db, jobRunsTable, { id: idB });
+    expect(String(rowA?.["error"])).toContain(`user:${USER_ID}`);
+    expect(String(rowB?.["error"])).toContain(`user:${OTHER_USER_ID}`);
+
+    const backB = await decryptPiiFieldValues({ error: rowB?.["error"] }, ["error"], kms, {
+      requestId: "t",
+    });
+    expect(backB["error"]).toBe(STALE_JOB_RUN_ERROR);
+  });
+
+  test("erase subject key before the sweep runs → error lands as the erased sentinel, sweep still succeeds", async () => {
+    // Create the subject's key first — eraseKey is a no-op on an unknown
+    // subject (InMemoryKmsAdapter's tombstone contract), same as the
+    // onJobFailed case above. A payload is required here: onJobStart only
+    // touches the KMS (creating the subject's key) when there's a payload
+    // to encrypt (see encryptStartedPayload's null short-circuit).
+    await logger.onJobStart?.("app:job:export", "bull-warm-key", {
+      triggeredById: USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await kms.eraseKey({ kind: "user", userId: USER_ID });
+
+    const id = await seedStaleRunning(USER_ID);
+
+    const result = await markStaleJobRunsFailed(testDb.db, 24);
+    expect(result.runsMarkedFailed).toBe(1);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { id });
+    expect(row?.["status"]).toBe("failed");
+    expect(row?.["error"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("system-triggered stale row (no triggeredById) keeps a plaintext error", async () => {
+    const id = await seedStaleRunning();
+
+    await markStaleJobRunsFailed(testDb.db, 24);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { id });
+    expect(row?.["error"]).toBe(STALE_JOB_RUN_ERROR);
+  });
+
+  test("without a KMS the error column stays plaintext (rollout mode)", async () => {
+    const id = await seedStaleRunning(USER_ID);
+    resetPiiSubjectKmsForTests();
+
+    await markStaleJobRunsFailed(testDb.db, 24);
+
+    const row = await fetchOne(testDb.db, jobRunsTable, { id });
+    expect(row?.["error"]).toBe(STALE_JOB_RUN_ERROR);
   });
 });
 

@@ -262,7 +262,7 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
   const probeEntity = createEntity({
     table: "read_forget_subject_search_probe",
     fields: {
-      ownerId: createTextField({ required: true }),
+      ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
       userNote: createTextField({
         required: true,
         maxLength: 100,

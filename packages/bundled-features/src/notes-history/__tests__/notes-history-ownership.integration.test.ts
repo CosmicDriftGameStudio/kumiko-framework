@@ -69,7 +69,14 @@ const teamOwnership: NonNullable<EntityDefinition["access"]> = {
 const PROJECT_TABLE = "notes_ownership_test_projects";
 const projectEntity: EntityDefinition = createEntity({
   table: PROJECT_TABLE,
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 const projectFixtureFeature = defineFeature("notes-ownership-test-project-fixture", (r) => {
   r.entity("project", projectEntity);

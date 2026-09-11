@@ -42,7 +42,12 @@ import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../togg
 const widgetEntity = createEntity({
   table: "read_widgets",
   fields: {
-    name: createTextField({ required: true, maxLength: 100 }),
+    name: createTextField({
+      required: true,
+      maxLength: 100,
+      personal: false,
+      reason: "technical_reference",
+    }),
     active: createBooleanField({ default: true }),
   },
 });
@@ -88,7 +93,12 @@ function widgetFeature(): FeatureDefinition {
 const widgetAuditEntity = createEntity({
   table: "widget_audits",
   fields: {
-    widgetName: createTextField({ required: true, maxLength: 100 }),
+    widgetName: createTextField({
+      required: true,
+      maxLength: 100,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });
 const widgetAuditTable = buildEntityTable("widget-audit", widgetAuditEntity);

@@ -106,8 +106,13 @@ async function encryptLogMessages<T extends { readonly message: string }>(
 // Mirrors encryptFailureError for the failure-path `error` column (#2307):
 // stored alongside logs[].message under the same triggering user's DEK, so
 // a log/error pair from the same failed run decrypt together or erase
-// together.
-async function encryptFailureError(error: string, triggeredById: string | null): Promise<string> {
+// together. Exported so stale-run-sweep.ts's crash-recovery write (a
+// separate, per-row batch path outside onJobFailed) applies the identical
+// per-subject encryption instead of writing `error` in the clear.
+export async function encryptFailureError(
+  error: string,
+  triggeredById: string | null,
+): Promise<string> {
   if (triggeredById === null) return error;
   const kms = configuredPiiSubjectKms();
   if (!kms) return error;

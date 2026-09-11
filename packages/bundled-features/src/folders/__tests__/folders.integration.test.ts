@@ -36,7 +36,14 @@ const foldersFeature = createFoldersFeature();
 const CREDIT_TABLE = "folders_test_credits";
 const creditEntity = createEntity({
   table: CREDIT_TABLE,
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
 });
 const hostFixturesFeature = defineFeature("folders-test-host-fixtures", (r) => {
   r.entity("credit", creditEntity);

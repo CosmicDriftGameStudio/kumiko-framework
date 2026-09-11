@@ -47,8 +47,18 @@ const projectOwnership: NonNullable<EntityDefinition["access"]> = {
 const projectEntity = createEntity({
   table: PROJECT_TABLE,
   fields: {
-    teamId: createTextField({ required: true, maxLength: 64 }),
-    name: createTextField({ required: true, maxLength: 64 }),
+    teamId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
   access: projectOwnership,
 });

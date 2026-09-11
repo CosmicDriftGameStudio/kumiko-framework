@@ -41,16 +41,21 @@ export type JobLogLevel = "info" | "warn" | "error";
 export const jobRunEntity = createEntity({
   table: "store_job_runs",
   fields: {
-    jobName: createTextField({ required: true }),
-    bullJobId: createTextField({ required: true }),
-    status: createTextField({ required: true }),
-    payload: createTextField(),
-    error: createTextField(),
+    jobName: createTextField({ required: true, personal: false, reason: "system_metadata" }),
+    bullJobId: createTextField({ required: true, personal: false, reason: "system_metadata" }),
+    status: createTextField({ required: true, personal: false, reason: "system_metadata" }),
+    // The run-started payload can carry arbitrary caller-supplied data,
+    // encrypted by job-run-logger.ts under the triggering user's DEK (see
+    // jobs-pii-kms.integration.test.ts) — same subject as `triggeredById`.
+    payload: createTextField({ personal: { of: "triggeredById" }, find: "none" }),
+    // Failure messages can echo payload content back — same subject/DEK as
+    // `payload` (job-run-logger.ts encryptFailureError).
+    error: createTextField({ personal: { of: "triggeredById" }, find: "none" }),
     attempt: createNumberField({ required: true, default: 1, integer: true }),
     startedAt: createTimestampField({ required: true }),
     finishedAt: createTimestampField(),
     duration: createNumberField({ integer: true }),
-    triggeredById: createTextField(),
+    triggeredById: createTextField({ personal: false, reason: "pseudonymous_fk" }),
   },
 });
 
