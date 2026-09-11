@@ -160,7 +160,7 @@ export interface EncryptPiiOptions {
   // carry a pii field without its ownerField — the merged row still has it).
   readonly subjectSource?: Record<string, unknown>;
   // Canonical registry entity name — required to resolve recordOwned fields.
-  readonly entityName?: string;
+  readonly entityName: string;
 }
 
 export async function encryptPiiFieldValues(
@@ -169,7 +169,7 @@ export async function encryptPiiFieldValues(
   piiFields: readonly string[],
   kms: LocalKeyKmsAdapter,
   kmsCtx: KmsContext,
-  opts: EncryptPiiOptions = {},
+  opts: EncryptPiiOptions,
 ): Promise<Record<string, unknown>> {
   if (piiFields.length === 0) return row;
   const only = opts.onlyKeys ? new Set(opts.onlyKeys) : null;
@@ -187,8 +187,8 @@ export async function encryptPiiFieldValues(
       throw new Error(`PII field "${name}" must be a string, got ${typeof value}`);
     }
     const subject = resolveSubjectForField(entity, name, subjectSource, {
+      entityName: opts.entityName,
       ...(opts.tenantId !== undefined && { tenantId: opts.tenantId }),
-      ...(opts.entityName !== undefined && { entityName: opts.entityName }),
     });
     // skip: collectPiiSubjectFields only yields annotated fields — null is unreachable, kept as a type guard
     if (subject === null) continue;

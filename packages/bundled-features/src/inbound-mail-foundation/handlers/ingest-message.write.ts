@@ -179,10 +179,8 @@ export const ingestMessageHandler: WriteHandlerDef = {
           inboundMessageEntity,
           INBOUND_MESSAGE_PII_FIELDS,
           piiKms,
-          {
-            requestId: `inbound-mail-foundation:ingest-message:${messageAggId}`,
-            tenantId,
-          },
+          { requestId: `inbound-mail-foundation:ingest-message:${messageAggId}`, tenantId },
+          { tenantId, entityName: INBOUND_MESSAGE_AGGREGATE_TYPE },
         )
       : messagePlainPii;
 
@@ -265,6 +263,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
             requestId: `inbound-mail-foundation:ingest-message:thread:${threadAggId}`,
             tenantId,
           },
+          { tenantId, entityName: MAIL_THREAD_AGGREGATE_TYPE },
         )
       : threadPlainPii;
 

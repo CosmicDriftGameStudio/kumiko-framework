@@ -23,6 +23,7 @@ import { collectPiiSubjectFields } from "../subject-resolver";
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 const UUID_B = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000b";
 const KMS_CTX: KmsContext = { requestId: "test" };
+const ENTITY_NAME = "pii-entity";
 
 const userLikeEntity = createEntity({
   fields: {
@@ -67,7 +68,9 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
     const fields = collectPiiSubjectFields(userLikeEntity);
     const row = { id: UUID_A, email: "marc@example.com", role: "admin" };
 
-    const stored = await encryptPiiFieldValues(row, userLikeEntity, fields, kms, KMS_CTX);
+    const stored = await encryptPiiFieldValues(row, userLikeEntity, fields, kms, KMS_CTX, {
+      entityName: ENTITY_NAME,
+    });
     expect(isPiiCiphertext(stored["email"])).toBe(true);
     expect(String(stored["email"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${UUID_A}:`);
     expect(stored["role"]).toBe("admin");
@@ -88,6 +91,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["email"],
       kms,
       KMS_CTX,
+      { entityName: ENTITY_NAME },
     );
     const dek = await kms.getKey({ kind: "user", userId: UUID_A });
     expect(dek.length).toBe(32);
@@ -101,6 +105,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["body"],
       kms,
       KMS_CTX,
+      { entityName: ENTITY_NAME },
     );
     expect(String(stored["body"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${UUID_B}:`);
   });
@@ -113,7 +118,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["brandColor"],
       kms,
       KMS_CTX,
-      { tenantId: UUID_B },
+      { tenantId: UUID_B, entityName: ENTITY_NAME },
     );
     expect(String(stored["brandColor"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${UUID_B}:`);
   });
@@ -124,6 +129,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
     const stored = await encryptPiiFieldValues(changes, commentEntity, ["body"], kms, KMS_CTX, {
       onlyKeys: ["body"],
       subjectSource: { id: UUID_A, body: "edited", authorId: UUID_B },
+      entityName: ENTITY_NAME,
     });
     expect(String(stored["body"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${UUID_B}:`);
   });
@@ -137,13 +143,16 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       fields,
       kms,
       KMS_CTX,
+      { entityName: ENTITY_NAME },
     );
     await kms.eraseKey({ kind: "user", userId: UUID_A });
 
     const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
     expect(read["email"]).toBe(PII_ERASED_SENTINEL);
 
-    const reStored = await encryptPiiFieldValues(read, userLikeEntity, fields, kms, KMS_CTX);
+    const reStored = await encryptPiiFieldValues(read, userLikeEntity, fields, kms, KMS_CTX, {
+      entityName: ENTITY_NAME,
+    });
     expect(reStored["email"]).toBe(PII_ERASED_SENTINEL);
   });
 
@@ -158,6 +167,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
         ["email"],
         kms,
         KMS_CTX,
+        { entityName: ENTITY_NAME },
       ),
     ).rejects.toThrow(/erased/);
   });
@@ -181,8 +191,11 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["email"],
       kms,
       KMS_CTX,
+      { entityName: ENTITY_NAME },
     );
-    const twice = await encryptPiiFieldValues(once, userLikeEntity, ["email"], kms, KMS_CTX);
+    const twice = await encryptPiiFieldValues(once, userLikeEntity, ["email"], kms, KMS_CTX, {
+      entityName: ENTITY_NAME,
+    });
     expect(twice["email"]).toBe(once["email"]);
   });
 
@@ -194,6 +207,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["email"],
       kms,
       KMS_CTX,
+      { entityName: ENTITY_NAME },
     );
     expect(stored["email"]).toBeNull();
 
@@ -203,7 +217,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["email"],
       kms,
       KMS_CTX,
-      { onlyKeys: ["role"] },
+      { onlyKeys: ["role"], entityName: ENTITY_NAME },
     );
     expect(skipped["email"]).toBe("a@b.c");
   });
@@ -211,7 +225,9 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
   test("non-string pii value throws", async () => {
     const kms = new InMemoryKmsAdapter();
     await expect(
-      encryptPiiFieldValues({ id: UUID_A, email: 42 }, userLikeEntity, ["email"], kms, KMS_CTX),
+      encryptPiiFieldValues({ id: UUID_A, email: 42 }, userLikeEntity, ["email"], kms, KMS_CTX, {
+        entityName: ENTITY_NAME,
+      }),
     ).rejects.toThrow(/must be a string/);
   });
 
@@ -223,6 +239,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       ["email"],
       kmsA,
       KMS_CTX,
+      { entityName: ENTITY_NAME },
     );
     const kmsB = new InMemoryKmsAdapter();
     await expect(decryptPiiFieldValues(stored, ["email"], kmsB, KMS_CTX)).rejects.toBeInstanceOf(
@@ -248,7 +265,9 @@ describe("tenant-owned field encryption (kumiko-platform#457)", () => {
     expect(fields).toEqual(["iban"]);
 
     const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
-    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
+    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX, {
+      entityName: ENTITY_NAME,
+    });
     expect(isPiiCiphertext(stored["iban"])).toBe(true);
     expect(String(stored["iban"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}tenant:${UUID_B}:`);
 
@@ -266,7 +285,9 @@ describe("tenant-owned field encryption (kumiko-platform#457)", () => {
     });
     const fields = collectPiiSubjectFields(brandingWithAccess);
     const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
-    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
+    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX, {
+      entityName: ENTITY_NAME,
+    });
 
     // Erasure is subject-keyed, not field-flag-keyed — kms.eraseKey doesn't
     // know or care about the field's `personal` annotation, just the subject.

@@ -87,6 +87,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       const id = generateId();
       const row = await encryptForDirectWrite(
         apiTokenEntity,
+        "api-token",
         {
           id,
           userId: event.user.id,

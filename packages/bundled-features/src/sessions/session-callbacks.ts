@@ -85,6 +85,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         userSessionTable,
         await encryptForDirectWrite(
           userSessionEntity,
+          "user-session",
           {
             id: sid,
             tenantId: user.tenantId,

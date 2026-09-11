@@ -101,6 +101,7 @@ describe("computeBlindIndexValues", () => {
       ["email"],
       kms,
       { requestId: "test" },
+      { entityName: "bidx-user" },
     );
     const out = await computeBlindIndexValues({ email: stored["email"] }, ["email"]);
     expect(out["emailBidx"]).toBe(computeBlindIndex(TEST_KEY, "marc@example.com"));
@@ -116,6 +117,7 @@ describe("computeBlindIndexValues", () => {
       ["email"],
       kms,
       { requestId: "test" },
+      { entityName: "bidx-user" },
     );
     await kms.eraseKey({ kind: "user", userId: UUID_A });
     const out = await computeBlindIndexValues({ email: stored["email"] }, ["email"]);
