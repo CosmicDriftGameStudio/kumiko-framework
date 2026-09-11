@@ -10,7 +10,9 @@ import {
   createSystemUser,
   createTextField,
   defineFeature,
+  HookPhases,
 } from "../../engine";
+import type { HandlerContext } from "../../engine/types";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
@@ -44,14 +46,32 @@ const secretEntity = createEntity({
 });
 const secretTable = buildEntityTable("secret", secretEntity);
 
+// Target entity for the afterCommit-hook-writes-a-second-entity test below
+// (dead-tx-in-afterCommit-hooks). Plain Admin access — kept separate
+// from `secret` so that test doesn't entangle with the privileged-access
+// assertions the other describe blocks make about it.
+const echoEntity = createEntity({
+  table: "ctx_echoes",
+  fields: {
+    bagId: createTextField({ required: true }),
+  },
+});
+const echoTable = buildEntityTable("echo", echoEntity);
+
 let stack: TestStack;
 const admin = TestUsers.admin;
 
 const afterCommitLog: string[] = [];
 
+// Toggled per-test so the afterCommit hook only writes echo rows for
+// the test that exercises it — reset in beforeEach.
+let afterCommitHookShouldEchoBag = false;
+const echoedBagIds: string[] = [];
+
 const bridgeFeature = defineFeature("ctxbridge", (r) => {
   const bag = r.entity("bag", bagEntity);
   const secret = r.entity("secret", secretEntity);
+  r.entity("echo", echoEntity);
 
   r.writeHandler(
     "bag:create",
@@ -182,10 +202,44 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  r.writeHandler(
+    "echo:create",
+    z.object({ bagId: z.string() }),
+    async (event, ctx) => {
+      const crud = createEventStoreExecutor(echoTable, echoEntity, {
+        entityName: "echo",
+      });
+      return crud.create(event.payload, event.user, ctx.db);
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // afterCommit hook on bag — fires once per outer commit.
   r.hook("postSave", { allOf: bag }, async (result) => {
     afterCommitLog.push(`bag:${result.data["label"]}`);
   });
+
+  // afterCommit hook on bag that writes a SECOND entity via ctx.write,
+  // going through the real event-store append path (crud.create ->
+  // runInSavepointIfSupported). Proves the afterCommit context's ctx.db
+  // is a live, usable handle rather than the already-committed tx
+  // (dead-tx-in-afterCommit-hooks). Explicit phase so the test says
+  // what it means, even though afterCommit is already the default.
+  r.hook(
+    "postSave",
+    { allOf: bag },
+    async (result, ctx) => {
+      if (!afterCommitHookShouldEchoBag) return;
+      const bagId = String(result.id);
+      // Hooks are typed against AppContext (no bridge), but the runtime
+      // object is always the full HandlerContext — see the comment on
+      // AppContext in @cosmicdrift/kumiko-types/handlers. @cast-boundary
+      const handlerCtx = ctx as unknown as HandlerContext;
+      const echoRes = await handlerCtx.write("ctxbridge:write:echo:create", { bagId });
+      if (echoRes.isSuccess) echoedBagIds.push(bagId);
+    },
+    { phase: HookPhases.afterCommit },
+  );
 
   // afterCommit hook on secret — the entity targeted by the nested writeAs.
   // Proves: (a) hook fires exactly once per successful writeAs, (b) hook
@@ -199,6 +253,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [bridgeFeature] });
   await unsafeCreateEntityTable(stack.db, bagEntity);
   await unsafeCreateEntityTable(stack.db, secretEntity);
+  await unsafeCreateEntityTable(stack.db, echoEntity);
 });
 
 afterAll(async () => {
@@ -207,8 +262,11 @@ afterAll(async () => {
 
 beforeEach(async () => {
   afterCommitLog.length = 0;
+  afterCommitHookShouldEchoBag = false;
+  echoedBagIds.length = 0;
   await asRawClient(stack.db).unsafe(`DELETE FROM "${bagTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${secretTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${echoTable.tableName}"`);
   // Clear the event-dedup cache — tests re-use entity ids (Postgres sequences
   // reset, each test sees id=1). Without flushing Redis the second test hits
   // a dedup hit on the same handler:id:version:phase key and the hook is
@@ -329,5 +387,26 @@ describe("ctx.dbOutsideTransaction", () => {
     const bags = await selectMany(stack.db, bagTable);
     const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
     expect(labels).toEqual(["signal-probe-outside-tx"]);
+  });
+});
+
+describe("afterCommit hook context is usable for real DB work", () => {
+  test("a postSave afterCommit hook can write a second entity via ctx.write", async () => {
+    afterCommitHookShouldEchoBag = true;
+
+    const res = await stack.http.write("ctxbridge:write:bag:create", { label: "echo-me" }, admin);
+    expect((await res.json()).isSuccess).toBe(true);
+
+    // The effect, not just "no throw": afterCommit hook errors are caught
+    // and logged by the framework (dispatch-batch.ts flushAfterCommit), so
+    // a broken hook still returns a 200 here. What proves the fix is that
+    // the hook's ctx.write actually landed a row through the event-store
+    // append path.
+    expect(echoedBagIds).toHaveLength(1);
+    const [expectedBagId] = echoedBagIds;
+    if (!expectedBagId) throw new Error("echoedBagIds[0] missing");
+    const echoes = await selectMany(stack.db, echoTable);
+    expect(echoes).toHaveLength(1);
+    expect((echoes[0] as { bagId: string }).bagId).toBe(expectedBagId);
   });
 });

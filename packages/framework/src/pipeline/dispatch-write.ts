@@ -116,12 +116,15 @@ function invalidateTenantTimezoneCache(
 // Runs lifecycle hooks for a handler result. inTransaction hooks fire NOW
 // (they see the tx via ctx.db when batch/write opens a transaction).
 // afterCommit hooks are queued into `afterCommitHooks` for the caller to
-// flush after commit.
+// flush after commit. Their context is built lazily, without `tx`: by the
+// time they fire the transaction has already committed, so `handlerContext`
+// (built around it) would hand them a dead handle.
 async function runLifecycle(
   ctx: DispatchContext,
   type: string,
   data: unknown,
   handlerContext: HandlerContext,
+  user: SessionUser,
   afterCommitHooks: AfterCommitHook[],
 ): Promise<void> {
   const { lifecycle } = ctx;
@@ -143,15 +146,29 @@ async function runLifecycle(
 
   if (result.kind === "save") {
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
-    afterCommitHooks.push(() =>
-      lifecycle.runPostSave(type, result, handlerContext, HookPhases.afterCommit),
-    );
+    afterCommitHooks.push(async () => {
+      const afterCommitContext = await buildHandlerContext(
+        ctx,
+        type,
+        user,
+        undefined,
+        afterCommitHooks,
+      );
+      await lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit);
+    });
   } else if (result.kind === "delete") {
     await lifecycle.runPreDelete(type, result, handlerContext);
     await lifecycle.runPostDelete(type, result, handlerContext, HookPhases.inTransaction);
-    afterCommitHooks.push(() =>
-      lifecycle.runPostDelete(type, result, handlerContext, HookPhases.afterCommit),
-    );
+    afterCommitHooks.push(async () => {
+      const afterCommitContext = await buildHandlerContext(
+        ctx,
+        type,
+        user,
+        undefined,
+        afterCommitHooks,
+      );
+      await lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit);
+    });
   }
 }
 
@@ -159,8 +176,9 @@ async function runLifecycle(
 // Used by runBatch (which opens a transaction and flushes afterCommitHooks on commit).
 //
 // Contract:
-//   - `tx` is the active Drizzle transaction handle (or undefined for the no-DB
-//     fallback path used by tests without a Postgres connection).
+//   - `tx` is the active Drizzle transaction handle, or undefined for "no
+//     surrounding transaction" — either no Postgres is configured, or the
+//     transaction already committed (afterCommit phase).
 //   - `afterCommitHooks` collects deferred side-effects that must only fire
 //     after the transaction commits. The caller flushes them on commit, drops
 //     them on rollback. executeWrite never fires them directly.
@@ -479,7 +497,7 @@ async function executeWriteInner(
 
   if (result.isSuccess) {
     try {
-      await runLifecycle(ctx, type, result.data, handlerContext, afterCommitHooks);
+      await runLifecycle(ctx, type, result.data, handlerContext, user, afterCommitHooks);
     } catch (e) {
       return writeFailure(wrapToKumiko(e));
     }
