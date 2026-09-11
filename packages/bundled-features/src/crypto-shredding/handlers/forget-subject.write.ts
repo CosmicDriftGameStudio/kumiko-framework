@@ -44,6 +44,7 @@ import {
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
   TARGET_RECORD_NOT_ADMIN_TENANT,
+  TARGET_RECORD_RETENTION_BLOCK_DELETE,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants";
 
@@ -171,6 +172,28 @@ async function resolveTenantScopeDenial(
   return ownedInTenant ? undefined : memberDenied;
 }
 
+// fw#2789: the host entity's OWN retention declaration gets the last word on
+// a targeted row-shred — blockDelete (legally mandated physical retention,
+// e.g. ledger/invoice text) means this command must refuse, not silently
+// anonymize or proceed. Deliberately independent of the tenant feature/gate
+// above: a retention obligation holds in single-tenant apps too, and running
+// unconditionally (not nested under `features.has("tenant")`) keeps that
+// true. Only the entity's declared `retention.strategy` is consulted here —
+// NOT the data-retention feature's tenant-preset/override layering
+// (resolveRetentionPolicy) — so a tenant cannot override its own way past a
+// blockDelete declared on the entity.
+function resolveRetentionDenial(
+  features: ReadonlyMap<string, FeatureDefinition>,
+  raw: SubjectIdInput,
+): WriteFailure | undefined {
+  if (raw.kind !== "record") return undefined;
+  const entity = findRegisteredEntity(features, raw.entity);
+  if (entity?.retention?.strategy !== "blockDelete") return undefined;
+  return writeFailure(
+    new AccessDeniedError({ details: { reason: TARGET_RECORD_RETENTION_BLOCK_DELETE } }),
+  );
+}
+
 // Denied cross-tenant probes must still leave an audit trail (fw#2348).
 // Appended outside the handler tx (fw#2592): the caller's
 // `return tenantScopeDenial` rolls that tx back.
@@ -294,6 +317,25 @@ export const forgetSubjectWrite = defineWriteHandler({
         tenantScopeDenial.error.code,
       );
       return auditFailure ?? tenantScopeDenial;
+    }
+
+    // Runs AFTER the tenant gate (VORHER only means "before the shred"): a
+    // retention check ahead of the tenant gate would leak a foreign
+    // entity's retention posture to a cross-tenant prober.
+    const retentionDenial = resolveRetentionDenial(ctx.registry.features, raw);
+    if (retentionDenial) {
+      // Own reason constant, not tenantScopeDenial's `.error.code` pattern:
+      // AccessDeniedError.code is the generic "access_denied" for every
+      // branch, so re-deriving it here would make a blockDelete refusal
+      // indistinguishable from a cross-tenant one in the audit trail.
+      const auditFailure = await appendDenialAuditEvent(
+        ctx,
+        event,
+        subjectKey,
+        raw.kind,
+        TARGET_RECORD_RETENTION_BLOCK_DELETE,
+      );
+      return auditFailure ?? retentionDenial;
     }
 
     // Erase BEFORE the audit append: if the append throws, the key is gone
