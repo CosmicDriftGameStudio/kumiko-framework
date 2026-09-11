@@ -523,23 +523,29 @@ export type RecordHeaderSpec = {
   readonly subtitleHref?: string;
 };
 
+// Same shape as `RowActionNavigate`'s screen/entity choice, minus the fields
+// a metric click has no use for (id, confirm, style).
+export type MetricNavigate = {
+  readonly screen?: string;
+  readonly entity?: string;
+  readonly entityId?: string;
+  readonly params?: RowFieldExtractor;
+};
+
 // A metric can navigate on click, so the plain string shorthand (field name,
 // same as before) sits alongside an object form carrying an explicit i18n
-// `label` and a `navigate` target — same shape as `RowActionNavigate`'s
-// screen/entity choice, minus the fields a metric click has no use for
-// (id, confirm, style).
+// `label` and a `navigate` target.
 export type MetricSpec =
   | string
   | {
       readonly field: string;
       readonly label?: string;
-      readonly navigate?: {
-        readonly screen?: string;
-        readonly entity?: string;
-        readonly entityId?: string;
-        readonly params?: RowFieldExtractor;
-      };
+      readonly navigate?: MetricNavigate;
     };
+
+export function metricField(metric: MetricSpec): string {
+  return typeof metric === "string" ? metric : metric.field;
+}
 
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;

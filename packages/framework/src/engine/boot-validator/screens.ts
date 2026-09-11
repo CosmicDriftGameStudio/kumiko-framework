@@ -16,6 +16,7 @@ import {
   normalizeListColumn,
 } from "../screen-helpers";
 import type { EntityDefinition, FeatureDefinition } from "../types";
+import { metricField } from "../types";
 import type {
   DashboardCustomPanel,
   DashboardFilterDefinition,
@@ -697,11 +698,13 @@ export function validateScreens(
       }
       if (screen.metrics !== undefined) {
         for (const metric of screen.metrics) {
-          if (screen.fieldLabels?.[metric] === undefined) {
+          const field = metricField(metric);
+          const hasOwnLabel = typeof metric !== "string" && metric.label !== undefined;
+          if (!hasOwnLabel && screen.fieldLabels?.[field] === undefined) {
             throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${metric}" has ` +
-                `no entry in fieldLabels — every metrics field needs a label, there is no fallback to ` +
-                `the raw column name.`,
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" has ` +
+                `no entry in fieldLabels and no own "label" — every metrics field needs one of the two, ` +
+                `there is no fallback to the raw column name.`,
             );
           }
         }

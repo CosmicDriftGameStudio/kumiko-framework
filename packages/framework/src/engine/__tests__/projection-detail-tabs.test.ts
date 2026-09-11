@@ -132,6 +132,37 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     expect(() => validateBoot([feature])).toThrow(/metric "balance" has no entry in fieldLabels/);
   });
 
+  test("object-form metric with its own label needs no fieldLabels entry", () => {
+    const feature = defineFeature("app", (r) => {
+      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+        access: { openToAll: true },
+      });
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        layout: { sections: [{ title: "s", fields: ["description"] }] },
+        metrics: [{ field: "balance", label: "rent.balance" }],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("object-form metric with neither its own label nor a fieldLabels entry throws", () => {
+    const feature = defineFeature("app", (r) => {
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        layout: { sections: [{ title: "s", fields: ["description"] }] },
+        metrics: [{ field: "balance" }],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /metric "balance" has no entry in fieldLabels and no own "label"/,
+    );
+  });
+
   test("valid tabs + header + metrics declaration boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
@@ -142,8 +173,8 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
         type: "projectionDetail",
         query: "app:query:rent:detail",
         header: { title: "name", subtitle: "address", status: "state" },
-        metrics: ["balance", "overdueDays"],
-        fieldLabels: { balance: "rent.balance", overdueDays: "rent.overdueDays" },
+        metrics: ["balance", { field: "overdueDays", label: "rent.overdueDays" }],
+        fieldLabels: { balance: "rent.balance" },
         layout: {
           mode: "tabs",
           sections: [

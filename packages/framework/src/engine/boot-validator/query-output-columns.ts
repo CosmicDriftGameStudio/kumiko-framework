@@ -12,6 +12,7 @@ import type {
   QueryHandlerDef,
   ScreenDefinition,
 } from "../types";
+import { metricField } from "../types";
 import { buildQueryHandlerMap } from "./projection-list-screens";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape";
 
@@ -130,11 +131,12 @@ function checkProjectionDetailOutputFields(
     if (screen.header.status !== undefined) checkHeaderField("status", screen.header.status);
   }
   for (const metric of screen.metrics ?? []) {
+    const field = metricField(metric);
     checkFieldExists(
       recordShape,
-      metric,
+      field,
       () =>
-        `${prefix} metrics references field "${metric}" which is not present in query "${screen.query}"'s outputSchema.`,
+        `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
     );
   }
 }
