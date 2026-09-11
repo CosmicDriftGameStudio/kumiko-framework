@@ -91,8 +91,10 @@ export type SchemaSource =
     };
 
 export type ScanWarning = {
-  readonly file: string;
-  readonly line: number;
+  /** Absent for warnings that aren't tied to a scanned source line
+   *  (e.g. a codegen-level warning about a missing manifest file). */
+  readonly file?: string;
+  readonly line?: number;
   readonly message: string;
 };
 
@@ -100,6 +102,13 @@ export type ScanResult = {
   readonly events: readonly ScannedEvent[];
   readonly warnings: readonly ScanWarning[];
 };
+
+/** Renders a `ScanWarning` for terminal output; omits the location prefix when the warning has no source line. */
+export function formatScanWarning(warning: ScanWarning): string {
+  return warning.file !== undefined
+    ? `${warning.file}:${warning.line} — ${warning.message}`
+    : warning.message;
+}
 
 export type ScanOptions = {
   /** App-Wurzel — alles unter `<root>/src` wird gescannt. Tests +

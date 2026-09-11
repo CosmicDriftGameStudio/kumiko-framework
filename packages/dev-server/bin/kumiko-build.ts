@@ -26,7 +26,7 @@ import {
   formatServerBuildResult,
   readExtraRuntimeExternals,
 } from "../src/build";
-import { runCodegen } from "../src/codegen";
+import { formatScanWarning, runCodegen } from "../src/codegen";
 
 const explicit = process.argv[2];
 const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();
@@ -61,7 +61,7 @@ try {
   if (cgResult.warnings.length > 0) {
     for (const w of cgResult.warnings) {
       // biome-ignore lint/suspicious/noConsole: CLI-Output
-      console.warn(`${yellow}!${reset} [codegen] ${w.file}:${w.line} — ${w.reason}`);
+      console.warn(`${yellow}!${reset} [codegen] ${formatScanWarning(w)}`);
     }
   }
 

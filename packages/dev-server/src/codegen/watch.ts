@@ -17,6 +17,7 @@
 import { type FSWatcher, watch } from "node:fs";
 import { join } from "node:path";
 import { runCodegen } from "./run-codegen";
+import { formatScanWarning } from "./scan-events";
 
 export type WatchOptions = {
   /** App-Wurzel — gleiche Bedeutung wie für `runCodegen`. */
@@ -74,7 +75,7 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
         if (result.warnings.length > 0) {
           for (const w of result.warnings) {
             // biome-ignore lint/suspicious/noConsole: codegen-watcher logs to terminal
-            console.warn(`[codegen] ${w.file}:${w.line} — ${w.message}`);
+            console.warn(`[codegen] ${formatScanWarning(w)}`);
           }
         }
       }
