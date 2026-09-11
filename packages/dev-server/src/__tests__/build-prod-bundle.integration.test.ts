@@ -25,6 +25,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const KUMIKO_BUILD_BIN = resolve(__dirname, "../../bin/kumiko-build.ts");
 
+// Each of these tests spawns kumiko-build, which runs the real Bun.build +
+// tailwind pipeline; bun's 5s default kills it mid-build on a loaded CI runner.
+const FULL_PIPELINE_TIMEOUT_MS = 60_000;
+
 function bunAvailable(): boolean {
   try {
     execFileSync("bun", ["--version"], { stdio: "ignore" });
@@ -155,111 +159,124 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     await rm(tmp, { recursive: true, force: true });
   });
 
-  test("client.ts → hashed bundle, manifest, html mit injected script-tag", async () => {
-    // Minimal client ohne externe Deps — Bun.build resolvt nichts.
-    await mkdir(join(tmp, "src"), { recursive: true });
-    await writeFile(
-      join(tmp, "src/client.ts"),
-      `const root = document.getElementById("root"); if (root) root.textContent = "hi";`,
-    );
-    await mkdir(join(tmp, "public"), { recursive: true });
-    await writeFile(
-      join(tmp, "public/index.html"),
-      `<!doctype html><html><head></head><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
-    );
-    // package.json mit stylesheet:false äquivalent — wir setzen kein
-    // src/styles.css und sind außerhalb des monorepos, sodass der
-    // renderer-web-Fallback fehlschlägt und gracefully undefined liefert.
-    await writeFile(join(tmp, "package.json"), `{"name":"build-it-fixture","private":true}`);
+  test(
+    "client.ts → hashed bundle, manifest, html mit injected script-tag",
+    async () => {
+      // Minimal client ohne externe Deps — Bun.build resolvt nichts.
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await writeFile(
+        join(tmp, "src/client.ts"),
+        `const root = document.getElementById("root"); if (root) root.textContent = "hi";`,
+      );
+      await mkdir(join(tmp, "public"), { recursive: true });
+      await writeFile(
+        join(tmp, "public/index.html"),
+        `<!doctype html><html><head></head><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
+      );
+      // package.json mit stylesheet:false äquivalent — wir setzen kein
+      // src/styles.css und sind außerhalb des monorepos, sodass der
+      // renderer-web-Fallback fehlschlägt und gracefully undefined liefert.
+      await writeFile(join(tmp, "package.json"), `{"name":"build-it-fixture","private":true}`);
 
-    execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
 
-    const manifest = JSON.parse(await readFile(join(tmp, "dist/manifest.json"), "utf8")) as Record<
-      string,
-      string
-    >;
-    expect(manifest["client.js"]).toMatch(/^\/assets\/client-[a-z0-9]+\.js$/);
+      const manifest = JSON.parse(
+        await readFile(join(tmp, "dist/manifest.json"), "utf8"),
+      ) as Record<string, string>;
+      expect(manifest["client.js"]).toMatch(/^\/assets\/client-[a-z0-9]+\.js$/);
 
-    const html = await readFile(join(tmp, "dist/index.html"), "utf8");
-    expect(html).toContain(`src="${manifest["client.js"]}"`);
-    expect(html).toContain('id="root"');
+      const html = await readFile(join(tmp, "dist/index.html"), "utf8");
+      expect(html).toContain(`src="${manifest["client.js"]}"`);
+      expect(html).toContain('id="root"');
 
-    // Hashed asset existiert im dist/
-    const assetPath = join(tmp, "dist", manifest["client.js"] ?? "");
-    expect(existsSync(assetPath)).toBe(true);
+      // Hashed asset existiert im dist/
+      const assetPath = join(tmp, "dist", manifest["client.js"] ?? "");
+      expect(existsSync(assetPath)).toBe(true);
 
-    // Bundle enthält den User-Code (minified — also Identifier-Namen
-    // mangled, aber der String-Literal "hi" überlebt).
-    expect(await readFile(assetPath, "utf8")).toContain('"hi"');
-  });
+      // Bundle enthält den User-Code (minified — also Identifier-Namen
+      // mangled, aber der String-Literal "hi" überlebt).
+      expect(await readFile(assetPath, "utf8")).toContain('"hi"');
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
 
-  test("client.ts ohne index.html → klarer Error mit Template-Vorschlag", async () => {
-    await mkdir(join(tmp, "src"), { recursive: true });
-    await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
-    await writeFile(join(tmp, "package.json"), `{"name":"no-html","private":true}`);
+  test(
+    "client.ts ohne index.html → klarer Error mit Template-Vorschlag",
+    async () => {
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
+      await writeFile(join(tmp, "package.json"), `{"name":"no-html","private":true}`);
 
-    let stderr = "";
-    expect(() => {
-      try {
-        execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
-      } catch (err) {
-        const e = err as { stderr?: Buffer };
-        stderr = e.stderr?.toString() ?? "";
-        throw err;
-      }
-    }).toThrow();
+      let stderr = "";
+      expect(() => {
+        try {
+          execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+        } catch (err) {
+          const e = err as { stderr?: Buffer };
+          stderr = e.stderr?.toString() ?? "";
+          throw err;
+        }
+      }).toThrow();
 
-    expect(stderr).toContain("kein index.html gefunden");
-    expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
-  });
+      expect(stderr).toContain("kein index.html gefunden");
+      expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
 
-  test("client.ts + index.html ohne /client.js Placeholder → klarer Error", async () => {
-    await mkdir(join(tmp, "src"), { recursive: true });
-    await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
-    await mkdir(join(tmp, "public"), { recursive: true });
-    await writeFile(
-      join(tmp, "public/index.html"),
-      `<!doctype html><html><body>no script</body></html>`,
-    );
-    await writeFile(join(tmp, "package.json"), `{"name":"no-placeholder","private":true}`);
+  test(
+    "client.ts + index.html ohne /client.js Placeholder → klarer Error",
+    async () => {
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await writeFile(join(tmp, "src/client.ts"), `console.log("hi");`);
+      await mkdir(join(tmp, "public"), { recursive: true });
+      await writeFile(
+        join(tmp, "public/index.html"),
+        `<!doctype html><html><body>no script</body></html>`,
+      );
+      await writeFile(join(tmp, "package.json"), `{"name":"no-placeholder","private":true}`);
 
-    let stderr = "";
-    expect(() => {
-      try {
-        execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
-      } catch (err) {
-        const e = err as { stderr?: Buffer };
-        stderr = e.stderr?.toString() ?? "";
-        throw err;
-      }
-    }).toThrow();
+      let stderr = "";
+      expect(() => {
+        try {
+          execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+        } catch (err) {
+          const e = err as { stderr?: Buffer };
+          stderr = e.stderr?.toString() ?? "";
+          throw err;
+        }
+      }).toThrow();
 
-    expect(stderr).toContain("keinen Entry-Tag für /client.js");
-    expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
-  });
+      expect(stderr).toContain("keinen Entry-Tag für /client.js");
+      expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
 
-  test("Re-Build mit unverändertem Source produziert identischen Hash (reproducibility)", async () => {
-    await mkdir(join(tmp, "src"), { recursive: true });
-    await writeFile(join(tmp, "src/client.ts"), `console.log("stable");`);
-    await mkdir(join(tmp, "public"), { recursive: true });
-    await writeFile(
-      join(tmp, "public/index.html"),
-      `<!doctype html><html><body><script type="module" src="/client.js"></script></body></html>`,
-    );
-    await writeFile(join(tmp, "package.json"), `{"name":"hash-stability","private":true}`);
+  test(
+    "Re-Build mit unverändertem Source produziert identischen Hash (reproducibility)",
+    async () => {
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await writeFile(join(tmp, "src/client.ts"), `console.log("stable");`);
+      await mkdir(join(tmp, "public"), { recursive: true });
+      await writeFile(
+        join(tmp, "public/index.html"),
+        `<!doctype html><html><body><script type="module" src="/client.js"></script></body></html>`,
+      );
+      await writeFile(join(tmp, "package.json"), `{"name":"hash-stability","private":true}`);
 
-    execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
-    const manifest1 = JSON.parse(await readFile(join(tmp, "dist/manifest.json"), "utf8")) as Record<
-      string,
-      string
-    >;
+      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      const manifest1 = JSON.parse(
+        await readFile(join(tmp, "dist/manifest.json"), "utf8"),
+      ) as Record<string, string>;
 
-    execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
-    const manifest2 = JSON.parse(await readFile(join(tmp, "dist/manifest.json"), "utf8")) as Record<
-      string,
-      string
-    >;
+      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      const manifest2 = JSON.parse(
+        await readFile(join(tmp, "dist/manifest.json"), "utf8"),
+      ) as Record<string, string>;
 
-    expect(manifest2["client.js"]).toBe(manifest1["client.js"]);
-  });
+      expect(manifest2["client.js"]).toBe(manifest1["client.js"]);
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
 });
