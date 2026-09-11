@@ -68,6 +68,7 @@ const mockCheckoutCalls: Array<{
   successUrl: string;
   cancelUrl: string;
   providerCustomerId?: string;
+  mode?: "subscription" | "payment";
 }> = [];
 const mockPortalCalls: Array<{ providerCustomerId: string; returnUrl: string }> = [];
 
@@ -82,6 +83,7 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
         successUrl: options.successUrl,
         cancelUrl: options.cancelUrl,
         ...(options.providerCustomerId && { providerCustomerId: options.providerCustomerId }),
+        ...(options.mode && { mode: options.mode }),
       });
       return { url: `https://mock.example/checkout/${options.priceId}` };
     },
@@ -512,6 +514,41 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
       admin,
     );
     expect(mockCheckoutCalls[0]?.providerCustomerId).toBe("cus_existing_xyz");
+  });
+
+  test("optional mode wird durchgereicht (One-off-Payment-Flow, fw#2755)", async () => {
+    mockCheckoutCalls.length = 0;
+    const admin = adminFor(3014);
+    await stack.http.writeOk(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_topup_test",
+        successUrl: "https://example.com/s",
+        cancelUrl: "https://example.com/c",
+        mode: "payment",
+      },
+      admin,
+    );
+    expect(mockCheckoutCalls).toHaveLength(1);
+    expect(mockCheckoutCalls[0]?.mode).toBe("payment");
+  });
+
+  test("mode omitted → plugin receives no mode field (Regression-Pin für bestehende Aufrufer)", async () => {
+    mockCheckoutCalls.length = 0;
+    const admin = adminFor(3015);
+    await stack.http.writeOk(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_pro_test",
+        successUrl: "https://example.com/s",
+        cancelUrl: "https://example.com/c",
+      },
+      admin,
+    );
+    expect(mockCheckoutCalls).toHaveLength(1);
+    expect(mockCheckoutCalls[0]?.mode).toBeUndefined();
   });
 });
 

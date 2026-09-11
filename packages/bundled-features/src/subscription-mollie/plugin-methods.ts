@@ -52,12 +52,20 @@ export function createMollieCheckoutSession(
       customerId = customer.id;
     }
 
+    // mode "payment" (one-off top-up) → sequenceType.oneoff, no mandate
+    // setup. verify-webhook.ts's ensureSubscriptionForMandate already
+    // gates on sequenceType === "first" — a oneoff payment falls into
+    // its "not our domain" branch and creates NO Mollie subscription.
+    // Webhook resolution for oneoff payments is separate follow-up
+    // work (offlot#109), not part of this contract.
+    const sequenceType = options.mode === "payment" ? SequenceType.oneoff : SequenceType.first;
+
     // payments.create ist overloaded (Promise OR void mit callback);
     // explicit cast auf Promise<Payment>-overload.
     const payment = (await (client.payments.create({
       amount: { currency: priceCfg.amountCurrency, value: priceCfg.amountValue },
       description: priceCfg.description,
-      sequenceType: SequenceType.first,
+      sequenceType,
       customerId,
       redirectUrl: options.successUrl,
       cancelUrl: options.cancelUrl,

@@ -129,6 +129,11 @@ export type SubscriptionProviderPlugin = {
        *  schon einen Account beim Provider hat. Sonst legt der Provider
        *  beim checkout einen neuen customer an. */
       readonly providerCustomerId?: string;
+      /** Checkout mode. `"subscription"` (default) starts a recurring
+       *  billing flow; `"payment"` a one-off checkout (e.g. pay-per-use
+       *  credit top-ups). Optional with default `"subscription"` — existing
+       *  callers are unaffected. */
+      readonly mode?: "subscription" | "payment";
     },
   ) => Promise<{ readonly url: string }>;
 

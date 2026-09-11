@@ -41,24 +41,26 @@ export function createStripeCheckoutSession(runtime: StripeCtxRuntime) {
     // billing-live-config-key write-side.
     await runtime.assertBillingLive(ctx);
     const stripe = await runtime.clientForCtx(ctx);
+    const mode = options.mode ?? "subscription";
 
     const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
+      mode,
       line_items: [{ price: options.priceId, quantity: 1 }],
       success_url: options.successUrl,
       cancel_url: options.cancelUrl,
-      // metadata.tenantId landet auf der subscription die durch diese
-      // checkout-session entsteht — beim subsequent webhook lesen wir's
-      // aus subscription.metadata.tenantId zurück.
-      subscription_data: {
-        metadata: { tenantId: options.tenantId },
-      },
+      // subscription_data is subscription-mode-only (Stripe rejects it in
+      // payment-mode) — the subsequent webhook reads metadata.tenantId off
+      // the subscription it creates. payment-mode has no subscription, so
+      // tenantId travels via payment_intent_data.metadata instead.
+      ...(mode === "subscription"
+        ? { subscription_data: { metadata: { tenantId: options.tenantId } } }
+        : { payment_intent_data: { metadata: { tenantId: options.tenantId } } }),
       ...(options.providerCustomerId && { customer: options.providerCustomerId }),
     });
 
     if (!session.url) {
-      // Stripe garantiert url für mode: subscription. Defensive für
-      // zukünftige API-Drift.
+      // Defensive: Stripe returns a hosted url for both modes today —
+      // guards against future API drift.
       throw new Error("subscription-stripe: checkout.sessions.create returned no url");
     }
     return { url: session.url };
