@@ -147,15 +147,21 @@ kind) on a field that pre-existed, run `backfillEventPiiEncryption(db,
 registry)` once against the estate — `dryRun: true` first to see the
 projected counts — then rebuild the affected projections.
 
-**Known residual gap:** `backfillEventPiiEncryption` only walks two event
-shapes: registry-entity lifecycle events (covered above) and the custom
-event catalog (`r.defineEvent(..., { piiFields })`). The catalog path
-hardcodes `{ kind: "user", userId }` for every catalogued field — it cannot
-target a `tenant` or `record` subject. A free-text field carried in a custom
-domain event (not a registry entity) under a tenant/record subject is
-**not** backfillable today; that field is a documented, permanent
-boundary (Weg 2) until the catalog path is generalized. Tracked as a
-follow-up: fw#2801.
+**Resolved (fw#2801):** `backfillEventPiiEncryption`'s custom-event-catalog
+branch and the live `encryptEventPayloadPii` write path both resolve every
+declared subject kind through the same `resolveEventSubject`
+(`packages/framework/src/crypto/subject-resolver.ts`) — that shared resolver
+is what guarantees a field is never encrypted under different subjects
+depending on which of the two write paths touched it. `r.defineEvent(...,
+{ piiFields })` accepts `{ <field>: { personal: { of: "<field>" } } }` for a
+user subject (unchanged), `{ personal: "tenant" }` for the event's own
+`tenantId`, and `{ personal: "self" }` for the event's own aggregate stream
+(`record:<aggregateType>:<aggregateId>`). A free-text field carried in a
+custom domain event under a tenant or record subject is now both
+encryptable and backfillable — see
+`describe("backfillEventPiiEncryption: catalog subject kinds match live
+append (fw#2801)")` in `backfill-pii.integration.test.ts` for the regression
+coverage pinning the live/backfill parity down.
 
 ## Operator runbook: an Art. 17 request the mentions never found
 

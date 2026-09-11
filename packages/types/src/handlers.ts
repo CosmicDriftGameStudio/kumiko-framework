@@ -732,15 +732,20 @@ export type QualifiedEventName<
 > = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
 
 // PII payload fields on a custom event (#799): `field` is encrypted under
-// the DEK of the user the subject spec names (crypto-shredding). A null
-// subject field leaves the value plaintext — there is no user key to shred
-// for system-triggered events.
+// the DEK the subject spec names (crypto-shredding). A null owner-field
+// value leaves a `personal: { of }` field plaintext — there is no user key
+// to shred for system-triggered events.
 //
-// `{ personal: { of: "<ownerField>" } }` is the canonical form, matching the
-// entity-field `personal` vocabulary (see fields.ts). Only a user subject is
-// resolvable today (fw#2801) — "self"/"tenant"/"ref" are not valid here yet.
+// `{ personal: { of: "<ownerField>" } }` is the canonical user-subject form,
+// matching the entity-field `personal` vocabulary (see fields.ts).
+// `personal: "tenant"` and `personal: "self"` declare the event's tenant
+// (envelope.tenantId) or its own aggregate stream (envelope.aggregateType +
+// aggregateId) as the subject instead — resolved via `resolveEventSubject`
+// in `packages/framework/src/crypto/subject-resolver.ts` (fw#2801 step 2).
 export type EventPiiSubject =
   | { readonly personal: { readonly of: string } }
+  | { readonly personal: "tenant" }
+  | { readonly personal: "self" }
   | {
       /** @deprecated use `{ personal: { of: "<ownerField>" } }` instead. */
       readonly subjectField: string;
@@ -748,15 +753,16 @@ export type EventPiiSubject =
 
 export type EventPiiFields = Readonly<Record<string, EventPiiSubject>>;
 
-export type NormalizedEventPiiSubject = {
-  readonly kind: "user";
-  readonly ownerField: string;
-};
+export type NormalizedEventPiiSubject =
+  | { readonly kind: "user"; readonly ownerField: string }
+  | { readonly kind: "tenant" }
+  | { readonly kind: "self" };
 
 export function normalizeEventPiiSubject(spec: EventPiiSubject): NormalizedEventPiiSubject {
-  return "personal" in spec
-    ? { kind: "user", ownerField: spec.personal.of }
-    : { kind: "user", ownerField: spec.subjectField };
+  if ("subjectField" in spec) return { kind: "user", ownerField: spec.subjectField };
+  if (spec.personal === "tenant") return { kind: "tenant" };
+  if (spec.personal === "self") return { kind: "self" };
+  return { kind: "user", ownerField: spec.personal.of };
 }
 
 // The full set of PII stances a defineEvent() call may declare. "none" is a

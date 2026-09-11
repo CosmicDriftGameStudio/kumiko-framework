@@ -12,9 +12,10 @@
 // silent no-op (forgetting the option) is now either an explicit "none" or a
 // missing subject KMS at encrypt-time, both visible states, not a gap.
 
-import { type EventPiiFields, normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
+import type { EventPiiFields } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext } from "../api/request-context";
 import { configuredPiiSubjectKms, encryptPiiValueForSubject } from "./pii-field-encryption";
+import { type EventSubjectEnvelope, resolveEventSubject } from "./subject-resolver";
 
 export type EventPiiCatalog = ReadonlyMap<string, EventPiiFields>;
 
@@ -35,14 +36,20 @@ export function resetEventPiiCatalogForTests(): void {
   catalog = new Map();
 }
 
-// Encrypts catalogued payload fields under the owning user's DEK. No-op when
-// the event type is uncatalogued or no subject KMS is configured (plaintext
-// rollout mode — the hard boot gate governs whether that is acceptable).
-// A null/absent subject field (system cron runs, recipient-less skip
-// attempts) leaves the value plaintext: there is no user key to shred.
+// Encrypts catalogued payload fields under the declared subject's DEK
+// (user/tenant/self — resolveEventSubject, fw#2801). No-op when the event
+// type is uncatalogued or no subject KMS is configured (plaintext rollout
+// mode — the hard boot gate governs whether that is acceptable). A
+// user-subject field with no resolvable owner (system cron runs,
+// recipient-less skip attempts) leaves the value plaintext: there is no
+// user key to shred. This is the ONLY live-write encrypt path — the backfill
+// catalog branch (`backfill-pii.ts`) resolves through the same
+// resolveEventSubject so a field never ends up encrypted under different
+// subjects depending on which path wrote it.
 export async function encryptEventPayloadPii(
   eventType: string,
   payload: Record<string, unknown>,
+  envelope: EventSubjectEnvelope,
 ): Promise<Record<string, unknown>> {
   const piiFields = catalog.get(eventType);
   if (!piiFields) return payload;
@@ -58,12 +65,11 @@ export async function encryptEventPayloadPii(
         `Event "${eventType}" piiFields."${field}" must be a string payload field, got ${typeof value}`,
       );
     }
-    const { ownerField } = normalizeEventPiiSubject(spec);
-    const subjectId = payload[ownerField];
-    if (typeof subjectId !== "string" || subjectId.length === 0) continue;
+    const subject = resolveEventSubject(field, spec, payload, envelope);
+    if (subject === null) continue;
     const encrypted = await encryptPiiValueForSubject(
       kms,
-      { kind: "user", userId: subjectId },
+      subject,
       value,
       { requestId: requestContext.get()?.requestId ?? "append-event" },
       field,

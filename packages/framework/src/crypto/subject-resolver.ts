@@ -1,7 +1,8 @@
+import { type EventPiiSubject, normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import type { EntityDefinition } from "../engine/types/fields";
 import type { TenantId } from "../engine/types/identifiers";
 import { isSelfPiiField } from "./is-self-pii-field";
-import type { SubjectId } from "./kms-adapter";
+import { RECORD_ENTITY_PATTERN, type SubjectId } from "./kms-adapter";
 
 // Thrown when a field IS pii-annotated but the row can't name its subject —
 // that must surface as an error, not fall back to plaintext.
@@ -123,6 +124,66 @@ export function resolveSubjectForField(
   }
 
   return null;
+}
+
+// Envelope facts an event's own aggregate stream always carries — unlike a
+// row's tenantId/id columns, these are structural, so a missing/empty value
+// here is a caller bug, not a normal "no subject to shred" case.
+export interface EventSubjectEnvelope {
+  readonly tenantId: TenantId;
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+}
+
+// Same resolver for the live-append path (encryptEventPayloadPii) and the
+// backfill catalog path (backfillEventPiiEncryption) — the reason the two
+// can never encrypt the same field under different subjects. "user" returns
+// null on a missing owner (no key to shred for system-triggered events);
+// "tenant"/"self" throw instead, since their envelope facts are structural.
+export function resolveEventSubject(
+  fieldName: string,
+  spec: EventPiiSubject,
+  payload: Record<string, unknown>,
+  envelope: EventSubjectEnvelope,
+): SubjectId | null {
+  const normalized = normalizeEventPiiSubject(spec);
+
+  if (normalized.kind === "user") {
+    const userId = nonEmptyString(payload[normalized.ownerField]);
+    return userId === null ? null : { kind: "user", userId };
+  }
+
+  if (normalized.kind === "tenant") {
+    if (nonEmptyString(envelope.tenantId) === null) {
+      throw new SubjectResolutionError(fieldName, "event envelope tenantId is empty");
+    }
+    return { kind: "tenant", tenantId: envelope.tenantId };
+  }
+
+  if (normalized.kind === "self") {
+    if (
+      nonEmptyString(envelope.aggregateType) === null ||
+      nonEmptyString(envelope.aggregateId) === null
+    ) {
+      throw new SubjectResolutionError(
+        fieldName,
+        "event envelope aggregateType/aggregateId is empty",
+      );
+    }
+    // aggregate_type is a free-form text column (events-schema.ts) — reject
+    // here rather than mint a record key that subjectIdSchema (forget-
+    // subject.write.ts) would later refuse to shred.
+    if (!RECORD_ENTITY_PATTERN.test(envelope.aggregateType)) {
+      throw new SubjectResolutionError(
+        fieldName,
+        `event aggregateType "${envelope.aggregateType}" does not match ${RECORD_ENTITY_PATTERN} — not a shreddable record subject`,
+      );
+    }
+    return { kind: "record", entity: envelope.aggregateType, id: envelope.aggregateId };
+  }
+
+  const exhaustiveCheck: never = normalized;
+  throw new Error(`Unhandled normalized event PII subject: ${JSON.stringify(exhaustiveCheck)}`);
 }
 
 function hasSubjectAnnotation(field: EntityDefinition["fields"][string]): boolean {

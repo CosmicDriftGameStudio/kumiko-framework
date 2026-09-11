@@ -20,10 +20,18 @@ export function subjectKeyForTenant(tenantId: TenantId): SubjectKey {
   return `tenant:${tenantId}`;
 }
 
+// Registry entity names are identifier-shaped; a free-form aggregate_type
+// (events-schema.ts is a plain text column) could otherwise mint a record
+// key that subjectIdSchema (forget-subject.write.ts) later refuses to
+// shred — enforced once here so minting and shredding can never disagree.
+export const RECORD_ENTITY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
+
 export function subjectKeyForRecord(entity: string, id: string): SubjectKey {
-  // The key is parsed back on exactly one ":" — an entity containing ":" would break the round-trip.
-  if (entity === "" || entity.includes(":"))
-    throw new Error(`Invalid record entity for subject key: ${entity}`);
+  if (!RECORD_ENTITY_PATTERN.test(entity)) {
+    throw new Error(
+      `Invalid record entity for subject key: "${entity}" — must match ${RECORD_ENTITY_PATTERN}`,
+    );
+  }
   if (id === "") throw new Error("Invalid record id for subject key: empty");
   return `record:${entity}:${id}`;
 }

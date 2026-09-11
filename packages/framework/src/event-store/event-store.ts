@@ -78,7 +78,11 @@ export const EVENTS_PUBSUB_CHANNEL = "kumiko_events_new";
 export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
   // Event-PII (#799): stored payload AND returned echo carry ciphertext, so
   // inline projections and rebuilds materialize identical rows.
-  const payload = await encryptEventPayloadPii(event.type, event.payload);
+  const payload = await encryptEventPayloadPii(event.type, event.payload, {
+    tenantId: event.tenantId,
+    aggregateType: event.aggregateType,
+    aggregateId: event.aggregateId,
+  });
   const toStore = payload === event.payload ? event : { ...event, payload };
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;

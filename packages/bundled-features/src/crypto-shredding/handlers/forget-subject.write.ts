@@ -3,6 +3,7 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   configuredPiiSubjectKms,
+  RECORD_ENTITY_PATTERN,
   type SubjectId,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
@@ -47,9 +48,6 @@ import {
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants";
-
-// Registry entity names are identifier-shaped; ":" would break the subject-key round-trip.
-const RECORD_ENTITY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.uuid() }),
