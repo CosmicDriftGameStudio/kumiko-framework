@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-types
 
+## 0.250.0
+
+### Minor Changes
+
+- a4a25ee: fw#2585: `JobContext` gains `writeAs(user, qn, payload)`, the explicit-identity counterpart to the existing `queryAs` — a job could read as any identity but only ever write as its own systemUser. Since `hasAccess` has no system bypass, every write handler whose `access` lists concrete roles (e.g. `["TenantAdmin"]`) was unreachable from a job: the dispatch came back `access_denied` and the only signal was a failed job. `writeAs` routes through the same `DispatchWriteRef.write` the dispatcher already exposes, so the write runs the full pipeline (access check, validation, hooks) as the passed identity and the resulting events are attributed to it rather than to SYSTEM. The job assembles the `SessionUser` itself — `ctx.triggeredBy` carries only id + tenantId and no roles, so the roles have to come from a trusted lookup, and the passed `tenantId` decides the target tenant with nothing cross-checking it against the job's own (same as the existing `queryAs` and `ctx.db`). `writeAs` is a required field on `JobContext`, so app code that hand-builds a `JobContext` object literal instead of letting the JobRunner build one (e.g. a boot seed) has to add it when bumping. `ctx.write` is unchanged and still runs as the job's systemUser.
+- 0be08d9: fw#2606: the default presentation heuristic for `kind: "select"` no longer looks at label length. Until now a select rendered as a segmented radio group only when it had at most four options **and** every label was at most 14 characters long. Labels reach the primitive already translated, so the second condition made the widget type depend on the active UI language: the same field rendered as `segmented-${id}` in German and as `combobox-${id}` in English, which broke language-independent e2e selectors and made a row of fields jump on locale switch. The option count is now the only criterion (still at most four); labels that no longer fit wrap inside the group, which already has `flex-wrap`.
+
+  Consumer note: selects with at most four options and long labels now expose `role="radiogroup"` where they previously rendered a combobox. `display: "dropdown"` on the field (or on the `Input` primitive) keeps the combobox where that is the wanted presentation.
+
+- d9f9337: fw#2741: `ReferenceFieldDef` gains `sortable?: true`. A list sorted by such a field now orders by the referenced row's `labelField` instead of the FK column's UUID, resolved with a tenant-scoped correlated subquery on the read path (no join, no read-model change). Like `searchable`, the boot validator rejects `sortable` without an explicit non-`"id"` `labelField` and rejects it on `multiple` references. `Registry` gains `getSortableReferences(entityName)`, and `EventStoreExecutor.list`'s `runtimeOptions` gains a `referenceSort` counterpart to `referenceSearch`.
+
+  Behavior change: a `sort` on a reference field that did not opt into `sortable` (or whose target label cannot be resolved) now falls back to plain id order instead of ordering by the raw UUID column — a UUID order looks deliberate to the user while being arbitrary.
+
+- 3737271: fw#2752: `style: "danger"` is now allowed on the `navigate` and `drawer` variants of `RowAction` and `ToolbarAction` — there it only renders the action red, the forced confirm dialog stays bound to the `writeHandler` variants. `ActionFormScreenDefinition.submitStyle: "danger"` marks the form's submit button as destructive.
+
 ## 0.249.0
 
 ### Minor Changes
