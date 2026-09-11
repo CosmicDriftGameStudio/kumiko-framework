@@ -33,7 +33,11 @@ import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kum
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
-import { RenderEditActionButton } from "../components/render-edit-action-button";
+import {
+  needsActionConfirm,
+  RenderEditActionButton,
+  RenderEditActionConfirmDialog,
+} from "../components/render-edit-action-button";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
@@ -2144,6 +2148,108 @@ function resolveSubtitleHref(
 // natives Form-Submit (Enter-Keypress) würde ohne customSubmit gegen
 // controller.submit() ohne submit-config throwen — der No-Op macht diesen
 // Pfad harmlos statt ihn dem Zufall zu überlassen.
+// The primary header action always stays a visible text button — `edit` if
+// declared, else the first `style: "primary"` action, else the first action
+// at all. One step longer than row actions' `primaryRowAction` (renderer-web
+// primitives/index.tsx): rows don't declare `style: "primary"`.
+function primaryHeaderAction(actions: readonly RenderEditAction[]): RenderEditAction | undefined {
+  return (
+    actions.find((a) => a.id === "edit") ?? actions.find((a) => a.style === "primary") ?? actions[0]
+  );
+}
+
+// Header actions bar (A7): <=2 actions render as plain buttons; >2 with an
+// `ActionOverflowMenu` primitive collapse to the primary button plus a menu
+// for the rest — same rule as RowActionsCell for table rows. Owns confirm
+// state for menu items: RenderEditActionButton already owns a per-button
+// confirm dialog for the always-visible primary action, but a menu item has
+// no button of its own to carry one.
+function HeaderActionsBar({
+  actions,
+  Button,
+  Dialog,
+  ActionOverflowMenu,
+  onError,
+}: {
+  readonly actions: readonly RenderEditAction[];
+  readonly Button: ReturnType<typeof usePrimitives>["Button"];
+  readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
+  readonly ActionOverflowMenu: ReturnType<typeof usePrimitives>["ActionOverflowMenu"];
+  readonly onError: (text: string | null) => void;
+}): ReactNode {
+  const [pendingAction, setPendingAction] = useState<RenderEditAction | null>(null);
+  const trigger = async (action: RenderEditAction): Promise<void> => {
+    onError(null);
+    try {
+      await action.onPress();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  if (actions.length <= 2 || ActionOverflowMenu === undefined) {
+    return (
+      <>
+        {actions.map((action) => (
+          <RenderEditActionButton
+            key={action.id}
+            action={action}
+            Button={Button}
+            Dialog={Dialog}
+            onError={onError}
+          />
+        ))}
+      </>
+    );
+  }
+  const primary = primaryHeaderAction(actions);
+  const rest = actions.filter((a) => a.id !== primary?.id);
+  return (
+    <>
+      {primary !== undefined && (
+        <RenderEditActionButton
+          key={primary.id}
+          action={primary}
+          Button={Button}
+          Dialog={Dialog}
+          onError={onError}
+        />
+      )}
+      <ActionOverflowMenu
+        label="More actions"
+        testId="kumiko-screen-projection-detail-actions-overflow"
+        items={rest.map((action) => ({
+          id: action.id,
+          label: action.label,
+          ...(action.icon !== undefined && { icon: action.icon }),
+          variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
+          onSelect: () => {
+            if (needsActionConfirm(action)) {
+              setPendingAction(action);
+            } else {
+              void trigger(action);
+            }
+          },
+        }))}
+      />
+      {pendingAction !== null && (
+        <RenderEditActionConfirmDialog
+          action={pendingAction}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setPendingAction(null);
+          }}
+          onConfirm={async () => {
+            const action = pendingAction;
+            setPendingAction(null);
+            await trigger(action);
+          }}
+          Dialog={Dialog}
+        />
+      )}
+    </>
+  );
+}
+
 function ProjectionDetailBody({
   schema,
   screen,
@@ -2171,6 +2277,7 @@ function ProjectionDetailBody({
     StatusBadge,
     Metric,
     Link,
+    ActionOverflowMenu,
   } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -2469,15 +2576,13 @@ function ProjectionDetailBody({
   // trailing the active tab's content in the card footer.
   const headerActionsContent = hasHeaderActions && (
     <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
-      {headerActionsList.map((action) => (
-        <RenderEditActionButton
-          key={action.id}
-          action={action}
-          Button={Button}
-          Dialog={Dialog}
-          onError={setActionError}
-        />
-      ))}
+      <HeaderActionsBar
+        actions={headerActionsList}
+        Button={Button}
+        Dialog={Dialog}
+        ActionOverflowMenu={ActionOverflowMenu}
+        onError={setActionError}
+      />
     </Grid>
   );
   const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions;

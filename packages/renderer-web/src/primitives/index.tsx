@@ -18,6 +18,8 @@ import type {
   DataTableSortDir,
 } from "@cosmicdrift/kumiko-renderer";
 import {
+  type ActionMenuItemSpec,
+  type ActionOverflowMenuProps,
   type BannerProps,
   type ButtonProps,
   type CardProps,
@@ -1541,6 +1543,52 @@ function RowActionsKebab({
   );
 }
 
+// Header/row-actions overflow menu (A7) — same three-dots trigger style as
+// RowActionsKebab, generic ActionMenuItemSpec items instead of the
+// DataTableRowAction schema (callers own confirm/danger handling per item).
+function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          data-testid={testId ?? "action-overflow-menu-trigger"}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-sm",
+            "hover:bg-accent text-muted-foreground hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          )}
+        >
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {items.map((item: ActionMenuItemSpec) => {
+          const resolvedIcon = actionIconFor(item.icon);
+          return (
+            <DropdownMenuItem
+              key={item.id}
+              data-testid={`${testId ?? "action-overflow-menu"}-item-${item.id}`}
+              disabled={item.disabled === true}
+              onSelect={(e) => {
+                e.preventDefault();
+                setOpen(false);
+                item.onSelect();
+              }}
+              className={cn(item.variant === "danger" && "text-destructive focus:text-destructive")}
+            >
+              {resolvedIcon !== undefined && <Icon name={resolvedIcon} className="size-4" />}
+              {item.label}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // InfiniteSentinel — empty div at the end of the table that uses
 // IntersectionObserver to detect when the user scrolls near the list end.
 // onReachEnd fires exactly once per "becomes visible" transition; the
@@ -2873,4 +2921,5 @@ export const defaultPrimitives: CorePrimitives = {
   Metric: DefaultMetric,
   JsonView: DefaultJsonView,
   FillContainer: DefaultFillContainer,
+  ActionOverflowMenu,
 };

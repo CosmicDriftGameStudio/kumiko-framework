@@ -3,6 +3,41 @@ import { useState } from "react";
 import type { usePrimitives } from "../primitives";
 import type { RenderEditAction } from "./render-edit-types";
 
+// Same rule as RowActionWriteHandler: "danger" forces a confirm even
+// without an explicit confirm key — unless `confirmRequired` overrides it
+// (schema-driven navigate/drawer actions, where the target form is itself
+// the confirmation).
+export function needsActionConfirm(action: RenderEditAction): boolean {
+  return action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
+}
+
+export function RenderEditActionConfirmDialog({
+  action,
+  open,
+  onOpenChange,
+  onConfirm,
+  Dialog,
+}: {
+  readonly action: RenderEditAction;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly onConfirm: () => void | Promise<void>;
+  readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
+}): ReactNode {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={action.label}
+      {...(action.confirm !== undefined && { description: action.confirm })}
+      confirmLabel={action.confirmLabel ?? action.label}
+      {...(action.style === "danger" && { variant: "danger" as const })}
+      onConfirm={onConfirm}
+      testId={`render-edit-action-${action.id}-dialog`}
+    />
+  );
+}
+
 // One header action + its own busy/confirm state — same pattern as
 // render-list.tsx's ToolbarActionView (each RenderEditAction is
 // independently bound by the caller, there is no shared trigger pipeline
@@ -38,12 +73,6 @@ export function RenderEditActionButton({
   };
 
   const variant = action.style ?? "secondary";
-  // Same rule as RowActionWriteHandler: "danger" forces a confirm even
-  // without an explicit confirm key — unless `confirmRequired` overrides it
-  // (schema-driven navigate/drawer actions, where the target form is itself
-  // the confirmation).
-  const needsConfirm =
-    action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
   const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (
@@ -55,7 +84,7 @@ export function RenderEditActionButton({
         {...(action.icon !== undefined && { icon: action.icon })}
         {...(showIconOnly && { size: "icon" as const, ariaLabel: action.label })}
         onClick={() => {
-          if (needsConfirm) {
+          if (needsActionConfirm(action)) {
             setConfirmOpen(true);
           } else {
             void trigger();
@@ -65,15 +94,12 @@ export function RenderEditActionButton({
       >
         {showIconOnly ? null : action.label}
       </Button>
-      <Dialog
+      <RenderEditActionConfirmDialog
+        action={action}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={action.label}
-        {...(action.confirm !== undefined && { description: action.confirm })}
-        confirmLabel={action.confirmLabel ?? action.label}
-        {...(action.style === "danger" && { variant: "danger" as const })}
         onConfirm={trigger}
-        testId={`render-edit-action-${action.id}-dialog`}
+        Dialog={Dialog}
       />
     </>
   );

@@ -17,14 +17,17 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { UserRolesProvider } from "../../context/user-roles-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
+  type ActionOverflowMenuProps,
   type BannerProps,
   type ButtonProps,
   type CorePrimitives,
+  type DialogProps,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives";
@@ -70,6 +73,55 @@ const TestBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
+// Minimal overflow-menu double (A7): a toggle button reveals the items as
+// plain buttons, own testid per item so a test can assert an item is
+// reachable only after the menu opens — no dropdown/portal machinery, this
+// package doesn't test the real (renderer-web) widget.
+const TestActionOverflowMenu: ComponentType<ActionOverflowMenuProps> = ({
+  items,
+  label,
+  testId,
+}) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-label={label}
+        data-testid={testId ?? "action-overflow-trigger"}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {"⋯"}
+      </button>
+      {open &&
+        items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            data-testid={`${testId ?? "action-overflow"}-item-${item.id}`}
+            disabled={item.disabled}
+            onClick={item.onSelect}
+          >
+            {item.label}
+          </button>
+        ))}
+    </div>
+  );
+};
+
+// Records the props of the last Dialog rendered *open* (a closed Dialog from
+// an always-mounted RenderEditActionButton never overwrites it) — lets a
+// test assert a confirm was requested and drive its onConfirm, without a
+// real dialog/portal implementation.
+type DialogSpy = ComponentType<DialogProps> & { lastProps: DialogProps | null };
+const TestDialog: DialogSpy = Object.assign(
+  (props: DialogProps): ReactNode => {
+    if (props.open) TestDialog.lastProps = props;
+    return null;
+  },
+  { lastProps: null as DialogProps | null },
+);
+
 const testPrimitives: CorePrimitives = {
   Button: TestButton,
   Banner: TestBanner,
@@ -83,12 +135,13 @@ const testPrimitives: CorePrimitives = {
   GridCell: passChildren,
   Text: passChildren,
   Heading: noop,
-  Dialog: noop,
+  Dialog: TestDialog,
   Modal: noop,
   Lightbox: noop,
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
+  ActionOverflowMenu: TestActionOverflowMenu,
 };
 
 function stubDispatcher(
@@ -416,7 +469,33 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     expect(navigated).toEqual({ screenId: "rent-edit", entityId: "rent-1" });
   });
 
-  test("three header actions → all three render their text label, none collapses to icon-only (fw bedienkonzept L4)", async () => {
+  test("two header actions → both render as buttons, no overflow trigger (fw bedienkonzept A7)", async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+          ],
+        }),
+        editScreen("rent"),
+      ],
+    };
+    const { getByTestId, queryByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    expect(getByTestId("render-edit-action-edit").textContent).toBe("actions.edit");
+    expect(getByTestId("render-edit-action-duplicate").textContent).toBe("actions.duplicate");
+    expect(queryByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeNull();
+  });
+
+  test("three header actions → edit stays a text button, the rest collapse into the overflow menu (fw bedienkonzept A7)", async () => {
     const schema: FeatureSchema = {
       featureName: "app",
       entities: {},
@@ -431,7 +510,7 @@ describe("projectionDetail default edit action (fw#2166)", () => {
         editScreen("rent"),
       ],
     };
-    const { getByTestId, queryByText } = renderDetail({
+    const { getByTestId, queryByTestId, queryByText } = renderDetail({
       primarySchema: schema,
       features: [schema],
       userRoles: [],
@@ -439,8 +518,146 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     await waitFor(() => expect(queryByText("Loading…")).toBeNull());
 
     expect(getByTestId("render-edit-action-edit").textContent).toBe("actions.edit");
-    expect(getByTestId("render-edit-action-duplicate").textContent).toBe("actions.duplicate");
-    expect(getByTestId("render-edit-action-audit-log").textContent).toBe("actions.auditLog");
+    expect(queryByTestId("render-edit-action-duplicate")).toBeNull();
+    expect(queryByTestId("render-edit-action-audit-log")).toBeNull();
+
+    fireEvent.click(getByTestId("kumiko-screen-projection-detail-actions-overflow"));
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate").textContent,
+    ).toBe("actions.duplicate");
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-audit-log").textContent,
+    ).toBe("actions.auditLog");
+  });
+
+  test("four header actions incl. edit → edit stays a text button, the other three are only reachable via the overflow menu (fw bedienkonzept A7)", async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+            { kind: "navigate", id: "audit-log", label: "actions.auditLog", screen: "rent-edit" },
+            { kind: "navigate", id: "archive", label: "actions.archive", screen: "rent-edit" },
+          ],
+        }),
+        editScreen("rent"),
+      ],
+    };
+    const { getByTestId, queryByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    expect(getByTestId("render-edit-action-edit").textContent).toBe("actions.edit");
+    expect(queryByTestId("render-edit-action-duplicate")).toBeNull();
+    expect(queryByTestId("render-edit-action-audit-log")).toBeNull();
+    expect(queryByTestId("render-edit-action-archive")).toBeNull();
+
+    fireEvent.click(getByTestId("kumiko-screen-projection-detail-actions-overflow"));
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate").textContent,
+    ).toBe("actions.duplicate");
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-audit-log").textContent,
+    ).toBe("actions.auditLog");
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-archive").textContent,
+    ).toBe("actions.archive");
+  });
+
+  test('header action without an id: "edit" entry → the style: "primary" action stays the visible button (fw bedienkonzept A7)', async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          actions: [
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+            {
+              kind: "navigate",
+              id: "approve",
+              label: "actions.approve",
+              screen: "rent-edit",
+              style: "primary",
+            },
+            { kind: "navigate", id: "audit-log", label: "actions.auditLog", screen: "rent-edit" },
+          ],
+        }),
+      ],
+    };
+    const { getByTestId, queryByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    expect(getByTestId("render-edit-action-approve").textContent).toBe("actions.approve");
+    expect(queryByTestId("render-edit-action-duplicate")).toBeNull();
+    expect(queryByTestId("render-edit-action-audit-log")).toBeNull();
+
+    fireEvent.click(getByTestId("kumiko-screen-projection-detail-actions-overflow"));
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate").textContent,
+    ).toBe("actions.duplicate");
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-audit-log").textContent,
+    ).toBe("actions.auditLog");
+  });
+
+  test("a danger overflow-menu action still asks for confirmation before firing (fw bedienkonzept A7)", async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+            {
+              kind: "writeHandler",
+              id: "archive",
+              label: "actions.archive",
+              handler: "app:write:archive",
+              style: "danger",
+            },
+          ],
+        }),
+        editScreen("rent"),
+      ],
+    };
+    // `as DialogProps | null` widens the assignment so tsc doesn't narrow
+    // the property to the literal `null` type, which turns the later
+    // optional-chained reads below into `never` (compiler quirk).
+    TestDialog.lastProps = null as DialogProps | null;
+    const { getByTestId, queryByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+      writeErrorMessage: "archive failed: rent is still active",
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    fireEvent.click(getByTestId("kumiko-screen-projection-detail-actions-overflow"));
+    fireEvent.click(getByTestId("kumiko-screen-projection-detail-actions-overflow-item-archive"));
+
+    // Danger action must not fire on the menu click alone — it needs the
+    // confirm dialog first, same as a danger row action.
+    expect(queryByTestId("render-edit-action-error")).toBeNull();
+    expect(TestDialog.lastProps?.open).toBe(true);
+    expect(TestDialog.lastProps?.title).toBe("actions.archive");
+
+    await act(async () => {
+      await TestDialog.lastProps?.onConfirm();
+    });
+
+    const errorBanner = await waitFor(() => getByTestId("render-edit-action-error"));
+    expect(errorBanner.textContent).toBe("archive failed: rent is still active");
   });
 
   test("a failed writeHandler action shows its error in the head region, alongside the action button, NOT in Form's own actions/body regions (fw#2713)", async () => {

@@ -1146,6 +1146,25 @@ export type JsonViewProps = {
   readonly testId?: string;
 };
 
+/** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the
+ *  primary one collapse into this menu instead of a wall of buttons). */
+export type ActionMenuItemSpec = {
+  readonly id: string;
+  readonly label: string;
+  /** Icon name, resolved by the implementation (same names as row actions). */
+  readonly icon?: IconKey;
+  readonly disabled?: boolean;
+  readonly variant?: "default" | "danger";
+  readonly onSelect: () => void;
+};
+
+export type ActionOverflowMenuProps = {
+  readonly items: readonly ActionMenuItemSpec[];
+  /** aria-label for the three-dots trigger. */
+  readonly label: string;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -1207,6 +1226,9 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly FillContainer?: ComponentType<FillContainerProps>;
+  /** Optional: without an implementation, callers with >2 header/row
+   *  actions fall back to today's all-buttons-inline rendering (A7). */
+  readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern
