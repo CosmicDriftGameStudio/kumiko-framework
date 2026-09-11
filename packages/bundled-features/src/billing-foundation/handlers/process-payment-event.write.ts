@@ -1,14 +1,14 @@
-// process-payment-event — programmatic write-handler den der webhook-
-// handler aufruft NACHDEM ein Plugin einen one-off-payment-webhook
-// verifiziert + zu PaymentEvent normalisiert hat.
+// process-payment-event — programmatic write-handler that the webhook-
+// handler calls AFTER a plugin has verified a one-off-payment webhook and
+// normalized it into a PaymentEvent.
 //
 // **ES-Pattern (mirrors process-event.write.ts):**
-//   1. Idempotency-check: lädt payment-stream + scannt nach bereits
-//      gesehenem `metadata.providerEventId`. Provider-Replay sieht
-//      denselben event-id → duplicate=true, kein zweiter append.
-//   2. ctx.unsafeAppendEvent — Inline-projection materialisiert eine neue
-//      `read_payments`-row (INSERT-once, keine UPSERT — jeder Payment ist
-//      ein eigenes Fakt, kein State-Update).
+//   1. Idempotency-check: loads the payment-stream and scans for an
+//      already-seen `metadata.providerEventId`. A provider-replay with
+//      the same event-id → duplicate=true, no second append.
+//   2. ctx.unsafeAppendEvent — inline-projection materializes a new
+//      `read_payments`-row (INSERT-once, not UPSERT — every payment is
+//      its own fact, not a state-update).
 
 import {
   configuredPiiSubjectKms,
@@ -34,9 +34,9 @@ export const processPaymentEventSchema = z.object({
 });
 type ProcessPaymentEventPayload = z.infer<typeof processPaymentEventSchema>;
 
-// SystemAdmin-only: dieser handler wird ausschließlich vom programmatic
-// webhook-handler aufgerufen (mit einem internal SystemUser), nie vom
-// Tenant-Admin direkt.
+// SystemAdmin-only: this handler is called exclusively by the programmatic
+// webhook-handler (with an internal SystemUser), never directly by the
+// tenant-admin.
 export const processPaymentEventHandler: WriteHandlerDef = {
   name: "process-payment-event",
   agent: { expose: false },

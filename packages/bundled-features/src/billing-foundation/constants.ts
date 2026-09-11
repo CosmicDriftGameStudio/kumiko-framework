@@ -21,10 +21,10 @@ export const SubscriptionFoundationHandlers = {
    *  current subscription, ruft plugin.createPortalSession, returnt
    *  hosted-portal-URL. */
   createPortalSession: "billing-foundation:write:create-portal-session",
-  /** Programmatic entry-point für den webhook-handler bei einem
-   *  one-off-payment (checkout mode "payment"). Eigener Aggregate-Stream
-   *  pro Tenant (payment-aggregate), getrennt vom subscription-Aggregate —
-   *  ein Payment ist kein Subscription-State-Übergang. */
+  /** Programmatic entry-point for the webhook-handler on a one-off-payment
+   *  (checkout mode "payment"). Its own per-tenant aggregate-stream
+   *  (payment-aggregate), separate from the subscription-aggregate — a
+   *  payment is not a subscription-state transition. */
   processPaymentEvent: "billing-foundation:write:process-payment-event",
 } as const;
 

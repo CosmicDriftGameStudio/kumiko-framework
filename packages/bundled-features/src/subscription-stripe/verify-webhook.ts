@@ -90,9 +90,9 @@ export function verifyAndParseStripeWebhook(
 
     // 1. Sig-verify. constructEvent throws bei mismatch (= invalid sig)
     //    oder timestamp-tolerance-violation (default 5min). Foundation
-    //    mapped throw → HTTP 401. Gilt für BEIDE Zweige unten — der
-    //    payment-Zweig verzweigt erst NACH dieser Prüfung, es gibt keinen
-    //    Pfad der die Sig-Verifikation umgeht.
+    //    mapped throw → HTTP 401. Applies to BOTH branches below — the
+    //    payment-branch only branches off AFTER this check; there's no
+    //    path that bypasses signature verification.
     let event: Stripe.Event;
     try {
       event = await stripe.webhooks.constructEventAsync(rawBody, sigHeader, webhookSecret);
@@ -101,11 +101,11 @@ export function verifyAndParseStripeWebhook(
       throw new Error(`subscription-stripe: webhook signature verify failed — ${msg}`);
     }
 
-    // 1b. One-off-payment-events (checkout mode "payment") verzweigen VOR
-    //     dem mapStripeEventType-Filter unten — sie mappen nicht auf einen
-    //     SubscriptionEventType und dürfen mapStripeEventType's 5er-
-    //     Whitelist nicht anfassen (Drift-Pin in verify-webhook.test.ts
-    //     erwartet weiterhin null für "checkout.session.completed").
+    // 1b. One-off-payment events (checkout mode "payment") branch off BEFORE
+    //     the mapStripeEventType filter below — they don't map to a
+    //     SubscriptionEventType and must not touch mapStripeEventType's
+    //     5-item whitelist (drift-pin in verify-webhook.test.ts still
+    //     expects null for "checkout.session.completed").
     if (isCheckoutSessionEventType(event.type)) {
       return await parsePaymentEvent(event, stripe);
     }
@@ -278,19 +278,15 @@ function isCheckoutSessionEventType(stripeType: string): boolean {
 }
 
 /** Parses a checkout.session.completed / .async_payment_succeeded event into
- *  a PaymentEvent. Both types fire for a successful one-off-payment —
- *  `completed` for synchronous methods (card), `async_payment_succeeded`
- *  for delayed ones (SEPA, bank transfers). Guards on `mode === "payment"`
- *  (excludes subscription-checkout sessions, which fire the same event
- *  types) and `payment_status === "paid"` (excludes an unpaid/expired
- *  session). Returns null — not an error — for anything that doesn't match
- *  our domain; foundation maps that to 200 "ignored", same as the
- *  subscription-path's filters. */
+ *  a PaymentEvent, or null if it isn't a paid one-off-payment session. */
 async function parsePaymentEvent(
   event: Stripe.Event,
   stripe: Stripe,
 ): Promise<PaymentEvent | null> {
   const session = event.data.object as Stripe.Checkout.Session; // @cast-boundary engine-bridge
+  // mode !== "payment" excludes subscription-checkout sessions (same event types);
+  // payment_status !== "paid" excludes an unpaid/expired session. Null here — not an
+  // error — maps to foundation's 200 "ignored", same as the subscription-path's filters.
   if (session.mode !== "payment" || session.payment_status !== "paid") {
     return null;
   }

@@ -886,7 +886,7 @@ function buildPaymentEventPayload(
 }
 
 describe("scenario 11: one-off payment — own aggregate, own read_payments-row", () => {
-  test("first payment for tenant → read_payments-row erzeugt, duplicate=false", async () => {
+  test("first payment for tenant → read_payments-row created, duplicate=false", async () => {
     const admin = adminFor(4001);
     const result = (await stack.http.writeOk(
       SubscriptionFoundationHandlers.processPaymentEvent,
@@ -911,7 +911,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(rows[0]?.providerName).toBe("stripe");
   });
 
-  test("idempotency: zweiter call mit gleichem providerEventId → duplicate=true, keine zweite row", async () => {
+  test("idempotency: second call with same providerEventId → duplicate=true, no second row", async () => {
     const admin = adminFor(4002);
 
     const first = (await stack.http.writeOk(
@@ -936,7 +936,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(second["duplicate"]).toBe(true);
 
     const rows = await selectMany(db, paymentsProjectionTable, { tenantId: admin.tenantId });
-    expect(rows).toHaveLength(1); // dedup'd — kein zweiter row
+    expect(rows).toHaveLength(1); // dedup'd — no second row
 
     const esEvents = await loadAggregate(db, paymentAggregateId(admin.tenantId), admin.tenantId);
     expect(esEvents).toHaveLength(1);
@@ -965,10 +965,10 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(rows).toHaveLength(2);
   });
 
-  test("Idempotency-Anker ist tenant-scoped — selber providerEventId für ZWEI Tenants ist NICHT duplicate, je eine eigene row", async () => {
+  test("idempotency anchor is tenant-scoped — same providerEventId for TWO tenants is NOT duplicate, each gets its own row", async () => {
     // Same shape as scenario 4's cross-tenant pin: two tenants can
     // legitimately see the same providerEventId (multiple Stripe accounts,
-    // test/prod-Mix). paymentRowId includes tenantId in its key — without
+    // test/prod mix). paymentRowId includes tenantId in its key — without
     // that, the second INSERT would silently no-op (ON CONFLICT DO NOTHING)
     // against the first tenant's row instead of creating its own.
     const adminA = adminFor(4005);

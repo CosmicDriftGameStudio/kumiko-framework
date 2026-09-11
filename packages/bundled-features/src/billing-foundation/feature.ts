@@ -159,8 +159,8 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
   r.writeHandler(processEventHandler);
   r.writeHandler(createCheckoutSessionHandler);
   r.writeHandler(createPortalSessionHandler);
-  //   - process-payment-event: programmatic entry-point vom webhook-
-  //     handler für one-off-payments; appended auf den payment-Aggregate
+  //   - process-payment-event: programmatic entry-point from the webhook-
+  //     handler for one-off-payments; appends onto the payment-aggregate
   r.writeHandler(processPaymentEventHandler);
 
   // Custom list-query auf der subscription-projection (raw drizzle-

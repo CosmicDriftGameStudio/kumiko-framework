@@ -1,4 +1,4 @@
-// Unit-Tests für den One-off-Payment-Zweig von verifyAndParseStripeWebhook
+// Unit tests for the one-off-payment branch of verifyAndParseStripeWebhook
 // (checkout.session.completed / .async_payment_succeeded). Split out of
 // verify-webhook.test.ts — that file's fixtures stay subscription/invoice-
 // only, this one owns every checkout.session.* fixture.

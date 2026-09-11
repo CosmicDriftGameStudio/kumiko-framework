@@ -157,8 +157,8 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
     // 6. Dispatch to the type-matching write-handler. Payment-events (own
     //    aggregate, own `read_payments`-row) go to process-payment-event;
     //    everything else (kind is undefined or "subscription") keeps going
-    //    through process-event, unchanged. Idempotency macht jeder handler
-    //    intern via deterministic aggregate-id + stream-scan.
+    //    through process-event, unchanged. Every handler handles idempotency
+    //    internally via deterministic aggregate-id + stream-scan.
     if (parsed.kind === BillingEventKinds.payment) {
       const dispatched = await deps.dispatchWrite({
         handlerQn: SubscriptionFoundationHandlers.processPaymentEvent,
@@ -204,7 +204,7 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
 }
 
 /** Shared 500/200-mapping for both dispatch branches above. Internal error →
- *  Provider soll retry'n, daher 500 statt 401/404 (transient, kein config-bug). */
+ *  provider should retry, hence 500 instead of 401/404 (transient, not a config-bug). */
 function respondFromDispatch(
   c: Context,
   dispatched: Awaited<ReturnType<SubscriptionWebhookDeps["dispatchWrite"]>>,
