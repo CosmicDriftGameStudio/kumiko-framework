@@ -3,8 +3,9 @@
 // renders the real entityList pipeline (KumikoScreen → EntityListBody) and
 // asserts on the resolved `icon` KumikoScreen attaches to each
 // DataTableRowAction — the id-derived default (ACTION_ICON_BY_ID in
-// kumiko-screen.tsx) for an action with no declared icon, and the declared
-// icon overriding that default for one that has it.
+// kumiko-screen.tsx) for an action with no declared icon, the declared icon
+// overriding that default for one that has it, and the full id / last
+// segment / first segment fallback order for compound ids (fw#2749).
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -101,6 +102,36 @@ function buildSchema(): FeatureSchema {
         screen: "widget-edit",
         icon: "archive",
       },
+      // Full id and last segment ("item") have no entry — falls through to
+      // the first segment ("add" -> plus).
+      {
+        id: "add-item",
+        label: "Add Item",
+        handler: "icon-fixture:write:widget:add-item",
+      },
+      // Same fallback, different verb ("open" -> eye).
+      {
+        kind: "navigate",
+        id: "open-lease",
+        label: "Open Lease",
+        screen: "widget-edit",
+      },
+      // Neither the full id nor either segment ("order", "ship") has an
+      // entry — the new stage must not invent an icon.
+      {
+        kind: "navigate",
+        id: "order-ship",
+        label: "Order Ship",
+        screen: "widget-edit",
+      },
+      // Last segment ("copy") and first segment ("send") both have entries —
+      // the last segment must keep priority over the new first-segment stage.
+      {
+        kind: "navigate",
+        id: "send-copy",
+        label: "Send Copy",
+        screen: "widget-edit",
+      },
     ],
   };
   return {
@@ -165,5 +196,53 @@ describe("entityList rowActions resolve an icon (fw-ui-defaults)", () => {
     });
 
     expect(requireAction("edit").icon).toBe("archive");
+  });
+
+  test("an id whose full form and last segment miss falls back to its first segment ('add-item' -> plus)", async () => {
+    capturedRowActions = undefined;
+
+    renderListScreen();
+
+    await waitFor(() => {
+      expect(capturedRowActions).toBeDefined();
+    });
+
+    expect(requireAction("add-item").icon).toBe("plus");
+  });
+
+  test("the first-segment fallback also applies to 'open-lease' -> eye", async () => {
+    capturedRowActions = undefined;
+
+    renderListScreen();
+
+    await waitFor(() => {
+      expect(capturedRowActions).toBeDefined();
+    });
+
+    expect(requireAction("open-lease").icon).toBe("eye");
+  });
+
+  test("an id with no matching segment stays without an icon ('order-ship')", async () => {
+    capturedRowActions = undefined;
+
+    renderListScreen();
+
+    await waitFor(() => {
+      expect(capturedRowActions).toBeDefined();
+    });
+
+    expect(requireAction("order-ship").icon).toBeUndefined();
+  });
+
+  test("the last segment keeps priority over the first ('send-copy' -> copy, not send)", async () => {
+    capturedRowActions = undefined;
+
+    renderListScreen();
+
+    await waitFor(() => {
+      expect(capturedRowActions).toBeDefined();
+    });
+
+    expect(requireAction("send-copy").icon).toBe("copy");
   });
 });

@@ -57,19 +57,29 @@ const ACTION_ICON_BY_ID: Readonly<Partial<Record<string, IconKey>>> = {
   send: "send",
 };
 
-// Ids are kebab-case (RowAction.id doc) — a compound id whose full form has
-// no entry falls back to its last segment ("order-ship" -> "ship").
+// Ids are kebab-case (RowAction.id doc): aggregate-object-verb
+// ("order-ship") or verb-prefix ("add-item").
 function kebabLastSegment(id: string): string {
   const idx = id.lastIndexOf("-");
   return idx === -1 ? id : id.slice(idx + 1);
 }
 
+function kebabFirstSegment(id: string): string {
+  const idx = id.indexOf("-");
+  return idx === -1 ? id : id.slice(0, idx);
+}
+
 // Resolution order: author-declared `icon` wins, then the id-derived
-// default (full id, then its last kebab segment). `declared` is `undefined`
-// for ToolbarAction, which has no author-facing icon field.
+// default (full id, then its last kebab segment, then its first kebab
+// segment). `declared` is `undefined` for ToolbarAction, which has no
+// author-facing icon field.
 export function resolveActionIcon(id: string, declared?: IconKey): IconKey | undefined {
   if (declared !== undefined) return declared;
-  return ACTION_ICON_BY_ID[id] ?? ACTION_ICON_BY_ID[kebabLastSegment(id)];
+  return (
+    ACTION_ICON_BY_ID[id] ??
+    ACTION_ICON_BY_ID[kebabLastSegment(id)] ??
+    ACTION_ICON_BY_ID[kebabFirstSegment(id)]
+  );
 }
 
 // Row-action column mode for a resolved action set: a group where every
