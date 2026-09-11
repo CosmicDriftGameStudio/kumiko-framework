@@ -34,6 +34,7 @@ import type { EntityTableMeta } from "../db/entity-table-meta";
 import { extractPgError } from "../db/pg-error";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
 import { camelCase as envCamelCase } from "../env";
+import { InternalError } from "../errors";
 import { parseJsonSafe } from "../utils/safe-json";
 
 // Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
@@ -145,15 +146,11 @@ export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promis
 // and doesn't need one, since each statement there is its own auto-committed
 // unit and a failed statement can't poison anything downstream.
 //
-// `.savepoint` being present isn't proof the transaction is still open: an
-// afterCommit hook closure captures the same handlerContext (and therefore
-// the same TransactionSql-shaped db) that was live during the write, but by
-// the time the hook fires the outer tx has already committed — the object
-// still exposes `.savepoint`, calling it now fails with PG 25P01 ("no
-// active sql transaction") because there's no BEGIN left to nest into. That
-// SAVEPOINT command is the first thing the driver sends, before `fn` runs,
-// so catching 25P01 and retrying directly is safe — nothing from `fn` has
-// executed yet.
+// `.savepoint` being present isn't proof the transaction is still open: a
+// committed TransactionSql-shaped db still exposes `.savepoint`, and calling
+// it fails with PG 25P01 ("no active sql transaction") since there's no
+// BEGIN left to nest into. That is now a programming error, not something
+// to paper over by re-running `fn` without the savepoint's isolation.
 export async function runInSavepointIfSupported<T>(
   db: unknown,
   fn: (sp: DbRunner) => Promise<T>,
@@ -167,7 +164,16 @@ export async function runInSavepointIfSupported<T>(
   try {
     return await raw.savepoint((sp) => fn(asRunner(sp)));
   } catch (e) {
-    if (extractPgError(e)?.code === "25P01") return fn(asRunner(db));
+    if (extractPgError(e)?.code === "25P01") {
+      throw new InternalError({
+        message:
+          "runInSavepointIfSupported: savepoint on a transaction that has already committed — " +
+          "this is almost always database work in an afterCommit hook. afterCommit is the default " +
+          "phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction for writes that must " +
+          "roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback.",
+        cause: e instanceof Error ? e : undefined,
+      });
+    }
     throw e;
   }
 }
