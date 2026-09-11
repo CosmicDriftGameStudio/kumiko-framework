@@ -835,6 +835,20 @@ export type EditRelatedListSection = {
    *  `field` must name a column with `sortable: true` — boot-validator pins
    *  that, same as `entityList.defaultSort`. */
   readonly defaultSort?: ListSortSpec;
+  /** Renders a search box whose debounced term rides along as
+   *  `payload.search` on this section's own query. Opt-in, unlike
+   *  `projectionList.searchable` (derived from the bound query's schema): a
+   *  relatedList query is an ordinary child-rows handler, so a `search`
+   *  parameter in its schema is not by itself a statement that this section
+   *  should offer search. The boot-validator rejects `true` when the query's
+   *  Zod schema has no `search` parameter. */
+  readonly searchable?: boolean;
+  /** User-toggleable facet dropdowns — same explicit-label `ListFacetSpec` as
+   *  `projectionList.facets` (a relatedList has no entity to derive filterable
+   *  fields from). `field` must be a declared column and the bound query
+   *  handler must accept `filters` in its Zod schema — the boot-validator
+   *  checks both. Selected values ride along as `payload.filters`. */
+  readonly facets?: readonly ListFacetSpec[];
   /** Row click opens the target entity's detail screen via ObjectTarget —
    *  the `detailFor` lookup owns the entity→screen mapping, so no screenId
    *  is named here. `idColumn` names the row key holding that id (default

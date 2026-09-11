@@ -121,3 +121,45 @@ export function validateProjectionListScreens(features: readonly FeatureDefiniti
     }
   }
 }
+
+// relatedList sections declare search/facets the same way a projectionList
+// screen does, and hit the same 422 footgun: definePagedQueryHandler doesn't
+// auto-merge params into the handler's own Zod schema (fw#2165/#2224), so an
+// undeclared param would fail every query instead of failing at boot.
+// Reachable on projectionDetail only (screens.ts rejects relatedList
+// elsewhere), but the layout walk stays uniform so lifting that restriction
+// doesn't quietly skip these checks.
+export function validateRelatedListSectionQueries(features: readonly FeatureDefinition[]): void {
+  const queryHandlers = buildQueryHandlerMap(features);
+  for (const feature of features) {
+    for (const screen of Object.values(feature.screens)) {
+      if (
+        screen.type !== "projectionDetail" &&
+        screen.type !== "entityEdit" &&
+        screen.type !== "actionForm" &&
+        screen.type !== "configEdit"
+      ) {
+        continue;
+      }
+      for (const section of screen.layout.sections) {
+        if (section.kind !== "relatedList") continue;
+        const prefix = `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`;
+        const schema = queryHandlers.get(section.query)?.schema;
+        if (section.searchable === true && !schemaAccepts(schema, "search")) {
+          throw new Error(
+            `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema`,
+          );
+        }
+        if (
+          section.facets !== undefined &&
+          section.facets.length > 0 &&
+          !schemaAccepts(schema, "filters")
+        ) {
+          throw new Error(
+            `${prefix}: declares facets but query "${section.query}" has no "filters" parameter in its Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
+          );
+        }
+      }
+    }
+  }
+}

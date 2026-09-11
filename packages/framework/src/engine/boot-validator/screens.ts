@@ -25,6 +25,8 @@ import type {
   EditFieldSpec,
   EditLayout,
   FieldCondition,
+  ListColumnSpec,
+  ListFacetSpec,
   RowAction,
   RowActionNavigateBase,
   RowFieldExtractor,
@@ -559,37 +561,12 @@ export function validateScreens(
             `filter.value to be a readonly array.`,
         );
       }
-      // Facets (fw#2224) — unlike filter, a field inventory IS available
-      // here: the declared columns. A facet on a field with no column is
-      // almost always a typo (the user never sees the field anywhere), so
-      // this is hard-checked rather than just documented.
       if (screen.facets !== undefined) {
-        const columnFieldNames = new Set(
-          screen.columns.map((col) => normalizeListColumn(col).field),
+        validateListFacets(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionList)`,
+          screen.facets,
+          screen.columns,
         );
-        const seenFacetFields = new Set<string>();
-        for (const facet of screen.facets) {
-          if (seenFacetFields.has(facet.field)) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) declares facet ` +
-                `"${facet.field}" more than once.`,
-            );
-          }
-          seenFacetFields.add(facet.field);
-          if (!columnFieldNames.has(facet.field)) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) facet references field ` +
-                `"${facet.field}" which is not a declared column. Known columns: ` +
-                `${[...columnFieldNames].sort().join(", ")}`,
-            );
-          }
-          if (facet.type === "select" && facet.options.length === 0) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionList) facet "${facet.field}" ` +
-                `(type "select") has an empty options list — declare at least one option.`,
-            );
-          }
-        }
       }
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
@@ -862,6 +839,13 @@ export function validateScreens(
                   `the column or pick another field.`,
               );
             }
+          }
+          if (section.facets !== undefined) {
+            validateListFacets(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) relatedList section "${section.title}"`,
+              section.facets,
+              section.columns,
+            );
           }
           continue;
         }
@@ -1802,6 +1786,38 @@ export function validateColumnRendererForm(
         `\`react.__component\` = ${JSON.stringify(component)} — expected a non-empty string identifying ` +
         `a client-side columnRenderers entry.`,
     );
+  }
+}
+
+// Facets (fw#2224) — unlike filter, a field inventory IS available here: the
+// declared columns. A facet on a field with no column is almost always a
+// typo (the user never sees the field anywhere), so this is hard-checked
+// rather than just documented. Shared by projectionList and relatedList
+// (fw#2740) — `prefix` carries the caller's own screen/section message lead-in.
+function validateListFacets(
+  prefix: string,
+  facets: readonly ListFacetSpec[],
+  columns: readonly ListColumnSpec[],
+): void {
+  const columnFieldNames = new Set(columns.map((col) => normalizeListColumn(col).field));
+  const seenFacetFields = new Set<string>();
+  for (const facet of facets) {
+    if (seenFacetFields.has(facet.field)) {
+      throw new Error(`${prefix} declares facet "${facet.field}" more than once.`);
+    }
+    seenFacetFields.add(facet.field);
+    if (!columnFieldNames.has(facet.field)) {
+      throw new Error(
+        `${prefix} facet references field "${facet.field}" which is not a declared column. ` +
+          `Known columns: ${[...columnFieldNames].sort().join(", ")}`,
+      );
+    }
+    if (facet.type === "select" && facet.options.length === 0) {
+      throw new Error(
+        `${prefix} facet "${facet.field}" (type "select") has an empty options list — ` +
+          `declare at least one option.`,
+      );
+    }
   }
 }
 

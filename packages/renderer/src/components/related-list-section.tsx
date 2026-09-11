@@ -10,7 +10,12 @@ import type {
   ListRowViewModel,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
+import {
+  buildFilterFacets,
+  buildFilterPayload,
+  resolveProjectionFacetSpecs,
+} from "../app/list-facets";
 import { useNav } from "../app/nav";
 import {
   buildProjectionRowActions,
@@ -22,7 +27,7 @@ import { useOptionalDispatcher } from "../context/dispatcher-context";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { type DataTableFacet, usePrimitives } from "../primitives";
 import { sortByAccessor } from "../sort-by-accessor";
 import { RenderList } from "./render-list";
 
@@ -94,15 +99,52 @@ export function RelatedListSection({
     [section.columns],
   );
 
+  // Local state, not URL state: a section `id` is optional, so there is no
+  // stable URL key to namespace against — the section's sort is local for the
+  // same reason. Consequence: search/filters reset on reload.
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<Readonly<Record<string, readonly string[]>>>({});
+
+  const facetSpecs = useMemo(
+    () => resolveProjectionFacetSpecs(section.facets, effectiveTranslate),
+    [section.facets, effectiveTranslate],
+  );
+  const filterPayload = useMemo(
+    () =>
+      buildFilterPayload(filters, (field) => facetSpecs.find((spec) => spec.field === field)?.type),
+    [filters, facetSpecs],
+  );
+  const filterFacets = useMemo<DataTableFacet[]>(() => buildFilterFacets(facetSpecs), [facetSpecs]);
+
   const payload = useMemo(
     () => ({
       [section.parentParam ?? "id"]: parentId,
       ...(section.pageSize !== undefined && { limit: section.pageSize }),
+      // Gated on the declared capability, not just on state carrying a value —
+      // same rule as ProjectionListBody: a param the bound query's Zod schema
+      // doesn't accept would 422 the whole section.
+      ...(section.searchable === true && search !== "" && { search }),
+      ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
     }),
-    [section.parentParam, section.pageSize, parentId],
+    [
+      section.parentParam,
+      section.pageSize,
+      section.searchable,
+      section.facets,
+      parentId,
+      search,
+      filterPayload,
+    ],
   );
 
   const rowsQuery = useQuery<PagedRows>(section.query, payload);
+
+  const onFilterChange = useCallback(
+    (field: string, values: readonly string[]) =>
+      setFilters((prev) => ({ ...prev, [field]: values })),
+    [],
+  );
+  const onFilterReset = useCallback(() => setFilters({}), []);
 
   // Sorted client-side over the already-loaded rows — this section has no
   // pager (see `payload` above: a one-shot fetch, no cursor/offset), so the
@@ -196,6 +238,17 @@ export function RelatedListSection({
           translate={effectiveTranslate}
           sort={sort}
           onSortChange={setSort}
+          {...(section.searchable === true && {
+            searchable: true,
+            searchValue: search,
+            onSearchChange: setSearch,
+          })}
+          {...(filterFacets.length > 0 && {
+            filterFacets,
+            filterValues: filters,
+            onFilterChange,
+            onFilterReset,
+          })}
           {...(onRowClick !== undefined && { onRowClick })}
           {...(rowActions !== undefined && { rowActions })}
           {...(rowActionMode !== undefined && { rowActionMode })}

@@ -10,6 +10,7 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
   type CorePrimitives,
   type DataTableProps,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives";
@@ -54,6 +55,15 @@ const testDataTable: ComponentType<DataTableProps> = ({ rows, rowActions }) => (
   </table>
 );
 
+const testInput = (props: InputProps) =>
+  props.kind === "text" ? (
+    <input
+      data-testid={props.id}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
+
 function testPrimitives(): CorePrimitives {
   return {
     Button: noop,
@@ -61,7 +71,7 @@ function testPrimitives(): CorePrimitives {
       <div data-testid={testId}>{children}</div>
     ),
     Field: passChildren,
-    Input: noop,
+    Input: testInput,
     DataTable: testDataTable,
     Form: noop,
     Section: testSection,
@@ -636,5 +646,295 @@ describe("RelatedListSection — truncation banner (fw#2722 review)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.getByTestId("related-list-truncated")).toBeTruthy();
+  });
+});
+
+// A DataTable stub that renders the toolbarStart slot (carries the search
+// Input) and filterFacets as one button per option, wired straight to
+// onFilterChange/onFilterReset — enough to prove RelatedListSection resolves
+// facets and wires search through RenderList, without the production
+// DataTable's own facet-dropdown chrome.
+const searchFacetDataTable: ComponentType<DataTableProps> = ({
+  rows,
+  toolbarStart,
+  filterFacets,
+  onFilterChange,
+  onFilterReset,
+}) => (
+  <div>
+    {toolbarStart}
+    {(filterFacets ?? []).map((facet) => (
+      <div key={facet.field}>
+        {facet.options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            data-testid={`facet-${facet.field}-${opt.value}`}
+            onClick={() => onFilterChange?.(facet.field, [opt.value])}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    ))}
+    {onFilterReset !== undefined && (
+      <button type="button" data-testid="filter-reset" onClick={onFilterReset}>
+        Reset
+      </button>
+    )}
+    <table>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.id} data-testid={`row-${row.id}`} />
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+// A dispatcher stub that genuinely filters a fixed row set by the received
+// payload — `search` as a case-insensitive substring on `name`, `filters`
+// entries (`{ field, op: "in", value }`) as membership on that field —
+// instead of returning canned rows, so a test can tell a real payload from a
+// stale one. Every payload it sees is recorded for the "last payload"
+// assertions below.
+function filteringDispatcher(rows: readonly Record<string, unknown>[]): {
+  dispatcher: Dispatcher;
+  payloads: Record<string, unknown>[];
+} {
+  const payloads: Record<string, unknown>[] = [];
+  const dispatcher: Dispatcher = {
+    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
+    query: (async (_type: string, payload: unknown) => {
+      const p = payload as {
+        search?: string;
+        filters?: readonly { field: string; op: "in"; value: readonly unknown[] }[];
+      };
+      payloads.push(p);
+      let result = rows;
+      if (p.search !== undefined && p.search !== "") {
+        const term = p.search.toLowerCase();
+        result = result.filter((r) =>
+          String(r["name"] ?? "")
+            .toLowerCase()
+            .includes(term),
+        );
+      }
+      for (const f of p.filters ?? []) {
+        result = result.filter((r) => f.value.includes(r[f.field]));
+      }
+      return { isSuccess: true, data: { rows: result, nextCursor: null } };
+    }) as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
+  return { dispatcher, payloads };
+}
+
+function renderWithDataTable(
+  dispatcher: Dispatcher,
+  section: EditRelatedListSectionViewModel,
+  DataTable: ComponentType<DataTableProps>,
+  hideTitle?: boolean,
+) {
+  return render(
+    <LocaleProvider
+      resolver={createStaticLocaleResolver({ locale: "en-US" })}
+      fallbackBundles={[kumikoDefaultTranslations]}
+    >
+      <DispatcherProvider dispatcher={dispatcher}>
+        <PrimitivesProvider value={{ ...testPrimitives(), DataTable }}>
+          <NavProvider value={stubNav().nav}>
+            <RelatedListSection
+              section={section}
+              parentId="order-1"
+              featureName="orders"
+              {...(hideTitle === true && { hideTitle: true })}
+            />
+          </NavProvider>
+        </PrimitivesProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
+  );
+}
+
+describe("RelatedListSection — search + facets (fw#2740)", () => {
+  const nameRows = [
+    { id: "r1", name: "Alice" },
+    { id: "r2", name: "Bob" },
+  ];
+
+  test("searchable: true — typing (after the 300ms debounce) sends payload.search and narrows the rendered rows", async () => {
+    const { dispatcher, payloads } = filteringDispatcher(nameRows);
+    renderWithDataTable(
+      dispatcher,
+      {
+        kind: "relatedList",
+        title: "Contacts",
+        query: "lease:query:contacts:list",
+        columns: [{ field: "name" }],
+        searchable: true,
+      },
+      searchFacetDataTable,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
+
+    fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
+      target: { value: "ali" },
+    });
+
+    await waitFor(
+      () => {
+        const last = payloads[payloads.length - 1];
+        expect(last?.["search"]).toBe("ali");
+      },
+      { timeout: 2000 },
+    );
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+  });
+
+  test("without searchable, RenderList shows no search input and no payload ever carries a search key", async () => {
+    const { dispatcher, payloads } = filteringDispatcher(nameRows);
+    renderWithDataTable(
+      dispatcher,
+      {
+        kind: "relatedList",
+        title: "Contacts",
+        query: "lease:query:contacts:list",
+        columns: [{ field: "name" }],
+      },
+      searchFacetDataTable,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("render-list-search")).toBeNull();
+    for (const p of payloads) {
+      expect("search" in p).toBe(false);
+    }
+  });
+
+  test("tabs mode (hideTitle): the search box still renders and narrows the rows", async () => {
+    const { dispatcher, payloads } = filteringDispatcher(nameRows);
+    renderWithDataTable(
+      dispatcher,
+      {
+        kind: "relatedList",
+        title: "Contacts",
+        query: "lease:query:contacts:list",
+        columns: [{ field: "name" }],
+        searchable: true,
+      },
+      searchFacetDataTable,
+      true,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
+    expect(rtlScreen.getByTestId("render-list-search")).toBeTruthy();
+
+    fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
+      target: { value: "ali" },
+    });
+
+    await waitFor(
+      () => {
+        const last = payloads[payloads.length - 1];
+        expect(last?.["search"]).toBe("ali");
+      },
+      { timeout: 2000 },
+    );
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+  });
+
+  const statusSection: EditRelatedListSectionViewModel = {
+    kind: "relatedList",
+    title: "Positions",
+    query: "lease:query:items:list",
+    columns: [{ field: "name" }, { field: "status" }],
+    facets: [
+      {
+        field: "status",
+        type: "select",
+        label: "Status",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "ended", label: "Ended" },
+        ],
+      },
+    ],
+  };
+  const statusRows = [
+    { id: "active-1", name: "Running", status: "active" },
+    { id: "ended-1", name: "Closed", status: "ended" },
+  ];
+
+  test("select facet: clicking an option filters payload.filters and rows, resetting clears both", async () => {
+    const { dispatcher, payloads } = filteringDispatcher(statusRows);
+    renderWithDataTable(dispatcher, statusSection, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-active-1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-ended-1")).toBeTruthy();
+
+    fireEvent.click(rtlScreen.getByTestId("facet-status-active"));
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-ended-1")).toBeNull());
+    expect(rtlScreen.getByTestId("row-active-1")).toBeTruthy();
+    expect(payloads[payloads.length - 1]?.["filters"]).toEqual([
+      { field: "status", op: "in", value: ["active"] },
+    ]);
+
+    fireEvent.click(rtlScreen.getByTestId("filter-reset"));
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-ended-1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-active-1")).toBeTruthy();
+    expect(payloads[payloads.length - 1]?.["filters"]).toBeUndefined();
+  });
+
+  test("boolean facet: selecting a value sends a real boolean in payload.filters and narrows rows accordingly", async () => {
+    const paidRows = [
+      { id: "paid-1", name: "Invoice A", paid: true },
+      { id: "unpaid-1", name: "Invoice B", paid: false },
+    ];
+    const { dispatcher, payloads } = filteringDispatcher(paidRows);
+    renderWithDataTable(
+      dispatcher,
+      {
+        kind: "relatedList",
+        title: "Invoices",
+        query: "lease:query:invoices:list",
+        columns: [{ field: "name" }, { field: "paid" }],
+        facets: [
+          {
+            field: "paid",
+            type: "boolean",
+            label: "Paid",
+            trueLabel: "Yes",
+            falseLabel: "No",
+          },
+        ],
+      },
+      searchFacetDataTable,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-paid-1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-unpaid-1")).toBeTruthy();
+
+    fireEvent.click(rtlScreen.getByTestId("facet-paid-true"));
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-unpaid-1")).toBeNull());
+    expect(rtlScreen.getByTestId("row-paid-1")).toBeTruthy();
+    expect(payloads[payloads.length - 1]?.["filters"]).toEqual([
+      { field: "paid", op: "in", value: [true] },
+    ]);
   });
 });

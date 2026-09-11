@@ -1,4 +1,5 @@
 import type {
+  EditRelatedListSection,
   EditWriteFormSection,
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -22,6 +23,7 @@ import {
 } from "./list";
 import type {
   EditFieldViewModel,
+  EditRelatedListSectionViewModel,
   EditSectionViewModel,
   EditViewModel,
   EditWriteFormSectionViewModel,
@@ -110,6 +112,27 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
   };
 }
 
+// relatedList runs its own query — nothing here to resolve against
+// entity/values, the spec passes through verbatim (fw#2166).
+function computeRelatedListSectionViewModel(
+  sectionSpec: EditRelatedListSection,
+  translate: Translate,
+): EditRelatedListSectionViewModel {
+  return {
+    kind: "relatedList" as const,
+    title: translate(sectionSpec.title),
+    query: sectionSpec.query,
+    ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
+    columns: sectionSpec.columns,
+    ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
+    ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
+    ...(sectionSpec.searchable !== undefined && { searchable: sectionSpec.searchable }),
+    ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),
+    ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
+    ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
+  };
+}
+
 // Pure transform from screen-def + entity-def + row-values to the flat
 // section/field tree the renderer draws. FieldConditions are evaluated here
 // so the renderer never re-runs them during React render.
@@ -138,19 +161,7 @@ export function computeEditViewModel<
       );
     }
     if (!isFieldsEditSection(sectionSpec)) {
-      // relatedList runs its own query — nothing here to resolve against
-      // entity/values, the spec passes through verbatim (fw#2166).
-      return {
-        kind: "relatedList" as const,
-        title: translate(sectionSpec.title),
-        query: sectionSpec.query,
-        ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
-        columns: sectionSpec.columns,
-        ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
-        ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
-        ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
-        ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
-      };
+      return computeRelatedListSectionViewModel(sectionSpec, translate);
     }
     const fields: EditFieldViewModel[] = sectionSpec.fields.map((fieldSpec) => {
       const normalized = normalizeEditField(fieldSpec);
