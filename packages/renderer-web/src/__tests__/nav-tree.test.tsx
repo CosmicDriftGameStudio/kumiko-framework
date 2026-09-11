@@ -673,6 +673,105 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toEqual({ featureId: "cms", action: "create", args: { folder: "" } });
   });
 
+  // fw#2750: createAction/actions[] carry screen XOR target — same
+  // polymorphism as the node itself. A `screen` action renders a
+  // route-KumikoLink instead of a dispatch-button.
+  test("createAction mit screen rendert einen Link auf die richtige Route statt zu dispatchen", async () => {
+    let dispatched: TargetRef | undefined;
+    restoreDispatch = setDispatchListener((t) => {
+      dispatched = t;
+    });
+    const schema: FeatureSchema = {
+      featureName: "cms",
+      entities: {},
+      screens: [{ id: "new-page", type: "entityList", entity: "item", columns: [] }],
+      navs: [
+        {
+          id: "content",
+          label: "Content",
+          order: 10,
+          provider: true,
+          createAction: { icon: "plus", label: "New page", screen: "cms:screen:new-page" },
+        },
+      ],
+    } as FeatureSchema;
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([pageLeaf("apex")]);
+      return () => {};
+    };
+    await act(async () => {
+      renderDynamic({ schema, providers: new Map([["cms:nav:content", provider]]) });
+    });
+
+    const link = screen.getByRole("link", { name: "New page" });
+    expect(link.getAttribute("href")).toBe("/new-page");
+    fireEvent.click(link);
+    expect(dispatched).toBeUndefined();
+  });
+
+  // fw#2750: same screen/target polymorphism applies to actions[] entries
+  // (hover-actions), not just createAction.
+  test("actions[]-Eintrag mit screen rendert einen Link auf die richtige Route statt zu dispatchen", async () => {
+    let dispatched: TargetRef | undefined;
+    restoreDispatch = setDispatchListener((t) => {
+      dispatched = t;
+    });
+    const schema: FeatureSchema = {
+      featureName: "cms",
+      entities: {},
+      screens: [{ id: "hero", type: "entityList", entity: "item", columns: [] }],
+      navs: [
+        {
+          id: "hero",
+          label: "Hero",
+          order: 10,
+          actions: [{ icon: "edit", label: "Edit hero", screen: "cms:screen:hero" }],
+        },
+      ],
+    } as FeatureSchema;
+    await act(async () => {
+      renderDynamic({ schema, providers: new Map() });
+    });
+
+    const link = screen.getByRole("link", { name: "Edit hero" });
+    expect(link.getAttribute("href")).toBe("/hero");
+    fireEvent.click(link);
+    expect(dispatched).toBeUndefined();
+  });
+
+  // fw#2751: boot validates screen XOR target for NavDefinition actions, but
+  // a schema handed straight to NavTree (as here, and as a provider-emitted
+  // TreeNode at runtime) bypasses that — neither must not render a dead
+  // button, it must warn once and drop the action.
+  test("actions[]-Eintrag ohne screen und ohne target rendert nichts und warnt einmal", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const schema: FeatureSchema = {
+        featureName: "cms",
+        entities: {},
+        screens: [],
+        navs: [
+          {
+            id: "hero",
+            label: "Hero",
+            order: 10,
+            actions: [{ icon: "edit", label: "Broken action" }],
+          },
+        ],
+      } as FeatureSchema;
+      await act(async () => {
+        renderDynamic({ schema, providers: new Map() });
+      });
+
+      expect(screen.queryByRole("button", { name: "Broken action" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Broken action" })).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0]).toContain("Broken action");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   test("target-Knoten dispatcht beim Klick (statt Route-Link)", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
@@ -770,6 +869,58 @@ describe("NavTree dynamic provider nodes", () => {
       r?.unmount();
     });
     expect(active()).toBe(0); // Unmount baut alles ab → kein Leak
+  });
+});
+
+// fw#2750: the actions container clears the collapse chevron via `right-7`.
+// A node without a chevron (not expandable) has no chevron — the narrower
+// `right-1` spacing must only apply there.
+describe("NavTree Actions-Positionierung", () => {
+  test("expandable Knoten (mit Chevron) hält den weiten right-7-Abstand", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([pageLeaf("apex")]);
+      return () => {};
+    };
+    await act(async () => {
+      renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+      });
+    });
+
+    const btn = screen.getByRole("button", { name: "New page" });
+    const actionsContainer = btn.parentElement;
+    expect(actionsContainer?.className).toContain("right-7");
+    expect(actionsContainer?.className).not.toContain("right-1");
+  });
+
+  test("nicht-expandable Knoten (kein Chevron) rückt auf right-1 auf", async () => {
+    const schema: FeatureSchema = {
+      featureName: "cms",
+      entities: {},
+      screens: [{ id: "hero", type: "entityList", entity: "item", columns: [] }],
+      navs: [
+        {
+          id: "hero",
+          label: "Hero",
+          order: 10,
+          screen: "hero",
+          createAction: {
+            icon: "plus",
+            label: "New sub-page",
+            target: { featureId: "cms", action: "create", args: {} },
+          },
+        },
+      ],
+    } as FeatureSchema;
+    await act(async () => {
+      renderDynamic({ schema, providers: new Map() });
+    });
+
+    const btn = screen.getByRole("button", { name: "New sub-page" });
+    const actionsContainer = btn.parentElement;
+    expect(actionsContainer?.className).toContain("right-1");
+    expect(actionsContainer?.className).not.toContain("right-7");
   });
 });
 

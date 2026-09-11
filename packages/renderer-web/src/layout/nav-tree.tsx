@@ -493,11 +493,87 @@ function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
   );
 }
 
-// Hover-Actions + „+"-Affordance, absolut rechts (links vom Chevron via
-// right-7). createAction ist persistent (User-sichtbares „+"), übrige
-// Actions erst bei Hover. stopPropagation, damit der Row-Click (toggle/
-// dispatch) nicht zusätzlich feuert.
-function NodeActions({ node }: { node: NavNode }): ReactNode {
+// Boot validates screen XOR target for NavDefinition actions, but a
+// provider-emitted TreeNode reaches here without going through boot — warn
+// once per label instead of rendering a dead button (fw#2751 review).
+const warnedTreeActionLabels = new Set<string>();
+
+function warnTreeActionDropped(label: string): void {
+  // skip: already warned for this label — suppresses the repeat, not the warning itself.
+  if (warnedTreeActionLabels.has(label)) return;
+  warnedTreeActionLabels.add(label);
+  // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
+  console.warn(
+    `[kumiko] Nav action "${label}" has neither "screen" nor "target" set — it will not render.`,
+  );
+}
+
+// An action button carries screen XOR target (see TreeAction) — `screen`
+// renders a KumikoLink to the route, `target` a dispatch button. Same
+// classes/size either way, only the element changes.
+function TreeActionControl({
+  action,
+  ariaLabel,
+  className,
+  dispatch,
+  workspaceId,
+  children,
+}: {
+  readonly action: TreeAction;
+  readonly ariaLabel: string;
+  readonly className: string;
+  readonly dispatch: (target: TargetRef) => void;
+  readonly workspaceId: string | undefined;
+  readonly children: ReactNode;
+}): ReactNode {
+  if (action.screen !== undefined) {
+    const screenId = lastSegment(action.screen);
+    return (
+      <KumikoLink
+        to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
+        aria-label={ariaLabel}
+        className={className}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </KumikoLink>
+    );
+  }
+  if (action.target !== undefined) {
+    const target = action.target;
+    return (
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        className={className}
+        onClick={(e) => {
+          e.stopPropagation();
+          dispatch(target);
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
+  warnTreeActionDropped(action.label);
+  return null;
+}
+
+// Hover-actions + the "+" affordance, positioned absolute right.
+// createAction is persistent (a user-visible "+"), the other actions only
+// show on hover. stopPropagation so the row click (toggle/dispatch) doesn't
+// also fire. `expandable` comes from useNavNodeState (s.expandable) instead
+// of being re-derived here — a node without a chevron doesn't need the
+// right-7 gap, otherwise the "+" hangs 28px off the edge.
+function NodeActions({
+  node,
+  expandable,
+  workspaceId,
+}: {
+  readonly node: NavNode;
+  readonly expandable: boolean;
+  readonly workspaceId: string | undefined;
+}): ReactNode {
   const dispatch = useDispatchTarget();
   const t = useTranslation();
   const create = node.createAction;
@@ -509,33 +585,31 @@ function NodeActions({ node }: { node: NavNode }): ReactNode {
   const hover =
     "opacity-0 group-hover/menu-item:opacity-100 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-item:opacity-100";
   return (
-    <div className="absolute top-1 right-7 flex items-center gap-0.5">
+    <div
+      className={cn("absolute top-1 flex items-center gap-0.5", expandable ? "right-7" : "right-1")}
+    >
       {create !== undefined && (
-        <button
-          type="button"
-          aria-label={label(create.label)}
+        <TreeActionControl
+          action={create}
+          ariaLabel={label(create.label)}
           className={btn}
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(create.target);
-          }}
+          dispatch={dispatch}
+          workspaceId={workspaceId}
         >
           <Plus className="size-3.5" />
-        </button>
+        </TreeActionControl>
       )}
       {actions.map((a: TreeAction) => (
-        <button
+        <TreeActionControl
           key={a.label}
-          type="button"
-          aria-label={label(a.label)}
+          action={a}
+          ariaLabel={label(a.label)}
           className={cn(btn, hover)}
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(a.target);
-          }}
+          dispatch={dispatch}
+          workspaceId={workspaceId}
         >
           <ActionGlyph icon={a.icon} />
-        </button>
+        </TreeActionControl>
       ))}
     </div>
   );
@@ -649,7 +723,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             <NavBadge node={node} />
           </KumikoLink>
         </SidebarMenuButton>
-        <NodeActions node={node} />
+        <NodeActions node={node} expandable={s.expandable} workspaceId={s.workspaceId} />
         {chevron}
         {sub}
       </SidebarMenuItem>
@@ -674,7 +748,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           </span>
           <NavBadge node={node} />
         </SidebarMenuButton>
-        <NodeActions node={node} />
+        <NodeActions node={node} expandable={s.expandable} workspaceId={s.workspaceId} />
         {chevron}
         {sub}
       </SidebarMenuItem>
@@ -700,7 +774,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             <ChevronRight className="ml-auto" />
           ))}
       </SidebarMenuButton>
-      <NodeActions node={node} />
+      <NodeActions node={node} expandable={s.expandable} workspaceId={s.workspaceId} />
       {sub}
     </SidebarMenuItem>
   );
@@ -769,7 +843,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             <NavBadge node={node} />
           </KumikoLink>
         </SidebarMenuSubButton>
-        <NodeActions node={node} />
+        <NodeActions node={node} expandable={s.expandable} workspaceId={s.workspaceId} />
         {chevron}
         {deeper}
       </SidebarMenuSubItem>
@@ -792,7 +866,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             <NavBadge node={node} />
           </button>
         </SidebarMenuSubButton>
-        <NodeActions node={node} />
+        <NodeActions node={node} expandable={s.expandable} workspaceId={s.workspaceId} />
         {chevron}
         {deeper}
       </SidebarMenuSubItem>
@@ -819,7 +893,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           </span>
         </button>
       </SidebarMenuSubButton>
-      <NodeActions node={node} />
+      <NodeActions node={node} expandable={s.expandable} workspaceId={s.workspaceId} />
       {chevron}
       {deeper}
     </SidebarMenuSubItem>

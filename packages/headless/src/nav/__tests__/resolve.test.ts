@@ -232,8 +232,38 @@ describe("resolveNavigation", () => {
     expect(hero?.actions).toHaveLength(1);
   });
 
-  // Knoten ohne die neuen Felder dürfen sie NICHT als undefined-Keys tragen
-  // (conditional-spread): hält die resolved Node sauber + Snapshot-stabil.
+  // fw#2750: a TreeAction can also carry `screen` (route link) instead of
+  // `target` (dispatch) — same polymorphism as the node itself.
+  test("action `screen` (route-link variant) passes through alongside target-based actions", () => {
+    const editTarget = { featureId: "text-content", action: "edit", args: { slug: "hero" } };
+    const source = buildSource([
+      {
+        id: "tc:nav:content",
+        label: "Content",
+        provider: true,
+        createAction: { icon: "plus", label: "New page", screen: "tc:screen:new-page" },
+      },
+      {
+        id: "tc:nav:hero",
+        label: "Hero",
+        parent: "tc:nav:content",
+        target: editTarget,
+        actions: [{ icon: "edit", label: "Edit in editor", screen: "tc:screen:hero" }],
+      },
+    ]);
+
+    const tree = resolveNavigation({ source });
+    const content = tree[0];
+    expect(content?.createAction?.screen).toBe("tc:screen:new-page");
+    expect(content?.createAction?.target).toBeUndefined();
+    const hero = content?.children[0];
+    expect(hero?.actions?.[0]?.screen).toBe("tc:screen:hero");
+    expect(hero?.actions?.[0]?.target).toBeUndefined();
+  });
+
+  // A node without the polymorphic fields must NOT carry them as
+  // undefined-valued keys (conditional-spread): keeps the resolved node
+  // clean and snapshot-stable.
   test("absent polymorphic fields are omitted, not set to undefined", () => {
     const source = buildSource([{ id: "a:nav:plain", label: "Plain", screen: "a:screen:x" }]);
     const node = resolveNavigation({ source })[0];
