@@ -118,6 +118,11 @@ export type RenderListProps = {
    *  scrolls rows internally instead of growing the page (relatedList in a
    *  tabs-mode section, fw#2722). Default false. */
   readonly scrollBody?: boolean;
+  /** Forwarded to `DataTableProps.screenPadding` — the table carries the
+   *  shared screen padding because it is the screen body (entityList/
+   *  projectionList, fw#2640). Not set for an embedded relatedList.
+   *  Default false. */
+  readonly screenPadding?: boolean;
 };
 
 // Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
@@ -172,6 +177,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     onFilterReset,
     chromeless,
     scrollBody,
+    screenPadding,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -388,6 +394,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(onFilterReset !== undefined && { onFilterReset })}
         {...(chromeless !== undefined && { chromeless })}
         {...(scrollBody !== undefined && { scrollBody })}
+        {...(screenPadding !== undefined && { screenPadding })}
         testId="render-list-table"
       />
     </>
