@@ -21,6 +21,11 @@ export const SubscriptionFoundationHandlers = {
    *  current subscription, ruft plugin.createPortalSession, returnt
    *  hosted-portal-URL. */
   createPortalSession: "billing-foundation:write:create-portal-session",
+  /** Programmatic entry-point für den webhook-handler bei einem
+   *  one-off-payment (checkout mode "payment"). Eigener Aggregate-Stream
+   *  pro Tenant (payment-aggregate), getrennt vom subscription-Aggregate —
+   *  ein Payment ist kein Subscription-State-Übergang. */
+  processPaymentEvent: "billing-foundation:write:process-payment-event",
 } as const;
 
 // Qualified query handler names.
@@ -56,6 +61,17 @@ export const SubscriptionStatuses = {
   incomplete: "incomplete",
 } as const;
 export type SubscriptionStatus = (typeof SubscriptionStatuses)[keyof typeof SubscriptionStatuses];
+
+// Discriminator for verifyAndParseWebhook's return union. `subscription` is
+// optional on SubscriptionEvent (kept backward-compatible for plugins like
+// subscription-mollie that pre-date this field) and required on
+// PaymentEvent — TS narrows `parsed.kind === BillingEventKinds.payment`
+// correctly either way since only PaymentEvent's `kind` can equal it.
+export const BillingEventKinds = {
+  subscription: "subscription",
+  payment: "payment",
+} as const;
+export type BillingEventKind = (typeof BillingEventKinds)[keyof typeof BillingEventKinds];
 
 // **Multi-Provider von Tag 1:** subscription-foundation hat KEIN
 // `provider`-config-key. Alle gemounteten Plugins sind aktiv parallel —

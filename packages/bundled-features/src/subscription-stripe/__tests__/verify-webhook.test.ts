@@ -8,7 +8,9 @@
 // Aufwand ohne Test-Wert.
 
 import { describe, expect, test } from "bun:test";
+import type { SubscriptionEvent } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
+  BillingEventKinds,
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -33,6 +35,21 @@ const stripeForFixtures = new Stripe(TEST_API_KEY);
  *  system-secrets aufzulösen — die Resolution testet runtime.test.ts). */
 function webhookRuntime(webhookSecret = TEST_SECRET): StripeWebhookRuntime {
   return { resolve: async () => ({ stripe: stripeForFixtures, webhookSecret }) };
+}
+
+/** This file's fixtures are all subscription/invoice events — never
+ *  checkout.session.* (that's payment-checkout.test.ts's job). Narrows the
+ *  widened `verifyAndParseStripeWebhook` return type back down via the
+ *  `kind` discriminator, so the rest of this file can keep asserting on
+ *  SubscriptionEvent-only fields without a union check at every call-site. */
+function asSubscriptionVerifier(
+  verifyFn: ReturnType<typeof verifyAndParseStripeWebhook>,
+): (rawBody: string, headers: Record<string, string>) => Promise<SubscriptionEvent | null> {
+  return async (rawBody, headers) => {
+    const event = await verifyFn(rawBody, headers);
+    if (!event || event.kind === BillingEventKinds.payment) return null;
+    return event;
+  };
 }
 
 function buildSubscriptionEvent(overrides: {
@@ -102,9 +119,11 @@ async function signEvent(payload: string, secret = TEST_SECRET): Promise<string>
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — sig-verify", () => {
-  const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
-    priceToTier: { price_pro_monthly: "pro" },
-  });
+  const verify = asSubscriptionVerifier(
+    verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    }),
+  );
 
   test("happy path: valid sig + bekannter event-type → SubscriptionEvent", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({}));
@@ -148,9 +167,11 @@ describe("verifyAndParseStripeWebhook — sig-verify", () => {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — event-filter", () => {
-  const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
-    priceToTier: { price_pro_monthly: "pro" },
-  });
+  const verify = asSubscriptionVerifier(
+    verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    }),
+  );
 
   test("unbekannter event-type → null (foundation 200 ignored)", async () => {
     // customer.created ist gültiger Stripe-event aber nicht in unserer
@@ -216,9 +237,11 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", () => {
-  const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
-    priceToTier: { price_pro_monthly: "pro", price_business_yearly: "business" },
-  });
+  const verify = asSubscriptionVerifier(
+    verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro", price_business_yearly: "business" },
+    }),
+  );
 
   test("metadata.tenantId fehlt → null (App-Owner-Bug, foundation 200 ignored)", async () => {
     const ev = buildSubscriptionEvent({});
@@ -257,9 +280,11 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
 
 describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temporal global", () => {
   test("computes currentPeriodEnd without relying on globalThis.Temporal", async () => {
-    const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
-      priceToTier: { price_pro_monthly: "pro" },
-    });
+    const verify = asSubscriptionVerifier(
+      verifyAndParseStripeWebhook(webhookRuntime(), {
+        priceToTier: { price_pro_monthly: "pro" },
+      }),
+    );
     const payload = JSON.stringify(buildSubscriptionEvent({ currentPeriodEndUnix: 1_780_000_000 }));
     const sig = await signEvent(payload);
 

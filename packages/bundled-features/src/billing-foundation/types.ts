@@ -26,7 +26,7 @@
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import type { SubscriptionEventType, SubscriptionStatus } from "./constants";
+import type { BillingEventKinds, SubscriptionEventType, SubscriptionStatus } from "./constants";
 
 // =============================================================================
 // Normalisierter Webhook-Event
@@ -37,6 +37,12 @@ import type { SubscriptionEventType, SubscriptionStatus } from "./constants";
 // Plugin abstrahiert.
 
 export type SubscriptionEvent = {
+  /** Discriminator gegen PaymentEvent. Optional (statt required) damit
+   *  bestehende Plugins wie subscription-mollie, die das Feld nicht
+   *  setzen, ohne Änderung backward-compatible bleiben — TS narrowt
+   *  `parsed.kind === BillingEventKinds.payment` trotzdem korrekt, weil
+   *  nur PaymentEvent["kind"] diesen Wert annehmen kann. */
+  readonly kind?: typeof BillingEventKinds.subscription;
   /** Provider-eigene Event-ID — UNIQUE-key für Idempotency.
    *  Stripe: "evt_..."; Mollie: payment-id oder subscription-id. */
   readonly providerEventId: string;
@@ -69,6 +75,41 @@ export type SubscriptionEvent = {
 };
 
 // =============================================================================
+// Normalisierter One-off-Payment-Event
+// =============================================================================
+//
+// Separater Typ statt einem sechsten SubscriptionEventTypes-Wert: ein
+// one-off-payment ist kein Subscription-State-Übergang (kein status/tier/
+// currentPeriodEnd — ein Kauf ist entweder passiert oder nicht) und
+// materialisiert in einer eigenen `read_payments`-row statt der
+// subscription-row zu überschreiben. Provider-Plugins die keine one-off-
+// payments unterstützen (z.B. Mollie-Recurring-only) liefern diesen Typ
+// nie — verifyAndParseWebhook returnt für sie unverändert nur
+// SubscriptionEvent | null.
+
+export type PaymentEvent = {
+  /** Required — unterscheidet diesen Union-member zur Laufzeit von
+   *  SubscriptionEvent (dessen `kind` optional + nie "payment" ist). */
+  readonly kind: typeof BillingEventKinds.payment;
+  /** Provider-eigene Event-ID — UNIQUE-key für Idempotency. */
+  readonly providerEventId: string;
+  /** Discriminator — welcher Plugin diesen Event geliefert hat. */
+  readonly providerName: string;
+  /** Plattform-Tenant-ID. **Muss** aus Provider-verifizierten Metadaten
+   *  kommen (z.B. der PaymentIntent-metadata, die die App beim Checkout-
+   *  Create selbst gesetzt hat) — nie aus einem frei wählbaren Payload-
+   *  Feld, sonst könnte ein Angreifer Payments fremden Tenants zuordnen. */
+  readonly tenantId: string;
+  /** Provider-eigene customer-id. */
+  readonly providerCustomerId: string;
+  /** Provider-eigene price/plan-ID des gekauften Items. */
+  readonly priceId: string;
+  /** Raw provider-payload — wird 1:1 in payment-event.rawPayload
+   *  archiviert. Plugin liefert das als JSON-stringified-string. */
+  readonly rawPayload: string;
+};
+
+// =============================================================================
 // Plugin-Contract
 // =============================================================================
 
@@ -94,12 +135,18 @@ export type SubscriptionProviderPlugin = {
    * **Throws** bei sig-mismatch — der webhook-handler mapped das auf
    * 401 damit der Provider keine retries macht (sig-fail = config-bug,
    * nicht transient).
+   *
+   * Returnt `PaymentEvent` für one-off-payment-webhooks (checkout mode
+   * "payment"). Plugins ohne one-off-payment-Support liefern diesen
+   * union-member nie — die Return-type-Erweiterung ist covariant, ein
+   * `Promise<SubscriptionEvent | null>`-Implementor bleibt ohne Änderung
+   * assignable.
    */
   readonly verifyAndParseWebhook: (
     rawBody: string,
     headers: Record<string, string>,
     systemSecrets?: SecretsContext,
-  ) => Promise<SubscriptionEvent | null>;
+  ) => Promise<SubscriptionEvent | PaymentEvent | null>;
 
   /**
    * **Post-tenant-resolution** — wird aus dem

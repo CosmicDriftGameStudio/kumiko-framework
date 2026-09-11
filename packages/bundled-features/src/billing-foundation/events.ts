@@ -73,3 +73,35 @@ export type SubscriptionEventHeaders = {
   readonly providerName: string;
   readonly rawPayload: string;
 };
+
+// =============================================================================
+// payment-received — one-off-payments (checkout mode "payment")
+// =============================================================================
+//
+// Own aggregate-type + event, separate from the 5 subscription events above.
+// A one-off-payment is not a subscription-state transition (no status/tier/
+// currentPeriodEnd) — it materializes as its own `read_payments` row (one
+// row per payment) via the payment-aggregate stream (one stream per tenant,
+// see aggregate-id.ts).
+
+export const PAYMENT_AGGREGATE_TYPE = "payment" as const;
+
+export const PAYMENT_RECEIVED_EVENT_SHORT = "payment-received" as const;
+export const PAYMENT_RECEIVED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${PAYMENT_RECEIVED_EVENT_SHORT}` as const;
+
+export const paymentEventPayloadSchema = z.object({
+  providerName: z.string().min(1).max(50),
+  // 1000, not 200: `tenantOwned: true` on paymentEntity (see entities.ts) —
+  // this stores the PII-ciphertext, not the raw provider id. Mirrors
+  // subscriptionEventPayloadSchema's same rationale.
+  providerCustomerId: z.string().min(1).max(1000),
+  priceId: z.string().min(1).max(200),
+});
+export type PaymentEventPayload = z.infer<typeof paymentEventPayloadSchema>;
+
+export type PaymentEventHeaders = {
+  readonly providerEventId: string;
+  readonly providerName: string;
+  readonly rawPayload: string;
+};

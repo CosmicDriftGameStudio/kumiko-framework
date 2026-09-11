@@ -74,3 +74,32 @@ export const subscriptionEntity = createEntity({
 // `tenantOwned`/`pii`/`userOwned` field doesn't need a matching manual
 // update at each call site.
 export const SUBSCRIPTION_PII_FIELDS = collectPiiSubjectFields(subscriptionEntity);
+
+// =============================================================================
+// `payment` — one row per one-off-payment (= read-model)
+// =============================================================================
+//
+// Inline-Projection-Target for the payment-received event (see feature.ts).
+// Unlike subscriptionEntity (one row per tenant, UPSERTed), a tenant can have
+// many payments — one INSERT-once row per event, PK = paymentRowId(...) (see
+// projection.ts / aggregate-id.ts). Source-of-truth is the event-store stream `payment` with
+// aggregate-id = paymentAggregateId(tenantId) — one stream per tenant
+// collecting all of that tenant's payment-received events.
+export const paymentEntity = createEntity({
+  table: "read_payments",
+  fields: {
+    providerName: createTextField({ required: true, maxLength: 50 }),
+    // Same `personal: "tenant"` rationale as subscriptionEntity above —
+    // crypto-shreds on tenant-destroy (#800) via eraseSubjectKeys.
+    providerCustomerId: createTextField({
+      required: true,
+      maxLength: 1000,
+      personal: "tenant",
+      find: "none",
+    }),
+    priceId: createTextField({ required: true, maxLength: 200 }),
+  },
+});
+
+// See the SUBSCRIPTION_PII_FIELDS comment above — same manual-wiring reason.
+export const PAYMENT_PII_FIELDS = collectPiiSubjectFields(paymentEntity);

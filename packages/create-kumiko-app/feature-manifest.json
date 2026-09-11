@@ -253,7 +253,7 @@
     },
     {
       "name": "billing-foundation",
-      "description": "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+      "description": "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
       "toggleableDefault": null,
       "requires": [
         "tenant-lifecycle",
@@ -267,6 +267,10 @@
         {
           "extensionName": "tenantData",
           "entityName": "subscription"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "payment"
         }
       ],
       "configKeys": [],
@@ -274,7 +278,8 @@
       "writeHandlers": [
         "billing-foundation:write:create-checkout-session",
         "billing-foundation:write:create-portal-session",
-        "billing-foundation:write:process-event"
+        "billing-foundation:write:process-event",
+        "billing-foundation:write:process-payment-event"
       ],
       "uiHints": {
         "displayLabel": "Billing · Foundation",

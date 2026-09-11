@@ -22,6 +22,10 @@
 //      webhook-handler aufruft, dispatcht zu type-passendem appendEvent.
 //   5. **createSubscriptionWebhookHandler**: factory für die HTTP-Route
 //      `/api/subscription/webhook/:providerName`.
+//   6. **payment-received event + read_payments projection**: one-off-
+//      payments (checkout mode "payment") get their own event, own
+//      per-tenant aggregate, and own `process-payment-event` write-handler
+//      — not a sixth SubscriptionEventTypes value (fw#2791).
 //
 // **Was diese Foundation NICHT macht:**
 //   - Kein r.entity für `subscription`. Die Tabelle ist eine reine
@@ -43,12 +47,16 @@
 
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
-import { subscriptionEntity } from "./entities";
+import { paymentEntity, subscriptionEntity } from "./entities";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
   INVOICE_PAYMENT_FAILED_EVENT_SHORT,
+  PAYMENT_AGGREGATE_TYPE,
+  PAYMENT_RECEIVED_EVENT_QN,
+  PAYMENT_RECEIVED_EVENT_SHORT,
+  paymentEventPayloadSchema,
   SUBSCRIPTION_AGGREGATE_TYPE,
   SUBSCRIPTION_CANCELED_EVENT_QN,
   SUBSCRIPTION_CANCELED_EVENT_SHORT,
@@ -62,19 +70,22 @@ import { createCheckoutSessionHandler } from "./handlers/create-checkout-session
 import { createPortalSessionHandler } from "./handlers/create-portal-session.write";
 import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query";
 import { processEventHandler } from "./handlers/process-event.write";
+import { processPaymentEventHandler } from "./handlers/process-payment-event.write";
 import {
   applyInvoicePaid,
   applyInvoicePaymentFailed,
+  applyPaymentReceived,
   applySubscriptionCanceled,
   applySubscriptionCreated,
   applySubscriptionUpdated,
+  paymentsProjectionTable,
   subscriptionsProjectionTable,
 } from "./projection";
-import { subscriptionTenantDestroyHook } from "./tenant-destroy-hook";
+import { paymentTenantDestroyHook, subscriptionTenantDestroyHook } from "./tenant-destroy-hook";
 
 export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
   r.describe(
-    "Plugin host for subscription billing \u2014 manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block \u2014 use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+    "Plugin host for subscription billing \u2014 manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block \u2014 use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
   );
   r.uiHints({
     displayLabel: "Billing \u00b7 Foundation",
@@ -100,6 +111,10 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
   r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema, {
     piiFields: "none",
   });
+  // Own event, own aggregate-type — a one-off-payment is not a subscription
+  // state transition. piiFields: "none" for the same reason as the 5 above:
+  // providerCustomerId is tenantOwned ciphertext, not plaintext personal data.
+  r.defineEvent(PAYMENT_RECEIVED_EVENT_SHORT, paymentEventPayloadSchema, { piiFields: "none" });
 
   // Inline projection: materialized current state in `read_subscriptions`.
   // Apply läuft in derselben TX wie ctx.unsafeAppendEvent — read-your-
@@ -118,6 +133,17 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
     },
   });
 
+  // Second inline projection: `read_payments`, one row per one-off-payment.
+  r.projection({
+    name: "payment",
+    source: PAYMENT_AGGREGATE_TYPE,
+    table: paymentsProjectionTable,
+    entity: paymentEntity,
+    apply: {
+      [PAYMENT_RECEIVED_EVENT_QN]: applyPaymentReceived,
+    },
+  });
+
   // Plugin extension-point. Provider-Plugins registrieren sich hier.
   r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
     onRegister: () => {
@@ -133,6 +159,9 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
   r.writeHandler(processEventHandler);
   r.writeHandler(createCheckoutSessionHandler);
   r.writeHandler(createPortalSessionHandler);
+  //   - process-payment-event: programmatic entry-point vom webhook-
+  //     handler für one-off-payments; appended auf den payment-Aggregate
+  r.writeHandler(processPaymentEventHandler);
 
   // Custom list-query auf der subscription-projection (raw drizzle-
   // table; kein r.entity weil Schreiben via projection-apply läuft).
@@ -140,5 +169,8 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
 
   r.useExtension(EXT_TENANT_DATA, "subscription", {
     destroy: subscriptionTenantDestroyHook,
+  });
+  r.useExtension(EXT_TENANT_DATA, "payment", {
+    destroy: paymentTenantDestroyHook,
   });
 });

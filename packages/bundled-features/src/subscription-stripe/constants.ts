@@ -25,4 +25,11 @@ export const StripeEventTypes = {
   customerSubscriptionDeleted: "customer.subscription.deleted",
   invoicePaid: "invoice.paid",
   invoicePaymentFailed: "invoice.payment_failed",
+  // One-off-payment checkout (mode: "payment") completion. Both fire for a
+  // successful payment — `completed` for synchronous methods (card),
+  // `async_payment_succeeded` for delayed ones (SEPA, bank transfers). Never
+  // fed into mapStripeEventType — handled by a dedicated branch in
+  // verify-webhook.ts before the subscription-event switch runs.
+  checkoutSessionCompleted: "checkout.session.completed",
+  checkoutSessionAsyncPaymentSucceeded: "checkout.session.async_payment_succeeded",
 } as const;

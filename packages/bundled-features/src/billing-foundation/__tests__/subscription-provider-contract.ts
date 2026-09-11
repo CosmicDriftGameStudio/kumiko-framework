@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { BillingEventKinds } from "../constants";
 import type { SubscriptionProviderPlugin } from "../types";
 
 export type SubscriptionProviderContractFixture = {
@@ -50,8 +51,13 @@ export function describeSubscriptionProviderContract(
       if (!webhook) return;
       const event = await plugin.verifyAndParseWebhook(webhook.rawBody, webhook.headers);
       expect(event).not.toBeNull();
-      expect(event?.tenantId).toBe(webhook.expectedTenantId);
-      expect(event?.tier).toBe(webhook.expectedTier);
+      if (!event || event.kind === BillingEventKinds.payment) {
+        throw new Error(
+          "describeSubscriptionProviderContract: webhook fixture must parse into a SubscriptionEvent, not a PaymentEvent",
+        );
+      }
+      expect(event.tenantId).toBe(webhook.expectedTenantId);
+      expect(event.tier).toBe(webhook.expectedTier);
     });
 
     test("createCheckoutSession returns a hosted-page url", async () => {

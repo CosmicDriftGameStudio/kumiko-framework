@@ -16,14 +16,21 @@
 
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
+import { paymentRowId } from "./aggregate-id";
+import { insertPaymentProjectionRow } from "./db/queries/payment-projection";
 import { upsertSubscriptionProjectionRow } from "./db/queries/subscription-projection";
-import { subscriptionEntity } from "./entities";
-import type { SubscriptionEventPayload } from "./events";
+import { paymentEntity, subscriptionEntity } from "./entities";
+import type { PaymentEventPayload, SubscriptionEventPayload } from "./events";
 
 // Drizzle-table-instance aus dem entity-shape. Wird sowohl von der
 // projection-apply als auch von list-query / get-helper genutzt damit
 // alle drei Stellen denselben column-namespace teilen.
 export const subscriptionsProjectionTable = buildEntityTable("subscription", subscriptionEntity);
+
+// Same production-deployment caveat as subscriptionsProjectionTable above:
+// raw drizzle-pgTable, not an r.entity — apps mounting billing-foundation in
+// production must add read_payments to their own drizzle/generate.ts too.
+export const paymentsProjectionTable = buildEntityTable("payment", paymentEntity);
 
 // =============================================================================
 // Shared helpers
@@ -152,3 +159,34 @@ export const applyInvoicePaymentFailed = defineApply<SubscriptionEventPayload>(
     await upsert(tx, event, { status: p.status, tier: p.tier }, p);
   },
 );
+
+// =============================================================================
+// payment-received apply — one row per event, no UPSERT
+// =============================================================================
+
+/** payment-received → INSERT-once row keyed by a deterministic uuid derived
+ *  from (tenantId, providerName, providerEventId) — NOT `event.id`, which is
+ *  the event-store's global bigserial sequence (not a UUID, can't back this
+ *  uuid-typed PK) — and not aggregateId, which is shared by every payment on
+ *  the same tenant's payment-stream. tenantId is part of the key because the
+ *  idempotency scan is per-tenant: without it, two tenants sharing the same
+ *  providerEventId would collide on ON CONFLICT DO NOTHING and silently lose
+ *  the second tenant's row. ON CONFLICT DO NOTHING also makes a projection
+ *  rebuild idempotent without mutating an existing row. */
+export const applyPaymentReceived = defineApply<PaymentEventPayload>(async (event, tx) => {
+  const tableName = (paymentsProjectionTable as { tableName: string }).tableName;
+  const providerEventId = event.metadata.headers?.["providerEventId"];
+  const providerName = event.metadata.headers?.["providerName"];
+  if (typeof providerEventId !== "string" || typeof providerName !== "string") {
+    throw new Error(
+      "applyPaymentReceived: event.metadata.headers is missing providerEventId/providerName — process-payment-event.write.ts always sets both",
+    );
+  }
+  await insertPaymentProjectionRow(tx, tableName, {
+    id: paymentRowId(event.tenantId, providerName, providerEventId),
+    tenant_id: event.tenantId,
+    provider_name: event.payload.providerName,
+    provider_customer_id: event.payload.providerCustomerId,
+    price_id: event.payload.priceId,
+  });
+});
