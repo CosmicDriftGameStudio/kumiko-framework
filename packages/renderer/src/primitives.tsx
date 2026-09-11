@@ -785,6 +785,15 @@ export type FormProps = {
    *  document-flow height. Native impls may ignore this prop (already a
    *  bounded viewport there). */
   readonly fillHeight?: boolean;
+  /** Drops the surrounding card (bg/border/rounded, title/subtitle block,
+   *  footer border) so sections+footer render as siblings of `headerRegion`
+   *  on the page background instead of inside a nested card — a tabbed
+   *  projectionDetail's tab content is a sibling of the head card, not its
+   *  child (bedienkonzept A1), so it must look like a standalone screen
+   *  instead of a form embedded in another card. Default false: unchanged
+   *  card chrome. Native impls may ignore this prop (no card chrome there
+   *  to begin with). */
+  readonly chromeless?: boolean;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:

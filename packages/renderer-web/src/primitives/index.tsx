@@ -2176,6 +2176,144 @@ function FormRoot({
   );
 }
 
+// Sections wrapper for DefaultForm's card and chromeless layouts alike —
+// only the card-derived padding on non-section children differs between
+// them (see `chromeless` doc on FormProps).
+function FormSections({
+  children,
+  chromeless,
+  stickyActions,
+  fillHeight,
+}: {
+  readonly children: ReactNode;
+  readonly chromeless: boolean;
+  readonly stickyActions: boolean | undefined;
+  readonly fillHeight: boolean | undefined;
+}): ReactNode {
+  return (
+    <div
+      className={cn(
+        "flex flex-col",
+        // Section-Children (Auto-UI-Edit) trennt eine Linie ZWISCHEN
+        // ihnen — sie padden sich selbst. Flache Felder (Custom-Screens)
+        // kriegen Padding + Rhythmus, keine Linie zwischen jedem Feld.
+        "[&>section:not(:first-child)]:border-t",
+        !chromeless && "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
+        !chromeless && "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
+        // ponytail: fixed footer height is a guess (two wrapped button rows +
+        // safe-area, fw#2528) — widen further if a wizard step's last field
+        // ever renders visibly clipped under three or more wrapped rows.
+        stickyActions === true && "max-sm:pb-32",
+        // Same "no flex-1" reasoning as the card above: this is the
+        // one section allowed to shrink (min-h-0) inside the card, not
+        // one forced to grow past its content.
+        fillHeight === true && "min-h-0",
+      )}
+    >
+      <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
+    </div>
+  );
+}
+
+// Title/subtitle block shared by DefaultForm's card and chromeless layouts —
+// the caller-supplied subtitle (screen.description) is independent of
+// hideSectionTitles (which only blanks per-section titles, see RenderEdit)
+// and must keep rendering in tabs/chromeless mode, just without card chrome.
+function FormTitleBlock({
+  title,
+  subtitle,
+  testId,
+  bordered,
+  fillHeight,
+}: {
+  readonly title: ReactNode;
+  readonly subtitle: ReactNode;
+  readonly testId: string | undefined;
+  readonly bordered: boolean;
+  readonly fillHeight: boolean | undefined;
+}): ReactNode {
+  if (title === undefined && subtitle === undefined) return null;
+  return (
+    <div
+      className={cn(
+        bordered ? cn(cardHeaderBorder, "px-6 pb-4 pt-5") : "pb-4",
+        fillHeight === true && "shrink-0",
+      )}
+    >
+      {title !== undefined && (
+        <h2
+          data-testid={testId !== undefined ? `${testId}-title` : undefined}
+          className="text-lg font-semibold tracking-tight"
+        >
+          {title}
+        </h2>
+      )}
+      {subtitle !== undefined && (
+        <p
+          data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+          className="mt-1 text-sm text-muted-foreground"
+        >
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Footer wrapper for DefaultForm's card and chromeless layouts alike — only
+// the card-derived horizontal padding/border differs between them.
+function FormFooter({
+  actions,
+  secondaryActions,
+  testId,
+  chromeless,
+  stickyActions,
+  fillHeight,
+}: {
+  readonly actions: ReactNode;
+  readonly secondaryActions: ReactNode;
+  readonly testId: string | undefined;
+  readonly chromeless: boolean;
+  readonly stickyActions: boolean | undefined;
+  readonly fillHeight: boolean | undefined;
+}): ReactNode {
+  if (actions === undefined && secondaryActions === undefined) return null;
+  return (
+    <div
+      className={cn(
+        "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
+        !chromeless && "px-[var(--card-padding)]",
+        !chromeless && cardFooterBorder,
+        fillHeight === true && "shrink-0",
+        // Below sm (640px): pin to the viewport bottom instead of normal
+        // flow, so a virtual keyboard shrinking the viewport can't push
+        // this out of reach (fw#1918). `fixed` escapes the card's
+        // `overflow-hidden` (only transform/filter/contain ancestors trap
+        // it, confirmed against AppLayout/SidebarInset — neither sets those).
+        stickyActions === true &&
+          "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-4",
+      )}
+    >
+      {secondaryActions !== undefined && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
+          className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
+        >
+          {secondaryActions}
+        </div>
+      )}
+      {actions !== undefined && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+          className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto"
+        >
+          {actions}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DefaultForm({
   onSubmit,
   children,
@@ -2188,6 +2326,7 @@ function DefaultForm({
   stickyActions,
   headerRegion,
   fillHeight,
+  chromeless,
 }: FormProps): ReactNode {
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
@@ -2214,6 +2353,61 @@ function DefaultForm({
     );
   }
 
+  const sections = (
+    <FormSections chromeless={chromeless === true} stickyActions={stickyActions} fillHeight={fillHeight}>
+      {children}
+    </FormSections>
+  );
+  const footer = (
+    <FormFooter
+      actions={actions}
+      secondaryActions={secondaryActions}
+      testId={testId}
+      chromeless={chromeless === true}
+      stickyActions={stickyActions}
+      fillHeight={fillHeight}
+    />
+  );
+
+  // Tab content (bedienkonzept A1): the head card is the ONLY card on the
+  // screen, so a tabbed projectionDetail's tab content must render as a
+  // sibling of that card, not nest another one around itself — chromeless
+  // skips the card wrapper and its border/padding so sections and footer
+  // sit directly on the page background, same edge as a standalone list
+  // screen. Title/subtitle still render unbordered: RenderEdit's tabs
+  // caller already blanks the per-section title via hideSectionTitles, but
+  // the screen-level subtitle (screen.description) is independent of that
+  // and must survive tabs mode.
+  if (chromeless === true) {
+    return (
+      <FormRoot
+        onSubmit={onSubmit}
+        testId={testId}
+        className={cn("flex flex-col w-full", fillHeight === true && "h-full min-h-0")}
+      >
+        <FormScreenShell
+          {...(width !== undefined && { maxWidth: width })}
+          {...(fillHeight === true && { fillHeight: true })}
+        >
+          {headerRegion !== undefined && (
+            <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
+              {headerRegion}
+            </div>
+          )}
+          <FormTitleBlock
+            title={title}
+            subtitle={subtitle}
+            testId={testId}
+            bordered={false}
+            fillHeight={fillHeight}
+          />
+          {sections}
+          {footer}
+        </FormScreenShell>
+      </FormRoot>
+    );
+  }
+
   // One card form: title as header (no divider under it), sections divided
   // between each other, muted action footer. Shell width defaults to full
   // (same chrome as lists); pass width to narrow (auth-adjacent / dense).
@@ -2233,6 +2427,7 @@ function DefaultForm({
           </div>
         )}
         <div
+          data-slot="card"
           className={cn(
             cardSurface(),
             "overflow-hidden",
@@ -2245,82 +2440,15 @@ function DefaultForm({
             fillHeight === true && "min-h-0 flex flex-col",
           )}
         >
-          {(title !== undefined || subtitle !== undefined) && (
-            <div
-              className={cn(cardHeaderBorder, "px-6 pb-4 pt-5", fillHeight === true && "shrink-0")}
-            >
-              {title !== undefined && (
-                <h2
-                  data-testid={testId !== undefined ? `${testId}-title` : undefined}
-                  className="text-lg font-semibold tracking-tight"
-                >
-                  {title}
-                </h2>
-              )}
-              {subtitle !== undefined && (
-                <p
-                  data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
-                  className="mt-1 text-sm text-muted-foreground"
-                >
-                  {subtitle}
-                </p>
-              )}
-            </div>
-          )}
-          <div
-            className={cn(
-              "flex flex-col",
-              // Section-Children (Auto-UI-Edit) trennt eine Linie ZWISCHEN
-              // ihnen — sie padden sich selbst. Flache Felder (Custom-Screens)
-              // kriegen Padding + Rhythmus, keine Linie zwischen jedem Feld.
-              "[&>section:not(:first-child)]:border-t",
-              "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
-              "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
-              // ponytail: fixed footer height is a guess (two wrapped button rows +
-              // safe-area, fw#2528) — widen further if a wizard step's last field
-              // ever renders visibly clipped under three or more wrapped rows.
-              stickyActions === true && "max-sm:pb-32",
-              // Same "no flex-1" reasoning as the card above: this is the
-              // one section allowed to shrink (min-h-0) inside the card, not
-              // one forced to grow past its content.
-              fillHeight === true && "min-h-0",
-            )}
-          >
-            <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
-          </div>
-          {(secondaryActions !== undefined || actions !== undefined) && (
-            <div
-              className={cn(
-                "flex flex-col-reverse gap-3 px-[var(--card-padding)] py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
-                cardFooterBorder,
-                fillHeight === true && "shrink-0",
-                // Below sm (640px): pin to the viewport bottom instead of normal
-                // flow, so a virtual keyboard shrinking the viewport can't push
-                // this out of reach (fw#1918). `fixed` escapes the card's
-                // `overflow-hidden` (only transform/filter/contain ancestors trap
-                // it, confirmed against AppLayout/SidebarInset — neither sets those).
-                stickyActions === true &&
-                  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-4",
-              )}
-            >
-              {secondaryActions !== undefined && (
-                <div
-                  data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
-                  className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
-                >
-                  {secondaryActions}
-                </div>
-              )}
-              {actions !== undefined && (
-                <div
-                  data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-                  className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto"
-                >
-                  {actions}
-                </div>
-              )}
-            </div>
-          )}
+          <FormTitleBlock
+            title={title}
+            subtitle={subtitle}
+            testId={testId}
+            bordered={true}
+            fillHeight={fillHeight}
+          />
+          {sections}
+          {footer}
         </div>
       </FormScreenShell>
     </FormRoot>
@@ -2447,6 +2575,7 @@ function DefaultSection({
   // standalone-section content that renders its own non-portaled overlay.
   return (
     <div
+      data-slot="card"
       data-testid={testId}
       className={cn(
         cardSurface(),
@@ -2685,7 +2814,11 @@ export function DefaultCard({ slots, options, className, testId, children }: Car
   const header = s.header ?? defaultHeader;
   const hasHeader = header !== null && header !== undefined;
   return (
-    <div data-testid={testId} className={cn(cardSurface({ radius }), "overflow-hidden", className)}>
+    <div
+      data-slot="card"
+      data-testid={testId}
+      className={cn(cardSurface({ radius }), "overflow-hidden", className)}
+    >
       {header}
       {/* != null covers undefined AND explicit null; a `false` child (from
           `cond && <El/>`) still renders no visible content either way. */}
