@@ -35,8 +35,12 @@ export type DocumentExtractMeta = {
 export const documentExtractEntity = createEntity({
   table: "read_document_extracts",
   fields: {
-    fileRefId: createTextField({ required: true }),
-    storageKey: createTextField({ required: true }),
+    fileRefId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
+    storageKey: createTextField({
+      required: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Holds the full extracted document text (PII). `personal: "tenant"`,
     // NOT `encrypted: true` (#1621): the master-key path has no erasure subject,
     // so nothing here would ever be shreddable. Tenant-subject ciphertext

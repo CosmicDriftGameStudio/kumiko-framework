@@ -45,6 +45,8 @@ export const exportDownloadTokenEntity = createEntity({
     // Job gehoeren.
     jobId: createTextField({
       required: true,
+      personal: false,
+      reason: "technical_reference",
     }),
 
     // **Hash NICHT plain.** SHA256-hex (64 chars). Atom 4b verifiziert
@@ -52,6 +54,8 @@ export const exportDownloadTokenEntity = createEntity({
     tokenHash: createTextField({
       required: true,
       maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
     }),
 
     // Wann wurde das Token ausgegeben (= Job-Done-Flip-Zeit).

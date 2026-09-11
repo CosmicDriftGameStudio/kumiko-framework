@@ -33,11 +33,15 @@ export const userSessionEntity = createEntity({
       required: true,
       maxLength: 36,
       access: { write: access.privileged },
+      personal: false,
+      reason: "pseudonymous_fk",
     }),
     tenantId: createTextField({
       required: true,
       maxLength: 36,
       access: { write: access.privileged },
+      personal: false,
+      reason: "pseudonymous_fk",
     }),
     createdAt: createTimestampField({
       required: true,

@@ -77,8 +77,12 @@ export const notificationPreferenceEntity = createEntity({
   table: "read_notification_preferences",
   fields: {
     userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
-    notificationType: createTextField({ required: true }), // qualified name or "*"
-    channel: createTextField({ required: true }), // "inApp", "email", "push", or "*"
+    notificationType: createTextField({
+      required: true,
+      personal: false,
+      reason: "technical_reference",
+    }), // qualified name or "*"
+    channel: createTextField({ required: true, personal: false, reason: "technical_reference" }), // "inApp", "email", "push", or "*"
     enabled: createBooleanField({ default: true }),
   },
 });

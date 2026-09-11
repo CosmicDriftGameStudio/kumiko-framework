@@ -42,7 +42,14 @@ export const capCounterEntity = createEntity({
   description:
     "One usage counter per tenant, cap name and calendar period, holding the accumulated value and the timestamp of the last soft-limit warning.",
   fields: {
-    capName: createTextField({ required: true, maxLength: 100, sortable: true, searchable: true }),
+    capName: createTextField({
+      required: true,
+      maxLength: 100,
+      sortable: true,
+      searchable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
     value: createBigIntField({ required: true, default: 0 }),
     periodStart: createTimestampField({ required: true }),
     lastSoftWarnedAt: createTimestampField(),

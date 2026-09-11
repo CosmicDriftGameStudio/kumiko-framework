@@ -28,11 +28,11 @@ export const tagEntity = createEntity({
       reason: "catalog_label",
     }),
     // Optional UI hint (hex or token). No enforcement — purely for rendering.
-    color: createTextField({ maxLength: 32 }),
+    color: createTextField({ maxLength: 32, personal: false, reason: "technical_reference" }),
     // Optional entity-type scope (GitLab project-vs-group labels): empty = global
     // (offered on every entity); a value like "note" restricts the tag to that
     // entityType in the picker. No enforcement on assign — purely a picker hint.
-    scope: createTextField({ maxLength: 64 }),
+    scope: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
   },
 });
 
@@ -63,10 +63,25 @@ export function createTagAssignmentEntity(access?: EntityDefinition["access"]) {
     softDelete: true,
     access,
     fields: {
-      tagId: createTextField({ required: true, maxLength: 64 }),
-      entityType: createTextField({ required: true, maxLength: 64 }),
+      tagId: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      entityType: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
       // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
-      entityId: createTextField({ required: true, maxLength: 128 }),
+      entityId: createTextField({
+        required: true,
+        maxLength: 128,
+        personal: false,
+        reason: "technical_reference",
+      }),
     },
   });
 }

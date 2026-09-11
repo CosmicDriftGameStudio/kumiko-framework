@@ -81,9 +81,19 @@ export const userEntity = createEntity({
     // Password material: only SYSTEM/SystemAdmin can read or write it.
     // auth-email-password reads it during login, writes it during registration
     // and password changes. Stripped from ordinary responses via read-access.
+    // Kept Klasse 1 deliberately: find-for-auth.query.ts reads this row via a
+    // raw fetchOne (bypassing the executor's decrypt on purpose, so a
+    // SystemAdmin session's ordinary query path never sees it) — a subject
+    // annotation would make the executor encrypt it on write while this
+    // login-critical read stays raw, so verifyPassword would compare a
+    // plaintext password against ciphertext and every login would fail once
+    // a KMS is active. Already an irreversible one-way hash, access-gated to
+    // privileged read/write — see PR body "Offene Fragen".
     passwordHash: createTextField({
       maxLength: 255,
       access: { read: access.privileged, write: access.privileged },
+      personal: false,
+      reason: "credential_hash_read_without_decrypt_2809",
     }),
 
     // Profile — user-editable. Real name in most apps → PII. Searchable via
@@ -95,7 +105,7 @@ export const userEntity = createEntity({
       find: "fuzzy",
     }),
     // No default here — tenant-settings owns the app-wide locale default; see #1637.
-    locale: createTextField({ maxLength: 10 }),
+    locale: createTextField({ maxLength: 10, personal: false, reason: "technical_reference" }),
     // No default here — mirrors locale: ctx.tz falls back to tenant.timezone
     // (then "UTC") when unset, see buildHandlerContext (fw#1636).
     timezone: createTzField(),
@@ -106,6 +116,8 @@ export const userEntity = createEntity({
     lastActiveTenantId: createTextField({
       maxLength: 36,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
 
     // Email-verification flag — flipped to true by the verify-email handler
@@ -171,6 +183,8 @@ export const userEntity = createEntity({
     pendingDeletionRequestId: createTextField({
       maxLength: 36,
       access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
     }),
   },
   // fw#2134 — email is `personal: "self", find: "exact"`, so the column holds

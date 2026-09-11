@@ -61,15 +61,30 @@ export const fieldDefinitionEntity = createEntity({
   fields: {
     // Ziel-Entity-Name, für die dieses Field definiert wird (z.B. "property",
     // "customer"). Max 64 char passt zu Kumiko's entity-name-Convention.
-    entityName: createTextField({ required: true, maxLength: 64 }),
+    entityName: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
 
     // Field-Key (z.B. "internalNumber", "vipFlag") — kebab-case oder camelCase
     // erlaubt; UI-rendering nutzt label statt fieldKey.
-    fieldKey: createTextField({ required: true, maxLength: 64 }),
+    fieldKey: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
 
     // Field-Type aus dem SUPPORTED_FIELD_TYPES-Set. Validiert via Zod im
     // write-handler.
-    type: createTextField({ required: true, maxLength: 16 }),
+    type: createTextField({
+      required: true,
+      maxLength: 16,
+      personal: false,
+      reason: "technical_reference",
+    }),
 
     // Required-Flag — wird beim Entity-Write gegen den value gecheckt
     // (Stammfeld-identische Semantik, Spec-Promise Z.4).
@@ -87,6 +102,11 @@ export const fieldDefinitionEntity = createEntity({
     // defaultValue, fieldAccess, i18n-labels. Beim Write-Validation
     // dehydriert der handler dies zurück zu einer r.field.X()-Instanz und
     // nutzt deren .schema für value-Validation.
-    serializedField: createTextField({ required: true, maxLength: 65536 }),
+    serializedField: createTextField({
+      required: true,
+      maxLength: 65536,
+      personal: false,
+      reason: "technical_reference",
+    }),
   },
 });

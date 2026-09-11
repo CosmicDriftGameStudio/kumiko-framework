@@ -16,9 +16,28 @@ export const pageEntity = createEntity({
   description:
     "One tenant-editable public web page, unique per slug and language, holding a markdown body plus the title, SEO description and OG image, with a published flag that decides whether anonymous visitors are served it or get a 404.",
   fields: {
-    slug: createTextField({ required: true, maxLength: 64, sortable: true, searchable: true }),
-    lang: createTextField({ required: true, maxLength: 8, sortable: true }),
-    title: createTextField({ required: true, maxLength: 200, searchable: true }),
+    slug: createTextField({
+      required: true,
+      maxLength: 64,
+      sortable: true,
+      searchable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    lang: createTextField({
+      required: true,
+      maxLength: 8,
+      sortable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    title: createTextField({
+      required: true,
+      maxLength: 200,
+      searchable: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
     // Body + description sind vom Tenant-Admin authored Business-Content
     // (Markdown), keine User-Generated-PII. `multiline` → der entityEdit-
     // Renderer gibt ein <textarea> aus (createLongTextField hat aktuell
@@ -32,7 +51,7 @@ export const pageEntity = createEntity({
       reason: "is_business_data",
     }),
     description: createTextField({ maxLength: 500, personal: false, reason: "is_business_data" }),
-    ogImage: createTextField({ maxLength: 2000 }),
+    ogImage: createTextField({ maxLength: 2000, personal: false, reason: "is_business_data" }),
     published: createBooleanField({ default: false }),
   },
   indexes: [{ unique: true, columns: ["tenantId", "slug", "lang"], name: "read_pages_unique" }],

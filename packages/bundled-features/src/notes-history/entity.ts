@@ -36,9 +36,19 @@ export function createNoteEntryEntity(access?: EntityDefinition["access"]) {
       "One note attached to a host entity by entityType and entityId, holding the note body plus the id and the display name of the author as it stood when the note was written. Rows are append-only: a correction is a further note, never an edit of this one.",
     access,
     fields: {
-      entityType: createTextField({ required: true, maxLength: 64 }),
+      entityType: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
       // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
-      entityId: createTextField({ required: true, maxLength: 128 }),
+      entityId: createTextField({
+        required: true,
+        maxLength: 128,
+        personal: false,
+        reason: "technical_reference",
+      }),
       // Never client-supplied — stamped by the deriveAuthorId preSave hook from
       // ctx.user.id (see feature.ts), so a note can't be authored as someone
       // else. subjectRef feeds the GDPR-hook-coverage boot guard (it's a plain

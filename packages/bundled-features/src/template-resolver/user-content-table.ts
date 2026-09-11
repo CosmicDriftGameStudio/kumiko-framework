@@ -25,11 +25,13 @@ export const userContentEntryEntity = createEntity({
   table: "read_user_content_entries",
   fields: {
     ownerId: createTextField({ required: true, personal: "ref" }),
-    slug: createTextField({ required: true }),
+    slug: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     kind: createSelectField({ required: true, options: [...TEMPLATE_KINDS] }),
-    locale: createTextField({ required: true }),
-    title: createTextField({}),
-    folder: createTextField({}),
+    locale: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    // Organizational label for the entry (e.g. "Default signature"), not the
+    // owner's PII itself — that lives in `content` below.
+    title: createTextField({ personal: false, reason: "technical_reference" }),
+    folder: createTextField({ personal: false, reason: "technical_reference" }),
     content: createLongTextField({
       personal: { of: "ownerId" },
       find: "none",

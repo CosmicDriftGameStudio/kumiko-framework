@@ -25,8 +25,23 @@ export const tenantEntity = createEntity({
   // Alle tenantId-Spalten sind UUID (Migration 2026-04-16) → tenant.id muss
   // UUID sein, sonst findet der tenants-Lookup nie. Default gen_random_uuid().
   fields: {
-    key: createTextField({ required: true, maxLength: 50 }),
-    name: createTextField({ required: true, maxLength: 200, searchable: true, sortable: true }),
+    key: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    // Workspace/company display name, not an individual's identity —
+    // same class as the `company.legalName` example in the boot-validator's
+    // own PII-heuristic doc-comment.
+    name: createTextField({
+      required: true,
+      maxLength: 200,
+      searchable: true,
+      sortable: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
     isEnabled: createBooleanField({ default: true, filterable: true }),
     // Tenant-destroy lifecycle (tenant-lifecycle feature). Defaults keep
     // existing tenants valid when the feature is not mounted.
@@ -37,7 +52,11 @@ export const tenantEntity = createEntity({
       filterable: true,
     }),
     destroyRequestedAt: createTimestampField({}),
-    destroyRequestedBy: createTextField({ maxLength: 36 }),
+    destroyRequestedBy: createTextField({
+      maxLength: 36,
+      personal: false,
+      reason: "pseudonymous_fk",
+    }),
     gracePeriodEnd: createTimestampField({}),
     destroyStartedAt: createTimestampField({}),
     destroyedAt: createTimestampField({}),

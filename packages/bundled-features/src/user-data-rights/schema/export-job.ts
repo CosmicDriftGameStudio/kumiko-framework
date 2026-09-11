@@ -76,6 +76,8 @@ export const exportJobEntity = createEntity({
     userId: createTextField({
       required: true,
       searchable: true,
+      personal: false,
+      reason: "pseudonymous_fk",
     }),
 
     // **requestedFromTenantId** — der Tenant aus dem der User den Antrag
@@ -93,6 +95,8 @@ export const exportJobEntity = createEntity({
     // Tenant-Context ein falsches Profile.
     requestedFromTenantId: createTextField({
       required: true,
+      personal: false,
+      reason: "technical_reference",
     }),
 
     status: createSelectField({
@@ -123,6 +127,8 @@ export const exportJobEntity = createEntity({
     // signed-URL on demand vom Storage-Provider (Atom 4).
     downloadStorageKey: createTextField({
       maxLength: 500,
+      personal: false,
+      reason: "technical_reference",
     }),
 
     // Ab wann ist der Download nicht mehr abrufbar. Worker setzt
