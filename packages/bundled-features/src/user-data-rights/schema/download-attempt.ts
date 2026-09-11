@@ -16,9 +16,19 @@ export const downloadAttemptEntity = createEntity({
     "One rejected attempt to fetch a GDPR data-export download, recording the failure result, the path used (magic-link token or logged-in job id), the source IP, user agent and time, so brute-force probing of download links is visible.",
   fields: {
     // notFound | expired | failed | signedUrlNotSupported
-    result: createTextField({ required: true, maxLength: 32, personal: false, reason: "technical_reference" }),
+    result: createTextField({
+      required: true,
+      maxLength: 32,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Welcher Pfad: "token" | "job"
-    via: createTextField({ required: true, maxLength: 16, personal: false, reason: "technical_reference" }),
+    via: createTextField({
+      required: true,
+      maxLength: 16,
+      personal: false,
+      reason: "technical_reference",
+    }),
     // Token-Hash (token-Pfad) oder NULL (job-Pfad / unbekannter Token).
     tokenHash: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
     // Job-ID wenn der attempt einen kannte. NULL bei unbekanntem Token.

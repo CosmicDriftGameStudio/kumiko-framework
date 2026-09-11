@@ -27,7 +27,12 @@ export const tierAssignmentEntity = createEntity({
   description:
     "The pricing tier currently assigned to a tenant, plus where the assignment came from (manual grant, billing sync or signup default) — one row per tenant.",
   fields: {
-    tier: createTextField({ required: true, maxLength: 50, personal: false, reason: "catalog_label" }),
+    tier: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "catalog_label",
+    }),
     // Woher das Assignment stammt: "manual" (Admin-Grant via tier-admin-Screen),
     // "stripe" (future Billing-Sync), "default" (auto-default-on-signup-Hook).
     // Optional für Back-Compat zu bestehenden Rows ohne source. Schützt manuelle

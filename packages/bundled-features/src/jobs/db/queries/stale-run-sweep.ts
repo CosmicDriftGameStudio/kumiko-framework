@@ -38,11 +38,10 @@ export async function markStaleJobRunsFailed(
   // different users, each under their own DEK. One updateMany per row keeps
   // this crash-recovery sweep's write on the same encrypted footing as the
   // normal failure path instead of writing STALE_JOB_RUN_ERROR in the clear.
-  const stale = await selectMany<{ id: string; triggeredById: string | null }>(
-    db,
-    jobRunsTable,
-    { status: "running", startedAt: { lt: cutoff } },
-  );
+  const stale = await selectMany<{ id: string; triggeredById: string | null }>(db, jobRunsTable, {
+    status: "running",
+    startedAt: { lt: cutoff },
+  });
 
   // duration is deliberately left untouched: we don't know when the run
   // actually died, only that it crossed the timeout, so recording a

@@ -72,7 +72,12 @@ export const subscriptionEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    tier: createTextField({ required: true, maxLength: 50, personal: false, reason: "catalog_label" }),
+    tier: createTextField({
+      required: true,
+      maxLength: 50,
+      personal: false,
+      reason: "catalog_label",
+    }),
     currentPeriodEnd: createTimestampField({ required: true }),
   },
 });

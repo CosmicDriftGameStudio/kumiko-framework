@@ -46,7 +46,9 @@ const captureHook: UserDataDeleteHook = async (ctx) => {
 
 const probeEntity = createEntity({
   table: `read_${PROBE.replace(/-/g, "_")}`,
-  fields: { name: createTextField({ required: true, personal: false, reason: "technical_reference" }) },
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
 });
 
 const probeFeature = defineFeature(PROBE, (r) => {

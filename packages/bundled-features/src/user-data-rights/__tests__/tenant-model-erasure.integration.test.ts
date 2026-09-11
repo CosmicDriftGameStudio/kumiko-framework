@@ -72,7 +72,9 @@ const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
 
 const scopedEntity = createEntity({
   table: TABLE,
-  fields: { name: createTextField({ required: true, personal: false, reason: "technical_reference" }) },
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
 });
 
 const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
