@@ -6,6 +6,7 @@ export {
 } from "./render";
 export { type CodegenOptions, type CodegenResult, runCodegen } from "./run-codegen";
 export {
+  formatScanWarning,
   qualifiedNameToConstName,
   rewriteImportPath,
   type ScannedEvent,

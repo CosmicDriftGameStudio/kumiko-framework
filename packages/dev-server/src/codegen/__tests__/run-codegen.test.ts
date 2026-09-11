@@ -57,7 +57,8 @@ export const myFeature = defineFeature("myFeat", (r) => {
 `,
     );
 
-    const result = runCodegen({ appRoot });
+    // handlerQns: [] opts out of the #2757 manifest-fallback warning — out of scope here.
+    const result = runCodegen({ appRoot, handlerQns: [] });
 
     expect(result.eventCount).toBe(1);
     expect(result.warnings).toEqual([]);
@@ -122,7 +123,7 @@ export const myFeature = defineFeature("inlineFeat", (r) => {
 `,
     );
 
-    const result = runCodegen({ appRoot });
+    const result = runCodegen({ appRoot, handlerQns: [] });
     expect(result.eventCount).toBe(1);
     expect(result.warnings).toEqual([]);
     expect(result.didWriteSchemas).toBe(true);
@@ -169,7 +170,7 @@ export const myFeature = defineFeature("billing", (r) => {
 `,
     );
 
-    const result = runCodegen({ appRoot });
+    const result = runCodegen({ appRoot, handlerQns: [] });
     expect(result.eventCount).toBe(2);
     expect(result.warnings).toEqual([]);
 
@@ -201,7 +202,7 @@ export const myFeature = defineFeature("billing", (r) => {
 `,
     );
 
-    const result = runCodegen({ appRoot });
+    const result = runCodegen({ appRoot, handlerQns: [] });
     expect(result.eventCount).toBe(1);
     expect(result.warnings).toEqual([]);
     expect(result.didWriteSchemas).toBe(true);
@@ -520,6 +521,145 @@ export default defineFeature("pkgjson", (r) => {
         ".": "./define.ts",
         "./*": "./*",
       },
+    });
+  });
+
+  // #2757 — `kumiko-build` runs `runCodegen({ appRoot })` with no
+  // `handlerQns`. Without a `feature-manifest.json` that falls back to
+  // an empty list, which used to mean "render types.generated.d.ts and
+  // define.ts as if there were no write handlers at all" — silently
+  // deleting an already-checked-in WriteHandlerQn union / TypedDispatcher
+  // that a previous dev-server run had generated from the real registry.
+  describe("preserving the handler-derived block when handlerQns is omitted (#2757)", () => {
+    function writeSingleEventFeature(appRoot: string): void {
+      write(
+        appRoot,
+        "src/feature/events.ts",
+        `import { z } from "zod";\nexport const sSchema = z.object({ id: z.string() });\n`,
+      );
+      write(
+        appRoot,
+        "src/feature/feature.ts",
+        `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { sSchema } from "./events";
+export default defineFeature("app", (r) => {
+  r.defineEvent("only", sSchema);
+});
+`,
+      );
+    }
+
+    test("a block generated with handlerQns survives a later run without handlerQns", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+
+      runCodegen({ appRoot, handlerQns: ["app:write:create"] });
+      const typesPath = join(appRoot, ".kumiko", "types.generated.d.ts");
+      const definePath = join(appRoot, ".kumiko", "define.ts");
+      expect(readFileSync(typesPath, "utf-8")).toContain('| "app:write:create"');
+      expect(readFileSync(definePath, "utf-8")).toContain("createTypedDispatcher");
+
+      // No feature-manifest.json in appRoot — this is the kumiko-build path.
+      const result = runCodegen({ appRoot });
+
+      expect(readFileSync(typesPath, "utf-8")).toContain('| "app:write:create"');
+      expect(readFileSync(definePath, "utf-8")).toContain("createTypedDispatcher");
+      expect(result.warnings.some((w) => w.message.includes("feature-manifest.json"))).toBe(true);
+      // Round-trip is byte-identical, not just "still contains the QN" — writeIfChanged
+      // must see no diff once the preserved block is reattached.
+      expect(result.didWriteTypes).toBe(false);
+      expect(result.didWriteDefine).toBe(false);
+    });
+
+    test("a block from a pre-#2757 file (no marker) survives a run without handlerQns", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+      // Legacy shape: what the released renderer wrote before markers existed.
+      write(
+        appRoot,
+        ".kumiko/types.generated.d.ts",
+        `export {};\n\nexport type WriteHandlerQn =\n  | "app:write:legacy"\n;\n`,
+      );
+      write(
+        appRoot,
+        ".kumiko/define.ts",
+        `export function defineQueryHandler() {}\n\nimport type { Dispatcher, WriteOpts, WriteResult } from "@cosmicdrift/kumiko-headless";\nexport function createTypedDispatcher() {}\n`,
+      );
+
+      const result = runCodegen({ appRoot });
+
+      expect(readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8")).toContain(
+        '| "app:write:legacy"',
+      );
+      expect(readFileSync(join(appRoot, ".kumiko", "define.ts"), "utf-8")).toContain(
+        "createTypedDispatcher",
+      );
+      expect(result.warnings.some((w) => w.message.includes("feature-manifest.json"))).toBe(true);
+    });
+
+    test("no handlerQns and no prior generated file → no block, no crash", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+
+      const result = runCodegen({ appRoot });
+
+      const typesPath = join(appRoot, ".kumiko", "types.generated.d.ts");
+      const definePath = join(appRoot, ".kumiko", "define.ts");
+      expect(readFileSync(typesPath, "utf-8")).not.toContain("WriteHandlerQn");
+      expect(readFileSync(definePath, "utf-8")).not.toContain("TypedDispatcher");
+      expect(result.skipped).toBe(false);
+    });
+
+    test("a preserved block is not duplicated across repeated runs without handlerQns", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+
+      runCodegen({ appRoot, handlerQns: ["app:write:create"] });
+      runCodegen({ appRoot });
+      runCodegen({ appRoot });
+
+      const typesPath = join(appRoot, ".kumiko", "types.generated.d.ts");
+      const definePath = join(appRoot, ".kumiko", "define.ts");
+      const typesOccurrences =
+        readFileSync(typesPath, "utf-8").split("app:write:create").length - 1;
+      const defineOccurrences =
+        readFileSync(definePath, "utf-8").split("createTypedDispatcher").length - 1;
+      expect(typesOccurrences).toBe(1);
+      expect(defineOccurrences).toBe(1);
+    });
+
+    test("a later run with handlerQns overwrites a preserved stale block", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+
+      runCodegen({ appRoot, handlerQns: ["app:write:create"] });
+      runCodegen({ appRoot }); // preserves app:write:create
+      runCodegen({ appRoot, handlerQns: ["app:write:update"] });
+
+      const typesPath = join(appRoot, ".kumiko", "types.generated.d.ts");
+      const typesContent = readFileSync(typesPath, "utf-8");
+      expect(typesContent).toContain('| "app:write:update"');
+      expect(typesContent).not.toContain("app:write:create");
+    });
+
+    test("the missing-manifest warning appears only when handlerQns is omitted", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+
+      const withoutOption = runCodegen({ appRoot });
+      expect(withoutOption.warnings.some((w) => w.message.includes("feature-manifest.json"))).toBe(
+        true,
+      );
+
+      const explicitEmpty = runCodegen({ appRoot, handlerQns: [] });
+      expect(explicitEmpty.warnings.some((w) => w.message.includes("feature-manifest.json"))).toBe(
+        false,
+      );
+
+      const explicitList = runCodegen({ appRoot, handlerQns: ["app:write:create"] });
+      expect(explicitList.warnings.some((w) => w.message.includes("feature-manifest.json"))).toBe(
+        false,
+      );
     });
   });
 });

@@ -1,6 +1,6 @@
-// runCodegen — Top-Level Entry-Point. Wird vom Dev-Server (auf Boot),
-// vom Build-Step (vor Bundle) und von der CLI (`bun kumiko codegen`)
-// aufgerufen.
+// runCodegen — top-level entry point. Called by the dev-server (on boot,
+// then on every watched file-change) and by `kumiko-build` (before
+// bundling).
 //
 // Lifecycle:
 //   1. Scan `<appRoot>/src/**` nach r.defineEvent.
@@ -21,6 +21,8 @@ import {
   renderInlineSchemasFile,
   renderTypesAugmentation,
   renderWriteHandlerTypes,
+  TYPED_DISPATCHER_MARKER,
+  WRITE_HANDLER_QN_MARKER,
 } from "./render";
 import { type ScanWarning, scanEvents } from "./scan-events";
 
@@ -77,7 +79,15 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   mkdirSync(outputDir, { recursive: true });
 
   const typesContent = renderTypesAugmentation(scan.events, outputDir);
+  // `opts.handlerQns` undefined means the caller (kumiko-build) has no
+  // live feature registry to draw from and relies on the manifest
+  // fallback. That fallback can't tell "no handlers exist" apart from
+  // "the manifest doesn't exist" — both come back as an empty array —
+  // so an empty result here is a known-lossy read, not authoritative
+  // data the way run-dev-app's live registry is.
+  const usingManifestFallback = opts.handlerQns === undefined;
   const handlerQns = opts.handlerQns ?? readHandlerQnsFromManifest(opts.appRoot);
+  const hasHandlerQns = handlerQns.length > 0;
   const defineContent = renderDefineFile(handlerQns);
   const schemasContent = renderInlineSchemasFile(scan.events, opts.appRoot);
   // package.json — turns `.kumiko/` into a real installable package
@@ -91,21 +101,53 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   // WriteHandlerQn-Union an den types-Content anhängen (optional). Der
   // Dev-Server übergibt handlerQns aus der lebenden Registry (genauer);
   // der CLI-Fallback liest das feature-manifest.json falls vorhanden.
-  const finalTypesContent =
-    handlerQns.length > 0 ? `${typesContent}${renderWriteHandlerTypes(handlerQns)}` : typesContent;
+  //
+  // Preserve only applies to the manifest-fallback path: a caller that
+  // explicitly passes `handlerQns: []` (the dev-server, when an app
+  // truly registers zero write handlers) means it — that's real data,
+  // not a missing-manifest gap, so it clears the block like before.
+  // Only the manifest fallback coming back empty is ambiguous enough to
+  // warrant carrying the previous block forward instead of dropping it.
+  const shouldPreserveStaleBlock = !hasHandlerQns && usingManifestFallback;
+  const finalTypesContent = shouldPreserveStaleBlock
+    ? withPreservedBlock(
+        typesContent,
+        typesPath,
+        WRITE_HANDLER_QN_MARKER,
+        LEGACY_WRITE_HANDLER_QN_ANCHOR,
+      )
+    : `${typesContent}${renderWriteHandlerTypes(handlerQns)}`;
+  const finalDefineContent = shouldPreserveStaleBlock
+    ? withPreservedBlock(
+        defineContent,
+        definePath,
+        TYPED_DISPATCHER_MARKER,
+        LEGACY_TYPED_DISPATCHER_ANCHOR,
+      )
+    : defineContent;
 
   const didWriteTypes = writeIfChanged(typesPath, finalTypesContent);
-  const didWriteDefine = writeIfChanged(definePath, defineContent);
+  const didWriteDefine = writeIfChanged(definePath, finalDefineContent);
   writeIfChanged(packageJsonPath, packageJsonContent);
   const didWriteSchemas =
     schemasContent !== undefined
       ? writeIfChanged(schemasPath, schemasContent)
       : removeIfExists(schemasPath);
 
+  const warnings: readonly ScanWarning[] = shouldPreserveStaleBlock
+    ? [
+        ...scan.warnings,
+        {
+          message:
+            "No feature-manifest.json found — the WriteHandlerQn/TypedDispatcher block could not be determined from here; run the dev-server to get the exact handler list.",
+        },
+      ]
+    : scan.warnings;
+
   return {
     outputDir,
     eventCount: scan.events.length,
-    warnings: scan.warnings,
+    warnings,
     didWriteTypes,
     didWriteSchemas,
     didWriteDefine,
@@ -151,15 +193,53 @@ function renderKumikoPackageJson(): string {
  * happen on every mtime change).
  */
 function writeIfChanged(path: string, content: string): boolean {
-  let existing: string | undefined;
-  try {
-    existing = readFileSync(path, "utf-8");
-  } catch {
-    existing = undefined;
-  }
+  const existing = readExistingOrUndefined(path);
   if (existing === content) return false;
   writeFileSync(path, content, "utf-8");
   return true;
+}
+
+function readExistingOrUndefined(path: string): string | undefined {
+  try {
+    return readFileSync(path, "utf-8");
+  } catch {
+    return undefined;
+  }
+}
+
+// Pre-marker renderer output has no WRITE_HANDLER_QN_MARKER/TYPED_DISPATCHER_MARKER
+// line to find — a file generated before this fix still needs to round-trip.
+// Each anchor is the first line of its block under the old renderer, so slicing
+// from the preceding newline recovers the same block the marker path recovers.
+const LEGACY_WRITE_HANDLER_QN_ANCHOR = `export type WriteHandlerQn =`;
+const LEGACY_TYPED_DISPATCHER_ANCHOR = `import type { Dispatcher, WriteOpts, WriteResult } from "@cosmicdrift/kumiko-headless";`;
+
+/**
+ * Appends whichever handler-derived block a previous run left behind
+ * in `existingPath`, found via its start-of-block `marker` (or, for a
+ * file generated before markers existed, `legacyAnchor`). Used when
+ * the current run has no `handlerQns` of its own — the block can't be
+ * re-derived, so the only options are "delete it" (the #2757 bug) or
+ * "leave it exactly as it was". The marker is always emitted as the
+ * last thing its renderer produces, so slicing from it to EOF recovers
+ * the whole block regardless of how many times this preserve-path runs
+ * in a row.
+ */
+function withPreservedBlock(
+  freshContent: string,
+  existingPath: string,
+  marker: string,
+  legacyAnchor: string,
+): string {
+  const existing = readExistingOrUndefined(existingPath);
+  const preserved = extractBlock(existing, marker) ?? extractBlock(existing, legacyAnchor);
+  return preserved !== undefined ? `${freshContent}${preserved}` : freshContent;
+}
+
+function extractBlock(content: string | undefined, anchor: string): string | undefined {
+  if (content === undefined) return undefined;
+  const idx = content.indexOf(`\n${anchor}`);
+  return idx === -1 ? undefined : content.slice(idx);
 }
 
 /**
