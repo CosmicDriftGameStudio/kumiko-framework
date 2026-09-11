@@ -52,6 +52,10 @@ export type SidebarPanelProps = {
    *  two screens with their own list should not overwrite each other's width. */
   readonly storageKey?: string;
   readonly className?: string;
+  /** "nav" (default) matches the shell's own sidebar chrome. "surface" reads
+   *  as page content instead of navigation — for a list that carries the
+   *  screen's own content colors (e.g. status-tinted rows). */
+  readonly tone?: "nav" | "surface";
 };
 
 const DEFAULT_WIDTH = 340;
@@ -79,6 +83,7 @@ export function SidebarPanel({
   maxWidth = DEFAULT_MAX,
   storageKey,
   className,
+  tone = "nav",
 }: SidebarPanelProps): ReactNode {
   const slot = useSidebarPanelSlot();
   const setOccupied = slot?.setOccupied;
@@ -134,7 +139,8 @@ export function SidebarPanel({
     <div
       data-kumiko-layout="sidebar-panel-body"
       className={cn(
-        "relative flex h-full shrink-0 flex-col border-sidebar-border border-r bg-sidebar",
+        "relative flex h-full shrink-0 flex-col border-r",
+        tone === "surface" ? "border-border bg-muted" : "border-sidebar-border bg-sidebar",
         className,
       )}
       style={{ width: `${width}px` }}
@@ -145,7 +151,10 @@ export function SidebarPanel({
       <div
         data-kumiko-layout="sidebar-panel-handle"
         onPointerDown={startDrag}
-        className="absolute inset-y-0 right-0 w-1 cursor-col-resize bg-transparent transition-colors hover:bg-sidebar-border"
+        className={cn(
+          "absolute inset-y-0 right-0 w-1 cursor-col-resize bg-transparent transition-colors",
+          tone === "surface" ? "hover:bg-border" : "hover:bg-sidebar-border",
+        )}
       />
     </div>
   );
