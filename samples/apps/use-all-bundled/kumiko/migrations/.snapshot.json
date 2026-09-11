@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-11T08:10:35.389Z",
+  "generatedAt": "2026-09-11T13:49:19.956Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1747,6 +1747,72 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_payments",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "provider_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "provider_customer_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "price_id",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_payments_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "unmanaged"
     },
     {
       "tableName": "read_subscriptions",
