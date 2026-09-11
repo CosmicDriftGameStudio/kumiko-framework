@@ -440,11 +440,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
 
+      # #2798: this container only exists to be measured and thrown away —
+      # durability guarantees buy nothing here but add write-path variance
+      # (commit fsync wait, post-checkpoint full-page-write amplification)
+      # that showed up as scattered p95 spikes unrelated to event-store code.
+      # fsync/synchronous_commit/full_page_writes off removes that noise;
+      # checkpoint_timeout keeps a time-triggered checkpoint from firing
+      # mid-run (the ~5k rows this job writes never approach the default
+      # max_wal_size, so a volume-triggered checkpoint isn't a factor here).
+      # Correctness jobs keep default (production) commit semantics — only
+      # this measurement job is tuned.
       - name: Start postgres
         run: |
           docker run -d --name kumiko-ci-pg -p 15432:5432 \
             -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.4-alpine
+            postgres:18.4-alpine \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
+            -c checkpoint_timeout=1h
           for i in $(seq 1 30); do
             if pg_isready -h 127.0.0.1 -p 15432 -U kumiko >/dev/null 2>&1; then break; fi
             sleep 2

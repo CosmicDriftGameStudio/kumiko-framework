@@ -13,7 +13,10 @@
 // are the ceiling.
 //
 // Runs isolated in the `event-store-perf` CI job (test:integration:perf:eventstore,
-// #1940) — gate on p95 for typical latency; p99 keeps a separate tail budget for checkpoint/fsync spikes.
+// #1940) — gate on p95 for typical latency; p99 keeps a separate tail budget for
+// residual scheduling noise. CI's Postgres container runs with fsync/synchronous_commit/
+// full_page_writes off (#2798) — it exists only to be measured and thrown away, so these
+// numbers aren't comparable to a default-config local container.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
@@ -98,12 +101,14 @@ describe("event-store performance — Gate A", () => {
     const p50 = percentile(samples, 0.5);
     const p95 = percentile(samples, 0.95);
     const p99 = percentile(samples, 0.99);
+    const over30 = samples.filter((s) => s >= 30).length;
+    const top5 = samples.slice(-5).map((s) => s.toFixed(1));
     console.log(
-      `  Write-latency: p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=200)`,
+      `  Write-latency: p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=200) over30=${over30} top5=${top5}`,
     );
 
     expect(p95).toBeLessThan(30);
-    // Tail budget: absorbs cold-checkpoint/fsync spikes (observed up to 102ms at p50=1.2ms) while still catching order-of-magnitude regressions.
+    // Tail budget: absorbs residual runner scheduling noise while still catching order-of-magnitude regressions.
     expect(p99).toBeLessThan(250);
   });
 
