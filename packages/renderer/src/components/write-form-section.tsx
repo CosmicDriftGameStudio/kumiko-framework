@@ -155,6 +155,7 @@ export function WriteFormSection({
   return (
     <Section
       {...(!hideTitle && section.title !== undefined && { title: section.title })}
+      {...(section.description !== undefined && { subtitle: section.description })}
       {...(section.icon !== undefined && { icon: section.icon })}
       actions={submitButton}
       testId={`write-form-${section.title ?? "section"}`}

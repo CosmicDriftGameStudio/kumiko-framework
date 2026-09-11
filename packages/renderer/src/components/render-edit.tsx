@@ -1079,8 +1079,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       <Form
         onSubmit={() => void handleSubmit()}
         {...(hideSectionTitles !== true && { title: formTitle })}
-        {...(hideSectionTitles !== true &&
-          formSubtitle !== undefined && { subtitle: formSubtitle })}
+        {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
         {...(hideActions !== true && hasFormActions && { actions: formActions })}
         {...(hideActions !== true &&
           hasSecondaryFormActions && { secondaryActions: secondaryFormActions })}

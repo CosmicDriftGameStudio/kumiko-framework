@@ -90,6 +90,76 @@ describe("KumikoScreen dashboard", () => {
   });
 });
 
+// screen.description exists on DashboardScreenDefinition (types/src/
+// screen.ts:713) but WebDashboardBody never read it — the panels grid
+// rendered with no room for it at all.
+describe("KumikoScreen dashboard — screen.description", () => {
+  test("a plain-text description renders above the panels", async () => {
+    const screenWithDescription: DashboardScreenDefinition = {
+      ...dashboardScreen,
+      description: "Live health signals across every monitored service.",
+    };
+    const schemaWithDescription: FeatureSchema = {
+      featureName: "status",
+      entities: {},
+      screens: [screenWithDescription],
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen schema={schemaWithDescription} qn="status:screen:overview" />
+        </DashboardBodyProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("dashboard-overview-description").textContent).toBe(
+      "Live health signals across every monitored service.",
+    );
+  });
+
+  test("a description that is a known i18n key renders translated, not as the raw key", async () => {
+    const screenWithDescription: DashboardScreenDefinition = {
+      ...dashboardScreen,
+      description: "status:dashboard:explainer",
+    };
+    const schemaWithDescription: FeatureSchema = {
+      featureName: "status",
+      entities: {},
+      screens: [screenWithDescription],
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen
+            schema={schemaWithDescription}
+            qn="status:screen:overview"
+            translate={(key) =>
+              key === "status:dashboard:explainer" ? "Refreshes every 60 seconds." : key
+            }
+          />
+        </DashboardBodyProvider>
+      </DispatcherProvider>,
+    );
+
+    const description = screen.getByTestId("dashboard-overview-description");
+    expect(description.textContent).toBe("Refreshes every 60 seconds.");
+    expect(description.textContent).not.toBe("status:dashboard:explainer");
+  });
+
+  test("a screen without description renders no description block", async () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen schema={schema} qn="status:screen:overview" />
+        </DashboardBodyProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("dashboard-overview")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-overview-description")).toBeNull();
+  });
+});
+
 const richScreen: DashboardScreenDefinition = {
   id: "rich",
   type: "dashboard",

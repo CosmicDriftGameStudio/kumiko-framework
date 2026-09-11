@@ -202,6 +202,45 @@ describe("RenderEdit", () => {
     expect(fieldEl.querySelector("input")?.className).toContain("pl-8");
   });
 
+  // Fall 2: tabs layout sets hideSectionTitles (kumiko-screen.tsx's
+  // ProjectionDetailBody, the only real caller) to blank out each section's
+  // OWN title — the active tab already names it. That gate used to also
+  // swallow the screen-level subtitle (screen.description), which has
+  // nothing to do with section titles and must survive tabs mode.
+  test("tabs layout (hideSectionTitles) keeps the section title hidden but still shows the screen's own subtitle", () => {
+    const entity = {
+      fields: { email: { type: "text", required: true } },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-detail",
+      type: "entityEdit",
+      entity: "order",
+      description: "Everything about this order in one place.",
+      layout: {
+        mode: "tabs",
+        sections: [{ id: "contact", title: "Contact", fields: [{ field: "email" }] }],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "" } as never}
+          writeCommand="order:create"
+          hideSectionTitles
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
+    expect(screen.queryByTestId("section-Contact-title")).toBeNull();
+    expect(screen.getByTestId("render-edit-form-subtitle").textContent).toBe(
+      "Everything about this order in one place.",
+    );
+  });
+
   // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch
   // computeEditViewModel → render-field → DefaultInput auf den Located-Picker
   // laufen (Datum + Uhrzeit + Zone), NICHT auf den Klartext-Fallthrough. Vor

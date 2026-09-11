@@ -1,9 +1,18 @@
 import { describe, expect, test } from "bun:test";
-import type { Dispatcher, EditWriteFormSectionViewModel } from "@cosmicdrift/kumiko-headless";
+import type {
+  EditWriteFormSection,
+  EntityDefinition,
+  EntityEditScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  computeEditViewModel,
+  type Dispatcher,
+  type EditWriteFormSectionViewModel,
+} from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
+import { createStaticLocaleResolver, LocaleProvider, type TranslationsByLocale } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
   type BannerProps,
@@ -42,8 +51,14 @@ const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
 
 // Mirrors DefaultSection's real actions slot closely enough to let tests
 // assert the submit button lands in the footer, not the body (fw#2675).
-const testSection: ComponentType<SectionProps> = ({ testId, children, actions }) => (
+// Also renders subtitle into the DOM (like DefaultSection's own subtitle
+// slot) so description-passthrough tests prove real render output, not just
+// a captured prop.
+const testSection: ComponentType<SectionProps> = ({ testId, subtitle, children, actions }) => (
   <div data-testid={testId}>
+    {subtitle !== undefined && (
+      <p data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}>{subtitle}</p>
+    )}
     <div data-testid={testId !== undefined ? `${testId}-body` : undefined}>{children}</div>
     {actions !== undefined && (
       <div data-testid={testId !== undefined ? `${testId}-actions` : undefined}>{actions}</div>
@@ -120,11 +135,16 @@ function renderWriteForm(
   section: EditWriteFormSectionViewModel,
   dispatcher: Dispatcher,
   onSubmitted: () => void,
+  extraTranslations?: TranslationsByLocale,
 ) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={
+        extraTranslations !== undefined
+          ? [extraTranslations, kumikoDefaultTranslations]
+          : [kumikoDefaultTranslations]
+      }
     >
       <DispatcherProvider dispatcher={dispatcher}>
         <PrimitivesProvider value={testPrimitives()}>
@@ -221,5 +241,82 @@ describe("WriteFormSection", () => {
 
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.payload).toEqual({ orderId: "order-42", note: "hi" });
+  });
+});
+
+// section.description exists on EditWriteFormSection to make a self-service
+// write form usable without training (same doc-promise as EditFieldsSection),
+// but WriteFormSection never read it — the ViewModel translated it correctly,
+// the renderer just dropped it on the floor. Built through the real
+// computeEditViewModel pipeline (not a hand-built ViewModel) to prove the
+// full Spec -> ViewModel -> Renderer path, matching render-edit-screen-
+// description.test.tsx's approach for the sibling entityEdit-level bug.
+describe("WriteFormSection — section.description as subtitle", () => {
+  function computeNoteSection(
+    descriptionSpec: string,
+    translate: (key: string) => string,
+  ): EditWriteFormSectionViewModel {
+    const sectionSpec: EditWriteFormSection = {
+      kind: "writeForm",
+      title: "Add note",
+      description: descriptionSpec,
+      columns: 1,
+      handler: "orders:write:add-note",
+      fieldDefs: {
+        note: {
+          type: "text",
+          maxLength: 500,
+          required: true,
+          searchable: false,
+          sortable: false,
+        },
+      },
+      fields: ["note"],
+    };
+    const screen: EntityEditScreenDefinition = {
+      id: "order-detail",
+      type: "entityEdit",
+      entity: "order",
+      layout: { sections: [sectionSpec] },
+    };
+    const entity: EntityDefinition = { fields: {} };
+    const viewModel = computeEditViewModel({
+      screen,
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    const section = viewModel.sections[0];
+    if (section?.kind !== "writeForm") throw new Error("expected a writeForm section");
+    return section;
+  }
+
+  test("a plain-text description renders as the section's subtitle", () => {
+    const { dispatcher } = stubDispatcher();
+    const section = computeNoteSection("Explain why you're adding this note.", (key) => key);
+
+    renderWriteForm(section, dispatcher, noop);
+
+    expect(rtlScreen.getByTestId("write-form-Add note-subtitle").textContent).toBe(
+      "Explain why you're adding this note.",
+    );
+  });
+
+  test("a description that is a known i18n key renders translated, not as the raw key", () => {
+    const { dispatcher } = stubDispatcher();
+    const translations: Record<string, string> = {
+      "orders:write-form.explainer": "Notes are visible to the whole team.",
+    };
+    const section = computeNoteSection(
+      "orders:write-form.explainer",
+      (key) => translations[key] ?? key,
+    );
+
+    renderWriteForm(section, dispatcher, noop);
+
+    const subtitle = rtlScreen.getByTestId("write-form-Add note-subtitle");
+    expect(subtitle.textContent).toBe("Notes are visible to the whole team.");
+    expect(subtitle.textContent).not.toBe("orders:write-form.explainer");
   });
 });

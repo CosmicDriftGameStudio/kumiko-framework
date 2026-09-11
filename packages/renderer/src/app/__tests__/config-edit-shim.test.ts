@@ -37,4 +37,21 @@ describe("synthesizeConfigEditScreen", () => {
     expect(result.fieldLabels).toEqual({ apiKey: "config.apiKey" });
     expect(result.access).toEqual({ roles: ["Admin"] });
   });
+
+  test("carries description through so RenderEdit can render it as the form subtitle", () => {
+    const withDescription = {
+      id: "settings",
+      layout: { sections: [] },
+      description: "These settings apply to every project in the workspace.",
+    } as unknown as ConfigEditScreenDefinition;
+    expect(synthesizeConfigEditScreen(withDescription).description).toBe(
+      "These settings apply to every project in the workspace.",
+    );
+
+    const withoutDescription = {
+      id: "settings",
+      layout: { sections: [] },
+    } as unknown as ConfigEditScreenDefinition;
+    expect(synthesizeConfigEditScreen(withoutDescription)).not.toHaveProperty("description");
+  });
 });
