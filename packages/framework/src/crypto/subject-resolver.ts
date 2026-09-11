@@ -28,6 +28,67 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function rowIdAsString(row: Record<string, unknown>): string | null {
+  const id = row["id"];
+  return nonEmptyString(id) ?? (typeof id === "number" ? String(id) : null);
+}
+
+function resolveRecordSubject(
+  fieldName: string,
+  row: Record<string, unknown>,
+  opts: ResolveSubjectOptions,
+): SubjectId {
+  const entityName = nonEmptyString(opts.entityName);
+  if (entityName === null) {
+    throw new SubjectResolutionError(
+      fieldName,
+      "record subject needs the entity name; caller did not supply one",
+    );
+  }
+  const recordId = rowIdAsString(row);
+  if (recordId === null) {
+    throw new SubjectResolutionError(fieldName, "row has no id to use as the record subject");
+  }
+  return { kind: "record", entity: entityName, id: recordId };
+}
+
+function resolveUserOwnedSubject(
+  ownerField: string,
+  fieldName: string,
+  row: Record<string, unknown>,
+): SubjectId {
+  const userId = nonEmptyString(row[ownerField]);
+  if (userId === null) {
+    throw new SubjectResolutionError(fieldName, `owner field "${ownerField}" is empty on the row`);
+  }
+  return { kind: "user", userId };
+}
+
+function resolveTenantSubject(
+  fieldName: string,
+  row: Record<string, unknown>,
+  opts: ResolveSubjectOptions,
+): SubjectId {
+  const tenantId = nonEmptyString(row["tenantId"]) ?? opts.tenantId;
+  if (tenantId === undefined) {
+    throw new SubjectResolutionError(
+      fieldName,
+      "row has no tenantId column and no write-time tenantId was provided",
+    );
+  }
+  return { kind: "tenant", tenantId };
+}
+
+function resolveSelfPiiSubject(fieldName: string, row: Record<string, unknown>): SubjectId {
+  // pii: true = the entity itself is the subject (user.email belongs to
+  // that user row). Serial ids are stringified — subject keys are text.
+  const userId = rowIdAsString(row);
+  if (userId === null) {
+    throw new SubjectResolutionError(fieldName, "row has no id to use as the pii self-subject");
+  }
+  return { kind: "user", userId };
+}
+
 /**
  * Maps a pii-annotated field to the subject whose key encrypts it.
  * Returns null for fields without any PII annotation (stored plaintext).
@@ -46,53 +107,19 @@ export function resolveSubjectForField(
   if (!field) throw new SubjectResolutionError(fieldName, "field is not defined on the entity");
 
   if ("recordOwned" in field && field.recordOwned === true) {
-    const entityName = nonEmptyString(opts.entityName);
-    if (entityName === null) {
-      throw new SubjectResolutionError(
-        fieldName,
-        "record subject needs the entity name; caller did not supply one",
-      );
-    }
-    const id = row["id"];
-    const recordId = nonEmptyString(id) ?? (typeof id === "number" ? String(id) : null);
-    if (recordId === null) {
-      throw new SubjectResolutionError(fieldName, "row has no id to use as the record subject");
-    }
-    return { kind: "record", entity: entityName, id: recordId };
+    return resolveRecordSubject(fieldName, row, opts);
   }
 
   if ("userOwned" in field && field.userOwned !== undefined) {
-    const ownerField = field.userOwned.ownerField;
-    const userId = nonEmptyString(row[ownerField]);
-    if (userId === null) {
-      throw new SubjectResolutionError(
-        fieldName,
-        `owner field "${ownerField}" is empty on the row`,
-      );
-    }
-    return { kind: "user", userId };
+    return resolveUserOwnedSubject(field.userOwned.ownerField, fieldName, row);
   }
 
   if ("tenantOwned" in field && field.tenantOwned === true) {
-    const tenantId = nonEmptyString(row["tenantId"]) ?? opts.tenantId;
-    if (tenantId === undefined) {
-      throw new SubjectResolutionError(
-        fieldName,
-        "row has no tenantId column and no write-time tenantId was provided",
-      );
-    }
-    return { kind: "tenant", tenantId };
+    return resolveTenantSubject(fieldName, row, opts);
   }
 
   if (isSelfPiiField(field)) {
-    // pii: true = the entity itself is the subject (user.email belongs to
-    // that user row). Serial ids are stringified — subject keys are text.
-    const id = row["id"];
-    const userId = nonEmptyString(id) ?? (typeof id === "number" ? String(id) : null);
-    if (userId === null) {
-      throw new SubjectResolutionError(fieldName, "row has no id to use as the pii self-subject");
-    }
-    return { kind: "user", userId };
+    return resolveSelfPiiSubject(fieldName, row);
   }
 
   return null;
