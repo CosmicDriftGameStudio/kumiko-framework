@@ -212,6 +212,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     actions,
     onRelatedListDrawerAction,
     submitLabel,
+    submitVariant,
     labelAppendix,
     fieldAppendix,
     entityId: entityIdProp,
@@ -1032,7 +1033,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           type="submit"
           disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting || disabled}
           loading={isSubmitting}
-          variant="primary"
+          variant={submitVariant ?? "primary"}
           icon="check"
           testId="render-edit-submit"
         >
