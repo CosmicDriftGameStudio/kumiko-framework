@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-11T13:49:19.956Z",
+  "generatedAt": "2026-09-11T19:12:19.976Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1581,7 +1581,68 @@
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["authorName"]
+      "piiSubjectFields": ["authorName", "body"]
+    },
+    {
+      "tableName": "read_note_mentions",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "note_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject_id",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_note_mentions_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed"
     },
     {
       "tableName": "read_notification_preferences",

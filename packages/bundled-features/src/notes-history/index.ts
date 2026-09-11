@@ -6,8 +6,13 @@ export {
   NotesHistoryHandlers,
   NotesHistoryQueries,
 } from "./constants";
-export { noteEntryEntity } from "./entity";
-export { noteEntryExecutor, noteEntryTable } from "./executor";
+export { noteEntryEntity, noteMentionEntity } from "./entity";
+export {
+  noteEntryExecutor,
+  noteEntryTable,
+  noteMentionExecutor,
+  noteMentionTable,
+} from "./executor";
 export {
   createNotesHistoryFeature,
   type NotesHistoryFeatureOptions,

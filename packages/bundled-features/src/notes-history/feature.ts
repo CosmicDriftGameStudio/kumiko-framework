@@ -22,7 +22,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { hasWhereRule } from "../shared";
 import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants";
-import { createNoteEntryEntity } from "./entity";
+import { createNoteEntryEntity, noteMentionEntity } from "./entity";
 import { createAddNoteHandler } from "./handlers/add-note.write";
 import { NOTES_HISTORY_FEATURE_I18N } from "./i18n";
 
@@ -43,6 +43,12 @@ function registerNotesHistory(
 
   const entity = createNoteEntryEntity(ownership);
   r.entity("note-entry", entity);
+  // No write/query handler of its own — populated only as a side effect of
+  // add-note (see handlers/add-note.write.ts), looked up by
+  // notes-history-user-data's forget cascade. Registering the entity (not
+  // just building it inline in the handler) is what makes it visible to the
+  // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
+  r.entity("note-mention", noteMentionEntity);
 
   r.writeHandler(createAddNoteHandler(access, parents));
   r.queryHandler(
