@@ -1,15 +1,17 @@
 ---
 status: reference
-verified: 2026-09-10
-evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema)"
+verified: 2026-09-11
+evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606 (Heuristik ohne Labellänge)"
 ---
 
 # Select-Feld: Radio-Gruppe oder Dropdown anfordern
 
 Ein `select`-Feld rendert im Web-Renderer entweder als sichtbare Radio-Gruppe
 (WAI-ARIA `radiogroup`, eine Auswahl = ein Klick) oder als Combobox-Dropdown.
-Ohne Angabe entscheidet eine Heuristik: höchstens 4 Optionen **und** jedes
-Label höchstens 14 Zeichen ergeben die Radio-Gruppe, sonst das Dropdown.
+Ohne Angabe entscheidet eine Heuristik: höchstens 4 Optionen ergeben die
+Radio-Gruppe, mehr ergeben das Dropdown. Die Labellänge zählt bewusst nicht —
+Labels sind übersetzt, eine Längenschwelle hätte den Widget-Typ von der
+aktiven UI-Sprache abhängig gemacht (framework#2606).
 
 Die Heuristik ist ein Default, keine Vorgabe. Wer die Darstellung braucht,
 fordert sie mit `display` an:
@@ -23,8 +25,8 @@ createSelectField({
 
 | `display` | Ergebnis |
 |---|---|
-| `"radio"` | immer die Radio-Gruppe — auch bei vielen oder langen Labels |
-| `"dropdown"` | immer die Combobox — auch bei drei kurzen Labels |
+| `"radio"` | immer die Radio-Gruppe — auch bei mehr als 4 Optionen |
+| `"dropdown"` | immer die Combobox — auch bei drei Optionen |
 | weggelassen | die Heuristik entscheidet (unverändertes Verhalten) |
 
 Eine leere `options`-Liste rendert auch mit `display: "radio"` das Dropdown —

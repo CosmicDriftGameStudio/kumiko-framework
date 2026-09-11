@@ -8,9 +8,9 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
-// `status` stays inside the segmented-radio heuristic (at most 4 options, all
-// labels at most 14 chars), `area` deliberately falls out of it and renders as
-// a combobox — the generated e2e spec exercises both select render paths.
+// `status` stays inside the segmented-radio heuristic (at most 4 options),
+// `area` deliberately falls out of it and renders as a combobox — the
+// generated e2e spec exercises both select render paths.
 const TASK_STATUSES = ["todo", "in progress", "done", "blocked"] as const;
 const TASK_AREAS = [
   "engineering",
