@@ -384,6 +384,10 @@ export function defineEntityQueryHandler(
             fields: ctx.registry.getSearchableReferences(entityName),
             resolveEntity: (name) => ctx.registry.getEntity(name),
           },
+          referenceSort: {
+            fields: ctx.registry.getSortableReferences(entityName),
+            resolveEntity: (name) => ctx.registry.getEntity(name),
+          },
         });
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(

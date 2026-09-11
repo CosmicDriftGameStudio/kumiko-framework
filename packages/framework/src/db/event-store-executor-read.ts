@@ -300,6 +300,69 @@ async function resolveReferenceMatches(
   return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
 }
 
+// Projected alongside the row when a reference sort is active, so the keyset
+// cursor carries the label that was ordered by instead of the FK's UUID.
+const SORT_LABEL_ALIAS = "__kumiko_sort_label";
+
+// fw#2741 — resolve a `sortable: true` reference field's label inline for
+// ORDER BY. A correlated scalar subquery, not a join: the result set keeps one
+// row per entity row, the read model stays untouched, and the lookup rides the
+// target's primary key. Tenant-scoped exactly like the search path — a foreign
+// tenant's label must never influence this tenant's ordering.
+// undefined means "cannot order by this label", which drops the sort to plain
+// id order; falling back to the UUID column would look deliberate to the user
+// while being arbitrary, which the issue calls worse than no sorting.
+function buildReferenceSortExpr(
+  outerTableName: string,
+  ownColumnSql: string,
+  descriptor: { readonly targetEntityName: string; readonly labelField: string },
+  resolveEntity: (entityName: string) => EntityDefinition | undefined,
+  db: TenantDb,
+): ((params: unknown[]) => string) | undefined {
+  const targetEntity = resolveEntity(descriptor.targetEntityName);
+  if (targetEntity === undefined) {
+    // skip: unknown target entity — registry inconsistency the boot-validator
+    // should have caught; drop the sort rather than 500 the request
+    return undefined;
+  }
+  if (targetEntity.fields[descriptor.labelField] === undefined) {
+    // skip: labelField isn't a real (declared) column on the target entity
+    return undefined;
+  }
+  if (
+    collectEncryptedFieldNames(targetEntity).has(descriptor.labelField) ||
+    collectPiiSubjectFields(targetEntity).includes(descriptor.labelField)
+  ) {
+    // skip: encrypted/PII labelField — ciphertext orders by its bytes, which is
+    // arbitrary to the reader and would also rank rows by their stored secret
+    return undefined;
+  }
+
+  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
+  const targetTableName = String(
+    (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
+  );
+  const labelCol = physicalColumnName(targetTable, descriptor.labelField);
+  const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
+  const tenantCol = tenantScoped ? physicalColumnName(targetTable, "tenantId") : "";
+  const tenantId = db.mode === "tenant" ? db.tenantId : undefined;
+
+  // No ::text cast (unlike the ILIKE search path): a non-text label must keep
+  // its native collation/numeric order, and the keyset param infers its type
+  // from the comparison anyway.
+  return (params: unknown[]): string => {
+    let tenantClause = "";
+    if (tenantScoped) {
+      params.push(tenantId, SYSTEM_TENANT_ID);
+      tenantClause = ` AND t."${tenantCol}" IN ($${params.length - 1}, $${params.length})`;
+    }
+    return (
+      `(SELECT t."${labelCol}" FROM "${targetTableName}" t ` +
+      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause})`
+    );
+  };
+}
+
 export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
   const {
     table,
@@ -431,11 +494,34 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         whereSql.push(`(${orParts.join(" OR ")})`);
       }
 
-      const sortField =
+      const sortCandidate =
         payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
           ? payload.sort
           : undefined;
       const sortDescending = payload.sortDirection === "desc";
+
+      // fw#2741 — a reference column stores a UUID, so it is never sorted by
+      // directly: either the field opted into `sortable` and we order by the
+      // target row's label, or the sort is dropped to plain id order.
+      let sortField: string | undefined;
+      let referenceSortExpr: ((params: unknown[]) => string) | undefined;
+      if (sortCandidate !== undefined && entity.fields[sortCandidate]?.type === "reference") {
+        const referenceSort = runtimeOptions?.referenceSort;
+        const descriptor = referenceSort?.fields.find((f) => f.fieldName === sortCandidate);
+        referenceSortExpr =
+          referenceSort && descriptor
+            ? buildReferenceSortExpr(
+                tableName,
+                colSql(sortCandidate),
+                descriptor,
+                referenceSort.resolveEntity,
+                db,
+              )
+            : undefined;
+        if (referenceSortExpr !== undefined) sortField = sortCandidate;
+      } else {
+        sortField = sortCandidate;
+      }
 
       // Tenant-Filter (replicates TenantDb's readWhere semantics).
       if (table["tenantId"] !== undefined && db.mode === "tenant") {
@@ -453,7 +539,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         } else {
           whereSql.push(
             keysetBoundarySql(
-              colSql(sortField),
+              referenceSortExpr !== undefined ? referenceSortExpr(params) : colSql(sortField),
               colSql("id"),
               { id: cursor.id, sortValue: cursor.sortValue },
               sortDescending,
@@ -501,17 +587,40 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       if (payload.filter !== undefined) applyFilter(payload.filter);
       if (payload.filters !== undefined) for (const f of payload.filters) applyFilter(f);
 
+      // The COUNT below reuses the WHERE text only, so it must bind exactly the
+      // params that text references — Postgres rejects a statement supplied
+      // with more parameters than it uses, and ORDER BY may add its own.
+      const whereParams = params.slice();
+
+      const sortSql =
+        sortField === undefined
+          ? undefined
+          : referenceSortExpr !== undefined
+            ? referenceSortExpr(params)
+            : colSql(sortField);
       const orderByClause =
-        sortField !== undefined
-          ? ` ORDER BY ${colSql(sortField)} ${sortDescending ? "DESC" : "ASC"}, ${colSql("id")} ASC`
+        sortSql !== undefined
+          ? ` ORDER BY ${sortSql} ${sortDescending ? "DESC" : "ASC"}, ${colSql("id")} ASC`
           : ` ORDER BY ${colSql("id")} ASC`;
       const useOffset = !payload.cursor && offset > 0;
       const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
 
       const whereClauseSqlText = whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
-      const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
+      // Project the resolved label too, so the keyset cursor below carries the
+      // value that was ordered by rather than the FK column's UUID.
+      const selectList =
+        referenceSortExpr !== undefined && sortSql !== undefined
+          ? `*, ${sortSql} AS "${SORT_LABEL_ALIAS}"`
+          : "*";
+      const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQueryRead<Record<string, unknown>>(db.raw, listSql, params);
+      const lastSortLabel = rawRows[rawRows.length - 1]?.[SORT_LABEL_ALIAS];
+      if (referenceSortExpr !== undefined) {
+        // The alias is a sort artifact, not a column of this entity — strip it
+        // before coercion so it never reaches the caller or the entity cache.
+        for (const row of rawRows) delete row[SORT_LABEL_ALIAS];
+      }
       // Per-row read-side rehydrate + snake→camel coercion for driver-agnostic field names.
       // Coerce BEFORE rehydrate/decrypt: the raw SELECT * rows carry snake_case
       // column names, while compound-type lookups (rehydrateMoney et al.) and the
@@ -542,7 +651,11 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       if (rows.length === limit && lastRow && lastRaw) {
         const cursorId = lastRow["id"] as string; // @cast-boundary engine-payload
         const sortText =
-          sortField === undefined ? undefined : toCursorSortText(lastRaw[physicalCol(sortField)]);
+          sortField === undefined
+            ? undefined
+            : toCursorSortText(
+                referenceSortExpr !== undefined ? lastSortLabel : lastRaw[physicalCol(sortField)],
+              );
         nextCursor =
           sortText === undefined ? encodeCursor(cursorId) : encodeKeysetCursor(sortText, cursorId);
       }
@@ -559,7 +672,11 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           total = filterIds.length;
         } else {
           const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
-          const countRows = await executeRawQueryRead<{ count: number }>(db.raw, countSql, params);
+          const countRows = await executeRawQueryRead<{ count: number }>(
+            db.raw,
+            countSql,
+            whereParams,
+          );
           total = countRows[0]?.count ?? 0;
         }
       }

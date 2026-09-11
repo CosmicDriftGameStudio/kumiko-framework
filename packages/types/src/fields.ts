@@ -483,6 +483,11 @@ export type ReferenceFieldDef = {
    *  validator rejects it otherwise, since the default "id" is a UUID column
    *  and ILIKE against it would crash at runtime. */
   readonly searchable?: true;
+  /** Order a list by the referenced entity's `labelField` instead of by the raw
+   *  UUID column (fw#2741). Requires an explicit, non-"id" `labelField` — the
+   *  boot validator rejects it otherwise, since ordering by a UUID produces a
+   *  sequence that looks meaningful to the user but is arbitrary. */
+  readonly sortable?: true;
 } & ResolvedPiiFlags;
 
 // --- Currency ---

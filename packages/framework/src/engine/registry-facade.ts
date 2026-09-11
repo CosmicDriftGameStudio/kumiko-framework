@@ -1,4 +1,9 @@
-import type { IncomingRelation, RegistryState, SearchableReferenceField } from "./registry-state";
+import type {
+  IncomingRelation,
+  RegistryState,
+  SearchableReferenceField,
+  SortableReferenceField,
+} from "./registry-state";
 import { filterByPhase, filterOwned } from "./registry-state";
 import type {
   AuthClaimsHookDef,
@@ -99,6 +104,10 @@ export function buildRegistryFacade(state: RegistryState): Registry {
 
     getSearchableReferences(entityName: string): readonly SearchableReferenceField[] {
       return state.searchableReferencesCache.get(entityName) ?? [];
+    },
+
+    getSortableReferences(entityName: string): readonly SortableReferenceField[] {
+      return state.sortableReferencesCache.get(entityName) ?? [];
     },
 
     getIncomingRelations(entityName: string): readonly IncomingRelation[] {

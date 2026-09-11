@@ -109,6 +109,17 @@ export type EventStoreExecutor = {
         }>;
         readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
       };
+      // fw#2741 — `sortable: true` reference fields order by the target row's
+      // labelField instead of the raw FK column. Same request-time registry
+      // dependency (and the same fields/resolveEntity pairing) as referenceSearch.
+      readonly referenceSort?: {
+        readonly fields: ReadonlyArray<{
+          readonly fieldName: string;
+          readonly targetEntityName: string;
+          readonly labelField: string;
+        }>;
+        readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+      };
     },
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
