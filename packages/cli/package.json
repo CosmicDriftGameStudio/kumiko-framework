@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-cli",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "CLI for Kumiko apps. `bunx @cosmicdrift/kumiko-cli new app <name>` scaffolds a runnable workspace; `add feature <name>` mounts a feature; `agent lint`, `project` and `consumer` operate on an existing app.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

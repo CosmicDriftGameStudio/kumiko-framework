@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.251.0
+
+### Minor Changes
+
+- 38b9d84: fw#2640: list screens now end at the same footer distance as every other screen. Form, custom and dashboard screens take their insets from the shared `screenPaddingClassName` token (`px-6 pt-6 pb-12`) via `FormScreenShell`/`PageSection`, but an `entityList`/`projectionList` screen has neither container around it — its screen chrome is `DataTable`'s own outer wrapper, which carried a symmetric `p-6`. A list therefore stopped 24px above the viewport edge while a form stopped 48px above it. `DataTableProps` gains `screenPadding`, set by `EntityListBody` and `ProjectionListBody` (via `RenderList`), which swaps that wrapper's inset for the same shared token — one screen-padding token for all screen types instead of a list-only inset.
+
+  The default is unchanged, so a `DataTable` embedded in a host that already provides its own boundary keeps the symmetric inset: `relatedList` sections (stacked and tabs mode alike) and app-side `<DataTable>` usages render exactly as before. A host sets `screenPadding` or `scrollBody`, not both — the wider bottom inset competes with the flex-fill height budget a tab-panel list depends on.
+
+- 28ad1f3: fw#2740: `relatedList` sections on `projectionDetail` gain `searchable` and `facets`, over the exact same payload/facet path as `projectionList` — no second SQL path, no read-side hack. Search rides along as `payload.search` and facet selections as `payload.filters` on the section's own query. Both are opt-in and validated at boot against the bound query's Zod schema, same as `projectionList.searchable`/`facets`. Facet resolution is shared with `projectionList` via `resolveProjectionFacetSpecs`/`buildFilterPayload` (moved to their own module to avoid a require cycle with `related-list-section.tsx`) — no duplicate implementation. Search term and filter selections live in local component state rather than URL state, since a section's `id` is optional and has no stable URL key to namespace against.
+
+### Patch Changes
+
+- fb59575: fw#2778: a projectionDetail tab whose only content is a `relatedList` no longer stretches the tab panel to the bottom of the card when the list is short. Since fw#2722/#2737 the whole `fillHeight`/`scrollBody` chain (form card, header/body wrappers, `RelatedListSection`'s `FillContainer`, `DataTable`'s outer wrapper) used `flex-1`, which claims all remaining flex space regardless of content size. Every link in that chain except the two terminal scroll surfaces (`tableInner`/`cardsInner`) now falls back to its initial `flex: 0 1 auto` (sizing to content) while keeping `min-h-0`, so a short list sizes to its rows and a long list still caps at the panel height and scrolls internally, exactly as before. Siblings above/below the card (headerRegion, card title, footer actions, the toolbar row) got `shrink-0` so they stay uncompressed once the card itself is allowed to shrink.
+- Updated dependencies [55691fd]
+- Updated dependencies [28ad1f3]
+  - @cosmicdrift/kumiko-framework@0.251.0
+  - @cosmicdrift/kumiko-headless@0.251.0
+
 ## 0.250.0
 
 ### Minor Changes

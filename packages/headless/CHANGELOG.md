@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.251.0
+
+### Minor Changes
+
+- 28ad1f3: fw#2740: `relatedList` sections on `projectionDetail` gain `searchable` and `facets`, over the exact same payload/facet path as `projectionList` — no second SQL path, no read-side hack. Search rides along as `payload.search` and facet selections as `payload.filters` on the section's own query. Both are opt-in and validated at boot against the bound query's Zod schema, same as `projectionList.searchable`/`facets`. Facet resolution is shared with `projectionList` via `resolveProjectionFacetSpecs`/`buildFilterPayload` (moved to their own module to avoid a require cycle with `related-list-section.tsx`) — no duplicate implementation. Search term and filter selections live in local component state rather than URL state, since a section's `id` is optional and has no stable URL key to namespace against.
+
+### Patch Changes
+
+- Updated dependencies [55691fd]
+- Updated dependencies [28ad1f3]
+  - @cosmicdrift/kumiko-framework@0.251.0
+
 ## 0.250.0
 
 ### Minor Changes
