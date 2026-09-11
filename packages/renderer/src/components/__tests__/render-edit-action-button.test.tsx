@@ -137,6 +137,26 @@ describe("RenderEditActionButton", () => {
     await waitFor(() => expect(pressed).toBe(1));
   });
 
+  // fw#2752: schema-driven navigate/drawer actions set confirmRequired: false
+  // to opt a danger-styled action out of the forced dialog — the colour still
+  // marks it destructive, but the target form is itself the confirmation.
+  test("danger style with confirmRequired=false fires onPress directly, no dialog", async () => {
+    let pressed = 0;
+    renderAction({
+      id: "open-terminate-form",
+      label: "Terminate",
+      style: "danger",
+      confirmRequired: false,
+      onPress: async () => {
+        pressed += 1;
+      },
+    });
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-action-open-terminate-form"));
+    expect(rtlScreen.queryByTestId("render-edit-action-open-terminate-form-dialog")).toBeNull();
+    await waitFor(() => expect(pressed).toBe(1));
+  });
+
   test("onPress failure reports via onError", async () => {
     const errors: Array<string | null> = [];
     renderAction(

@@ -156,6 +156,7 @@ function buildNavigateRowAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row),
     ...(visible !== undefined && {
@@ -195,6 +196,7 @@ function buildDrawerRowAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: (row: ListRowViewModel) => {
       openDrawer(action, params !== undefined ? evalRowExtractor(params, row.values) : undefined);

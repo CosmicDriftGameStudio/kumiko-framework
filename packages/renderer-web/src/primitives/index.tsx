@@ -1325,10 +1325,13 @@ function RowActionsCell({
 // Components hatten denselben State-Block dupliziert + parallel zur
 // Confirm-Dialog-Render-Logic — der Hook konsolidiert das.
 //
-// "needsConfirm" Helper kapselt die Regel: explizites confirm ODER
-// style=danger triggert den Dialog, alles andere fired direkt.
+// The rule: an explicit confirm OR style=danger opens the dialog,
+// everything else fires straight through.
+// `confirmRequired` overrides the danger-implies-confirm default (e.g.
+// schema-driven navigate/drawer actions where the target form is itself
+// the confirmation).
 function needsConfirm(action: DataTableRowAction): boolean {
-  return action.confirm !== undefined || action.style === "danger";
+  return action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
 }
 
 function useRowActionTrigger(row: ListRowViewModel) {

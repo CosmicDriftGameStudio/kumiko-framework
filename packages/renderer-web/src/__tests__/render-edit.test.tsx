@@ -102,6 +102,39 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
+  // fw#2752: submitVariant carries an actionForm's submitStyle through to the
+  // submit button — "danger" for a destructive handler (terminate, revoke).
+  test("submitVariant='danger' renders the destructive submit button; default stays primary", () => {
+    const { rerender } = render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          submitVariant="danger"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("render-edit-submit").getAttribute("data-variant")).toBe(
+      "destructive",
+    );
+
+    rerender(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("render-edit-submit").getAttribute("data-variant")).toBe("default");
+  });
+
   // A hidden field must not leave an empty grid cell behind — the cell count
   // has to track the visible field count exactly, in both directions.
   test("a hidden field claims no grid cell; toggling visibility adds/removes exactly one cell", () => {

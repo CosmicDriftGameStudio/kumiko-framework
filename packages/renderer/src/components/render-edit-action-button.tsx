@@ -39,8 +39,11 @@ export function RenderEditActionButton({
 
   const variant = action.style ?? "secondary";
   // Same rule as RowActionWriteHandler: "danger" forces a confirm even
-  // without an explicit confirm key.
-  const needsConfirm = action.confirm !== undefined || action.style === "danger";
+  // without an explicit confirm key — unless `confirmRequired` overrides it
+  // (schema-driven navigate/drawer actions, where the target form is itself
+  // the confirmation).
+  const needsConfirm =
+    action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
   const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (
