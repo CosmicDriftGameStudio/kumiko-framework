@@ -38,6 +38,10 @@ type PersonalOverridesInput = {
   readonly anonymize?: () => unknown | Promise<unknown>;
 };
 
+// `personal: { of: "id" }` means the row itself is the subject, not a
+// referenced user — resolves to `recordOwned` instead of `userOwned`.
+const RECORD_OWNER_FIELD = "id";
+
 // Resolves the author-facing `personal`/`find` annotations (kumiko-framework#2250)
 // into the internal ResolvedPiiFlags every factory below merges into its
 // return value. `personal`, `find`, `reason` never survive into the field def.
@@ -58,6 +62,8 @@ function expandPersonalAnnotations<T extends PersonalOverridesInput>(
     personalFlags = { subjectRef: true };
   } else if (personal === false) {
     personalFlags = { allowPlaintext: reason };
+  } else if (personal && personal.of === RECORD_OWNER_FIELD) {
+    personalFlags = { recordOwned: true };
   } else if (personal) {
     personalFlags = { userOwned: { ownerField: personal.of } };
   }

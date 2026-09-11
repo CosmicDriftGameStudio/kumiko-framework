@@ -24,7 +24,7 @@ const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 // Excludes subjectRef: its `personal: "ref"` union member structurally
 // forbids `anonymize` (packages/types/src/fields.ts) — #2336.
 function hasAnonymizableSubjectField(annot: ResolvedPiiFlags): boolean {
-  return Boolean(annot.pii || annot.userOwned || annot.tenantOwned);
+  return Boolean(annot.pii || annot.userOwned || annot.tenantOwned || annot.recordOwned);
 }
 
 // --- PII / Subject-Key Annotations + Retention validation ---
@@ -66,7 +66,12 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       const hasPii = Boolean(annot.pii);
       const hasUserOwned = Boolean(annot.userOwned);
       const hasTenantOwned = Boolean(annot.tenantOwned);
-      const annotCount = (hasPii ? 1 : 0) + (hasUserOwned ? 1 : 0) + (hasTenantOwned ? 1 : 0);
+      const hasRecordOwned = Boolean(annot.recordOwned);
+      const annotCount =
+        (hasPii ? 1 : 0) +
+        (hasUserOwned ? 1 : 0) +
+        (hasTenantOwned ? 1 : 0) +
+        (hasRecordOwned ? 1 : 0);
 
       if (annotCount > 1) {
         throw new Error(

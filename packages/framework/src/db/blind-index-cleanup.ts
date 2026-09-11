@@ -15,6 +15,7 @@ import { collectLookupableFields } from "../crypto/blind-index";
 import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
 import { isSelfPiiField } from "../crypto/is-self-pii-field";
 import type { FeatureDefinition } from "../engine/types";
+import type { EntityDefinition } from "../engine/types/fields";
 import { toSnakeCase } from "../utils/case";
 import type { DbRunner } from "./connection";
 import { resolveTableName } from "./entity-table-meta";
@@ -104,4 +105,41 @@ export async function subjectRowExistsInTenant(
     if (rows.length > 0) return true;
   }
   return false;
+}
+
+function findEntityByExactName(
+  features: ReadonlyMap<string, FeatureDefinition>,
+  entityName: string,
+): EntityDefinition | undefined {
+  for (const feature of features.values()) {
+    const entity = feature.entities?.[entityName];
+    if (entity) return entity;
+  }
+  return undefined;
+}
+
+// Tighter than subjectRowExistsInTenant: the record subject names its own
+// entity, so this is a single-table lookup instead of a self-PII scan
+// across the whole registry.
+//
+// Invariant: sound only because `id` is a single-column PK per entity
+// table (globally unique, unspoofable via a client-supplied explicitId
+// at create) — a composite PK or shared table would break this (#2348).
+export async function recordRowExistsInTenant(
+  db: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  entityName: string,
+  recordId: string,
+  tenantId: string,
+): Promise<boolean> {
+  const entity = findEntityByExactName(features, entityName);
+  if (!entity) return false;
+  const tableName = resolveTableName(entityName, entity, undefined);
+  if (!(await tableExists(db, tableName))) return false;
+  const rows = await executeRawQueryRead(
+    db,
+    `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+    [recordId, tenantId],
+  );
+  return rows.length > 0;
 }

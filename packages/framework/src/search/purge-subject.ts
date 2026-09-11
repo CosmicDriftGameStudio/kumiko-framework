@@ -22,45 +22,121 @@ import type { EntityId, TenantId } from "../engine/types/identifiers";
 import { toSnakeCase } from "../utils/case";
 import type { SearchAdapter } from "./types";
 
-/** Build OR predicates for rows owned by `subject` (id / ownerField / tenant_id). */
-function ownershipPredicates(
+function finalizePredicateParts(
+  parts: readonly string[],
+  params: readonly unknown[],
+): { sql: string; params: unknown[] } | null {
+  if (parts.length === 0) return null;
+  return { sql: parts.join(" OR "), params: [...params] };
+}
+
+function userOwnershipPredicates(
   entity: EntityDefinition,
   searchableFields: readonly string[],
-  subject: SubjectId,
+  userId: string,
   nextParam: () => number,
 ): { sql: string; params: unknown[] } | null {
   const parts: string[] = [];
   const params: unknown[] = [];
   let selfIdN: number | undefined;
-  let tenantIdN: number | undefined;
   const ownerFieldN = new Map<string, number>();
 
   for (const fieldName of searchableFields) {
     const field = entity.fields[fieldName];
     if (!field) continue;
-    if (subject.kind === "user") {
-      if ("userOwned" in field && field.userOwned !== undefined) {
-        const col = toSnakeCase(field.userOwned.ownerField);
-        let n = ownerFieldN.get(col);
-        if (n === undefined) {
-          n = nextParam();
-          ownerFieldN.set(col, n);
-          params.push(subject.userId);
-          parts.push(`${quoteIdent(col)} = $${n}`);
-        }
-      } else if (isSelfPiiField(field) && selfIdN === undefined) {
-        selfIdN = nextParam();
-        params.push(subject.userId);
-        parts.push(`${quoteIdent("id")} = $${selfIdN}`);
+    if ("userOwned" in field && field.userOwned !== undefined) {
+      const col = toSnakeCase(field.userOwned.ownerField);
+      let n = ownerFieldN.get(col);
+      if (n === undefined) {
+        n = nextParam();
+        ownerFieldN.set(col, n);
+        params.push(userId);
+        parts.push(`${quoteIdent(col)} = $${n}`);
       }
-    } else if ("tenantOwned" in field && field.tenantOwned === true && tenantIdN === undefined) {
+    } else if (isSelfPiiField(field) && selfIdN === undefined) {
+      selfIdN = nextParam();
+      params.push(userId);
+      parts.push(`${quoteIdent("id")} = $${selfIdN}`);
+    }
+  }
+  return finalizePredicateParts(parts, params);
+}
+
+function tenantOwnershipPredicates(
+  entity: EntityDefinition,
+  searchableFields: readonly string[],
+  tenantId: string,
+  nextParam: () => number,
+): { sql: string; params: unknown[] } | null {
+  const parts: string[] = [];
+  const params: unknown[] = [];
+  let tenantIdN: number | undefined;
+
+  for (const fieldName of searchableFields) {
+    const field = entity.fields[fieldName];
+    if (!field) continue;
+    if ("tenantOwned" in field && field.tenantOwned === true && tenantIdN === undefined) {
       tenantIdN = nextParam();
-      params.push(subject.tenantId);
+      params.push(tenantId);
       parts.push(`${quoteIdent("tenant_id")} = $${tenantIdN}`);
     }
   }
-  if (parts.length === 0) return null;
-  return { sql: parts.join(" OR "), params };
+  return finalizePredicateParts(parts, params);
+}
+
+function recordOwnershipPredicates(
+  entity: EntityDefinition,
+  searchableFields: readonly string[],
+  entityName: string,
+  subjectEntity: string,
+  subjectId: string,
+  nextParam: () => number,
+): { sql: string; params: unknown[] } | null {
+  const parts: string[] = [];
+  const params: unknown[] = [];
+  let recordIdN: number | undefined;
+
+  for (const fieldName of searchableFields) {
+    const field = entity.fields[fieldName];
+    if (!field) continue;
+    const isMatchingRecordField =
+      entityName === subjectEntity && "recordOwned" in field && field.recordOwned === true;
+    if (isMatchingRecordField && recordIdN === undefined) {
+      recordIdN = nextParam();
+      params.push(subjectId);
+      parts.push(`${quoteIdent("id")} = $${recordIdN}`);
+    }
+  }
+  return finalizePredicateParts(parts, params);
+}
+
+/** Build OR predicates for rows owned by `subject` (id / ownerField / tenant_id). */
+function ownershipPredicates(
+  entity: EntityDefinition,
+  searchableFields: readonly string[],
+  entityName: string,
+  subject: SubjectId,
+  nextParam: () => number,
+): { sql: string; params: unknown[] } | null {
+  switch (subject.kind) {
+    case "user":
+      return userOwnershipPredicates(entity, searchableFields, subject.userId, nextParam);
+    case "tenant":
+      return tenantOwnershipPredicates(entity, searchableFields, subject.tenantId, nextParam);
+    case "record":
+      return recordOwnershipPredicates(
+        entity,
+        searchableFields,
+        entityName,
+        subject.entity,
+        subject.id,
+        nextParam,
+      );
+    default: {
+      const exhaustiveCheck: never = subject;
+      throw new Error(`Unhandled subject kind: ${JSON.stringify(exhaustiveCheck)}`);
+    }
+  }
 }
 
 type MatchedRow = { id: string; tenant_id: string };
@@ -99,6 +175,7 @@ function buildSubjectPredicate(
   entity: EntityDefinition,
   fields: readonly string[],
   likePattern: string,
+  entityName: string,
   subject: SubjectId | undefined,
 ): { sql: string; params: unknown[] } {
   let paramIdx = 0;
@@ -113,7 +190,7 @@ function buildSubjectPredicate(
   );
 
   if (subject) {
-    const owned = ownershipPredicates(entity, fields, subject, nextParam);
+    const owned = ownershipPredicates(entity, fields, entityName, subject, nextParam);
     if (owned) {
       params.push(...owned.params);
       orParts.push(`(${owned.sql})`);
@@ -144,7 +221,7 @@ export async function purgeSearchDocumentsForSubject(
       // a mounted feature without its migration must not abort the purge
       // (and the audit event after it).
       if (!(await tableExists(db, tableName))) continue;
-      const predicate = buildSubjectPredicate(entity, fields, likePattern, subject);
+      const predicate = buildSubjectPredicate(entity, fields, likePattern, entityName, subject);
       const rows = await collectMatchingRowsForEntity(
         db,
         tableName,

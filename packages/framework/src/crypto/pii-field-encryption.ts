@@ -159,6 +159,8 @@ export interface EncryptPiiOptions {
   // Row to resolve subjects from when `row` is a partial (update changes may
   // carry a pii field without its ownerField — the merged row still has it).
   readonly subjectSource?: Record<string, unknown>;
+  // Canonical registry entity name — required to resolve recordOwned fields.
+  readonly entityName?: string;
 }
 
 export async function encryptPiiFieldValues(
@@ -186,6 +188,7 @@ export async function encryptPiiFieldValues(
     }
     const subject = resolveSubjectForField(entity, name, subjectSource, {
       ...(opts.tenantId !== undefined && { tenantId: opts.tenantId }),
+      ...(opts.entityName !== undefined && { entityName: opts.entityName }),
     });
     // skip: collectPiiSubjectFields only yields annotated fields — null is unreachable, kept as a type guard
     if (subject === null) continue;

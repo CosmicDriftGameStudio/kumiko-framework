@@ -1,13 +1,15 @@
 import type { TenantId } from "./identifiers";
 
 // The subject a DEK belongs to. User data is shredded on user-forget,
-// tenant data on tenant-destroy — two erase triggers, two subject kinds.
+// tenant data on tenant-destroy, record data on a row-scoped forget —
+// three erase triggers, three subject kinds.
 export type SubjectId =
   | { readonly kind: "user"; readonly userId: string }
-  | { readonly kind: "tenant"; readonly tenantId: TenantId };
+  | { readonly kind: "tenant"; readonly tenantId: TenantId }
+  | { readonly kind: "record"; readonly entity: string; readonly id: string };
 
-// Compact storage key ("user:<uuid>" / "tenant:<uuid>") — primary key in
-// adapter backends and cache key in the request-level DEK cache.
+// Compact storage key ("user:<uuid>" / "tenant:<uuid>" / "record:<entity>:<id>")
+// — primary key in adapter backends and cache key in the request-level DEK cache.
 export type SubjectKey = string;
 
 export function subjectKeyForUser(userId: string): SubjectKey {
@@ -18,16 +20,37 @@ export function subjectKeyForTenant(tenantId: TenantId): SubjectKey {
   return `tenant:${tenantId}`;
 }
 
+export function subjectKeyForRecord(entity: string, id: string): SubjectKey {
+  // The key is parsed back on exactly one ":" — an entity containing ":" would break the round-trip.
+  if (entity === "" || entity.includes(":"))
+    throw new Error(`Invalid record entity for subject key: ${entity}`);
+  if (id === "") throw new Error("Invalid record id for subject key: empty");
+  return `record:${entity}:${id}`;
+}
+
 export function subjectIdToKey(subject: SubjectId): SubjectKey {
-  return subject.kind === "user"
-    ? subjectKeyForUser(subject.userId)
-    : subjectKeyForTenant(subject.tenantId);
+  switch (subject.kind) {
+    case "user":
+      return subjectKeyForUser(subject.userId);
+    case "tenant":
+      return subjectKeyForTenant(subject.tenantId);
+    case "record":
+      return subjectKeyForRecord(subject.entity, subject.id);
+  }
 }
 
 export function subjectIdFromKey(key: SubjectKey): SubjectId {
   if (key.startsWith("user:")) return { kind: "user", userId: key.slice("user:".length) };
   if (key.startsWith("tenant:")) {
     return { kind: "tenant", tenantId: key.slice("tenant:".length) as TenantId }; // @cast-boundary parse of a key this module minted
+  }
+  if (key.startsWith("record:")) {
+    const rest = key.slice("record:".length);
+    const separatorIndex = rest.indexOf(":");
+    const entity = separatorIndex === -1 ? "" : rest.slice(0, separatorIndex);
+    const id = separatorIndex === -1 ? "" : rest.slice(separatorIndex + 1);
+    if (entity === "" || id === "") throw new Error(`Invalid subject key: ${key}`);
+    return { kind: "record", entity, id };
   }
   throw new Error(`Invalid subject key: ${key}`);
 }

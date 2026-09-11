@@ -9,10 +9,12 @@ import {
 import {
   type DbRunner,
   nullBlindIndexesForSubject,
+  recordRowExistsInTenant,
   subjectRowExistsInTenant,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
+  type EntityDefinition,
   type FeatureDefinition,
   type HandlerContext,
   type SessionUser,
@@ -38,14 +40,24 @@ import {
 } from "../../user-data-rights";
 import {
   CRYPTO_SHREDDING_AGGREGATE_TYPE,
+  RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
+  TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants";
+
+// Registry entity names are identifier-shaped; ":" would break the subject-key round-trip.
+const RECORD_ENTITY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.uuid() }),
   z.object({ kind: z.literal("tenant"), tenantId: z.uuid() }),
+  z.object({
+    kind: z.literal("record"),
+    entity: z.string().regex(RECORD_ENTITY_PATTERN),
+    id: z.uuid(),
+  }),
 ]);
 
 export const forgetSubjectSchema = z.object({
@@ -61,7 +73,7 @@ export const subjectForgottenSchema = z.object({
 
 export const subjectForgetDeniedSchema = z.object({
   subjectKeyDigest: z.string().min(1),
-  subjectKind: z.enum(["user", "tenant"]),
+  subjectKind: z.enum(["user", "tenant", "record"]),
   reason: z.string().min(10),
   forgottenBy: z.string().min(1),
   actorTenantId: z.string().min(1),
@@ -69,6 +81,36 @@ export const subjectForgetDeniedSchema = z.object({
 });
 
 type SubjectIdInput = z.infer<typeof subjectIdSchema>;
+
+// Exhaustive switch so a 4th subject kind fails to compile instead of
+// silently aggregating under the wrong id.
+function subjectAggregateId(raw: SubjectIdInput): string {
+  switch (raw.kind) {
+    case "user":
+      return raw.userId;
+    case "tenant":
+      return raw.tenantId;
+    case "record":
+      return raw.id;
+    default: {
+      const exhaustiveCheck: never = raw;
+      throw new Error(`Unhandled subject kind: ${JSON.stringify(exhaustiveCheck)}`);
+    }
+  }
+}
+
+// The record subject names its own entity — resolve it against the registry
+// instead of trusting the payload straight into resolveTableName/SQL (#2786).
+function findRegisteredEntity(
+  features: ReadonlyMap<string, FeatureDefinition>,
+  entityName: string,
+): EntityDefinition | undefined {
+  for (const feature of features.values()) {
+    const entity = feature.entities?.[entityName];
+    if (entity) return entity;
+  }
+  return undefined;
+}
 
 // Tenant-scope guard (mh#349): DataProtectionOfficer is a tenant-scoped role,
 // but the handler otherwise erases ANY subject cross-tenant on a raw
@@ -88,6 +130,30 @@ async function resolveTenantScopeDenial(
     return writeFailure(
       new AccessDeniedError({ details: { reason: TARGET_TENANT_NOT_ADMIN_TENANT } }),
     );
+  }
+
+  if (raw.kind === "record") {
+    // Same fail-open rule as the user branch below — without the tenant
+    // feature there is no tenant concept to enforce.
+    if (!features.has("tenant")) return undefined;
+    const entity = findRegisteredEntity(features, raw.entity);
+    if (!entity) {
+      return writeFailure(
+        new AccessDeniedError({ details: { reason: RECORD_ENTITY_NOT_REGISTERED } }),
+      );
+    }
+    const ownedInTenant = await recordRowExistsInTenant(
+      db,
+      features,
+      raw.entity,
+      raw.id,
+      user.tenantId,
+    );
+    return ownedInTenant
+      ? undefined
+      : writeFailure(
+          new AccessDeniedError({ details: { reason: TARGET_RECORD_NOT_ADMIN_TENANT } }),
+        );
   }
 
   // Without the tenant feature there's no membership table to check against —
@@ -188,7 +254,7 @@ export const forgetSubjectWrite = defineWriteHandler({
   schema: forgetSubjectSchema,
   access: { roles: [ROLES.DataProtectionOfficer, ROLES.SystemAdmin] },
   description:
-    "Irreversibly crypto-shreds one user or tenant subject by erasing its encryption key, nulling its blind indexes, purging its search documents and closing the user's login, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
+    "Irreversibly crypto-shreds one user, tenant or record subject by erasing its encryption key, nulling its blind indexes, purging its search documents and closing the user's login, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
   // Erasing the subject key is irreversible: there is no undo, so an agent must
   // not be able to reach it at all.
   agent: { expose: false },
@@ -208,7 +274,9 @@ export const forgetSubjectWrite = defineWriteHandler({
     const subject: SubjectId =
       raw.kind === "user"
         ? { kind: "user", userId: raw.userId }
-        : { kind: "tenant", tenantId: raw.tenantId as TenantId }; // @cast-boundary uuid-validated command payload → branded id
+        : raw.kind === "tenant"
+          ? { kind: "tenant", tenantId: raw.tenantId as TenantId } // @cast-boundary uuid-validated command payload → branded id
+          : { kind: "record", entity: raw.entity, id: raw.id };
     const subjectKey = subjectIdToKey(subject);
 
     const tenantScopeDenial = await resolveTenantScopeDenial(
@@ -288,7 +356,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     }
 
     await ctx.unsafeAppendEvent({
-      aggregateId: raw.kind === "user" ? raw.userId : raw.tenantId,
+      aggregateId: subjectAggregateId(raw),
       aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
       type: SUBJECT_FORGOTTEN_EVENT_NAME,
       payload: {
