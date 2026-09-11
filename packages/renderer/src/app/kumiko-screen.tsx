@@ -68,7 +68,6 @@ import {
   isWriteHandlerRowAction,
   refetchAfterWrite,
   resolveActionIcon,
-  rowActionModeFor,
   runProjectionRowNavigate,
   stringifyNavParams,
 } from "./row-actions";
@@ -1613,12 +1612,6 @@ function EntityListBody({
     openDrawer,
   ]);
 
-  // Row actions that all resolve an icon render inline and collapse to
-  // icon-only (fw#2580) — the adaptive default would bury more than two of
-  // them in a kebab menu. A group with an icon-less member stays adaptive so
-  // it never degrades into wall-to-wall text buttons.
-  const rowActionMode = rowActionModeFor(rowActions);
-
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
   // → dispatcher.write(handler, payload?()). KumikoScreen kennt schon
@@ -1763,7 +1756,6 @@ function EntityListBody({
         screenPadding
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
-        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
         {...(useInfinite && {
           onReachEnd: loadMore,
@@ -1929,10 +1921,6 @@ function ProjectionListBody({
     [screen.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, openDrawer],
   );
 
-  // Same icon-only collapse as entityList (fw#2580) — projectionList rows go
-  // through the identical RenderList/DataTable path.
-  const rowActionMode = rowActionModeFor(rowActions);
-
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
     if (screen.toolbarActions === undefined) return undefined;
     const out: ToolbarActionButton[] = [];
@@ -2054,7 +2042,6 @@ function ProjectionListBody({
         screenPadding
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
-        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(toolbarActions !== undefined && { toolbarActions })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}

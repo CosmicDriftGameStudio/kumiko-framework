@@ -1292,16 +1292,26 @@ function DefaultDataTable({
   );
 }
 
-// RowActionsCell — rendert die Row-Actions je nach mode:
-//   - "adaptive" (Default): ≤2 sichtbare Actions inline (rechtsbündig),
-//     >2 als Kebab-Dropdown.
-//   - "inline": IMMER Inline-Buttons, linksbündig + full-width — auch bei
-//     >2 (kein Kebab). `w-full justify-start` heftet den ersten Button an
-//     die Spalten-Linkskante, damit er über alle Rows an derselben Position
-//     steht (sonst wandert er durch unterschiedlich breite Labels).
-// isVisible-Filter wird hier ausgeführt; eine action die für eine Row
-// unsichtbar ist, kommt nicht in den Render. Sind alle Actions hidden,
-// bleibt die Cell leer (keine Phantom-Spalte).
+// The primary row action is the one that always stays a visible text
+// button — `edit` if declared, else the first visible action (fw
+// bedienkonzept L3: "Bearbeiten steht in jeder Zeile, immer, als Text").
+function primaryRowAction(
+  actions: readonly DataTableRowAction[],
+): DataTableRowAction | undefined {
+  return actions.find((a) => a.id === "edit") ?? actions[0];
+}
+
+// RowActionsCell renders the row actions depending on `mode`:
+//   - "adaptive" (default): <=2 visible actions render inline (right-
+//     aligned); >2 render the primary action (see `primaryRowAction`)
+//     inline plus the rest in the kebab dropdown.
+//   - "inline": ALWAYS inline buttons, left-aligned + full-width, even for
+//     >2 (no kebab). `w-full justify-start` pins the first button to the
+//     column's left edge so it sits at the same position across rows
+//     (otherwise it would drift with differently-sized labels).
+// The isVisible filter runs here; an action hidden for a given row never
+// reaches render. If every action is hidden, the cell stays empty (no
+// phantom column).
 function RowActionsCell({
   row,
   actions,
@@ -1335,7 +1345,14 @@ function RowActionsCell({
       </div>
     );
   }
-  return <RowActionsKebab row={row} actions={visible} />;
+  const primary = primaryRowAction(visible);
+  const rest = visible.filter((a) => a.id !== primary?.id);
+  return (
+    <div className="inline-flex items-center gap-1 justify-end">
+      {primary !== undefined && <RowActionButton row={row} action={primary} />}
+      <RowActionsKebab row={row} actions={rest} />
+    </div>
+  );
 }
 
 // Shared trigger-State zwischen Inline-Button + Kebab-Item: busy-Flag

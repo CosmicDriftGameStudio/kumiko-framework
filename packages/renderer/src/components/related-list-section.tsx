@@ -17,11 +17,7 @@ import {
   resolveProjectionFacetSpecs,
 } from "../app/list-facets";
 import { useNav } from "../app/nav";
-import {
-  buildProjectionRowActions,
-  rowActionModeFor,
-  runProjectionRowNavigate,
-} from "../app/row-actions";
+import { buildProjectionRowActions, runProjectionRowNavigate } from "../app/row-actions";
 import { dispatcherErrorText } from "../app/write-failed-error";
 import { useOptionalDispatcher } from "../context/dispatcher-context";
 import type { ListSort } from "../hooks/use-list-url-state";
@@ -202,7 +198,6 @@ export function RelatedListSection({
       }),
     [section.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, onOpenDrawer],
   );
-  const rowActionMode = rowActionModeFor(rowActions);
 
   // A truncated fetch means `sortedRows` is a sort of a partial set, not of
   // the full related-row set — the client-side sort above (or even plain
@@ -251,7 +246,6 @@ export function RelatedListSection({
           })}
           {...(onRowClick !== undefined && { onRowClick })}
           {...(rowActions !== undefined && { rowActions })}
-          {...(rowActionMode !== undefined && { rowActionMode })}
           {...(hideTitle === true && { chromeless: true, scrollBody: true })}
         />
       </>

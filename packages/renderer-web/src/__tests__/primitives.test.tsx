@@ -963,7 +963,7 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
     });
 
-    test(">2 Actions: Kebab-Dropdown statt Inline-Buttons", () => {
+    test(">2 Actions: primäre Aktion inline + Rest im Kebab-Dropdown", () => {
       render(
         <DataTable
           columns={cols}
@@ -976,10 +976,39 @@ describe("DataTable", () => {
           ]}
         />,
       );
+      // "a" is the primary action (no id:"edit" declared, falls back to the
+      // first visible action) — it renders as its own inline button.
+      expect(screen.queryByTestId("row-r1-action-a")).not.toBeNull();
       expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
-      // Inline-Buttons der Kebab-Items sind nicht direkt im DOM —
-      // Radix portal'd Content ist erst nach Click sichtbar.
-      expect(screen.queryByTestId("row-r1-action-a")).toBeNull();
+      // The rest sit behind the kebab — Radix portal'd content is only in
+      // the DOM after the trigger is clicked.
+      expect(screen.queryByTestId("row-r1-action-b")).toBeNull();
+      expect(screen.queryByTestId("row-r1-action-c")).toBeNull();
+    });
+
+    test("4 Zeilen-Aktionen inkl. edit → Bearbeiten bleibt Text-Button, der Rest nur über den Kebab (bedienkonzept L3/L4)", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "duplicate", label: "Duplicate", onTrigger: mock() },
+            { id: "edit", label: "Bearbeiten", onTrigger: mock() },
+            { id: "archive", label: "Archive", onTrigger: mock() },
+            { id: "delete", label: "Delete", style: "danger", onTrigger: mock() },
+          ]}
+        />,
+      );
+      expect(screen.getByTestId("row-r1-action-edit").textContent).toBe("Bearbeiten");
+      expect(screen.queryByTestId("row-r1-action-duplicate")).toBeNull();
+      expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
+      expect(screen.queryByTestId("row-r1-action-delete")).toBeNull();
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      expect(screen.queryByTestId("row-r1-action-duplicate")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-archive")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-delete")).not.toBeNull();
     });
 
     test("rowActionMode='inline': IMMER Inline-Buttons, kein Kebab auch bei >2 (#9)", () => {
@@ -1017,7 +1046,7 @@ describe("DataTable", () => {
       expect(group?.className).toContain("w-full");
     });
 
-    test("Kebab: Click auf Trigger öffnet Dropdown mit allen Items", async () => {
+    test("Kebab: Click auf Trigger öffnet Dropdown mit dem nicht-primären Rest", async () => {
       const user = userEvent.setup();
       render(
         <DataTable
@@ -1031,8 +1060,9 @@ describe("DataTable", () => {
           ]}
         />,
       );
-      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      // "a" is the primary action and already inline before the kebab opens.
       expect(screen.queryByTestId("row-r1-action-a")).not.toBeNull();
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
       expect(screen.queryByTestId("row-r1-action-b")).not.toBeNull();
       expect(screen.queryByTestId("row-r1-action-c")).not.toBeNull();
     });
@@ -1046,14 +1076,14 @@ describe("DataTable", () => {
           rows={rows}
           testId="dt"
           rowActions={[
-            { id: "a", label: "Archive", onTrigger },
-            { id: "b", label: "Duplicate", onTrigger: mock() },
+            { id: "a", label: "Archive", onTrigger: mock() },
+            { id: "b", label: "Duplicate", onTrigger },
             { id: "c", label: "Export", onTrigger: mock() },
           ]}
         />,
       );
       await user.click(screen.getByTestId("row-r1-actions-menu"));
-      await user.click(screen.getByTestId("row-r1-action-a"));
+      await user.click(screen.getByTestId("row-r1-action-b"));
       // micro-task warten (onTrigger ist async im Hook)
       await new Promise((r) => setTimeout(r, 0));
       expect(onTrigger).toHaveBeenCalledWith(rows[0]);
