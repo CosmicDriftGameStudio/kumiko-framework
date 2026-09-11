@@ -1295,9 +1295,7 @@ function DefaultDataTable({
 // The primary row action is the one that always stays a visible text
 // button — `edit` if declared, else the first visible action (fw
 // bedienkonzept L3: "Bearbeiten steht in jeder Zeile, immer, als Text").
-function primaryRowAction(
-  actions: readonly DataTableRowAction[],
-): DataTableRowAction | undefined {
+function primaryRowAction(actions: readonly DataTableRowAction[]): DataTableRowAction | undefined {
   return actions.find((a) => a.id === "edit") ?? actions[0];
 }
 
@@ -2354,7 +2352,11 @@ function DefaultForm({
   }
 
   const sections = (
-    <FormSections chromeless={chromeless === true} stickyActions={stickyActions} fillHeight={fillHeight}>
+    <FormSections
+      chromeless={chromeless === true}
+      stickyActions={stickyActions}
+      fillHeight={fillHeight}
+    >
       {children}
     </FormSections>
   );
@@ -2612,16 +2614,12 @@ function DefaultFillContainer({ children, testId }: FillContainerProps): ReactNo
 }
 
 function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
-  // "auto"/"end": content-sized items in a wrapping row (e.g. a metrics band
-  // of self-sized tiles, or a single right-aligned action) instead of N
-  // equal-width, container-stretched tracks. maxRows/scrolling don't apply —
-  // the row just wraps.
-  if (columns === "auto" || columns === "end") {
+  // "auto": content-sized items in a wrapping row (e.g. a metrics band of
+  // self-sized tiles) instead of N equal-width, container-stretched tracks.
+  // maxRows/scrolling don't apply — the row just wraps.
+  if (columns === "auto") {
     return (
-      <div
-        data-testid={testId}
-        className={cn("flex flex-wrap gap-4", columns === "end" && "justify-end")}
-      >
+      <div data-testid={testId} className="flex flex-wrap gap-4">
         {children}
       </div>
     );

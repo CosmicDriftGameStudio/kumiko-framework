@@ -8,7 +8,6 @@
 import { describe, expect, test } from "bun:test";
 import type {
   ActionFormScreenDefinition,
-  EntityEditScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
@@ -19,7 +18,6 @@ import type {
   NavTarget,
 } from "@cosmicdrift/kumiko-renderer";
 import {
-  AppFeaturesProvider,
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
@@ -1165,92 +1163,5 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     expect(
       buttonOnMeta.compareDocumentPosition(fieldOnMeta) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-  });
-
-  test("fields-kind tab with a resolvable entityEdit screen — [Bearbeiten] renders in the tab and navigates there (bedienkonzept A8)", async () => {
-    const tabsFieldsEditScreen: ProjectionDetailScreenDefinition = {
-      ...detailScreen,
-      detailFor: "user-session",
-      layout: {
-        mode: "tabs",
-        sections: [
-          { id: "overview", title: "Overview", fields: ["userId"] },
-          { id: "meta", title: "Meta", fields: ["createdAt"] },
-        ],
-      },
-    };
-    const sessionEditScreen: EntityEditScreenDefinition = {
-      id: "sessions:screen:session-edit",
-      type: "entityEdit",
-      entity: "user-session",
-      layout: { sections: [{ columns: 1, fields: ["userId"] }] },
-    };
-    const tabsFieldsEditSchema: FeatureSchema = {
-      featureName: "sessions",
-      entities: {},
-      screens: [tabsFieldsEditScreen, sessionEditScreen],
-    };
-    const navigated: NavTarget[] = [];
-    const nav: NavApi = {
-      route: undefined,
-      navigate: (target) => navigated.push(target),
-      replace: () => {},
-      hrefFor: () => "",
-      searchParams: {},
-      setSearchParams: () => {},
-    };
-
-    render(
-      <NavProvider value={nav}>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <AppFeaturesProvider features={[tabsFieldsEditSchema]}>
-            <KumikoScreen
-              schema={tabsFieldsEditSchema}
-              qn="sessions:screen:session-detail"
-              entityId="sess-1"
-            />
-          </AppFeaturesProvider>
-        </DispatcherProvider>
-      </NavProvider>,
-    );
-
-    const editButton = await waitFor(() => screen.getByTestId("render-edit-action-edit"));
-    // Not duplicated into the head — the tab is its only home (A7: exactly
-    // one visible action).
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-actions")).toBeNull();
-    fireEvent.click(editButton);
-    expect(navigated).toEqual([{ screenId: "session-edit", entityId: "sess-1" }]);
-  });
-
-  test("fields-kind tab without a resolvable entityEdit screen — no [Bearbeiten] button", async () => {
-    const tabsFieldsNoEditScreen: ProjectionDetailScreenDefinition = {
-      ...detailScreen,
-      detailFor: "user-session",
-      layout: {
-        mode: "tabs",
-        sections: [{ id: "overview", title: "Overview", fields: ["userId"] }],
-      },
-    };
-    const tabsFieldsNoEditSchema: FeatureSchema = {
-      featureName: "sessions",
-      entities: {},
-      screens: [tabsFieldsNoEditScreen],
-    };
-
-    render(
-      <DispatcherProvider dispatcher={dispatcher}>
-        <AppFeaturesProvider features={[tabsFieldsNoEditSchema]}>
-          <KumikoScreen
-            schema={tabsFieldsNoEditSchema}
-            qn="sessions:screen:session-detail"
-            entityId="sess-1"
-          />
-        </AppFeaturesProvider>
-      </DispatcherProvider>,
-    );
-
-    await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(screen.queryByTestId("render-edit-action-edit")).toBeNull();
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-fields-tab-actions")).toBeNull();
   });
 });

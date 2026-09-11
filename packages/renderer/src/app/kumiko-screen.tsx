@@ -6,20 +6,20 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  MetricNavigate,
   MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   RowActionDrawer,
   RowActionNavigate,
-  RowFieldExtractor,
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
-  isFieldsEditSection,
   isWriteFormEditSection,
+  metricField,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
@@ -2075,10 +2075,6 @@ function ProjectionListBody({
   );
 }
 
-function metricField(metric: MetricSpec): string {
-  return typeof metric === "string" ? metric : metric.field;
-}
-
 function metricLabelKey(
   metric: MetricSpec,
   fieldLabels: Readonly<Record<string, string>> | undefined,
@@ -2087,9 +2083,7 @@ function metricLabelKey(
   return fieldLabels?.[metricField(metric)];
 }
 
-function metricNavigateSpec(
-  metric: MetricSpec,
-): { screen?: string; entity?: string; entityId?: string; params?: RowFieldExtractor } | undefined {
+function metricNavigateSpec(metric: MetricSpec): MetricNavigate | undefined {
   return typeof metric === "string" ? undefined : metric.navigate;
 }
 
@@ -2099,7 +2093,7 @@ function metricNavigateSpec(
 // function never reads.
 function runMetricNavigate(
   nav: NavApi,
-  navigate: { screen?: string; entity?: string; entityId?: string; params?: RowFieldExtractor },
+  navigate: MetricNavigate,
   record: Readonly<Record<string, unknown>>,
 ): void {
   const base = { kind: "navigate" as const, id: "metric-navigate", label: "" };
@@ -2129,6 +2123,15 @@ function runMetricNavigate(
 // "_blank" external link.
 function isAbsoluteHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value) && isSafeHref(value);
+}
+
+function resolveSubtitleHref(
+  header: ProjectionDetailScreenDefinition["header"],
+  record: Readonly<Record<string, unknown>>,
+): string | undefined {
+  if (header?.subtitleHref === undefined) return undefined;
+  const value = record[header.subtitleHref];
+  return typeof value === "string" && isAbsoluteHttpUrl(value) ? value : undefined;
 }
 
 // Projection-Detail-Body — read-only single-row inspector über eine explizite
@@ -2274,14 +2277,12 @@ function ProjectionDetailBody({
         }),
     };
   }, [editScreen, effectiveTranslate, nav, effectiveEntityId]);
-  const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
 
   const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const record = detailQuery.data ?? {};
+    const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
     const out: RenderEditAction[] = [];
-    // In tabs mode the fields-kind tab carries its own [Bearbeiten] (bedienkonzept
-    // A8) — keeping it here too would show it twice (head card + tab).
-    if (defaultEditAction !== undefined && !declaredHasEdit && !hasTabs) {
+    if (defaultEditAction !== undefined && !declaredHasEdit) {
       out.push(defaultEditAction);
     }
     for (const action of screen.actions ?? []) {
@@ -2418,8 +2419,6 @@ function ProjectionDetailBody({
     detailQuery.data,
     detailQuery.refetch,
     openDrawer,
-    hasTabs,
-    declaredHasEdit,
   ]);
 
   if (effectiveEntityId === undefined && screen.singleton !== true) {
@@ -2487,6 +2486,7 @@ function ProjectionDetailBody({
   // it, instead of sitting flush against the screen edge (fw record-screen
   // header polish).
   const header = screen.header;
+  const subtitleHref = resolveSubtitleHref(header, record);
   const headerContent = (
     <>
       {hasHeaderCard && (
@@ -2499,30 +2499,19 @@ function ProjectionDetailBody({
               {(header.subtitle !== undefined || header.status !== undefined) && (
                 <Grid columns="auto">
                   {header.subtitle !== undefined &&
-                    (() => {
-                      const subtitleText = String(record[header.subtitle] ?? "");
-                      const hrefValue =
-                        header.subtitleHref !== undefined
-                          ? record[header.subtitleHref]
-                          : undefined;
-                      const href =
-                        typeof hrefValue === "string" && isAbsoluteHttpUrl(hrefValue)
-                          ? hrefValue
-                          : undefined;
-                      return href !== undefined ? (
-                        <Link
-                          href={href}
-                          target="_blank"
-                          testId="kumiko-screen-projection-detail-subtitle"
-                        >
-                          {subtitleText}
-                        </Link>
-                      ) : (
-                        <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                          {subtitleText}
-                        </Text>
-                      );
-                    })()}
+                    (subtitleHref !== undefined ? (
+                      <Link
+                        href={subtitleHref}
+                        target="_blank"
+                        testId="kumiko-screen-projection-detail-subtitle"
+                      >
+                        {String(record[header.subtitle] ?? "")}
+                      </Link>
+                    ) : (
+                      <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                        {String(record[header.subtitle] ?? "")}
+                      </Text>
+                    ))}
                   {header.status !== undefined &&
                     (StatusBadge !== undefined ? (
                       <StatusBadge
@@ -2552,7 +2541,9 @@ function ProjectionDetailBody({
                 const testId = `kumiko-screen-projection-detail-metric-${field}`;
                 const navigate = metricNavigateSpec(metric);
                 const onPress =
-                  navigate !== undefined ? () => runMetricNavigate(nav, navigate, record) : undefined;
+                  navigate !== undefined
+                    ? () => runMetricNavigate(nav, navigate, record)
+                    : undefined;
                 return Metric !== undefined ? (
                   <Metric
                     key={field}
@@ -2600,20 +2591,6 @@ function ProjectionDetailBody({
           onSelect={(id) => nav.setSearchParams({ tab: id })}
         />
       )}
-      {hasTabs &&
-        activeSection !== undefined &&
-        isFieldsEditSection(activeSection) &&
-        defaultEditAction !== undefined &&
-        !declaredHasEdit && (
-          <Grid columns="end" testId="kumiko-screen-projection-detail-fields-tab-actions">
-            <RenderEditActionButton
-              action={defaultEditAction}
-              Button={Button}
-              Dialog={Dialog}
-              onError={setActionError}
-            />
-          </Grid>
-        )}
     </>
   );
   return (

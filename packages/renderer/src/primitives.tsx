@@ -846,17 +846,15 @@ export type FillContainerProps = {
  *  `columns: "auto"` opts out of the N-column stretch layout entirely —
  *  children keep their own content width and wrap onto new lines (e.g. a
  *  metrics band of self-sized tiles, or an inline label+badge row) instead
- *  of being stretched into equal-width tracks. `columns: "end"` is the same
- *  content-sized wrapping row, right-aligned (e.g. a single action button
- *  above a chromeless section). `GridCell` span-wrapping is meaningless in
- *  either mode and should be skipped. */
+ *  of being stretched into equal-width tracks. `GridCell` span-wrapping is
+ *  meaningless in this mode and should be skipped. */
 export type GridProps = {
-  readonly columns: number | "auto" | "end";
+  readonly columns: number | "auto";
   readonly children: ReactNode;
   readonly testId?: string;
   /** Rows visible before the grid becomes vertically scrollable. Omitted =
    *  the grid grows with its content and never scrolls. Ignored when
-   *  `columns` is "auto" or "end". */
+   *  `columns` is "auto". */
   readonly maxRows?: number;
 };
 

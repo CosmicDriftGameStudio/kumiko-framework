@@ -3288,7 +3288,7 @@ describe("KumikoScreen: entityList cell rendering", () => {
     expect(badge?.className).toContain("text-muted-foreground");
   });
 
-  test("three row actions, none id:\"edit\" → the first is the primary text button, the rest sit in the kebab (bedienkonzept L3/L4)", async () => {
+  test('three row actions, none id:"edit" → the first is the primary text button, the rest sit in the kebab (bedienkonzept L3/L4)', async () => {
     await renderOrderList("orders:screen:order-list-actions", [{ id: "r1", title: "First" }]);
 
     expect(screen.getByTestId("row-r1-action-publish").textContent).toBe("Publish");
