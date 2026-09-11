@@ -1,6 +1,10 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii";
 import { resolveName } from "./handler-helpers";
-import type { RegistryState, SearchableReferenceField } from "./registry-state";
+import type {
+  RegistryState,
+  SearchableReferenceField,
+  SortableReferenceField,
+} from "./registry-state";
 import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state";
 import {
   buildSoftDeleteCleanupJob,
@@ -192,12 +196,43 @@ function buildSearchableReferenceField(
   };
 }
 
-// Precompute: searchable/sortable fields, searchable reference fields.
+// fw#2741: ORDER BY runs against the referenced row's label column, so the
+// same explicit-labelField requirement as searchable applies — ordering by the
+// "id" default would be a UUID order that looks deliberate to the user.
+function buildSortableReferenceField(
+  entityName: string,
+  fieldName: string,
+  field: ReferenceFieldDef,
+): SortableReferenceField {
+  if (field.labelField === undefined || field.labelField === "id") {
+    throw new Error(
+      `[Entity ${entityName}] field "${fieldName}": sortable reference fields require an ` +
+        `explicit, non-"id" labelField. Ordering by "id" is a UUID order — arbitrary to the ` +
+        `user while looking deliberate. Set labelField to a human-readable field on the ` +
+        `referenced entity.`,
+    );
+  }
+  if (field.multiple === true) {
+    throw new Error(
+      `[Entity ${entityName}] field "${fieldName}": sortable is not supported on multiple ` +
+        `(array) reference fields — there is no single label to order by; remove "multiple" ` +
+        `or "sortable".`,
+    );
+  }
+  return {
+    fieldName,
+    targetEntityName: parseReferenceTargetEntityName(field.entity),
+    labelField: field.labelField,
+  };
+}
+
+// Precompute: searchable/sortable fields, searchable + sortable reference fields.
 export function buildSearchableSortableCaches(state: RegistryState): void {
   for (const [name, entity] of state.entityMap) {
     const searchable: string[] = [];
     const sortable: string[] = [];
     const searchableReferences: SearchableReferenceField[] = [];
+    const sortableReferences: SortableReferenceField[] = [];
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type === "text" && field.searchable === true) searchable.push(fieldName);
       if (field.type === "text" && field.sortable === true) sortable.push(fieldName);
@@ -209,10 +244,14 @@ export function buildSearchableSortableCaches(state: RegistryState): void {
       if (field.type === "reference" && field.searchable === true) {
         searchableReferences.push(buildSearchableReferenceField(name, fieldName, field));
       }
+      if (field.type === "reference" && field.sortable === true) {
+        sortableReferences.push(buildSortableReferenceField(name, fieldName, field));
+      }
     }
     state.searchableFieldsCache.set(name, searchable);
     state.sortableFieldsCache.set(name, sortable);
     state.searchableReferencesCache.set(name, searchableReferences);
+    state.sortableReferencesCache.set(name, sortableReferences);
   }
 }
 
