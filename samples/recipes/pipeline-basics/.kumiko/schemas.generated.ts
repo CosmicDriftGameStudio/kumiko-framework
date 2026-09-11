@@ -13,7 +13,7 @@
 
 import { z } from "zod";
 
-// inventory:event:product-archived — from src/feature.ts:92
+// inventory:event:product-archived — from src/feature.ts:93
 export const _kg_inventory__productArchived = z.object({ reason: z.string() });
 
 // inventory:event:product-stock-adjusted — from src/feature.ts:83

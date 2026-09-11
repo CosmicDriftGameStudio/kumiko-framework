@@ -34,14 +34,18 @@ let foreignEventName = "";
 // emit this from one of its handlers — Sprint-E cross-feature-ownership
 // guard must reject it at the append site.
 const neighborFeature = defineFeature("neighbor", (r) => {
-  const foreign = r.defineEvent("neighbor.signal", z.object({ userId: z.uuid() }));
+  const foreign = r.defineEvent("neighbor.signal", z.object({ userId: z.uuid() }), {
+    piiFields: "none",
+  });
   foreignEventName = foreign.name;
 });
 
 const emitterFeature = defineFeature("emitter", (r) => {
   r.entity("widget", sharedWidgetEntity);
 
-  const welcome = r.defineEvent("user.welcomed", z.object({ userId: z.uuid(), email: z.email() }));
+  const welcome = r.defineEvent("user.welcomed", z.object({ userId: z.uuid(), email: z.email() }), {
+    piiFields: "none",
+  });
   welcomeEventName = welcome.name;
 
   r.writeHandler(

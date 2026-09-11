@@ -114,7 +114,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   test("V3: pii field on a projection-only entity (no r.entity) is still caught", () => {
     const projectionTable = projectionProbeTable("crm_contact_summary");
     const bad = defineFeature("crm", (r) => {
-      const contactCreated = r.defineEvent("contact-created", z.unknown());
+      const contactCreated = r.defineEvent("contact-created", z.unknown(), { piiFields: "none" });
       r.projection({
         name: "contact-summary",
         source: "contact",
@@ -171,7 +171,9 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     const projectionTable = projectionProbeTable("crm_contact_summary_hooked");
     const hooked = defineFeature("crm-hooked", (r) => {
       r.requires("user-data-rights");
-      const contactCreated = r.defineEvent("contact-hooked-created", z.unknown());
+      const contactCreated = r.defineEvent("contact-hooked-created", z.unknown(), {
+        piiFields: "none",
+      });
       r.projection({
         name: "contact-summary",
         source: "contact",

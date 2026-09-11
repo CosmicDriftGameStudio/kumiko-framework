@@ -86,6 +86,7 @@ function parse(source: string): {
 //     to match the new context.
 const BODY_LOC_KEYS = new Set([
   "schemaSource",
+  "piiFields",
   "handlerBody",
   "fnBody",
   "transformBody",
@@ -228,7 +229,7 @@ defineFeature("workflow", (r) => {
     console.log("step deleted");
   });
 
-  r.defineEvent("stepCompleted", z.object({ id: z.string() }), { version: 1 });
+  r.defineEvent("stepCompleted", z.object({ id: z.string() }), { piiFields: "none", version: 1 });
 
   r.nav({ id: "steps", label: "Steps", screen: "workflow:screen:step-list" });
 });
@@ -458,8 +459,18 @@ describe("renderPattern — single-pattern shape", () => {
         end: { line: 1, column: 1 },
         raw: "z.object({})",
       },
+      piiFields: {
+        file: "x",
+        start: { line: 1, column: 1 },
+        end: { line: 1, column: 1 },
+        raw: '"none"',
+      },
     });
-    expect(out).toBe("r.defineEvent(DOC_INGESTED_EVENT, z.object({}));");
+    expect(out).toBe(
+      ["r.defineEvent(DOC_INGESTED_EVENT, z.object({}), {", '  piiFields: "none",', "});"].join(
+        "\n",
+      ),
+    );
   });
 });
 
@@ -479,7 +490,7 @@ const DOC_INGESTED_EVENT = "docIngested" as const;
 defineFeature("user-data-rights", (r) => {
   r.extendsRegistrar(EXT_TENANT_DATA, { onRegister: () => {} });
   r.useExtension(EXT_TENANT_DATA, "document", { description: "org-scoped" });
-  r.defineEvent(DOC_INGESTED_EVENT, z.object({ id: z.string() }));
+  r.defineEvent(DOC_INGESTED_EVENT, z.object({ id: z.string() }), { piiFields: "none" });
 });
 `;
 
@@ -625,6 +636,7 @@ import { z } from "zod";
 
 defineFeature("billing", (r) => {
   r.defineEvent("invoicePaid", z.object({ totalCents: z.number() }), {
+    piiFields: "none",
     version: 2,
     migrations: [
       {
@@ -652,6 +664,47 @@ describe("render → parse roundtrip — r.defineEvent({ migrations }) fold", ()
     if (eventPattern?.kind === "defineEvent") {
       expect(eventPattern.version).toBe(2);
       expect(Object.keys(eventPattern.migrations ?? {})).toEqual(["1"]);
+    }
+  });
+});
+
+const DEFINE_EVENT_WITH_PII_FIELDS_FEATURE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("mailer", (r) => {
+  r.defineEvent("attempt", z.object({ recipientId: z.string(), recipientAddress: z.string() }), {
+    piiFields: { recipientAddress: { subjectField: "recipientId" } },
+  });
+});
+`;
+
+describe("render → parse roundtrip — r.defineEvent piiFields stance (fw#2558)", () => {
+  test('piiFields: "none" survives parse → render → parse unchanged', () => {
+    const initial = parse(DEFINE_EVENT_WITH_MIGRATIONS_FEATURE);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    expect(rendered).toContain('piiFields: "none",');
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+  });
+
+  test("an object-literal piiFields stance survives parse → render → parse unchanged", () => {
+    const initial = parse(DEFINE_EVENT_WITH_PII_FIELDS_FEATURE);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    expect(rendered).toContain('piiFields: { recipientAddress: { subjectField: "recipientId" } }');
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+
+    const eventPattern = reparsed.patterns.find((p) => p.kind === "defineEvent");
+    expect(eventPattern?.kind).toBe("defineEvent");
+    if (eventPattern?.kind === "defineEvent") {
+      expect(eventPattern.piiFields.raw).toContain("recipientAddress");
     }
   });
 });

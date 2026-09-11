@@ -37,7 +37,7 @@ import type {
   EntityRef,
   EventDef,
   EventMigrationDef,
-  EventPiiFields,
+  EventPiiStance,
   EventUpcastFn,
   HandlerRef,
   NameOrRef,
@@ -580,15 +580,18 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // payload out) and run once per read, not once per event persisted, so
   // keep them cheap.
   //
-  // `options.piiFields` declares PII payload fields encrypted under the DEK
-  // of the user named by `subjectField` (crypto-shredding, #799). append()
-  // enforces the catalog on every write path.
+  // `options.piiFields` is a mandatory, explicit PII stance (fw#2558) —
+  // registration fails without one. Pass a map of payload fields to their
+  // owning `subjectField` for fields carrying personal data (encrypted
+  // under that user's DEK, crypto-shredding #799), or `"none"` to declare
+  // the payload holds no personal data. append() enforces the resulting
+  // catalog on every write path.
   defineEvent<const TInner extends string, TPayload>(
     name: TInner,
     schema: ZodType<TPayload>,
-    options?: {
+    options: {
       readonly version?: number;
-      readonly piiFields?: EventPiiFields;
+      readonly piiFields: EventPiiStance;
       readonly migrations?: readonly {
         readonly fromVersion: number;
         readonly toVersion: number;

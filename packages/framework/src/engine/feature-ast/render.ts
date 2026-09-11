@@ -596,11 +596,10 @@ function renderMultiStreamProjection(p: MultiStreamProjectionPattern): string {
 function renderDefineEvent(p: DefineEventPattern): string {
   const nameLiteral = p.eventNameRaw ?? JSON.stringify(p.eventName);
   const migrationEntries = p.migrations !== undefined ? Object.entries(p.migrations) : [];
-  const hasOptions = p.version !== undefined || migrationEntries.length > 0;
-  if (!hasOptions) {
-    return `r.defineEvent(${nameLiteral}, ${p.schemaSource.raw});`;
-  }
+  // piiFields is a mandatory option (fw#2558) — the options object is
+  // always rendered, unlike the old version/migrations-only shortcut.
   const lines: string[] = [`r.defineEvent(${nameLiteral}, ${p.schemaSource.raw}, {`];
+  lines.push(`  piiFields: ${p.piiFields.raw},`);
   if (p.version !== undefined) lines.push(`  version: ${p.version},`);
   if (migrationEntries.length > 0) {
     lines.push("  migrations: [");

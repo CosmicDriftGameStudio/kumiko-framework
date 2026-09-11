@@ -128,11 +128,18 @@ function registerCustomFields(
   // Event-types — qualified als "custom-fields:event:<short-name>".
   // Returned EventDefs liefern .name als compile-time literal-typed string,
   // den Handler + MSP-keys konsumieren statt Template-Literal-Konstruktion.
-  const setEvent = r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema);
-  const clearedEvent = r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema);
+  // `value: z.unknown()` has no field-level schema to catalog under piiFields;
+  // "no PII" is a naming convention (#972), not an enforced guarantee — see #2776.
+  const setEvent = r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema, {
+    piiFields: "none",
+  });
+  const clearedEvent = r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema, {
+    piiFields: "none",
+  });
   const fieldDefinitionDeletedEvent = r.defineEvent(
     FIELD_DEFINITION_DELETED_EVENT,
     fieldDefinitionDeletedSchema,
+    { piiFields: "none" },
   );
 
   // Extension-Registrar — registriert dass diese Extension existiert.

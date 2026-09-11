@@ -83,12 +83,34 @@ describe("defineEvent piiFields validation", () => {
     ).toThrow(/cannot use itself as subjectField/);
   });
 
-  test("events without piiFields do not enter the catalog", () => {
+  test("omitting the options argument throws an explicit PII stance error (fw#2558)", () => {
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        // @cast-boundary test-only — the type signature makes `options`
+        // mandatory, but an untyped JS consumer can still omit it at
+        // runtime; the registrar must fail closed for that caller too.
+        (r.defineEvent as (name: string, schema: typeof attemptSchema) => unknown)(
+          "attempt",
+          attemptSchema,
+        );
+      }),
+    ).toThrow(/explicit PII stance/);
+  });
+
+  test('piiFields: {} throws, recommending piiFields: "none"', () => {
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", attemptSchema, { piiFields: {} });
+      }),
+    ).toThrow(/use piiFields: "none"/);
+  });
+
+  test('piiFields: "none" registers successfully and stays out of the catalog', () => {
     const feature = defineFeature("mailer", (r) => {
-      r.defineEvent("attempt", attemptSchema);
+      r.defineEvent("attempt", attemptSchema, { piiFields: "none" });
     });
     createRegistry([feature]);
-    expect(configuredEventPiiCatalog().size).toBe(0);
+    expect(configuredEventPiiCatalog().has(EVENT_TYPE)).toBe(false);
   });
 });
 

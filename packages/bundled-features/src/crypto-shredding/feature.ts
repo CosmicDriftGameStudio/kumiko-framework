@@ -16,8 +16,10 @@ export function createCryptoShreddingFeature(): FeatureDefinition {
       category: "compliance",
     });
 
-    r.defineEvent("subject-forgotten", subjectForgottenSchema);
-    r.defineEvent("forget-denied", subjectForgetDeniedSchema);
+    // `reason` is operator free text and may name the subject; encrypting it under
+    // the subject key is pointless (that key is being erased) — see #2776.
+    r.defineEvent("subject-forgotten", subjectForgottenSchema, { piiFields: "none" });
+    r.defineEvent("forget-denied", subjectForgetDeniedSchema, { piiFields: "none" });
     r.writeHandler(forgetSubjectWrite);
   });
 }

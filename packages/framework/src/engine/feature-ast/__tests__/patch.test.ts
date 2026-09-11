@@ -307,6 +307,7 @@ describe("patch coverage for the remaining pattern-kinds", () => {
     createFeaturePatcher(sf).addDefineEvent({
       name: "itemCreated",
       schemaSource: "z.object({ id: z.string() })",
+      piiFieldsSource: '"none"',
       version: 2,
       migrations: { "1": "(old) => old" },
     });

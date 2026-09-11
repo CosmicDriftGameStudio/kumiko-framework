@@ -54,7 +54,9 @@ const applyObservations: ReqCtxSnapshot[] = [];
 const causationFeature = defineFeature("causation", (r) => {
   r.entity("causation-order", orderEntity);
 
-  const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }));
+  const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), {
+    piiFields: "none",
+  });
 
   const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
     entityName: "causation-order",

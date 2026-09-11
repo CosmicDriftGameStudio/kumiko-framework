@@ -102,8 +102,14 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
     }),
   );
 
-  r.defineEvent(DOCUMENT_INGEST_REQUESTED_EVENT_SHORT, documentIngestRequestedPayloadSchema);
-  r.defineEvent(DOCUMENT_INGEST_SKIPPED_EVENT_SHORT, documentIngestSkippedPayloadSchema);
+  // "fileName" can carry a real person's name; the payload has no user-subject
+  // field to encrypt it under, so piiFields stays "none" pending #2776.
+  r.defineEvent(DOCUMENT_INGEST_REQUESTED_EVENT_SHORT, documentIngestRequestedPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(DOCUMENT_INGEST_SKIPPED_EVENT_SHORT, documentIngestSkippedPayloadSchema, {
+    piiFields: "none",
+  });
 
   r.multiStreamProjection({
     name: "request-ingest",

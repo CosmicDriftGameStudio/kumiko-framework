@@ -39,8 +39,10 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
   r.entity("note", noteEntity);
   r.entity("ghost", ghostEntity);
 
-  const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }));
-  const poked = r.defineEvent("poked", z.object({}));
+  const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }), {
+    piiFields: "none",
+  });
+  const poked = r.defineEvent("poked", z.object({}), { piiFields: "none" });
 
   r.writeHandler(
     "note:relabel",

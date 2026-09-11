@@ -30,7 +30,9 @@ const FILE_REF_CREATED = entityEventName("fileRef", "created");
 const processedItems: Array<{ readonly fileRefId: string }> = [];
 
 const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
-  r.defineEvent("item-requested", z.object({ fileRefId: z.string().min(1) }));
+  r.defineEvent("item-requested", z.object({ fileRefId: z.string().min(1) }), {
+    piiFields: "none",
+  });
 
   // Mirrors document-ingest-foundation's request-ingest MSP exactly: reacts
   // to fileRef.created, appends a NEW event via unsafeAppendEvent — no

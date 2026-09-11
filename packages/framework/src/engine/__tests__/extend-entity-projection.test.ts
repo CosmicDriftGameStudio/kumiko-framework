@@ -21,7 +21,9 @@ describe("r.extendEntityProjection — registration", () => {
   test("merges apply keys + extraSources into the implicit projection", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
-      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }));
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
       r.extendEntityProjection("unit", {
         sources: ["field-definition"],
         apply: { [setEvent.name]: noopApply },
@@ -39,7 +41,9 @@ describe("r.extendEntityProjection — registration", () => {
   test("extension source equal to the entity name is not duplicated into extraSources", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
-      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }));
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
       r.extendEntityProjection("unit", {
         sources: ["unit"],
         apply: { [setEvent.name]: noopApply },
@@ -66,7 +70,9 @@ describe("r.extendEntityProjection — registration", () => {
 
   test("registration order is free: extension before r.entity in the same feature", () => {
     const feature = defineFeature("test", (r) => {
-      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }));
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
       r.extendEntityProjection("unit", { apply: { [setEvent.name]: noopApply } });
       r.entity("unit", exampleEntity());
     });
@@ -89,7 +95,9 @@ describe("r.extendEntityProjection — registry-build validation", () => {
   test("unknown entity fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
-      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }));
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
       r.extendEntityProjection("typo-entity", { apply: { [setEvent.name]: noopApply } });
     });
     expect(() => createRegistry([feature])).toThrow(/no r\.entity/);
@@ -106,7 +114,9 @@ describe("r.extendEntityProjection — registry-build validation", () => {
   test("apply-key collision between two extensions fails at registry build", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("unit", exampleEntity());
-      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }));
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
       r.extendEntityProjection("unit", { apply: { [setEvent.name]: noopApply } });
       r.extendEntityProjection("unit", { apply: { [setEvent.name]: noopApply } });
     });

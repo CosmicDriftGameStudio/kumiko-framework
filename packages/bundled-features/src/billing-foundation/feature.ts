@@ -86,11 +86,20 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
   // shape (= subscription-state-snapshot); der event-type taggt was
   // passiert ist. Future-consumer (billing-history, accounting)
   // listenen direkt auf den event-type ohne payload-discriminator.
-  r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema);
-  r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema);
-  r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema);
-  r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema);
-  r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema);
+  // piiFields: "none" — provider ids are tenantOwned ciphertext, not plaintext personal data.
+  r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+    piiFields: "none",
+  });
+  r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema, { piiFields: "none" });
+  r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+    piiFields: "none",
+  });
 
   // Inline projection: materialized current state in `read_subscriptions`.
   // Apply läuft in derselben TX wie ctx.unsafeAppendEvent — read-your-

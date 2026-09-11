@@ -131,6 +131,17 @@ export function extractDefineEvent(
       const v = readDataLiteralNode(versionInit);
       if (typeof v === "number") version = v;
     }
+    const piiFieldsInit = obj
+      .getProperty("piiFields")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    if (!piiFieldsInit) {
+      return fail(
+        "defineEvent",
+        sourceLocationFromNode(call, sourceFile),
+        'requires an explicit `piiFields` stance (an object literal or "none")',
+      );
+    }
     const migrationsInit = obj
       .getProperty("migrations")
       ?.asKind(SyntaxKind.PropertyAssignment)
@@ -143,6 +154,7 @@ export function extractDefineEvent(
       source: sourceLocationFromNode(call, sourceFile),
       eventName: nameInit.getLiteralValue(),
       schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
+      piiFields: sourceLocationFromNode(piiFieldsInit, sourceFile),
       ...(version !== undefined && { version }),
       ...(migrations !== undefined && { migrations }),
     });
@@ -168,6 +180,17 @@ export function extractDefineEvent(
   let migrations: Readonly<Record<string, SourceLocation>> | undefined;
   const optionsArg = args[2];
   const optionsObj = optionsArg?.asKind(SyntaxKind.ObjectLiteralExpression);
+  const piiFieldsInit = optionsObj
+    ?.getProperty("piiFields")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  if (!piiFieldsInit) {
+    return fail(
+      "defineEvent",
+      sourceLocationFromNode(call, sourceFile),
+      'requires an explicit `piiFields` stance (an object literal or "none")',
+    );
+  }
   if (optionsObj) {
     const versionInit = optionsObj
       .getProperty("version")
@@ -191,6 +214,7 @@ export function extractDefineEvent(
     eventName: eventNameRef.value,
     ...(eventNameRef.raw !== undefined && { eventNameRaw: eventNameRef.raw }),
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
+    piiFields: sourceLocationFromNode(piiFieldsInit, sourceFile),
     ...(version !== undefined && { version }),
     ...(migrations !== undefined && { migrations }),
   });

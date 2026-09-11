@@ -57,6 +57,7 @@ const orderFeature = defineFeature("upcastshop", (r) => {
     "priced",
     z.object({ totalCents: z.number().int(), currency: z.string() }),
     {
+      piiFields: "none",
       version: 3,
       migrations: [
         // v1 → v2: renamed totalEuros → total (kept as string for this step)
@@ -321,6 +322,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
         "placed",
         z.object({ customerId: z.string(), segment: z.string() }),
         {
+          piiFields: "none",
           version: 2,
           migrations: [
             {
@@ -407,6 +409,7 @@ describe("upcaster: boot-time validation", () => {
       r.entity("hole-order", orderEntity);
       // Only 1→2 registered — the 2→3 gap must be rejected.
       r.defineEvent("bad", z.object({ v3: z.string() }), {
+        piiFields: "none",
         version: 3,
         migrations: [{ fromVersion: 1, toVersion: 2, transform: (p) => p }],
       });
@@ -424,6 +427,7 @@ describe("upcaster: boot-time validation", () => {
     const future = defineFeature("future", (r) => {
       r.entity("future-order", orderEntity);
       r.defineEvent("early", z.object({ x: z.number() }), {
+        piiFields: "none",
         version: 1,
         migrations: [{ fromVersion: 1, toVersion: 2, transform: (p) => p }],
       });
@@ -435,6 +439,7 @@ describe("upcaster: boot-time validation", () => {
     const gaps = defineFeature("gaps", (r) => {
       r.entity("gap-order", orderEntity);
       r.defineEvent("jumpy", z.object({ v: z.number() }), {
+        piiFields: "none",
         version: 4,
         migrations: [
           { fromVersion: 1, toVersion: 2, transform: (p) => p },
@@ -452,6 +457,7 @@ describe("upcaster: registrar input validation", () => {
       defineFeature("bigstep", (r) => {
         r.entity("bigstep-order", orderEntity);
         r.defineEvent("biz", z.object({ x: z.number() }), {
+          piiFields: "none",
           version: 3,
           migrations: [{ fromVersion: 1, toVersion: 3, transform: (p) => p }],
         });
@@ -464,6 +470,7 @@ describe("upcaster: registrar input validation", () => {
       defineFeature("dupestep", (r) => {
         r.entity("dup-order", orderEntity);
         r.defineEvent("dup", z.object({ x: z.number() }), {
+          piiFields: "none",
           version: 2,
           migrations: [
             { fromVersion: 1, toVersion: 2, transform: (p) => p },
@@ -478,7 +485,7 @@ describe("upcaster: registrar input validation", () => {
     expect(() =>
       defineFeature("badver", (r) => {
         r.entity("badver-order", orderEntity);
-        r.defineEvent("neg", z.object({ x: z.number() }), { version: 0 });
+        r.defineEvent("neg", z.object({ x: z.number() }), { piiFields: "none", version: 0 });
       }),
     ).toThrow(/positive integer/);
   });

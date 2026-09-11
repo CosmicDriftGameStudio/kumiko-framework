@@ -87,9 +87,12 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
       reason: z.string(),
       newStock: z.number().int(),
     }),
+    { piiFields: "none" },
   );
 
-  const archived = r.defineEvent("product-archived", z.object({ reason: z.string() }));
+  const archived = r.defineEvent("product-archived", z.object({ reason: z.string() }), {
+    piiFields: "none",
+  });
 
   // Inline projection that maintains `currentStock` from the
   // stock-adjusted domain event. Pure event-sourcing pattern: the

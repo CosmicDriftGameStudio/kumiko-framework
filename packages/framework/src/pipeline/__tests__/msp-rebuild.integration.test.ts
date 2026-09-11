@@ -72,14 +72,17 @@ const feature = defineFeature("mspreb", (r) => {
   const invoiceBilled = r.defineEvent(
     "invoice-billed",
     z.object({ customer: z.uuid(), cents: z.number().int() }),
+    { piiFields: "none" },
   );
   const paymentReceived = r.defineEvent(
     "payment-received",
     z.object({ customer: z.uuid(), cents: z.number().int() }),
+    { piiFields: "none" },
   );
   const escalationTriggered = r.defineEvent(
     "escalation-triggered",
     z.object({ customer: z.uuid() }),
+    { piiFields: "none" },
   );
 
   // 1) Main rebuildable MSP — table materialized from two event types.

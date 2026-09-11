@@ -703,9 +703,21 @@ export function publishEventPiiCatalog(state: RegistryState): void {
   // into kumiko_events — encrypts catalogued payload fields regardless of
   // which path produced the event (ctx.appendEvent, MSP-apply, low-level
   // append in delivery/jobs loggers).
+  //
+  // Defense-in-depth (fw#2558): defineEvent is the only producer of
+  // EventDef.piiFields and already fails closed without a stance, but this
+  // boot gate re-checks every registered event — a future producer that
+  // forgets to run through defineEvent would otherwise leave a hole where
+  // append() silently ships plaintext instead of refusing to boot.
   const eventPiiCatalog = new Map<string, EventPiiFields>();
   for (const [qualified, def] of state.eventMap) {
-    if (def.piiFields) eventPiiCatalog.set(qualified, def.piiFields);
+    if (def.piiFields === undefined) {
+      throw new Error(
+        `Registered event "${qualified}" has no PII stance. Every r.defineEvent(...) call must pass { piiFields: { ... } } or { piiFields: "none" }.`,
+      );
+    }
+    if (def.piiFields === "none") continue;
+    eventPiiCatalog.set(qualified, def.piiFields);
   }
   configureEventPiiCatalog(eventPiiCatalog);
 }

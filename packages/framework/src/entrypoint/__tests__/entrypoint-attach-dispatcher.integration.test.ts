@@ -25,7 +25,10 @@ const writeProbeResults: Array<{ isSuccess: boolean }> = [];
 const writeProbeFailures: string[] = [];
 
 const writeProbeFeature = defineFeature("writeProbe", (r) => {
-  const noted = r.defineEvent("noted", z.object({ note: z.string() }), { version: 1 });
+  const noted = r.defineEvent("noted", z.object({ note: z.string() }), {
+    piiFields: "none",
+    version: 1,
+  });
   r.writeHandler(
     "note",
     z.object({ note: z.string() }),

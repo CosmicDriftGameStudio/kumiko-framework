@@ -56,10 +56,12 @@ const mspFeature = defineFeature("msptest", (r) => {
   const shipmentBilled = r.defineEvent(
     "shipment-billed",
     z.object({ customer: z.uuid(), cents: z.number().int() }),
+    { piiFields: "none" },
   );
   const refundIssued = r.defineEvent(
     "refund-issued",
     z.object({ customer: z.uuid(), cents: z.number().int() }),
+    { piiFields: "none" },
   );
 
   r.multiStreamProjection({

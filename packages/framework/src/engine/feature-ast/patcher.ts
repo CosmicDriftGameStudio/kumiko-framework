@@ -147,6 +147,10 @@ export type AddHttpRouteArgs = {
 export type AddDefineEventArgs = {
   readonly name: string;
   readonly schemaSource: string;
+  // Raw source of the `piiFields` option value (e.g. `'"none"'` or an object
+  // literal) — mandatory, mirroring r.defineEvent's own required stance
+  // (fw#2558).
+  readonly piiFieldsSource: string;
   readonly version?: number;
   // Keyed by fromVersion (as a string) → the transform source text for the
   // fromVersion -> fromVersion+1 step. Folded in from the former
@@ -496,7 +500,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addDefineEvent({ name, schemaSource, version, migrations }) {
+    addDefineEvent({ name, schemaSource, piiFieldsSource, version, migrations }) {
       const migrationLocs = migrations
         ? Object.fromEntries(
             Object.entries(migrations).map(([fromVersion, source]) => [
@@ -510,6 +514,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         source: SYNTHETIC_LOC,
         eventName: name,
         schemaSource: rawLoc(schemaSource),
+        piiFields: rawLoc(piiFieldsSource),
         ...(version !== undefined && { version }),
         ...(migrationLocs !== undefined && { migrations: migrationLocs }),
       });

@@ -110,7 +110,9 @@ const MSP_EVENT_SHORT = "poison-noted";
 const feature = defineFeature("poisontest", (r) => {
   r.entity("poison-item", itemEntity);
   r.projection(poisonProjection);
-  const noted = r.defineEvent(MSP_EVENT_SHORT, z.object({ groupId: z.uuid(), name: z.string() }));
+  const noted = r.defineEvent(MSP_EVENT_SHORT, z.object({ groupId: z.uuid(), name: z.string() }), {
+    piiFields: "none",
+  });
   r.multiStreamProjection({
     name: "poison-msp-counter",
     table: mspCounterTable,

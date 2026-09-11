@@ -56,6 +56,7 @@ defineFeature("todoList", (r) => {
   r.defineEvent({
     name: "taskCompleted",
     schema: z.object({ id: z.string() }),
+    piiFields: "none",
     version: 2,
     migrations: {
       "1": (old) => ({ ...old, done: true }),
