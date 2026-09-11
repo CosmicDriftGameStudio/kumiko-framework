@@ -895,6 +895,11 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   // multiStreamProjection blieb in Prod unangewendet, kumiko_event_consumers
   // blieb leer. Der Test schreibt über den ECHTEN Boot-Pfad und pollt auf
   // die async projizierte Row.
+  // Both polls normally settle in well under a second; this only sizes the
+  // harness limit to the two 8s poll budgets so a slow retry is not cut short
+  // by bun's 5s default before pollFor can give up on its own terms.
+  const BOOT_AND_POLL_TIMEOUT_MS = 20_000;
+
   async function pollFor<T>(probe: () => Promise<T | undefined>, timeoutMs = 8000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -905,51 +910,60 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
     }
   }
 
-  test("Write → appendEvent → MSP wendet async an; Consumer-Cursor wandert", async () => {
-    let dispatchSystemWrite: import("../extra-routes-deps").ExtraRoutesSystemDeps["dispatchSystemWrite"];
-    const handle = await boot(undefined, {
-      eventDispatcher: { pollIntervalMs: 50 },
-      extraRoutes: (_app, deps) => {
-        dispatchSystemWrite = deps.dispatchSystemWrite;
-      },
-    });
-
-    // Default-Boot baut den lokalen Dispatcher und start() hat ihn gestartet.
-    expect(handle.entrypoint.eventDispatcher).toBeDefined();
-
-    const aggregateId = crypto.randomUUID();
-    const result = await dispatchSystemWrite!({
-      handlerQn: "prod-probe:write:probe-append",
-      payload: { aggregateId, note: "dispatched" },
-      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
-    });
-    expect(result.isSuccess).toBe(true);
-
-    const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-    const { db, close } = createDbConnection(url);
-    try {
-      const row = await pollFor(async () => {
-        const rows = (await asRawClient(db).unsafe(
-          `SELECT note FROM prod_probe_pings WHERE aggregate_id = $1`,
-          [aggregateId],
-        )) as Array<{ note: string }>;
-        return rows[0];
+  test(
+    "Write → appendEvent → MSP wendet async an; Consumer-Cursor wandert",
+    async () => {
+      let dispatchSystemWrite: import("../extra-routes-deps").ExtraRoutesSystemDeps["dispatchSystemWrite"];
+      const handle = await boot(undefined, {
+        eventDispatcher: { pollIntervalMs: 50 },
+        extraRoutes: (_app, deps) => {
+          dispatchSystemWrite = deps.dispatchSystemWrite;
+        },
       });
-      expect(row.note).toBe("dispatched");
 
-      // Consumer-Registrierung + Cursor-Fortschritt — in Prod war diese
-      // Tabelle komplett leer, DER Beweis dass nie ein Dispatcher lief.
-      const consumers = (await asRawClient(db).unsafe(
-        `SELECT name, last_processed_event_id FROM kumiko_event_consumers
-         WHERE name = 'prod-probe:projection:probe-ping-projection'
-            OR name LIKE '%probe-ping-projection%'`,
-      )) as Array<{ name: string; last_processed_event_id: string | number }>;
-      expect(consumers.length).toBeGreaterThan(0);
-      expect(Number(consumers[0]?.last_processed_event_id)).toBeGreaterThan(0);
-    } finally {
-      await close();
-    }
-  });
+      // Default-Boot baut den lokalen Dispatcher und start() hat ihn gestartet.
+      expect(handle.entrypoint.eventDispatcher).toBeDefined();
+
+      const aggregateId = crypto.randomUUID();
+      const result = await dispatchSystemWrite!({
+        handlerQn: "prod-probe:write:probe-append",
+        payload: { aggregateId, note: "dispatched" },
+        tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+      });
+      expect(result.isSuccess).toBe(true);
+
+      const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+      const { db, close } = createDbConnection(url);
+      try {
+        const row = await pollFor(async () => {
+          const rows = (await asRawClient(db).unsafe(
+            `SELECT note FROM prod_probe_pings WHERE aggregate_id = $1`,
+            [aggregateId],
+          )) as Array<{ note: string }>;
+          return rows[0];
+        });
+        expect(row.note).toBe("dispatched");
+
+        // Consumer-Registrierung + Cursor-Fortschritt — in Prod war diese
+        // Tabelle komplett leer, DER Beweis dass nie ein Dispatcher lief.
+        // The cursor is committed after the projection row, so poll on the
+        // cursor value itself — a registered consumer still reads 0 for a moment.
+        const consumers = await pollFor(async () => {
+          const rows = (await asRawClient(db).unsafe(
+            `SELECT name, last_processed_event_id FROM kumiko_event_consumers
+           WHERE name = 'prod-probe:projection:probe-ping-projection'
+              OR name LIKE '%probe-ping-projection%'`,
+          )) as Array<{ name: string; last_processed_event_id: string | number }>;
+          return Number(rows[0]?.last_processed_event_id) > 0 ? rows : undefined;
+        });
+        expect(consumers.length).toBeGreaterThan(0);
+        expect(Number(consumers[0]?.last_processed_event_id)).toBeGreaterThan(0);
+      } finally {
+        await close();
+      }
+    },
+    BOOT_AND_POLL_TIMEOUT_MS,
+  );
 
   test("eventDispatcher.disabled: kein lokaler Dispatcher gebaut", async () => {
     const handle = await boot(undefined, {
