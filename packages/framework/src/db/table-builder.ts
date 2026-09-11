@@ -572,6 +572,16 @@ export function buildEntityTable<E extends EntityDefinition>(
         // Pass through to the IndexBuilderWithCols.where()-API.
         if (def.where !== undefined) {
           chain = chain.where(def.where as SqlExpression);
+        } else if (def.unique === true && entity.softDelete === true) {
+          // Soft-deleted rows keep their value, so a full unique index would
+          // permanently block reuse; kept in lock-step with entity-table-meta.ts (framework#2593).
+          const softDeleteWhere: SqlExpression = {
+            kind: "sql-expr",
+            text: `"is_deleted" = false`,
+            params: [],
+            [SQL_EXPR_BRAND]: true,
+          };
+          chain = chain.where(softDeleteWhere);
         }
         indexes[indexName] = chain;
         // Partielles bidx-Pendant für unique-Indices über lookupable-Spalten

@@ -66,7 +66,7 @@ export async function seedUser(
   // Interface braucht den Wrap.
   const tdb = createTenantDb(db, by.tenantId, "system");
 
-  const existing = await fetchOne(db, userTable, { email: options.email });
+  const existing = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
   // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
   // liefert die Projection-Row als Record<string, unknown>.
   if (existing) {

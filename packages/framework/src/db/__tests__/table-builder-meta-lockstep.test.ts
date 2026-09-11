@@ -120,6 +120,23 @@ describe("lock-step — softDelete + explizite Indexes", () => {
     );
     expect((fromBuilder?.indexes ?? []).length).toBeGreaterThanOrEqual(3);
   });
+
+  test("explicit unique index without author where gets the soft-delete predicate (#2593)", () => {
+    const idx = fromMeta.indexes.find((i) => i.name.endsWith("_owner_id_status_unique"));
+    expect(idx?.unique).toBe(true);
+    expect(idx?.whereSql).toBe('"is_deleted" = false');
+  });
+
+  test("author-provided where is left unchanged, no is_deleted appended (#2593)", () => {
+    const idx = fromMeta.indexes.find((i) => i.name === "open_title_unique");
+    expect(idx?.whereSql).toBe("status = 'open'");
+  });
+
+  test("non-unique explicit index gets no predicate at all (#2593)", () => {
+    const idx = fromMeta.indexes.find((i) => i.name.endsWith("_owner_id_idx"));
+    expect(idx?.unique).toBeUndefined();
+    expect(idx?.whereSql).toBeUndefined();
+  });
 });
 
 // Dritte Probe: lookupable-Feld (#818) — bidx-Spalte, bidx-Index und das
@@ -159,6 +176,14 @@ describe("lock-step — lookupable / blind-index (#818)", () => {
     expect(partial?.columns).toEqual(["tenant_slug", "email_bidx"]);
     expect(partial?.whereSql).toBe('"email_bidx" IS NOT NULL');
   });
+
+  test("without softDelete, the plaintext unique index gets no predicate (#2593)", () => {
+    const plaintext = fromMeta.indexes.find(
+      (i) => i.name.endsWith("_tenant_slug_email_unique") && !i.name.endsWith("_bidx"),
+    );
+    expect(plaintext?.unique).toBe(true);
+    expect(plaintext?.whereSql).toBeUndefined();
+  });
 });
 
 // Fourth probe: softDelete + lookupable (#2464) — the partial bidx unique
@@ -187,5 +212,13 @@ describe("lock-step — softDelete + lookupable/blind-index (#2464)", () => {
     const partial = fromMeta.indexes.find((i) => i.name.endsWith("_tenant_slug_email_unique_bidx"));
     expect(partial).toBeDefined();
     expect(partial?.whereSql).toBe('"email_bidx" IS NOT NULL AND "is_deleted" = false');
+  });
+
+  test("plaintext unique index also gets the soft-delete predicate (#2593)", () => {
+    const plaintext = fromMeta.indexes.find(
+      (i) => i.name.endsWith("_tenant_slug_email_unique") && !i.name.endsWith("_bidx"),
+    );
+    expect(plaintext?.unique).toBe(true);
+    expect(plaintext?.whereSql).toBe('"is_deleted" = false');
   });
 });
