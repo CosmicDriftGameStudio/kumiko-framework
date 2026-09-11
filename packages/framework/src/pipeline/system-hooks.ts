@@ -94,6 +94,8 @@ export function createSearchEventConsumer(
           entity !== undefined &&
           (registry.getSearchableFields(entityName).length > 0 ||
             registry.getSearchPayloadExtensions(entityName).length > 0);
+        // skip: entity declares no searchable fields/extensions — nothing to
+        // index, stays a no-op with no extra query, same as before #2765.
         if (!entity || !isSearchable) return;
 
         const row = await readProjectionRowForSearch(
