@@ -347,7 +347,7 @@ jobs:
             getmeili/meilisearch:v1.12
           docker run -d --name kumiko-ci-minio --network kumiko-ci -p 19000:9000 \
             -e MINIO_ROOT_USER=kumiko -e MINIO_ROOT_PASSWORD=kumiko-dev-secret \
-            minio/minio:RELEASE.2025-01-20T14-49-07Z server /data
+            quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z server /data
           for i in $(seq 1 30); do
             if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
             sleep 2
@@ -368,10 +368,10 @@ jobs:
           done
           docker exec kumiko-ci-meili wget -q --spider http://127.0.0.1:7700/health
           for i in $(seq 1 30); do
-            if docker run --rm --network kumiko-ci --entrypoint sh minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc mb --ignore-existing local/kumiko-dev" >/dev/null 2>&1; then break; fi
+            if docker run --rm --network kumiko-ci --entrypoint sh quay.io/minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc mb --ignore-existing local/kumiko-dev" >/dev/null 2>&1; then break; fi
             sleep 2
           done
-          docker run --rm --network kumiko-ci --entrypoint sh minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc ls local/kumiko-dev"
+          docker run --rm --network kumiko-ci --entrypoint sh quay.io/minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc ls local/kumiko-dev"
 
       - name: Run integration tests
         env:
