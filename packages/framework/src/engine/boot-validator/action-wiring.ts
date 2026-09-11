@@ -21,9 +21,10 @@ function throwIfFunction(value: unknown, message: string): void {
 // rowActions/toolbarActions carry row-context extractors (payload/params),
 // static visibility conditions and navigate entityId — all declarative-DSL-
 // only fields (RowFieldExtractor's `{ pick }`/`{ map }`, FieldCondition's
-// `{ field, eq }`/`{ field, ne }`, plain strings). A function literal here
-// does not type-check against these structural DSL types — it only reaches
-// here via a leaked `any`/`as any`, which this runtime check backstops.
+// `{ field, eq }`/`{ field, ne }`/`{ field, in }`/`{ field, notIn }`, plain
+// strings). A function literal here does not type-check against these
+// structural DSL types — it only reaches here via a leaked `any`/`as any`,
+// which this runtime check backstops.
 const ACTION_FUNCTION_FIELDS = ["payload", "params", "entityId", "visible"] as const;
 
 function validateActionNoFunctions(
@@ -38,7 +39,7 @@ function validateActionNoFunctions(
       record[field],
       `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${action.id}" ${field} ` +
         `is a function — ${FUNCTION_DROPPED_HINT} Use the declarative DSL ({ pick }, { map }, ` +
-        `"fieldName", { field, eq }) instead.`,
+        `"fieldName", { field, eq }/{ field, in }) instead.`,
     );
   }
 }
@@ -78,7 +79,7 @@ function validateEditFieldNoFunctions(
       record[key],
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) field "${normalized.field}" ` +
         `${key} is a function — ${FUNCTION_DROPPED_HINT} Use a FieldCondition ` +
-        `(boolean or { field, eq }/{ field, ne }) instead.`,
+        `(boolean or { field, eq }/{ field, ne }/{ field, in }/{ field, notIn }) instead.`,
     );
   }
   throwIfFunction(
