@@ -33,14 +33,22 @@ export type PgKmsRotationEnv = KmsWiringEnv & {
   readonly SUBJECT_KEYS_DATABASE_URL: string;
 };
 
-export type ActiveKmsWiring = {
+/** Releases what the wiring opened. Present on BOTH branches (a no-op on the
+ *  plaintext fallback) so a short-lived process can `finally { await
+ *  wiring.close() }` without narrowing first. Skipping it leaves the adapter's
+ *  connection pool holding the event loop open and the process never exits —
+ *  a long-running server is supposed to hold it, every ops script is not
+ *  (fw#2551). */
+export type KmsWiringRelease = { readonly close: () => Promise<void> };
+
+export type ActiveKmsWiring = KmsWiringRelease & {
   readonly kms: PgKmsAdapter;
   readonly blindIndexKey: string;
 };
 
 /** Plaintext fallback carries its reason so the boot log says WHY PII is
  *  unencrypted — an app running like this by accident is a reportable breach. */
-export type PlaintextPiiWiring = { readonly allowPlaintextPii: string };
+export type PlaintextPiiWiring = KmsWiringRelease & { readonly allowPlaintextPii: string };
 
 export type KmsWiring = ActiveKmsWiring | PlaintextPiiWiring;
 
@@ -141,18 +149,23 @@ function assertTrioConsistent(env: KmsWiringEnv, logPrefix: string | undefined):
 export function resolveKmsWiring(env: KmsWiringEnv, options: KmsWiringOptions = {}): KmsWiring {
   const complete = assertTrioConsistent(env, options.logPrefix);
   if (complete && env.PLATFORM_KEK && env.SUBJECT_KEYS_DATABASE_URL && env.KUMIKO_BLIND_INDEX_KEY) {
+    const kms = createPgKmsAdapter(
+      buildPgKmsOptions({
+        ...env,
+        PLATFORM_KEK: env.PLATFORM_KEK,
+        SUBJECT_KEYS_DATABASE_URL: env.SUBJECT_KEYS_DATABASE_URL,
+      }),
+    );
     return {
-      kms: createPgKmsAdapter(
-        buildPgKmsOptions({
-          ...env,
-          PLATFORM_KEK: env.PLATFORM_KEK,
-          SUBJECT_KEYS_DATABASE_URL: env.SUBJECT_KEYS_DATABASE_URL,
-        }),
-      ),
+      kms,
       blindIndexKey: env.KUMIKO_BLIND_INDEX_KEY,
+      close: () => kms.close(),
     };
   }
-  return { allowPlaintextPii: options.plaintextReason ?? DEFAULT_PLAINTEXT_REASON };
+  return {
+    allowPlaintextPii: options.plaintextReason ?? DEFAULT_PLAINTEXT_REASON,
+    close: () => Promise.resolve(),
+  };
 }
 
 /** Same as `resolveKmsWiring` but the trio is mandatory — an absent trio throws
