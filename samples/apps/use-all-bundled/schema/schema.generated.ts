@@ -72,6 +72,7 @@ export const fieldDefinitionTable = buildEntityTable("field-definition", _custom
 export const tagTable = buildEntityTable("tag", _tags.entities["tag"]!);
 export const tagAssignmentTable = buildEntityTable("tag-assignment", _tags.entities["tag-assignment"]!);
 export const noteEntryTable = buildEntityTable("note-entry", _notesHistory.entities["note-entry"]!);
+export const noteMentionTable = buildEntityTable("note-mention", _notesHistory.entities["note-mention"]!);
 export const formDraftTable = buildEntityTable("form-draft", _formDraft.entities["form-draft"]!);
 export const folderTable = buildEntityTable("folder", _folders.entities["folder"]!);
 export const folderAssignmentTable = buildEntityTable("folder-assignment", _folders.entities["folder-assignment"]!);

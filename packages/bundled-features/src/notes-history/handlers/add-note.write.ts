@@ -4,7 +4,7 @@ import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { decryptStoredPii, parentRowIsVisible } from "../../shared";
 import { userTable } from "../../user";
 import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants";
-import { noteEntryExecutor } from "../executor";
+import { noteEntryExecutor, noteMentionExecutor } from "../executor";
 import { type AddNotePayload, addNotePayloadSchema } from "../schemas";
 
 // add-note — appends a note-entry to (entityType, entityId). authorId is
@@ -69,11 +69,27 @@ export function createAddNoteHandler(
         authorName = null;
       }
 
-      return noteEntryExecutor.create(
-        { ...payload, authorId: event.user.id, authorName },
+      const { mentions, ...notePayload } = payload;
+      const created = await noteEntryExecutor.create(
+        { ...notePayload, authorId: event.user.id, authorName },
         event.user,
         ctx.db,
       );
+      if (!created.isSuccess) return created;
+
+      // Same tx as the note create above (ctx.db) — a mention-row failure
+      // rolls the note back with it, same as the framework's own nested-write
+      // parent+child pattern (dispatch-write.ts).
+      for (const subjectId of new Set(mentions ?? [])) {
+        const mentionResult = await noteMentionExecutor.create(
+          { noteId: created.data.id, subjectId },
+          event.user,
+          ctx.db,
+        );
+        if (!mentionResult.isSuccess) return mentionResult;
+      }
+
+      return created;
     },
   };
 }
