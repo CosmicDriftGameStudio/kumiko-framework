@@ -5,7 +5,7 @@ import type { DialogProps } from "@cosmicdrift/kumiko-renderer";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Loader2 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { ModalShell } from "./modal-shell";
 
@@ -23,6 +23,7 @@ export function DefaultDialog({
 }: DialogProps): ReactNode {
   const t = useTranslation();
   const [loading, setLoading] = useState(false);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   const effectiveConfirmLabel = confirmLabel ?? t("kumiko.dialog.confirm");
   const effectiveCancelLabel = cancelLabel ?? t("kumiko.dialog.cancel");
@@ -50,6 +51,14 @@ export function DefaultDialog({
       closeLabel={t("kumiko.dialog.close")}
       noAriaDescription={description === undefined}
       contentClassName={cn("grid w-full max-w-lg gap-4 border bg-card p-6 shadow-lg rounded-lg")}
+      {...(children === undefined && {
+        // Radix's default initial focus lands on Cancel (first focusable in
+        // DOM order), so Enter would abort instead of confirm.
+        onOpenAutoFocus: (event: Event) => {
+          event.preventDefault();
+          confirmButtonRef.current?.focus();
+        },
+      })}
     >
       <div className="flex flex-col gap-1.5">
         <DialogPrimitive.Title className="text-lg font-semibold tracking-tight">
@@ -74,6 +83,7 @@ export function DefaultDialog({
           </button>
         </DialogPrimitive.Close>
         <button
+          ref={confirmButtonRef}
           type="button"
           onClick={() => void handleConfirm()}
           disabled={loading}

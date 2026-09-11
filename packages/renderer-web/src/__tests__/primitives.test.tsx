@@ -1711,6 +1711,42 @@ describe("Dialog", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  test("without children: initial focus lands on Confirm, and Enter there confirms (not Cancel)", async () => {
+    const user = userEvent.setup();
+    const onConfirm = mock();
+    render(
+      <Dialog
+        open
+        onOpenChange={() => undefined}
+        title="Wirklich löschen?"
+        onConfirm={onConfirm}
+        testId="dlg"
+      />,
+    );
+    const confirmButton = await waitFor(() => screen.getByTestId("dlg-confirm"));
+    await waitFor(() => expect(document.activeElement).toBe(confirmButton));
+    await user.keyboard("{Enter}");
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  test("with children: initial focus stays off Confirm (Radix default, e.g. an input inside)", async () => {
+    render(
+      <Dialog
+        open
+        onOpenChange={() => undefined}
+        title="Details"
+        onConfirm={() => undefined}
+        testId="dlg-with-content"
+      >
+        <input type="text" data-testid="dlg-input" />
+      </Dialog>,
+    );
+    const confirmButton = await waitFor(() => screen.getByTestId("dlg-with-content-confirm"));
+    // No explicit assertion on where focus DOES land (Radix's own default,
+    // out of scope here) — only that it isn't hijacked onto Confirm.
+    expect(document.activeElement).not.toBe(confirmButton);
+  });
 });
 
 describe("Text variants", () => {
