@@ -329,6 +329,7 @@ export async function backfillEventPiiEncryption(
             projectionOwnerRow,
             // @cast-boundary db-read — tenant_id column is the branded TenantId
             row.tenant_id as TenantId,
+            row.aggregate_type,
           );
           if (resolution.kind === "unannotated") continue;
           if (resolution.kind === "unresolved") {
@@ -408,9 +409,10 @@ function resolveOwnerSubject(
   subjectSource: Record<string, unknown>,
   projectionOwnerRow: Record<string, unknown> | undefined,
   tenantId: TenantId,
+  entityName: string,
 ): OwnerSubjectResolution {
   try {
-    const subject = resolveSubjectForField(entity, field, subjectSource, { tenantId });
+    const subject = resolveSubjectForField(entity, field, subjectSource, { tenantId, entityName });
     return subject === null
       ? { kind: "unannotated" }
       : { kind: "resolved", subject, viaProjection: false };
@@ -419,7 +421,7 @@ function resolveOwnerSubject(
     if (projectionOwnerRow) {
       try {
         const augmented = { ...subjectSource, ...projectionOwnerRow };
-        const subject = resolveSubjectForField(entity, field, augmented, { tenantId });
+        const subject = resolveSubjectForField(entity, field, augmented, { tenantId, entityName });
         if (subject !== null) return { kind: "resolved", subject, viaProjection: true };
       } catch (e2) {
         if (!(e2 instanceof SubjectResolutionError)) throw e2;

@@ -29,12 +29,12 @@ export type FieldAccess = {
 // to prevent: `encrypted: true` looks like the strongest option and is the
 // only one with NO erasure guarantee.
 //
-//   resolved flag                  | at rest    | searchable | Art. 17 erasure
-//   -------------------------------|------------|------------|----------------
-//   (none)                         | plaintext  | yes        | no
-//   allowPlaintext + anonymize     | plaintext  | yes        | read side only
-//   pii / userOwned / tenantOwned  | ciphertext | yes *      | yes, key erase
-//   encrypted: true                | ciphertext | no         | NO
+//   resolved flag                               | at rest    | searchable | Art. 17 erasure
+//   --------------------------------------------|------------|------------|---------------
+//   (none)                                      | plaintext  | yes        | no
+//   allowPlaintext + anonymize                  | plaintext  | yes        | read side only
+//   pii / userOwned / tenantOwned / recordOwned | ciphertext | yes *      | yes, key erase
+//   encrypted: true                             | ciphertext | no         | NO
 //
 //   * Subject-annotated + `searchable: true` (#1610): search consumer
 //     decrypts into Meilisearch. Events/projection stay ciphertext.
@@ -75,6 +75,10 @@ export type FieldAccess = {
 //   - `personal: "ref"`          → `subjectRef: true`. FK into `user` with no
 //                                  annotated content of its own (authorId,
 //                                  assigneeId).
+//   - `personal: { of: "id" }`   → `recordOwned: true`. the row itself is the
+//                                  subject — free-text content with no user
+//                                  reference of its own (a support note keyed
+//                                  only by its own row id).
 //   - `personal: false, reason`  → `allowPlaintext: "<reason>"`. deliberately
 //                                  plaintext; `reason` is mandatory snake_case.
 //
@@ -126,6 +130,7 @@ export type ResolvedPiiFlags = {
   readonly pii?: boolean;
   readonly userOwned?: { readonly ownerField: string };
   readonly tenantOwned?: boolean;
+  readonly recordOwned?: true;
   readonly anonymize?: () => unknown | Promise<unknown>;
   readonly allowPlaintext?: string;
   /** Equality-Lookups (fetchOne/filter eq) bleiben trotz Verschluesselung

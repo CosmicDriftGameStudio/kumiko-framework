@@ -428,6 +428,7 @@ describe("buildAppSchema", () => {
       "pii", // PII classification, drives crypto/storage — not client-relevant
       "userOwned", // same: subject-key annotation, server/crypto-only
       "tenantOwned", // same: subject-key annotation, server/crypto-only
+      "recordOwned", // same: subject-key annotation, server/crypto-only
       "anonymize", // retention-cleanup callback, never serializable to JSON
       "allowPlaintext", // PII-audit reason string, not a renderer concern
       "lookupable", // blind-index equality lookup, server-side query concern

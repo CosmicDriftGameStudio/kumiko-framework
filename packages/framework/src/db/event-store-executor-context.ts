@@ -265,6 +265,7 @@ export function buildExecutorContext(
     if (hasPiiFields && kms) {
       out = await encryptPiiFieldValues(out, entity, piiSubjectFields, kms, kmsContextFor(user), {
         tenantId: user.tenantId,
+        entityName,
         ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
         ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
       });

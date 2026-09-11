@@ -45,7 +45,7 @@ export function assertPiiBootInvariants(
   if (opts.mode === "dev") {
     // biome-ignore lint/suspicious/noConsole: boot-time security warning
     console.warn(
-      `[${tag}] ${piiEntities.length} entities carry pii/userOwned/tenantOwned annotations but no \`kms\` adapter is configured — fields are stored in PLAINTEXT locally. Pass { kms: new InMemoryKmsAdapter() } (ephemeral DB) or createPgKmsAdapter(...) to exercise crypto-shredding in dev.`,
+      `[${tag}] ${piiEntities.length} entities carry pii/userOwned/tenantOwned/recordOwned annotations but no \`kms\` adapter is configured — fields are stored in PLAINTEXT locally. Pass { kms: new InMemoryKmsAdapter() } (ephemeral DB) or createPgKmsAdapter(...) to exercise crypto-shredding in dev.`,
     );
     // skip: dev mode, plaintext-PII warning already logged above
     return;
@@ -59,6 +59,6 @@ export function assertPiiBootInvariants(
     return;
   }
   throw new Error(
-    `[${tag}] BOOT ABORTED — entities [${piiEntities.join(", ")}] carry pii/userOwned/tenantOwned annotations but no \`kms\` adapter is configured. The fields would be stored in PLAINTEXT and GDPR erasure (crypto-shredding) could not work. Pass runProdApp({ kms: createPgKmsAdapter({ databaseUrl, platformKek }) }) — or acknowledge explicitly with { allowPlaintextPii: "<reason>" } until your KMS is provisioned.`,
+    `[${tag}] BOOT ABORTED — entities [${piiEntities.join(", ")}] carry pii/userOwned/tenantOwned/recordOwned annotations but no \`kms\` adapter is configured. The fields would be stored in PLAINTEXT and GDPR erasure (crypto-shredding) could not work. Pass runProdApp({ kms: createPgKmsAdapter({ databaseUrl, platformKek }) }) — or acknowledge explicitly with { allowPlaintextPii: "<reason>" } until your KMS is provisioned.`,
   );
 }

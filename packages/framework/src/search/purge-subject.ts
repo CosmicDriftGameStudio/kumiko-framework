@@ -26,6 +26,7 @@ import type { SearchAdapter } from "./types";
 function ownershipPredicates(
   entity: EntityDefinition,
   searchableFields: readonly string[],
+  entityName: string,
   subject: SubjectId,
   nextParam: () => number,
 ): { sql: string; params: unknown[] } | null {
@@ -33,30 +34,52 @@ function ownershipPredicates(
   const params: unknown[] = [];
   let selfIdN: number | undefined;
   let tenantIdN: number | undefined;
+  let recordIdN: number | undefined;
   const ownerFieldN = new Map<string, number>();
 
   for (const fieldName of searchableFields) {
     const field = entity.fields[fieldName];
     if (!field) continue;
-    if (subject.kind === "user") {
-      if ("userOwned" in field && field.userOwned !== undefined) {
-        const col = toSnakeCase(field.userOwned.ownerField);
-        let n = ownerFieldN.get(col);
-        if (n === undefined) {
-          n = nextParam();
-          ownerFieldN.set(col, n);
+    switch (subject.kind) {
+      case "user": {
+        if ("userOwned" in field && field.userOwned !== undefined) {
+          const col = toSnakeCase(field.userOwned.ownerField);
+          let n = ownerFieldN.get(col);
+          if (n === undefined) {
+            n = nextParam();
+            ownerFieldN.set(col, n);
+            params.push(subject.userId);
+            parts.push(`${quoteIdent(col)} = $${n}`);
+          }
+        } else if (isSelfPiiField(field) && selfIdN === undefined) {
+          selfIdN = nextParam();
           params.push(subject.userId);
-          parts.push(`${quoteIdent(col)} = $${n}`);
+          parts.push(`${quoteIdent("id")} = $${selfIdN}`);
         }
-      } else if (isSelfPiiField(field) && selfIdN === undefined) {
-        selfIdN = nextParam();
-        params.push(subject.userId);
-        parts.push(`${quoteIdent("id")} = $${selfIdN}`);
+        break;
       }
-    } else if ("tenantOwned" in field && field.tenantOwned === true && tenantIdN === undefined) {
-      tenantIdN = nextParam();
-      params.push(subject.tenantId);
-      parts.push(`${quoteIdent("tenant_id")} = $${tenantIdN}`);
+      case "tenant": {
+        if ("tenantOwned" in field && field.tenantOwned === true && tenantIdN === undefined) {
+          tenantIdN = nextParam();
+          params.push(subject.tenantId);
+          parts.push(`${quoteIdent("tenant_id")} = $${tenantIdN}`);
+        }
+        break;
+      }
+      case "record": {
+        const isMatchingRecordField =
+          entityName === subject.entity && "recordOwned" in field && field.recordOwned === true;
+        if (isMatchingRecordField && recordIdN === undefined) {
+          recordIdN = nextParam();
+          params.push(subject.id);
+          parts.push(`${quoteIdent("id")} = $${recordIdN}`);
+        }
+        break;
+      }
+      default: {
+        const exhaustiveCheck: never = subject;
+        throw new Error(`Unhandled subject kind: ${JSON.stringify(exhaustiveCheck)}`);
+      }
     }
   }
   if (parts.length === 0) return null;
@@ -99,6 +122,7 @@ function buildSubjectPredicate(
   entity: EntityDefinition,
   fields: readonly string[],
   likePattern: string,
+  entityName: string,
   subject: SubjectId | undefined,
 ): { sql: string; params: unknown[] } {
   let paramIdx = 0;
@@ -113,7 +137,7 @@ function buildSubjectPredicate(
   );
 
   if (subject) {
-    const owned = ownershipPredicates(entity, fields, subject, nextParam);
+    const owned = ownershipPredicates(entity, fields, entityName, subject, nextParam);
     if (owned) {
       params.push(...owned.params);
       orParts.push(`(${owned.sql})`);
@@ -144,7 +168,7 @@ export async function purgeSearchDocumentsForSubject(
       // a mounted feature without its migration must not abort the purge
       // (and the audit event after it).
       if (!(await tableExists(db, tableName))) continue;
-      const predicate = buildSubjectPredicate(entity, fields, likePattern, subject);
+      const predicate = buildSubjectPredicate(entity, fields, likePattern, entityName, subject);
       const rows = await collectMatchingRowsForEntity(
         db,
         tableName,

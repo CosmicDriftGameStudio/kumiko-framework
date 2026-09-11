@@ -19,6 +19,9 @@ export interface ResolveSubjectOptions {
   // Write-time tenant scope — consulted for tenantOwned fields when the row
   // itself carries no tenantId column.
   readonly tenantId?: TenantId;
+  // Canonical source is the registry entity name (executor `entityName` /
+  // event `aggregate_type`) — required to resolve recordOwned fields.
+  readonly entityName?: string;
 }
 
 function nonEmptyString(value: unknown): string | null {
@@ -30,7 +33,8 @@ function nonEmptyString(value: unknown): string | null {
  * Returns null for fields without any PII annotation (stored plaintext).
  *
  * Precedence for multi-annotated fields mirrors the erase triggers:
- * userOwned (user-forget) > tenantOwned (tenant-destroy) > pii (self).
+ * recordOwned (record-forget) > userOwned (user-forget) > tenantOwned
+ * (tenant-destroy) > pii (self).
  */
 export function resolveSubjectForField(
   entity: EntityDefinition,
@@ -40,6 +44,22 @@ export function resolveSubjectForField(
 ): SubjectId | null {
   const field = entity.fields[fieldName];
   if (!field) throw new SubjectResolutionError(fieldName, "field is not defined on the entity");
+
+  if ("recordOwned" in field && field.recordOwned === true) {
+    const entityName = nonEmptyString(opts.entityName);
+    if (entityName === null) {
+      throw new SubjectResolutionError(
+        fieldName,
+        "record subject needs the entity name; caller did not supply one",
+      );
+    }
+    const id = row["id"];
+    const recordId = nonEmptyString(id) ?? (typeof id === "number" ? String(id) : null);
+    if (recordId === null) {
+      throw new SubjectResolutionError(fieldName, "row has no id to use as the record subject");
+    }
+    return { kind: "record", entity: entityName, id: recordId };
+  }
 
   if ("userOwned" in field && field.userOwned !== undefined) {
     const ownerField = field.userOwned.ownerField;
@@ -78,16 +98,20 @@ export function resolveSubjectForField(
   return null;
 }
 
+function hasSubjectAnnotation(field: EntityDefinition["fields"][string]): boolean {
+  return (
+    ("userOwned" in field && field.userOwned !== undefined) ||
+    ("tenantOwned" in field && field.tenantOwned === true) ||
+    ("recordOwned" in field && field.recordOwned === true) ||
+    isSelfPiiField(field)
+  );
+}
+
 // The field names an encrypt engine must process for an entity — precomputed
 // once at executor build time, like the sensitiveFields set.
 export function collectPiiSubjectFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)
-    .filter(
-      ([, field]) =>
-        ("userOwned" in field && field.userOwned !== undefined) ||
-        ("tenantOwned" in field && field.tenantOwned === true) ||
-        isSelfPiiField(field),
-    )
+    .filter(([, field]) => hasSubjectAnnotation(field))
     .map(([name]) => name);
 }
 
@@ -95,11 +119,7 @@ export function collectPiiSubjectFields(entity: EntityDefinition): readonly stri
 export function collectSearchableSubjectFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)
     .filter(([, field]) => {
-      const subject =
-        ("userOwned" in field && field.userOwned !== undefined) ||
-        ("tenantOwned" in field && field.tenantOwned === true) ||
-        isSelfPiiField(field);
-      if (!subject) return false;
+      if (!hasSubjectAnnotation(field)) return false;
       if ("sensitive" in field && field.sensitive === true) return false;
       return "searchable" in field && field.searchable === true;
     })
