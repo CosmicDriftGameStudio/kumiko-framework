@@ -73,25 +73,28 @@ test.describe("mobile (< md)", () => {
       expect(className).not.toContain("truncate");
     }
 
-    // Row actions are reachable, not shoved offscreen. This was the actual
-    // bug: on the old table, actions only became `sticky` from 768px up, so
-    // below that they scrolled with the row and needed the (now-removed)
-    // horizontal table scroll to reach. item-list carries 5 rowActions
-    // (edit/publish/archive/duplicate/delete) and every id resolves an icon,
-    // so KumikoScreen renders the column inline and RowActionsCell collapses
-    // it to icon-only buttons (fw#2580) instead of a kebab trigger. The label
-    // survives as the button's aria-label.
-    await expect(sampleCard.locator('[data-testid$="-actions-menu"]')).toHaveCount(0);
+    // item-list has 5 rowActions (> 2), so RowActionsCell keeps only the
+    // primary action ("edit") inline as a text button and moves the rest
+    // into a kebab menu — this proves both stay reachable on a narrow
+    // viewport, not any specific rendering choice.
+    const kebabTrigger = sampleCard.locator('[data-testid$="-actions-menu"]');
+    await expect(kebabTrigger).toHaveCount(1);
 
     const editAction = sampleCard.locator('[data-testid$="-action-edit"]');
-    const deleteAction = sampleCard.locator('[data-testid$="-action-delete"]');
-    for (const action of [editAction, deleteAction]) {
-      await expect(action).toBeVisible();
-      await expect(action).toBeInViewport();
-      await expect(action).toBeEnabled();
-    }
-    await expect(editAction).toHaveAttribute("aria-label", "Edit");
-    await expect(deleteAction).toHaveAttribute("aria-label", "Delete");
+    await expect(editAction).toBeVisible();
+    await expect(editAction).toBeInViewport();
+    await expect(editAction).toBeEnabled();
+    await expect(editAction).toHaveText("Edit");
+
+    const kebabTestId = await kebabTrigger.getAttribute("data-testid");
+    expect(kebabTestId).toBeTruthy();
+    const rowTestIdPrefix = kebabTestId?.replace(/-actions-menu$/, "");
+    await kebabTrigger.click();
+    const deleteAction = page.locator(`[data-testid="${rowTestIdPrefix}-action-delete"]`);
+    await expect(deleteAction).toBeVisible();
+    await expect(deleteAction).toBeInViewport();
+    await expect(deleteAction).toBeEnabled();
+    await page.keyboard.press("Escape");
   });
 });
 
