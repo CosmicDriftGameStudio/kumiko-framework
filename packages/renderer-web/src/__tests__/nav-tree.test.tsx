@@ -739,6 +739,39 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toBeUndefined();
   });
 
+  // fw#2751: boot validates screen XOR target for NavDefinition actions, but
+  // a schema handed straight to NavTree (as here, and as a provider-emitted
+  // TreeNode at runtime) bypasses that — neither must not render a dead
+  // button, it must warn once and drop the action.
+  test("actions[]-Eintrag ohne screen und ohne target rendert nichts und warnt einmal", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const schema: FeatureSchema = {
+        featureName: "cms",
+        entities: {},
+        screens: [],
+        navs: [
+          {
+            id: "hero",
+            label: "Hero",
+            order: 10,
+            actions: [{ icon: "edit", label: "Broken action" }],
+          },
+        ],
+      } as FeatureSchema;
+      await act(async () => {
+        renderDynamic({ schema, providers: new Map() });
+      });
+
+      expect(screen.queryByRole("button", { name: "Broken action" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Broken action" })).toBeNull();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0]).toContain("Broken action");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   test("target-Knoten dispatcht beim Klick (statt Route-Link)", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {

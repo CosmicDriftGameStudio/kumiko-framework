@@ -493,6 +493,21 @@ function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
   );
 }
 
+// Boot validates screen XOR target for NavDefinition actions, but a
+// provider-emitted TreeNode reaches here without going through boot — warn
+// once per label instead of rendering a dead button (fw#2751 review).
+const warnedTreeActionLabels = new Set<string>();
+
+function warnTreeActionDropped(label: string): void {
+  // skip: already warned for this label — suppresses the repeat, not the warning itself.
+  if (warnedTreeActionLabels.has(label)) return;
+  warnedTreeActionLabels.add(label);
+  // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
+  console.warn(
+    `[kumiko] Nav action "${label}" has neither "screen" nor "target" set — it will not render.`,
+  );
+}
+
 // An action button carries screen XOR target (see TreeAction) — `screen`
 // renders a KumikoLink to the route, `target` a dispatch button. Same
 // classes/size either way, only the element changes.
@@ -524,23 +539,24 @@ function TreeActionControl({
       </KumikoLink>
     );
   }
-  const target = action.target;
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      className={className}
-      onClick={(e) => {
-        e.stopPropagation();
-        // skip: boot validates screen XOR target for nav actions; a
-        // provider-emitted TreeNode can still carry neither at runtime —
-        // render inert rather than crash.
-        if (target !== undefined) dispatch(target);
-      }}
-    >
-      {children}
-    </button>
-  );
+  if (action.target !== undefined) {
+    const target = action.target;
+    return (
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        className={className}
+        onClick={(e) => {
+          e.stopPropagation();
+          dispatch(target);
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
+  warnTreeActionDropped(action.label);
+  return null;
 }
 
 // Hover-actions + the "+" affordance, positioned absolute right.
