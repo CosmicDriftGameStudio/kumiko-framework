@@ -39,6 +39,7 @@ export {
   type KmsWiring,
   type KmsWiringEnv,
   type KmsWiringOptions,
+  type KmsWiringRelease,
   type PgKmsRotationEnv,
   type PlaintextPiiWiring,
   requireKmsWiring,
