@@ -345,9 +345,13 @@ export function buildInitialValues(
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   for (const [name, def] of Object.entries(fields)) {
-    const shape = def as { type?: string; default?: unknown };
+    const shape = def as { type?: string; default?: unknown; multiple?: boolean };
     if (shape.default !== undefined) {
       out[name] = shape.default;
+      continue;
+    }
+    if (shape.type === "embedded" && shape.multiple === true) {
+      out[name] = [];
       continue;
     }
     if (shape.type === "money" && defaultCurrency !== undefined) {
@@ -399,7 +403,7 @@ function parseJsonOrRaw(raw: string): unknown {
   }
 }
 
-function warnMoneyParam(message: string): void {
+function warnPrefillParam(message: string): void {
   // biome-ignore lint/suspicious/noConsole: dev-warning for an authoring error
   console.warn(`[kumiko] ${message}`);
 }
@@ -416,7 +420,7 @@ function coerceMoneyValue(
   if (value === null) return undefined;
   if (isMoneyValue(value)) return { amount: value.amount, currency: value.currency.toUpperCase() };
   if (typeof value === "object") {
-    warnMoneyParam(
+    warnPrefillParam(
       `money field "${fieldName}" got an object without a usable {amount, currency} shape — the prefill is ignored.`,
     );
     return undefined;
@@ -424,10 +428,79 @@ function coerceMoneyValue(
   const amount = Number(typeof value === "number" ? value : raw);
   if (!Number.isFinite(amount)) return undefined;
   if (defaultCurrency !== undefined) return { amount, currency: defaultCurrency };
-  warnMoneyParam(
+  warnPrefillParam(
     `money field "${fieldName}" was prefilled with a bare number and no currency is available — pass {"amount":<number>,"currency":"<ISO code>"} as the param value, otherwise the handler's schema rejects the submit.`,
   );
   return amount;
+}
+
+type EmbeddedCellShape = { readonly type?: string; readonly options?: readonly string[] };
+
+const EMBEDDED_LIST_PREFILL_ROW_LIMIT = 500;
+
+function coerceEmbeddedCell(value: unknown, cell: EmbeddedCellShape): unknown {
+  switch (cell.type) {
+    case "number":
+    case "decimal":
+      return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+    case "money":
+      // Row cells are signed minor units; the currency lives on the head, so a
+      // top-level `{amount, currency}` in major units would land 100x off.
+      return typeof value === "number" && Number.isSafeInteger(value) ? value : undefined;
+    case "boolean":
+      return typeof value === "boolean" ? value : undefined;
+    case "select":
+      return typeof value === "string" && (cell.options ?? []).includes(value) ? value : undefined;
+    default:
+      return typeof value === "string" ? value : undefined;
+  }
+}
+
+// A partially coerced list is the hazard the prefill exists to avoid: the
+// handler replaces the list whole, so half a list overwrites the rest.
+function coerceEmbeddedListRows(
+  raw: string,
+  fieldName: string,
+  schema: Readonly<Record<string, EmbeddedCellShape>>,
+  maxItems?: number,
+): readonly Readonly<Record<string, unknown>>[] | undefined {
+  const parsed = parseJsonOrRaw(raw);
+  if (!Array.isArray(parsed)) {
+    warnPrefillParam(
+      `embedded-list field "${fieldName}" was prefilled with something that is not a JSON array — the prefill is ignored.`,
+    );
+    return undefined;
+  }
+  if (parsed.length > (maxItems ?? EMBEDDED_LIST_PREFILL_ROW_LIMIT)) {
+    warnPrefillParam(
+      `embedded-list field "${fieldName}" was prefilled with ${parsed.length} rows, more than it accepts — the prefill is ignored.`,
+    );
+    return undefined;
+  }
+  const rows: Readonly<Record<string, unknown>>[] = [];
+  for (const candidate of parsed) {
+    if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+      warnPrefillParam(
+        `embedded-list field "${fieldName}" was prefilled with a row that is not an object — the prefill is ignored.`,
+      );
+      return undefined;
+    }
+    const cellEntries: [string, unknown][] = [];
+    for (const [cellName, cell] of Object.entries(schema)) {
+      const cellValue = (candidate as Record<string, unknown>)[cellName];
+      if (cellValue === undefined || cellValue === null) continue;
+      const coerced = coerceEmbeddedCell(cellValue, cell);
+      if (coerced === undefined) {
+        warnPrefillParam(
+          `embedded-list field "${fieldName}" was prefilled with a cell "${cellName}" the sub-schema rejects — the prefill is ignored.`,
+        );
+        return undefined;
+      }
+      cellEntries.push([cellName, coerced]);
+    }
+    rows.push(Object.fromEntries(cellEntries));
+  }
+  return rows;
 }
 
 export function mergeSearchParamsIntoInitial(
@@ -450,6 +523,9 @@ export function mergeSearchParamsIntoInitial(
       type?: string;
       sensitive?: boolean;
       options?: readonly (string | { readonly value: string })[];
+      multiple?: boolean;
+      schema?: Readonly<Record<string, EmbeddedCellShape>>;
+      maxItems?: number;
     };
     if (shape.sensitive === true) continue;
     if (overrides !== undefined && name in overrides) {
@@ -499,6 +575,9 @@ export function mergeSearchParamsIntoInitial(
       }
       merged[name] =
         optionValues !== undefined ? values.filter((v) => optionValues.has(v)) : values;
+    } else if (shape.type === "embedded" && shape.multiple === true) {
+      const rows = coerceEmbeddedListRows(raw, name, shape.schema ?? {}, shape.maxItems);
+      merged[name] = rows ?? defaults[name];
     } else {
       merged[name] = raw;
     }

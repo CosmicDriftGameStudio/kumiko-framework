@@ -6,6 +6,9 @@ type FieldDef = {
   default?: unknown;
   sensitive?: boolean;
   options?: readonly string[];
+  multiple?: boolean;
+  schema?: Record<string, { type?: string; options?: readonly string[] }>;
+  maxItems?: number;
 };
 
 describe("mergeSearchParamsIntoInitial", () => {
@@ -195,5 +198,143 @@ describe("mergeSearchParamsIntoInitial", () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  describe("embeddedList prefill (fw#2764)", () => {
+    const linesField = (extra: Partial<FieldDef> = {}): Record<string, FieldDef> => ({
+      lines: {
+        type: "embedded",
+        multiple: true,
+        schema: {
+          accountId: { type: "text" },
+          amount: { type: "money" },
+          qty: { type: "number" },
+          posted: { type: "boolean" },
+          kind: { type: "select", options: ["debit", "credit"] },
+        },
+        ...extra,
+      },
+    });
+
+    test("a JSON row list from params.map arrives complete in the field", () => {
+      const rows = [
+        { accountId: "bank", amount: 1299, qty: 2, posted: true, kind: "debit" },
+        { accountId: "cash", amount: -1299, qty: 1, posted: false, kind: "credit" },
+      ];
+      const result = mergeSearchParamsIntoInitial(linesField(), { lines: JSON.stringify(rows) });
+      expect(result["lines"]).toEqual(rows);
+    });
+
+    test("money cells stay signed minor-unit integers", () => {
+      const result = mergeSearchParamsIntoInitial(linesField(), {
+        lines: JSON.stringify([{ accountId: "bank", amount: -4200 }]),
+      });
+      expect(result["lines"]).toEqual([{ accountId: "bank", amount: -4200 }]);
+    });
+
+    test("a fractional money cell rejects the whole prefill and warns", () => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeSearchParamsIntoInitial(linesField(), {
+          lines: JSON.stringify([{ accountId: "bank", amount: 12.99 }]),
+        });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+        expect(warnSpy.mock.calls[0]?.[0]).toContain("lines");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    test("a non-JSON param leaves the field empty and warns", () => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeSearchParamsIntoInitial(linesField(), { lines: "not-json-at-all" });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    test("a JSON object instead of an array leaves the field empty and warns", () => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeSearchParamsIntoInitial(linesField(), {
+          lines: JSON.stringify({ accountId: "bank" }),
+        });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    test("a row that is not an object leaves the field empty and warns", () => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeSearchParamsIntoInitial(linesField(), {
+          lines: JSON.stringify([1, 2]),
+        });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    test("a select cell outside the declared options rejects the prefill and warns", () => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeSearchParamsIntoInitial(linesField(), {
+          lines: JSON.stringify([{ accountId: "bank", kind: "sudo" }]),
+        });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    test("undeclared row keys are dropped instead of reaching the form", () => {
+      const result = mergeSearchParamsIntoInitial(linesField(), {
+        lines: JSON.stringify([{ accountId: "bank", secretFlag: "yes" }]),
+      });
+      expect(result["lines"]).toEqual([{ accountId: "bank" }]);
+    });
+
+    test("a __proto__ key in a row pollutes nothing", () => {
+      const result = mergeSearchParamsIntoInitial(linesField(), {
+        lines: '[{"accountId":"bank","__proto__":{"polluted":true}}]',
+      });
+      expect(result["lines"]).toEqual([{ accountId: "bank" }]);
+      expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+      expect(Object.getPrototypeOf((result["lines"] as unknown[])[0])).toBe(Object.prototype);
+    });
+
+    test("more rows than maxItems leaves the field empty and warns", () => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeSearchParamsIntoInitial(linesField({ maxItems: 2 }), {
+          lines: JSON.stringify([{ accountId: "a" }, { accountId: "b" }, { accountId: "c" }]),
+        });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    test("an embedded list without a matching param defaults to an empty array", () => {
+      const result = mergeSearchParamsIntoInitial(linesField(), {});
+      expect(result["lines"]).toEqual([]);
+    });
+
+    test("a sensitive embedded list ignores the param", () => {
+      const result = mergeSearchParamsIntoInitial(linesField({ sensitive: true }), {
+        lines: JSON.stringify([{ accountId: "bank" }]),
+      });
+      expect(result["lines"]).toEqual([]);
+    });
   });
 });
