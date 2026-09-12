@@ -35,6 +35,8 @@ export function createCreateTransactionHandler(
           reference: payload.reference ?? null,
           status: payload.status ?? "posted",
           lines: payload.lines,
+          subjectType: payload.subjectType ?? null,
+          subjectId: payload.subjectId ?? null,
         },
         event.user,
         ctx.db,

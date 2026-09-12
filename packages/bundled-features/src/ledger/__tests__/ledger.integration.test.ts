@@ -64,7 +64,12 @@ async function createAccount(name: string, type: AccountType, user = admin): Pro
 
 async function createTransaction(
   lines: readonly Posting[],
-  opts: { date?: string; description?: string } = {},
+  opts: {
+    date?: string;
+    description?: string;
+    subjectType?: string;
+    subjectId?: string;
+  } = {},
   user = admin,
 ): Promise<{ id: string }> {
   return stack.http.writeOk<{ id: string }>(
@@ -73,15 +78,20 @@ async function createTransaction(
       date: opts.date ?? "2026-01-15",
       description: opts.description ?? "Test entry",
       lines,
+      ...(opts.subjectType !== undefined && { subjectType: opts.subjectType }),
+      ...(opts.subjectId !== undefined && { subjectId: opts.subjectId }),
     },
     user,
   );
 }
 
-async function listTransactions(user = admin): Promise<Array<Record<string, unknown>>> {
+async function listTransactions(
+  user = admin,
+  query: Record<string, unknown> = {},
+): Promise<Array<Record<string, unknown>>> {
   const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     LedgerQueries.transactionList,
-    {},
+    query,
     user,
   );
   return res.rows;
@@ -350,7 +360,13 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
   async function createSchedule(
     debitAccountId: string,
     creditAccountId: string,
-    over: { amount?: number; description?: string; startDate?: string } = {},
+    over: {
+      amount?: number;
+      description?: string;
+      startDate?: string;
+      subjectType?: string;
+      subjectId?: string;
+    } = {},
   ): Promise<string> {
     const s = await stack.http.writeOk<{ id: string }>(
       LedgerHandlers.createSchedule,
@@ -361,6 +377,8 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
         amount: over.amount ?? 50000,
         debitAccountId,
         creditAccountId,
+        ...(over.subjectType !== undefined && { subjectType: over.subjectType }),
+        ...(over.subjectId !== undefined && { subjectId: over.subjectId }),
       },
       admin,
     );
@@ -456,5 +474,94 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     expect(rows).toHaveLength(3);
     // Books net to zero (original cancels Storno) plus the fresh 48000 confirmation.
     expect(trialBalance(rows)).toBe(0);
+  });
+
+  test("confirming a period on a schedule with a subject stamps the same subject onto the transaction", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = await createSchedule(bank, rent, {
+      subjectType: "lease",
+      subjectId: "lease-1",
+    });
+
+    await confirm(scheduleId, "2026-01");
+
+    const rows = await listTransactions();
+    expect(rows[0]?.["subjectType"]).toBe("lease");
+    expect(rows[0]?.["subjectId"]).toBe("lease-1");
+  });
+
+  test("confirming a period on a schedule without a subject leaves the transaction without one", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = await createSchedule(bank, rent);
+
+    await confirm(scheduleId, "2026-01");
+
+    const rows = await listTransactions();
+    expect(rows[0]?.["subjectType"]).toBeNull();
+    expect(rows[0]?.["subjectId"]).toBeNull();
+  });
+});
+
+describe("ledger integration — subject dimension (filterable business-object reference)", () => {
+  test("a booking with subjectType/subjectId round-trips and is findable via an eq filter", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+
+    const tx = await createTransaction(
+      [
+        { accountId: bank, amount: 100000 },
+        { accountId: rent, amount: -100000 },
+      ],
+      { description: "Miete WE1", subjectType: "lease", subjectId: "lease-1" },
+    );
+    await createTransaction(
+      [
+        { accountId: bank, amount: 60000 },
+        { accountId: rent, amount: -60000 },
+      ],
+      { description: "Miete WE2", subjectType: "lease", subjectId: "lease-2" },
+    );
+
+    const rows = await listTransactions(admin, {
+      filter: { field: "subjectId", op: "eq", value: "lease-1" },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["id"]).toBe(tx.id);
+    expect(rows[0]?.["subjectType"]).toBe("lease");
+    expect(rows[0]?.["subjectId"]).toBe("lease-1");
+  });
+
+  test("an in-filter over multiple subjectId values returns exactly the matching bookings", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+
+    await createTransaction(
+      [
+        { accountId: bank, amount: 10000 },
+        { accountId: rent, amount: -10000 },
+      ],
+      { subjectType: "lease", subjectId: "lease-1" },
+    );
+    await createTransaction(
+      [
+        { accountId: bank, amount: 20000 },
+        { accountId: rent, amount: -20000 },
+      ],
+      { subjectType: "lease", subjectId: "lease-2" },
+    );
+    await createTransaction(
+      [
+        { accountId: bank, amount: 30000 },
+        { accountId: rent, amount: -30000 },
+      ],
+      { subjectType: "lease", subjectId: "lease-3" },
+    );
+
+    const rows = await listTransactions(admin, {
+      filters: [{ field: "subjectId", op: "in", value: ["lease-1", "lease-3"] }],
+    });
+    expect(rows.map((r) => r["subjectId"]).sort()).toEqual(["lease-1", "lease-3"]);
   });
 });

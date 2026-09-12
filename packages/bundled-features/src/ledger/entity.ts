@@ -78,7 +78,22 @@ export const transactionEntity = createEntity({
       },
       { required: true },
     ),
+    // Optional business-object reference (e.g. a lease contract) so entries can
+    // be filtered by what they're about, not just grepped out of `reference`.
+    subjectType: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    subjectId: createTextField({
+      maxLength: 128,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
   },
+  indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
 });
 
 // schedule — a recurring booking template (Dauerauftrag): "book `amount` from
@@ -116,5 +131,20 @@ export const scheduleEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
+    // Confirmed periods inherit this from the schedule (see
+    // confirm-schedule-period.write.ts) rather than repeating it per period.
+    subjectType: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    subjectId: createTextField({
+      maxLength: 128,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
   },
+  indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
 });

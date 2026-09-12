@@ -27,6 +27,9 @@ export const createTransactionPayloadSchema = z
     // the Soll/recurring work — Phase 0 only ever creates posted entries.
     status: z.enum(TRANSACTION_STATUS).optional(),
     lines: z.array(postingSchema).min(2),
+    // Business-object reference (e.g. a lease contract) this entry is about.
+    subjectType: z.string().max(64).optional(),
+    subjectId: z.string().max(128).optional(),
   })
   .refine((p) => sumIsZero(p.lines), {
     message: "Transaction must balance: Σ of posting amounts must equal 0",

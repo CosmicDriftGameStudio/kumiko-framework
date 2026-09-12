@@ -96,6 +96,11 @@ export function createConfirmSchedulePeriodHandler(
       }
 
       const amount = payload.amount ?? Number(schedule["amount"]);
+      // The subject is a property of the schedule, not the confirm call — a
+      // period without one stays without one, no backfill/error.
+      const subjectType =
+        typeof schedule["subjectType"] === "string" ? schedule["subjectType"] : null;
+      const subjectId = typeof schedule["subjectId"] === "string" ? schedule["subjectId"] : null;
       const created = await transactionExecutor.create(
         {
           id: generateId(),
@@ -107,6 +112,8 @@ export function createConfirmSchedulePeriodHandler(
             { accountId: debitAccountId, amount },
             { accountId: creditAccountId, amount: -amount },
           ],
+          subjectType,
+          subjectId,
         },
         event.user,
         ctx.db,
