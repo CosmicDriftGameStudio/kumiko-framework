@@ -28,6 +28,17 @@ export type DrawerProps = {
    *  footer already has a dedicated close/cancel action, so there is only
    *  one way to dismiss the drawer. */
   readonly showCloseButton?: boolean;
+  /** Panel treatment. `"floating"` (default) keeps the detached-panel look
+   *  (margin to the viewport edge, full corner radius). `"flush"` docks the
+   *  panel against the edge instead — full extent, no radius, and a border
+   *  only on the edge facing the app content. Ignored in the narrow-viewport
+   *  fullscreen layout. */
+  readonly variant?: "floating" | "flush";
+  /** Panel width for `side="left"|"right"` (ignored for top/bottom and in
+   *  the narrow-viewport layout). A number is pixels, a string any CSS
+   *  length. Superseded by `resize` when that's set. Default matches the
+   *  panel's built-in `max(600px, 37.5vw)`. */
+  readonly width?: number | string;
   /** Opt-in drag-to-resize + maximize toggle (left/right sides only). */
   readonly resize?: {
     readonly defaultWidthPx?: number;
@@ -65,22 +76,49 @@ function defaultWidthFromViewport(): number {
     : Math.max(DEFAULT_WIDTH_MIN_PX, Math.round(window.innerWidth * DEFAULT_WIDTH_VIEWPORT_RATIO));
 }
 
-// 32px margin + 32px radius so the panel reads as detached from the
-// viewport edge, unlike the sheet primitive's flush-edge default. Below the
-// narrow-viewport breakpoint the floating treatment doesn't fit — the JS
-// hook decides, not a `sm:` Tailwind prefix, since the resize width below
-// already comes from JS and two decision sources is the bug this avoids.
-function floatingSideClass(side: "left" | "right" | "top" | "bottom", narrow: boolean): string {
+function normalizeWidth(width: number | string): string {
+  return typeof width === "number" ? `${width}px` : width;
+}
+
+// Must match the static `max(600px,37.5vw)` in sidePanelClass — Tailwind's
+// JIT can't read DEFAULT_WIDTH_MIN_PX/DEFAULT_WIDTH_VIEWPORT_RATIO at
+// runtime, so the two are kept in sync by hand.
+const WIDTH_CLASS = "w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)]";
+
+// "floating": 32px margin + 32px radius so the panel reads as detached from
+// the viewport edge, unlike the sheet primitive's flush-edge default.
+// "flush" docks it back to that flush-edge default instead, borrowing the
+// vendored Sheet's per-side border (only the edge facing the app content).
+// Below the narrow-viewport breakpoint neither treatment fits — the JS hook
+// decides, not a `sm:` Tailwind prefix, since the resize width below already
+// comes from JS and two decision sources is the bug this avoids.
+function sidePanelClass(
+  side: "left" | "right" | "top" | "bottom",
+  narrow: boolean,
+  variant: "floating" | "flush",
+): string {
   if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
+  if (variant === "flush") {
+    switch (side) {
+      case "left":
+        return `inset-y-0 left-0 h-full ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
+      case "top":
+        return "inset-x-0 top-0 h-auto max-h-[80vh] border-b shadow-2xl overflow-hidden";
+      case "bottom":
+        return "inset-x-0 bottom-0 h-auto max-h-[80vh] border-t shadow-2xl overflow-hidden";
+      default:
+        return `inset-y-0 right-0 h-full ${WIDTH_CLASS} border-l shadow-2xl overflow-hidden`;
+    }
+  }
   switch (side) {
     case "left":
-      return "inset-y-8 left-8 h-auto w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
+      return `inset-y-8 left-8 h-auto ${WIDTH_CLASS} rounded-[2rem] border shadow-2xl overflow-hidden`;
     case "top":
       return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
     case "bottom":
       return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
     default:
-      return "inset-y-8 right-8 h-auto w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)] rounded-[2rem] border shadow-2xl overflow-hidden";
+      return `inset-y-8 right-8 h-auto ${WIDTH_CLASS} rounded-[2rem] border shadow-2xl overflow-hidden`;
   }
 }
 
@@ -97,19 +135,25 @@ export function Drawer({
   children,
   testId,
   showCloseButton = true,
+  variant = "floating",
+  width,
   resize,
   backdrop,
 }: DrawerProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
   const canResize = resize !== undefined && (side === "left" || side === "right");
+  const customWidthStyle =
+    !canResize && !narrow && (side === "left" || side === "right") && width !== undefined
+      ? { width: normalizeWidth(width), maxWidth: "none" }
+      : undefined;
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
   const effectiveMaxWidthPx = () =>
     typeof window === "undefined"
       ? maxWidthPx
       : Math.min(maxWidthPx, Math.round(window.innerWidth * 0.9));
-  const [width, setWidth] = useState(() =>
+  const [resizedWidthPx, setResizedWidthPx] = useState(() =>
     clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
   );
   const [maximized, setMaximized] = useState(false);
@@ -121,7 +165,7 @@ export function Drawer({
     ...(blurPx > 0 ? { backdropFilter: `blur(${blurPx}px)` } : {}),
   };
 
-  const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : width;
+  const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : resizedWidthPx;
 
   const onHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.preventDefault();
@@ -137,7 +181,9 @@ export function Drawer({
     if (dragRef.current === null) return;
     const deltaX = event.clientX - dragRef.current.startX;
     const signedDelta = side === "right" ? -deltaX : deltaX;
-    setWidth(clamp(dragRef.current.startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()));
+    setResizedWidthPx(
+      clamp(dragRef.current.startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()),
+    );
   };
   const endHandlePointerDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -154,11 +200,11 @@ export function Drawer({
     event.preventDefault();
     setMaximized(false);
     const delta = event.key === grow ? step : -step;
-    // Seed from the currently visible width, not the stale `width` state —
-    // while maximized, `width` still holds the pre-maximize value, so a key
-    // press would otherwise jump the drawer back to that old size instead
-    // of resizing relative to what's on screen.
-    setWidth((current) =>
+    // Seed from the currently visible width, not the stale `resizedWidthPx`
+    // state — while maximized, it still holds the pre-maximize value, so a
+    // key press would otherwise jump the drawer back to that old size
+    // instead of resizing relative to what's on screen.
+    setResizedWidthPx((current) =>
       clamp((maximized ? effectiveWidthPx : current) + delta, minWidthPx, effectiveMaxWidthPx()),
     );
   };
@@ -170,8 +216,10 @@ export function Drawer({
         data-testid={testId}
         overlayStyle={overlayStyle}
         showCloseButton={showCloseButton}
-        className={floatingSideClass(side, narrow)}
-        style={canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : undefined}
+        className={sidePanelClass(side, narrow, variant)}
+        style={
+          canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : customWidthStyle
+        }
       >
         {canResize && !narrow && (
           <button

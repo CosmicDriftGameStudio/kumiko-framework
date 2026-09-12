@@ -88,7 +88,11 @@ export type ButtonProps = {
    *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
    *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
   readonly width?: "full" | "auto";
-  readonly children: ReactNode;
+  /** Optional for icon-only buttons (`size="icon"` with a resolved `icon`)
+   *  — the icon carries the content then, `ariaLabel` the accessible name.
+   *  Required in practice otherwise: without children and without `icon`
+   *  the button stays empty. */
+  readonly children?: ReactNode;
   readonly testId?: string;
   /** Layout extras — Web merges via cn(), native impls ignore it
    *  (precedent: LinkProps.className). */
@@ -218,6 +222,8 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Hint text shown when the field is empty (analog to kind:"text"). */
+      readonly placeholder?: string;
       /** "current-password" für Login, "new-password" für Reset/Signup —
        *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
        *  Native: textContentType="password" / "newPassword". */
@@ -233,6 +239,8 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Hint text shown when the field is empty (analog to kind:"text"). */
+      readonly placeholder?: string;
       readonly testId?: string;
       /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
       readonly icon?: FieldIconKey;
@@ -463,6 +471,8 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Hint text shown when the field is empty (analog to kind:"text"). */
+      readonly placeholder?: string;
       /** Read-only Textarea. Nicht `disabled` — bleibt fokussier-/
        *  kopierbar (analog zu kind:"text"). */
       readonly readOnly?: boolean;

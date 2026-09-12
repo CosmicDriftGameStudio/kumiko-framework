@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  CircleStop,
   ClipboardList,
   Clock,
   Coins,
@@ -57,6 +58,7 @@ import {
   Lock,
   Mail,
   MapPin,
+  Mic,
   MoreHorizontal,
   MoreVertical,
   Package,
@@ -175,6 +177,8 @@ export const NAV_ICONS = {
   "check-circle": CheckCircle2,
   "x-circle": XCircle,
   loader: Loader2,
+  mic: Mic,
+  "circle-stop": CircleStop,
 } as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
 
 // Widened alias for runtime lookups against the plain `string` icon keys
