@@ -7,7 +7,7 @@
 // caller's entityType so only global + matching labels are offered.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { TagManager } from "./tag-manager";
 
 export function TagPicker({
@@ -26,11 +26,14 @@ export function TagPicker({
   const { Dialog } = usePrimitives();
   const t = useTranslation();
   const [buffer, setBuffer] = useState<readonly string[]>(value);
-  // Reset the buffer to the caller's truth every time the modal (re)opens.
-  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  // Syncing on the open transition alone, not on `value`: both call sites derive
+  // `value` freshly each render, so a value-keyed effect discarded the in-flight
+  // selection on every parent re-render.
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) setBuffer(value);
-  }, [open, value]);
+  }
 
   return (
     <Dialog
