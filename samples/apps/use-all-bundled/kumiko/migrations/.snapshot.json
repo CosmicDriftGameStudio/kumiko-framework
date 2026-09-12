@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-11T19:12:19.976Z",
+  "generatedAt": "2026-09-12T06:54:41.905Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1257,12 +1257,26 @@
           "name": "credit_account_id",
           "pgType": "text",
           "notNull": true
+        },
+        {
+          "name": "subject_type",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "subject_id",
+          "pgType": "text",
+          "notNull": false
         }
       ],
       "indexes": [
         {
           "name": "read_ledger_schedules_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_ledger_schedules_tenant_id_subject_type_subject_id_idx",
+          "columns": ["tenant_id", "subject_type", "subject_id"]
         }
       ],
       "source": "managed"
@@ -1334,12 +1348,26 @@
           "pgType": "jsonb",
           "notNull": true,
           "defaultSql": "'[]'::jsonb"
+        },
+        {
+          "name": "subject_type",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "subject_id",
+          "pgType": "text",
+          "notNull": false
         }
       ],
       "indexes": [
         {
           "name": "read_ledger_transactions_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_ledger_transactions_tenant_id_subject_type_subject_id_idx",
+          "columns": ["tenant_id", "subject_type", "subject_id"]
         }
       ],
       "source": "managed"
@@ -3433,7 +3461,8 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "unmanaged"
+      "source": "unmanaged",
+      "piiSubjectFields": ["payload", "error"]
     },
     {
       "tableName": "store_mail_seen_messages",
