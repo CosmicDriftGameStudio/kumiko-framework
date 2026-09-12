@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.255.0
+
+### Minor Changes
+
+- 1212eeb: fw#2801: `r.defineEvent(...).piiFields` gains the entity-field `personal` vocabulary as its canonical subject declaration: `{ <field>: { personal: { of: "<ownerField>" } } }`, matching `createTextField({ personal: { of: "<ownerField>" } } })` on entities.
+
+  The previous `{ <field>: { subjectField: "<ownerField>" } }` form still works unchanged — it is now a deprecated alias for the same declaration, not a separate code path. Both forms resolve through the same internal normalizer (`normalizeEventPiiSubject`, exported from `@cosmicdrift/kumiko-types/handlers`) and encrypt under the identical subject key, so mixing old and new declarations across events is safe.
+
+  Migration (optional, non-breaking): replace `{ subjectField: "authorId" }` with `{ personal: { of: "authorId" } }` in `piiFields` declarations at your convenience. Only a user subject is resolvable via this declaration today (fw#2801 step 1 of 3) — `"self"`/`"tenant"`/`"ref"` subjects on events land in a follow-up.
+
+- 7003472: fw#2801 step 2: `r.defineEvent(...).piiFields` can now declare a `tenant` or `self` (record) subject, not just a user subject: `{ <field>: { personal: "tenant" } }` encrypts under the event's own `tenantId`, `{ <field>: { personal: "self" } }` under `record:<aggregateType>:<aggregateId>`. Both the live-append path (`encryptEventPayloadPii`) and `backfillEventPiiEncryption`'s custom-event-catalog branch resolve the declared subject through the same `resolveEventSubject` (`@cosmicdrift/kumiko-framework/crypto`), so a catalogued field always encrypts under the identical subject key regardless of which of the two write paths produced it.
+
+  **Breaking:** `encryptEventPayloadPii(eventType, payload)` now requires a third argument, `envelope: { tenantId, aggregateType, aggregateId }` — needed to resolve `tenant`/`self` subjects. `append()` (the only framework call site) already supplies it from the appended event; direct callers of `encryptEventPayloadPii` must pass it too.
+
+  `validateEventPiiFields` no longer requires an owner field for `tenant`/`self` subjects — only that the declared PII field itself exists on the payload schema.
+
+  **Breaking:** `subjectKeyForRecord` (`@cosmicdrift/kumiko-framework/crypto`) now validates `entity` against `RECORD_ENTITY_PATTERN` (`/^[A-Za-z][A-Za-z0-9_-]*$/`, exported next to it) instead of only rejecting `""`/`":"`. This closes a gap where a `personal: "self"` event subject (or any `recordOwned` field) could mint a `record:<entity>:<id>` key for an entity name that `forgetSubject`'s `subjectIdSchema` would never accept — encrypted but permanently unshreddable. A consumer minting record subjects for an entity/aggregate-type name outside this pattern (leading digit/underscore, dots, etc.) will now get a loud `SubjectResolutionError`/thrown error at encrypt time instead of a silent future dead end. All entity names currently registered across the bundled features satisfy the pattern.
+
+### Patch Changes
+
+- Updated dependencies [88530a2]
+- Updated dependencies [0374846]
+- Updated dependencies [1212eeb]
+- Updated dependencies [7003472]
+  - @cosmicdrift/kumiko-framework@0.255.0
+  - @cosmicdrift/kumiko-types@0.255.0
+  - @cosmicdrift/kumiko-renderer@0.255.0
+  - @cosmicdrift/kumiko-renderer-web@0.255.0
+  - @cosmicdrift/kumiko-headless@0.255.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.255.0
+
 ## 0.254.0
 
 ### Minor Changes
