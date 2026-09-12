@@ -449,6 +449,7 @@ export type {
   ScreenNavSugar,
   ScreenSlots,
   SecretKeyHandle,
+  SecretMintConfirmStep,
   SecretMintScreenDefinition,
   SecretReveal,
   SecretRevealField,

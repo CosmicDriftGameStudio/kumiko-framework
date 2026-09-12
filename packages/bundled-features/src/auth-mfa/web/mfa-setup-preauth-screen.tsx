@@ -1,9 +1,9 @@
 // @runtime client
-// Pre-auth twin of MfaEnableScreen: a user blocked at login by MFA
-// enforcement and not yet enrolled lands here straight out of the login
-// flow — there is no session yet. Identity comes entirely from the
-// preauthSetupToken login()'s mfa-setup-required result carries (see
-// auth-client.ts's LoginResult). Calls startMfaSetupPreauth/confirmMfa-
+// Pre-auth twin of the declarative auth-mfa-enable secretMint screen: a user
+// blocked at login by MFA enforcement and not yet enrolled lands here
+// straight out of the login flow — there is no session yet. Identity comes
+// entirely from the preauthSetupToken login()'s mfa-setup-required result
+// carries (see auth-client.ts's LoginResult). Calls startMfaSetupPreauth/confirmMfa-
 // SetupPreauth directly via fetch (mfa-client.ts) — no useSession(), no
 // useDispatcher(), both assume a real session that doesn't exist here.
 //

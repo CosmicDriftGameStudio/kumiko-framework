@@ -1,7 +1,7 @@
 // @runtime client
 // MfaDisableDialog — confirm-with-code before turning MFA off. Uses the
-// generic Dialog primitive (unlike MfaEnableScreen/MfaRegenerateRecovery-
-// Dialog): disable is single-step, no state to preserve after confirm, so
+// generic Dialog primitive (unlike MfaRegenerateRecoveryDialog): disable is
+// single-step, no state to preserve after confirm, so
 // it doesn't hit the "Dialog always closes after onConfirm" problem that
 // ruled Dialog out for the multi-step enable/regenerate flows. Error
 // reporting still has to go through the parent (onError) rather than an

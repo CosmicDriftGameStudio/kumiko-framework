@@ -20,6 +20,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   FieldDefinition,
+  SecretMintConfirmStep,
   SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
@@ -48,6 +49,21 @@ export function synthesizeActionFormScreen(
     entity: ACTION_FORM_PSEUDO_ENTITY,
     layout: screen.layout,
     ...(screen.description !== undefined && { description: screen.description }),
+    ...(screen.access !== undefined && { access: screen.access }),
+  };
+}
+
+/** Separate id (`${screen.id}:confirm`) keeps this confirm-form screen from
+ *  colliding with the mint-form screen's draft key. */
+export function synthesizeSecretMintConfirmScreen(
+  screen: SecretMintScreenDefinition,
+  confirm: SecretMintConfirmStep,
+): EntityEditScreenDefinition {
+  return {
+    id: `${screen.id}:confirm`,
+    type: "entityEdit",
+    entity: ACTION_FORM_PSEUDO_ENTITY,
+    layout: confirm.layout,
     ...(screen.access !== undefined && { access: screen.access }),
   };
 }

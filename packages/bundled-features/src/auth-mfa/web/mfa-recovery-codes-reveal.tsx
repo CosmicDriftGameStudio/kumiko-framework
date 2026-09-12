@@ -1,9 +1,9 @@
 // @runtime client
 // MfaRecoveryCodesReveal — one-time display of a fresh recovery-code set,
-// with an acknowledge-then-dismiss gate (same UX as the codes block in
-// MfaEnableScreen). Standalone so MfaRegenerateRecoveryDialog's caller can
-// render it after the dialog closes — the codes only exist in memory for
-// this one render, never persisted anywhere the app could show them again.
+// with an acknowledge-then-dismiss gate. Standalone so MfaRegenerateRecovery-
+// Dialog's caller can render it after the dialog closes — the codes only
+// exist in memory for this one render, never persisted anywhere the app
+// could show them again.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";

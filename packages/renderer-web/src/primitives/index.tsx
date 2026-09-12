@@ -74,6 +74,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import QRCode from "qrcode";
 import {
   type ChangeEvent,
   Children,
@@ -2896,6 +2897,37 @@ export function DefaultCard({ slots, options, className, testId, children }: Car
   );
 }
 
+// otpauth:// enrollment URI → scannable QR (errorCorrectionLevel "H", ~30%
+// redundancy — more resilient to camera/lighting issues than the default, no
+// downside for a code this short-lived). Own component (not inline in
+// values.map) because QRCode.toString is async — a hook inside .map would
+// violate the rules of hooks.
+function QrSecretValue({ value }: { readonly value: string }): ReactNode {
+  const [svg, setSvg] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toString(value, { type: "svg", errorCorrectionLevel: "H" })
+      .then((result) => {
+        if (!cancelled) setSvg(result);
+      })
+      .catch(() => {
+        // a reveal value always has the plaintext/manual-entry display alongside — QR is just convenience
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [value]);
+  if (svg === null) return null;
+  return (
+    <div
+      className="h-40 w-40"
+      // qrcode's own SVG string output, not user input — safe to inline
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: qrcode-generated SVG, no user input
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
+
 // One-time secret reveal (fw#2548, secretMint confirm phase) — monospaced
 // per-value display with a copy button that flips to `copiedLabel` on
 // success. Silent-catch on clipboard error mirrors the copy-link pattern in
@@ -2913,7 +2945,9 @@ function DefaultSecretReveal({
         <div key={v.label} className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-muted-foreground">{v.label}</span>
           <div className="flex items-start gap-2">
-            {v.multiline ? (
+            {v.qr === true ? (
+              <QrSecretValue value={v.value} />
+            ) : v.multiline ? (
               <pre className="flex-1 overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted px-3 py-2 font-mono text-sm">
                 {v.value}
               </pre>

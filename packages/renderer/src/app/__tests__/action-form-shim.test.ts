@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "../action-form-shim";
+import {
+  synthesizeActionFormEntity,
+  synthesizeActionFormScreen,
+  synthesizeSecretMintConfirmScreen,
+} from "../action-form-shim";
 
 describe("synthesizeActionFormEntity", () => {
   test("wraps inline fields as minimal EntityDefinition", () => {
@@ -43,5 +47,49 @@ describe("synthesizeActionFormScreen", () => {
       fields: { email: { type: "text" } },
     });
     expect("description" in withoutDescription).toBe(false);
+  });
+});
+
+describe("synthesizeSecretMintConfirmScreen (fw#2838)", () => {
+  test("maps a secretMint's confirm step to the entityEdit shape RenderEdit expects, with a distinct id", () => {
+    const screen = synthesizeSecretMintConfirmScreen(
+      {
+        id: "mint-token",
+        type: "secretMint",
+        handler: "shop:write:token:mint",
+        fields: { label: { type: "text" } },
+        layout: { sections: [{ title: "Mint", fields: ["label"] }] },
+        reveal: { fields: [{ field: "token", label: "Token" }] },
+      },
+      {
+        handler: "shop:write:token:confirm",
+        fields: { code: { type: "text" } },
+        layout: { sections: [{ title: "Confirm", fields: ["code"] }] },
+      },
+    );
+    expect(screen.id).toBe("mint-token:confirm");
+    expect(screen.type).toBe("entityEdit");
+    expect(screen.entity).toBe("__action-form__");
+    expect(screen.layout).toEqual({ sections: [{ title: "Confirm", fields: ["code"] }] });
+  });
+
+  test("carries the mint screen's access rule through to the confirm form", () => {
+    const screen = synthesizeSecretMintConfirmScreen(
+      {
+        id: "mint-token",
+        type: "secretMint",
+        handler: "shop:write:token:mint",
+        fields: { label: { type: "text" } },
+        layout: { sections: [{ title: "Mint", fields: ["label"] }] },
+        reveal: { fields: [{ field: "token", label: "Token" }] },
+        access: { roles: ["admin"] },
+      },
+      {
+        handler: "shop:write:token:confirm",
+        fields: { code: { type: "text" } },
+        layout: { sections: [{ title: "Confirm", fields: ["code"] }] },
+      },
+    );
+    expect(screen.access).toEqual({ roles: ["admin"] });
   });
 });

@@ -20,12 +20,13 @@ import {
   type BannerProps,
   type CorePrimitives,
   PrimitivesProvider,
+  type SecretRevealProps,
   type SectionProps,
   type TextProps,
 } from "../../primitives";
 import type { FeatureSchema } from "../feature-schema";
 import { KumikoScreen } from "../kumiko-screen";
-import { NavProvider } from "../nav";
+import { NavProvider, type NavTarget } from "../nav";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => null;
@@ -82,6 +83,18 @@ const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
 const testText: ComponentType<TextProps> = ({ children, testId }) => (
   <span data-testid={testId}>{children}</span>
 );
+// Renders every value's raw text plus a `data-qr` marker — lets tests assert
+// both DOM-leak absence (no query needed to find rendered text) and that
+// display: "qr" reaches the primitive as `qr: true`.
+const testSecretReveal: ComponentType<SecretRevealProps> = ({ values, testId }) => (
+  <div data-testid={testId}>
+    {values.map((v) => (
+      <div key={v.label} data-testid={`secret-value-${v.label}`} data-qr={String(v.qr === true)}>
+        {v.value}
+      </div>
+    ))}
+  </div>
+);
 
 const testPrimitives: CorePrimitives = {
   Button: testButton,
@@ -102,6 +115,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
+  SecretReveal: testSecretReveal,
 } as unknown as CorePrimitives;
 
 const mintScreen: SecretMintScreenDefinition = {
@@ -144,7 +158,38 @@ function stubDispatcher(writeData: unknown): {
   return { dispatcher, queryCalls };
 }
 
-function renderMintScreen(dispatcher: Dispatcher) {
+// Keyed stub — one write-response per handler QN, and every write call
+// recorded with its full payload — for scenarios with more than one
+// write-handler in play (mint + confirm).
+function stubMultiWriteDispatcher(responses: Readonly<Record<string, unknown>>): {
+  dispatcher: Dispatcher;
+  writeCalls: Array<{ readonly command: string; readonly payload: unknown }>;
+} {
+  const writeCalls: Array<{ readonly command: string; readonly payload: unknown }> = [];
+  const dispatcher: Dispatcher = {
+    write: (async (command: string, payload: unknown) => {
+      writeCalls.push({ command, payload });
+      return { isSuccess: true, data: responses[command] ?? {} };
+    }) as unknown as Dispatcher["write"],
+    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
+  return { dispatcher, writeCalls };
+}
+
+function renderMintScreen(
+  dispatcher: Dispatcher,
+  screen: SecretMintScreenDefinition = mintScreen,
+  navigate: (target: NavTarget) => void = () => {},
+) {
+  const qn = `shop:screen:${screen.id}`;
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -153,8 +198,8 @@ function renderMintScreen(dispatcher: Dispatcher) {
       <DispatcherProvider dispatcher={dispatcher}>
         <NavProvider
           value={{
-            route: { screenId: "shop:screen:mint-token" },
-            navigate: () => {},
+            route: { screenId: qn },
+            navigate,
             replace: () => {},
             hrefFor: () => "",
             searchParams: {},
@@ -162,7 +207,7 @@ function renderMintScreen(dispatcher: Dispatcher) {
           }}
         >
           <PrimitivesProvider value={testPrimitives}>
-            <KumikoScreen schema={buildSchema(mintScreen)} qn="shop:screen:mint-token" />
+            <KumikoScreen schema={buildSchema(screen)} qn={qn} />
           </PrimitivesProvider>
         </NavProvider>
       </DispatcherProvider>
@@ -209,5 +254,143 @@ describe("SecretMintBody (fw#2548)", () => {
     await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
 
     expect(queryCalls.length).toBe(0);
+  });
+
+  test("acknowledging without a confirm step and without a redirect shows the done banner", async () => {
+    const { dispatcher } = stubDispatcher({ token: "kpat_secret", id: "x" });
+    renderMintScreen(dispatcher);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    fireEvent.click(rtlScreen.getByTestId("kumiko-screen-secret-mint-confirm"));
+    await waitFor(() =>
+      expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).not.toBeNull(),
+    );
+  });
+
+  test("acknowledging with a redirect navigates instead of showing the done banner", async () => {
+    const { dispatcher } = stubDispatcher({ token: "kpat_secret", id: "x" });
+    const navigateCalls: NavTarget[] = [];
+    renderMintScreen(dispatcher, { ...mintScreen, redirect: "after-mint" }, (target) =>
+      navigateCalls.push(target),
+    );
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    fireEvent.click(rtlScreen.getByTestId("kumiko-screen-secret-mint-confirm"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "after-mint" });
+    expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).toBeNull();
+  });
+
+  test("a reveal field with display 'qr' reaches the SecretReveal primitive with qr: true", async () => {
+    const qrScreen: SecretMintScreenDefinition = {
+      ...mintScreen,
+      reveal: { fields: [{ field: "token", label: "Token", display: "qr" }] },
+    };
+    const { dispatcher } = stubDispatcher({ token: "otpauth://totp/x?secret=ABC", id: "x" });
+    renderMintScreen(dispatcher, qrScreen);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() =>
+      expect(rtlScreen.getByTestId("secret-value-Token").getAttribute("data-qr")).toBe("true"),
+    );
+  });
+
+  test("an input-less secretMint (no fields) has an active submit button and dispatches the mint handler on click", async () => {
+    const inputLessScreen: SecretMintScreenDefinition = {
+      id: "mint-token",
+      type: "secretMint",
+      handler: "shop:write:token:mint",
+      fields: {},
+      layout: { sections: [] },
+      reveal: { fields: [{ field: "token", label: "Token" }] },
+    };
+    const { dispatcher, writeCalls } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret" },
+    });
+    renderMintScreen(dispatcher, inputLessScreen);
+
+    const submit = rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+    expect(writeCalls.map((c) => c.command)).toEqual(["shop:write:token:mint"]);
+  });
+});
+
+describe("SecretMintBody confirm step (fw#2838)", () => {
+  const mintScreenWithConfirm: SecretMintScreenDefinition = {
+    ...mintScreen,
+    confirm: {
+      handler: "shop:write:token:confirm",
+      fields: { code: { type: "text" } as TextFieldDef },
+      layout: { sections: [{ title: "Confirm", fields: ["code"] }] },
+      carry: ["setupToken"],
+    },
+  };
+
+  test("renders the confirm form instead of the acknowledge button, and submits the confirm form's own values merged with the carried mint-payload field", async () => {
+    const { dispatcher, writeCalls } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
+      "shop:write:token:confirm": {},
+    });
+    renderMintScreen(dispatcher, mintScreenWithConfirm);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    // No bare acknowledge button — the confirm form takes its place.
+    expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-confirm")).toBeNull();
+
+    fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: "123456" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() =>
+      expect(writeCalls.some((c) => c.command === "shop:write:token:confirm")).toBe(true),
+    );
+    const confirmCall = writeCalls.find((c) => c.command === "shop:write:token:confirm");
+    expect(confirmCall?.payload).toEqual({ code: "123456", setupToken: "stok_123" });
+  });
+
+  test("a carried field that is not in reveal.fields never appears in the DOM", async () => {
+    const { dispatcher } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
+    });
+    renderMintScreen(dispatcher, mintScreenWithConfirm);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    expect(rtlScreen.queryByText("stok_123")).toBeNull();
+  });
+
+  test("without a redirect, a successful confirm shows the done banner", async () => {
+    const { dispatcher } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
+      "shop:write:token:confirm": {},
+    });
+    renderMintScreen(dispatcher, mintScreenWithConfirm);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: "123456" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() =>
+      expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).not.toBeNull(),
+    );
+    expect(rtlScreen.queryByText("kpat_secret")).toBeNull();
   });
 });

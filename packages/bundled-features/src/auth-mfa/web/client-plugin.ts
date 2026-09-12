@@ -4,14 +4,13 @@
 // createKumikoApp({ clientFeatures: [emailPasswordClient(), authMfaClient()] }).
 // No gates: MfaVerifyScreen isn't a route gate, it's a state swap wired
 // via EmailPasswordClientOptions.mfaVerifyScreen. This factory merges the
-// default de/en translations and maps MFA_ENABLE_SCREEN_ID to
-// MfaEnableScreen (same "components" convention as personal-access-tokens).
+// default de/en translations for the Verify/Disable/Regenerate components —
+// the enroll screen is a declarative secretMint (feature.ts's r.screen),
+// no client component of its own.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
-import { MFA_ENABLE_SCREEN_ID } from "../constants";
 import { defaultTranslations, mergeTranslations } from "./i18n";
-import { MfaEnableScreen } from "./mfa-enable-screen";
 
 export type AuthMfaClientOptions = {
   /** Key-Overrides pro Locale, gemerged mit den Default-Bundles (de/en). */
@@ -32,6 +31,6 @@ export function authMfaClient(options: AuthMfaClientOptions = {}): AuthMfaClient
     providers: [],
     gates: [],
     translations: mergeTranslations(defaultTranslations, options.translations ?? {}),
-    components: { [MFA_ENABLE_SCREEN_ID]: MfaEnableScreen },
+    components: {},
   };
 }

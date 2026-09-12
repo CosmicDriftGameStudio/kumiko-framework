@@ -628,6 +628,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // true when editable fields exist or an extension opted into composed submit (fw#2359).
   const isFormEditable = hasEditableSection(filteredSections);
+  // A fieldless form (input-less secretMint mint, fw#2838 — the secret is
+  // server-generated, the mint step is only its submit button) has no
+  // section to gate on: it IS the action, so it always shows the submit
+  // button, and it can never go dirty either.
+  const isFieldless = Object.keys(entity.fields).length === 0;
 
   // A lone relatedList tab (hideSectionTitles is only ever set by the tabs
   // layout, which also narrows filteredSections to that one active section)
@@ -1018,7 +1023,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const hasFormActions =
     (isWizard && currentStep > 0) ||
     (isWizard && !isLastWizardStep) ||
-    ((isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep));
+    ((isFormEditable || hasExtensionRegistrations || isFieldless) &&
+      (!isWizard || isLastWizardStep));
   const formActions = (
     <>
       {isWizard && currentStep > 0 && (
@@ -1042,18 +1048,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.next")}
         </Button>
       )}
-      {(isFormEditable || hasExtensionRegistrations) && (!isWizard || isLastWizardStep) && (
-        <Button
-          type="submit"
-          disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting || disabled}
-          loading={isSubmitting}
-          variant={submitVariant ?? "primary"}
-          icon="check"
-          testId="render-edit-submit"
-        >
-          {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
-        </Button>
-      )}
+      {(isFormEditable || hasExtensionRegistrations || isFieldless) &&
+        (!isWizard || isLastWizardStep) && (
+          <Button
+            type="submit"
+            disabled={
+              (snapshot.isUnchanged && !extensionDirty && !isFieldless) || isSubmitting || disabled
+            }
+            loading={isSubmitting}
+            variant={submitVariant ?? "primary"}
+            icon="check"
+            testId="render-edit-submit"
+          >
+            {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
+          </Button>
+        )}
     </>
   );
 
