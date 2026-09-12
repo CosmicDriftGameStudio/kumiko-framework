@@ -337,20 +337,8 @@ function useNavigateToCreateFor(
   return editScreenId !== undefined ? navigate : undefined;
 }
 
-// Initial form values — respect field.default when the entity declares
-// one, otherwise fall back to a type-sane empty value so controlled
-// inputs have something to render. Missing this on booleans/numbers
-// with a `default: true`/`default: 5` would show the form in a state
-// the entity didn't ask for — subtle and easy to miss until a user
-// submits and is surprised.
-// `defaultCurrency` is only passed by entityEdit call sites — the money
-// payload shape it enables (`{amount, currency}`) matches the entity's
-// write schema (schema-builder.ts, kumiko-framework#1923). config-edit
-// deliberately omits it too: it has its own plain-number write contract
-// (unwrapMoneyValue). actionForm has no entity and thus no defaultCurrency
-// either, even though its handler schema needs the same `{amount, currency}`
-// shape — an untouched money field there still defaults to bare `0`, a gap
-// fw#2763 leaves open (it only fixes the prefill path).
+// `defaultCurrency` is entityEdit-only — it enables the `{amount, currency}`
+// write shape (fw#1923); config-edit's plain-number contract needs bare `0`.
 export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
   defaultCurrency?: string,
@@ -416,11 +404,8 @@ function warnMoneyParam(message: string): void {
   console.warn(`[kumiko] ${message}`);
 }
 
-// A money param arrives either as JSON `{"amount":..,"currency":".."}` (how
-// stringifyNavParams encodes a money row value) or as a bare number. An
-// actionForm has no entity and therefore no defaultCurrency, so a bare number
-// there would stay a number that the handler's zod schema rejects on submit —
-// warn instead of prefilling a value that silently fails (fw#2763).
+// An actionForm has no entity and thus no defaultCurrency, so a bare-number
+// prefill would stay a number the handler's zod schema rejects (fw#2763).
 function coerceMoneyValue(
   raw: unknown,
   fieldName: string,
@@ -437,7 +422,7 @@ function coerceMoneyValue(
     return undefined;
   }
   const amount = Number(typeof value === "number" ? value : raw);
-  if (Number.isNaN(amount)) return undefined;
+  if (!Number.isFinite(amount)) return undefined;
   if (defaultCurrency !== undefined) return { amount, currency: defaultCurrency };
   warnMoneyParam(
     `money field "${fieldName}" was prefilled with a bare number and no currency is available — pass {"amount":<number>,"currency":"<ISO code>"} as the param value, otherwise the handler's schema rejects the submit.`,
