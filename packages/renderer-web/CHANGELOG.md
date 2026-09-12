@@ -1,5 +1,49 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.258.0
+
+### Minor Changes
+
+- 021e706: `Drawer` gains two optional props, both additive with defaults matching today's behavior exactly: `variant?: "floating" | "flush"` (default `"floating"`) docks the panel flush against the viewport edge instead of the floating detached-panel treatment — full extent, no corner radius, and a border only on the edge facing the app content; `width?: number | string` (default: today's `max(600px, 37.5vw)`) sets the panel's base width for `side="left"|"right"`, superseded by `resize` when that's set. Lets consumers like the AI agent panel render a bounded, edge-docked chat drawer instead of the wide floating panel that overlaps the app header.
+- f2e57b4: fw#2548: new `secretMint` screen type for "mint → one-time reveal → confirm" flows — an API token, recovery codes, or any other secret that a write-handler hands back only once in its success payload. `actionForm` can't express this: it discards the success payload after extracting the navigation id, and no query can ever redisplay a secret that was never stored in the clear. `secretMint` renders the same field/section form as `actionForm`, then swaps to a one-time reveal card built from `reveal.fields` — a whitelist of success-payload fields, never the payload as a whole — with an explicit confirm before navigating on. The revealed values live only in the form component's own state, never in the URL, a query cache, or nav. `TextFieldDef` grows a `format: "password"` render hint (masked input, no storage semantics) — such a field is also excluded from a wizard's persisted draft blob, so it is never written to the server in the clear or restored on resume — and the renderer ships a new `SecretReveal` primitive for the reveal card (falls back to `Grid`/`GridCell` when a platform hasn't registered one).
+
+  `personal-access-tokens` is migrated onto it end to end: the former dormant `type: "custom"` screen (a hand-written client component) is now two declarative screens — a `projectionList` for "your tokens" (with a `revoke` row action) and the new `secretMint` for minting one, wired through `patGrantOptions`/`patScopeOptionTranslations`. No app needs a client plugin for this feature anymore.
+
+  **BREAKING**
+
+  1. `personal-access-tokens:query:mine` now returns the paged envelope `{ rows, nextCursor }` instead of a blank array. Migration: callers read `response.rows`. The handler also newly accepts `limit`/`sort`/`sortDirection` and each row carries a computed `status` (`"active" | "revoked" | "expired"`).
+
+  2. The subpath export `@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web` is gone (`personalAccessTokensClient()`, `PatTokensScreen`, `defaultTranslations`). The PAT screens are declarative now and need no client plugin. Migration: remove the `personalAccessTokensClient()` entry from `createKumikoApp({ clientFeatures: [...] })`; an app that embedded `<PatTokensScreen embedded />` directly should navigate to the feature's `api-tokens` screen instead.
+
+- 27166cb: fw#2838: `auth-mfa`'s TOTP enrollment is declarative — the last `type: "custom"` screen in the bundled features, and with it the second `app-feature-structure` lint-ignore, is gone. The enable flow is now one `secretMint` screen: mint (no input) → one-time reveal of the QR code, the manual base32 secret and the eight recovery codes → a confirm step that arms MFA with a code from the authenticator app. The recovery codes still exist only in `enable-start`'s success payload, are never persisted in the clear and no query re-serves them; the short-lived `setupToken` is threaded from the mint payload into the confirm payload through component state alone — it is deliberately not part of `reveal.fields`, so it never reaches the screen, the URL, a query cache or a persisted draft.
+
+  Three generic additions to the `secretMint` screen type carry it (none of them auth-mfa-specific, no feature flags):
+
+  1. `SecretMintConfirmStep` (`screen.confirm`) — a proof-of-receipt form rendered on the reveal card in place of the bare acknowledge button, for a mint whose effect is only armed once the user proves they received the secret. `carry` names mint success-payload fields that are merged into the confirm payload at submit time; they live in component state only and are never rendered or written into form values. The boot-validator rejects a confirm step with no fields, a `wizard`/`tabs` layout, `draft: true` (a persisted draft of a reveal-phase form is the exact leak fw#2548 closed) and a `carry` entry that collides with a confirm field name.
+  2. `SecretRevealField.display: "qr"` — renders the value as a scannable QR code. `renderer-web`'s `SecretReveal` primitive ships the implementation (new `qrcode` dependency); platforms without a QR-capable primitive fall back to the monospaced text.
+  3. A `secretMint` may declare `fields: {}` with `layout: { sections: [] }` when the mint takes no user input at all — the secret is server-generated and the mint step is just its submit button. `actionForm` still requires at least one field.
+
+  A `secretMint` without a `redirect` now shows a done banner (`kumiko.secretMint.done`, or `confirm.doneMessage`) after the reveal is confirmed, instead of falling back to the mint form where a stray click would mint the secret again.
+
+  `auth-mfa:write:enable-start` takes `accountLabel` as optional now and derives it from the caller's own email when omitted (there is no client component left that could pass the session email); its success payload additionally carries `totpSecret`, the base32 secret the otpauth URI already embeds, for the reveal's manual-entry display. Both are backward compatible. `auth-mfa:query:user-mfa:status` backs no declarative list and keeps its plain `{ enabled }` shape — no paged-envelope migration like `personal-access-tokens:query:mine` needed.
+
+  **BREAKING**
+
+  `@cosmicdrift/kumiko-bundled-features/auth-mfa/web` no longer exports `MfaEnableScreen` / `MfaEnableScreenProps`, and `authMfaClient()` no longer maps a component onto the `auth-mfa-enable` screen id. The subpath itself stays — the login-time `MfaVerifyScreen`, `MfaDisableDialog`, `MfaRegenerateRecoveryDialog` and `MfaSetupPreauthScreen` are unchanged, and `authMfaClient()` is still required for their translations. Migration: an app that embedded `<MfaEnableScreen embedded />` navigates to the `auth-mfa-enable` screen instead; the `onEnabled` callback has no successor — the screen ends on its own done banner, and a host screen that gated on it should re-read `auth-mfa:query:user-mfa:status` when the user navigates back. The `auth.mfa.enable.*` translation keys that only the deleted component used are gone from the client bundle's defaults; overrides for them can be dropped.
+
+- 021e706: Add `mic` and `circle-stop` to the `NavIconKey` vocabulary, with matching lucide-react entries in `NAV_ICONS`. Lets voice-recording controls (e.g. the AI agent panel's speech input) render as `icon`/`size="icon"` buttons instead of falling back to text labels that crowd the input row.
+- 021e706: `Input` gains `placeholder` for `kind="textarea"`, `kind="password"` and `kind="number"`, matching the hint-text behavior already present for `kind="text"` — a multiline field no longer loses its placeholder when it grows from single-line, and password/number fields can now carry one too. `Button`'s `children` prop is now optional: an icon-only button (`size="icon"` with a resolved `icon`) no longer needs a dummy `children` value, since the icon plus `ariaLabel` already carry the button's content and accessible name.
+
+### Patch Changes
+
+- Updated dependencies [f2e57b4]
+- Updated dependencies [db2f2ed]
+- Updated dependencies [27166cb]
+- Updated dependencies [021e706]
+  - @cosmicdrift/kumiko-renderer@0.258.0
+  - @cosmicdrift/kumiko-headless@0.258.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.258.0
+
 ## 0.257.0
 
 ### Patch Changes
