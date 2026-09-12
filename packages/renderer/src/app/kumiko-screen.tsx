@@ -6,6 +6,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  MetricNavigate,
+  MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
@@ -14,7 +16,11 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  evalFieldCondition,
+  isWriteFormEditSection,
+  metricField,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -23,11 +29,15 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
+import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
 import { RenderEdit, type RenderEditAction } from "../components/render-edit";
-import { RenderEditActionButton } from "../components/render-edit-action-button";
+import {
+  needsActionConfirm,
+  RenderEditActionButton,
+  RenderEditActionConfirmDialog,
+} from "../components/render-edit-action-button";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
@@ -37,7 +47,6 @@ import { useTranslation } from "../i18n";
 import {
   type DataTableFacet,
   type DataTableRowAction,
-  shouldRenderActionsIconOnly,
   statusToneForValue,
   usePrimitives,
 } from "../primitives";
@@ -55,7 +64,7 @@ import {
   type ResolvedFacetSpec,
   resolveProjectionFacetSpecs,
 } from "./list-facets";
-import { useNav } from "./nav";
+import { type NavApi, useNav } from "./nav";
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
@@ -69,7 +78,6 @@ import {
   isWriteHandlerRowAction,
   refetchAfterWrite,
   resolveActionIcon,
-  rowActionModeFor,
   runProjectionRowNavigate,
   stringifyNavParams,
 } from "./row-actions";
@@ -1614,12 +1622,6 @@ function EntityListBody({
     openDrawer,
   ]);
 
-  // Row actions that all resolve an icon render inline and collapse to
-  // icon-only (fw#2580) — the adaptive default would bury more than two of
-  // them in a kebab menu. A group with an icon-less member stays adaptive so
-  // it never degrades into wall-to-wall text buttons.
-  const rowActionMode = rowActionModeFor(rowActions);
-
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
   // → dispatcher.write(handler, payload?()). KumikoScreen kennt schon
@@ -1764,7 +1766,6 @@ function EntityListBody({
         screenPadding
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
-        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
         {...(useInfinite && {
           onReachEnd: loadMore,
@@ -1930,10 +1931,6 @@ function ProjectionListBody({
     [screen.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, openDrawer],
   );
 
-  // Same icon-only collapse as entityList (fw#2580) — projectionList rows go
-  // through the identical RenderList/DataTable path.
-  const rowActionMode = rowActionModeFor(rowActions);
-
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
     if (screen.toolbarActions === undefined) return undefined;
     const out: ToolbarActionButton[] = [];
@@ -2055,7 +2052,6 @@ function ProjectionListBody({
         screenPadding
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
-        {...(rowActionMode !== undefined && { rowActionMode })}
         {...(toolbarActions !== undefined && { toolbarActions })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
@@ -2083,6 +2079,65 @@ function ProjectionListBody({
   );
 }
 
+function metricLabelKey(
+  metric: MetricSpec,
+  fieldLabels: Readonly<Record<string, string>> | undefined,
+): string | undefined {
+  if (typeof metric !== "string" && metric.label !== undefined) return metric.label;
+  return fieldLabels?.[metricField(metric)];
+}
+
+function metricNavigateSpec(metric: MetricSpec): MetricNavigate | undefined {
+  return typeof metric === "string" ? undefined : metric.navigate;
+}
+
+// Reuses runProjectionRowNavigate (row-actions.ts) instead of re-deriving
+// navigate execution — a metric click has the same entity/screen/params
+// shape as a RowActionNavigate, minus the fields (id, label, style) that
+// function never reads.
+function runMetricNavigate(
+  nav: NavApi,
+  navigate: MetricNavigate,
+  record: Readonly<Record<string, unknown>>,
+): void {
+  const base = { kind: "navigate" as const, id: "metric-navigate", label: "" };
+  const action: RowActionNavigate | undefined =
+    navigate.entity !== undefined
+      ? {
+          ...base,
+          entity: navigate.entity,
+          ...(navigate.entityId !== undefined && { entityId: navigate.entityId }),
+          ...(navigate.params !== undefined && { params: navigate.params }),
+        }
+      : navigate.screen !== undefined
+        ? {
+            ...base,
+            screen: navigate.screen,
+            ...(navigate.entityId !== undefined && { entityId: navigate.entityId }),
+            ...(navigate.params !== undefined && { params: navigate.params }),
+          }
+        : undefined;
+  if (action === undefined) return;
+  runProjectionRowNavigate(nav, action, { id: "", values: record });
+}
+
+// Absolute http(s) check for RecordHeaderSpec.subtitleHref — deliberately
+// stricter than isSafeHref (which also allows relative paths and mailto:),
+// since a relative/mailto value here should render as plain text, not a
+// "_blank" external link.
+function isAbsoluteHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) && isSafeHref(value);
+}
+
+function resolveSubtitleHref(
+  header: ProjectionDetailScreenDefinition["header"],
+  record: Readonly<Record<string, unknown>>,
+): string | undefined {
+  if (header?.subtitleHref === undefined) return undefined;
+  const value = record[header.subtitleHref];
+  return typeof value === "string" && isAbsoluteHttpUrl(value) ? value : undefined;
+}
+
 // Projection-Detail-Body — read-only single-row inspector über eine explizite
 // Query statt einer Entity (siehe projection-detail-shim.ts für die Schulden-
 // Doku). Fetcht selbst über `screen.query` + `idParam` (analog zu
@@ -2093,6 +2148,108 @@ function ProjectionListBody({
 // natives Form-Submit (Enter-Keypress) würde ohne customSubmit gegen
 // controller.submit() ohne submit-config throwen — der No-Op macht diesen
 // Pfad harmlos statt ihn dem Zufall zu überlassen.
+// The primary header action always stays a visible text button — `edit` if
+// declared, else the first `style: "primary"` action, else the first action
+// at all. One step longer than row actions' `primaryRowAction` (renderer-web
+// primitives/index.tsx): rows don't declare `style: "primary"`.
+function primaryHeaderAction(actions: readonly RenderEditAction[]): RenderEditAction | undefined {
+  return (
+    actions.find((a) => a.id === "edit") ?? actions.find((a) => a.style === "primary") ?? actions[0]
+  );
+}
+
+// Header actions bar (A7): <=2 actions render as plain buttons; >2 with an
+// `ActionOverflowMenu` primitive collapse to the primary button plus a menu
+// for the rest — same rule as RowActionsCell for table rows. Owns confirm
+// state for menu items: RenderEditActionButton already owns a per-button
+// confirm dialog for the always-visible primary action, but a menu item has
+// no button of its own to carry one.
+function HeaderActionsBar({
+  actions,
+  Button,
+  Dialog,
+  ActionOverflowMenu,
+  onError,
+}: {
+  readonly actions: readonly RenderEditAction[];
+  readonly Button: ReturnType<typeof usePrimitives>["Button"];
+  readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
+  readonly ActionOverflowMenu: ReturnType<typeof usePrimitives>["ActionOverflowMenu"];
+  readonly onError: (text: string | null) => void;
+}): ReactNode {
+  const [pendingAction, setPendingAction] = useState<RenderEditAction | null>(null);
+  const trigger = async (action: RenderEditAction): Promise<void> => {
+    onError(null);
+    try {
+      await action.onPress();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  if (actions.length <= 2 || ActionOverflowMenu === undefined) {
+    return (
+      <>
+        {actions.map((action) => (
+          <RenderEditActionButton
+            key={action.id}
+            action={action}
+            Button={Button}
+            Dialog={Dialog}
+            onError={onError}
+          />
+        ))}
+      </>
+    );
+  }
+  const primary = primaryHeaderAction(actions);
+  const rest = actions.filter((a) => a.id !== primary?.id);
+  return (
+    <>
+      {primary !== undefined && (
+        <RenderEditActionButton
+          key={primary.id}
+          action={primary}
+          Button={Button}
+          Dialog={Dialog}
+          onError={onError}
+        />
+      )}
+      <ActionOverflowMenu
+        label="More actions"
+        testId="kumiko-screen-projection-detail-actions-overflow"
+        items={rest.map((action) => ({
+          id: action.id,
+          label: action.label,
+          ...(action.icon !== undefined && { icon: action.icon }),
+          variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
+          onSelect: () => {
+            if (needsActionConfirm(action)) {
+              setPendingAction(action);
+            } else {
+              void trigger(action);
+            }
+          },
+        }))}
+      />
+      {pendingAction !== null && (
+        <RenderEditActionConfirmDialog
+          action={pendingAction}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setPendingAction(null);
+          }}
+          onConfirm={async () => {
+            const action = pendingAction;
+            setPendingAction(null);
+            await trigger(action);
+          }}
+          Dialog={Dialog}
+        />
+      )}
+    </>
+  );
+}
+
 function ProjectionDetailBody({
   schema,
   screen,
@@ -2107,8 +2264,21 @@ function ProjectionDetailBody({
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {
-  const { Banner, Button, Dialog, Text, Heading, Grid, GridCell, Card, Tabs, StatusBadge, Metric } =
-    usePrimitives();
+  const {
+    Banner,
+    Button,
+    Dialog,
+    Text,
+    Heading,
+    Grid,
+    GridCell,
+    Card,
+    Tabs,
+    StatusBadge,
+    Metric,
+    Link,
+    ActionOverflowMenu,
+  } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
@@ -2127,6 +2297,7 @@ function ProjectionDetailBody({
       screen.layout.sections.find((section) => section.id === tabParam) ?? screen.layout.sections[0]
     );
   }, [isTabsMode, Tabs, screen.layout.sections, nav.searchParams]);
+  const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
   // Tabs is an optional Core-Primitive: without it the screen falls back to
   // the stacked all-sections layout instead of silently truncating to section 1.
   useEffect(() => {
@@ -2395,28 +2566,23 @@ function ProjectionDetailBody({
   }
   const hasHeader = screen.header !== undefined;
   const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
-  const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
   // ?? [] rather than threading `headerActions !== undefined` through every
-  // use below — an empty array is a safe no-op for .map/.length/icon-collapse.
+  // use below — an empty array is a safe no-op for .map/.length.
   const headerActionsList = headerActions ?? [];
   const hasHeaderActions = headerActionsList.length > 0;
-  const headerActionsIconOnly = shouldRenderActionsIconOnly(headerActionsList);
   // Grouped into the head Card alongside title/status/metrics (fw#2713):
   // these are actions on the record the head shows, not on whichever tab is
   // open, so they must stay in place across tab switches instead of
   // trailing the active tab's content in the card footer.
   const headerActionsContent = hasHeaderActions && (
     <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
-      {headerActionsList.map((action) => (
-        <RenderEditActionButton
-          key={action.id}
-          action={action}
-          iconOnly={headerActionsIconOnly}
-          Button={Button}
-          Dialog={Dialog}
-          onError={setActionError}
-        />
-      ))}
+      <HeaderActionsBar
+        actions={headerActionsList}
+        Button={Button}
+        Dialog={Dialog}
+        ActionOverflowMenu={ActionOverflowMenu}
+        onError={setActionError}
+      />
     </Grid>
   );
   const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions;
@@ -2425,6 +2591,7 @@ function ProjectionDetailBody({
   // it, instead of sitting flush against the screen edge (fw record-screen
   // header polish).
   const header = screen.header;
+  const subtitleHref = resolveSubtitleHref(header, record);
   const headerContent = (
     <>
       {hasHeaderCard && (
@@ -2436,11 +2603,20 @@ function ProjectionDetailBody({
               </Heading>
               {(header.subtitle !== undefined || header.status !== undefined) && (
                 <Grid columns="auto">
-                  {header.subtitle !== undefined && (
-                    <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                      {String(record[header.subtitle] ?? "")}
-                    </Text>
-                  )}
+                  {header.subtitle !== undefined &&
+                    (subtitleHref !== undefined ? (
+                      <Link
+                        href={subtitleHref}
+                        target="_blank"
+                        testId="kumiko-screen-projection-detail-subtitle"
+                      >
+                        {String(record[header.subtitle] ?? "")}
+                      </Link>
+                    ) : (
+                      <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                        {String(record[header.subtitle] ?? "")}
+                      </Text>
+                    ))}
                   {header.status !== undefined &&
                     (StatusBadge !== undefined ? (
                       <StatusBadge
@@ -2463,14 +2639,26 @@ function ProjectionDetailBody({
               testId="kumiko-screen-projection-detail-metrics"
             >
               {screen.metrics?.map((metric) => {
-                const labelKey = screen.fieldLabels?.[metric];
-                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : metric;
-                const value = String(record[metric] ?? "");
-                const testId = `kumiko-screen-projection-detail-metric-${metric}`;
+                const field = metricField(metric);
+                const labelKey = metricLabelKey(metric, screen.fieldLabels);
+                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
+                const value = String(record[field] ?? "");
+                const testId = `kumiko-screen-projection-detail-metric-${field}`;
+                const navigate = metricNavigateSpec(metric);
+                const onPress =
+                  navigate !== undefined
+                    ? () => runMetricNavigate(nav, navigate, record)
+                    : undefined;
                 return Metric !== undefined ? (
-                  <Metric key={metric} label={label} value={value} testId={testId} />
+                  <Metric
+                    key={field}
+                    label={label}
+                    value={value}
+                    testId={testId}
+                    {...(onPress !== undefined && { onPress })}
+                  />
                 ) : (
-                  <GridCell key={metric}>
+                  <GridCell key={field}>
                     <Text variant="small" testId={`${testId}-label`}>
                       {label}
                     </Text>
@@ -2491,10 +2679,19 @@ function ProjectionDetailBody({
       {hasTabs && activeSection !== undefined && (
         <Tabs
           testId="kumiko-screen-projection-detail-tabs"
-          items={screen.layout.sections.map((section) => ({
-            id: section.id ?? "",
-            label: effectiveTranslate(section.title ?? section.id ?? ""),
-          }))}
+          items={screen.layout.sections.map((section) => {
+            const countField = isWriteFormEditSection(section) ? undefined : section.countField;
+            const countValue = countField !== undefined ? record[countField] : undefined;
+            const count =
+              typeof countValue === "number" && Number.isFinite(countValue)
+                ? countValue
+                : undefined;
+            return {
+              id: section.id ?? "",
+              label: effectiveTranslate(section.title ?? section.id ?? ""),
+              ...(count !== undefined && { count }),
+            };
+          })}
           activeId={activeSection.id ?? ""}
           onSelect={(id) => nav.setSearchParams({ tab: id })}
         />

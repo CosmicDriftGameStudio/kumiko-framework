@@ -164,6 +164,8 @@ export {
 } from "./i18n";
 export { kumikoDefaultTranslations } from "./i18n-defaults";
 export type {
+  ActionMenuItemSpec,
+  ActionOverflowMenuProps,
   AppPrimitives,
   BannerProps,
   ButtonProps,

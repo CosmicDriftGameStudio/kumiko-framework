@@ -112,6 +112,102 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     ).toBe("3");
   });
 
+  test("metric.navigate — clicking the value navigates to the resolved id and applies params", async () => {
+    const navigateCalls: unknown[] = [];
+    const setSearchParamsCalls: Readonly<Record<string, string | null>>[] = [];
+    const navApi: NavApi = {
+      route: undefined,
+      navigate: (target) => navigateCalls.push(target),
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: (updates) => setSearchParamsCalls.push(updates),
+    };
+    const metricsScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      metrics: [
+        {
+          field: "balance",
+          label: "rentals.detail.metric.tenant",
+          navigate: { entity: "tenant", entityId: "tenantId", params: { pick: ["overdueDays"] } },
+        },
+      ],
+    };
+    const dispatcher = dispatcherReturning({ ...rowData, tenantId: "tenant-9" });
+    const user = userEvent.setup();
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(metricsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-metric-balance-label").textContent,
+    ).toBe("rentals.detail.metric.tenant");
+    await user.click(screen.getByTestId("kumiko-screen-projection-detail-metric-balance"));
+
+    expect(navigateCalls).toEqual([{ entity: "tenant", id: "tenant-9" }]);
+    expect(setSearchParamsCalls).toContainEqual({ overdueDays: "3" });
+  });
+
+  test("header.subtitleHref — an absolute http(s) URL renders the subtitle as an external link", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", subtitle: "address", subtitleHref: "addressUrl" },
+    };
+    const dispatcher = dispatcherReturning({
+      ...rowData,
+      addressUrl: "https://maps.example.com/12-canal-st",
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const subtitle = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+    expect(subtitle.tagName).toBe("A");
+    expect(subtitle.getAttribute("href")).toBe("https://maps.example.com/12-canal-st");
+    expect(subtitle.getAttribute("target")).toBe("_blank");
+  });
+
+  test("header.subtitleHref with a non-absolute value keeps the subtitle as plain text", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", subtitle: "address", subtitleHref: "addressUrl" },
+    };
+    const dispatcher = dispatcherReturning({ ...rowData, addressUrl: "/relative/path" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const subtitle = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+    expect(subtitle.tagName).not.toBe("A");
+    expect(subtitle.textContent).toBe("12 Canal St");
+  });
+
   test("without header/metrics, neither renders — regression protection for existing screens", async () => {
     const dispatcher = dispatcherReturning(rowData);
 

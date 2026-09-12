@@ -86,6 +86,8 @@ export type {
   ListColumnSpec,
   ListFacetSpec,
   ListSortSpec,
+  MetricNavigate,
+  MetricSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
@@ -102,6 +104,7 @@ export type {
   SecretsEditSection,
   ToolbarAction,
 } from "../engine/types/screen";
+export { metricField } from "../engine/types/screen";
 export type { TargetRef } from "../engine/types/target-ref";
 export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node";
 export type { WorkspaceDefinition } from "../engine/types/workspace";

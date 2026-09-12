@@ -1088,6 +1088,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
         {...(headerRegion !== undefined && { headerRegion })}
         {...(fillHeight && { fillHeight })}
+        {...(hideSectionTitles === true && { chromeless: true })}
       >
         {draftCandidates !== null && (
           <Banner

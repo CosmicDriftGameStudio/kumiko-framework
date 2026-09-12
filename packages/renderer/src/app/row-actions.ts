@@ -8,8 +8,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
-import type { DataTableRowAction, DataTableRowActionMode } from "../primitives";
-import { shouldRenderActionsIconOnly } from "../primitives";
+import type { DataTableRowAction } from "../primitives";
 import type { NavApi } from "./nav";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
@@ -80,18 +79,6 @@ export function resolveActionIcon(id: string, declared?: IconKey): IconKey | und
     ACTION_ICON_BY_ID[kebabLastSegment(id)] ??
     ACTION_ICON_BY_ID[kebabFirstSegment(id)]
   );
-}
-
-// Row-action column mode for a resolved action set: a group where every
-// member carries an icon renders inline so `shouldRenderActionsIconOnly`
-// can collapse it to icon-only buttons (fw#2580). Anything else keeps the
-// DataTable's adaptive default (kebab past two actions) — inline text
-// buttons for an icon-less group are the very thing the collapse avoids.
-export function rowActionModeFor(
-  actions: readonly DataTableRowAction[] | undefined,
-): DataTableRowActionMode | undefined {
-  if (actions === undefined || !shouldRenderActionsIconOnly(actions)) return undefined;
-  return "inline";
 }
 
 export function stringifyNavParams(params: Record<string, unknown>): Record<string, string | null> {

@@ -292,6 +292,8 @@ export type {
   ListPaginationMode,
   ListSortDir,
   ListSortSpec,
+  MetricNavigate,
+  MetricSpec,
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
@@ -311,6 +313,7 @@ export type {
   ToolbarAction,
   UnitKey,
 } from "@cosmicdrift/kumiko-types/screen";
+export { metricField } from "@cosmicdrift/kumiko-types/screen";
 export type { TargetRef } from "@cosmicdrift/kumiko-types/target-ref";
 export type {
   Subscribe,

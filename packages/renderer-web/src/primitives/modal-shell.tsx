@@ -16,6 +16,9 @@ export type ModalShellProps = {
   readonly noAriaDescription?: boolean;
   readonly closeLabel?: string;
   readonly showCloseButton?: boolean;
+  /** Lets the caller take over Radix's initial-focus target — call
+   *  `event.preventDefault()` and focus the desired element yourself. */
+  readonly onOpenAutoFocus?: (event: Event) => void;
 };
 
 export function ModalShell({
@@ -27,6 +30,7 @@ export function ModalShell({
   noAriaDescription,
   closeLabel,
   showCloseButton = true,
+  onOpenAutoFocus,
 }: ModalShellProps): ReactNode {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -35,6 +39,7 @@ export function ModalShell({
         <DialogPrimitive.Content
           data-testid={testId}
           {...(noAriaDescription && { "aria-describedby": undefined })}
+          {...(onOpenAutoFocus !== undefined && { onOpenAutoFocus })}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",

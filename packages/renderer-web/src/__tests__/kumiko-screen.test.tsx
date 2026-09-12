@@ -3169,8 +3169,8 @@ describe("KumikoScreen: entityList cell rendering", () => {
     columns: ["title", "status"],
   };
 
-  // publish/archive/duplicate all resolve an icon from their id
-  // (ACTION_ICON_BY_ID), which is what arms the icon-only collapse.
+  // No action here is id:"edit", so the primary+kebab split (bedienkonzept
+  // L3/L4) falls back to the first declared action ("publish").
   const rowActionListScreen: EntityListScreenDefinition = {
     id: "order-list-actions",
     type: "entityList",
@@ -3183,8 +3183,8 @@ describe("KumikoScreen: entityList cell rendering", () => {
     ],
   };
 
-  // "review" has no icon in ACTION_ICON_BY_ID, so this group must stay on
-  // the adaptive default (kebab) instead of collapsing.
+  // "review" has no icon in ACTION_ICON_BY_ID — proves the primary+kebab
+  // split no longer depends on every action resolving an icon.
   const mixedActionListScreen: EntityListScreenDefinition = {
     id: "order-list-mixed",
     type: "entityList",
@@ -3197,8 +3197,8 @@ describe("KumikoScreen: entityList cell rendering", () => {
     ],
   };
 
-  // projectionList reaches the same RenderList/DataTable path, so the collapse
-  // has to hold there too.
+  // projectionList reaches the same RenderList/DataTable path, so the
+  // primary+kebab split has to hold there too.
   const projectionActionListScreen: ProjectionListScreenDefinition = {
     id: "order-projection-actions",
     type: "projectionList",
@@ -3288,40 +3288,30 @@ describe("KumikoScreen: entityList cell rendering", () => {
     expect(badge?.className).toContain("text-muted-foreground");
   });
 
-  test("three icon-bearing row actions collapse to icon-only buttons (#2580)", async () => {
+  test('three row actions, none id:"edit" → the first is the primary text button, the rest sit in the kebab (bedienkonzept L3/L4)', async () => {
     await renderOrderList("orders:screen:order-list-actions", [{ id: "r1", title: "First" }]);
 
-    expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
-    for (const [id, label] of [
-      ["publish", "Publish"],
-      ["archive", "Archive"],
-      ["duplicate", "Duplicate"],
-    ] as const) {
-      const button = screen.getByTestId(`row-r1-action-${id}`);
-      expect(button.textContent).toBe("");
-      expect(button.getAttribute("aria-label")).toBe(label);
-    }
+    expect(screen.getByTestId("row-r1-action-publish").textContent).toBe("Publish");
+    expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
+    expect(screen.queryByTestId("row-r1-action-duplicate")).toBeNull();
+    expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
   });
 
-  test("projectionList row actions collapse the same way (#2580)", async () => {
+  test("projectionList row actions split the same way (bedienkonzept L3/L4)", async () => {
     await renderOrderList("orders:screen:order-projection-actions", [{ id: "r1", title: "First" }]);
 
-    expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
-    for (const [id, label] of [
-      ["publish", "Publish"],
-      ["archive", "Archive"],
-      ["duplicate", "Duplicate"],
-    ] as const) {
-      const button = screen.getByTestId(`row-r1-action-${id}`);
-      expect(button.textContent).toBe("");
-      expect(button.getAttribute("aria-label")).toBe(label);
-    }
+    expect(screen.getByTestId("row-r1-action-publish").textContent).toBe("Publish");
+    expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
+    expect(screen.queryByTestId("row-r1-action-duplicate")).toBeNull();
+    expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
   });
 
-  test("a row-action group with an icon-less member stays on the kebab (#2580)", async () => {
+  test("a row-action group with an icon-less member still gets the primary+kebab split (bedienkonzept L3/L4)", async () => {
     await renderOrderList("orders:screen:order-list-mixed", [{ id: "r1", title: "First" }]);
 
+    expect(screen.getByTestId("row-r1-action-publish").textContent).toBe("Publish");
+    expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
+    expect(screen.queryByTestId("row-r1-action-review")).toBeNull();
     expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
-    expect(screen.queryByTestId("row-r1-action-publish")).toBeNull();
   });
 });

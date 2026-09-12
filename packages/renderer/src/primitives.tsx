@@ -785,6 +785,15 @@ export type FormProps = {
    *  document-flow height. Native impls may ignore this prop (already a
    *  bounded viewport there). */
   readonly fillHeight?: boolean;
+  /** Drops the surrounding card (bg/border/rounded, title/subtitle block,
+   *  footer border) so sections+footer render as siblings of `headerRegion`
+   *  on the page background instead of inside a nested card — a tabbed
+   *  projectionDetail's tab content is a sibling of the head card, not its
+   *  child (bedienkonzept A1), so it must look like a standalone screen
+   *  instead of a form embedded in another card. Default false: unchanged
+   *  card chrome. Native impls may ignore this prop (no card chrome there
+   *  to begin with). */
+  readonly chromeless?: boolean;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
@@ -1054,7 +1063,13 @@ export type WizardStepGroupProps = {
  *  Keyboard/ARIA (role=tablist/tab, arrow-key navigation) is the
  *  implementation's job. */
 export type TabsProps = {
-  readonly items: readonly { readonly id: string; readonly label: string }[];
+  readonly items: readonly {
+    readonly id: string;
+    readonly label: string;
+    /** Shown dimmed after the label (e.g. an open-items count). Omit for
+     *  tabs without a counter. */
+    readonly count?: number;
+  }[];
   readonly activeId: string;
   readonly onSelect: (id: string) => void;
   readonly testId?: string;
@@ -1115,6 +1130,9 @@ export type MetricProps = {
   readonly label: string;
   readonly value: string;
   readonly testId?: string;
+  /** Click handler — set when the metric declares a `navigate` target
+   *  (see `MetricSpec`). Omitted for a plain, non-interactive metric. */
+  readonly onPress?: () => void;
 };
 
 /** Structured JSON display (audit payload/metadata, job logs, unsupported
@@ -1125,6 +1143,25 @@ export type MetricProps = {
 export type JsonViewProps = {
   readonly value: unknown;
   readonly indent?: number;
+  readonly testId?: string;
+};
+
+/** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the
+ *  primary one collapse into this menu instead of a wall of buttons). */
+export type ActionMenuItemSpec = {
+  readonly id: string;
+  readonly label: string;
+  /** Icon name, resolved by the implementation (same names as row actions). */
+  readonly icon?: IconKey;
+  readonly disabled?: boolean;
+  readonly variant?: "default" | "danger";
+  readonly onSelect: () => void;
+};
+
+export type ActionOverflowMenuProps = {
+  readonly items: readonly ActionMenuItemSpec[];
+  /** aria-label for the three-dots trigger. */
+  readonly label: string;
   readonly testId?: string;
 };
 
@@ -1189,6 +1226,9 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly FillContainer?: ComponentType<FillContainerProps>;
+  /** Optional: without an implementation, callers with >2 header/row
+   *  actions fall back to today's all-buttons-inline rendering (A7). */
+  readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern
