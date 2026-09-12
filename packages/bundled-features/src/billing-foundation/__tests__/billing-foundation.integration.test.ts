@@ -855,12 +855,13 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
   // is written through the encrypted path above. If that changes (billing-
   // foundation goes live before a KMS is configured somewhere), note for
   // whoever builds the backfill: the existing backfillEventPiiEncryption
-  // (#799, db/queries/backfill-pii.ts) does NOT cover this feature yet —
-  // its lifecycle-event matcher expects `<aggregateType>.<verb>` event
-  // names (billing's are `billing-foundation:event:subscription-created`)
-  // and its custom-event catalog only supports user-subject fields
-  // (`{kind: "user"}`), not the tenant-subject fields billing uses. Closing
-  // that gap is new framework capability, not a wiring fix.
+  // (#799, db/queries/backfill-pii.ts) does NOT cover this feature yet — its
+  // lifecycle-event matcher expects `<aggregateType>.<verb>` event names,
+  // but billing's are `billing-foundation:event:subscription-created`. The
+  // custom-event catalog branch itself already resolves user/tenant/self
+  // subjects (fw#2801/#2819) — no framework gap to close here, only the
+  // lifecycle-event matcher would need widening if this feature ever needs
+  // a backfill.
 });
 
 // =============================================================================

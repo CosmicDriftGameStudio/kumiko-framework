@@ -2,10 +2,9 @@ import type { FeatureDefinition } from "../types";
 import type { ResolvedPiiFlags } from "../types/fields";
 
 // A recordOwned field is encrypted under `record:<entity>:<id>` (kms-adapter-types.ts)
-// and forgetSubject's subjectIdSchema requires that id to be a UUID
-// (crypto-shredding/handlers/forget-subject.write.ts) — an entity with
-// idType: "serial" would encrypt the field but could never satisfy a
-// forget-subject request for it.
+// and forgetSubject's subjectIdSchema (crypto/kms-adapter.ts) requires that id
+// to be a UUID — an entity with idType: "serial" would encrypt the field but
+// could never satisfy a forget-subject request for it.
 export function validateRecordOwnedSubjects(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     if (entity.idType !== "serial") continue;

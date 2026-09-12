@@ -3,8 +3,8 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   configuredPiiSubjectKms,
-  RECORD_ENTITY_PATTERN,
   type SubjectId,
+  subjectIdSchema,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
@@ -19,7 +19,6 @@ import {
   type FeatureDefinition,
   type HandlerContext,
   type SessionUser,
-  type TenantId,
   type WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -49,15 +48,7 @@ import {
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants";
 
-export const subjectIdSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("user"), userId: z.uuid() }),
-  z.object({ kind: z.literal("tenant"), tenantId: z.uuid() }),
-  z.object({
-    kind: z.literal("record"),
-    entity: z.string().regex(RECORD_ENTITY_PATTERN),
-    id: z.uuid(),
-  }),
-]);
+export { subjectIdSchema };
 
 export const forgetSubjectSchema = z.object({
   subject: subjectIdSchema,
@@ -296,7 +287,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       raw.kind === "user"
         ? { kind: "user", userId: raw.userId }
         : raw.kind === "tenant"
-          ? { kind: "tenant", tenantId: raw.tenantId as TenantId } // @cast-boundary uuid-validated command payload → branded id
+          ? { kind: "tenant", tenantId: raw.tenantId }
           : { kind: "record", entity: raw.entity, id: raw.id };
     const subjectKey = subjectIdToKey(subject);
 

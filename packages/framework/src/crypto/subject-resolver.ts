@@ -171,8 +171,8 @@ export function resolveEventSubject(
       );
     }
     // aggregate_type is a free-form text column (events-schema.ts) — reject
-    // here rather than mint a record key that subjectIdSchema (forget-
-    // subject.write.ts) would later refuse to shred.
+    // here rather than mint a record key that subjectIdSchema (kms-adapter.ts)
+    // would later refuse to shred.
     if (!RECORD_ENTITY_PATTERN.test(envelope.aggregateType)) {
       throw new SubjectResolutionError(
         fieldName,
