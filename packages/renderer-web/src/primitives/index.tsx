@@ -591,6 +591,7 @@ function DefaultInput(props: InputProps): ReactNode {
           data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           autoComplete={props.autoComplete ?? "current-password"}
         />
       );
@@ -609,6 +610,7 @@ function DefaultInput(props: InputProps): ReactNode {
               const v = e.target.value;
               props.onChange(v === "" ? undefined : Number(v));
             }}
+            {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
             className={cn(
               "text-right tabular-nums",
               fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,

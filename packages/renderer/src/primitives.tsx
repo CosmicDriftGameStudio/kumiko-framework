@@ -220,6 +220,8 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Hint text shown when the field is empty (analog to kind:"text"). */
+      readonly placeholder?: string;
       /** "current-password" für Login, "new-password" für Reset/Signup —
        *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
        *  Native: textContentType="password" / "newPassword". */
@@ -235,6 +237,8 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** Hint text shown when the field is empty (analog to kind:"text"). */
+      readonly placeholder?: string;
       readonly testId?: string;
       /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
       readonly icon?: FieldIconKey;
