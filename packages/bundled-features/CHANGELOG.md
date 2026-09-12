@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.255.1
+
+### Patch Changes
+
+- 5b04527: fw#2801: `subjectIdSchema` (the zod validator `forgetSubject` uses to check what can be crypto-shredded) moved from `@cosmicdrift/kumiko-bundled-features/crypto-shredding` to `@cosmicdrift/kumiko-framework/crypto`, next to `subjectKeyForRecord`/`RECORD_ENTITY_PATTERN`, and is now `satisfies z.ZodType<SubjectId>` — a future `SubjectId` variant that the schema doesn't cover fails to compile instead of silently diverging at runtime (the root cause behind fw#2809). Non-breaking for consumers: `@cosmicdrift/kumiko-bundled-features/crypto-shredding` still re-exports `subjectIdSchema` from the same public entry point.
+- Updated dependencies [5b04527]
+  - @cosmicdrift/kumiko-framework@0.255.1
+  - @cosmicdrift/kumiko-headless@0.255.1
+  - @cosmicdrift/kumiko-renderer@0.255.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.255.1
+  - @cosmicdrift/kumiko-renderer-web@0.255.1
+  - @cosmicdrift/kumiko-types@0.255.1
+
 ## 0.255.0
 
 ### Minor Changes
