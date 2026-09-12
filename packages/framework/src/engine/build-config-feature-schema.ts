@@ -442,9 +442,9 @@ function deriveField(def: ConfigKeyDefinition): FieldDefinition {
     case "select":
       return def.options !== undefined && def.options.length > 0
         ? createSelectField({ options: def.options })
-        : createTextField();
+        : createTextField({ personal: false, reason: "system_metadata" });
     default:
-      return createTextField();
+      return createTextField({ personal: false, reason: "system_metadata" });
   }
 }
 
