@@ -40,13 +40,17 @@ import {
 
 const invoiceEntity = createEntity({
   table: "read_mspreb_invoices",
-  fields: { customer: createTextField({ required: true }) },
+  fields: {
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
 });
 const invoiceTable = buildEntityTable("msp-reb-invoice", invoiceEntity);
 
 const paymentEntity = createEntity({
   table: "read_mspreb_payments",
-  fields: { customer: createTextField({ required: true }) },
+  fields: {
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
 });
 const paymentTable = buildEntityTable("msp-reb-payment", paymentEntity);
 

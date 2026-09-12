@@ -30,7 +30,10 @@ describe("buildServer — file-storage provider guard", () => {
       "doc",
       createEntity({
         table: "boot_guard_docs",
-        fields: { title: createTextField(), attachment: createFileField() },
+        fields: {
+          title: createTextField({ personal: false, reason: "test_fixture" }),
+          attachment: createFileField(),
+        },
       }),
     );
   });
@@ -88,7 +91,9 @@ describe("buildServer — search-adapter boot warning (#2051)", () => {
       "note",
       createEntity({
         table: "boot_guard_notes",
-        fields: { title: createTextField({ searchable: true }) },
+        fields: {
+          title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
+        },
       }),
     );
     r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["title"] });
@@ -99,7 +104,7 @@ describe("buildServer — search-adapter boot warning (#2051)", () => {
       "note",
       createEntity({
         table: "boot_guard_plain_notes",
-        fields: { title: createTextField() },
+        fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
     );
     r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["title"] });
@@ -114,7 +119,9 @@ describe("buildServer — search-adapter boot warning (#2051)", () => {
       "download-attempt",
       createEntity({
         table: "boot_guard_download_attempts",
-        fields: { title: createTextField({ searchable: true }) },
+        fields: {
+          title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
+        },
       }),
     );
     r.screen({

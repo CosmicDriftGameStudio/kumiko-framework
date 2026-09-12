@@ -21,7 +21,7 @@ import { expectErrorIncludes } from "../testing";
 const invoiceEntity = createEntity({
   table: "tg_invoices",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     status: createSelectField({ options: ["draft", "sent", "paid"] as const, default: "draft" }),
   },
   transitions: {
@@ -36,7 +36,7 @@ const invoiceEntity = createEntity({
 const orderEntity = createEntity({
   table: "tg_orders",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     status: createSelectField({
       options: ["open", "shipped", "delivered"] as const,
       default: "open",
@@ -55,7 +55,7 @@ const orderEntity = createEntity({
 const ticketEntity = createEntity({
   table: "tg_tickets",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     status: createSelectField({ options: ["open", "closed"] as const, default: "open" }),
     isDeleted: createBooleanField({ default: false }),
   },

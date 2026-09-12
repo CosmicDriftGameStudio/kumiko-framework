@@ -23,7 +23,7 @@ import { generateId } from "../../utils";
 
 const itemEntity = createEntity({
   table: "dispatcher_live_items",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const itemTable = buildEntityTable("item", itemEntity);
 

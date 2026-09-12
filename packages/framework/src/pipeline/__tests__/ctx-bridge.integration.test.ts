@@ -26,7 +26,7 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 const bagEntity = createEntity({
   table: "ctx_bags",
   fields: {
-    label: createTextField({ required: true }),
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
     counter: createNumberField({ default: 0 }),
   },
 });
@@ -37,8 +37,10 @@ const bagTable = buildEntityTable("bag", bagEntity);
 const secretEntity = createEntity({
   table: "ctx_secrets",
   fields: {
-    owner: createTextField({ required: true }),
+    owner: createTextField({ personal: false, reason: "test_fixture", required: true }),
     token: createTextField({
+      personal: false,
+      reason: "test_fixture",
       required: true,
       access: { read: access.privileged, write: access.privileged },
     }),
@@ -53,7 +55,7 @@ const secretTable = buildEntityTable("secret", secretEntity);
 const echoEntity = createEntity({
   table: "ctx_echoes",
   fields: {
-    bagId: createTextField({ required: true }),
+    bagId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const echoTable = buildEntityTable("echo", echoEntity);

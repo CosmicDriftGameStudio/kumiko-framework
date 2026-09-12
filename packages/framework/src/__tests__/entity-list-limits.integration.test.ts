@@ -19,7 +19,7 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 
 const widgetEntity = createEntity({
   table: "limit_widgets",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
 const widgetFeature = defineFeature("limitwidgets", (r) => {

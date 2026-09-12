@@ -57,7 +57,7 @@ const JWT_SECRET = "files-test-secret-at-least-32-characters!!";
 const testTenantEntity = createEntity({
   table: "test_tenants",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     logo: createImageField({ maxSize: "2mb", accept: ["png", "jpg"] }),
   },
 });

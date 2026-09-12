@@ -18,7 +18,13 @@ import { buildServer } from "../server";
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 
 const testFeature = defineFeature("test", (r) => {
-  r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+  r.entity(
+    "item",
+    createEntity({
+      table: "Items",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
+  );
 
   r.writeHandler(
     "item:create",
@@ -726,7 +732,13 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
   // → Hono-app.{get,post}(path) → Response. deps.app erlaubt internal-call
   // an /api/* (gleicher Auth-Pfad wie ein echter HTTP-Call).
   const routeFeature = defineFeature("routes", (r) => {
-    r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+    r.entity(
+      "item",
+      createEntity({
+        table: "Items",
+        fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+      }),
+    );
     r.queryHandler("item:list", z.object({}), async () => [{ id: 7 }], {
       access: { openToAll: true },
     });
@@ -776,7 +788,13 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     // defaultTenantId macht den inner-Call ohne Bearer-Token möglich;
     // pinst dass deps.app.fetch identisch zu einem echten HTTP-Call läuft.
     const inner = defineFeature("inner", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       // Bewusst "anonymous" — openToAll schließt anonymous-User explizit
       // aus (siehe access.ts), damit das Aktivieren von anonymousAccess
       // nicht versehentlich jeden openToAll-Handler public macht.

@@ -7,7 +7,13 @@ import { buildServer } from "../server";
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 
 const testFeature = defineFeature("blob", (r) => {
-  r.entity("note", createEntity({ table: "Notes", fields: { body: createTextField() } }));
+  r.entity(
+    "note",
+    createEntity({
+      table: "Notes",
+      fields: { body: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
+  );
   r.writeHandler(
     "note:create",
     z.object({ body: z.string() }),

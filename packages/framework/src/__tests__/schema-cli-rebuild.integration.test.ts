@@ -33,8 +33,8 @@ import { ensureTemporalPolyfill } from "../time/polyfill";
 const itemEntity = createEntity({
   table: "read_apply_items",
   fields: {
-    groupId: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   softDelete: true,
 });

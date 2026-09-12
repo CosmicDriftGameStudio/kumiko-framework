@@ -37,7 +37,7 @@ const TAE_AGGREGATE_TYPE = "taeDoc";
 const markerEntity = createEntity({
   table: "tae_markers",
   fields: {
-    note: createTextField({ required: true }),
+    note: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const markerTable = buildEntityTable("taeMarker", markerEntity);

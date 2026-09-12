@@ -20,7 +20,7 @@ import { setupTestStack, type TestStack, TestUsers } from "../../stack";
 const widgetEntity = createEntity({
   table: "read_post_query_widgets",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
@@ -78,11 +78,11 @@ const postQueryFeature = defineFeature("postquerytest", (r) => {
 
 const gadgetEntity = createEntity({
   table: "read_post_query_gadgets",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const gizmoEntity = createEntity({
   table: "read_post_query_gizmos",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
 const dropRowHook: PostQueryHookFn = async () => ({ rows: [] });

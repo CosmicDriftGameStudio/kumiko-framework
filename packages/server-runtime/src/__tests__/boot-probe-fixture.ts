@@ -22,7 +22,7 @@ export function makeProbeFeature(opts: {
 }): FeatureDefinition {
   const probeEntity = createEntity({
     fields: {
-      name: createTextField({ required: true }),
+      name: createTextField({ personal: false, reason: "test_fixture", required: true }),
       active: createBooleanField({ default: true }),
     },
     table: opts.table,

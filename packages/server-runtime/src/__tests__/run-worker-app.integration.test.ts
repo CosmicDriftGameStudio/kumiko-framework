@@ -31,7 +31,7 @@ import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app";
 const jobRuns: Array<{ note: string; temporalWasDefined: boolean }> = [];
 
 const workerProbeEntity = createEntity({
-  fields: { note: createTextField({ required: true }) },
+  fields: { note: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "worker_probes",
 });
 

@@ -33,7 +33,7 @@ import { upcastStoredEvent } from "../upcaster";
 const orderEntity = createEntity({
   table: "read_upcast_orders",
   fields: {
-    customer: createTextField({ required: true }),
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const orderTable = buildEntityTable("upcast-order", orderEntity);

@@ -25,7 +25,7 @@ import {
 
 const itemEntity = createEntity({
   table: "read_arch_items",
-  fields: { label: createTextField({ required: true }) },
+  fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const itemTable = buildEntityTable("arch-item", itemEntity);
 

@@ -22,7 +22,7 @@ import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-se
 
 const probeEntity = createEntity({
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     done: createBooleanField(),
   },
   table: "kumiko_server_probe",

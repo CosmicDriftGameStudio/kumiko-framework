@@ -14,7 +14,10 @@ import { type AnyDb, deleteMany, insertOne, selectMany, updateMany } from "../qu
 
 const brandedEntity = buildEntityTable(
   "brandSample",
-  createEntity({ table: "brand_sample", fields: { title: createTextField({ required: true }) } }),
+  createEntity({
+    table: "brand_sample",
+    fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
+  }),
 );
 
 const unmanagedTable = defineUnmanagedTable({

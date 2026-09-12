@@ -26,13 +26,17 @@ import {
 
 const shipmentEntity = createEntity({
   table: "read_msp_shipments",
-  fields: { customer: createTextField({ required: true }) },
+  fields: {
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
 });
 const shipmentTable = buildEntityTable("msp-shipment", shipmentEntity);
 
 const refundEntity = createEntity({
   table: "read_msp_refunds",
-  fields: { customer: createTextField({ required: true }) },
+  fields: {
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
 });
 const refundTable = buildEntityTable("msp-refund", refundEntity);
 

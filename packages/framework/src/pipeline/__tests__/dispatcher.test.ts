@@ -11,7 +11,13 @@ import { createDispatcher } from "../dispatcher";
 const streamCleanupState = { closed: false };
 
 const echoFeature = defineFeature("echo", (r) => {
-  r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+  r.entity(
+    "item",
+    createEntity({
+      table: "Items",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
+  );
 
   r.writeHandler(
     "item:create",
@@ -119,7 +125,13 @@ describe("dispatcher.write", () => {
     // it must SKIP the rate-limit — not throw "no RateLimitResolver is
     // configured". (The HTTP path still has the resolver for real anon writes.)
     const rlFeature = defineFeature("rl", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "item:create",
         z.object({ name: z.string() }),
@@ -144,7 +156,13 @@ describe("dispatcher.write", () => {
     // rate-limiting feature. User buckets cannot skip (unlike ip+no-IP), so we
     // fail loud at first write instead of silently running uncapped.
     const rlFeature = defineFeature("rl-user", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "item:create",
         z.object({ name: z.string() }),
@@ -174,7 +192,13 @@ describe("dispatcher.write", () => {
     // gegen denselben SessionUser — sonst ist's nicht der gleiche.
     const captured: { fromEvent?: unknown; fromCtx?: unknown } = {};
     const aliasFeature = defineFeature("alias", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "item:create",
         z.object({ name: z.string() }),
@@ -676,7 +700,13 @@ describe("dispatcher feature-gate", () => {
   function toggled() {
     return defineFeature("toggled", (r) => {
       r.toggleable({ default: true });
-      r.entity("widget", createEntity({ table: "Widgets", fields: { name: createTextField() } }));
+      r.entity(
+        "widget",
+        createEntity({
+          table: "Widgets",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.queryHandler("widget:list", z.object({}).passthrough(), async () => ({ items: [] }), {
         access: { openToAll: true },
       });
@@ -941,7 +971,13 @@ describe("write-handler shape guard", () => {
 
   function brokenFeature() {
     return defineFeature("broken", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "item:create",
         z.object({ name: z.string() }),

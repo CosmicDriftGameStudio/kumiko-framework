@@ -29,7 +29,7 @@ const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
 const productEntity = createEntity({
   table: "anon_products",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const productTable = buildEntityTable("product", productEntity);
@@ -37,8 +37,8 @@ const productTable = buildEntityTable("product", productEntity);
 const orderEntity = createEntity({
   table: "anon_orders",
   fields: {
-    productName: createTextField({ required: true }),
-    placedBy: createTextField({ default: "" }),
+    productName: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    placedBy: createTextField({ personal: false, reason: "test_fixture", default: "" }),
   },
 });
 const orderTable = buildEntityTable("order", orderEntity);

@@ -15,7 +15,10 @@ const piiFeature = defineFeature("gate-pii", (r) => {
 const plainFeature = defineFeature("gate-plain", (r) => {
   r.entity(
     "thing",
-    createEntity({ table: "read_gate_things", fields: { name: createTextField() } }),
+    createEntity({
+      table: "read_gate_things",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
   );
 });
 

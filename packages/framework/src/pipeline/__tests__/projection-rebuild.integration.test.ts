@@ -47,8 +47,8 @@ import {
 const itemEntity = createEntity({
   table: "read_rebuild_items",
   fields: {
-    groupId: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   softDelete: true,
 });
@@ -586,7 +586,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
   // list/progress tests above keep seeing exactly one registered projection.
   const swapEntity = createEntity({
     table: "read_swap_indexed",
-    fields: { label: createTextField({ required: true }) },
+    fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   });
   const swapTable = buildEntityTable("swap-indexed", swapEntity);
   // Empty apply: a 0-event rebuild still builds the shadow + swaps it in, so

@@ -4,7 +4,13 @@ import { createI18n } from "../index";
 
 describe("createI18n", () => {
   const adminFeature = defineFeature("adminUsers", (r) => {
-    r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+    r.entity(
+      "user",
+      createEntity({
+        table: "Users",
+        fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+      }),
+    );
     r.translations({
       keys: {
         "nav.title": { de: "Benutzer", en: "Users" },

@@ -43,39 +43,54 @@ const admin = TestUsers.admin;
 
 const departmentEntity = createEntity({
   table: "cascade_departments",
-  fields: { name: createTextField() },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 const userEntity = createEntity({
   table: "cascade_users",
-  fields: { name: createTextField(), departmentId: createTextField() },
+  fields: {
+    name: createTextField({ personal: false, reason: "test_fixture" }),
+    departmentId: createTextField({ personal: false, reason: "test_fixture" }),
+  },
 });
 const sessionEntity = createEntity({
   table: "cascade_sessions",
-  fields: { userId: createTextField(), token: createTextField() },
+  fields: {
+    userId: createTextField({ personal: false, reason: "test_fixture" }),
+    token: createTextField({ personal: false, reason: "test_fixture" }),
+  },
 });
 const groupEntity = createEntity({
   table: "cascade_groups",
-  fields: { name: createTextField() },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 // Two separate junction tables so one Registry can host both onDelete
 // strategies (restrict + cascade) on the same user→group pair.
 const userGroupRestrictEntity = createEntity({
   table: "cascade_user_group_restrict",
-  fields: { userId: createTextField(), groupId: createTextField() },
+  fields: {
+    userId: createTextField({ personal: false, reason: "test_fixture" }),
+    groupId: createTextField({ personal: false, reason: "test_fixture" }),
+  },
 });
 const userGroupCascadeEntity = createEntity({
   table: "cascade_user_group_cascade",
-  fields: { userId: createTextField(), groupId: createTextField() },
+  fields: {
+    userId: createTextField({ personal: false, reason: "test_fixture" }),
+    groupId: createTextField({ personal: false, reason: "test_fixture" }),
+  },
 });
 // setNull pair: team→member with onDelete "setNull" — members survive
 // the team deletion with teamId nulled out.
 const teamEntity = createEntity({
   table: "cascade_teams",
-  fields: { name: createTextField() },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 const memberEntity = createEntity({
   table: "cascade_members",
-  fields: { name: createTextField(), teamId: createTextField() },
+  fields: {
+    name: createTextField({ personal: false, reason: "test_fixture" }),
+    teamId: createTextField({ personal: false, reason: "test_fixture" }),
+  },
 });
 
 beforeAll(async () => {

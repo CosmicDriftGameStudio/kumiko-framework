@@ -12,15 +12,15 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 // per entry — all in the same TX as the parent.
 const projectEntity = createEntity({
   table: "nested_projects",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const projectTable = buildEntityTable("project", projectEntity);
 
 const taskEntity = createEntity({
   table: "nested_tasks",
   fields: {
-    projectId: createTextField({ required: true }),
-    title: createTextField({ required: true }),
+    projectId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const taskTable = buildEntityTable("task", taskEntity);

@@ -18,7 +18,13 @@ import { SEARCH_CONSUMER_NAME } from "../system-hooks";
 const noteEntity = createEntity({
   table: "read_named_search_notes",
   fields: {
-    label: createTextField({ required: true, maxLength: 100, searchable: true }),
+    label: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 100,
+      searchable: true,
+    }),
   },
   softDelete: true,
 });
@@ -29,7 +35,12 @@ const noteTable = buildEntityTable("note", noteEntity);
 const ghostEntity = createEntity({
   table: "read_named_search_ghosts",
   fields: {
-    note: createTextField({ required: true, maxLength: 50 }),
+    note: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 50,
+    }),
   },
 });
 

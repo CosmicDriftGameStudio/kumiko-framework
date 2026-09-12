@@ -72,7 +72,7 @@ async function createTempStaticDir(files: Record<string, string>): Promise<strin
 
 const widgetEntity = createEntity({
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     active: createBooleanField({ default: true }),
   },
   table: "prod_widgets",
