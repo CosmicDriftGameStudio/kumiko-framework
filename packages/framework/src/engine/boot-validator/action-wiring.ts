@@ -142,7 +142,8 @@ export function validateFieldWiring(feature: FeatureDefinition): void {
       screen.type === "entityEdit" ||
       screen.type === "actionForm" ||
       screen.type === "configEdit" ||
-      screen.type === "projectionDetail"
+      screen.type === "projectionDetail" ||
+      screen.type === "secretMint"
     ) {
       validateEditLayoutNoFunctions(feature.name, screen.id, screen.type, screen.layout);
       continue;

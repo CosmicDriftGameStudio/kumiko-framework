@@ -18,6 +18,7 @@ import type {
   ProjectionListScreenDefinition,
   RowAction,
   ScreenDefinition,
+  SecretMintScreenDefinition,
   SecretsEditScreenDefinition,
   ToolbarAction,
   WorkspaceDefinition,
@@ -208,6 +209,34 @@ export function requiredKeysFromScreen(
           const fieldName = editFieldName(f);
           out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
         }
+      }
+      break;
+    }
+    case "secretMint": {
+      // Mirrors the actionForm case above (submitLabel, fields/section titles
+      // via ACTION_FORM_ENTITY) plus the reveal-phase's own i18n surface.
+      const mint = screen as SecretMintScreenDefinition;
+      pushKey(out, mint.submitLabel);
+      for (const fieldName of Object.keys(mint.fields)) {
+        out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+      }
+      for (const section of mint.layout.sections) {
+        if (isExtensionEditSection(section)) {
+          pushKey(out, section.title);
+          continue;
+        }
+        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+        pushKey(out, section.title);
+        for (const f of section.fields) {
+          const fieldName = editFieldName(f);
+          out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+        }
+      }
+      pushKey(out, mint.reveal.title);
+      pushKey(out, mint.reveal.warning);
+      pushKey(out, mint.reveal.confirmLabel);
+      for (const revealField of mint.reveal.fields) {
+        pushKey(out, revealField.label);
       }
       break;
     }

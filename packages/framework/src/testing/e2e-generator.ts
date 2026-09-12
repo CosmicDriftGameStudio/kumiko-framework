@@ -108,6 +108,8 @@ export function generateE2ESpec(
     // actionForm: kein generischer E2E-Spec — Author-defined Handler
     // braucht Author-defined Test-Daten, die der Generator nicht kennt.
     if (screen.type === "actionForm") continue;
+    // secretMint: same reasoning — author-defined write handler, no generic spec.
+    if (screen.type === "secretMint") continue;
     // configEdit: dito — die Werte werden über config:write:set
     // pro Field geschrieben, ohne CRUD-Zustand zu generieren wäre der
     // Spec wertlos. Branding/SMTP/etc. sind Author-spezifisch.

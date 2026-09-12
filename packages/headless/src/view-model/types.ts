@@ -165,6 +165,8 @@ export type EditFieldViewModel = {
    *  value; here it only carries an optional `{ rows }` override.
    *  `true` = default rows, `{ rows }` = explicit height. */
   readonly multiline?: boolean | { readonly rows?: number };
+  /** From TextFieldDef.format — `password` makes the renderer mask the input. */
+  readonly format?: "email" | "url" | "phone" | "password";
   /** Nur bei `type: "timestamp"` gesetzt wenn TimestampFieldDef.locatedBy
    *  existiert — Wall-Clock-Zeit ohne Offset. Der Renderer emittiert
    *  dann lokale Zeit ohne `Z` statt eines UTC-Instants. */

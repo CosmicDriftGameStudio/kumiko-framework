@@ -751,6 +751,16 @@ function renderInput({
       );
     }
     default: {
+      if (field.type === "text" && field.format === "password") {
+        return (
+          <Input
+            kind="password"
+            {...common}
+            value={stringValue(field.value)}
+            onChange={(v) => onChange(v)}
+          />
+        );
+      }
       // text + unknown scalar type → text input. If TextFieldDef.multiline
       // is set (the view-model carries it), the renderer switches to
       // textarea. longText always renders a textarea — that's the point of
@@ -867,6 +877,7 @@ function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | ""
 function readOnlyDisplayText(field: EditFieldViewModel, appLocale: string): string {
   const { type, value } = field;
   if (value === undefined || value === null || value === "") return "—";
+  if (type === "text" && field.format === "password") return "••••••••";
   switch (type) {
     case "boolean":
       return applyFormatSpec({ format: "boolean" }, value);

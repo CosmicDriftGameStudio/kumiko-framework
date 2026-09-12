@@ -153,6 +153,13 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "Found an open draft for this form. Do you want to resume it?",
     "kumiko.form.draft.start-new": "Start new",
 
+    "kumiko.secretMint.title": "Your new secret",
+    "kumiko.secretMint.warning":
+      "Copy this now — it is shown only this once and cannot be retrieved later.",
+    "kumiko.secretMint.confirm": "I have copied it",
+    "kumiko.secretMint.copy": "Copy",
+    "kumiko.secretMint.copied": "Copied",
+
     "kumiko.validation.required": "Required.",
     "kumiko.validation.invalid": "Invalid value.",
     "kumiko.validation.too-short": "Too short (at least {min} characters).",

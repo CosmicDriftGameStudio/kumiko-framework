@@ -55,6 +55,10 @@ import type { PatScopeConfig } from "../scopes";
 let stack: TestStack;
 let h: ReturnType<typeof makeSessionHelpers>;
 
+// `personal-access-tokens:query:mine` is now a paged handler — every caller
+// reads `response.rows` instead of a blank array (fw#2548 Teil B).
+type PatRowsEnvelope<T> = { readonly rows: readonly T[]; readonly nextCursor: string | null };
+
 const encryptionKey = randomBytes(32).toString("base64");
 const TENANT: TenantId = testTenantId(1);
 
@@ -183,7 +187,11 @@ describe("PAT auth", () => {
   test("revoked token → 401", async () => {
     const actor = await actorFor("revoked@example.com");
     const token = await mintToken(actor);
-    const rows = await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    const { rows } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
     const id = rows[0]?.id;
     expect(id).toBeDefined();
     await stack.http.writeOk(PatHandlers.revoke, { id }, actor);
@@ -195,8 +203,11 @@ describe("PAT auth", () => {
     const actor = await actorFor("expired@example.com");
     const token = await mintToken(actor);
     const past = Temporal.Now.instant().subtract({ hours: 1 });
-    const rows =
-      (await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor)) ?? [];
+    const { rows } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
     await updateMany(stack.db, apiTokenTable, { expiresAt: past }, { id: rows[0]?.id });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
@@ -245,7 +256,7 @@ describe("PAT with active KMS (#820): token name is userOwned PII", () => {
       const actor = await actorFor("kms-pat@example.com");
       const token = await mintToken(actor);
 
-      const rows = await stack.http.queryOk<Array<{ id: string; name: string }>>(
+      const { rows } = await stack.http.queryOk<PatRowsEnvelope<{ id: string; name: string }>>(
         PatQueries.mine,
         {},
         actor,
@@ -276,7 +287,11 @@ describe("PAT create: re-auth (#security)", () => {
       actor,
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(400);
-    const rows = await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    const { rows } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -288,18 +303,20 @@ describe("PAT create: re-auth (#security)", () => {
       actor,
     );
     expect(err.details).toMatchObject({ reason: PatErrors.reauthRequired });
-    const rows = await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    const { rows } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
     expect(rows).toHaveLength(0);
   });
 
   test("expiresInDays omitted → defaults to ~90 days, not never-expiring", async () => {
     const actor = await actorFor("reauth-expiry@example.com");
     await mintToken(actor);
-    const rows = await stack.http.queryOk<Array<{ id: string; expiresAt: string | null }>>(
-      PatQueries.mine,
-      {},
-      actor,
-    );
+    const { rows } = await stack.http.queryOk<
+      PatRowsEnvelope<{ id: string; expiresAt: string | null }>
+    >(PatQueries.mine, {}, actor);
     expect(rows[0]?.expiresAt).not.toBeNull();
     const expiresAt = Temporal.Instant.from(rows[0]?.expiresAt as string);
     const expected = Temporal.Now.instant().add({ hours: 24 * PAT_DEFAULT_EXPIRES_IN_DAYS });
@@ -361,7 +378,11 @@ describe("PAT create: MFA re-auth gate", () => {
       actor,
     );
     expect(err.details).toMatchObject({ reason: PatErrors.reauthRequired });
-    const rows = await mfaStack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    const { rows } = await mfaStack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -374,7 +395,11 @@ describe("PAT create: MFA re-auth gate", () => {
       actor,
     );
     expect(err.details).toMatchObject({ reason: PatErrors.reauthRequired });
-    const rows = await mfaStack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor);
+    const { rows } = await mfaStack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
     expect(rows).toHaveLength(0);
   });
 });
@@ -418,5 +443,110 @@ describe("PAT revoke on password change (#security)", () => {
 
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(200);
+  });
+});
+
+describe("PAT list projection (fw#2548 Teil B)", () => {
+  test("the minted plaintext token is returned exactly once and never by query:mine", async () => {
+    const actor = await actorFor("secret-once@example.com");
+    const token = await mintToken(actor);
+
+    const first = await stack.http.queryOk<PatRowsEnvelope<{ prefix: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
+    expect(JSON.stringify(first)).not.toContain(token);
+    expect(first.rows[0]?.prefix).toBeDefined();
+
+    // A second read confirms this isn't a one-request fluke — the plaintext
+    // never lands in the projection at all, so a later read can't leak it
+    // either.
+    const second = await stack.http.queryOk<PatRowsEnvelope<{ prefix: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
+    expect(JSON.stringify(second)).not.toContain(token);
+  });
+
+  test("another user's tokens never appear in query:mine", async () => {
+    const actorA = await actorFor("owner-a@example.com");
+    const actorB = await actorFor("owner-b@example.com");
+    await mintToken(actorA);
+    await mintToken(actorB);
+
+    const { rows: rowsA } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actorA,
+    );
+    const { rows: rowsB } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actorB,
+    );
+    expect(rowsA).toHaveLength(1);
+    expect(rowsB).toHaveLength(1);
+    expect(rowsA[0]?.id).not.toBe(rowsB[0]?.id);
+  });
+
+  test("revoke of another user's token fails and leaves it usable", async () => {
+    const actorA = await actorFor("revoke-owner-a@example.com");
+    const actorB = await actorFor("revoke-owner-b@example.com");
+    const tokenA = await mintToken(actorA);
+    const { rows } = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      actorA,
+    );
+    const tokenAId = rows[0]?.id;
+    expect(tokenAId).toBeDefined();
+
+    const err = await stack.http.writeErr(PatHandlers.revoke, { id: tokenAId }, actorB);
+    expect(err.details).toMatchObject({ reason: PatErrors.ownershipDenied });
+
+    const res = await h.authedPost("/api/query", tokenA, { type: PatQueries.mine, payload: {} });
+    expect(res.status).toBe(200);
+  });
+
+  test("status column reflects revoked/expired/active", async () => {
+    const actor = await actorFor("status-column@example.com");
+    await mintToken(actor);
+    const active = await stack.http.queryOk<PatRowsEnvelope<{ id: string; status: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
+    expect(active.rows[0]?.status).toBe("active");
+
+    await stack.http.writeOk(PatHandlers.revoke, { id: active.rows[0]?.id }, actor);
+    const revoked = await stack.http.queryOk<PatRowsEnvelope<{ id: string; status: string }>>(
+      PatQueries.mine,
+      {},
+      actor,
+    );
+    expect(revoked.rows[0]?.status).toBe("revoked");
+
+    const expiredActor = await actorFor("status-column-expired@example.com");
+    await mintToken(expiredActor);
+    const beforeExpiry = await stack.http.queryOk<PatRowsEnvelope<{ id: string }>>(
+      PatQueries.mine,
+      {},
+      expiredActor,
+    );
+    const past = Temporal.Now.instant().subtract({ hours: 1 });
+    await updateMany(
+      stack.db,
+      apiTokenTable,
+      { expiresAt: past },
+      { id: beforeExpiry.rows[0]?.id },
+    );
+    const expired = await stack.http.queryOk<PatRowsEnvelope<{ id: string; status: string }>>(
+      PatQueries.mine,
+      {},
+      expiredActor,
+    );
+    expect(expired.rows[0]?.status).toBe("expired");
   });
 });

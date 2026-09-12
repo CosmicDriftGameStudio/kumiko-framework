@@ -137,7 +137,8 @@ export function validateRelatedListSectionQueries(features: readonly FeatureDefi
         screen.type !== "projectionDetail" &&
         screen.type !== "entityEdit" &&
         screen.type !== "actionForm" &&
-        screen.type !== "configEdit"
+        screen.type !== "configEdit" &&
+        screen.type !== "secretMint"
       ) {
         continue;
       }

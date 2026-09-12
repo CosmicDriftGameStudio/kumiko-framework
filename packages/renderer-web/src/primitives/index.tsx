@@ -36,6 +36,7 @@ import {
   type InputProps,
   type LinkProps,
   type ProgressProps,
+  type SecretRevealProps,
   type SectionProps,
   type StepBarProps,
   shouldRenderActionsIconOnly,
@@ -240,6 +241,7 @@ function DefaultBanner({
   id,
 }: BannerProps): ReactNode {
   const isError = variant === "error";
+  const isWarning = variant === "warning";
   // `id` is set when a <Field> wraps this Banner as its control (see
   // BannerProps.id). A <div> isn't labelable, so a <label htmlFor> pointing
   // at it is inert for screen readers — role="group" + aria-labelledby is
@@ -255,7 +257,9 @@ function DefaultBanner({
         "relative w-full rounded-lg border px-4 py-3 text-sm flex items-center gap-3",
         isError
           ? "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive"
-          : "bg-card text-card-foreground",
+          : isWarning
+            ? "border-status-warn/30 bg-status-warn/10 text-status-warn"
+            : "bg-card text-card-foreground",
       )}
     >
       <div className="flex-1">{children}</div>
@@ -2892,6 +2896,56 @@ export function DefaultCard({ slots, options, className, testId, children }: Car
   );
 }
 
+// One-time secret reveal (fw#2548, secretMint confirm phase) — monospaced
+// per-value display with a copy button that flips to `copiedLabel` on
+// success. Silent-catch on clipboard error mirrors the copy-link pattern in
+// create-app.tsx.
+function DefaultSecretReveal({
+  values,
+  copyLabel,
+  copiedLabel,
+  testId,
+}: SecretRevealProps): ReactNode {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  return (
+    <div data-testid={testId} className="flex flex-col gap-3">
+      {values.map((v, i) => (
+        <div key={v.label} className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-muted-foreground">{v.label}</span>
+          <div className="flex items-start gap-2">
+            {v.multiline ? (
+              <pre className="flex-1 overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+                {v.value}
+              </pre>
+            ) : (
+              <code className="flex-1 overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+                {v.value}
+              </code>
+            )}
+            {v.copyable && (
+              <UiButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(v.value);
+                    setCopiedIndex(i);
+                  } catch {
+                    // clipboard blocked (non-secure context) — no fallback UI needed here
+                  }
+                }}
+              >
+                {copiedIndex === i ? copiedLabel : copyLabel}
+              </UiButton>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export const defaultPrimitives: CorePrimitives = {
   Button: DefaultButton,
   Banner: DefaultBanner,
@@ -2922,4 +2976,5 @@ export const defaultPrimitives: CorePrimitives = {
   JsonView: DefaultJsonView,
   FillContainer: DefaultFillContainer,
   ActionOverflowMenu,
+  SecretReveal: DefaultSecretReveal,
 };

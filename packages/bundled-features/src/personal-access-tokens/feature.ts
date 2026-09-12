@@ -5,15 +5,16 @@ import {
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PAT_SCREEN_ID, type PatRateLimit } from "./constants";
+import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./constants";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
 import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write";
 import { listPatQuery } from "./handlers/list.query";
 import { revokePatWrite } from "./handlers/revoke.write";
-import { PAT_FEATURE_I18N } from "./i18n";
+import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n";
 import { createPatResolver } from "./resolver";
 import { apiTokenEntity } from "./schema/api-token";
 import type { PatScopeConfig } from "./scopes";
+import { createPatMintScreen, patListScreen } from "./screens";
 
 // Password-change is the only field-level trigger — see the postSave hook
 // below. MFA-enable/disable is wired separately (auth-mfa's
@@ -145,21 +146,11 @@ export function createPersonalAccessTokensFeature(
       availableScopes: r.queryHandler(buildAvailableScopesQuery(scopes)),
     };
 
-    // Dormant custom-screen — the client maps PAT_SCREEN_ID to PatTokensScreen;
-    // the app places it via r.nav in its logged-in settings area. dormant:
-    // true skips createKumikoApp's missing-client-plugin boot diagnostic
-    // (#2025) for apps that don't nav this screen (#2034).
-    // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312
-    r.screen({
-      id: PAT_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "PatTokensScreen" } },
-      access: { openToAll: true },
-      dormant: true,
-      description:
-        "Self-service screen where a signed-in user reviews their personal access tokens, mints a new one by picking a permission level per scope domain and an expiry, and revokes tokens they no longer need.",
-    });
-    r.translations({ keys: PAT_FEATURE_I18N });
+    // Declarative screens — list-with-revoke + mint-with-reveal. The app
+    // places `patListScreen` via r.nav in its logged-in settings area.
+    r.screen(patListScreen);
+    r.screen(createPatMintScreen(scopes));
+    r.translations({ keys: { ...PAT_FEATURE_I18N, ...patScopeOptionTranslations(scopes) } });
 
     // rateLimit flows into feature.exports so run-prod-app builds the
     // limiter from the same declaration — single source of truth. `scopes`

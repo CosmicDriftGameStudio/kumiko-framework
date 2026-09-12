@@ -19,6 +19,7 @@ function explicitListScreenId(screen: ScreenDefinition): string | undefined {
     case "projectionDetail":
     case "entityEdit":
     case "actionForm":
+    case "secretMint":
       return screen.listScreenId;
     default:
       return undefined;
