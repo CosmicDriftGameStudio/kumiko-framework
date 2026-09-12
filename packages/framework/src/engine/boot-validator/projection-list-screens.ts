@@ -145,8 +145,9 @@ function validateRelatedListFacets(
   section: EditRelatedListSection,
   schema: QueryHandlerDef["schema"] | undefined,
 ): void {
-  // skip: no facets declared, or the schema already accepts filters — nothing to reject.
+  // skip: no facets declared — nothing to reject.
   if (section.facets === undefined || section.facets.length === 0) return;
+  // skip: the schema already accepts filters — nothing to reject.
   if (schemaAccepts(schema, "filters")) return;
   throw new Error(
     `${prefix}: declares facets but query "${section.query}" has no "filters" parameter in its Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
