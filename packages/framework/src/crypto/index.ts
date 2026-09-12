@@ -30,6 +30,7 @@ export {
   type SubjectId,
   type SubjectKey,
   subjectIdFromKey,
+  subjectIdSchema,
   subjectIdToKey,
   subjectKeyForRecord,
   subjectKeyForTenant,

@@ -741,7 +741,7 @@ export type QualifiedEventName<
 // `personal: "tenant"` and `personal: "self"` declare the event's tenant
 // (envelope.tenantId) or its own aggregate stream (envelope.aggregateType +
 // aggregateId) as the subject instead — resolved via `resolveEventSubject`
-// in `packages/framework/src/crypto/subject-resolver.ts` (fw#2801 step 2).
+// in `packages/framework/src/crypto/subject-resolver.ts` (fw#2801).
 export type EventPiiSubject =
   | { readonly personal: { readonly of: string } }
   | { readonly personal: "tenant" }

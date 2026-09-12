@@ -64,7 +64,7 @@ const mailerFeature = defineFeature("mailer", (r) => {
   ).name;
 });
 
-// fw#2801 step 2: custom events declaring a tenant/self subject — no entity,
+// fw#2801: custom events declaring a tenant/self subject — no entity,
 // pure catalog events — proving the catalog branch resolves through the
 // same resolveEventSubject the live append path uses.
 let TENANT_NOTE_EVENT_TYPE: string;
