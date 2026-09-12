@@ -1129,6 +1129,60 @@ export type ActionFormRedirect = {
   readonly idFrom: string;
 };
 
+/** Author-declared field shown once after a mint-form submit — API token,
+ *  recovery codes, similar one-time secrets. */
+export type SecretRevealField = {
+  /** Flat field name in the handler's success payload. */
+  readonly field: string;
+  /** i18n key for this value's label. */
+  readonly label: string;
+  /** "code" (default) renders one monospaced value; "list" renders a
+   *  string-array payload one value per line (recovery codes). */
+  readonly display?: "code" | "list";
+  /** Default true — offer a copy-to-clipboard control next to the value. */
+  readonly copyable?: boolean;
+};
+
+export type SecretReveal = {
+  readonly fields: readonly SecretRevealField[];
+  /** i18n key. Default "kumiko.secretMint.title". */
+  readonly title?: string;
+  /** i18n key for the "this is the only time you see it" warning.
+   *  Default "kumiko.secretMint.warning". */
+  readonly warning?: string;
+  /** i18n key for the acknowledge button. Default "kumiko.secretMint.confirm". */
+  readonly confirmLabel?: string;
+};
+
+/** Mint form → one-time reveal → explicit confirm. The secret (API token,
+ *  recovery codes) lives only in the write-handler's own success payload —
+ *  no stored value backs it, so no query can redisplay it later. That gap
+ *  is why this needs its own screen type instead of a flag on `actionForm`,
+ *  which discards the success payload after extracting the navigation id. */
+export type SecretMintScreenDefinition = {
+  readonly id: string;
+  readonly type: "secretMint";
+  readonly nav?: ScreenNavSugar;
+  readonly detailFor?: string;
+  readonly description?: string;
+  readonly agent?: AgentHandlerHints;
+  /** Write-handler QN dispatched on submit. */
+  readonly handler: string;
+  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  readonly layout: EditLayout;
+  /** Navigate here after the reveal is confirmed. Short id (same-feature) or
+   *  a fully-qualified cross-feature screen QN — no result-id navigation
+   *  form exists here (unlike `ActionFormScreenDefinition.redirect`), since
+   *  the confirmed screen carries no entity id to thread through. */
+  readonly redirect?: string;
+  readonly cancelTarget?: string | false;
+  readonly listScreenId?: string;
+  readonly access?: AccessRule;
+  readonly reveal: SecretReveal;
+  /** i18n-key for the mint button. Default: renderer's own default. */
+  readonly submitLabel?: string;
+};
+
 // --- custom ---
 
 // Sub-route declared by a custom screen (Expo Router / URL-routing use).
@@ -1307,4 +1361,5 @@ export type ScreenDefinition =
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
   | SecretsEditScreenDefinition
+  | SecretMintScreenDefinition
   | CustomScreenDefinition;

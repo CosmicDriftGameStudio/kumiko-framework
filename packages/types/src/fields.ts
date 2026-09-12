@@ -255,7 +255,8 @@ export type TextFieldDef = {
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
-  readonly format?: "email" | "url" | "phone";
+  /** "password" is a pure render hint (masked input) — no storage semantics. */
+  readonly format?: "email" | "url" | "phone" | "password";
   readonly default?: string;
   readonly access?: FieldAccess;
   /** Mehrzeiliger Text — DefaultInput rendert dann ein <textarea> statt

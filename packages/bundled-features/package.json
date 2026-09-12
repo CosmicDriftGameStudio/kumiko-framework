@@ -110,7 +110,6 @@
     "./auth-mfa/testing": "./src/auth-mfa/testing.ts",
     "./sessions/testing": "./src/sessions/testing.ts",
     "./personal-access-tokens": "./src/personal-access-tokens/index.ts",
-    "./personal-access-tokens/web": "./src/personal-access-tokens/web/index.ts",
     "./feature-toggles": "./src/feature-toggles/index.ts",
     "./feature-toggles/web": "./src/feature-toggles/web/index.ts",
     "./template-resolver": "./src/template-resolver/index.ts",

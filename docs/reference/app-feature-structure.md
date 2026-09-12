@@ -33,7 +33,10 @@ src/features/<name>/
 
 - **Screens deklarativ zuerst**: `entityList` (CRUD über die Entity),
   `projectionList` (query-getrieben: columns, rowActions inkl. writeHandler/
-  navigate/drawer, Pager), `dashboard` (stat/chart/list-Panels). `type: "custom"` ist die
+  navigate/drawer, Pager), `dashboard` (stat/chart/list-Panels), `secretMint`
+  (Mint-Formular mit einmaliger Anzeige + Bestätigung des Secrets — für Werte,
+  die es nur im Success-Payload des Write-Handlers gibt, z.B. API-Token,
+  Recovery-Codes). `type: "custom"` ist die
   Ausnahme und braucht einen Allowlist-Tag
   (`// kumiko-lint-ignore app-feature-structure <Grund>`).
 - **Screen-Refs gegen outputSchema validiert**: `projectionList`-Columns,

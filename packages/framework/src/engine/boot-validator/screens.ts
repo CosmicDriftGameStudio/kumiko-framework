@@ -18,6 +18,7 @@ import {
 import type { EntityDefinition, FeatureDefinition } from "../types";
 import { metricField } from "../types";
 import type {
+  ActionFormScreenDefinition,
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
@@ -32,6 +33,7 @@ import type {
   RowActionNavigateBase,
   RowFieldExtractor,
   ScreenDefinition,
+  SecretMintScreenDefinition,
   ToolbarAction,
 } from "../types/screen";
 
@@ -157,7 +159,9 @@ function validateRowActionNavigateParams(
     (action.entityId !== undefined ||
       (screenEntity !== undefined && target.screen.entity === screenEntity));
   if (
-    (target.screen.type !== "actionForm" && target.screen.type !== "entityEdit") ||
+    (target.screen.type !== "actionForm" &&
+      target.screen.type !== "secretMint" &&
+      target.screen.type !== "entityEdit") ||
     isEntityEditUpdate
   ) {
     const reason = isEntityEditUpdate
@@ -171,9 +175,10 @@ function validateRowActionNavigateParams(
       action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" ` +
-        `sets params on navigate-target ${targetDescriptor} which ${reason} — only actionForm ` +
-        `and entityEdit-create targets read URL search params as initial values. Remove the ` +
-        `params extractor or retarget to an actionForm / cross-entity entityEdit-create screen.`,
+        `sets params on navigate-target ${targetDescriptor} which ${reason} — only actionForm, ` +
+        `secretMint and entityEdit-create targets read URL search params as initial values. Remove ` +
+        `the params extractor or retarget to an actionForm / secretMint / cross-entity ` +
+        `entityEdit-create screen.`,
     );
   }
 }
@@ -184,7 +189,7 @@ function validateRowActionNavigateParams(
 function validateWizardLayout(
   featureName: string,
   screenId: string,
-  screenType: "entityEdit" | "actionForm" | "configEdit",
+  screenType: "entityEdit" | "actionForm" | "configEdit" | "secretMint",
   layout: EditLayout,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
@@ -395,6 +400,8 @@ function validateDrawerTargetAction(
         `Known screens in this feature: ${[...Object.keys(screens)].sort().join(", ") || "(none)"}.`,
     );
   }
+  // secretMint is intentionally excluded — a one-time secret reveal belongs on
+  // its own page, not layered in a Drawer above a list.
   if (target.type !== "actionForm") {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
@@ -494,6 +501,181 @@ function resolveRowActionNavigateTarget(
     );
   }
   return screensByShortId.get(action.screen)?.[0];
+}
+
+function validateInlineFormHandler(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  allWriteHandlerQns: ReadonlySet<string>,
+): void {
+  if (!screen.handler || typeof screen.handler !== "string") {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has empty or non-string handler.`,
+    );
+  }
+  if (!allWriteHandlerQns.has(screen.handler)) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) handler "${screen.handler}" ` +
+        `is not a registered write-handler. Check the QN spelling (expected ` +
+        `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+    );
+  }
+}
+
+// Every field entry must carry a `type` discriminator. An author typo
+// (`title: { required: true }` without a type) would otherwise let
+// RenderField silently fall through to the default renderer and submit an
+// empty string — failing at boot is clearer. `type as unknown` because
+// FieldDefinition, as a union, only allows known type strings; here we're
+// checking author code that may have circumvented the type check.
+function validateInlineFormFields(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+): Set<string> {
+  const fieldNames = new Set(Object.keys(screen.fields));
+  if (fieldNames.size === 0) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has empty fields map — ` +
+        `declare at least one field.`,
+    );
+  }
+  for (const [fname, fdef] of Object.entries(screen.fields)) {
+    // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
+    const ftype = (fdef as { type?: unknown }).type;
+    if (typeof ftype !== "string" || ftype.length === 0) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) field "${fname}" has no ` +
+          `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
+      );
+    }
+  }
+  return fieldNames;
+}
+
+function validateInlineFormLayoutSections(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  fieldNames: ReadonlySet<string>,
+): void {
+  if (screen.layout.sections.length === 0) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has an empty sections list — ` +
+        `declare at least one section.`,
+    );
+  }
+  for (const section of screen.layout.sections) {
+    if (isExtensionEditSection(section)) {
+      if (section.component?.react === undefined && section.component?.native === undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (${kind}) extension section ` +
+            `"${section.title}" has no component — declare a react/native component marker.`,
+        );
+      }
+      continue;
+    }
+    if (section.kind === "relatedList") {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) relatedList section ` +
+          `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
+          `primitive (fw#2166).`,
+      );
+    }
+    if (isWriteFormEditSection(section)) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) writeForm section ` +
+          `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+      );
+    }
+    if (section.fields.length === 0) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has a section "${section.title}" ` +
+          `with zero fields — drop the section or add fields to it.`,
+      );
+    }
+    for (const fieldSpec of section.fields) {
+      const normalized = normalizeEditField(fieldSpec);
+      if (!fieldNames.has(normalized.field)) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (${kind}) layout references unknown field ` +
+            `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+        );
+      }
+    }
+  }
+}
+
+function validateInlineFormNavTargets(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  allScreenQns: ReadonlySet<string>,
+): void {
+  if (screen.redirect !== undefined) {
+    // redirect is either a short screen id (same-feature, e.g. "item-list")
+    // or a fully-qualified cross-feature QN (`<feature>:screen:<id>`) — the
+    // renderer strips the latter to the short id (lastSegment) when
+    // navigating, which the nav-router resolves app-wide (#1946). The object
+    // form (fw#2670, actionForm only) carries the same target under `screen`
+    // plus the payload field `idFrom`.
+    const redirectTarget =
+      typeof screen.redirect === "string" ? screen.redirect : screen.redirect.screen;
+    if (
+      typeof screen.redirect !== "string" &&
+      (typeof screen.redirect.idFrom !== "string" || screen.redirect.idFrom.trim() === "")
+    ) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) redirect.idFrom is empty or not a string — ` +
+          `name the success-payload field carrying the navigation id, or use the plain string ` +
+          `redirect form to navigate with the handler's own "id".`,
+      );
+    }
+    validateScreenNavTarget(
+      feature.name,
+      screenId,
+      kind,
+      "redirect",
+      redirectTarget,
+      allScreenQns,
+      feature.screens,
+    );
+  }
+  if (typeof screen.cancelTarget === "string") {
+    // Same rule as redirect — `false` (no Cancel button) needs no validation.
+    validateScreenNavTarget(
+      feature.name,
+      screenId,
+      kind,
+      "cancelTarget",
+      screen.cancelTarget,
+      allScreenQns,
+      feature.screens,
+    );
+  }
+}
+
+// actionForm/secretMint have no entity link, only a write-handler QN +
+// inline fields: checks handler registration, field types, layout refs, and nav targets.
+function validateInlineFormScreen(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  allWriteHandlerQns: ReadonlySet<string>,
+  allScreenQns: ReadonlySet<string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  validateInlineFormHandler(feature, screenId, screen, kind, allWriteHandlerQns);
+  const fieldNames = validateInlineFormFields(feature, screenId, screen, kind);
+  validateInlineFormLayoutSections(feature, screenId, screen, kind, fieldNames);
+  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
+  validateInlineFormNavTargets(feature, screenId, screen, kind, allScreenQns);
 }
 
 export function validateScreens(
@@ -1052,143 +1234,55 @@ export function validateScreens(
     }
 
     if (screen.type === "actionForm") {
-      // Tier 2.7d: Action-Form-Screens haben keinen entity-Link, nur
-      // einen Write-Handler-QN + Inline-Fields. Sechs Author-Code-
-      // Checks am Boot:
-      //   1) handler ist non-empty String.
-      //   2) handler ist als Write-Handler registriert (cross-feature-
-      //      Lookup gegen die collected QN-Map). Tippfehler/umbenannte
-      //      Handler fallen sonst erst beim ersten Klick als 404 auf.
-      //   3) fields-Map ist non-empty.
-      //   4) Jeder Field-Eintrag hat einen `type`-Discriminator
-      //      (Tippfehler in Schema → Renderer crasht stumm sonst).
-      //   5) layout.sections + jedes referenced field existiert in
-      //      fields.
-      //   6) redirect (wenn gesetzt) verweist auf einen registrierten
-      //      Screen-QN (Cross-Feature ok).
-      if (!screen.handler || typeof screen.handler !== "string") {
+      validateInlineFormScreen(
+        feature,
+        screenId,
+        screen,
+        "actionForm",
+        allWriteHandlerQns,
+        allScreenQns,
+        featureMap,
+      );
+      continue;
+    }
+
+    if (screen.type === "secretMint") {
+      validateInlineFormScreen(
+        feature,
+        screenId,
+        screen,
+        "secretMint",
+        allWriteHandlerQns,
+        allScreenQns,
+        featureMap,
+      );
+      if (screen.reveal.fields.length === 0) {
         throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has empty or non-string handler.`,
+          `[Feature ${feature.name}] Screen "${screenId}" (secretMint) has an empty reveal.fields ` +
+            `list — declare at least one field to reveal.`,
         );
       }
-      if (!allWriteHandlerQns.has(screen.handler)) {
-        throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) handler "${screen.handler}" ` +
-            `is not a registered write-handler. Check the QN spelling (expected ` +
-            `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-        );
-      }
-      const fieldNames = new Set(Object.keys(screen.fields));
-      if (fieldNames.size === 0) {
-        throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has empty fields map — ` +
-            `declare at least one field.`,
-        );
-      }
-      // Jeder Field-Eintrag muss einen `type`-Discriminator haben.
-      // Author-Tippfehler (`title: { required: true }` ohne type) →
-      // RenderField fällt zur Laufzeit auf den Default-Renderer und
-      // schickt einen leeren String — silent broken. Boot-Fail ist
-      // klarer. `type as unknown` weil FieldDefinition als Union nur
-      // bekannte Strings erlaubt; wir prüfen Author-Code, der ggf.
-      // den Type-Check umgangen hat.
-      for (const [fname, fdef] of Object.entries(screen.fields)) {
-        // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
-        const ftype = (fdef as { type?: unknown }).type;
-        if (typeof ftype !== "string" || ftype.length === 0) {
+      const revealFieldNames = new Set<string>();
+      for (const revealField of screen.reveal.fields) {
+        if (typeof revealField.field !== "string" || revealField.field.trim() === "") {
           throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) field "${fname}" has no ` +
-              `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
+            `[Feature ${feature.name}] Screen "${screenId}" (secretMint) has a reveal.fields entry ` +
+              `with an empty or non-string "field".`,
           );
         }
-      }
-      if (screen.layout.sections.length === 0) {
-        throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has an empty sections list — ` +
-            `declare at least one section.`,
-        );
-      }
-      for (const section of screen.layout.sections) {
-        if (isExtensionEditSection(section)) {
-          if (section.component?.react === undefined && section.component?.native === undefined) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (actionForm) extension section ` +
-                `"${section.title}" has no component — declare a react/native component marker.`,
-            );
-          }
-          continue;
-        }
-        if (section.kind === "relatedList") {
+        if (revealFieldNames.has(revealField.field)) {
           throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) relatedList section ` +
-              `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
-              `primitive (fw#2166).`,
+            `[Feature ${feature.name}] Screen "${screenId}" (secretMint) reveal.fields has a ` +
+              `duplicate field "${revealField.field}" — each revealed field must be unique.`,
           );
         }
-        if (isWriteFormEditSection(section)) {
+        revealFieldNames.add(revealField.field);
+        if (typeof revealField.label !== "string" || revealField.label.trim() === "") {
           throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) writeForm section ` +
-              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+            `[Feature ${feature.name}] Screen "${screenId}" (secretMint) reveal.fields entry ` +
+              `"${revealField.field}" has an empty or non-string "label".`,
           );
         }
-        if (section.fields.length === 0) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has a section "${section.title}" ` +
-              `with zero fields — drop the section or add fields to it.`,
-          );
-        }
-        for (const fieldSpec of section.fields) {
-          const normalized = normalizeEditField(fieldSpec);
-          if (!fieldNames.has(normalized.field)) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (actionForm) layout references unknown field ` +
-                `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
-            );
-          }
-        }
-      }
-      validateWizardLayout(feature.name, screenId, "actionForm", screen.layout, featureMap);
-      if (screen.redirect !== undefined) {
-        // redirect is either a short screen id (same-feature, e.g.
-        // "item-list") or a fully-qualified cross-feature QN
-        // (`<feature>:screen:<id>`) — the renderer strips the latter to the
-        // short id (lastSegment) when navigating, which the nav-router
-        // resolves app-wide (#1946). The object form (fw#2670) carries the
-        // same target under `screen` plus the payload field `idFrom`.
-        const redirectTarget =
-          typeof screen.redirect === "string" ? screen.redirect : screen.redirect.screen;
-        if (
-          typeof screen.redirect !== "string" &&
-          (typeof screen.redirect.idFrom !== "string" || screen.redirect.idFrom.trim() === "")
-        ) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) redirect.idFrom is empty or not a string — ` +
-              `name the success-payload field carrying the navigation id, or use the plain string ` +
-              `redirect form to navigate with the handler's own "id".`,
-          );
-        }
-        validateScreenNavTarget(
-          feature.name,
-          screenId,
-          "actionForm",
-          "redirect",
-          redirectTarget,
-          allScreenQns,
-          feature.screens,
-        );
-      }
-      if (typeof screen.cancelTarget === "string") {
-        // Gleiche Regel wie redirect — `false` (kein Cancel-Button)
-        // braucht keine Validierung.
-        validateScreenNavTarget(
-          feature.name,
-          screenId,
-          "actionForm",
-          "cancelTarget",
-          screen.cancelTarget,
-          allScreenQns,
-          feature.screens,
-        );
       }
       continue;
     }

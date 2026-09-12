@@ -19,26 +19,28 @@ import type {
   ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
+  FieldDefinition,
+  SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 const ACTION_FORM_PSEUDO_ENTITY = "__action-form__";
 
-/** Baut eine minimale EntityDefinition aus den Inline-Fields des
- *  ActionForm-Screens. RenderEdit + computeEditViewModel iterieren
- *  über entity.fields zur Render-Zeit; alle weiteren EntityDefinition-
- *  Felder bleiben undefined. */
+/** Baut eine minimale EntityDefinition aus den Inline-Fields eines
+ *  ActionForm- oder SecretMint-Screens. RenderEdit + computeEditViewModel
+ *  iterieren über entity.fields zur Render-Zeit; alle weiteren
+ *  EntityDefinition-Felder bleiben undefined. */
 export function synthesizeActionFormEntity(
-  fields: ActionFormScreenDefinition["fields"],
+  fields: Readonly<Record<string, FieldDefinition>>,
 ): EntityDefinition {
   return { fields } as EntityDefinition;
 }
 
-/** Wandelt ein ActionFormScreenDefinition in die EntityEditScreen-
- *  Shape die RenderEdit erwartet. type wird auf "entityEdit" gesetzt
- *  damit der Type-Constraint hält; entity wird auf den Pseudo-Namen
- *  gepinnt — RenderEdit liest das Feld nicht. */
+/** Wandelt ein ActionFormScreenDefinition oder SecretMintScreenDefinition in
+ *  die EntityEditScreen-Shape die RenderEdit erwartet. type wird auf
+ *  "entityEdit" gesetzt damit der Type-Constraint hält; entity wird auf den
+ *  Pseudo-Namen gepinnt — RenderEdit liest das Feld nicht. */
 export function synthesizeActionFormScreen(
-  screen: ActionFormScreenDefinition,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
 ): EntityEditScreenDefinition {
   return {
     id: screen.id,

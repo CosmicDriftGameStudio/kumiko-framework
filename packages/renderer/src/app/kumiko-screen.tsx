@@ -82,6 +82,7 @@ import {
   stringifyNavParams,
 } from "./row-actions";
 import { screenAccessAllows } from "./screen-access";
+import { SecretMintBody } from "./secret-mint-body";
 import { SecretsEditBody } from "./secrets-edit-body";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
@@ -211,6 +212,8 @@ export function KumikoScreen({
       return <DashboardScreenBody screen={screen} translate={translate} />;
     case "actionForm":
       return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
+    case "secretMint":
+      return <SecretMintBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
       return <ConfigEditBody schema={schema} screen={screen} translate={translate} />;
     case "secretsEdit":
@@ -522,12 +525,15 @@ export function mergeSearchParamsIntoInitial(
     const shape = fieldDef as {
       type?: string;
       sensitive?: boolean;
+      format?: string;
       options?: readonly (string | { readonly value: string })[];
       multiple?: boolean;
       schema?: Readonly<Record<string, EmbeddedCellShape>>;
       maxItems?: number;
     };
     if (shape.sensitive === true) continue;
+    // A password field must never be prefilled from the URL, same as sensitive.
+    if (shape.format === "password") continue;
     if (overrides !== undefined && name in overrides) {
       merged[name] = overrides[name];
       continue;

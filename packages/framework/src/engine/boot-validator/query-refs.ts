@@ -111,7 +111,8 @@ function checkScreenQueryRefs(
   } else if (
     screen.type === "entityEdit" ||
     screen.type === "actionForm" ||
-    screen.type === "configEdit"
+    screen.type === "configEdit" ||
+    screen.type === "secretMint"
   ) {
     checkEditLayoutQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.layout);
   } else if (screen.type === "dashboard") {

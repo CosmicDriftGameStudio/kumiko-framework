@@ -16,9 +16,12 @@ export const PatErrors = {
 // lets callers who genuinely want a long-lived token pass it explicitly.
 export const PAT_DEFAULT_EXPIRES_IN_DAYS = 90;
 
-// Dormant custom-screen id (r.screen) — the app places it via r.nav. The client
-// maps it to the PatTokensScreen component.
+// Declarative projectionList screen id — the caller's own tokens, revoke as a
+// row action. The app places it via r.nav.
 export const PAT_SCREEN_ID = "api-tokens";
+
+// Declarative secretMint screen id — mints a new token, reveals it once.
+export const PAT_MINT_SCREEN_ID = "api-token-create";
 
 export const PatHandlers = {
   create: "personal-access-tokens:write:create",

@@ -232,6 +232,12 @@ export function computeEditViewModel<
         fieldDef.type === "text" || fieldDef.type === "longText"
           ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
           : undefined;
+      // format hint for `type: "text"` — "password" makes the renderer mask
+      // the input (#2548).
+      const format =
+        fieldDef.type === "text"
+          ? (fieldDef as unknown as { format?: "email" | "url" | "phone" | "password" }).format
+          : undefined;
       // Wall-Clock-Hint bei `type: "timestamp"` mit locatedBy — der
       // Renderer emittiert dann lokale Zeit ohne `Z` statt UTC-Instant.
       const wallClock =
@@ -382,6 +388,7 @@ export function computeEditViewModel<
         ...(columns !== undefined && { columns }),
         ...(maxRows !== undefined && { maxRows }),
         ...(multiline !== undefined && { multiline }),
+        ...(format !== undefined && { format }),
         ...(wallClock !== undefined && { wallClock }),
         ...(min !== undefined && { min }),
         ...(max !== undefined && { max }),

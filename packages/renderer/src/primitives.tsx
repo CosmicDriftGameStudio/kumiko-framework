@@ -124,9 +124,11 @@ export type LinkProps = {
  *  Banner nicht edge-to-edge an den Main-Border klebt — relevant
  *  seit `<main>` kein eigenes Padding mehr hat. */
 export type BannerProps = {
-  /** "error" für Alerts (Konflikt, Netzfehler), "info" für neutrale
-   *  Platzhalter (Not-Found, Loading), "loading" für Lade-States. */
-  readonly variant?: "error" | "info" | "loading";
+  /** "error" for alerts (conflict, network error), "info" for neutral
+   *  placeholders (not-found, loading), "loading" for load states, "warning"
+   *  for a non-blocking but attention-grabbing notice (e.g. secretMint's
+   *  "this is shown only once"). */
+  readonly variant?: "error" | "info" | "loading" | "warning";
   readonly children: ReactNode;
   /** Optional — weitere Knöpfe/Elemente rechts vom Text (z.B. "Neu
    *  laden"). Inline, nicht als eigener Block. */
@@ -1165,6 +1167,24 @@ export type ActionOverflowMenuProps = {
   readonly testId?: string;
 };
 
+/** One revealed value on a `secretMint` screen's confirm phase (fw#2548). */
+export type SecretRevealValue = {
+  readonly label: string;
+  readonly value: string;
+  readonly copyable: boolean;
+  readonly multiline: boolean;
+};
+
+/** One-time secret reveal — mint-form confirm phase. Renders each value
+ *  monospaced (multiline splits it one line per entry, for recovery codes),
+ *  with a per-value copy control when `copyable`. */
+export type SecretRevealProps = {
+  readonly values: readonly SecretRevealValue[];
+  readonly copyLabel: string;
+  readonly copiedLabel: string;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -1229,6 +1249,10 @@ export type CorePrimitives = {
   /** Optional: without an implementation, callers with >2 header/row
    *  actions fall back to today's all-buttons-inline rendering (A7). */
   readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly SecretReveal?: ComponentType<SecretRevealProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

@@ -26,6 +26,7 @@ export const screenSchema: PatternFormSchema = {
         { value: "entityList", label: { en: "Entity list" } },
         { value: "entityEdit", label: { en: "Entity edit" } },
         { value: "actionForm", label: { en: "Action form" } },
+        { value: "secretMint", label: { en: "Secret mint" } },
         { value: "custom", label: { en: "Custom" } },
       ],
       required: true,

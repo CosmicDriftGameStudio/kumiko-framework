@@ -704,10 +704,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       );
       return;
     }
+    const passwordFieldNames = new Set(
+      vm.sections.flatMap((section) =>
+        section.kind === "fields"
+          ? section.fields.filter((f) => f.format === "password").map((f) => f.field)
+          : [],
+      ),
+    );
+    // A password field never enters the persisted draft blob — it would be stored in the clear and restored on resume.
+    const draftValues = Object.fromEntries(
+      Object.entries(controller.getSnapshot().values).filter(
+        ([field]) => !passwordFieldNames.has(field),
+      ),
+    );
     void dispatcher
       .write(FORM_DRAFT_SAVE, {
         draftKey: key,
-        values: controller.getSnapshot().values,
+        values: draftValues,
         stepIndex,
       })
       .catch((err: unknown) => {

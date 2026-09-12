@@ -1851,6 +1851,77 @@ describe("RenderEdit wizard draft", () => {
     expect(titleInputAgain.value).toBe("Acme");
   });
 
+  // fw#2548 security: a `format: "password"` field must never reach the
+  // persisted draft blob — it would be stored in the clear server-side and
+  // restored in plaintext on resume.
+  test("a password-format field is stripped from the draft save payload", async () => {
+    const passwordEntity = {
+      fields: {
+        title: { type: "text", required: true },
+        apiToken: { type: "text", format: "password" },
+        count: { type: "number" },
+      },
+    } as unknown as EntityDefinition;
+
+    const passwordScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard-draft-password",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        draft: true,
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }, { field: "apiToken" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+
+    const savedPayloads: DraftBlob[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
+          savedPayloads.push(payload);
+        }
+        return { isSuccess: true, data: { id: "1" } };
+      }) as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues & { apiToken?: string }>
+            screen={passwordScreen}
+            entity={passwordEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, apiToken: "" }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    fireEvent.change(screen.getByTestId("field-title").querySelector("input") as HTMLInputElement, {
+      target: { value: "Acme" },
+    });
+    fireEvent.change(
+      screen.getByTestId("field-apiToken").querySelector("input") as HTMLInputElement,
+      { target: { value: "hunter2" } },
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    expect(savedPayloads.length).toBeGreaterThan(0);
+    const saved = savedPayloads[0] as DraftBlob;
+    expect(saved.values["title"]).toBe("Acme");
+    expect(Object.keys(saved.values)).not.toContain("apiToken");
+    expect(JSON.stringify(saved.values)).not.toContain("hunter2");
+  });
+
   // fw#1929: bare crypto.randomUUID() breaks in non-secure contexts and
   // React Native/Hermes without a polyfill. With it deleted, minting a
   // draftId must still work through the mintDraftId() fallback instead of

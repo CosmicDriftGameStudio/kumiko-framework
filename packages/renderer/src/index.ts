@@ -202,6 +202,8 @@ export type {
   PrimitivesRegistry,
   ProgressProps,
   RuntimeRenderer,
+  SecretRevealProps,
+  SecretRevealValue,
   SectionProps,
   StatusBadgeProps,
   StatusTone,

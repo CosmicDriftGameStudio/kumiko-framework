@@ -26,7 +26,6 @@ import { deliveryClient } from "@cosmicdrift/kumiko-bundled-features/delivery/we
 import { featureTogglesClient } from "@cosmicdrift/kumiko-bundled-features/feature-toggles/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { jobsClient } from "@cosmicdrift/kumiko-bundled-features/jobs/web";
-import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
@@ -109,7 +108,6 @@ createKumikoApp({
     capOverviewClient(),
     userProfileClient(),
     userDataRightsClient(),
-    personalAccessTokensClient(),
     customFieldsClient(),
     foldersClient(),
     complianceProfilesClient(),

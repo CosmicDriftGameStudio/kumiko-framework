@@ -2558,6 +2558,124 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- secretMint-Screen (fw#2548) ---
+  // Mint-form → one-time reveal → confirm. Shares its six inline-form checks
+  // with actionForm (validateInlineFormScreen), plus its own reveal.fields
+  // checks: non-empty, unique `field`, non-empty `label`.
+  describe("secretMint screen (fw#2548)", () => {
+    type SecretMintOverride = {
+      readonly handler?: string | undefined;
+      readonly fields?: Record<string, unknown>;
+      readonly sections?: ReadonlyArray<{
+        readonly title: string;
+        readonly fields: readonly string[];
+      }>;
+      readonly reveal?: {
+        readonly fields: ReadonlyArray<{
+          readonly field: string;
+          readonly label: string;
+          readonly display?: "code" | "list";
+        }>;
+      };
+      readonly redirect?: string;
+      readonly extraScreens?: readonly string[];
+    };
+
+    function makeFeature(override: SecretMintOverride = {}) {
+      const handler = override.handler ?? "shop:write:token:mint";
+      const fields = override.fields ?? { label: { type: "text" } };
+      const sections = override.sections ?? [{ title: "Mint", fields: ["label"] }];
+      const reveal = override.reveal ?? {
+        fields: [{ field: "token", label: "shop:screen:mint-token.field:token" }],
+      };
+      return defineFeature("shop", (r) => {
+        r.writeHandler({
+          name: "token:mint",
+          schema: { _type: "stub" } as never,
+          handler: async () => ({ isSuccess: true, data: {} }) as never,
+          access: { openToAll: true },
+        });
+        r.screen({
+          id: "mint-token",
+          type: "secretMint",
+          handler,
+          fields: fields as never,
+          layout: { sections: sections as never },
+          reveal: reveal as never,
+          ...(override.redirect !== undefined && { redirect: override.redirect }),
+        });
+        for (const extra of override.extraScreens ?? []) {
+          r.screen({
+            id: extra,
+            type: "custom",
+            renderer: { react: "stub" },
+          });
+        }
+      });
+    }
+
+    test("happy path: handler + fields + layout + reveal konsistent → kein Throw", () => {
+      expect(() => validateBoot([makeFeature()])).not.toThrow();
+    });
+
+    test("handler nicht als write-handler registriert → Throw", () => {
+      expect(() => validateBoot([makeFeature({ handler: "shop:query:token:list" })])).toThrow(
+        /\(secretMint\) handler "shop:query:token:list" is not a registered write-handler/,
+      );
+    });
+
+    test("fields empty-Map → Throw", () => {
+      expect(() => validateBoot([makeFeature({ fields: {} })])).toThrow(
+        /\(secretMint\) has empty fields map/,
+      );
+    });
+
+    test("layout referenziert unknown field → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: [{ title: "x", fields: ["ghost"] }] })]),
+      ).toThrow(/\(secretMint\) layout references unknown field "ghost"/);
+    });
+
+    test("redirect → existing screen-id → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ redirect: "after-mint", extraScreens: ["after-mint"] })]),
+      ).not.toThrow();
+    });
+
+    test("redirect → unknown screen-id → Throw", () => {
+      expect(() => validateBoot([makeFeature({ redirect: "ghost-screen" })])).toThrow(
+        /\(secretMint\) redirect "ghost-screen" does not resolve to a registered screen/,
+      );
+    });
+
+    test("reveal.fields leer → Throw", () => {
+      expect(() => validateBoot([makeFeature({ reveal: { fields: [] } })])).toThrow(
+        /has an empty reveal\.fields list/,
+      );
+    });
+
+    test("reveal.fields mit doppeltem field → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            reveal: {
+              fields: [
+                { field: "token", label: "a" },
+                { field: "token", label: "b" },
+              ],
+            },
+          }),
+        ]),
+      ).toThrow(/reveal\.fields has a duplicate field "token"/);
+    });
+
+    test("reveal.fields entry mit leerem label → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ reveal: { fields: [{ field: "token", label: "" }] } })]),
+      ).toThrow(/reveal\.fields entry "token" has an empty or non-string "label"/);
+    });
+  });
+
   // --- configEdit-Screen ---
   // Form gegen das bundled config-feature. Boot-Validator prüft:
   //   1) fields non-empty + jeder mit type-Discriminator

@@ -5,6 +5,7 @@ type FieldDef = {
   type?: string;
   default?: unknown;
   sensitive?: boolean;
+  format?: string;
   options?: readonly string[];
   multiple?: boolean;
   schema?: Record<string, { type?: string; options?: readonly string[] }>;
@@ -40,6 +41,14 @@ describe("mergeSearchParamsIntoInitial", () => {
     const fields: Record<string, FieldDef> = { password: { type: "text", sensitive: true } };
     const result = mergeSearchParamsIntoInitial(fields, { password: "secret" });
     expect(result["password"]).toBe("");
+  });
+
+  test("password-format field is skipped even when a matching searchParam exists (fw#2548)", () => {
+    const fields: Record<string, FieldDef> = {
+      apiToken: { type: "text", format: "password", default: "unset" },
+    };
+    const result = mergeSearchParamsIntoInitial(fields, { apiToken: "kpat_leak" });
+    expect(result["apiToken"]).toBe("unset");
   });
 
   test("field with no matching searchParam keeps its buildInitialValues default", () => {

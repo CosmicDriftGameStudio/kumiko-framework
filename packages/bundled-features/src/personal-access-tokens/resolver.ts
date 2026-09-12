@@ -2,7 +2,7 @@ import type { TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { Temporal } from "temporal-polyfill";
+import { isExpiredAt } from "./expiry";
 import { hashPatToken } from "./hash";
 import { resolvePatRoles } from "./roles";
 import { apiTokenTable } from "./schema/api-token";
@@ -29,12 +29,7 @@ export function createPatResolver(opts: {
     }>(db, apiTokenTable, { tokenHash: hashPatToken(rawToken) });
     if (!row) return null;
     if (row.revokedAt !== null) return null;
-    if (
-      row.expiresAt &&
-      row.expiresAt.epochMilliseconds <= Temporal.Now.instant().epochMilliseconds
-    ) {
-      return null;
-    }
+    if (isExpiredAt(row.expiresAt)) return null;
     const roles = await resolvePatRoles(db, row.userId, row.tenantId);
     if (!roles) return null;
     const granted = parseScopeNames(row.scopes);
