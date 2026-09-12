@@ -815,6 +815,7 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
           rows={rows ?? 4}
           className="resize-y"
+          {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(rows !== undefined && { style: textareaMinHeight(rows) })}
         />
       );

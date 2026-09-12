@@ -50,6 +50,14 @@ describe("DefaultButton icon (fw-ui-defaults)", () => {
     expect(btn.getAttribute("aria-label")).toBe("Delete");
   });
 
+  test("size='icon' without children renders the icon, accessible name comes from ariaLabel", () => {
+    render(<Button icon="trash" size="icon" ariaLabel="Delete" testId="btn" />);
+    const btn = screen.getByTestId("btn");
+    expect(btn.querySelector("svg")).not.toBeNull();
+    expect(btn.textContent).toBe("");
+    expect(screen.getByRole("button", { name: "Delete" })).toBe(btn);
+  });
+
   test("unknown icon key: no crash, falls back to rendering children only", () => {
     render(
       // @ts-expect-error — exercising the runtime fallback for a schema-supplied key outside the closed IconKey union
