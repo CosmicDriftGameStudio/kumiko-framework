@@ -1137,10 +1137,32 @@ export type SecretRevealField = {
   /** i18n key for this value's label. */
   readonly label: string;
   /** "code" (default) renders one monospaced value; "list" renders a
-   *  string-array payload one value per line (recovery codes). */
-  readonly display?: "code" | "list";
+   *  string-array payload one value per line (recovery codes); "qr" renders
+   *  the value as a scannable QR code (otpauth://-style enrollment URI) —
+   *  platforms without a QR-capable SecretReveal primitive fall back to the
+   *  monospaced text display. */
+  readonly display?: "code" | "list" | "qr";
   /** Default true — offer a copy-to-clipboard control next to the value. */
   readonly copyable?: boolean;
+};
+
+/** Post-reveal proof-of-receipt step. A mint whose effect is only armed once
+ *  the user proves they received the secret (TOTP enrollment: scan the code,
+ *  then enter one) declares it here — the reveal card renders this form in
+ *  place of the bare acknowledge button. */
+export type SecretMintConfirmStep = {
+  /** Write-handler QN dispatched when the confirm form is submitted. */
+  readonly handler: string;
+  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  readonly layout: EditLayout;
+  /** Mint success-payload fields merged into the confirm payload (e.g. a
+   *  short-lived setup token). Held in component state only — never rendered,
+   *  never in the URL, a query cache, nav or a persisted draft. */
+  readonly carry?: readonly string[];
+  readonly submitLabel?: string;
+  /** i18n key for the banner shown after a successful confirm when the screen
+   *  declares no `redirect`. Default "kumiko.secretMint.done". */
+  readonly doneMessage?: string;
 };
 
 export type SecretReveal = {
@@ -1181,6 +1203,9 @@ export type SecretMintScreenDefinition = {
   readonly reveal: SecretReveal;
   /** i18n-key for the mint button. Default: renderer's own default. */
   readonly submitLabel?: string;
+  /** Proof-of-receipt step rendered on the reveal card in place of the bare
+   *  acknowledge button — see `SecretMintConfirmStep` doc. */
+  readonly confirm?: SecretMintConfirmStep;
 };
 
 // --- custom ---

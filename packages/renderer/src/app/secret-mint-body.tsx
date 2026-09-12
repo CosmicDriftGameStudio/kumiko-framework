@@ -1,12 +1,16 @@
 import type { SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FormValues, SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
-import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
+import {
+  synthesizeActionFormEntity,
+  synthesizeActionFormScreen,
+  synthesizeSecretMintConfirmScreen,
+} from "./action-form-shim";
 import type { FeatureSchema } from "./feature-schema";
-import { mergeSearchParamsIntoInitial } from "./kumiko-screen";
+import { buildInitialValues, mergeSearchParamsIntoInitial } from "./kumiko-screen";
 import { layoutFieldNames } from "./layout-fields";
 import { useNav } from "./nav";
 import { lastSegment } from "./qn";
@@ -23,18 +27,34 @@ function extractRevealValue(data: unknown, field: string): unknown {
   return (data as Record<string, unknown>)[field];
 }
 
+function extractCarriedValues(
+  data: unknown,
+  carry: readonly string[],
+): Readonly<Record<string, unknown>> {
+  const carried: Record<string, unknown> = {};
+  for (const field of carry) {
+    const value = extractRevealValue(data, field);
+    if (value === undefined) continue;
+    carried[field] = value;
+  }
+  return carried;
+}
+
 function isBlank(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return true;
   return Array.isArray(value) && value.length === 0;
 }
 
-// Mint form → one-time reveal → confirm. The revealed values live ONLY in
-// this component's `revealed` state — never in the URL, a query cache, or
-// nav — the write-handler's success payload is the only place the secret
-// ever exists (fw#2548). onSubmit copies exclusively the fields declared in
-// `screen.reveal.fields` out of that payload (a whitelist, never the payload
-// as a whole) so an unrelated field (e.g. an internal "id") can never leak
-// into the reveal.
+// Mint form → one-time reveal → optional confirm → done. The revealed values
+// live ONLY in this component's `revealed` state — never in the URL, a query
+// cache, or nav — the write-handler's success payload is the only place the
+// secret ever exists (fw#2548). onSubmit copies exclusively the fields
+// declared in `screen.reveal.fields` out of that payload (a whitelist, never
+// the payload as a whole) so an unrelated field (e.g. an internal "id") can
+// never leak into the reveal. `screen.confirm` (fw#2838, e.g. TOTP enroll:
+// scan the code, then enter one) works the same way for its own carried
+// mint-payload fields — those live only in `carriedRef`, never in React state
+// that gets rendered, never in the confirm form's own values.
 export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProps): ReactNode {
   const nav = useNav();
   const { Card, Heading, Banner, Button, Text, Grid, GridCell, SecretReveal } = usePrimitives();
@@ -52,6 +72,24 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     [screen.fields, nav.searchParams, synthScreen],
   );
   const [revealed, setRevealed] = useState<Readonly<Record<string, unknown>> | null>(null);
+  const [done, setDone] = useState(false);
+  // Never rendered, never merged into `revealed` or the confirm form's
+  // initial values — read only from `buildPayload` at confirm-submit time.
+  const carriedRef = useRef<Readonly<Record<string, unknown>>>({});
+
+  const confirm = screen.confirm;
+  const confirmEntity = useMemo(
+    () => (confirm !== undefined ? synthesizeActionFormEntity(confirm.fields) : undefined),
+    [confirm],
+  );
+  const confirmScreen = useMemo(
+    () => (confirm !== undefined ? synthesizeSecretMintConfirmScreen(screen, confirm) : undefined),
+    [screen, confirm],
+  );
+  const confirmInitial = useMemo(
+    () => (confirm !== undefined ? (buildInitialValues(confirm.fields) as FormValues) : undefined),
+    [confirm],
+  );
 
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
@@ -63,8 +101,10 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         values[revealField.field] = value;
       }
       setRevealed(values);
+      carriedRef.current =
+        confirm?.carry !== undefined ? extractCarriedValues(result.data, confirm.carry) : {};
     },
-    [screen.reveal.fields],
+    [screen.reveal.fields, confirm?.carry],
   );
 
   const handleCancel = useMemo<(() => void) | undefined>(() => {
@@ -73,12 +113,37 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     return () => nav.navigate({ screenId: lastSegment(target) });
   }, [nav, screen.redirect, screen.cancelTarget]);
 
-  const handleConfirm = useCallback(() => {
+  // Ends the reveal phase for both paths (the bare acknowledge button, and a
+  // successful confirm submit): clears the secret and the carried values, then
+  // either navigates (screen.redirect) or shows a done-state — never falls
+  // back to re-rendering the mint form, which would let a stray click mint
+  // (and invalidate) the secret again.
+  const finishMint = useCallback(() => {
     setRevealed(null);
+    carriedRef.current = {};
     if (screen.redirect !== undefined) {
       nav.navigate({ screenId: lastSegment(screen.redirect) });
+    } else {
+      setDone(true);
     }
   }, [nav, screen.redirect]);
+
+  const handleConfirmSubmitted = useCallback(
+    (result: SubmitResult<unknown>) => {
+      if (result.isSuccess) finishMint();
+    },
+    [finishMint],
+  );
+
+  if (done) {
+    return (
+      <Card>
+        <Banner variant="info" testId="kumiko-screen-secret-mint-done">
+          {effectiveTranslate(confirm?.doneMessage ?? "kumiko.secretMint.done")}
+        </Banner>
+      </Card>
+    );
+  }
 
   if (revealed !== null) {
     const values = screen.reveal.fields.flatMap((revealField) => {
@@ -95,6 +160,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
           value,
           copyable: revealField.copyable ?? true,
           multiline: display === "list",
+          ...(display === "qr" && { qr: true }),
         },
       ];
     });
@@ -123,14 +189,30 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
             ))}
           </Grid>
         )}
-        <Button
-          type="button"
-          variant="primary"
-          onClick={handleConfirm}
-          testId="kumiko-screen-secret-mint-confirm"
-        >
-          {effectiveTranslate(screen.reveal.confirmLabel ?? "kumiko.secretMint.confirm")}
-        </Button>
+        {confirm !== undefined && confirmEntity !== undefined && confirmScreen !== undefined ? (
+          <RenderEdit
+            screen={confirmScreen}
+            entity={confirmEntity}
+            featureName={schema.featureName}
+            initial={confirmInitial ?? ({} as FormValues)}
+            writeCommand={confirm.handler}
+            payloadMode="values"
+            buildPayload={(snapshot) => ({ ...snapshot.values, ...carriedRef.current })}
+            onSubmit={handleConfirmSubmitted}
+            {...(handleCancel !== undefined && { onCancel: handleCancel })}
+            {...(translate !== undefined && { translate })}
+            {...(confirm.submitLabel !== undefined && { submitLabel: confirm.submitLabel })}
+          />
+        ) : (
+          <Button
+            type="button"
+            variant="primary"
+            onClick={finishMint}
+            testId="kumiko-screen-secret-mint-confirm"
+          >
+            {effectiveTranslate(screen.reveal.confirmLabel ?? "kumiko.secretMint.confirm")}
+          </Button>
+        )}
       </Card>
     );
   }

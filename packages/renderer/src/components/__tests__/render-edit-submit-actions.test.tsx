@@ -320,6 +320,22 @@ describe("RenderEdit — submit path", () => {
 
     await waitFor(() => expect(rtlScreen.queryByTestId("render-edit-form-error")).toBeNull());
   });
+
+  // fw#2838: an input-less secretMint mint step declares an empty entity
+  // (fields: {}) and an empty layout (sections: []) — such a form can never
+  // go dirty, so the unchanged-gate must not permanently disable its submit.
+  test("a fieldless form's submit button is not disabled and stays visible", () => {
+    const zeroFieldScreen: EntityEditScreenDefinition = {
+      id: "trigger",
+      type: "entityEdit",
+      entity: "trigger",
+      layout: { sections: [] },
+    };
+    renderEdit(zeroFieldScreen, {}, { fields: {} });
+
+    const save = rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
+  });
 });
 describe("RenderEdit — custom actions", () => {
   test("renders an action button and runs its handler on click", async () => {

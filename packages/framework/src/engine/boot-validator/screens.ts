@@ -15,7 +15,7 @@ import {
   normalizeEditField,
   normalizeListColumn,
 } from "../screen-helpers";
-import type { EntityDefinition, FeatureDefinition } from "../types";
+import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
 import { metricField } from "../types";
 import type {
   ActionFormScreenDefinition,
@@ -503,21 +503,24 @@ function resolveRowActionNavigateTarget(
   return screensByShortId.get(action.screen)?.[0];
 }
 
-function validateInlineFormHandler(
-  feature: FeatureDefinition,
+// Shared by the mint step's own handler (screen.handler) and its optional
+// confirm step (confirm.handler) — both are a bare write-handler QN with the
+// same registration requirement.
+function validateWriteHandlerRegistered(
+  featureName: string,
   screenId: string,
-  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
-  kind: "actionForm" | "secretMint",
+  context: string,
+  handler: unknown,
   allWriteHandlerQns: ReadonlySet<string>,
 ): void {
-  if (!screen.handler || typeof screen.handler !== "string") {
+  if (!handler || typeof handler !== "string") {
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has empty or non-string handler.`,
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty or non-string handler.`,
     );
   }
-  if (!allWriteHandlerQns.has(screen.handler)) {
+  if (!allWriteHandlerQns.has(handler)) {
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) handler "${screen.handler}" ` +
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) handler "${handler}" ` +
         `is not a registered write-handler. Check the QN spelling (expected ` +
         `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
     );
@@ -530,25 +533,34 @@ function validateInlineFormHandler(
 // empty string — failing at boot is clearer. `type as unknown` because
 // FieldDefinition, as a union, only allows known type strings; here we're
 // checking author code that may have circumvented the type check.
-function validateInlineFormFields(
-  feature: FeatureDefinition,
+//
+// Parametrized over (fields, layout) instead of a whole screen so a
+// secretMint's own `confirm` step — a second, independent inline form on the
+// same screen — can reuse the same checks as its `fields`/`layout` pair.
+// `allowEmpty` is only ever true for a secretMint's own mint step (an
+// input-less mint, fw#2838): the secret is server-generated and the mint
+// step is just its submit button — actionForm and the confirm step always
+// require at least one field.
+function validateFormFieldsMap(
+  featureName: string,
   screenId: string,
-  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
-  kind: "actionForm" | "secretMint",
+  context: string,
+  fields: Readonly<Record<string, FieldDefinition>>,
+  allowEmpty: boolean,
 ): Set<string> {
-  const fieldNames = new Set(Object.keys(screen.fields));
-  if (fieldNames.size === 0) {
+  const fieldNames = new Set(Object.keys(fields));
+  if (fieldNames.size === 0 && !allowEmpty) {
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has empty fields map — ` +
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty fields map — ` +
         `declare at least one field.`,
     );
   }
-  for (const [fname, fdef] of Object.entries(screen.fields)) {
+  for (const [fname, fdef] of Object.entries(fields)) {
     // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
     const ftype = (fdef as { type?: unknown }).type;
     if (typeof ftype !== "string" || ftype.length === 0) {
       throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) field "${fname}" has no ` +
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fname}" has no ` +
           `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
       );
     }
@@ -556,24 +568,32 @@ function validateInlineFormFields(
   return fieldNames;
 }
 
-function validateInlineFormLayoutSections(
-  feature: FeatureDefinition,
+// `allowEmptySections` mirrors `validateFormFieldsMap`'s `allowEmpty` — the
+// caller only ever passes true together with an actually-empty fields map
+// (an input-less secretMint declares BOTH `fields: {}` and
+// `layout.sections: []`; fields declared with no layout to show them stays
+// an error).
+function validateFormLayoutSections(
+  featureName: string,
   screenId: string,
-  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
-  kind: "actionForm" | "secretMint",
+  context: string,
+  layout: EditLayout,
   fieldNames: ReadonlySet<string>,
+  allowEmptySections: boolean,
 ): void {
-  if (screen.layout.sections.length === 0) {
+  if (layout.sections.length === 0) {
+    // skip: an input-less secretMint declares fields: {} and sections: [] together — no sections to validate.
+    if (allowEmptySections) return;
     throw new Error(
-      `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has an empty sections list — ` +
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) has an empty sections list — ` +
         `declare at least one section.`,
     );
   }
-  for (const section of screen.layout.sections) {
+  for (const section of layout.sections) {
     if (isExtensionEditSection(section)) {
       if (section.component?.react === undefined && section.component?.native === undefined) {
         throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (${kind}) extension section ` +
+          `[Feature ${featureName}] Screen "${screenId}" (${context}) extension section ` +
             `"${section.title}" has no component — declare a react/native component marker.`,
         );
       }
@@ -581,20 +601,20 @@ function validateInlineFormLayoutSections(
     }
     if (section.kind === "relatedList") {
       throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) relatedList section ` +
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) relatedList section ` +
           `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
           `primitive (fw#2166).`,
       );
     }
     if (isWriteFormEditSection(section)) {
       throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) writeForm section ` +
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) writeForm section ` +
           `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
       );
     }
     if (section.fields.length === 0) {
       throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has a section "${section.title}" ` +
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) has a section "${section.title}" ` +
           `with zero fields — drop the section or add fields to it.`,
       );
     }
@@ -602,7 +622,7 @@ function validateInlineFormLayoutSections(
       const normalized = normalizeEditField(fieldSpec);
       if (!fieldNames.has(normalized.field)) {
         throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (${kind}) layout references unknown field ` +
+          `[Feature ${featureName}] Screen "${screenId}" (${context}) layout references unknown field ` +
             `"${normalized.field}". Known fields: ${[...fieldNames].sort().join(", ")}`,
         );
       }
@@ -671,11 +691,87 @@ function validateInlineFormScreen(
   allScreenQns: ReadonlySet<string>,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
-  validateInlineFormHandler(feature, screenId, screen, kind, allWriteHandlerQns);
-  const fieldNames = validateInlineFormFields(feature, screenId, screen, kind);
-  validateInlineFormLayoutSections(feature, screenId, screen, kind, fieldNames);
+  validateWriteHandlerRegistered(feature.name, screenId, kind, screen.handler, allWriteHandlerQns);
+  // Only a secretMint's own mint step may skip fields/sections entirely
+  // (input-less mint, fw#2838) — actionForm always needs at least one field.
+  const allowEmptyMintForm = kind === "secretMint";
+  const fieldNames = validateFormFieldsMap(
+    feature.name,
+    screenId,
+    kind,
+    screen.fields,
+    allowEmptyMintForm,
+  );
+  validateFormLayoutSections(
+    feature.name,
+    screenId,
+    kind,
+    screen.layout,
+    fieldNames,
+    allowEmptyMintForm && fieldNames.size === 0,
+  );
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
   validateInlineFormNavTargets(feature, screenId, screen, kind, allScreenQns);
+}
+
+// SecretMintConfirmStep (fw#2838): an optional proof-of-receipt form rendered
+// on the reveal card in place of the bare acknowledge button (TOTP enrollment:
+// scan the code, then enter one). Unlike the mint step, confirm always needs
+// at least one field — a step whose only job is proving receipt with no input
+// would be meaningless — and its layout is a single plain form, never a
+// wizard/tabs flow and never a persisted draft: a one-time reveal-confirm is
+// not a multi-step flow, and persisting a draft of it would re-open the leak
+// fw#2548 closed (a lingering copy of the just-revealed secret in storage).
+function validateSecretMintConfirm(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: SecretMintScreenDefinition,
+  allWriteHandlerQns: ReadonlySet<string>,
+): void {
+  const confirm = screen.confirm;
+  // skip: the screen declares no confirm step — nothing to validate.
+  if (confirm === undefined) return;
+  const context = "secretMint confirm";
+  validateWriteHandlerRegistered(
+    feature.name,
+    screenId,
+    context,
+    confirm.handler,
+    allWriteHandlerQns,
+  );
+  const fieldNames = validateFormFieldsMap(feature.name, screenId, context, confirm.fields, false);
+  validateFormLayoutSections(feature.name, screenId, context, confirm.layout, fieldNames, false);
+  if (confirm.layout.mode !== undefined && confirm.layout.mode !== "single") {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.mode: ` +
+        `"${confirm.layout.mode}" — a one-time reveal confirm step must stay a single-step form. ` +
+        `Remove mode or set it to "single".`,
+    );
+  }
+  if (confirm.layout.draft === true) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${context}) sets layout.draft: true — ` +
+        `persisting a draft of the reveal-confirm step would leak the one-time secret into storage, ` +
+        `the exact leak fw#2548 closed. Remove draft: true.`,
+    );
+  }
+  // skip: no carry list declared — no carried fields to cross-check against confirm.fields.
+  if (confirm.carry === undefined) return;
+  for (const carryField of confirm.carry) {
+    if (typeof carryField !== "string" || carryField.trim() === "") {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${context}) has an empty or non-string ` +
+          `entry in "carry".`,
+      );
+    }
+    if (fieldNames.has(carryField)) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${context}) carry field "${carryField}" ` +
+          `also names a confirm.fields entry — a carried mint-payload value would silently ` +
+          `overwrite the user-entered field of the same name. Rename one of them.`,
+      );
+    }
+  }
 }
 
 export function validateScreens(
@@ -1284,6 +1380,7 @@ export function validateScreens(
           );
         }
       }
+      validateSecretMintConfirm(feature, screenId, screen, allWriteHandlerQns);
       continue;
     }
 

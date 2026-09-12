@@ -4,6 +4,7 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -15,6 +16,7 @@ import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
+import { UserHandlers } from "../../user/constants";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
@@ -56,12 +58,13 @@ afterAll(async () => {
 });
 
 describe("enable-start + enable-confirm round trip", () => {
-  test("start returns a setup token + otpauth URI + 8 recovery codes", async () => {
+  test("start returns a setup token + otpauth URI + totp secret + 8 recovery codes", async () => {
     const user = createTestUser({ id: "enable-start-1", roles: ["User"] });
 
     const res = await stack.http.writeOk<{
       setupToken: string;
       otpauthUri: string;
+      totpSecret: string;
       recoveryCodes: string[];
     }>(AuthMfaHandlers.enableStart, { accountLabel: "jane@example.com" }, user);
 
@@ -73,6 +76,30 @@ describe("enable-start + enable-confirm round trip", () => {
     for (const code of res.recoveryCodes) {
       expect(code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
     }
+    // The manual-entry secret is the same one embedded in the otpauth URI —
+    // it's a convenience duplicate for the reveal screen, not new exposure.
+    const secretParam = new URLSearchParams(res.otpauthUri.split("?")[1]).get("secret") ?? "";
+    expect(res.totpSecret).toBe(secretParam);
+  });
+
+  test("accountLabel is optional — omitted, the caller's own email is derived server-side", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      {
+        email: "derived-label@example.com",
+        displayName: "Derived Label",
+        passwordHash: "seeded-hash",
+      },
+      TestUsers.systemAdmin,
+    );
+    const user = createTestUser({ id: created.id, roles: ["User"] });
+
+    const res = await stack.http.writeOk<{ otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      {},
+      user,
+    );
+    expect(res.otpauthUri).toContain(encodeURIComponent("derived-label@example.com"));
   });
 
   test("confirm with the right code enables MFA", async () => {
@@ -150,11 +177,16 @@ describe("enable-start + enable-confirm round trip", () => {
     expectErrorIncludes(err, "invalid_setup_token");
   });
 
-  test("status query reflects enrollment before and after enable-confirm", async () => {
+  test("status query reflects enrollment before and after enable-confirm, and never carries the secret or codes", async () => {
     const user = createTestUser({ id: "status-query-1", roles: ["User"] });
 
-    const before = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
-    expect(before.enabled).toBe(false);
+    const before = await stack.http.queryOk<Record<string, unknown>>(
+      AuthMfaQueries.status,
+      {},
+      user,
+    );
+    expect(before["enabled"]).toBe(false);
+    expect(Object.keys(before)).toEqual(["enabled"]);
 
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,
@@ -169,8 +201,48 @@ describe("enable-start + enable-confirm round trip", () => {
       user,
     );
 
-    const after = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
-    expect(after.enabled).toBe(true);
+    const after = await stack.http.queryOk<Record<string, unknown>>(
+      AuthMfaQueries.status,
+      {},
+      user,
+    );
+    expect(after["enabled"]).toBe(true);
+    // The only read surface for user-mfa (AuthMfaQueries has no other entry) —
+    // once enrolled it must never re-serve the plaintext recovery codes or the
+    // TOTP secret shown once at enable-start.
+    expect(Object.keys(after)).toEqual(["enabled"]);
+    expect(after["totpSecret"]).toBeUndefined();
+    expect(after["recoveryCodes"]).toBeUndefined();
+  });
+});
+
+describe("aborting between enable-start and enable-confirm leaves a clean state", () => {
+  test("MFA stays off and no user-mfa row exists until a confirm succeeds; a fresh start reissues codes", async () => {
+    const user = createTestUser({ id: "abort-mid-flow-1", roles: ["User"] });
+
+    const first = await stack.http.writeOk<{ setupToken: string; recoveryCodes: string[] }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "abort@example.com" },
+      user,
+    );
+
+    // enable-start alone never persists anything — status still reads "off".
+    const statusAfterAbort = await stack.http.queryOk<{ enabled: boolean }>(
+      AuthMfaQueries.status,
+      {},
+      user,
+    );
+    expect(statusAfterAbort.enabled).toBe(false);
+
+    // The user can restart the flow and gets an independent token + codes —
+    // no leftover state from the abandoned attempt blocks or reuses anything.
+    const second = await stack.http.writeOk<{ setupToken: string; recoveryCodes: string[] }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "abort@example.com" },
+      user,
+    );
+    expect(second.setupToken).not.toBe(first.setupToken);
+    expect(second.recoveryCodes).not.toEqual(first.recoveryCodes);
   });
 });
 

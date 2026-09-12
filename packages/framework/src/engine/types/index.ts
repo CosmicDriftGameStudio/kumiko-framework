@@ -309,6 +309,7 @@ export type {
   ScreenFilterOp,
   ScreenNavSugar,
   ScreenSlots,
+  SecretMintConfirmStep,
   SecretMintScreenDefinition,
   SecretReveal,
   SecretRevealField,

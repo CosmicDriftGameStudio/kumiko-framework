@@ -159,6 +159,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.secretMint.confirm": "I have copied it",
     "kumiko.secretMint.copy": "Copy",
     "kumiko.secretMint.copied": "Copied",
+    "kumiko.secretMint.done": "Done.",
 
     "kumiko.validation.required": "Required.",
     "kumiko.validation.invalid": "Invalid value.",

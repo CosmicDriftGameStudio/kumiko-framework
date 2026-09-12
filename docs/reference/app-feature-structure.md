@@ -36,7 +36,11 @@ src/features/<name>/
   navigate/drawer, Pager), `dashboard` (stat/chart/list-Panels), `secretMint`
   (Mint-Formular mit einmaliger Anzeige + Bestätigung des Secrets — für Werte,
   die es nur im Success-Payload des Write-Handlers gibt, z.B. API-Token,
-  Recovery-Codes). `type: "custom"` ist die
+  Recovery-Codes; mehrstufig über `confirm` (Proof-of-Receipt-Formular nach dem
+  Reveal, `carry` reicht Mint-Payload-Felder wie ein Setup-Token nur im
+  Component-State weiter), `reveal.fields` mit `display: "qr"`, und ohne
+  Mint-Eingabe via `fields: {}` + `layout: { sections: [] }`).
+  `type: "custom"` ist die
   Ausnahme und braucht einen Allowlist-Tag
   (`// kumiko-lint-ignore app-feature-structure <Grund>`).
 - **Screen-Refs gegen outputSchema validiert**: `projectionList`-Columns,

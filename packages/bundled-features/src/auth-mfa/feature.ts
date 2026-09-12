@@ -1,6 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { mfaRequiredConfigKey } from "./config";
-import { MFA_ENABLE_SCREEN_ID } from "./constants";
 import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write";
@@ -14,6 +13,7 @@ import { AUTH_MFA_FEATURE_I18N } from "./i18n";
 import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier";
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
 import { userMfaEntity } from "./schema/user-mfa";
+import { mfaEnableScreen } from "./screens";
 
 export type AuthMfaFeatureOptions = {
   // HMAC secret for the stateless enable-flow token (carries the generated
@@ -125,21 +125,11 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     r.requires("tenant");
     r.config("required", mfaRequiredConfigKey());
 
-    // Dormant custom-screen — the client maps MFA_ENABLE_SCREEN_ID to
-    // MfaEnableScreen (see personal-access-tokens/feature.ts for the same
-    // convention). App places it via r.nav in its logged-in settings area.
-    // dormant: true skips createKumikoApp's missing-client-plugin boot
-    // diagnostic (#2025) for apps that don't nav this screen (#2034).
-    // kumiko-lint-ignore app-feature-structure Multi-step auth flow (enable + recovery-codes reveal), no declarative screen type covers this
-    r.screen({
-      id: MFA_ENABLE_SCREEN_ID,
-      type: "custom",
-      renderer: { react: { __component: "MfaEnableScreen" } },
-      access: { openToAll: true },
-      dormant: true,
-      description:
-        "Self-service screen where a signed-in user enrolls in TOTP two-factor authentication: it shows the QR code and manual secret, reveals the recovery codes once, and confirms enrollment with a code from their authenticator app.",
-    });
+    // Declarative secretMint screen — mint (no input) -> reveal QR/secret/
+    // recovery-codes -> confirm with a code. App places it via r.nav in its
+    // logged-in settings area (see personal-access-tokens/feature.ts for the
+    // same convention).
+    r.screen(mfaEnableScreen);
     r.translations({ keys: AUTH_MFA_FEATURE_I18N });
 
     // KEK-rotation for totpSecret (entity-field encryption). Manual

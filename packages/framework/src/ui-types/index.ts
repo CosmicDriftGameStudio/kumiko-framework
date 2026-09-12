@@ -100,6 +100,7 @@ export type {
   ScreenFilter,
   ScreenFilterOp,
   ScreenSlots,
+  SecretMintConfirmStep,
   SecretMintScreenDefinition,
   SecretReveal,
   SecretRevealField,

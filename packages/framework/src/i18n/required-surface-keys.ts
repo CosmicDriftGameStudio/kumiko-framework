@@ -238,6 +238,25 @@ export function requiredKeysFromScreen(
       for (const revealField of mint.reveal.fields) {
         pushKey(out, revealField.label);
       }
+      if (mint.confirm !== undefined) {
+        pushKey(out, mint.confirm.submitLabel);
+        pushKey(out, mint.confirm.doneMessage);
+        for (const fieldName of Object.keys(mint.confirm.fields)) {
+          out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+        }
+        for (const section of mint.confirm.layout.sections) {
+          if (isExtensionEditSection(section)) {
+            pushKey(out, section.title);
+            continue;
+          }
+          if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+          pushKey(out, section.title);
+          for (const f of section.fields) {
+            const fieldName = editFieldName(f);
+            out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+          }
+        }
+      }
       break;
     }
     case "configEdit": {

@@ -27,10 +27,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.errors.invalidSetupToken": "Setup expired. Please start again.",
     "auth.mfa.errors.setupFailed": "Setup failed. Please try again.",
     "auth.mfa.errors.invalidRecoveryCode": "Invalid recovery code.",
-    "auth.mfa.enable.title": "Two-factor authentication",
-    "auth.mfa.enable.intro":
-      "Add an extra layer of protection with an authenticator app (e.g. Google Authenticator, 1Password).",
-    "auth.mfa.enable.start": "Start setup",
     "auth.mfa.enable.scanTitle": "Scan the QR code",
     "auth.mfa.enable.manualEntry": "Or enter manually:",
     "auth.mfa.enable.recoveryTitle": "Recovery codes",
@@ -38,9 +34,6 @@ export const defaultTranslations: TranslationsByLocale = {
       "Save these codes somewhere safe. They're shown only this once and let you back in if you lose your device.",
     "auth.mfa.enable.acknowledge": "I've saved my recovery codes.",
     "auth.mfa.enable.code": "Code from your authenticator app",
-    "auth.mfa.enable.cancel": "Cancel",
-    "auth.mfa.enable.confirm": "Enable",
-    "auth.mfa.enable.success": "Two-factor authentication is now enabled.",
     "auth.mfa.setup.title": "Two-factor authentication required",
     "auth.mfa.setup.subtitle":
       "Your account requires two-factor authentication. Set it up now to sign in.",

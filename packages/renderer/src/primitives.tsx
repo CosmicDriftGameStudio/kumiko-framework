@@ -1183,6 +1183,10 @@ export type SecretRevealValue = {
   readonly value: string;
   readonly copyable: boolean;
   readonly multiline: boolean;
+  /** Render `value` as a scannable QR code instead of monospaced text — for
+   *  an otpauth://-style enrollment URI. Platforms without a QR-capable
+   *  SecretReveal primitive fall back to the monospaced display. */
+  readonly qr?: boolean;
 };
 
 /** One-time secret reveal — mint-form confirm phase. Renders each value

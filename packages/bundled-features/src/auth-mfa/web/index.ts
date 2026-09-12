@@ -15,8 +15,6 @@ export type {
 export { confirmMfaSetupPreauth, startMfaSetupPreauth, verifyMfaChallenge } from "./mfa-client";
 export type { MfaDisableDialogProps } from "./mfa-disable-dialog";
 export { MfaDisableDialog } from "./mfa-disable-dialog";
-export type { MfaEnableScreenProps } from "./mfa-enable-screen";
-export { MfaEnableScreen } from "./mfa-enable-screen";
 export type { MfaRecoveryCodesRevealProps } from "./mfa-recovery-codes-reveal";
 export { MfaRecoveryCodesReveal } from "./mfa-recovery-codes-reveal";
 export type { MfaRegenerateRecoveryDialogProps } from "./mfa-regenerate-recovery-dialog";
