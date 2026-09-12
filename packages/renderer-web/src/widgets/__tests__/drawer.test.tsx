@@ -111,6 +111,100 @@ describe("Drawer", () => {
     });
   });
 
+  describe("variant", () => {
+    test("default (no variant prop): floating classes unchanged (inset-y-8, right-8, rounded-[2rem], default width)", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-y-8");
+      expect(content.className).toContain("right-8");
+      expect(content.className).toContain("rounded-[2rem]");
+      expect(content.className).toContain("w-[max(600px,37.5vw)]");
+    });
+
+    test('variant="flush" with side="right": inset-y-0, no radius, border-l only', () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" variant="flush" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-y-0");
+      expect(content.className).not.toContain("rounded-[2rem]");
+      expect(content.className).not.toContain("inset-y-8");
+      expect(content.className).toContain("border-l");
+      expect(content.className).not.toContain("border-r");
+    });
+
+    test('variant="flush" with side="left": border-r only', () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="left" variant="flush" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("border-r");
+      expect(content.className).not.toContain("border-l");
+    });
+  });
+
+  describe("width", () => {
+    test("width={420}: reflected as inline pixel width", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" width={420} testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").style.width).toBe("420px");
+    });
+
+    test('width="30rem": reflected as-is (CSS length string)', () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" width="30rem" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").style.width).toBe("30rem");
+    });
+
+    test("no width prop: no inline width style (default stays class-driven)", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").style.width).toBe("");
+    });
+
+    test('side="top": width prop is ignored', () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="top" width={420} testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").style.width).toBe("");
+    });
+
+    test("resize set + width set: resize wins", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          width={420}
+          resize={{ defaultWidthPx: 350, minWidthPx: 300, maxWidthPx: 500 }}
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").style.width).toBe("350px");
+    });
+  });
+
   describe("resize", () => {
     // happy-dom exposes innerWidth as an accessor (get/set) on the window
     // instance. Object.defineProperty(...) with a plain `value` replaces
@@ -421,6 +515,29 @@ describe("Drawer", () => {
       expect(content.className).toContain("w-full");
       expect(content.className).not.toContain("rounded-[2rem]");
       expect(content.className).not.toContain("inset-y-8");
+    });
+
+    test('narrow with variant="flush": fullscreen branch unaffected, no inline width', () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          variant="flush"
+          width={420}
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-0");
+      expect(content.className).toContain("w-full");
+      expect(content.className).not.toContain("rounded-[2rem]");
+      expect(content.className).not.toContain("inset-y-8");
+      expect(content.className).not.toContain("border-l");
+      expect(content.style.width).toBe("");
     });
 
     test("narrow with resize set: no inline width style", () => {
