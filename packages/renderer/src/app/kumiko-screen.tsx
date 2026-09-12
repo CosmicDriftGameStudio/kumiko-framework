@@ -345,10 +345,12 @@ function useNavigateToCreateFor(
 // submits and is surprised.
 // `defaultCurrency` is only passed by entityEdit call sites — the money
 // payload shape it enables (`{amount, currency}`) matches the entity's
-// write schema (schema-builder.ts, kumiko-framework#1923). Callers outside
-// that path (config-edit, action-form) synthesize their own entity and use
-// money as a plain number against a different write contract, so they
-// deliberately keep the old bare-`0` default by omitting the argument.
+// write schema (schema-builder.ts, kumiko-framework#1923). config-edit
+// deliberately omits it too: it has its own plain-number write contract
+// (unwrapMoneyValue). actionForm has no entity and thus no defaultCurrency
+// either, even though its handler schema needs the same `{amount, currency}`
+// shape — an untouched money field there still defaults to bare `0`, a gap
+// fw#2763 leaves open (it only fixes the prefill path).
 export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
   defaultCurrency?: string,
@@ -383,6 +385,66 @@ function multiSelectOptionValues(shape: {
   return new Set(shape.options.map((o) => (typeof o === "string" ? o : o.value)));
 }
 
+type MoneyValue = { readonly amount: number; readonly currency: string };
+
+// The currency now comes from a user-controlled URL param and reaches
+// `Intl.NumberFormat`, which throws a RangeError on a malformed code — reject
+// it here instead of crashing the form render.
+const CURRENCY_CODE_PATTERN = /^[A-Za-z]{3}$/;
+
+function isMoneyValue(value: unknown): value is MoneyValue {
+  if (typeof value !== "object" || value === null) return false;
+  const { amount, currency } = value as Partial<MoneyValue>;
+  return (
+    typeof amount === "number" &&
+    Number.isFinite(amount) &&
+    typeof currency === "string" &&
+    CURRENCY_CODE_PATTERN.test(currency)
+  );
+}
+
+function parseJsonOrRaw(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function warnMoneyParam(message: string): void {
+  // biome-ignore lint/suspicious/noConsole: dev-warning for an authoring error
+  console.warn(`[kumiko] ${message}`);
+}
+
+// A money param arrives either as JSON `{"amount":..,"currency":".."}` (how
+// stringifyNavParams encodes a money row value) or as a bare number. An
+// actionForm has no entity and therefore no defaultCurrency, so a bare number
+// there would stay a number that the handler's zod schema rejects on submit —
+// warn instead of prefilling a value that silently fails (fw#2763).
+function coerceMoneyValue(
+  raw: unknown,
+  fieldName: string,
+  defaultCurrency?: string,
+): MoneyValue | number | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  const value = typeof raw === "string" ? parseJsonOrRaw(raw) : raw;
+  if (value === null) return undefined;
+  if (isMoneyValue(value)) return { amount: value.amount, currency: value.currency.toUpperCase() };
+  if (typeof value === "object") {
+    warnMoneyParam(
+      `money field "${fieldName}" got an object without a usable {amount, currency} shape — the prefill is ignored.`,
+    );
+    return undefined;
+  }
+  const amount = Number(typeof value === "number" ? value : raw);
+  if (Number.isNaN(amount)) return undefined;
+  if (defaultCurrency !== undefined) return { amount, currency: defaultCurrency };
+  warnMoneyParam(
+    `money field "${fieldName}" was prefilled with a bare number and no currency is available — pass {"amount":<number>,"currency":"<ISO code>"} as the param value, otherwise the handler's schema rejects the submit.`,
+  );
+  return amount;
+}
+
 export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   searchParams: Readonly<Record<string, string>>,
@@ -415,12 +477,8 @@ export function mergeSearchParamsIntoInitial(
       const parsed = Number(raw);
       merged[name] = Number.isNaN(parsed) ? defaults[name] : parsed;
     } else if (shape.type === "money") {
-      const parsed = Number(raw);
-      merged[name] = Number.isNaN(parsed)
-        ? defaults[name]
-        : defaultCurrency !== undefined
-          ? { amount: parsed, currency: defaultCurrency }
-          : parsed;
+      const coerced = coerceMoneyValue(raw, name, defaultCurrency);
+      merged[name] = coerced === undefined ? defaults[name] : coerced;
     } else if (shape.type === "boolean") {
       merged[name] = raw === "true";
     } else if (shape.type === "multiSelect") {

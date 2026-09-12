@@ -81,11 +81,23 @@ export function resolveActionIcon(id: string, declared?: IconKey): IconKey | und
   );
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const proto: object | null = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 export function stringifyNavParams(params: Record<string, unknown>): Record<string, string | null> {
   const out: Record<string, string | null> = {};
   for (const [k, v] of Object.entries(params)) {
+    // Structured field values such as money `{amount, currency}` must survive
+    // the URL round-trip as JSON; Date & other class instances stay String().
     out[k] =
-      v === null || v === undefined ? null : Array.isArray(v) ? JSON.stringify(v) : String(v);
+      v === null || v === undefined
+        ? null
+        : Array.isArray(v) || isPlainObject(v)
+          ? JSON.stringify(v)
+          : String(v);
   }
   return out;
 }
