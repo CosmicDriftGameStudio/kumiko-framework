@@ -903,6 +903,16 @@ export type EntityIndexDef = {
 
 export type FieldsMap = Readonly<Record<string, FieldDefinition>>;
 
+export type ParentRefDef = {
+  /** Field holding the name of the host entity this row hangs off. */
+  readonly entityTypeField: string;
+  /** Field holding the host row's id. */
+  readonly entityIdField: string;
+  /** Narrow which registered entities may act as host. Omitted means every
+   *  registered entity is a candidate, which also widens the read-gate's SQL. */
+  readonly allowedTypes?: readonly string[];
+};
+
 export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
   readonly table?: string;
   readonly fields: F;
@@ -943,6 +953,15 @@ export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
     readonly read?: OwnershipMap;
     readonly write?: OwnershipMap;
   };
+  /**
+   * Join-row carrier reference. Rows of this entity hang off a host row named
+   * by two of the entity's own fields. Both paths derive one visibility gate
+   * from this single declaration: write handlers deny with NotFoundError, and
+   * list/detail filter in SQL against the host entity's own read path (tenant
+   * scope, soft-delete, `access.read` ownership). A host type that names no
+   * registered entity is denied.
+   */
+  readonly parentRef?: ParentRefDef;
   /**
    * Default-Retention-Policy fuer diese Entity. Tenant-Admin kann via
    * Compliance-Profile + Tenant-Override (Sprint 2) uebersteuern.

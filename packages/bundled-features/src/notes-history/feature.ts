@@ -30,7 +30,7 @@ function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,
   access: AccessRule,
   ownership: EntityDefinition["access"] | undefined,
-  parents: ReadonlySet<string> | undefined,
+  parents: readonly string[] | undefined,
 ): void {
   r.describe(
     "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: true } }) or pin roles with createNotesHistoryFeature({ roles }).",
@@ -41,7 +41,7 @@ function registerNotesHistory(
     recommended: false,
   });
 
-  const entity = createNoteEntryEntity(ownership);
+  const entity = createNoteEntryEntity(ownership, parents);
   r.entity("note-entry", entity);
   // No write/query handler of its own — populated only as a side effect of
   // add-note (see handlers/add-note.write.ts), looked up by
@@ -50,7 +50,7 @@ function registerNotesHistory(
   // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
   r.entity("note-mention", noteMentionEntity);
 
-  r.writeHandler(createAddNoteHandler(access, parents));
+  r.writeHandler(createAddNoteHandler(access));
   r.queryHandler(
     defineEntityListHandler("note-entry", entity, {
       access,
@@ -76,10 +76,11 @@ export type NotesHistoryFeatureOptions = {
   readonly roles?: readonly string[];
   /** Row-level ownership on the note-entry rows themselves — orthogonal to
    *  `access`, which only gates whether a caller may dispatch create/list at
-   *  all. Set `ownership.read` to close the read leak: without it — even if
-   *  `ownership.write` is set — `access.read` stays undefined and any
-   *  dispatch-eligible user can read every note in the tenant, including
-   *  notes on entities they can't otherwise see.
+   *  all. `ownership.read` is no longer what keeps a caller from reading notes
+   *  on host entities they can't see: that gate is default-on since fw#2766
+   *  and derives from the entity's `parentRef`. Use `ownership.read` for an
+   *  ADDITIONAL row rule on the note row itself (e.g. author-only visibility);
+   *  it is AND-ed with the host-visibility gate, never a replacement for it.
    *
    *  `ownership.write` is separate and does NOT affect list/read. It's
    *  consulted by the framework's generic delete/forget/restore paths (not
@@ -92,13 +93,14 @@ export type NotesHistoryFeatureOptions = {
   readonly ownership?: EntityDefinition["access"];
   /** Allowlist further narrowing which registered entities may be used as a
    *  note's parent (entityType). This is NOT what turns parent-checking on —
-   *  add-note always verifies that entityType names a registered entity and
+   *  both paths always verify that entityType names a registered entity and
    *  that the row is visible to the caller through that entity's own read
    *  path (tenant scope plus its `access.read` ownership); an entityType
    *  that names no registered entity is rejected regardless of this option.
    *  Setting `parents` narrows further, to a specific set of entity names —
    *  useful when a host entity is registered but should never be a valid
-   *  note parent. */
+   *  note parent. It also shrinks the read gate's SQL, which otherwise has to
+   *  consider every registered entity as a candidate host. */
   readonly parents?: readonly string[];
 };
 
@@ -142,8 +144,7 @@ export function createNotesHistoryFeature(
         "today's unrestricted behavior instead.",
     );
   }
-  const parents = opts.parents === undefined ? undefined : new Set(opts.parents);
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-    registerNotesHistory(r, resolveAccess(opts), opts.ownership, parents),
+    registerNotesHistory(r, resolveAccess(opts), opts.ownership, opts.parents),
   );
 }

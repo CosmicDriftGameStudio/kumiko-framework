@@ -55,13 +55,23 @@ export const tagEntity = createEntity({
 // Cross-entity views compose in the read-layer (no JOIN):
 //   - tags of an entity   → list assignments filter { field: "entityId", op: "eq" }
 //   - entities with a tag  → list assignments filter { field: "tagId",   op: "eq" }
-export function createTagAssignmentEntity(access?: EntityDefinition["access"]) {
+export function createTagAssignmentEntity(
+  access?: EntityDefinition["access"],
+  parents?: readonly string[],
+) {
   return createEntity({
     table: "read_tag_assignments",
     description:
       "The join row recording that one catalog tag is attached to one host entity, addressed by tagId, entityType and entityId, with exactly one row per pair. An entity may carry many tags, unlike the single-folder membership rows.",
     softDelete: true,
     access,
+    // Declared unconditionally: the host-visibility gate is the default for
+    // both paths, and `parents` only narrows which hosts are admissible.
+    parentRef: {
+      entityTypeField: "entityType",
+      entityIdField: "entityId",
+      ...(parents !== undefined && { allowedTypes: parents }),
+    },
     fields: {
       tagId: createTextField({
         required: true,

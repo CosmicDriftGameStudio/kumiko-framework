@@ -3,7 +3,12 @@ import { collectPiiSubjectFields, computeBlindIndex, configuredBlindIndexKey } f
 import { escapeLikePattern } from "../crypto/ciphertext-pattern";
 import { executeRawQueryRead } from "../db/queries/raw-sql";
 import { coerceRow, extractTableInfo } from "../db/query";
-import { buildOwnershipClause, normalizeAccessEntry, shiftParams } from "../engine/ownership";
+import {
+  buildOwnershipClause,
+  combineClauses,
+  normalizeAccessEntry,
+  shiftParams,
+} from "../engine/ownership";
 import type { EntityDefinition, EntityId } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { UnprocessableError } from "../errors";
@@ -14,7 +19,8 @@ import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
 import { collectEncryptedFieldNames } from "./entity-field-encryption";
 import type { EventStoreExecutor } from "./event-store-executor";
 import { buildFilterWhere, type ExecutorContext, type Table } from "./event-store-executor-context";
-import { buildEntityTable, toSnakeCase } from "./table-builder";
+import { buildParentRefClause } from "./parent-ref-clause";
+import { buildEntityTable, physicalColumnName } from "./table-builder";
 import type { TenantDb, TenantDbMode } from "./tenant-db";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
@@ -204,15 +210,50 @@ function applyScreenFilter(
   }
 }
 
+// A `filter`/`filters` entry that already pins the parentRef's entityType
+// field is a real subset of the parent-ref clause's own OR-branches — the
+// client-supplied filter can't widen the result, only narrow which branches
+// the SQL even needs to consider. Skipped for multiSelect fields, where `eq`
+// means containment (see applyMultiSelectFilter) rather than equality.
+function deriveParentNarrowTypes(
+  entity: EntityDefinition,
+  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
+): ReadonlySet<string> | undefined {
+  const parentRef = entity.parentRef;
+  if (parentRef === undefined) return undefined;
+  if (entity.fields[parentRef.entityTypeField]?.type === "multiSelect") return undefined;
+
+  const typeFilters = [
+    ...(payload.filter ? [payload.filter] : []),
+    ...(payload.filters ?? []),
+  ].filter((f) => f.field === parentRef.entityTypeField);
+
+  let narrowed: Set<string> | undefined;
+  for (const f of typeFilters) {
+    let values: readonly string[] | undefined;
+    if (f.op === "eq" && typeof f.value === "string") {
+      values = [f.value];
+    } else if (
+      f.op === "in" &&
+      Array.isArray(f.value) &&
+      f.value.every((v) => typeof v === "string")
+    ) {
+      values = f.value;
+    }
+    if (values === undefined) continue;
+    narrowed =
+      narrowed === undefined
+        ? new Set(values)
+        : new Set([...narrowed].filter((v) => values.includes(v)));
+  }
+  return narrowed;
+}
+
 // fw#2660 — above this many target-row matches, drop the reference clause
 // entirely instead of truncating: an arbitrary 200-row slice of "which
 // targets match" would silently hide rows a full-cardinality match would
 // have found. Native text search on the entity's own fields still applies.
 const MAX_REFERENCE_SEARCH_IDS = 200;
-
-function physicalColumnName(table: Table, field: string): string {
-  return (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
-}
 
 type ReferenceSearchDescriptor = {
   readonly ownColumn: string;
@@ -384,11 +425,27 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     async list(payload, user, db, runtimeOptions) {
       const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
+      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
 
-      // H.2 — entity-level read ownership. Decide before touching search or
-      // the DB: `empty` means there's no row the user could ever see, so
-      // skip both paths and return an empty page.
-      const ownership = buildOwnershipClause(user, entity.access?.read, table);
+      // H.2 — entity-level read ownership, AND-ed with the parent-ref
+      // read-gate (join-row entities derive their visibility from a host
+      // row's own read path — see db/parent-ref-clause.ts). Decide before
+      // touching search or the DB: `empty` means there's no row the user
+      // could ever see, so skip both paths and return an empty page.
+      const narrowTypes = deriveParentNarrowTypes(entity, payload);
+      const parentClause = buildParentRefClause(
+        entity,
+        table,
+        tableName,
+        user,
+        db,
+        runtimeOptions?.parentVisibility,
+        { includeDeleted: runtimeOptions?.includeDeleted === true, narrowTypes },
+      );
+      const ownership = combineClauses(
+        buildOwnershipClause(user, entity.access?.read, table),
+        parentClause,
+      );
       if (ownership.kind === "empty") {
         return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
       }
@@ -401,7 +458,6 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // Build the WHERE clause as raw SQL — ownership produces a
       // parameterised fragment that we splice in alongside simple WhereObject
       // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
-      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
       const whereSql: string[] = [];
       const params: unknown[] = [];
       const physicalCol = (field: string): string => physicalColumnName(table, field);
@@ -493,6 +549,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         // tenant filter that follows.
         whereSql.push(`(${orParts.join(" OR ")})`);
       }
+      // The total-count fast-path below is only valid while this is still
+      // true after every later clause (tenant, soft-delete, cursor,
+      // ownership, parent-ref, filters) — see where it's checked.
+      const whereSqlLenAfterSearch = whereSql.length;
 
       const sortCandidate =
         payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
@@ -664,11 +724,13 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // Postgres cost is O(table-scan) without a filter, with a filter as
       // expensive as the corresponding WHERE — cheap enough on indexed columns.
       // On the search path, `total = filterIds.length` needs no extra query —
-      // unless a reference match contributed additional rows (fw#2660), in
-      // which case the raw filterIds length alone would undercount.
+      // unless a reference match contributed additional rows (fw#2660), or the
+      // WHERE grew past the search block (ownership, parent-ref, filters,
+      // soft-delete, cursor all splice in afterwards), in which case the raw
+      // filterIds length alone would undercount.
       let total: number | undefined;
       if (totalCount) {
-        if (filterIds && !referenceClauseActive) {
+        if (filterIds && !referenceClauseActive && whereSql.length === whereSqlLenAfterSearch) {
           total = filterIds.length;
         } else {
           const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
@@ -684,11 +746,25 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       return { rows, nextCursor, ...(total !== undefined && { total }) };
     },
 
-    async detail(payload, user, db) {
-      // H.2 — ownership check. `empty` → the user can never see this row
+    async detail(payload, user, db, options) {
+      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+      // H.2 — ownership check, AND-ed with the parent-ref read-gate (see
+      // db/parent-ref-clause.ts). `empty` → the user can never see this row
       // regardless of its id. Return null (same shape as "not found", so a
       // probing attacker can't distinguish "no access" from "doesn't exist").
-      const ownership = buildOwnershipClause(user, entity.access?.read, table);
+      const parentClause = buildParentRefClause(
+        entity,
+        table,
+        tableName,
+        user,
+        db,
+        options?.parentVisibility,
+        { includeDeleted: false, narrowTypes: undefined },
+      );
+      const ownership = combineClauses(
+        buildOwnershipClause(user, entity.access?.read, table),
+        parentClause,
+      );
       if (ownership.kind === "empty") return null;
 
       const idWhere = idFilter(payload.id);
@@ -714,8 +790,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
         if (cached) {
           if (ownership.kind === "sql") {
-            // Re-check ownership predicate against the live row — the cache
-            // is keyed only by tenant + id, not by role.
+            // Re-check ownership predicate (incl. the parent-ref gate) against
+            // the live row — the cache is keyed only by tenant + id, not by
+            // role, so a cache hit can't bypass either gate. Deliberate price:
+            // one extra roundtrip per cache hit once either gate produces SQL.
             const checkRows = await loadWithOwnership(db, idWhere, ownership);
             if (checkRows.length === 0) return null;
           }

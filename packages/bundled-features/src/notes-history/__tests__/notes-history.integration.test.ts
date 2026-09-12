@@ -28,7 +28,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
-import { noteEntryEntity } from "../entity";
+import { noteEntryEntity, noteMentionEntity } from "../entity";
 import { createNotesHistoryFeature } from "../feature";
 
 const notesHistoryFeature = createNotesHistoryFeature();
@@ -73,6 +73,7 @@ const CONTACT_SHARED = "30000000-0000-4000-8000-000000000007";
 beforeAll(async () => {
   stack = await setupTestStack({ features: [notesHistoryFeature, contactFixtureFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity);
   await createEventsTable(stack.db);
 

@@ -1011,10 +1011,20 @@ export type WriteHandlerDef = {
   readonly perform?: import("./step").PipelineDef;
 };
 
+// Marker set by defineEntityQueryHandler on both of its verbs. A string, not
+// a Symbol(), for the same reason as PAGED_QUERY_HANDLER_BRAND: a symlinked
+// workspace can evaluate a module twice, and two Symbol() calls would not
+// compare equal across those instances.
+export const ENTITY_CONVENTION_QUERY_BRAND = "__kumikoEntityConventionQuery";
+
 export type QueryHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: QueryHandlerFn;
+  /** Set only by defineEntityQueryHandler, which wires the parent-ref
+   *  read-gate. The boot-validator requires it on a `parentRef` entity's
+   *  list/detail handler — see boot-validator/parent-ref.ts. */
+  readonly [ENTITY_CONVENTION_QUERY_BRAND]?: true;
   readonly access?: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;

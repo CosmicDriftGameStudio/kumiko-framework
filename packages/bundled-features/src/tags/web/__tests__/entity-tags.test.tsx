@@ -22,7 +22,7 @@ beforeEach(() => {
   assignmentRows = [];
 });
 
-const useQuerySpy = mock((type: string) => ({
+const useQuerySpy = mock((type: string, _payload?: unknown) => ({
   data: type === TagsQueries.tagList ? { rows: catalogRows } : { rows: assignmentRows },
   loading: false,
   error: null,
@@ -79,9 +79,10 @@ describe("EntityTags", () => {
     expect(screen.queryByTestId("tag-chip")).toBeNull();
   });
 
-  test("ignores assignments belonging to a different entityType", () => {
+  test("scopes the assignment query to this entityType and id server-side", () => {
     catalogRows = [{ id: "t1", name: "important" }];
-    assignmentRows = [{ tagId: "t1", entityType: "invoice", entityId: "n1" }];
+    assignmentRows = [{ tagId: "t1", entityType: "note", entityId: "n1" }];
+    useQuerySpy.mockClear();
 
     render(
       <Wrapper>
@@ -89,7 +90,15 @@ describe("EntityTags", () => {
       </Wrapper>,
     );
 
-    expect(screen.queryByTestId("entity-tags")).toBeNull();
+    // Filtering server-side (rather than discarding foreign rows after the
+    // fetch) is what lets the parent-ref read gate narrow to one host entity.
+    const call = useQuerySpy.mock.calls.find((c) => c[0] === TagsQueries.assignmentList);
+    expect(call?.[1]).toEqual({
+      filters: [
+        { field: "entityType", op: "eq", value: "note" },
+        { field: "entityId", op: "eq", value: "n1" },
+      ],
+    });
   });
 
   test("renders nothing for a not-yet-saved entity (entityId null)", () => {

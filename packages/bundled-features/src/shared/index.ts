@@ -17,7 +17,7 @@ export { isWithinGracePeriod } from "./grace-period";
 export { hasWhereRule } from "./has-where-rule";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash";
 export { mapWithConcurrency } from "./map-with-concurrency";
-export { parentRowIsVisible } from "./parent-visibility";
+export { joinRowParentIsVisible, parentRowIsVisible } from "./parent-visibility";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing";
 export { sessionField } from "./session-field";
 export { sessionLocaleField } from "./session-locale-field";

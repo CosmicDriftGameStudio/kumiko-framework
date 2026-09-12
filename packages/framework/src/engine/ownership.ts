@@ -336,6 +336,21 @@ export function buildOwnershipClause(
   return { kind: "sql", sqlText: `(${sqlText})`, params };
 }
 
+// AND-combine two independently built read clauses. Both are built at
+// paramStart=1; `b`'s placeholders are shifted past `a`'s params so the
+// concatenated fragment binds positionally.
+export function combineClauses(a: OwnershipClause, b: OwnershipClause): OwnershipClause {
+  if (a.kind === "empty" || b.kind === "empty") return { kind: "empty" };
+  if (a.kind === "pass") return b;
+  if (b.kind === "pass") return a;
+  const shifted = shiftParams({ sqlText: b.sqlText, params: b.params }, a.params.length);
+  return {
+    kind: "sql",
+    sqlText: `(${a.sqlText} AND ${shifted.sqlText})`,
+    params: [...a.params, ...shifted.params],
+  };
+}
+
 type RuleFragmentResult =
   | { readonly kind: "empty" }
   | { readonly kind: "sql"; readonly sqlText: string; readonly params: readonly unknown[] };

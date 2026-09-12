@@ -1,7 +1,7 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { decryptStoredPii, parentRowIsVisible } from "../../shared";
+import { decryptStoredPii, joinRowParentIsVisible } from "../../shared";
 import { userTable } from "../../user";
 import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants";
 import { noteEntryExecutor, noteMentionExecutor } from "../executor";
@@ -15,13 +15,12 @@ import { type AddNotePayload, addNotePayloadSchema } from "../schemas";
 //
 // entityType/entityId are never trusted client input: entityType must name a
 // registered entity, and the row must be visible to the caller through that
-// entity's own read path (tenant scope plus its `access.read` ownership) —
-// see shared/parent-visibility.ts. `parents`, when set, is an ADDITIONAL allowlist
-// narrowing which registered entities may be a note's parent at all; it is
-// not what turns the check on.
+// entity's own read path (tenant scope plus its `access.read` ownership).
+// Both the field names and the optional `parents` allowlist come from the
+// entity's own `parentRef` declaration, which the read gate reads too —
+// see shared/parent-visibility.ts.
 export function createAddNoteHandler(
   access: AccessRule = DEFAULT_NOTES_HISTORY_ACCESS,
-  parents?: ReadonlySet<string>,
 ): WriteHandlerDef {
   return {
     name: "add-note",
@@ -35,13 +34,10 @@ export function createAddNoteHandler(
       // NotFoundError, not an access-denied error, so the response doesn't
       // double as an existence oracle — same policy as executor.detail,
       // which never distinguishes "no access" from "doesn't exist".
-      if (parents !== undefined && !parents.has(payload.entityType)) {
-        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
-      }
-      const visible = await parentRowIsVisible(
+      const visible = await joinRowParentIsVisible(
         ctx.registry,
-        payload.entityType,
-        payload.entityId,
+        "note-entry",
+        payload,
         event.user,
         ctx.db,
       );

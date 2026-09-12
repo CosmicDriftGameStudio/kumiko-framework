@@ -45,6 +45,7 @@ import {
   warnOnNavAccessInversion,
 } from "./nav";
 import { collectClaimKeys, validateOwnershipRules } from "./ownership";
+import { validateParentRefs } from "./parent-ref";
 import { validatePiiAndRetention } from "./pii-retention";
 import {
   validateProjectionListScreens,
@@ -195,6 +196,7 @@ export function validateBoot(
     validateConfigKeyBacking(feature);
     validateConfigKeyPiiEncrypted(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
+    validateParentRefs(feature, featureMap);
     validateMultiStreamProjections(feature);
     // Vor validateScreens: dessen visible/entityId-Feldref-Checks werfen für
     // einen Function-Wert bereits (mit verwirrender "unknown field undefined"-

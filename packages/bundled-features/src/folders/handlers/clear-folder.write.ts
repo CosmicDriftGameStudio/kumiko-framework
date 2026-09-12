@@ -1,6 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { parentRowIsVisible } from "../../shared";
+import { joinRowParentIsVisible } from "../../shared";
 import { folderAssignmentAggregateId } from "../aggregate-id";
 import { DEFAULT_FOLDER_ACCESS } from "../constants";
 import { folderAssignmentExecutor } from "../executor";
@@ -31,10 +31,10 @@ export function createClearFolderHandler(
       // an invisible parent apart from a missing assignment or an unknown folder —
       // every path answers with the same NotFoundError.
       if (
-        !(await parentRowIsVisible(
+        !(await joinRowParentIsVisible(
           ctx.registry,
-          payload.entityType,
-          payload.entityId,
+          "folder-assignment",
+          payload,
           event.user,
           ctx.db,
         ))

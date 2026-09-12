@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   noteEntryEntity,
+  noteMentionEntity,
   notesHistoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -37,6 +38,7 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [notesHistoryFeature, taskFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, taskEntity);
   await createEventsTable(stack.db);
 });

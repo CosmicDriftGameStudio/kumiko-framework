@@ -1,6 +1,8 @@
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import {
+  isEntityConventionQueryHandler,
   isPagedQueryHandler,
   PAGED_QUERY_HANDLER_BRAND,
   type QueryHandlerDefinition,
@@ -184,6 +186,9 @@ export function buildEntityHandlerMethods<TName extends string>(
           // Carry the definePagedQueryHandler brand through — this rebuild
           // drops any field not explicitly listed.
           ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
+          ...(isEntityConventionQueryHandler(def) && {
+            [ENTITY_CONVENTION_QUERY_BRAND]: true as const,
+          }),
         };
         tryMapEntity(state, name, def.name);
         return { name: def.name };

@@ -221,6 +221,7 @@ export {
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export {
   buildOwnershipClause,
+  combineClauses,
   from,
   normalizeAccessEntry,
   userCanCreateFieldRow,
@@ -411,6 +412,7 @@ export type {
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
+  ParentRefDef,
   PersonalAnnotations,
   PersonalAnnotationsLongText,
   PersonalAnnotationsNoFind,

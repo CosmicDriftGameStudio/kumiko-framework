@@ -57,9 +57,16 @@ export function TagSection({
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
   const catalog = useQuery<TagListResponse>(TagsQueries.tagList, {}, { enabled });
+  // entityType server-side, not just entityId: it collapses the parent-ref
+  // read gate to this one host entity instead of every registered one.
   const assignments = useQuery<AssignmentListResponse>(
     TagsQueries.assignmentList,
-    { filter: { field: "entityId", op: "eq", value: entityId } },
+    {
+      filters: [
+        { field: "entityType", op: "eq", value: entityName },
+        { field: "entityId", op: "eq", value: entityId },
+      ],
+    },
     { enabled },
   );
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -93,9 +100,7 @@ export function TagSection({
   }
 
   const byId = new Map((catalog.data?.rows ?? []).map((tg) => [tg.id, tg]));
-  const assignedIds = (assignments.data?.rows ?? [])
-    .filter((r) => r.entityType === entityName)
-    .map((r) => r.tagId);
+  const assignedIds = (assignments.data?.rows ?? []).map((r) => r.tagId);
 
   const refetch = async (): Promise<void> => {
     await Promise.all([catalog.refetch(), assignments.refetch()]);
