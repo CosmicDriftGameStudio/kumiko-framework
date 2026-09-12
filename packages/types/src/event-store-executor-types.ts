@@ -6,6 +6,15 @@ import type { EntityId } from "./identifiers";
 import type { SearchAdapter } from "./search-adapter";
 import type { TenantDb } from "./tenant-db-types";
 
+// Read-time gate for join-row entities (EntityDefinition.parentRef): the
+// registered-entity map the SQL clause checks host candidates against.
+// Lives here (not in db/parent-ref-clause.ts) because the Registry only
+// exists at request time — the same extension-point shape as
+// referenceSearch/referenceSort below (fw#2660/fw#2741).
+export type ParentVisibilityOption = {
+  readonly entities: ReadonlyMap<string, EntityDefinition>;
+};
+
 // Runs the caller's preSave hooks against changes not yet persisted, for
 // the executor's create()/update() only — restore/delete/forget have no
 // `changes` to shape. See HandlerContext.runPreSave for how this gets bound
@@ -120,6 +129,9 @@ export type EventStoreExecutor = {
         }>;
         readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
       };
+      // Join-row read-gate (EntityDefinition.parentRef) — same request-time
+      // registry dependency as referenceSearch/referenceSort above.
+      readonly parentVisibility?: ParentVisibilityOption;
     },
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
@@ -127,5 +139,6 @@ export type EventStoreExecutor = {
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
+    options?: { readonly parentVisibility?: ParentVisibilityOption },
   ) => Promise<Record<string, unknown> | null>;
 };

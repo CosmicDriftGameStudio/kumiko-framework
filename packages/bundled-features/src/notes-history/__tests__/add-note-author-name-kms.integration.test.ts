@@ -34,7 +34,7 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testin
 import { userEntity, userTable } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
-import { noteEntryEntity } from "../entity";
+import { noteEntryEntity, noteMentionEntity } from "../entity";
 import { createNotesHistoryFeature } from "../feature";
 
 const notesHistoryFeature = createNotesHistoryFeature();
@@ -66,6 +66,7 @@ function memberUser(userId: string): SessionUser {
 beforeAll(async () => {
   stack = await setupTestStack({ features: [notesHistoryFeature, contactFixtureFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity);
   await asRawClient(stack.db).unsafe(

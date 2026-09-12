@@ -1,4 +1,8 @@
-import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  type EntityDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 // folder — per-tenant hierarchical catalog. Event-sourced (create/update/delete
 // via the standard executor); the framework projects `read_folders` from its own
@@ -39,30 +43,45 @@ export const folderEntity = createEntity({
 // Cross-entity views compose in the read-layer (no JOIN):
 //   - folder of an entity  → list assignments filter { field: "entityId", op: "eq" }
 //   - entities in a folder  → list assignments filter { field: "folderId", op: "eq" }
-export const folderAssignmentEntity = createEntity({
-  table: "read_folder_assignments",
-  description:
-    "The membership row recording which folder one host entity, addressed by entityType and entityId, is filed in. At most one row exists per entity, so filing it elsewhere changes this row's folderId rather than adding a second.",
-  softDelete: true,
-  fields: {
-    folderId: createTextField({
-      required: true,
-      maxLength: 64,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    entityType: createTextField({
-      required: true,
-      maxLength: 64,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
-    entityId: createTextField({
-      required: true,
-      maxLength: 128,
-      personal: false,
-      reason: "technical_reference",
-    }),
-  },
-});
+export function createFolderAssignmentEntity(
+  access?: EntityDefinition["access"],
+  parents?: readonly string[],
+) {
+  return createEntity({
+    table: "read_folder_assignments",
+    description:
+      "The membership row recording which folder one host entity, addressed by entityType and entityId, is filed in. At most one row exists per entity, so filing it elsewhere changes this row's folderId rather than adding a second.",
+    softDelete: true,
+    access,
+    // Declared unconditionally: the host-visibility gate is the default for
+    // both paths, and `parents` only narrows which hosts are admissible.
+    parentRef: {
+      entityTypeField: "entityType",
+      entityIdField: "entityId",
+      ...(parents !== undefined && { allowedTypes: parents }),
+    },
+    fields: {
+      folderId: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      entityType: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
+      // Host entity ids are uuid/text; 128 covers uuid plus non-uuid text keys.
+      entityId: createTextField({
+        required: true,
+        maxLength: 128,
+        personal: false,
+        reason: "technical_reference",
+      }),
+    },
+  });
+}
+
+export const folderAssignmentEntity = createFolderAssignmentEntity();

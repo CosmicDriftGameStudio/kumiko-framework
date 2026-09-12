@@ -122,6 +122,7 @@ export type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  ParentRefDef,
   PersonalAnnotations,
   PersonalAnnotationsLongText,
   PersonalAnnotationsNoFind,

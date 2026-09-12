@@ -462,6 +462,7 @@ describe("tags integration — openToAll access model", () => {
     await unsafeCreateEntityTable(openStack.db, tagEntity);
     await unsafeCreateEntityTable(openStack.db, tagAssignmentEntity);
     await unsafeCreateEntityTable(openStack.db, creditEntity);
+    await unsafeCreateEntityTable(openStack.db, noteEntity);
     await createEventsTable(openStack.db);
     await seedHostRows(openStack, CREDIT_TABLE, ["c-1"], unprivileged.tenantId);
 

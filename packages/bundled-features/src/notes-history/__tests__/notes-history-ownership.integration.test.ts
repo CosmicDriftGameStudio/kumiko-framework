@@ -35,7 +35,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
-import { createNoteEntryEntity, noteEntryEntity } from "../entity";
+import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "../entity";
 import { createNotesHistoryFeature } from "../feature";
 
 // Minimal fixture standing in for a real host projection: which team a host
@@ -123,6 +123,7 @@ beforeAll(async () => {
     features: [createNotesHistoryFeature({ ownership: teamOwnership }), projectFixtureFeature],
   });
   await unsafeCreateEntityTable(scopedStack.db, createNoteEntryEntity(teamOwnership));
+  await unsafeCreateEntityTable(scopedStack.db, noteMentionEntity);
   await unsafeCreateEntityTable(scopedStack.db, projectEntity);
   await createEventsTable(scopedStack.db);
   await asRawClient(scopedStack.db).unsafe(
@@ -138,6 +139,7 @@ beforeAll(async () => {
     features: [createNotesHistoryFeature(), projectFixtureFeature],
   });
   await unsafeCreateEntityTable(defaultStack.db, noteEntryEntity);
+  await unsafeCreateEntityTable(defaultStack.db, noteMentionEntity);
   await unsafeCreateEntityTable(defaultStack.db, projectEntity);
   await createEventsTable(defaultStack.db);
   await insertProjects(defaultStack, userA.tenantId, [PROJ_1]);
@@ -286,6 +288,7 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
       ],
     });
     await unsafeCreateEntityTable(unqualifiedStack.db, createNoteEntryEntity(unqualifiedOwnership));
+    await unsafeCreateEntityTable(unqualifiedStack.db, noteMentionEntity);
     await unsafeCreateEntityTable(unqualifiedStack.db, projectEntity);
     await createEventsTable(unqualifiedStack.db);
     await asRawClient(unqualifiedStack.db).unsafe(

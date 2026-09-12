@@ -25,7 +25,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { NotesHistoryHandlers } from "../constants";
-import { createNoteEntryEntity } from "../entity";
+import { createNoteEntryEntity, noteMentionEntity } from "../entity";
 import { createNotesHistoryFeature } from "../feature";
 
 const PROJECT_TABLE = "notes_pv_test_projects";
@@ -118,6 +118,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(guardedStack.db, guardedProjectEntity);
   await unsafeCreateEntityTable(guardedStack.db, createNoteEntryEntity());
+  await unsafeCreateEntityTable(guardedStack.db, noteMentionEntity);
   await createEventsTable(guardedStack.db);
   await asRawClient(guardedStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
@@ -134,6 +135,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(openStack.db, guardedProjectEntity);
   await unsafeCreateEntityTable(openStack.db, createNoteEntryEntity());
+  await unsafeCreateEntityTable(openStack.db, noteMentionEntity);
   await createEventsTable(openStack.db);
   await asRawClient(openStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,

@@ -7,6 +7,7 @@ import type {
 } from "../engine/types";
 import { assertUnreachable } from "../utils";
 import { toSnakeCase } from "../utils/case";
+import type { Table } from "./event-store-executor-context";
 
 export { toSnakeCase } from "../utils/case";
 
@@ -34,6 +35,12 @@ import {
   uniqueIndex,
   uuid,
 } from "./dialect";
+
+// Shared by the CRUD executor and the parent-ref read-gate — a field's
+// declared column name if it has one, else its snake_case default.
+export function physicalColumnName(table: Table, field: string): string {
+  return (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
+}
 
 // Local AnyPgColumn alias — kept for legacy field-definition callers that
 // still import this name as a type. ColumnHandle from the native dialect

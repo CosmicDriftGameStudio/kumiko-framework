@@ -1,6 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { parentRowIsVisible } from "../../shared";
+import { joinRowParentIsVisible } from "../../shared";
 import { tagAssignmentAggregateId } from "../aggregate-id";
 import { DEFAULT_TAG_ACCESS } from "../constants";
 import { tagAssignmentExecutor } from "../executor";
@@ -29,13 +29,7 @@ export function createRemoveTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       // an invisible parent apart from a missing assignment or an unknown tag —
       // every path answers with the same NotFoundError.
       if (
-        !(await parentRowIsVisible(
-          ctx.registry,
-          payload.entityType,
-          payload.entityId,
-          event.user,
-          ctx.db,
-        ))
+        !(await joinRowParentIsVisible(ctx.registry, "tag-assignment", payload, event.user, ctx.db))
       ) {
         return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
       }

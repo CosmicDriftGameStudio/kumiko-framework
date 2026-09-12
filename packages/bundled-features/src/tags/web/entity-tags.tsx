@@ -25,15 +25,22 @@ export function EntityTags({
 }): ReactNode {
   const enabled = entityId !== null;
   const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {}, { enabled });
+  // entityType server-side, not just entityId: it collapses the parent-ref
+  // read gate to this one host entity instead of every registered one.
   const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(
     TagsQueries.assignmentList,
-    { filter: { field: "entityId", op: "eq", value: entityId } },
+    {
+      filters: [
+        { field: "entityType", op: "eq", value: entityName },
+        { field: "entityId", op: "eq", value: entityId },
+      ],
+    },
     { enabled },
   );
 
   if (entityId === null) return null;
   const byId = new Map((catalog.data?.rows ?? []).map((t) => [t.id, t]));
-  const assigned = (assignments.data?.rows ?? []).filter((r) => r.entityType === entityName);
+  const assigned = assignments.data?.rows ?? [];
   if (assigned.length === 0) return null;
 
   return (

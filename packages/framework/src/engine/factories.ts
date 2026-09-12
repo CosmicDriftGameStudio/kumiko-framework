@@ -456,6 +456,8 @@ export function createEntity<F>(def: {
   readonly indexes?: readonly EntityIndexDef[];
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];
+  /** Join-row carrier reference — see EntityDefinition.parentRef. */
+  readonly parentRef?: EntityDefinition["parentRef"];
   readonly retention?: RetentionDef;
   readonly derivedFields?: EntityDefinition["derivedFields"];
 }): F extends FieldsMap ? EntityDefinition<F> : never {

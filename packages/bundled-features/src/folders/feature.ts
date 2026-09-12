@@ -22,10 +22,12 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { hasWhereRule } from "../shared";
 import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./constants";
-import { folderAssignmentEntity, folderEntity } from "./entity";
+import { createFolderAssignmentEntity, folderEntity } from "./entity";
 import { createClearFolderHandler } from "./handlers/clear-folder.write";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write";
 import { createSetFolderHandler } from "./handlers/set-folder.write";
@@ -41,6 +43,8 @@ function registerFolders(
   r: FeatureRegistrar<typeof FOLDERS_FEATURE_NAME>,
   access: AccessRule,
   toggleable: FoldersToggleable | undefined,
+  ownership: EntityDefinition["access"] | undefined,
+  parents: readonly string[] | undefined,
 ): void {
   r.describe(
     "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: true } }) or pin roles. Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
@@ -53,6 +57,7 @@ function registerFolders(
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 
+  const folderAssignmentEntity = createFolderAssignmentEntity(ownership, parents);
   r.entity("folder", folderEntity);
   r.entity("folder-assignment", folderAssignmentEntity);
 
@@ -103,7 +108,7 @@ function registerFolders(
 }
 
 export const foldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>
-  registerFolders(r, DEFAULT_FOLDER_ACCESS, undefined),
+  registerFolders(r, DEFAULT_FOLDER_ACCESS, undefined, undefined, undefined),
 );
 
 export type FoldersFeatureOptions = {
@@ -119,6 +124,28 @@ export type FoldersFeatureOptions = {
    *  `default` applies when no toggle/tier override exists — use { default: false }
    *  for fail-closed tier-gating. Omit to keep folders always-on (default). */
   readonly toggleable?: FoldersToggleable;
+  /** Row-level ownership on the folder-assignment rows themselves — orthogonal
+   *  to `access`, which only gates whether a caller may dispatch set/clear/list
+   *  at all. Not needed to keep a caller from reading assignments on host
+   *  entities they can't see: that gate is default-on since fw#2766 and derives
+   *  from the entity's `parentRef`. Use `ownership.read` for an ADDITIONAL row
+   *  rule on the assignment row itself; it is AND-ed with the host-visibility
+   *  gate. Applies only to `folder-assignment`; the `folder` catalog stays
+   *  tenant-wide by design.
+   *
+   *  `ownership.write` is separate and does NOT affect list/read. It's consulted
+   *  by the framework's generic delete/forget/restore paths. A `from()` rule
+   *  there also gates GDPR erasure (`forget`): if the rule's role map doesn't
+   *  cover whatever role the erasure/retention pipeline runs as, `forget` denies
+   *  instead of crypto-shredding — a silent Art.17 failure, not a thrown error.
+   *  Make sure any `ownership.write` you set covers that role, or leave it unset. */
+  readonly ownership?: EntityDefinition["access"];
+  /** Allowlist narrowing which registered entities may be filed into a folder.
+   *  Not what turns host-checking on — set/clear and the assignment list always
+   *  verify that entityType names a registered entity whose row the caller can
+   *  see. Setting it narrows further, and shrinks the read gate's SQL, which
+   *  otherwise considers every registered entity as a candidate host. */
+  readonly parents?: readonly string[];
 };
 
 function resolveAccess(opts: FoldersFeatureOptions): AccessRule {
@@ -130,9 +157,36 @@ function resolveAccess(opts: FoldersFeatureOptions): AccessRule {
 // Options wrapper. Without options returns the module-level singleton (no
 // rebuild). access/roles/toggleable build a fresh feature-definition.
 export function createFoldersFeature(opts: FoldersFeatureOptions = {}): typeof foldersFeature {
-  if (opts.access === undefined && opts.roles === undefined && opts.toggleable === undefined) {
+  if (
+    opts.access === undefined &&
+    opts.roles === undefined &&
+    opts.toggleable === undefined &&
+    opts.ownership === undefined &&
+    opts.parents === undefined
+  ) {
     return foldersFeature;
   }
+  if (hasWhereRule(opts.ownership?.write)) {
+    throw new Error(
+      "createFoldersFeature({ ownership }): ownership.write must not contain a " +
+        '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
+        "layer (the read path, via buildOwnershipClause). Write paths that " +
+        "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
+        "evaluate them, so such a rule can only ever deny — boot validation " +
+        "rejects it too (fw#2626). Use a `from()` rule for ownership.write, or " +
+        "leave it unset.",
+    );
+  }
+  if (opts.parents !== undefined && opts.parents.length === 0) {
+    throw new Error(
+      "createFoldersFeature({ parents }): parents must not be an empty array — " +
+        "an empty allowlist rejects every set-folder call and hides every " +
+        "assignment row. Omit `parents` to keep every registered entity " +
+        "admissible as a host instead.",
+    );
+  }
   const access = resolveAccess(opts);
-  return defineFeature(FOLDERS_FEATURE_NAME, (r) => registerFolders(r, access, opts.toggleable));
+  return defineFeature(FOLDERS_FEATURE_NAME, (r) =>
+    registerFolders(r, access, opts.toggleable, opts.ownership, opts.parents),
+  );
 }

@@ -51,6 +51,7 @@ function registerTags(
   access: AccessRule,
   toggleable: TagsToggleable | undefined,
   ownership: EntityDefinition["access"] | undefined,
+  parents: readonly string[] | undefined,
 ): void {
   r.describe(
     "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Catalog screens are declarative (`entityList` + `entityEdit`) and use convention QNs `tag:{create,update,delete}`; TagManager/TagPicker keep `create-tag`/`update-tag`/`delete-tag`. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
@@ -65,7 +66,7 @@ function registerTags(
   // feature toggleable lets tier-engine/feature-toggles cut it per tenant.
   if (toggleable !== undefined) r.toggleable(toggleable);
 
-  const tagAssignmentEntity = createTagAssignmentEntity(ownership);
+  const tagAssignmentEntity = createTagAssignmentEntity(ownership, parents);
   r.entity("tag", tagEntity);
   r.entity("tag-assignment", tagAssignmentEntity);
 
@@ -128,7 +129,7 @@ function registerTags(
 }
 
 export const tagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>
-  registerTags(r, DEFAULT_TAG_ACCESS, undefined, undefined),
+  registerTags(r, DEFAULT_TAG_ACCESS, undefined, undefined, undefined),
 );
 
 export type TagsFeatureOptions = {
@@ -146,10 +147,11 @@ export type TagsFeatureOptions = {
   readonly toggleable?: TagsToggleable;
   /** Row-level ownership on the tag-assignment rows themselves — orthogonal to
    *  `access`, which only gates whether a caller may dispatch assign/remove/list
-   *  at all. Set `ownership.read` to close the read leak: without it — even if
-   *  `ownership.write` is set — `access.read` stays undefined and any
-   *  dispatch-eligible user can read every assignment in the tenant, including
-   *  assignments on entities they can't otherwise see. Applies only to
+   *  at all. `ownership.read` is no longer what keeps a caller from reading
+   *  assignments on host entities they can't see: that gate is default-on since
+   *  fw#2766 and derives from the entity's `parentRef`. Use `ownership.read` for
+   *  an ADDITIONAL row rule on the assignment row itself; it is AND-ed with the
+   *  host-visibility gate, never a replacement for it. Applies only to
    *  `tag-assignment`; the `tag` catalog stays tenant-wide by design.
    *
    *  `ownership.write` is separate and does NOT affect list/read. It's
@@ -161,6 +163,12 @@ export type TagsFeatureOptions = {
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
    *  sure any `ownership.write` you set covers that role, or leave it unset. */
   readonly ownership?: EntityDefinition["access"];
+  /** Allowlist narrowing which registered entities may carry a tag. Not what
+   *  turns host-checking on — assign/remove and the assignment list always
+   *  verify that entityType names a registered entity whose row the caller can
+   *  see. Setting it narrows further, and shrinks the read gate's SQL, which
+   *  otherwise considers every registered entity as a candidate host. */
+  readonly parents?: readonly string[];
 };
 
 function resolveAccess(opts: TagsFeatureOptions): AccessRule {
@@ -177,9 +185,18 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFea
     opts.access === undefined &&
     opts.roles === undefined &&
     opts.toggleable === undefined &&
-    opts.ownership === undefined
+    opts.ownership === undefined &&
+    opts.parents === undefined
   ) {
     return tagsFeature;
+  }
+  if (opts.parents !== undefined && opts.parents.length === 0) {
+    throw new Error(
+      "createTagsFeature({ parents }): parents must not be an empty array — " +
+        "an empty allowlist rejects every assign-tag call and hides every " +
+        "assignment row. Omit `parents` to keep every registered entity " +
+        "admissible as a host instead.",
+    );
   }
   if (hasWhereRule(opts.ownership?.write)) {
     throw new Error(
@@ -194,6 +211,6 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFea
   }
   const access = resolveAccess(opts);
   return defineFeature(TAGS_FEATURE_NAME, (r) =>
-    registerTags(r, access, opts.toggleable, opts.ownership),
+    registerTags(r, access, opts.toggleable, opts.ownership, opts.parents),
   );
 }

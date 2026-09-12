@@ -1,3 +1,4 @@
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { type ZodType, z } from "zod";
 import type { DbRow } from "../db/connection";
 import {
@@ -388,6 +389,7 @@ export function defineEntityQueryHandler(
             fields: ctx.registry.getSortableReferences(entityName),
             resolveEntity: (name) => ctx.registry.getEntity(name),
           },
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
         });
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(
@@ -404,7 +406,9 @@ export function defineEntityQueryHandler(
       schema = idSchema;
       handler = async (query, ctx) => {
         const db = dbFor(ctx);
-        const row = await executor.detail(query.payload as IdPayload, query.user, db); // @cast-boundary engine-payload
+        const row = await executor.detail(query.payload as IdPayload, query.user, db, {
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
+        }); // @cast-boundary engine-payload
         if (row === null || !hasRefFields) return row;
         return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), db);
       };
@@ -426,6 +430,7 @@ export function defineEntityQueryHandler(
     // definePagedQueryHandler on top. The "detail" verb returns a single
     // row/null, never this shape.
     ...(verb === "list" && { [PAGED_QUERY_HANDLER_BRAND]: true }),
+    [ENTITY_CONVENTION_QUERY_BRAND]: true,
   };
 }
 

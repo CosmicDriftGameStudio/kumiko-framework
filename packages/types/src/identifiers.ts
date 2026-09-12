@@ -13,7 +13,11 @@ export type TenantId = string;
 // already holds a TenantId from a trusted source (JWT payload, server
 // config) skips this — the helper is for **untrusted input** crossing
 // the system boundary.
-const TENANT_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+//
+// Exported so SQL-side checks (a Postgres `~` regex match) can share the
+// exact same shape instead of growing a second copy that drifts.
+export const UUID_SHAPE_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
+const TENANT_ID_REGEX = new RegExp(UUID_SHAPE_PATTERN);
 
 // Shared shape check for any UUID-formatted identifier crossing an
 // untrusted boundary (fileRefId, entity ids, ...) — same loose,

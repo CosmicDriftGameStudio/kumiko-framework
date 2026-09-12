@@ -37,12 +37,22 @@ import {
 // party without a structured @-mention is not tracked — regex/NLP over
 // free text is unreliable. The operator's manual `forget-subject` path
 // covers what this structured trigger misses.
-export function createNoteEntryEntity(access?: EntityDefinition["access"]) {
+export function createNoteEntryEntity(
+  access?: EntityDefinition["access"],
+  parents?: readonly string[],
+) {
   return createEntity({
     table: "read_note_entries",
     description:
       "One note attached to a host entity by entityType and entityId, holding the note body plus the id and the display name of the author as it stood when the note was written. Rows are append-only: a correction is a further note, never an edit of this one.",
     access,
+    // Declared unconditionally: the host-visibility gate is the default for
+    // both paths, and `parents` only narrows which hosts are admissible.
+    parentRef: {
+      entityTypeField: "entityType",
+      entityIdField: "entityId",
+      ...(parents !== undefined && { allowedTypes: parents }),
+    },
     fields: {
       entityType: createTextField({
         required: true,
