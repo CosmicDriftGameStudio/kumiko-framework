@@ -582,6 +582,7 @@ function validateFormLayoutSections(
   allowEmptySections: boolean,
 ): void {
   if (layout.sections.length === 0) {
+    // skip: an input-less secretMint declares fields: {} and sections: [] together — no sections to validate.
     if (allowEmptySections) return;
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${context}) has an empty sections list — ` +
@@ -728,6 +729,7 @@ function validateSecretMintConfirm(
   allWriteHandlerQns: ReadonlySet<string>,
 ): void {
   const confirm = screen.confirm;
+  // skip: the screen declares no confirm step — nothing to validate.
   if (confirm === undefined) return;
   const context = "secretMint confirm";
   validateWriteHandlerRegistered(
@@ -753,6 +755,7 @@ function validateSecretMintConfirm(
         `the exact leak fw#2548 closed. Remove draft: true.`,
     );
   }
+  // skip: no carry list declared — no carried fields to cross-check against confirm.fields.
   if (confirm.carry === undefined) return;
   for (const carryField of confirm.carry) {
     if (typeof carryField !== "string" || carryField.trim() === "") {

@@ -1,6 +1,6 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { UserQueries } from "../../user/constants";
+import { UserQueries } from "../../user";
 import { base32Encode } from "../base32";
 import { MFA_SETUP_TOKEN_TTL_MINUTES } from "../constants";
 import { findUserMfaRow } from "../db/queries";
