@@ -1,4 +1,9 @@
-import { isFieldsEditSection, normalizeEditField, normalizeListColumn } from "../screen-helpers";
+import {
+  isEditLayoutScreen,
+  isFieldsEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+} from "../screen-helpers";
 import type {
   EditFieldSpec,
   EditLayout,
@@ -138,13 +143,7 @@ export function validateFieldWiring(feature: FeatureDefinition): void {
       validateColumnsNoFunctions(feature.name, screen.id, screen.type, screen.columns);
       continue;
     }
-    if (
-      screen.type === "entityEdit" ||
-      screen.type === "actionForm" ||
-      screen.type === "configEdit" ||
-      screen.type === "projectionDetail" ||
-      screen.type === "secretMint"
-    ) {
+    if (isEditLayoutScreen(screen)) {
       validateEditLayoutNoFunctions(feature.name, screen.id, screen.type, screen.layout);
       continue;
     }

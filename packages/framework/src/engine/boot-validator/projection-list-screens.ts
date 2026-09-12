@@ -1,5 +1,11 @@
 import { QnTypes, qualifyEntityName } from "../qualified-name";
-import type { FeatureDefinition, ProjectionListScreenDefinition, QueryHandlerDef } from "../types";
+import { isEditLayoutScreen } from "../screen-helpers";
+import type {
+  EditRelatedListSection,
+  FeatureDefinition,
+  ProjectionListScreenDefinition,
+  QueryHandlerDef,
+} from "../types";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens";
 import { getZodObjectShape } from "./zod-shape";
 
@@ -122,6 +128,31 @@ export function validateProjectionListScreens(features: readonly FeatureDefiniti
   }
 }
 
+function validateRelatedListSearchable(
+  prefix: string,
+  section: EditRelatedListSection,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  // skip: not searchable, or the schema already accepts search — nothing to reject.
+  if (section.searchable !== true || schemaAccepts(schema, "search")) return;
+  throw new Error(
+    `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema`,
+  );
+}
+
+function validateRelatedListFacets(
+  prefix: string,
+  section: EditRelatedListSection,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  // skip: no facets declared, or the schema already accepts filters — nothing to reject.
+  if (section.facets === undefined || section.facets.length === 0) return;
+  if (schemaAccepts(schema, "filters")) return;
+  throw new Error(
+    `${prefix}: declares facets but query "${section.query}" has no "filters" parameter in its Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
+  );
+}
+
 // relatedList sections declare search/facets the same way a projectionList
 // screen does, and hit the same 422 footgun: definePagedQueryHandler doesn't
 // auto-merge params into the handler's own Zod schema (fw#2165/#2224), so an
@@ -133,33 +164,13 @@ export function validateRelatedListSectionQueries(features: readonly FeatureDefi
   const queryHandlers = buildQueryHandlerMap(features);
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {
-      if (
-        screen.type !== "projectionDetail" &&
-        screen.type !== "entityEdit" &&
-        screen.type !== "actionForm" &&
-        screen.type !== "configEdit" &&
-        screen.type !== "secretMint"
-      ) {
-        continue;
-      }
+      if (!isEditLayoutScreen(screen)) continue;
       for (const section of screen.layout.sections) {
         if (section.kind !== "relatedList") continue;
         const prefix = `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`;
         const schema = queryHandlers.get(section.query)?.schema;
-        if (section.searchable === true && !schemaAccepts(schema, "search")) {
-          throw new Error(
-            `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema`,
-          );
-        }
-        if (
-          section.facets !== undefined &&
-          section.facets.length > 0 &&
-          !schemaAccepts(schema, "filters")
-        ) {
-          throw new Error(
-            `${prefix}: declares facets but query "${section.query}" has no "filters" parameter in its Zod schema — add filters: z.array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() })).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
-          );
-        }
+        validateRelatedListSearchable(prefix, section, schema);
+        validateRelatedListFacets(prefix, section, schema);
       }
     }
   }

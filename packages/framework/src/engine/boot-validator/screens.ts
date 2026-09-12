@@ -503,16 +503,12 @@ function resolveRowActionNavigateTarget(
   return screensByShortId.get(action.screen)?.[0];
 }
 
-// actionForm/secretMint have no entity link, only a write-handler QN +
-// inline fields: checks handler registration, field types, layout refs, and nav targets.
-function validateInlineFormScreen(
+function validateInlineFormHandler(
   feature: FeatureDefinition,
   screenId: string,
   screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
   kind: "actionForm" | "secretMint",
   allWriteHandlerQns: ReadonlySet<string>,
-  allScreenQns: ReadonlySet<string>,
-  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   if (!screen.handler || typeof screen.handler !== "string") {
     throw new Error(
@@ -526,6 +522,20 @@ function validateInlineFormScreen(
         `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
     );
   }
+}
+
+// Every field entry must carry a `type` discriminator. An author typo
+// (`title: { required: true }` without a type) would otherwise let
+// RenderField silently fall through to the default renderer and submit an
+// empty string — failing at boot is clearer. `type as unknown` because
+// FieldDefinition, as a union, only allows known type strings; here we're
+// checking author code that may have circumvented the type check.
+function validateInlineFormFields(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+): Set<string> {
   const fieldNames = new Set(Object.keys(screen.fields));
   if (fieldNames.size === 0) {
     throw new Error(
@@ -533,12 +543,6 @@ function validateInlineFormScreen(
         `declare at least one field.`,
     );
   }
-  // Every field entry must carry a `type` discriminator. An author typo
-  // (`title: { required: true }` without a type) would otherwise let
-  // RenderField silently fall through to the default renderer and submit an
-  // empty string — failing at boot is clearer. `type as unknown` because
-  // FieldDefinition, as a union, only allows known type strings; here we're
-  // checking author code that may have circumvented the type check.
   for (const [fname, fdef] of Object.entries(screen.fields)) {
     // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
     const ftype = (fdef as { type?: unknown }).type;
@@ -549,6 +553,16 @@ function validateInlineFormScreen(
       );
     }
   }
+  return fieldNames;
+}
+
+function validateInlineFormLayoutSections(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  fieldNames: ReadonlySet<string>,
+): void {
   if (screen.layout.sections.length === 0) {
     throw new Error(
       `[Feature ${feature.name}] Screen "${screenId}" (${kind}) has an empty sections list — ` +
@@ -594,7 +608,15 @@ function validateInlineFormScreen(
       }
     }
   }
-  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
+}
+
+function validateInlineFormNavTargets(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  allScreenQns: ReadonlySet<string>,
+): void {
   if (screen.redirect !== undefined) {
     // redirect is either a short screen id (same-feature, e.g. "item-list")
     // or a fully-qualified cross-feature QN (`<feature>:screen:<id>`) — the
@@ -636,6 +658,24 @@ function validateInlineFormScreen(
       feature.screens,
     );
   }
+}
+
+// actionForm/secretMint have no entity link, only a write-handler QN +
+// inline fields: checks handler registration, field types, layout refs, and nav targets.
+function validateInlineFormScreen(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+  kind: "actionForm" | "secretMint",
+  allWriteHandlerQns: ReadonlySet<string>,
+  allScreenQns: ReadonlySet<string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  validateInlineFormHandler(feature, screenId, screen, kind, allWriteHandlerQns);
+  const fieldNames = validateInlineFormFields(feature, screenId, screen, kind);
+  validateInlineFormLayoutSections(feature, screenId, screen, kind, fieldNames);
+  validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
+  validateInlineFormNavTargets(feature, screenId, screen, kind, allScreenQns);
 }
 
 export function validateScreens(

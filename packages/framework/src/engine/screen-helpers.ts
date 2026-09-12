@@ -1,13 +1,38 @@
 import type {
+  ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   EditExtensionSection,
   EditFieldSpec,
   EditFieldsSection,
   EditSectionSpec,
   EditWriteFormSection,
+  EntityEditScreenDefinition,
   FieldCondition,
   FormatSpec,
   ListColumnSpec,
+  ProjectionDetailScreenDefinition,
+  ScreenDefinition,
+  SecretMintScreenDefinition,
 } from "./types/screen";
+
+export type EditLayoutScreen =
+  | ProjectionDetailScreenDefinition
+  | EntityEditScreenDefinition
+  | ActionFormScreenDefinition
+  | ConfigEditScreenDefinition
+  | SecretMintScreenDefinition;
+
+// Shared by boot-validators that walk the EditLayout shape (entityEdit's
+// layout, reused verbatim by projectionDetail/actionForm/configEdit/secretMint).
+export function isEditLayoutScreen(screen: ScreenDefinition): screen is EditLayoutScreen {
+  return (
+    screen.type === "projectionDetail" ||
+    screen.type === "entityEdit" ||
+    screen.type === "actionForm" ||
+    screen.type === "configEdit" ||
+    screen.type === "secretMint"
+  );
+}
 
 export function isExtensionEditSection(section: EditSectionSpec): section is EditExtensionSection {
   return section.kind === "extension";
