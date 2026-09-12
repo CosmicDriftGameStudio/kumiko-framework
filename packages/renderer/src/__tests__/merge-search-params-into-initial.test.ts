@@ -183,4 +183,17 @@ describe("mergeSearchParamsIntoInitial", () => {
       warnSpy.mockRestore();
     }
   });
+
+  test("money-type field: a non-finite bare number falls back to the default (fw#2763)", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const fields: Record<string, FieldDef> = {
+        price: { type: "money", default: { amount: 0, currency: "EUR" } },
+      };
+      const result = mergeSearchParamsIntoInitial(fields, { price: "1e999" });
+      expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });
