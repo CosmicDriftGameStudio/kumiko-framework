@@ -18,8 +18,8 @@ import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../s
 const linkEntity = createEntity({
   table: "mri_links",
   fields: {
-    leftId: createTextField({ required: true }),
-    rightId: createTextField({ required: true }),
+    leftId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    rightId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 const linkTable = buildEntityTable("link", linkEntity);
@@ -42,7 +42,7 @@ describe("instant() customType is forgiving with ISO strings", () => {
 
   const tsEntity = createEntity({
     table: "mri_ts",
-    fields: { name: createTextField({ required: true }) },
+    fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   });
   const tsTable = buildEntityTable("ts-row", tsEntity);
 

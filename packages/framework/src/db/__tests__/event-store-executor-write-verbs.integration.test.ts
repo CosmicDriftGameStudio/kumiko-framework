@@ -44,7 +44,7 @@ afterAll(async () => {
 const restrictedEntity = createEntity({
   table: "read_es_write_restricted",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
   access: { write: { Admin: "all" } },
@@ -189,7 +189,7 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
 const hardDeleteEntity = createEntity({
   table: "read_es_write_hard",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 const hardDeleteTable = buildEntityTable("esWriteHard", hardDeleteEntity);
@@ -340,7 +340,7 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
 const versionEntity = createEntity({
   table: "read_es_write_version",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 const versionTable = buildEntityTable("esWriteVersion", versionEntity);
@@ -394,7 +394,7 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
 const raceEntity = createEntity({
   table: "read_es_write_race",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });

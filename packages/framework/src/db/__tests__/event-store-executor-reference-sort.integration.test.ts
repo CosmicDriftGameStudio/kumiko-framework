@@ -19,14 +19,14 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const customerEntity = createEntity({
   table: "read_ref_sort_customers",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const customerTable = buildEntityTable("refSortCustomer", customerEntity);
 
 const orderEntity = createEntity({
   table: "read_ref_sort_orders",
   fields: {
-    note: createTextField(),
+    note: createTextField({ personal: false, reason: "test_fixture" }),
     customerId: {
       type: "reference",
       entity: "refSortCustomer",
@@ -43,7 +43,7 @@ const orderTable = buildEntityTable("refSortOrder", orderEntity);
 const restrictedOrderEntity = createEntity({
   table: "read_ref_sort_restricted_orders",
   fields: {
-    note: createTextField(),
+    note: createTextField({ personal: false, reason: "test_fixture" }),
     customerId: {
       type: "reference",
       entity: "refSortCustomer",

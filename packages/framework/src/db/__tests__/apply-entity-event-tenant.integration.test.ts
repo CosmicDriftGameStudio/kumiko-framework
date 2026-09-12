@@ -29,7 +29,7 @@ import { buildEntityTable } from "../table-builder";
 const entity = createEntity({
   table: "read_apply_tenant_check",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 const table = buildEntityTable("apply-tenant-check", entity);

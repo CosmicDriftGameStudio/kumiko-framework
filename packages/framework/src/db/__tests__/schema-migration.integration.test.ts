@@ -80,8 +80,8 @@ describe("schema migration workflows", () => {
         createEntity({
           table: "wf1_posts",
           fields: {
-            title: createTextField({ required: true }),
-            body: createTextField(),
+            title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+            body: createTextField({ personal: false, reason: "test_fixture" }),
             viewCount: createNumberField(),
             publishedAt: createDateField(),
             isDraft: createBooleanField({ default: true }),
@@ -121,7 +121,7 @@ describe("schema migration workflows", () => {
         "article",
         createEntity({
           table: "wf1b_articles",
-          fields: { title: createTextField() },
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       );
     });
@@ -138,7 +138,7 @@ describe("schema migration workflows", () => {
     // Initial entity with just email
     const initialEntity = createEntity({
       table: "wf2_users",
-      fields: { email: createTextField() },
+      fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     await unsafePushTables(testDb.db, { user: buildEntityTable("user", initialEntity) });
 
@@ -146,8 +146,8 @@ describe("schema migration workflows", () => {
     const updatedEntity = createEntity({
       table: "wf2_users",
       fields: {
-        email: createTextField(),
-        displayName: createTextField(), // NEW FIELD
+        email: createTextField({ personal: false, reason: "test_fixture" }),
+        displayName: createTextField({ personal: false, reason: "test_fixture" }), // NEW FIELD
       },
     });
 
@@ -168,7 +168,7 @@ describe("schema migration workflows", () => {
     // Initial entity with just name
     const initialEntity = createEntity({
       table: "wf3_projects",
-      fields: { name: createTextField() },
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     const initialTable = buildEntityTable("project", initialEntity);
     await unsafePushTables(testDb.db, { project: initialTable });
@@ -182,7 +182,10 @@ describe("schema migration workflows", () => {
     // Developer adds boolean field with default
     const updatedEntity = createEntity({
       table: "wf3_projects",
-      fields: { name: createTextField(), isArchived: createBooleanField({ default: false }) },
+      fields: {
+        name: createTextField({ personal: false, reason: "test_fixture" }),
+        isArchived: createBooleanField({ default: false }),
+      },
     });
     const updatedTable = buildEntityTable("project", updatedEntity);
     await unsafePushTables(testDb.db, { project: updatedTable }, { project: initialTable });
@@ -202,7 +205,9 @@ describe("schema migration workflows", () => {
     // greift.
     const initialEntity = createEntity({
       table: "wf3b_users",
-      fields: { email: createTextField({ required: true }) },
+      fields: {
+        email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const initialTable = buildEntityTable("user", initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
@@ -215,8 +220,13 @@ describe("schema migration workflows", () => {
     const updatedEntity = createEntity({
       table: "wf3b_users",
       fields: {
-        email: createTextField({ required: true }),
-        roles: createTextField({ required: true, default: "[]" }),
+        email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+        roles: createTextField({
+          required: true,
+          default: "[]",
+          personal: false,
+          reason: "test_fixture",
+        }),
       },
     });
     const updatedTable = buildEntityTable("user", updatedEntity);
@@ -232,7 +242,7 @@ describe("schema migration workflows", () => {
         "task",
         createEntity({
           table: "wf4_tasks",
-          fields: { title: createTextField() },
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           softDelete: true,
         }),
       );
@@ -253,7 +263,10 @@ describe("schema migration workflows", () => {
     const blogFeature = defineFeature("blog", (r) => {
       r.entity(
         "article",
-        createEntity({ table: "wf5_articles", fields: { title: createTextField() } }),
+        createEntity({
+          table: "wf5_articles",
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
     });
 
@@ -262,7 +275,10 @@ describe("schema migration workflows", () => {
         "product",
         createEntity({
           table: "wf5_products",
-          fields: { name: createTextField(), price: createNumberField() },
+          fields: {
+            name: createTextField({ personal: false, reason: "test_fixture" }),
+            price: createNumberField(),
+          },
         }),
       );
     });

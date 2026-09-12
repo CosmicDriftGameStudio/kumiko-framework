@@ -21,8 +21,13 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 const entity = createEntity({
   table: "read_es_exec_users",
   fields: {
-    email: createTextField({ required: true, searchable: true }),
-    firstName: createTextField(),
+    email: createTextField({
+      required: true,
+      searchable: true,
+      personal: false,
+      reason: "test_fixture",
+    }),
+    firstName: createTextField({ personal: false, reason: "test_fixture" }),
     isEnabled: createBooleanField({ default: true }),
   },
   softDelete: true,
@@ -133,7 +138,7 @@ const SENSITIVE_TEST_KEY = Buffer.from("s3nS!t1vE.kP9xQ2@wN!vL$hR5yT8eU0").toStr
 const sensitiveEntity = createEntity({
   table: "read_es_exec_sensitive",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     passwordHash: createTextField({ sensitive: true, encrypted: true }),
     apiToken: createTextField({ sensitive: true, encrypted: true }),
   },
@@ -337,7 +342,7 @@ const ENCRYPTION_TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toSt
 const encryptedEntity = createEntity({
   table: "read_es_exec_encrypted",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     secretNote: createTextField({ encrypted: true }),
   },
 });
@@ -346,7 +351,7 @@ const encryptedTable = buildEntityTable("esExecEncrypted", encryptedEntity);
 const encryptedSoftDeleteEntity = createEntity({
   table: "read_es_exec_enc_soft",
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     secretNote: createTextField({ encrypted: true }),
   },
   softDelete: true,
@@ -699,7 +704,7 @@ const piiEntity = createEntity({
       find: "none",
     }),
     authorId: createTextField(),
-    plain: createTextField(),
+    plain: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
 const piiTable = buildEntityTable("esExecPii", piiEntity);

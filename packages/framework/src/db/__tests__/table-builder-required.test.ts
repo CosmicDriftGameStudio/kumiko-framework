@@ -44,8 +44,8 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
   test("text field — required true makes column NOT NULL", () => {
     const entity = createEntity({
       fields: {
-        title: createTextField({ required: true }),
-        subtitle: createTextField({}),
+        title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+        subtitle: createTextField({ personal: false, reason: "test_fixture" }),
       },
     });
     const tbl = buildEntityTable("widget", entity);

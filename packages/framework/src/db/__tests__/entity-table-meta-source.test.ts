@@ -14,7 +14,7 @@ import { diffSnapshots, snapshotFromMetas } from "../migrate-generator";
 const entity = createEntity({
   table: "source-probe",
   fields: {
-    userId: createTextField({ required: true }),
+    userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     ip: createTextField({
       personal: { of: "userId" },
       find: "none",
@@ -61,7 +61,9 @@ describe("unmanaged builders reject read_ prefix (#1208)", () => {
   test("deriveEntityTableMeta(..., { source: unmanaged }) with read_ table throws", () => {
     const readEntity = createEntity({
       table: "read_source_probe",
-      fields: { userId: createTextField({ required: true }) },
+      fields: {
+        userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     expect(() =>
       deriveEntityTableMeta("source-probe", readEntity, { source: "unmanaged" }),
@@ -70,7 +72,9 @@ describe("unmanaged builders reject read_ prefix (#1208)", () => {
 
   test("default toTableName (read_*) + unmanaged throws", () => {
     const noTable = createEntity({
-      fields: { userId: createTextField({ required: true }) },
+      fields: {
+        userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     expect(() => deriveEntityTableMeta("source-probe", noTable, { source: "unmanaged" })).toThrow(
       /the "read_" prefix is reserved/,

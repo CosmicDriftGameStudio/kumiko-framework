@@ -23,7 +23,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 const customerEntity = createEntity({
   table: "read_ref_search_customers",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 const customerTable = buildEntityTable("refSearchCustomer", customerEntity);
@@ -31,7 +31,7 @@ const customerTable = buildEntityTable("refSearchCustomer", customerEntity);
 const orderEntity = createEntity({
   table: "read_ref_search_orders",
   fields: {
-    note: createTextField({ searchable: true }),
+    note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
     customerId: {
       type: "reference",
       entity: "refSearchCustomer",
@@ -48,7 +48,7 @@ const orderTable = buildEntityTable("refSearchOrder", orderEntity);
 const restrictedOrderEntity = createEntity({
   table: "read_ref_search_restricted_orders",
   fields: {
-    note: createTextField({ searchable: true }),
+    note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
     customerId: {
       type: "reference",
       entity: "refSearchCustomer",
@@ -66,7 +66,7 @@ const restrictedOrderTable = buildEntityTable("refSearchRestrictedOrder", restri
 // (LIST_ROW_META_REFERENCES) is what's under test, not tenant's full schema.
 const tenantMetaEntity = createEntity({
   table: "read_tenants",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const tenantMetaTable = buildEntityTable("tenant", tenantMetaEntity);
 

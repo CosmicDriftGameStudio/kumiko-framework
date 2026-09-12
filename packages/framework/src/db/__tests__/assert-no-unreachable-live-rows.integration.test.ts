@@ -26,8 +26,8 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 const userEntity = createEntity({
   table: "read_unreachable_users",
   fields: {
-    email: createTextField({ required: true }),
-    firstName: createTextField(),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    firstName: createTextField({ personal: false, reason: "test_fixture" }),
     isEnabled: createBooleanField({ default: true }),
   },
   softDelete: true,

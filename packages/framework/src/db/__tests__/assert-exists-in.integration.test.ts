@@ -14,7 +14,7 @@ import { createTenantDb } from "../tenant-db";
 
 const orderEntity = createEntity({
   table: "ax_orders",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const orderTable = buildEntityTable("order", orderEntity);
 

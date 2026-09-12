@@ -25,7 +25,7 @@ import { buildEntityTable } from "../table-builder";
 
 const noteEntity = createEntity({
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   table: "where_merge_notes",
 });

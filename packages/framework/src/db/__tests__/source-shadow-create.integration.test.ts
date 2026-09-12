@@ -23,7 +23,7 @@ const sourceEntity = createEntity({
   table: "ssc_source",
   fields: {
     // `source` collides with the EntityTableMeta discriminator key.
-    source: createTextField({ required: true }),
+    source: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 const sourceTable = buildEntityTable("source-row", sourceEntity);

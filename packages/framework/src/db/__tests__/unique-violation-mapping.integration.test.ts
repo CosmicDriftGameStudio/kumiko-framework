@@ -27,8 +27,8 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 const userEntity = createEntity({
   table: "read_unique_users",
   fields: {
-    email: createTextField({ required: true }),
-    displayName: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    displayName: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   // softDelete=true damit wir den restore-Pfad pinnen können (siehe
   // restore-Test unten — "kein 23505 möglich" claim).

@@ -23,9 +23,9 @@ import { buildEntityTable } from "../table-builder";
 const configEntity = createEntity({
   table: "read_cfg_seed_test",
   fields: {
-    key: createTextField({ required: true }),
-    value: createTextField({}),
-    userId: createTextField({}),
+    key: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    value: createTextField({ personal: false, reason: "test_fixture" }),
+    userId: createTextField({ personal: false, reason: "test_fixture" }),
   },
   indexes: [
     {

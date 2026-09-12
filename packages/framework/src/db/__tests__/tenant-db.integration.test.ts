@@ -19,8 +19,8 @@ import { createTenantDb } from "../tenant-db";
 const entity = createEntity({
   table: "tenant_db_items",
   fields: {
-    name: createTextField({ required: true }),
-    status: createTextField({ default: "draft" }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    status: createTextField({ default: "draft", personal: false, reason: "test_fixture" }),
     isActive: createBooleanField({ default: true }),
   },
   softDelete: true,

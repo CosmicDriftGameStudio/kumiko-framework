@@ -30,12 +30,12 @@ import { createTenantDb } from "../tenant-db";
 
 const authorEntity = createEntity({
   table: "el_authors",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const postEntity = createEntity({
   table: "el_posts",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     author: { type: "reference", entity: "author" },
     tags: { type: "reference", entity: "author", multiple: true },
   },
@@ -48,7 +48,7 @@ const authorTable = buildEntityTable("author", authorEntity);
 const contactEntity = createEntity({
   table: "el_contacts",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     email: createTextField({ required: true, personal: "tenant", find: "none" }),
     iban: createTextField({ required: true, encrypted: true }),
   },
@@ -56,7 +56,7 @@ const contactEntity = createEntity({
 const leadEntity = createEntity({
   table: "el_leads",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     contact: { type: "reference", entity: "contact" },
     ownedContact: { type: "reference", entity: "ownedContact" },
     unrestrictedContact: { type: "reference", entity: "unrestrictedContact" },
@@ -70,7 +70,7 @@ const contactTable = buildEntityTable("contact", contactEntity);
 const ownedContactEntity = createEntity({
   table: "el_owned_contacts",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     email: createTextField({ required: true, personal: "tenant", find: "none" }),
     iban: createTextField({ required: true, encrypted: true }),
   },
@@ -84,7 +84,7 @@ const ownedContactTable = buildEntityTable("ownedContact", ownedContactEntity);
 const unrestrictedContactEntity = createEntity({
   table: "el_unrestricted_contacts",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     email: createTextField({ required: true, personal: "tenant", find: "none" }),
   },
   access: { read: { admin: "all", member: "all" } },
@@ -218,7 +218,7 @@ describe("collectReferenceFields", () => {
     const e = createEntity({
       table: "x",
       fields: {
-        title: createTextField(),
+        title: createTextField({ personal: false, reason: "test_fixture" }),
         author: { type: "reference", entity: "users:user" },
         tags: { type: "reference", entity: "tag", multiple: true },
       },

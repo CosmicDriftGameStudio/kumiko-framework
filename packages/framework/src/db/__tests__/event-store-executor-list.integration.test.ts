@@ -26,7 +26,12 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 const entity = createEntity({
   table: "read_pager_items",
   fields: {
-    title: createTextField({ required: true, sortable: true }),
+    title: createTextField({
+      required: true,
+      sortable: true,
+      personal: false,
+      reason: "test_fixture",
+    }),
     rank: createNumberField({ sortable: true }),
     dueDate: createDateField({ sortable: true }),
   },
@@ -551,7 +556,9 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     const sysEntity = createEntity({
       table: "read_pager_sys",
       systemStream: true,
-      fields: { title: createTextField({ required: true }) },
+      fields: {
+        title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const sysTable = buildEntityTable("pagerSys", sysEntity);
     await unsafeCreateEntityTable(testDb.db, sysEntity, "pagerSys");
