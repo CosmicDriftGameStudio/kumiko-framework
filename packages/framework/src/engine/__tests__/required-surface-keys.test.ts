@@ -8,6 +8,7 @@ import {
   requiredKeysFromWorkspace,
   screenTitleKey,
 } from "../../i18n/required-surface-keys";
+import { i18nKey } from "../i18n-key";
 import type {
   ConfigEditScreenDefinition,
   EntityEditScreenDefinition,
@@ -214,5 +215,51 @@ describe("dot-form labels + treatDotFormAsKey (fw#2260)", () => {
     const nav = { id: "billing-tenant", label: "billing.settings" };
     expect(requiredKeysFromNav(nav)).not.toContain("billing.settings");
     expect(requiredKeysFromNav(nav, { treatDotFormAsKey: true })).toContain("billing.settings");
+  });
+});
+
+// fw#2313: a hand-written dot-form label ("sessions.list.col.id") is
+// indistinguishable from literal display text ("actions.open") — isI18nKey
+// only recognizes it once the author marks it explicitly via i18nKey().
+describe("dot-form label opt-in (fw#2313)", () => {
+  test("unmarked dot-form label is not required (regression guard for literal display text)", () => {
+    const screen: EntityListScreenDefinition = {
+      id: "fw2313-list",
+      type: "entityList",
+      entity: "widget",
+      columns: ["name"],
+      rowActions: [
+        {
+          id: "open",
+          label: "actions.open",
+          handler: "fw2313:write:widget:open",
+        },
+      ],
+    };
+    const keys = requiredKeysFromScreen("fw2313", screen);
+    expect(keys).not.toContain("actions.open");
+  });
+
+  test("i18nKey()-marked dot-form label is required", () => {
+    const screen: EntityListScreenDefinition = {
+      id: "fw2313-list",
+      type: "entityList",
+      entity: "widget",
+      columns: ["name"],
+      rowActions: [
+        {
+          id: "open",
+          label: i18nKey("fw2313.optin.col.alpha"),
+          handler: "fw2313:write:widget:open",
+        },
+      ],
+    };
+    const keys = requiredKeysFromScreen("fw2313", screen);
+    expect(keys).toContain("fw2313.optin.col.alpha");
+  });
+
+  test("i18nKey()-marked nav label is required", () => {
+    const nav = { id: "fw2313-nav", label: i18nKey("fw2313.optin.nav.beta") };
+    expect(requiredKeysFromNav(nav)).toContain("fw2313.optin.nav.beta");
   });
 });

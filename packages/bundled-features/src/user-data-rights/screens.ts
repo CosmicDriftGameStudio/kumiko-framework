@@ -2,6 +2,7 @@ import {
   access,
   type EntityEditScreenDefinition,
   type EntityListScreenDefinition,
+  i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // Read-only operator inspector for the GDPR data-rights read-models. All
@@ -23,7 +24,7 @@ export const exportJobListScreen: EntityListScreenDefinition = {
     {
       kind: "navigate",
       id: "view",
-      label: "kumiko.actions.view",
+      label: i18nKey("kumiko.actions.view"),
       screen: "export-job-detail",
       entityId: "id",
     },

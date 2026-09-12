@@ -1,4 +1,4 @@
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
 import { tasksTranslations } from "./i18n";
 import { editScreen, listScreen, taskEntity } from "./schema";
 
@@ -24,14 +24,14 @@ export const taskFeature = defineFeature("tasks", (r) => {
   r.screen(listScreen);
   r.nav({
     id: "task-list",
-    label: "tasks.nav.list",
+    label: i18nKey("tasks.nav.list"),
     icon: "list",
     screen: "tasks:screen:task-list",
     order: 10,
   });
   r.nav({
     id: "task-new",
-    label: "tasks.nav.new",
+    label: i18nKey("tasks.nav.new"),
     icon: "plus",
     screen: "tasks:screen:task-edit",
     order: 20,

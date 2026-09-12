@@ -1,7 +1,8 @@
-import type {
-  AccessRule,
-  EntityEditScreenDefinition,
-  EntityListScreenDefinition,
+import {
+  type AccessRule,
+  type EntityEditScreenDefinition,
+  type EntityListScreenDefinition,
+  i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_TAG_ACCESS, TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "./constants";
 
@@ -23,18 +24,18 @@ export function createTagListScreen(
       {
         kind: "navigate",
         id: "edit",
-        label: "kumiko.actions.edit",
+        label: i18nKey("kumiko.actions.edit"),
         screen: TAGS_EDIT_SCREEN_ID,
         entityId: "id",
       },
       {
         kind: "writeHandler",
         id: "delete",
-        label: "kumiko.actions.delete",
+        label: i18nKey("kumiko.actions.delete"),
         // Convention QN — same cascade body as legacy tags:write:delete-tag.
         handler: "tags:write:tag:delete",
         payload: { pick: ["id"] },
-        confirm: "kumiko.actions.delete-confirm",
+        confirm: i18nKey("kumiko.actions.delete-confirm"),
         style: "danger",
       },
     ],

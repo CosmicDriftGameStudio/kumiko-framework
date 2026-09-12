@@ -87,6 +87,13 @@ export const billingFeature = defineFeature(FEATURE, (r) => {
   // buildConfigFeatureSchema den configEdit-Screen (••••••-maskiert,
   // config:write:set verschlüsselt vor dem write) + den Settings-Hub-Nav
   // automatisch ableiten.
+
+  r.translations({
+    keys: {
+      "billing.settings": { de: "Abrechnung", en: "Billing" },
+      "billing.stripe-api-key": { de: "Stripe-API-Schlüssel", en: "Stripe API Key" },
+    },
+  });
 });
 
 // Re-exports damit tests die handles ohne re-typing nutzen können.

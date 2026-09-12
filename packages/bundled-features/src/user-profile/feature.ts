@@ -1,4 +1,8 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  i18nKey,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   CHANGE_EMAIL_SECTION_EXTENSION_NAME,
   CHANGE_PASSWORD_SECTION_EXTENSION_NAME,
@@ -38,12 +42,26 @@ export function createUserProfileFeature(): FeatureDefinition {
       changeEmail: r.writeHandler(changeEmailWrite),
     };
 
-    // Boot-validator requires a "screen:<id>.title" key per r.screen() —
-    // kept inline (not imported from ./i18n) so feature.ts, part of the
-    // server barrel, stays importable from a server-only sample without a
-    // jsx tsconfig (i18n.ts pulls @cosmicdrift/kumiko-renderer's types, see
-    // index.ts). "Profile" is duplicated in i18n.ts's client bundle.
-    r.translations({ keys: { "screen:profile.title": { en: "Profile" } } });
+    // Boot-validator requires a "screen:<id>.title" key per r.screen(), plus
+    // one entry per i18nKey()-marked dot-form label below — kept inline (not
+    // imported from ./i18n) so feature.ts, part of the server barrel, stays
+    // importable from a server-only sample without a jsx tsconfig (i18n.ts
+    // pulls @cosmicdrift/kumiko-renderer's types, see index.ts). Values are
+    // duplicated in i18n.ts's client bundle.
+    r.translations({
+      keys: {
+        "screen:profile.title": { en: "Profile" },
+        "profile.email.title": { en: "Email address" },
+        "profile.password.title": { en: "Password" },
+        "profile.danger.title": { en: "Delete account" },
+        "profile.danger.gracePeriodEnd": { en: "Deletion date" },
+        "profile.danger.delete": { en: "Delete account" },
+        "profile.danger.dialogDescription": {
+          en: "After the grace period your data will be permanently deleted. Until then you can cancel.",
+        },
+        "profile.danger.cancelDeletion": { en: "Cancel deletion" },
+      },
+    });
 
     // Self-service account screen: change-email/change-password stay
     // self-persisting extension sections (re-auth, own dispatcher writes —
@@ -65,24 +83,24 @@ export function createUserProfileFeature(): FeatureDefinition {
         "a verification-mail follow-up), and request or cancel account deletion " +
         "(user-data-rights grace period).",
       fieldLabels: {
-        gracePeriodEnd: "profile.danger.gracePeriodEnd",
+        gracePeriodEnd: i18nKey("profile.danger.gracePeriodEnd"),
       },
       layout: {
         sections: [
           {
             kind: "extension",
-            title: "profile.email.title",
+            title: i18nKey("profile.email.title"),
             component: { react: { __component: CHANGE_EMAIL_SECTION_EXTENSION_NAME } },
             entityName: "user",
           },
           {
             kind: "extension",
-            title: "profile.password.title",
+            title: i18nKey("profile.password.title"),
             component: { react: { __component: CHANGE_PASSWORD_SECTION_EXTENSION_NAME } },
             entityName: "user",
           },
           {
-            title: "profile.danger.title",
+            title: i18nKey("profile.danger.title"),
             description: "profile.danger.explainer",
             // gracePeriodEnd is only meaningful once a deletion is actually
             // pending — hide it instead of showing an empty date when status
@@ -100,15 +118,15 @@ export function createUserProfileFeature(): FeatureDefinition {
       actions: [
         {
           id: "request-deletion",
-          label: "profile.danger.delete",
+          label: i18nKey("profile.danger.delete"),
           handler: UserDataRightsHandlers.requestDeletion,
-          confirm: "profile.danger.dialogDescription",
+          confirm: i18nKey("profile.danger.dialogDescription"),
           visible: { field: "status", ne: "deletionRequested" },
           style: "danger",
         },
         {
           id: "cancel-deletion",
-          label: "profile.danger.cancelDeletion",
+          label: i18nKey("profile.danger.cancelDeletion"),
           handler: UserDataRightsHandlers.cancelDeletion,
           visible: { field: "status", eq: "deletionRequested" },
           style: "secondary",

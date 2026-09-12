@@ -4,6 +4,7 @@ import {
   defineFeature,
   EXT_USER_DATA,
   type FeatureDefinition,
+  i18nKey,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks";
@@ -300,6 +301,27 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     });
 
     r.translations({ keys: USER_DATA_RIGHTS_I18N });
+    // Privacy-center dot-form labels (i18nKey()-marked below), duplicated in
+    // web/i18n.ts's client bundle since privacy-center-screen.tsx renders
+    // them client-side.
+    r.translations({
+      keys: {
+        "userDataRights.privacyCenter.field.status": { en: "Account status" },
+        "userDataRights.privacyCenter.field.gracePeriodEnd": { en: "Scheduled deletion date" },
+        "userDataRights.privacyCenter.export.title": { en: "Export your data (Art. 20)" },
+        "userDataRights.privacyCenter.restriction.title": { en: "Restrict processing (Art. 18)" },
+        "userDataRights.privacyCenter.restriction.restrict": { en: "Restrict account" },
+        "userDataRights.privacyCenter.restriction.dialogDescription": {
+          en: "You will be signed out immediately and cannot sign in again until support lifts the restriction.",
+        },
+        "userDataRights.privacyCenter.deletion.title": { en: "Delete account (Art. 17)" },
+        "userDataRights.privacyCenter.deletion.delete": { en: "Delete account" },
+        "userDataRights.privacyCenter.deletion.cancel": { en: "Cancel deletion" },
+        "userDataRights.privacyCenter.deletion.dialogDescription": {
+          en: "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
+        },
+      },
+    });
 
     // Self-service screen (Art. 15/17/18/20): export, restriction, deletion
     // in one projectionDetail screen bound to the user's own `me` row. No
@@ -326,14 +348,14 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       description:
         "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
       fieldLabels: {
-        status: "userDataRights.privacyCenter.field.status",
-        gracePeriodEnd: "userDataRights.privacyCenter.field.gracePeriodEnd",
+        status: i18nKey("userDataRights.privacyCenter.field.status"),
+        gracePeriodEnd: i18nKey("userDataRights.privacyCenter.field.gracePeriodEnd"),
       },
       layout: {
         sections: [
           {
             kind: "extension",
-            title: "userDataRights.privacyCenter.export.title",
+            title: i18nKey("userDataRights.privacyCenter.export.title"),
             component: { react: { __component: EXPORT_SECTION_EXTENSION_NAME } },
             entityName: "export-job",
           },
@@ -342,7 +364,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             // section always on the screen — Deletion is dropped entirely
             // when `showDeletion` is false, and status covers restriction
             // AND deletion state, so it can't hang off the optional section.
-            title: "userDataRights.privacyCenter.restriction.title",
+            title: i18nKey("userDataRights.privacyCenter.restriction.title"),
             description: "userDataRights.privacyCenter.restriction.explainer",
             fields: [
               {
@@ -354,7 +376,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           ...(showDeletion
             ? [
                 {
-                  title: "userDataRights.privacyCenter.deletion.title",
+                  title: i18nKey("userDataRights.privacyCenter.deletion.title"),
                   description: "userDataRights.privacyCenter.deletion.explainer",
                   // gracePeriodEnd is only meaningful once a deletion is
                   // actually pending — hide it instead of showing an empty
@@ -374,9 +396,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       actions: [
         {
           id: "restrict",
-          label: "userDataRights.privacyCenter.restriction.restrict",
+          label: i18nKey("userDataRights.privacyCenter.restriction.restrict"),
           handler: UserDataRightsHandlers.restrictAccount,
-          confirm: "userDataRights.privacyCenter.restriction.dialogDescription",
+          confirm: i18nKey("userDataRights.privacyCenter.restriction.dialogDescription"),
           visible: { field: "status", ne: "restricted" },
           style: "danger",
         },
@@ -384,15 +406,15 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           ? [
               {
                 id: "request-deletion",
-                label: "userDataRights.privacyCenter.deletion.delete",
+                label: i18nKey("userDataRights.privacyCenter.deletion.delete"),
                 handler: UserDataRightsHandlers.requestDeletion,
-                confirm: "userDataRights.privacyCenter.deletion.dialogDescription",
+                confirm: i18nKey("userDataRights.privacyCenter.deletion.dialogDescription"),
                 visible: { field: "status", ne: "deletionRequested" },
                 style: "danger" as const,
               },
               {
                 id: "cancel-deletion",
-                label: "userDataRights.privacyCenter.deletion.cancel",
+                label: i18nKey("userDataRights.privacyCenter.deletion.cancel"),
                 handler: UserDataRightsHandlers.cancelDeletion,
                 visible: { field: "status", eq: "deletionRequested" },
                 style: "secondary" as const,

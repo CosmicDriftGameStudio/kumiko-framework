@@ -1,0 +1,6 @@
+---
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-bundled-features": patch
+---
+
+fw#2313: Hand-written dot-form labels (`"sessions.list.col.id"`) were invisible to the i18n boot validator — `isI18nKey` only recognized colon-form keys, so a missing translation for a dot-form label never failed boot. A blanket regex is not possible: dot-form literal display text (`"actions.open"`) is indistinguishable from a dot-form i18n key by shape alone. Fixes it with an explicit per-field opt-in: wrap a label in the new `i18nKey()` export (from `@cosmicdrift/kumiko-framework/engine`) to register it as required; unmarked dot-form strings keep being treated as literal text, so authors must call `i18nKey(...)` on every hand-written dot-form label that is actually a translation reference. `mask.title` is now unconditionally treated as an i18n key (no `i18nKey()` wrapping needed — the `ConfigKeyDefinition` contract already guarantees it references a translation), tightening `requiredKeysFromFeature`: previously it only became required via the Settings-Hub generator's own `treatDotFormAsKey` path (fw#2260), so an app with a masked config key but no matching translation booted fine; now the same key is required unconditionally, and that app fails at boot instead.
