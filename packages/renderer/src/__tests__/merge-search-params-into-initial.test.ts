@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { mergeSearchParamsIntoInitial } from "../app/kumiko-screen";
 
 type FieldDef = {
@@ -120,5 +120,67 @@ describe("mergeSearchParamsIntoInitial", () => {
     expect(
       mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Hacker"]) })["roles"],
     ).toEqual(["Admin"]);
+  });
+
+  test("money-type field parses a JSON {amount, currency} param without a defaultCurrency (fw#2763)", () => {
+    const fields: Record<string, FieldDef> = { price: { type: "money" } };
+    const result = mergeSearchParamsIntoInitial(fields, {
+      price: JSON.stringify({ amount: 19.99, currency: "CHF" }),
+    });
+    expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
+  });
+
+  test("money-type field: explicit JSON currency wins over defaultCurrency", () => {
+    const fields: Record<string, FieldDef> = { price: { type: "money" } };
+    const result = mergeSearchParamsIntoInitial(
+      fields,
+      { price: JSON.stringify({ amount: 19.99, currency: "CHF" }) },
+      undefined,
+      "USD",
+    );
+    expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
+  });
+
+  test("money-type field: bare number without a defaultCurrency keeps the number and warns (fw#2763)", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const fields: Record<string, FieldDef> = { price: { type: "money" } };
+      const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" });
+      expect(result["price"]).toBe(19.99);
+      expect(warnSpy).toHaveBeenCalled();
+      expect(warnSpy.mock.calls[0]?.[0]).toContain("price");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test("money-type field: JSON object with a broken shape falls back to the default and warns", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const fields: Record<string, FieldDef> = {
+        price: { type: "money", default: { amount: 0, currency: "EUR" } },
+      };
+      const result = mergeSearchParamsIntoInitial(fields, { price: JSON.stringify({ amount: 5 }) });
+      expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test("money-type field: JSON object with a malformed currency code falls back to the default and warns", () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const fields: Record<string, FieldDef> = {
+        price: { type: "money", default: { amount: 0, currency: "EUR" } },
+      };
+      const result = mergeSearchParamsIntoInitial(fields, {
+        price: JSON.stringify({ amount: 5, currency: "<script>" }),
+      });
+      expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
