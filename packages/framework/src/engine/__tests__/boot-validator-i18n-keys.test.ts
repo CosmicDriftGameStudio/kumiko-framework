@@ -10,7 +10,9 @@ describe("validateBoot — i18n surface keys", () => {
         "item",
         createEntity({
           table: "Items",
-          fields: { name: createTextField({ sortable: true }) },
+          fields: {
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
       r.screen({
@@ -36,7 +38,9 @@ describe("validateBoot — i18n surface keys", () => {
         "item",
         createEntity({
           table: "Items",
-          fields: { name: createTextField({ sortable: true }) },
+          fields: {
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
       r.screen({
@@ -63,7 +67,9 @@ describe("validateBoot — i18n surface keys", () => {
         "item",
         createEntity({
           table: "Items",
-          fields: { name: createTextField({ sortable: true }) },
+          fields: {
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
       r.screen({

@@ -39,7 +39,12 @@ describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
 
   test("singleton + detailFor throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity("user", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
         access: { openToAll: true },
       });

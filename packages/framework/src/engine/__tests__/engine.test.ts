@@ -63,7 +63,7 @@ describe("defineFeature", () => {
         createEntity({
           table: "Users",
           fields: {
-            email: createTextField({ searchable: true }),
+            email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
       );
@@ -331,7 +331,7 @@ describe("defineFeature", () => {
 
 describe("field factories", () => {
   test("createTextField has sensible defaults", () => {
-    const field = createTextField();
+    const field = createTextField({ personal: false, reason: "test_fixture" });
     expect(field.type).toBe("text");
     expect(field.maxLength).toBe(200);
     expect(field.searchable).toBe(false);
@@ -339,7 +339,13 @@ describe("field factories", () => {
   });
 
   test("createTextField accepts overrides", () => {
-    const field = createTextField({ searchable: true, maxLength: 500, format: "email" });
+    const field = createTextField({
+      searchable: true,
+      maxLength: 500,
+      format: "email",
+      personal: false,
+      reason: "test_fixture",
+    });
     expect(field.searchable).toBe(true);
     expect(field.maxLength).toBe(500);
     expect(field.format).toBe("email");
@@ -367,7 +373,9 @@ describe("createRegistry", () => {
         "user",
         createEntity({
           table: "Users",
-          fields: { email: createTextField({ searchable: true }) },
+          fields: {
+            email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
     });
@@ -493,8 +501,12 @@ describe("createRegistry", () => {
         createEntity({
           table: "employees",
           fields: {
-            name: createTextField(),
-            salary: createTextField({ access: { write: ["Admin"] } }),
+            name: createTextField({ personal: false, reason: "test_fixture" }),
+            salary: createTextField({
+              access: { write: ["Admin"] },
+              personal: false,
+              reason: "test_fixture",
+            }),
           },
         }),
       );
@@ -509,7 +521,13 @@ describe("createRegistry", () => {
 
   test("allows unmapped write handlers when feature has no field-access rules", () => {
     const feature = defineFeature("admin", (r) => {
-      r.entity("setting", createEntity({ table: "settings", fields: { key: createTextField() } }));
+      r.entity(
+        "setting",
+        createEntity({
+          table: "settings",
+          fields: { key: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       // No field-access rules on entity → "reset" without entity prefix is fine
       r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }), {
         access: { openToAll: true },
@@ -526,8 +544,12 @@ describe("createRegistry", () => {
         createEntity({
           table: "employees",
           fields: {
-            name: createTextField(),
-            salary: createTextField({ access: { write: ["Admin"] } }),
+            name: createTextField({ personal: false, reason: "test_fixture" }),
+            salary: createTextField({
+              access: { write: ["Admin"] },
+              personal: false,
+              reason: "test_fixture",
+            }),
           },
         }),
       );
@@ -553,7 +575,11 @@ describe("createRegistry", () => {
         createEntity({
           table: "employees",
           fields: {
-            salary: createTextField({ access: { read: ["Admin"] } }),
+            salary: createTextField({
+              access: { read: ["Admin"] },
+              personal: false,
+              reason: "test_fixture",
+            }),
           },
         }),
       );
@@ -580,7 +606,11 @@ describe("createRegistry", () => {
         createEntity({
           table: "employees",
           fields: {
-            salary: createTextField({ access: { read: ["Admin"] } }),
+            salary: createTextField({
+              access: { read: ["Admin"] },
+              personal: false,
+              reason: "test_fixture",
+            }),
           },
         }),
       );
@@ -610,9 +640,13 @@ describe("createRegistry", () => {
         createEntity({
           table: "Users",
           fields: {
-            email: createTextField({ searchable: true }),
-            firstName: createTextField(),
-            lastName: createTextField({ searchable: true }),
+            email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+            firstName: createTextField({ personal: false, reason: "test_fixture" }),
+            lastName: createTextField({
+              searchable: true,
+              personal: false,
+              reason: "test_fixture",
+            }),
             isEnabled: createBooleanField(),
           },
         }),
@@ -628,14 +662,17 @@ describe("createRegistry", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(
         "customer",
-        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Customers",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.entity(
         "order",
         createEntity({
           table: "Orders",
           fields: {
-            note: createTextField({ searchable: true }),
+            note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
             customerId: {
               type: "reference",
               entity: "customer",
@@ -662,7 +699,10 @@ describe("createRegistry", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(
         "customer",
-        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Customers",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.entity(
         "order",
@@ -680,7 +720,13 @@ describe("createRegistry", () => {
 
   test("throws at boot when searchable is combined with multiple on a reference field (fw#2660)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity("tag", createEntity({ table: "Tags", fields: { name: createTextField() } }));
+      r.entity(
+        "tag",
+        createEntity({
+          table: "Tags",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.entity(
         "post",
         createEntity({
@@ -705,14 +751,17 @@ describe("createRegistry", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(
         "customer",
-        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Customers",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.entity(
         "order",
         createEntity({
           table: "Orders",
           fields: {
-            note: createTextField({ sortable: true }),
+            note: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
             customerId: {
               type: "reference",
               entity: "customer",
@@ -736,7 +785,13 @@ describe("createRegistry", () => {
 
   test("resolves a cross-feature sortable reference to its bare entity name (fw#2741)", () => {
     const users = defineFeature("users", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          table: "Users",
+          fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
     });
     const crm = defineFeature("crm", (r) => {
       r.entity(
@@ -765,7 +820,10 @@ describe("createRegistry", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(
         "customer",
-        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Customers",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.entity(
         "order",
@@ -785,7 +843,10 @@ describe("createRegistry", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(
         "customer",
-        createEntity({ table: "Customers", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Customers",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.entity(
         "order",
@@ -808,7 +869,13 @@ describe("createRegistry", () => {
 
   test("throws at boot when sortable is combined with multiple on a reference field (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity("tag", createEntity({ table: "Tags", fields: { name: createTextField() } }));
+      r.entity(
+        "tag",
+        createEntity({
+          table: "Tags",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.entity(
         "post",
         createEntity({
@@ -883,12 +950,12 @@ describe("entity options", () => {
 
 describe("sortable fields", () => {
   test("createTextField supports sortable property", () => {
-    const field = createTextField({ sortable: true });
+    const field = createTextField({ sortable: true, personal: false, reason: "test_fixture" });
     expect(field.sortable).toBe(true);
   });
 
   test("sortable defaults to false", () => {
-    const field = createTextField();
+    const field = createTextField({ personal: false, reason: "test_fixture" });
     expect(field.sortable).toBe(false);
   });
 
@@ -899,9 +966,9 @@ describe("sortable fields", () => {
         createEntity({
           table: "Items",
           fields: {
-            name: createTextField({ sortable: true }),
-            email: createTextField(),
-            rank: createTextField({ sortable: true }),
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+            email: createTextField({ personal: false, reason: "test_fixture" }),
+            rank: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
       );
@@ -984,7 +1051,13 @@ describe("createApp", () => {
 
   test("softDeleteDefault is true by default, configurable via softDelete", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
     });
 
     const app1 = createApp({ roles: ["Admin"], features: [feature] });
@@ -1319,7 +1392,7 @@ describe("createApp", () => {
         createEntity({
           table: "Invoices",
           fields: {
-            title: createTextField(),
+            title: createTextField({ personal: false, reason: "test_fixture" }),
             lines: createEmbeddedListField(
               { amount: { type: "money" } },
               { totalsMatch: { amount: "title" } },
@@ -1403,7 +1476,7 @@ describe("createApp", () => {
         "doc",
         createEntity({
           table: "Docs",
-          fields: { title: createTextField() },
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           transitions: {
             title: { a: ["b"] },
           },
@@ -1443,7 +1516,7 @@ describe("createApp", () => {
         "doc",
         createEntity({
           table: "Docs",
-          fields: { title: createTextField() },
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           transitions: {
             nonExistent: { a: ["b"] },
           },
@@ -1794,11 +1867,17 @@ describe("r.relation()", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "user",
-        createEntity({ table: "Users", fields: { departmentId: createTextField() } }),
+        createEntity({
+          table: "Users",
+          fields: { departmentId: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.entity(
         "department",
-        createEntity({ table: "Departments", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Departments",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       r.relation("user", "department", {
         type: "belongsTo",
@@ -1814,7 +1893,13 @@ describe("r.relation()", () => {
   test("registers manyToMany relation", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
+      r.entity(
+        "role",
+        createEntity({
+          table: "Roles",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.relation("user", "roles", {
         type: "manyToMany",
         target: "role",
@@ -1848,7 +1933,13 @@ describe("registry relations", () => {
   test("getRelations returns relations within same feature", () => {
     const f1 = defineFeature("users", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity("role", createEntity({ table: "Roles", fields: { name: createTextField() } }));
+      r.entity(
+        "role",
+        createEntity({
+          table: "Roles",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.relation("user", "roles", {
         type: "manyToMany",
         target: "role",

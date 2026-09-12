@@ -17,7 +17,7 @@ const testTable = table("test_projection", {
 function exampleEntity(name = "unit") {
   return createEntity({
     table: name,
-    fields: { name: createTextField() },
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
 }
 

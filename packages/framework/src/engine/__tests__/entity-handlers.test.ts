@@ -24,15 +24,15 @@ const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 const noteEntity = createEntity({
   table: "notes",
   fields: {
-    title: createTextField({ required: true }),
-    body: createTextField(),
+    title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    body: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
 
 const noteEntitySoftDelete = createEntity({
   table: "notes_soft",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });

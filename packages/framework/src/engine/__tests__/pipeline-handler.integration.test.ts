@@ -170,7 +170,7 @@ const logHandler = defineWriteHandler({
 // unsafeProjection.* that targets it).
 const widgetEntity = createEntity({
   table: "pipeline_widget",
-  fields: { label: createTextField({ required: true }) },
+  fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const widgetTable = buildEntityTable("widget", widgetEntity);
 const widgetExecutor = createEventStoreExecutor(widgetTable, widgetEntity, {

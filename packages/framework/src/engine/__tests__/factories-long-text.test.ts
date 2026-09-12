@@ -23,7 +23,7 @@ describe("createLongTextField — runtime shape", () => {
   });
 
   test("required: true is preserved as literal in the return type", () => {
-    const f = createLongTextField({ required: true });
+    const f = createLongTextField({ required: true, personal: false, reason: "test_fixture" });
     expect(f.required).toBe(true);
     // Literal-type-pin: TypeScript should narrow `required` to `true`,
     // not `boolean`. If this test compiles with `f.required: boolean`,
@@ -32,7 +32,11 @@ describe("createLongTextField — runtime shape", () => {
   });
 
   test("maxLength is propagated through", () => {
-    const f = createLongTextField({ maxLength: 1_000_000 });
+    const f = createLongTextField({
+      maxLength: 1_000_000,
+      personal: false,
+      reason: "test_fixture",
+    });
     expect(f.maxLength).toBe(1_000_000);
   });
 
@@ -55,13 +59,13 @@ describe("LongTextFieldDef — type-level non-indexable enforcement", () => {
     // back to LongTextFieldDef, the @ts-expect-error fails (because
     // the call would suddenly type-check), turning the test red.
     // @ts-expect-error sortable is NOT allowed on longText
-    const f1 = createLongTextField({ sortable: true });
+    const f1 = createLongTextField({ sortable: true, personal: false, reason: "test_fixture" });
     // @ts-expect-error searchable is NOT allowed on longText
-    const f2 = createLongTextField({ searchable: true });
+    const f2 = createLongTextField({ searchable: true, personal: false, reason: "test_fixture" });
     // @ts-expect-error filterable is NOT allowed on longText
-    const f3 = createLongTextField({ filterable: true });
+    const f3 = createLongTextField({ filterable: true, personal: false, reason: "test_fixture" });
     // @ts-expect-error format is NOT allowed on longText
-    const f4 = createLongTextField({ format: "email" });
+    const f4 = createLongTextField({ format: "email", personal: false, reason: "test_fixture" });
 
     // Runtime sanity: trotz der @ts-expect-error-ignored options ist
     // das field zur Laufzeit erfolgreich erzeugt — type-level-blockade

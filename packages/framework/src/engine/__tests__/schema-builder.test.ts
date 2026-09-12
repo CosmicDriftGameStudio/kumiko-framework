@@ -32,25 +32,34 @@ describe("buildInsertSchema", () => {
   test.each<SchemaCase>([
     {
       name: "required text field",
-      fields: { email: createTextField({ required: true }) },
+      fields: {
+        email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
       valid: { email: "test@test.de" },
       invalid: { email: "" },
     },
     {
       name: "optional text field",
-      fields: { name: createTextField() },
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       valid: {},
       invalid: null,
     },
     {
       name: "text field with maxLength",
-      fields: { name: createTextField({ maxLength: 5 }) },
+      fields: { name: createTextField({ maxLength: 5, personal: false, reason: "test_fixture" }) },
       valid: { name: "hello" },
       invalid: { name: "toolong" },
     },
     {
       name: "email format",
-      fields: { email: createTextField({ required: true, format: "email" }) },
+      fields: {
+        email: createTextField({
+          required: true,
+          format: "email",
+          personal: false,
+          reason: "test_fixture",
+        }),
+      },
       valid: { email: "a@b.de" },
       invalid: { email: "not-an-email" },
     },
@@ -166,8 +175,13 @@ describe("buildInsertSchema", () => {
     const entity = createEntity({
       table: "Users",
       fields: {
-        email: createTextField({ required: true, format: "email" }),
-        firstName: createTextField(),
+        email: createTextField({
+          required: true,
+          format: "email",
+          personal: false,
+          reason: "test_fixture",
+        }),
+        firstName: createTextField({ personal: false, reason: "test_fixture" }),
         isEnabled: createBooleanField({ default: true }),
         locale: createSelectField({ options: ["de", "en"] as const }),
       },
@@ -281,7 +295,9 @@ describe("buildInsertSchema", () => {
   test("required text rejects empty string", () => {
     const entity = createEntity({
       table: "Test",
-      fields: { name: createTextField({ required: true }) },
+      fields: {
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ name: "" }).success).toBe(false);
@@ -353,7 +369,7 @@ describe("buildInsertSchema", () => {
     const entity = createEntity({
       table: "Test",
       fields: {
-        name: createTextField({ required: true }),
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
         address: createEmbeddedField({ street: { type: "text" } }),
       },
     });
@@ -1061,8 +1077,13 @@ describe("buildUpdateSchema", () => {
     const entity = createEntity({
       table: "Users",
       fields: {
-        email: createTextField({ required: true, format: "email" }),
-        firstName: createTextField(),
+        email: createTextField({
+          required: true,
+          format: "email",
+          personal: false,
+          reason: "test_fixture",
+        }),
+        firstName: createTextField({ personal: false, reason: "test_fixture" }),
         isEnabled: createBooleanField(),
       },
     });
@@ -1082,7 +1103,14 @@ describe("buildUpdateSchema", () => {
   test("still validates format on provided fields", () => {
     const entity = createEntity({
       table: "Users",
-      fields: { email: createTextField({ required: true, format: "email" }) },
+      fields: {
+        email: createTextField({
+          required: true,
+          format: "email",
+          personal: false,
+          reason: "test_fixture",
+        }),
+      },
     });
 
     const schema = buildUpdateSchema(entity);

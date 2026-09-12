@@ -4,7 +4,7 @@ import { createEntity, createTextField } from "../factories";
 
 const taskEntity = createEntity({
   table: "crud_shorthand_tasks",
-  fields: { title: createTextField({ required: true }) },
+  fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   softDelete: true,
 });
 

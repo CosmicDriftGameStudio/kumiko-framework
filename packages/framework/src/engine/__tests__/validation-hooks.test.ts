@@ -6,7 +6,13 @@ import { runValidation } from "../validation";
 describe("validation hooks", () => {
   test("r.hook registers validation hook", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          table: "Users",
+          fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.hook("validation", "user:create", (data) => {
         const errors: ValidationError[] = [];
         if (!data["email"]) errors.push({ field: "email", error: "required" });

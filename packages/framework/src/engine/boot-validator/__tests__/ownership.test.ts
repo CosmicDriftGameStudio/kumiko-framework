@@ -32,8 +32,8 @@ function featureWith(entityAccess: AccessMaps, fieldAccess?: AccessMaps): Featur
       createEntity({
         table: "fw2626_guard_memos",
         fields: {
-          ownerId: createTextField({ required: true }),
-          title: createTextField({ access: fieldAccess }),
+          ownerId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+          title: createTextField({ access: fieldAccess, personal: false, reason: "test_fixture" }),
         },
         access: entityAccess,
       }),

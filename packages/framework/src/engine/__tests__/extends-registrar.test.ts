@@ -85,7 +85,7 @@ describe("extendsRegistrar", () => {
         "vehicle",
         createEntity({
           table: "Vehicles",
-          fields: { name: createTextField() },
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       );
       r.useExtension("customFields", "vehicle");
@@ -108,7 +108,13 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("credit", (r) => {
       r.requires("audit");
-      r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+      r.entity(
+        "credit",
+        createEntity({
+          table: "Credits",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler("create", z.object({ name: z.string() }), async () => ({
         isSuccess: true as const,
         data: { id: "c1" },
@@ -134,7 +140,11 @@ describe("extendsRegistrar", () => {
     const consumer = defineFeature("fleet", (r) => {
       r.entity(
         "vehicle",
-        createEntity({ table: "Vehicles", idType: "uuid", fields: { name: createTextField() } }),
+        createEntity({
+          table: "Vehicles",
+          idType: "uuid",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
       );
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave

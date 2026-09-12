@@ -10,7 +10,9 @@ describe("validateBoot — entityList screens", () => {
         "item",
         createEntity({
           table: "Items",
-          fields: { name: createTextField({ sortable: true }) },
+          fields: {
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
       r.screen({
@@ -31,7 +33,13 @@ describe("validateBoot — entityList screens", () => {
 
   test("rejects searchable:false on operator lists not on whitelist", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -51,7 +59,13 @@ describe("validateBoot — entityList screens", () => {
 
   test("allows searchable:false on download-attempt-list whitelist", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity("attempt", createEntity({ table: "Attempts", fields: { id: createTextField() } }));
+      r.entity(
+        "attempt",
+        createEntity({
+          table: "Attempts",
+          fields: { id: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "download-attempt-list",
         type: "entityList",
@@ -75,7 +89,9 @@ describe("validateBoot — entityList screens", () => {
         "item",
         createEntity({
           table: "Items",
-          fields: { name: createTextField({ sortable: true }) },
+          fields: {
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
       r.screen({

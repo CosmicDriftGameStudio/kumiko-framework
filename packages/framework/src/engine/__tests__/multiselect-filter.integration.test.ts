@@ -15,7 +15,7 @@ import { createEntity, createMultiSelectField, createTextField } from "../factor
 const equipmentEntity = createEntity({
   table: "ms_filter_equipment",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     tags: createMultiSelectField({
       options: ["vip", "urgent", "loaner"] as const,
       filterable: true,

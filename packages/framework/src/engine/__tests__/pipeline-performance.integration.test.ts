@@ -62,7 +62,7 @@ const trivialFreeform = defineWriteHandler({
 const productEntity = createEntity({
   table: "perf_smoke_products",
   fields: {
-    sku: createTextField({ required: true }),
+    sku: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     qty: createNumberField({ default: 0 }),
   },
 });

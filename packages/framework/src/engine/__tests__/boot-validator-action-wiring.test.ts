@@ -7,7 +7,12 @@ import { createEntity, createTextField } from "../factories";
 describe("validateBoot — action wiring (no function values)", () => {
   test("rowAction writeHandler payload as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -33,7 +38,14 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("rowAction writeHandler payload as declarative pick → kein Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField({ sortable: true }) } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: {
+            name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
+          },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -65,7 +77,12 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("rowAction navigate visible as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -88,7 +105,12 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("toolbarAction writeHandler payload as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -136,7 +158,12 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("entityList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -152,7 +179,12 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("entityEdit field visible as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-edit",
         type: "entityEdit",
@@ -173,7 +205,12 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("entityEdit field renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-edit",
         type: "entityEdit",
@@ -194,7 +231,12 @@ describe("validateBoot — action wiring (no function values)", () => {
 
   test("entityEdit field with declarative visible/readOnly/required → kein Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-edit",
         type: "entityEdit",

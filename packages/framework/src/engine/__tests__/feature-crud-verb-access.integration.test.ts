@@ -6,7 +6,7 @@ import { createEntity, createTextField } from "../factories";
 
 const propertyEntity = createEntity({
   table: "crud_verb_access_properties",
-  fields: { title: createTextField({ required: true }) },
+  fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   softDelete: true,
 });
 
