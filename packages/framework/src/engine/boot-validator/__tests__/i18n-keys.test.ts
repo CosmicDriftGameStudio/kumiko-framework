@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildConfigFeatureSchema } from "../../build-config-feature-schema";
 import { access, createTenantConfig } from "../../config-helpers";
 import { defineFeature } from "../../define-feature";
+import { i18nKey } from "../../i18n-key";
 import { createRegistry } from "../../registry";
 import { isFieldsEditSection } from "../../screen-helpers";
 import type { ConfigEditScreenDefinition } from "../../types";
@@ -193,5 +194,74 @@ describe("validateI18nSurfaceKeys — gated configEdit section description (PR #
       "reporting.settings": { en: "Reporting" },
     });
     expect(withoutDescription.description).toBeUndefined();
+  });
+});
+
+// fw#2313: a hand-written dot-form label is indistinguishable from literal
+// display text, so isI18nKey only requires a translation for one explicitly
+// marked via i18nKey() — unmarked dot-form labels must keep failing silently
+// (that's the existing, intentional behavior for literal text like
+// "actions.open"), never crashing boot on their own.
+describe("validateI18nSurfaceKeys — explicit i18nKey() dot-form opt-in (fw#2313)", () => {
+  test("i18nKey()-marked dot-form label without a translation fails boot naming the key", () => {
+    const feature = defineFeature("fw2313boot", (r) => {
+      r.nav({ id: "home", label: i18nKey("fw2313.boot.optin.nav") });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /required translation key missing: "fw2313\.boot\.optin\.nav"/,
+    );
+  });
+
+  test("i18nKey()-marked dot-form label with a translation passes boot", () => {
+    const feature = defineFeature("fw2313boot", (r) => {
+      r.nav({ id: "home", label: i18nKey("fw2313.boot.optin.nav.translated") });
+      r.translations({ keys: { "fw2313.boot.optin.nav.translated": { en: "Home" } } });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("unmarked literal dot-form label never fails boot", () => {
+    const feature = defineFeature("fw2313boot", (r) => {
+      r.nav({ id: "home", label: "fw2313.boot.never-marked.literal" });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+});
+
+// The mask.title bypass is unconditional (required-surface-keys.ts,
+// requiredKeysFromFeature) — mask.title is always an i18n key by
+// ConfigKeyDefinition contract, never literal display text, so it needs no
+// i18nKey() marker.
+describe("validateI18nSurfaceKeys — mask.title is unconditionally required (fw#2313)", () => {
+  function maskedFeature(translationKeys: Record<string, { readonly en: string }>) {
+    return defineFeature("fw2313mask", (r) => {
+      r.config({
+        keys: {
+          apiKey: createTenantConfig("text", {
+            write: access.roles("TenantAdmin"),
+            mask: { title: "fw2313.boot.mask.title" },
+          }),
+        },
+      });
+      if (Object.keys(translationKeys).length > 0) {
+        r.translations({ keys: translationKeys });
+      }
+    });
+  }
+
+  test("masked config key without a mask.title translation fails boot", () => {
+    const feature = maskedFeature({});
+    expect(() => validateBoot([configHub, feature])).toThrow(
+      /required translation key missing: "fw2313\.boot\.mask\.title"/,
+    );
+  });
+
+  test("masked config key with a mask.title translation passes boot", () => {
+    const feature = maskedFeature({
+      "fw2313.boot.mask.title": { en: "API Key" },
+      "screen:fw2313mask-tenant.title": { en: "Settings" },
+      "fw2313mask.settings": { en: "Settings" },
+    });
+    expect(() => validateBoot([configHub, feature])).not.toThrow();
   });
 });

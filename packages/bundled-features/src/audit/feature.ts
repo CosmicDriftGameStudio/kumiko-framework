@@ -2,6 +2,7 @@ import {
   access,
   defineFeature,
   type FeatureDefinition,
+  i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "./constants";
 import { detailsQuery } from "./handlers/details.query";
@@ -44,9 +45,13 @@ export function createAuditFeature(): FeatureDefinition {
       type: "projectionList",
       query: AuditQueries.list,
       columns: [
-        { field: "createdAt", label: "audit.log.col.when", renderer: { format: "timestamp" } },
-        { field: "type", label: "audit.log.col.type" },
-        { field: "createdBy", label: "audit.log.col.actor" },
+        {
+          field: "createdAt",
+          label: i18nKey("audit.log.col.when"),
+          renderer: { format: "timestamp" },
+        },
+        { field: "type", label: i18nKey("audit.log.col.type") },
+        { field: "createdBy", label: i18nKey("audit.log.col.actor") },
       ],
       searchable: true,
       defaultSort: { field: "createdAt", dir: "desc" },
@@ -54,7 +59,7 @@ export function createAuditFeature(): FeatureDefinition {
         {
           kind: "navigate",
           id: "details",
-          label: "audit.log.details",
+          label: i18nKey("audit.log.details"),
           screen: AUDIT_LOG_DETAIL_SCREEN_ID,
           entityId: "id",
           rowClick: true,
@@ -71,14 +76,14 @@ export function createAuditFeature(): FeatureDefinition {
       query: AuditQueries.details,
       idParam: "id",
       fieldLabels: {
-        type: "audit.log.col.type",
-        createdAt: "audit.log.col.when",
-        aggregateType: "audit.log.col.aggregateType",
-        aggregateId: "audit.log.col.aggregateId",
-        createdBy: "audit.log.col.actor",
-        id: "audit.log.detail.field.id",
-        payload: "audit.log.detail.payload",
-        metadata: "audit.log.detail.metadata",
+        type: i18nKey("audit.log.col.type"),
+        createdAt: i18nKey("audit.log.col.when"),
+        aggregateType: i18nKey("audit.log.col.aggregateType"),
+        aggregateId: i18nKey("audit.log.col.aggregateId"),
+        createdBy: i18nKey("audit.log.col.actor"),
+        id: i18nKey("audit.log.detail.field.id"),
+        payload: i18nKey("audit.log.detail.payload"),
+        metadata: i18nKey("audit.log.detail.metadata"),
       },
       layout: {
         sections: [

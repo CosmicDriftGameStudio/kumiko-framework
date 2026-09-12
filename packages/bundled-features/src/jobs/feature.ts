@@ -1,4 +1,8 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  i18nKey,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID, JobHandlers, JobQueries } from "./constants";
 import { catalogQuery } from "./handlers/catalog.query";
 import { detailQuery } from "./handlers/detail.query";
@@ -119,22 +123,26 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       type: "projectionList",
       query: JobQueries.list,
       columns: [
-        { field: "jobName", label: "jobs.runs.col.job" },
-        { field: "status", label: "jobs.runs.col.status" },
-        { field: "startedAt", label: "jobs.runs.col.started", renderer: { format: "timestamp" } },
-        { field: "duration", label: "jobs.runs.col.duration" },
+        { field: "jobName", label: i18nKey("jobs.runs.col.job") },
+        { field: "status", label: i18nKey("jobs.runs.col.status") },
+        {
+          field: "startedAt",
+          label: i18nKey("jobs.runs.col.started"),
+          renderer: { format: "timestamp" },
+        },
+        { field: "duration", label: i18nKey("jobs.runs.col.duration") },
       ],
       defaultSort: { field: "startedAt", dir: "desc" },
       facets: [
         {
           field: "status",
           type: "select",
-          label: "jobs.runs.filter.status",
+          label: i18nKey("jobs.runs.filter.status"),
           options: [
-            { value: "queued", label: "jobs.runs.filter.queued" },
-            { value: "running", label: "jobs.runs.filter.running" },
-            { value: "completed", label: "jobs.runs.filter.completed" },
-            { value: "failed", label: "jobs.runs.filter.failed" },
+            { value: "queued", label: i18nKey("jobs.runs.filter.queued") },
+            { value: "running", label: i18nKey("jobs.runs.filter.running") },
+            { value: "completed", label: i18nKey("jobs.runs.filter.completed") },
+            { value: "failed", label: i18nKey("jobs.runs.filter.failed") },
           ],
         },
       ],
@@ -142,7 +150,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
         {
           kind: "navigate",
           id: "open",
-          label: "jobs.runs.open",
+          label: i18nKey("jobs.runs.open"),
           screen: JOB_RUN_DETAIL_SCREEN_ID,
           entityId: "id",
           rowClick: true,
@@ -152,7 +160,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
         {
           kind: "drawer",
           id: "trigger",
-          label: "jobs.trigger.title",
+          label: i18nKey("jobs.trigger.title"),
           screen: "job-trigger",
           style: "primary",
         },
@@ -169,7 +177,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
         payload: { type: "longText", multiline: true, default: "{}" },
       },
       layout: { sections: [{ fields: ["jobName", "payload"] }] },
-      submitLabel: "jobs.trigger.submit",
+      submitLabel: i18nKey("jobs.trigger.submit"),
       access: systemAdminAccess,
       description: "Manually trigger a job by name with an optional JSON object payload.",
     });
@@ -179,14 +187,14 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       query: JobQueries.details,
       idParam: "runId",
       fieldLabels: {
-        jobName: "jobs.detail.field.job",
-        status: "jobs.detail.field.status",
-        id: "jobs.detail.field.id",
-        startedAt: "jobs.detail.field.started",
-        finishedAt: "jobs.detail.field.finished",
-        duration: "jobs.detail.field.duration",
-        error: "jobs.detail.field.error",
-        logs: "jobs.detail.logs",
+        jobName: i18nKey("jobs.detail.field.job"),
+        status: i18nKey("jobs.detail.field.status"),
+        id: i18nKey("jobs.detail.field.id"),
+        startedAt: i18nKey("jobs.detail.field.started"),
+        finishedAt: i18nKey("jobs.detail.field.finished"),
+        duration: i18nKey("jobs.detail.field.duration"),
+        error: i18nKey("jobs.detail.field.error"),
+        logs: i18nKey("jobs.detail.logs"),
       },
       layout: {
         sections: [
@@ -213,7 +221,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
         {
           kind: "writeHandler",
           id: "retry",
-          label: "jobs.detail.retry",
+          label: i18nKey("jobs.detail.retry"),
           handler: JobHandlers.retry,
           payload: { map: { runId: "id" } },
           visible: { field: "status", eq: "failed" },

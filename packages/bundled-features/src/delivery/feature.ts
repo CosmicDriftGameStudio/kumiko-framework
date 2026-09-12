@@ -3,6 +3,7 @@ import {
   access,
   defineFeature,
   type FeatureDefinition,
+  i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
 import {
@@ -145,16 +146,16 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       columns: [
         {
           field: "tenantId",
-          label: "delivery.log.col.tenantId",
+          label: i18nKey("delivery.log.col.tenantId"),
           refEntity: "tenant:tenant",
           refLabelField: "name",
         },
-        { field: "type", label: "delivery.log.col.type" },
-        { field: "channel", label: "delivery.log.col.channel" },
-        { field: "recipient", label: "delivery.log.col.recipient" },
+        { field: "type", label: i18nKey("delivery.log.col.type") },
+        { field: "channel", label: i18nKey("delivery.log.col.channel") },
+        { field: "recipient", label: i18nKey("delivery.log.col.recipient") },
         {
           field: "status",
-          label: "delivery.log.col.status",
+          label: i18nKey("delivery.log.col.status"),
           renderer: { react: { __component: DELIVERY_STATUS_CELL_COMPONENT } },
         },
       ],

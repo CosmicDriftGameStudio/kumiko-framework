@@ -7,6 +7,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
+  i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query";
 import { addMemberWrite } from "./handlers/add-member.write";
@@ -176,7 +177,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     }
     r.nav({
       id: "members",
-      label: "tenant.nav.members",
+      label: i18nKey("tenant.nav.members"),
       icon: "users",
       screen: "tenant:screen:members",
       order: 20,

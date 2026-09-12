@@ -3,6 +3,7 @@ import {
   access,
   type EntityEditScreenDefinition,
   type EntityListScreenDefinition,
+  i18nKey,
   type ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -35,7 +36,7 @@ export const tenantListScreen: EntityListScreenDefinition = {
     {
       kind: "navigate",
       id: "edit",
-      label: "kumiko.actions.edit",
+      label: i18nKey("kumiko.actions.edit"),
       screen: "tenant-edit",
       entityId: "id",
     },
@@ -81,25 +82,25 @@ export function createMembersScreen(options?: {
     type: "projectionList",
     query: TenantQueries.teamList,
     columns: [
-      { field: "email", label: "tenant.members.col.email" },
+      { field: "email", label: i18nKey("tenant.members.col.email") },
       {
         field: "roles",
-        label: "tenant.members.col.roles",
+        label: i18nKey("tenant.members.col.roles"),
         renderer: { react: { __component: MEMBER_ROLES_CELL_COMPONENT } },
       },
       {
         field: "status",
-        label: "tenant.members.col.status",
+        label: i18nKey("tenant.members.col.status"),
         renderer: { react: { __component: MEMBER_STATUS_CELL_COMPONENT } },
       },
       {
         field: "createdAt",
-        label: "tenant.members.col.created",
+        label: i18nKey("tenant.members.col.created"),
         renderer: { format: "timestamp" },
       },
       {
         field: "lastSeenAt",
-        label: "tenant.members.col.lastActivity",
+        label: i18nKey("tenant.members.col.lastActivity"),
         renderer: { format: "timestamp" },
       },
     ],
@@ -109,10 +110,10 @@ export function createMembersScreen(options?: {
       {
         field: "status",
         type: "select",
-        label: "tenant.members.filter.status",
+        label: i18nKey("tenant.members.filter.status"),
         options: [
-          { value: "active", label: "tenant.members.filter.status.option.active" },
-          { value: "pending", label: "tenant.members.filter.status.option.pending" },
+          { value: "active", label: i18nKey("tenant.members.filter.status.option.active") },
+          { value: "pending", label: i18nKey("tenant.members.filter.status.option.pending") },
         ],
       },
     ],
@@ -120,7 +121,7 @@ export function createMembersScreen(options?: {
       {
         kind: "navigate",
         id: "edit-roles",
-        label: "tenant.members.actions.editRoles",
+        label: i18nKey("tenant.members.actions.editRoles"),
         screen: MEMBER_ROLES_EDIT_SCREEN_ID,
         params: { map: { userId: "userId", roles: "roles" } },
         visible: { field: "status", eq: "active" },
@@ -128,10 +129,10 @@ export function createMembersScreen(options?: {
       {
         kind: "writeHandler",
         id: "cancel-invitation",
-        label: "tenant.members.cancel",
+        label: i18nKey("tenant.members.cancel"),
         handler: TenantHandlers.cancelInvitation,
         payload: { map: { invitationId: "id" } },
-        confirm: "tenant.members.cancel.confirm",
+        confirm: i18nKey("tenant.members.cancel.confirm"),
         style: "danger",
         visible: { field: "status", eq: "pending" },
       },
@@ -141,7 +142,7 @@ export function createMembersScreen(options?: {
         {
           kind: "drawer",
           id: "invite",
-          label: "tenant.members.invite.title",
+          label: i18nKey("tenant.members.invite.title"),
           screen: INVITE_CREATE_SCREEN_ID,
           style: "primary",
         },
@@ -168,7 +169,7 @@ export const inviteCreateScreen = {
   layout: {
     sections: [{ fields: ["email", "role"] }],
   },
-  submitLabel: "tenant.members.invite.submit",
+  submitLabel: i18nKey("tenant.members.invite.submit"),
   access: { roles: access.admin },
 } satisfies ScreenDefinition;
 
@@ -190,6 +191,6 @@ export const memberRolesEditScreen = {
     // Prefill userId from rowAction; readOnly so the operator cannot retarget.
     sections: [{ fields: [{ field: "userId", readOnly: true }, "roles"] }],
   },
-  submitLabel: "tenant.members.roles.edit.submit",
+  submitLabel: i18nKey("tenant.members.roles.edit.submit"),
   access: { roles: access.admin },
 } satisfies ScreenDefinition;

@@ -1,6 +1,7 @@
-import type {
-  EntityEditScreenDefinition,
-  EntityListScreenDefinition,
+import {
+  type EntityEditScreenDefinition,
+  type EntityListScreenDefinition,
+  i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // Cross-tenant platform admin view of the user identity. Because the user
@@ -21,7 +22,7 @@ export const userListScreen: EntityListScreenDefinition = {
     {
       kind: "navigate",
       id: "edit",
-      label: "kumiko.actions.edit",
+      label: i18nKey("kumiko.actions.edit"),
       screen: "user-edit",
       entityId: "id",
     },

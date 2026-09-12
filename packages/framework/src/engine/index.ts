@@ -205,6 +205,7 @@ export {
   filterReadFields,
 } from "./field-access";
 export { resolveName, withResponseData } from "./handler-helpers";
+export { i18nKey } from "./i18n-key";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
 // stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
 // apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES

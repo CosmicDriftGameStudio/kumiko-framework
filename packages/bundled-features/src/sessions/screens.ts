@@ -1,5 +1,6 @@
 import {
   access,
+  i18nKey,
   type ProjectionDetailScreenDefinition,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -16,26 +17,26 @@ export const sessionListScreen: ProjectionListScreenDefinition = {
   // be present once the query accepts `sort` (fw#2230).
   defaultSort: { field: "createdAt", dir: "desc" },
   columns: [
-    { field: "id", label: "sessions.list.col.id" },
+    { field: "id", label: i18nKey("sessions.list.col.id") },
     {
       field: "userId",
-      label: "sessions.list.col.userId",
+      label: i18nKey("sessions.list.col.userId"),
       refEntity: "user:user",
       refLabelField: "displayName",
     },
     {
       field: "createdAt",
-      label: "sessions.list.col.createdAt",
+      label: i18nKey("sessions.list.col.createdAt"),
       renderer: { format: "timestamp" },
     },
     {
       field: "expiresAt",
-      label: "sessions.list.col.expiresAt",
+      label: i18nKey("sessions.list.col.expiresAt"),
       renderer: { format: "timestamp" },
     },
     {
       field: "revokedAt",
-      label: "sessions.list.col.revokedAt",
+      label: i18nKey("sessions.list.col.revokedAt"),
       renderer: { format: "timestamp" },
     },
   ],
@@ -43,7 +44,7 @@ export const sessionListScreen: ProjectionListScreenDefinition = {
     {
       kind: "navigate",
       id: "open",
-      label: "sessions.list.action.open",
+      label: i18nKey("sessions.list.action.open"),
       screen: SESSION_DETAIL_SCREEN_ID,
       entityId: "id",
       rowClick: true,
@@ -77,13 +78,13 @@ export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
     ],
   },
   fieldLabels: {
-    id: "sessions.detail.field.id",
-    userId: "sessions.detail.field.userId",
-    createdAt: "sessions.detail.field.createdAt",
-    expiresAt: "sessions.detail.field.expiresAt",
-    revokedAt: "sessions.detail.field.revokedAt",
-    ip: "sessions.detail.field.ip",
-    userAgent: "sessions.detail.field.userAgent",
+    id: i18nKey("sessions.detail.field.id"),
+    userId: i18nKey("sessions.detail.field.userId"),
+    createdAt: i18nKey("sessions.detail.field.createdAt"),
+    expiresAt: i18nKey("sessions.detail.field.expiresAt"),
+    revokedAt: i18nKey("sessions.detail.field.revokedAt"),
+    ip: i18nKey("sessions.detail.field.ip"),
+    userAgent: i18nKey("sessions.detail.field.userAgent"),
   },
   access: listAccess,
 };

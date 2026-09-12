@@ -1,3 +1,4 @@
+import { isExplicitDotFormKey } from "../engine/i18n-key";
 import {
   isExtensionEditSection,
   isWriteFormEditSection,
@@ -63,13 +64,14 @@ export function screenTitleKey(screenId: string): string {
 }
 
 function isI18nKey(value: string): boolean {
-  return value.includes(":");
+  return value.includes(":") || isExplicitDotFormKey(value);
 }
 
 /**
  * `treatAsKey` bypasses the colon-only `isI18nKey` check — used by the Settings-Hub
  * generator's dot-form labels (`${feature}.settings`, mask titles), which are
  * always i18n references by construction, never literal display text (fw#2260).
+ * `isI18nKey` itself also accepts dot-form labels explicitly marked via `i18nKey()` (fw#2313).
  */
 function pushKey(out: Set<string>, value: string | undefined, treatAsKey = false): void {
   if (value !== undefined && (treatAsKey || isI18nKey(value))) out.add(value);
@@ -348,7 +350,8 @@ export function requiredKeysFromFeature(feature: FeatureDefinition): readonly st
     for (const key of requiredKeysFromWorkspace(ws)) out.add(key);
   }
   for (const def of Object.values(feature.configKeys)) {
-    pushKey(out, def.mask?.title);
+    // mask.title is always an i18n key by construction (ConfigKeyDefinition contract), not literal text.
+    pushKey(out, def.mask?.title, true);
   }
   collectEntityListFilterKeys(feature, out);
 
