@@ -2,13 +2,23 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-09
+verified: 2026-09-13
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.259.0
+
+### sessions
+
+**sessions:query:user-session:mine returns the paged envelope { rows, nextCursor }; new self-service my-sessions screen (fw#2844).**
+
+The query backs the new `my-sessions` projectionList (open to every signed-in user): the caller's live sessions with a per-row revoke (hidden on the current session) and "sign out all other devices". Exported id SESSION_MINE_SCREEN_ID. Server-side scoping to the caller is unchanged.
+
+**Migration:** Breaking for direct callers of `sessions:query:user-session:mine`: read `data.rows` instead of treating `data` as the array (`nextCursor` is always null). Account-security custom screens built on this query can be replaced by a dashboard with `kind: "screen"` panels on `sessions:screen:my-sessions` and the auth-mfa screens (money-horse#477, publicstatus#435, kumiko-studio#283).
 
 ## 0.241.0
 
