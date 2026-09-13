@@ -30,6 +30,7 @@
 //                        rule that NavDefinition.access follows)
 
 import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import { qualifyNavId, toAppSchema, UserRolesProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
@@ -282,7 +283,7 @@ export function filterByAccess(
 
 function userMatchesAccess(access: AccessRule | undefined, userRoles: readonly string[]): boolean {
   if (access === undefined) return true;
-  if ("openToAll" in access) return access.openToAll;
+  if ("openToAll" in access) return isOpenToAllGranted(access);
   return access.roles.some((r) => userRoles.includes(r));
 }
 

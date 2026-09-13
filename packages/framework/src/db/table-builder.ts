@@ -1,4 +1,7 @@
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { ExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
+import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import type {
   EntityDefinition,
   EntityRelations,
@@ -408,6 +411,18 @@ type SoftDeleteColumnsType = {
 
 // ── ES-write brand ──────────────────────────────────────────────────────
 export type { ExecutorOnly, NotExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
+// ── Tenancy brand ────────────────────────────────────────────────────────
+export type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
+
+// `E extends { tenancy?: "global" }` would wrongly match any E missing
+// `tenancy` too (an absent optional property structurally satisfies an
+// optional one) — index into E["tenancy"] instead so only a literal
+// "global" (not undefined/"tenant"/a union/never) brands "global".
+type EntityTableTenancy<E extends EntityDefinition> = [NonNullable<E["tenancy"]>] extends [never]
+  ? "tenant"
+  : [NonNullable<E["tenancy"]>] extends ["global"]
+    ? "global"
+    : "tenant";
 
 export type EntityTable<E extends EntityDefinition = EntityDefinition> =
   TableColumns<// biome-ignore lint/suspicious/noExplicitAny: drizzle's internal table-config stays generic; we layer typed columns on top via the intersection below.
@@ -415,7 +430,8 @@ export type EntityTable<E extends EntityDefinition = EntityDefinition> =
     BaseColumnsType<E> &
     SoftDeleteColumnsType &
     ColumnsForEntity<E["fields"]> &
-    ExecutorOnly;
+    ExecutorOnly &
+    TenancyBrand<EntityTableTenancy<E>>;
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =
@@ -474,6 +490,21 @@ export type BuildEntityTableOptions = {
   readonly relations?: EntityRelations;
 };
 
+function stampGlobalTenancyMeta<E extends EntityDefinition>(
+  table: EntityTable<E>,
+  entity: E,
+): void {
+  // skip: non-global entities keep pgTable's default tenancy meta
+  if (entity.tenancy !== "global") return;
+  const meta = (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL];
+  // skip: no meta stamp present — nothing to patch
+  if (!meta) return;
+  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
+    ...meta,
+    tenancy: "global",
+  };
+}
+
 export function buildEntityTable<E extends EntityDefinition>(
   entityName: string,
   entity: E,
@@ -525,7 +556,7 @@ export function buildEntityTable<E extends EntityDefinition>(
   // hand in. Our typed signature narrows that to the static names from
   // EntityDefinition (kept in sync with fieldToColumns + buildBaseColumns).
   // Drizzle's runtime instance carries every needed method on top.
-  return pgTable(
+  const built = pgTable(
     tableName,
     {
       ...baseColumns,
@@ -627,4 +658,8 @@ export function buildEntityTable<E extends EntityDefinition>(
       return indexes;
     },
   ) as unknown as EntityTable<E>;
+
+  // pgTable's own meta stamp doesn't see entity.tenancy — patch it so db.global()'s runtime guard matches the type brand.
+  stampGlobalTenancyMeta(built, entity);
+  return built;
 }

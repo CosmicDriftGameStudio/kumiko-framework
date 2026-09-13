@@ -156,6 +156,7 @@ export type {
   DeclarativeEventMigration,
   DispatchWriteRef,
   EntityRef,
+  EscapeHatchDeclaration,
   EventDef,
   EventMigrationDef,
   EventPiiFields,
@@ -172,6 +173,8 @@ export type {
   NotifyFn,
   NotifyOptions,
   NotifyPriority,
+  OpenToAllAccessRule,
+  OpenToAllDeclaration,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,
@@ -189,6 +192,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
+export { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
 export type {
   DeleteContext,
   EntityHookMap,

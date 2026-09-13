@@ -16,11 +16,35 @@ import type { TzContext } from "./tz-context";
 
 // --- Access ---
 
+export type OpenToAllDeclaration = { readonly reason: string };
+
+export type OpenToAllAccessRule = {
+  // `true` is the deprecated pre-#2855 form, kept until the call-site migration (fw#2854).
+  readonly openToAll: OpenToAllDeclaration | true;
+  // Write handler intentionally accepts personal data from any authenticated caller (boot-validator gate).
+  readonly publicIntake?: true;
+};
+
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
 // To grant access, set one of:
-//   - { roles: ["Admin", ...] }   — role-based allowlist (empty array denies everyone)
-//   - { openToAll: true }         — any authenticated user may call (still requires a valid JWT)
-export type AccessRule = { readonly roles: readonly string[] } | { readonly openToAll: true };
+//   - { roles: ["Admin", ...] }             — role-based allowlist (empty array denies everyone)
+//   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
+//   - { openToAll: true }                   — deprecated pre-#2855 form, still accepted
+export type AccessRule = { readonly roles: readonly string[] } | OpenToAllAccessRule;
+
+export type EscapeHatchDeclaration = { readonly reason: string };
+
+// AccessRule can arrive from untyped sources (pattern-library JSON, Designer)
+// where `openToAll` doesn't actually match the declared union — narrow via
+// `unknown` instead of trusting the static type, deny on anything malformed.
+export function isOpenToAllGranted(rule: AccessRule): boolean {
+  if (!("openToAll" in rule)) return false;
+  const openToAll: unknown = rule.openToAll;
+  if (openToAll === true) return true;
+  if (typeof openToAll !== "object" || openToAll === null) return false;
+  if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return false;
+  return openToAll.reason.trim().length > 0;
+}
 
 // --- Pipeline User ---
 
@@ -996,11 +1020,12 @@ export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
   // to inspect the step list. Absent on free-form handlers.
@@ -1025,7 +1050,7 @@ export type QueryHandlerDef = {
    *  read-gate. The boot-validator requires it on a `parentRef` entity's
    *  list/detail handler — see boot-validator/parent-ref.ts. */
   readonly [ENTITY_CONVENTION_QUERY_BRAND]?: true;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
@@ -1044,6 +1069,6 @@ export type StreamHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: StreamHandlerFn;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly rateLimit?: RateLimitOption;
 };

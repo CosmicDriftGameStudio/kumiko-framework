@@ -1,6 +1,7 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition } from "../types";
+import { validateAccessDeclarations } from "./access-declarations";
 import { warnOnUniqueAccessRoles } from "./access-roles";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
@@ -187,6 +188,7 @@ export function validateBoot(
     validateExtendSchemaCollisions(feature);
     validateDerivedFieldCollisions(feature);
     validateHandlerAccess(feature);
+    validateAccessDeclarations(feature);
     validateLocatedTimestamps(feature);
     validateEntityIndexes(feature);
     validateConfigKeyBounds(feature);

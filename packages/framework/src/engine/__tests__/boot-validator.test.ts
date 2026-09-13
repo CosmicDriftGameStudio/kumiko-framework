@@ -578,41 +578,42 @@ describe("boot-validator", () => {
   // --- Handler access validation (default-deny) ---
 
   test("throws when a write handler has no access rule", () => {
-    const features = [
+    // Access is a required option since fw#2855 — the registrar itself throws
+    // before validateBoot ever runs (was: caught at boot-validator level).
+    expect(() =>
       defineFeature("a", (r) => {
+        // @ts-expect-error options.access is required since fw#2855.
         r.writeHandler("createThing", z.object({ name: z.string() }), async () => ({
           isSuccess: true as const,
           data: {},
         }));
       }),
-    ];
-    expect(() => validateBoot(features)).toThrow(/a:write:createThing.*missing an access rule/i);
+    ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
 
   test("throws when a query handler has no access rule", () => {
-    const features = [
+    expect(() =>
       defineFeature("a", (r) => {
+        // @ts-expect-error options.access is required since fw#2855.
         r.queryHandler("list", z.object({}), async () => []);
       }),
-    ];
-    expect(() => validateBoot(features)).toThrow(/a:query:list.*missing an access rule/i);
+    ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
 
-  test("registerEntityCrud without access options fails boot (no implicit openToAll)", () => {
+  test("registerEntityCrud without access options fails registration (no implicit openToAll)", () => {
     const widgetEntity = createEntity({
       table: "phase0_widgets",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    const features = [
+    // Access is required since fw#2855 — registerEntityCrud now throws at
+    // registration time (was: caught at boot-validator level).
+    expect(() =>
       defineFeature("phase0", (r) => {
         registerEntityCrud(r, "widget", widgetEntity);
       }),
-    ];
-    expect(() => validateBoot(features)).toThrow(
-      /phase0:write:widget:create.*missing an access rule/i,
-    );
+    ).toThrow(/no access rule resolved/i);
   });
 
   test("accepts role-based access rule", () => {
@@ -684,12 +685,12 @@ describe("boot-validator", () => {
   });
 
   test("throws when a stream handler has no access rule", () => {
-    const features = [
+    expect(() =>
       defineFeature("a", (r) => {
+        // @ts-expect-error options.access is required since fw#2855.
         r.streamHandler("chat:complete", z.object({}), async function* () {});
       }),
-    ];
-    expect(() => validateBoot(features)).toThrow(/a:stream:chat:complete.*missing an access rule/i);
+    ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
 
   test("object-form streamHandler with access rule passes boot", () => {

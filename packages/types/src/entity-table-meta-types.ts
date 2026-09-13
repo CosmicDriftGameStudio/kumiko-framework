@@ -5,6 +5,7 @@
 // (crypto/DB deps).
 
 import type { EntityRelations } from "./relations";
+import type { EntityTenancy } from "./tenancy-brand";
 
 // PG type repertoire the read-model tables need. Deliberately narrow — no
 // vendor-specific types (TSVECTOR, HSTORE, etc.). An app-author who needs
@@ -80,6 +81,9 @@ export type EntityTableMeta = {
   // deriveEntityTableMeta so the registry can reject r.storeTable stores
   // whose direct writes would skip the executor's encryption (#820).
   readonly piiSubjectFields?: readonly string[];
+  // Only present for "global" tables — absent means "tenant" so existing
+  // schema snapshots don't drift. See EntityDefinition.tenancy.
+  readonly tenancy?: "global";
 };
 
 export type BuildEntityTableMetaOptions = {
@@ -93,4 +97,5 @@ export type UnmanagedTableInput = {
   readonly columns: readonly ColumnMeta[];
   readonly indexes?: readonly IndexMeta[];
   readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
+  readonly tenancy?: EntityTenancy;
 };

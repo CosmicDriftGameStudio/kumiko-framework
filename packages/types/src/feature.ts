@@ -35,6 +35,7 @@ import type {
   ClaimKeyType,
   DeclarativeEventMigration,
   EntityRef,
+  EscapeHatchDeclaration,
   EventDef,
   EventMigrationDef,
   EventPiiStance,
@@ -454,11 +455,12 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: WriteHandlerFn<z.infer<TSchema>>,
-    options?: {
-      access?: AccessRule;
+    options: {
+      access: AccessRule;
       rateLimit?: RateLimitOption;
       description?: string;
       agent?: AgentHandlerHints;
+      escapeHatch?: EscapeHatchDeclaration;
     },
   ): HandlerRef;
 
@@ -469,8 +471,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: QueryHandlerFn<z.infer<TSchema>>,
-    options?: {
-      access?: AccessRule;
+    options: {
+      access: AccessRule;
       rateLimit?: RateLimitOption;
       outputSchema?: ZodType;
       description?: string;
@@ -485,7 +487,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: StreamHandlerFn<z.infer<TSchema>>,
-    options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+    options: { access: AccessRule; rateLimit?: RateLimitOption },
   ): HandlerRef;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;

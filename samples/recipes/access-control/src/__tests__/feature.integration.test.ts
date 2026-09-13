@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -31,18 +31,18 @@ afterAll(async () => {
   await stack?.cleanup();
 });
 
-describe("default-deny: boot-validator refuses handlers without access", () => {
-  test("throws on registry boot when any handler lacks an access rule", () => {
-    const broken = defineFeature("broken-feature", (r) => {
-      r.writeHandler(
-        "forgotAccess",
-        z.object({ name: z.string() }),
-        async () => ({ isSuccess: true as const, data: {} }),
-        // No { access: ... } — boot validator must reject this.
-      );
-    });
-
-    expect(() => validateBoot([broken])).toThrow(/missing an access rule/i);
+describe("default-deny: refuses handlers without access", () => {
+  test("throws at registration when a handler lacks an access rule", () => {
+    // `access` is required since fw#2855 — the registrar throws before validateBoot ever runs.
+    expect(() =>
+      defineFeature("broken-feature", (r) => {
+        // @ts-expect-error — No { access: ... }: registration must reject this.
+        r.writeHandler("forgotAccess", z.object({ name: z.string() }), async () => ({
+          isSuccess: true as const,
+          data: {},
+        }));
+      }),
+    ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
 });
 
