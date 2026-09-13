@@ -13,7 +13,7 @@ import { AUTH_MFA_FEATURE_I18N } from "./i18n";
 import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier";
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
 import { userMfaEntity } from "./schema/user-mfa";
-import { mfaEnableScreen } from "./screens";
+import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens";
 
 export type AuthMfaFeatureOptions = {
   // HMAC secret for the stateless enable-flow token (carries the generated
@@ -130,6 +130,8 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // logged-in settings area (see personal-access-tokens/feature.ts for the
     // same convention).
     r.screen(mfaEnableScreen);
+    r.screen(mfaDisableScreen);
+    r.screen(mfaRegenerateRecoveryScreen);
     r.translations({ keys: AUTH_MFA_FEATURE_I18N });
 
     // KEK-rotation for totpSecret (entity-field encryption). Manual

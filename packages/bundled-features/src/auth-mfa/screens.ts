@@ -1,5 +1,14 @@
-import { i18nKey, type SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { AuthMfaHandlers, MFA_ENABLE_SCREEN_ID } from "./constants";
+import {
+  type ActionFormScreenDefinition,
+  i18nKey,
+  type SecretMintScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
+import {
+  AuthMfaHandlers,
+  MFA_DISABLE_SCREEN_ID,
+  MFA_ENABLE_SCREEN_ID,
+  MFA_REGENERATE_RECOVERY_SCREEN_ID,
+} from "./constants";
 
 // Declarative TOTP-enrollment screen: mint (no input) -> reveal QR/secret/
 // recovery-codes -> confirm with a 6-digit code. `setupToken` is carried
@@ -48,5 +57,48 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
     carry: ["setupToken"],
     submitLabel: i18nKey("mfa.enable.confirm.submit"),
     doneMessage: i18nKey("mfa.enable.confirm.done"),
+  },
+};
+
+// Either a 6-digit TOTP code or a 9-char recovery code proves possession —
+// same bounds as the disable/regenerate-recovery handler schemas.
+const possessionCodeField = { type: "text", required: true, maxLength: 9 } as const;
+
+export const mfaDisableScreen: ActionFormScreenDefinition = {
+  id: MFA_DISABLE_SCREEN_ID,
+  type: "actionForm",
+  handler: AuthMfaHandlers.disable,
+  fields: { code: possessionCodeField },
+  layout: { sections: [{ fields: ["code"] }] },
+  submitLabel: i18nKey("mfa.disable.submit"),
+  submitStyle: "danger",
+  cancelTarget: false,
+  access: { openToAll: true },
+  description:
+    "Self-service screen where a signed-in user turns two-factor authentication off by entering a code from their authenticator app or a recovery code; their other sessions and access tokens are signed out.",
+};
+
+export const mfaRegenerateRecoveryScreen: SecretMintScreenDefinition = {
+  id: MFA_REGENERATE_RECOVERY_SCREEN_ID,
+  type: "secretMint",
+  handler: AuthMfaHandlers.regenerateRecovery,
+  fields: { code: possessionCodeField },
+  layout: { sections: [{ fields: ["code"] }] },
+  submitLabel: i18nKey("mfa.regenerate.submit"),
+  cancelTarget: false,
+  access: { openToAll: true },
+  description:
+    "Self-service screen where a signed-in user with two-factor authentication replaces all recovery codes after confirming with a current code; the new codes are shown once.",
+  reveal: {
+    title: i18nKey("mfa.regenerate.reveal.title"),
+    warning: i18nKey("mfa.regenerate.reveal.warning"),
+    fields: [
+      {
+        field: "recoveryCodes",
+        label: i18nKey("mfa.enable.reveal.recoveryCodes"),
+        display: "list",
+        copyable: true,
+      },
+    ],
   },
 };

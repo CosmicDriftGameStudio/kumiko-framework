@@ -81,6 +81,8 @@ export {
   useNav,
 } from "./app/nav";
 export { lastSegment } from "./app/qn";
+export type { EmbeddedScreenTarget } from "./app/use-embedded-screen";
+export { useEmbeddedScreen } from "./app/use-embedded-screen";
 export type { VariableChipsProps } from "./app/variable-chips";
 export { VariableChips } from "./app/variable-chips";
 export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error";

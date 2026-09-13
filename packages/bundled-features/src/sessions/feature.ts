@@ -14,7 +14,7 @@ import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
 import { SESSIONS_I18N } from "./i18n";
 import { userSessionEntity } from "./schema/user-session";
-import { sessionDetailScreen, sessionListScreen } from "./screens";
+import { sessionDetailScreen, sessionListScreen, sessionMineScreen } from "./screens";
 import {
   createSessionCallbacks,
   type SessionAllOthersRevoker,
@@ -209,6 +209,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
 
     r.screen(sessionListScreen);
     r.screen(sessionDetailScreen);
+    r.screen(sessionMineScreen);
     r.nav({
       id: "session-list",
       label: "sessions:nav.sessionList",

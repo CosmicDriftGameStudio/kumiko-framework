@@ -4,7 +4,13 @@ import {
   type ProjectionDetailScreenDefinition,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID, SessionQueries } from "./constants";
+import {
+  SESSION_DETAIL_SCREEN_ID,
+  SESSION_LIST_SCREEN_ID,
+  SESSION_MINE_SCREEN_ID,
+  SessionHandlers,
+  SessionQueries,
+} from "./constants";
 
 const listAccess = { roles: access.admin };
 
@@ -87,4 +93,52 @@ export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
     userAgent: i18nKey("sessions.detail.field.userAgent"),
   },
   access: listAccess,
+};
+
+// Revoke is hidden on the current session — it would sign the user out mid-click; logout covers it.
+export const sessionMineScreen: ProjectionListScreenDefinition = {
+  id: SESSION_MINE_SCREEN_ID,
+  type: "projectionList",
+  query: SessionQueries.mine,
+  columns: [
+    {
+      field: "createdAt",
+      label: i18nKey("sessions.list.col.createdAt"),
+      renderer: { format: "timestamp" },
+    },
+    {
+      field: "expiresAt",
+      label: i18nKey("sessions.list.col.expiresAt"),
+      renderer: { format: "timestamp" },
+    },
+    { field: "ip", label: i18nKey("sessions.mine.col.ip") },
+    { field: "userAgent", label: i18nKey("sessions.mine.col.userAgent") },
+    {
+      field: "current",
+      label: i18nKey("sessions.mine.col.current"),
+      renderer: { format: "boolean" },
+    },
+  ],
+  rowActions: [
+    {
+      kind: "writeHandler",
+      id: "revoke",
+      label: i18nKey("sessions.mine.revoke"),
+      handler: SessionHandlers.revoke,
+      style: "danger",
+      confirm: i18nKey("sessions.mine.revoke.confirm"),
+      visible: { field: "current", eq: false },
+    },
+  ],
+  toolbarActions: [
+    {
+      kind: "writeHandler",
+      id: "revoke-all-others",
+      label: i18nKey("sessions.mine.revokeAllOthers"),
+      handler: SessionHandlers.revokeAllOthers,
+      style: "danger",
+      confirm: i18nKey("sessions.mine.revokeAllOthers.confirm"),
+    },
+  ],
+  access: { openToAll: true },
 };

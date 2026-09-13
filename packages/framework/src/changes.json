@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.259.0",
+    "type": "improvement",
+    "title": "Dashboard screens compose other declarative screens via kind: \"screen\" panels (fw#2844, decision fw#2841).",
+    "detail": "`DashboardScreenPanel` (`@cosmicdrift/kumiko-types`) embeds a registered screen by same-feature short id or `<feature>:screen:<id>`; embeddable are projectionList, actionForm, secretMint, configEdit, secretsEdit — the boot validator rejects unresolvable targets and dashboard/entityEdit/projectionDetail/custom/entityList. `visibleWhen: { query, field, eq }` shows the panel only while the live query's flat result matches (query boot-checked). A user without access to the target gets no tile. `DashboardBodyProps` gains the required `featureName` (only relevant for a custom dashboard body implementation); `useEmbeddedScreen` is exported from `@cosmicdrift/kumiko-renderer`. Replaces \"framework screen plus own content\" custom screens with an app-feature-structure lint-ignore."
+  },
+  {
     "version": "0.242.0",
     "type": "improvement",
     "title": "ActionFormScreenDefinition.redirect accepts an object naming the success-payload field the navigation id comes from (fw#2670).",

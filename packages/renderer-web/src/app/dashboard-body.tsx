@@ -23,6 +23,9 @@
 //   progress-list → { rows: { id, label, value, fraction }[] }
 //   custom        → keine Query — eine über extensionSectionComponents
 //                   registrierte App-Komponente holt sich ihre Daten selbst.
+//   screen        → no own query; embeds another declarative screen via
+//                   KumikoScreen. visibleWhen reads a flat record (live); the
+//                   tile is dropped when the user can't access the target.
 //
 // Screen-Filter (DashboardFilterDefinition): der gewählte Wert wird unter
 // `filter.id` in JEDE Panel-Query gemerged. useQuery refetcht automatisch
@@ -36,13 +39,17 @@ import type {
   DashboardPanelDefinition,
   DashboardProgressListPanel,
   DashboardScreenDefinition,
+  DashboardScreenPanel,
   DashboardStatGroupPanel,
   DashboardStatPanel,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { Translate } from "@cosmicdrift/kumiko-headless";
 import {
   type DashboardBodyProps,
   extensionSectionName,
+  KumikoScreen,
+  useEmbeddedScreen,
   useExtensionSectionComponent,
   useNav,
   usePrimitives,
@@ -403,7 +410,7 @@ function PanelBody({
   screenId,
   filterParams,
 }: {
-  readonly panel: DashboardPanelDefinition;
+  readonly panel: Exclude<DashboardPanelDefinition, DashboardScreenPanel>;
   readonly label: string;
   readonly screenId: string;
   readonly filterParams: Readonly<Record<string, unknown>>;
@@ -434,7 +441,43 @@ function PanelBody({
   return <CustomPanelBody panel={panel} screenId={screenId} filterParams={filterParams} />;
 }
 
-export function WebDashboardBody({ screen, translate }: DashboardBodyProps): ReactNode {
+function ScreenPanelTile({
+  panel,
+  featureName,
+  translate,
+}: {
+  readonly panel: DashboardScreenPanel;
+  readonly featureName: string;
+  readonly translate: Translate;
+}): ReactNode {
+  const visibleWhen = panel.visibleWhen;
+  const visibility = useQuery<Readonly<Record<string, unknown>>>(
+    visibleWhen?.query ?? "",
+    {},
+    { enabled: visibleWhen !== undefined, live: true },
+  );
+  const target = useEmbeddedScreen(featureName, panel.screen);
+  if (target === undefined) return null;
+  if (visibleWhen !== undefined && visibility.data?.[visibleWhen.field] !== visibleWhen.eq) {
+    return null;
+  }
+  const embedded = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
+  return (
+    <div className={WIDE_PANEL} data-testid={`dashboard-panel-${panel.id}`}>
+      {panel.label !== undefined ? (
+        <SectionCard title={translate(panel.label)}>{embedded}</SectionCard>
+      ) : (
+        embedded
+      )}
+    </div>
+  );
+}
+
+export function WebDashboardBody({
+  featureName,
+  screen,
+  translate,
+}: DashboardBodyProps): ReactNode {
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const { Text } = usePrimitives();
@@ -449,6 +492,16 @@ export function WebDashboardBody({ screen, translate }: DashboardBodyProps): Rea
       {picker}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {screen.panels.map((panel) => {
+          if (panel.kind === "screen") {
+            return (
+              <ScreenPanelTile
+                key={panel.id}
+                panel={panel}
+                featureName={featureName}
+                translate={effectiveTranslate}
+              />
+            );
+          }
           const label = panel.kind === "custom" ? "" : effectiveTranslate(panel.label);
           const span = panelSpanClassName(panel);
           return (

@@ -43,6 +43,17 @@ src/features/<name>/
   `type: "custom"` ist die
   Ausnahme und braucht einen Allowlist-Tag
   (`// kumiko-lint-ignore app-feature-structure <Grund>`).
+- **Screens komponieren statt custom**: Ein Framework-Screen plus eigener
+  Inhalt auf einer Seite ist ein `dashboard` mit `kind: "screen"`-Panels
+  (`screen: "<feature>:screen:<id>"` oder same-feature Short-ID; einbettbar
+  sind `projectionList`, `actionForm`, `secretMint`, `configEdit`,
+  `secretsEdit`) plus `kind: "custom"` für den eigenen Teil. `visibleWhen:
+  { query, field, eq }` blendet Panels nach einem flachen Query-Record ein
+  (live, z.B. MFA aktivieren vs. deaktivieren über
+  `auth-mfa:query:user-mfa:status`); ohne Zugriff auf den Ziel-Screen fällt
+  die Kachel weg. Beispiel Account-Security: `auth-mfa-enable` /
+  `auth-mfa-disable` / `auth-mfa-regenerate-recovery` + `sessions:screen:my-sessions`
+  (fw#2841).
 - **Screen-Refs gegen outputSchema validiert**: `projectionList`-Columns,
   `projectionDetail`-Header/Metrics und Dashboard-Stat-Felder werden vom
   Boot-Validator gegen das `outputSchema` des Query-Handlers geprüft; paged

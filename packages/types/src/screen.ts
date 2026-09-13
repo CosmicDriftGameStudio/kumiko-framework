@@ -709,6 +709,23 @@ export type DashboardCustomPanel = {
   readonly component: PlatformComponent;
 };
 
+// Live query, so a write that flips `field` swaps panels without reload; hidden while loading.
+export type DashboardPanelVisibility = {
+  readonly query: string;
+  readonly field: string;
+  readonly eq: string | number | boolean | null;
+};
+
+// Embedded redirect/cancelTarget navigate away from the dashboard — targets meant for tiles omit both.
+export type DashboardScreenPanel = {
+  readonly kind: "screen";
+  readonly id: string;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>`. */
+  readonly screen: string;
+  readonly label?: string;
+  readonly visibleWhen?: DashboardPanelVisibility;
+};
+
 export type DashboardPanelDefinition =
   | DashboardStatPanel
   | DashboardStatGroupPanel
@@ -716,7 +733,8 @@ export type DashboardPanelDefinition =
   | DashboardListPanel
   | DashboardFeedPanel
   | DashboardProgressListPanel
-  | DashboardCustomPanel;
+  | DashboardCustomPanel
+  | DashboardScreenPanel;
 
 // Screen-weiter Picker (Combobox), dessen gewählter Wert unter `id` in JEDE
 // Panel-Query dieses Screens gemerged wird (Query-Handler validieren den Wert

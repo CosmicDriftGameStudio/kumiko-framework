@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.259.0",
+    "type": "improvement",
+    "title": "Declarative auth-mfa-disable and auth-mfa-regenerate-recovery screens (fw#2844).",
+    "detail": "`auth-mfa-disable` (actionForm on auth-mfa:write:disable) and `auth-mfa-regenerate-recovery` (secretMint on auth-mfa:write:regenerate-recovery, one-time reveal of the new codes) join `auth-mfa-enable`, so a settings page can offer the full MFA lifecycle without client components — gate them on `auth-mfa:query:user-mfa:status` via a dashboard screen panel's `visibleWhen`. Exported ids MFA_DISABLE_SCREEN_ID, MFA_REGENERATE_RECOVERY_SCREEN_ID. Additive; handlers unchanged."
+  },
+  {
     "version": "0.165.0",
     "type": "fix",
     "title": "KEK reencrypt job: rejects unrecognized envelopes",

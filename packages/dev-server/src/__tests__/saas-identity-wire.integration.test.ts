@@ -418,11 +418,8 @@ describe("saas-identity-wire", () => {
       { Authorization: `Bearer ${token}` },
     );
     expect(mineRes.status).toBe(200);
-    const mineBody = (await mineRes.json()) as {
-      data?: Array<{ id: string }> | { items?: Array<{ id: string }> };
-    };
-    const items = Array.isArray(mineBody.data) ? mineBody.data : (mineBody.data?.items ?? []);
-    expect(items.some((s) => s.id === sid)).toBe(true);
+    const mineBody = (await mineRes.json()) as { data: { rows: Array<{ id: string }> } };
+    expect(mineBody.data.rows.some((s) => s.id === sid)).toBe(true);
 
     const rows = await selectMany(stack.db, userSessionTable, { userId });
     expect(rows.length).toBeGreaterThanOrEqual(1);

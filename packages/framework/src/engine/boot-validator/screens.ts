@@ -23,6 +23,7 @@ import type {
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
+  DashboardScreenPanel,
   DashboardStatGroupPanel,
   EditFieldSpec,
   EditLayout,
@@ -1234,7 +1235,7 @@ export function validateScreens(
     }
 
     if (screen.type === "dashboard") {
-      validateDashboardScreen(feature.name, screenId, screen);
+      validateDashboardScreen(feature.name, screenId, screen, featureMap);
       continue;
     }
 
@@ -1807,6 +1808,7 @@ function validateDashboardScreen(
   featureName: string,
   screenId: string,
   screen: DashboardScreenDefinition,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   if (screen.panels.length === 0) {
     throw new Error(
@@ -1830,6 +1832,8 @@ function validateDashboardScreen(
       validateDashboardStatGroupPanel(featureName, screenId, panel, addPanelId);
     } else if (panel.kind === "custom") {
       validateDashboardCustomPanel(featureName, screenId, panel);
+    } else if (panel.kind === "screen") {
+      validateDashboardScreenPanel(featureName, screenId, panel, featureMap);
     } else {
       validateDashboardQueryPanel(featureName, screenId, panel);
     }
@@ -1837,6 +1841,42 @@ function validateDashboardScreen(
 
   if (screen.filter !== undefined) {
     validateDashboardFilterDefinition(featureName, screenId, screen.filter);
+  }
+}
+
+const EMBEDDABLE_SCREEN_TYPES: ReadonlySet<ScreenDefinition["type"]> = new Set([
+  "projectionList",
+  "actionForm",
+  "secretMint",
+  "configEdit",
+  "secretsEdit",
+]);
+
+function validateDashboardScreenPanel(
+  featureName: string,
+  screenId: string,
+  panel: DashboardScreenPanel,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`;
+  const targetQn = resolveScreenTargetQn(featureName, panel.screen);
+  const [targetFeatureName = "", , targetShortId = ""] = targetQn.split(":");
+  const target = featureMap.get(targetFeatureName)?.screens[targetShortId];
+  if (target === undefined) {
+    throw new Error(
+      `${context} screen "${panel.screen}" does not resolve to a registered screen (checked "${targetQn}"). ` +
+        `Use a same-feature short id or a cross-feature QN "<feature>:screen:<id>".`,
+    );
+  }
+  if (!EMBEDDABLE_SCREEN_TYPES.has(target.type)) {
+    throw new Error(
+      `${context} embeds "${targetQn}" of type "${target.type}", which can't be embedded — allowed: ` +
+        `${[...EMBEDDABLE_SCREEN_TYPES].join(", ")}. Use a custom panel for app components.`,
+    );
+  }
+  const visibleWhen = panel.visibleWhen;
+  if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
+    throw new Error(`${context} visibleWhen needs a non-empty query and field.`);
   }
 }
 
@@ -1882,7 +1922,10 @@ function validateDashboardCustomPanel(
 function validateDashboardQueryPanel(
   featureName: string,
   screenId: string,
-  panel: Exclude<DashboardPanelDefinition, DashboardStatGroupPanel | DashboardCustomPanel>,
+  panel: Exclude<
+    DashboardPanelDefinition,
+    DashboardStatGroupPanel | DashboardCustomPanel | DashboardScreenPanel
+  >,
 ): void {
   if (!panel.query || typeof panel.query !== "string") {
     throw new Error(
