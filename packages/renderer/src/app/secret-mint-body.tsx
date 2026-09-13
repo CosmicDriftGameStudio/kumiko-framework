@@ -12,7 +12,7 @@ import {
 import type { FeatureSchema } from "./feature-schema";
 import { buildInitialValues, mergeSearchParamsIntoInitial } from "./kumiko-screen";
 import { layoutFieldNames } from "./layout-fields";
-import { useNav } from "./nav";
+import { useInitialValuesHandoff, useNav } from "./nav";
 import { lastSegment } from "./qn";
 
 export type SecretMintBodyProps = {
@@ -62,14 +62,16 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const effectiveTranslate = translate ?? t;
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
+  const handoffValues = useInitialValuesHandoff(screen.id);
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(screen.fields, {
         searchParams: nav.searchParams,
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
+        ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
-    [screen.fields, screen.urlPrefillFields, nav.searchParams, synthScreen],
+    [screen.fields, screen.urlPrefillFields, nav.searchParams, synthScreen, handoffValues],
   );
   const [revealed, setRevealed] = useState<Readonly<Record<string, unknown>> | null>(null);
   const [done, setDone] = useState(false);

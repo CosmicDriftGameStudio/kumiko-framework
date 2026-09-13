@@ -64,7 +64,7 @@ import {
   type ResolvedFacetSpec,
   resolveProjectionFacetSpecs,
 } from "./list-facets";
-import { type NavApi, useNav } from "./nav";
+import { type NavApi, useInitialValuesHandoff, useNav } from "./nav";
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
@@ -541,6 +541,9 @@ export type InitialValueSources = {
   // Drawer-kind row actions (fw#2710) prefill from the clicked row's
   // already-typed values; wins over every other source.
   readonly drawerOverrides?: Readonly<Record<string, unknown>>;
+  // useNavigateWithInitialValues — in-app only, never in the URL, so it
+  // bypasses urlPrefillFields; string values get the URL coercion.
+  readonly handoffValues?: Readonly<Record<string, unknown>>;
 };
 
 function coercePrefillString(
@@ -597,18 +600,30 @@ export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   sources: InitialValueSources,
 ): Record<string, unknown> {
-  const { searchParams, renderableFields, defaultCurrency, drawerOverrides } = sources;
+  const { searchParams, renderableFields, defaultCurrency, drawerOverrides, handoffValues } =
+    sources;
   const urlPrefillFields = new Set(sources.urlPrefillFields ?? []);
   const defaults = buildInitialValues(fields, defaultCurrency) as Record<string, unknown>;
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
     if (renderableFields !== undefined && !renderableFields.has(name)) continue;
     const shape = fieldDef as PrefillFieldShape;
-    // Neither gate is lifted by an allowlist entry.
+    // Neither gate is lifted by an allowlist entry or a handoff.
     if (shape.sensitive === true) continue;
     if (shape.format === "password") continue;
     if (drawerOverrides !== undefined && name in drawerOverrides) {
       merged[name] = drawerOverrides[name];
+      continue;
+    }
+    const handedOff =
+      handoffValues !== undefined && Object.hasOwn(handoffValues, name)
+        ? handoffValues[name]
+        : undefined;
+    if (handedOff !== undefined) {
+      merged[name] =
+        typeof handedOff === "string"
+          ? coercePrefillString(handedOff, name, shape, defaults[name], defaultCurrency)
+          : handedOff;
       continue;
     }
     if (!urlPrefillFields.has(name)) continue;
@@ -699,6 +714,7 @@ function EntityEditCreateBody({
   readonly onSaved?: () => void;
 }): ReactNode {
   const nav = useNav();
+  const handoffValues = useInitialValuesHandoff(screen.id);
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(entity.fields, {
@@ -706,8 +722,9 @@ function EntityEditCreateBody({
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(screen),
         defaultCurrency: entity.defaultCurrency ?? "EUR",
+        ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
-    [entity.fields, nav.searchParams, screen, entity.defaultCurrency],
+    [entity.fields, nav.searchParams, screen, entity.defaultCurrency, handoffValues],
   );
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
@@ -2931,6 +2948,9 @@ function ActionFormBody({
   const appFeatures = useAppFeatures();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
+  const pendingHandoff = useInitialValuesHandoff(screen.id);
+  // A drawer-hosted form is not a navigation target, so it never takes a handoff.
+  const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(screen.fields, {
@@ -2938,8 +2958,16 @@ function ActionFormBody({
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
         ...(initialOverrides !== undefined && { drawerOverrides: initialOverrides }),
+        ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
-    [screen.fields, screen.urlPrefillFields, nav.searchParams, synthScreen, initialOverrides],
+    [
+      screen.fields,
+      screen.urlPrefillFields,
+      nav.searchParams,
+      synthScreen,
+      initialOverrides,
+      handoffValues,
+    ],
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {

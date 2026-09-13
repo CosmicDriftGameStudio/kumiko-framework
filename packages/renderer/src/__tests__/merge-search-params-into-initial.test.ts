@@ -72,6 +72,45 @@ describe("mergeSearchParamsIntoInitial — urlPrefillFields allowlist", () => {
   });
 });
 
+describe("mergeSearchParamsIntoInitial — handoffValues", () => {
+  const fields: Record<string, FieldDef> = {
+    iban: { type: "text" },
+    amount: { type: "number", default: 0 },
+    secret: { type: "text", sensitive: true },
+    apiToken: { type: "text", format: "password" },
+  };
+
+  test("handed-off values prefill fields outside urlPrefillFields, strings coerced by field type", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      handoffValues: { iban: "DE12", amount: "42" },
+    });
+    expect(result["iban"]).toBe("DE12");
+    expect(result["amount"]).toBe(42);
+  });
+
+  test("handed-off values never reach sensitive or password fields", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      handoffValues: { secret: "s", apiToken: "kpat_leak" },
+    });
+    expect(result["secret"]).toBe("");
+    expect(result["apiToken"]).toBe("");
+  });
+
+  test("drawer overrides win over a handoff for the same field", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      drawerOverrides: { iban: "from-row" },
+      handoffValues: { iban: "from-handoff" },
+    });
+    expect(result["iban"]).toBe("from-row");
+  });
+});
+
 describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable)", () => {
   test("raw string param merges in as-is for a text field", () => {
     const fields: Record<string, FieldDef> = { name: { type: "text" } };

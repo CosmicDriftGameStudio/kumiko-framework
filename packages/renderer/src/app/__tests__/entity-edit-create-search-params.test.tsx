@@ -12,14 +12,14 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { render } from "@testing-library/react";
-import type { ComponentType, ReactNode } from "react";
+import { act, render } from "@testing-library/react";
+import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives";
 import type { FeatureSchema } from "../feature-schema";
 import { KumikoScreen } from "../kumiko-screen";
-import { type NavApi, NavProvider } from "../nav";
+import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav";
 
 const captured: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {
@@ -166,6 +166,71 @@ describe("EntityEditCreateBody — navigate params as initial values (#1680)", (
     resetCaptured();
     renderWithNav(staticNav({ accessCode: "1234" }), buildSchema(["accessCode"]));
 
+    expect(captured["accessCode"]?.value).toBe("");
+  });
+});
+
+describe("EntityEditCreateBody — useNavigateWithInitialValues", () => {
+  function HandoffApp({
+    schema,
+    initialValues,
+  }: {
+    readonly schema: FeatureSchema;
+    readonly initialValues: Readonly<Record<string, unknown>>;
+  }): ReactNode {
+    const [screenId, setScreenId] = useState("home");
+    const nav: NavApi = {
+      route: { screenId },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) setScreenId(target.screenId);
+      },
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {
+        throw new Error("the handoff must not write the query string");
+      },
+    };
+    return (
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
+        <DispatcherProvider dispatcher={stubDispatcher()}>
+          <NavProvider value={nav}>
+            <PrimitivesProvider value={testPrimitives}>
+              {screenId === "unit-edit" ? (
+                <KumikoScreen schema={schema} qn="housing:screen:unit-edit" />
+              ) : (
+                <Opener initialValues={initialValues} />
+              )}
+            </PrimitivesProvider>
+          </NavProvider>
+        </DispatcherProvider>
+      </LocaleProvider>
+    );
+  }
+
+  let openForm: (() => void) | undefined;
+  function Opener({
+    initialValues,
+  }: {
+    readonly initialValues: Readonly<Record<string, unknown>>;
+  }): ReactNode {
+    const navigateWithInitialValues = useNavigateWithInitialValues();
+    openForm = () => navigateWithInitialValues({ screenId: "unit-edit" }, initialValues);
+    return null;
+  }
+
+  test("handed-off values prefill fields outside urlPrefillFields, but never a sensitive one", () => {
+    resetCaptured();
+    render(
+      <HandoffApp
+        schema={buildSchema([])}
+        initialValues={{ ownerEmail: "owner@example.com", floorCount: "2", accessCode: "1234" }}
+      />,
+    );
+    act(() => openForm?.());
+
+    expect(captured["ownerEmail"]?.value).toBe("owner@example.com");
+    expect(captured["floorCount"]?.value).toBe(2);
     expect(captured["accessCode"]?.value).toBe("");
   });
 });

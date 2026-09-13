@@ -16,8 +16,10 @@ import {
   kumikoDefaultTranslations,
   NavProvider,
   UserRolesProvider,
+  useNavigateWithInitialValues,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
+import { type ReactNode, useState } from "react";
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils";
 
 const taskEntity = {
@@ -2703,6 +2705,60 @@ describe("KumikoScreen", () => {
     expect(inputValue("title")).toBe("declared");
     expect(inputValue("iban")).toBe("own-iban");
     expect(inputValue("secret")).toBe("");
+  });
+
+  test("actionForm: useNavigateWithInitialValues hands values over without touching the query string", async () => {
+    const searchParamWrites: unknown[] = [];
+    function Harness(): ReactNode {
+      const [route, setRoute] = useState<{ screenId: string }>({ screenId: "home" });
+      const nav = {
+        route,
+        navigate: (target: NavTarget) => {
+          if ("screenId" in target) setRoute({ screenId: target.screenId });
+        },
+        replace: () => undefined,
+        hrefFor: () => "/x",
+        searchParams: {},
+        setSearchParams: (u: Record<string, string | null>) => searchParamWrites.push(u),
+      };
+      return (
+        <NavProvider value={nav}>
+          {route.screenId === "payout" ? (
+            <KumikoScreen
+              schema={{ ...schema, screens: [payoutScreen] }}
+              qn="tasks:screen:payout"
+            />
+          ) : (
+            <OpenPayout />
+          )}
+        </NavProvider>
+      );
+    }
+    function OpenPayout(): ReactNode {
+      const navigateWithInitialValues = useNavigateWithInitialValues();
+      return (
+        <button
+          type="button"
+          data-testid="open-payout"
+          onClick={() =>
+            navigateWithInitialValues(
+              { screenId: "payout" },
+              { iban: "DE-from-agent", secret: "leak" },
+            )
+          }
+        />
+      );
+    }
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <Harness />
+      </DispatcherProvider>,
+    );
+    fireEvent.click(screen.getByTestId("open-payout"));
+    await waitFor(() => expect(screen.getByTestId("field-iban")).toBeTruthy());
+    expect(inputValue("iban")).toBe("DE-from-agent");
+    expect(inputValue("secret")).toBe("");
+    expect(searchParamWrites).toEqual([]);
   });
 
   test("actionForm: the same values as URL params do not prefill fields outside urlPrefillFields", async () => {
