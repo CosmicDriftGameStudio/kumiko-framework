@@ -1877,7 +1877,7 @@ function SortableHeader({
         data-testid={`column-${field}`}
         data-sortable={sortable === true ? true : undefined}
         data-highlighted={highlighted === true ? "true" : undefined}
-        className={cn("px-4 text-muted-foreground", highlighted === true && "bg-accent/40")}
+        className={cn("text-muted-foreground", highlighted === true && "bg-accent/40")}
       >
         {label}
       </TableHead>
@@ -1893,7 +1893,7 @@ function SortableHeader({
       data-sortable="true"
       data-highlighted={highlighted === true ? "true" : undefined}
       aria-sort={ariaSort}
-      className={cn("px-4 text-muted-foreground", highlighted === true && "bg-accent/40")}
+      className={cn("text-muted-foreground", highlighted === true && "bg-accent/40")}
     >
       <button
         type="button"
