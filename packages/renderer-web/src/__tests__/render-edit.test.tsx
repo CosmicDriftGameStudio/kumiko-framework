@@ -3538,6 +3538,121 @@ describe("RenderEdit fields filter", () => {
   });
 });
 
+describe("RenderEdit — slots.header", () => {
+  function HeaderExtra({ entityId }: { readonly entityId: string | null }): ReactNode {
+    return (
+      <div data-testid="header-extra" data-entity-id={entityId ?? "(create)"}>
+        header extra
+      </div>
+    );
+  }
+
+  function makeHeaderScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-edit-header",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [{ title: "Basics", columns: 1, fields: [{ field: "title" }] }],
+      },
+      slots: { header: { react: { __component: "HeaderExtra" } } },
+    };
+  }
+
+  function makeWizardHeaderScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-wizard-header",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+      slots: { header: { react: { __component: "HeaderExtra" } } },
+    };
+  }
+
+  test("header slot renders above the section content, not in the actions container", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ HeaderExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeHeaderScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const header = screen.getByTestId("header-extra");
+    const field = screen.getByTestId("field-title");
+    expect(Boolean(header.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(
+      true,
+    );
+    expect(header.getAttribute("data-entity-id")).toBe("order-1");
+    expect(
+      screen.getByTestId("render-edit-form-actions").querySelector('[data-testid="header-extra"]'),
+    ).toBeNull();
+  });
+
+  test("header slot stays visible across wizard steps", async () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ HeaderExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeWizardHeaderScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0 }}
+            writeCommand="order:create"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("header-extra")).toBeTruthy();
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("header-extra")).toBeTruthy();
+  });
+
+  test("header slot renders before a caller-supplied headerRegion", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ HeaderExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeHeaderScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+            headerRegion={<div data-testid="host-header-region">host header</div>}
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const header = screen.getByTestId("header-extra");
+    const hostRegion = screen.getByTestId("host-header-region");
+    expect(
+      Boolean(header.compareDocumentPosition(hostRegion) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
+  });
+});
+
 describe("RenderEdit — slots.footer", () => {
   function FooterExtra({
     entityId,

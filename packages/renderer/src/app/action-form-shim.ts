@@ -50,6 +50,9 @@ export function synthesizeActionFormScreen(
     layout: screen.layout,
     ...(screen.description !== undefined && { description: screen.description }),
     ...(screen.access !== undefined && { access: screen.access }),
+    // Only ActionFormScreenDefinition carries slots — SecretMintScreenDefinition
+    // has none, so `in` is the narrowing (no cast).
+    ...("slots" in screen && screen.slots !== undefined && { slots: screen.slots }),
   };
 }
 

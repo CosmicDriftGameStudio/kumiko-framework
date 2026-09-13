@@ -191,13 +191,15 @@ function ExtensionSectionMount({
   );
 }
 
-// Resolves `screen.slots.footer`'s `{ react: { __component: "X" } }` marker
-// via the same ExtensionSectionsProvider registry as ExtensionSectionMount /
-// ListHeaderSlotMount and mounts it next to the submit action. Own component
-// for rules-of-hooks (useExtensionSectionComponent must not run conditionally
-// inside RenderEdit's formActions JSX).
-function EditFooterSlotMount({
-  footer,
+// Resolves an entityEdit slot's (`screen.slots.header` / `.footer`)
+// `{ react: { __component: "X" } }` marker via the same ExtensionSectionsProvider
+// registry as ExtensionSectionMount / ListHeaderSlotMount and mounts it. One
+// component for both slots — header passes no hasUnsavedChanges/wizardStep,
+// footer does. Own component for rules-of-hooks (useExtensionSectionComponent
+// must not run conditionally inside RenderEdit's render body).
+function EditSlotMount({
+  slot,
+  slotName,
   screenId,
   entityName,
   entityId,
@@ -205,31 +207,32 @@ function EditFooterSlotMount({
   hasUnsavedChanges,
   wizardStep,
 }: {
-  readonly footer: PlatformComponent;
+  readonly slot: PlatformComponent;
+  readonly slotName: "header" | "footer";
   readonly screenId: string;
   readonly entityName: string;
   readonly entityId: string | null;
   readonly values: Readonly<Record<string, unknown>>;
-  readonly hasUnsavedChanges: boolean;
-  readonly wizardStep: { readonly index: number; readonly isLast: boolean } | undefined;
+  readonly hasUnsavedChanges?: boolean;
+  readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
 }): ReactNode {
-  const name = extensionSectionName(footer);
+  const name = extensionSectionName(slot);
   const Component = useExtensionSectionComponent(name);
   useEffect(() => {
     if (name !== undefined && Component === undefined) {
       // biome-ignore lint/suspicious/noConsole: dev warning for a setup error
       console.warn(
-        `[kumiko] Edit footer slot component "${name}" on screen "${screenId}" is not registered in clientFeatures.extensionSectionComponents — the footer slot renders nothing.`,
+        `[kumiko] Edit ${slotName} slot component "${name}" on screen "${screenId}" is not registered in clientFeatures.extensionSectionComponents — the ${slotName} slot renders nothing.`,
       );
     }
-  }, [name, Component, screenId]);
+  }, [name, Component, screenId, slotName]);
   if (Component === undefined) return null;
   return (
     <Component
       entityName={entityName}
       entityId={entityId}
       values={values}
-      hasUnsavedChanges={hasUnsavedChanges}
+      {...(hasUnsavedChanges !== undefined && { hasUnsavedChanges })}
       {...(wizardStep !== undefined && { wizardStep })}
     />
   );
@@ -1061,6 +1064,29 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
     </>
   );
+  const headerSlot = screen.slots?.header;
+  const headerSlotMount =
+    headerSlot !== undefined ? (
+      <EditSlotMount
+        slot={headerSlot}
+        slotName="header"
+        screenId={screen.id}
+        entityName={vm.entityName}
+        entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
+        values={snapshot.values}
+      />
+    ) : undefined;
+  // Slot renders above the caller's own headerRegion; without slots.header
+  // this is bit-identical to the plain headerRegion prop below.
+  const formHeaderRegion =
+    headerSlotMount !== undefined ? (
+      <>
+        {headerSlotMount}
+        {headerRegion}
+      </>
+    ) : (
+      headerRegion
+    );
   const footerSlot = screen.slots?.footer;
   // Mirrors every branch inside formActions below — without this guard
   // DefaultForm renders an empty footer strip (border + padding, no content)
@@ -1086,8 +1112,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         </Button>
       )}
       {footerSlot !== undefined && (
-        <EditFooterSlotMount
-          footer={footerSlot}
+        <EditSlotMount
+          slot={footerSlot}
+          slotName="footer"
           screenId={screen.id}
           entityName={vm.entityName}
           entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
@@ -1166,7 +1193,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         testId="render-edit-form"
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
-        {...(headerRegion !== undefined && { headerRegion })}
+        {...(formHeaderRegion !== undefined && { headerRegion: formHeaderRegion })}
         {...(fillHeight && { fillHeight })}
         {...(hideSectionTitles === true && { chromeless: true })}
       >
