@@ -139,6 +139,7 @@
     "@node-rs/argon2": "^2.0.2",
     "@types/mailparser": "^3.4.6",
     "@types/nodemailer": "^8.0.0",
+    "@types/qrcode": "^1.5.5",
     "clsx": "^2.1.1",
     "imapflow": "^1.3.3",
     "lucide-react": "^1.14.0",
@@ -162,7 +163,6 @@
   ],
   "devDependencies": {
     "@testing-library/user-event": "^14.6.1",
-    "@types/qrcode": "^1.5.5",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*"
   }
