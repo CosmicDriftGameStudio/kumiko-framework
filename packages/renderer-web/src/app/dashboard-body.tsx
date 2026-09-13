@@ -23,10 +23,9 @@
 //   progress-list → { rows: { id, label, value, fraction }[] }
 //   custom        → keine Query — eine über extensionSectionComponents
 //                   registrierte App-Komponente holt sich ihre Daten selbst.
-//   screen        → keine eigene Query — rendert einen anderen deklarativen
-//                   Screen via KumikoScreen; visibleWhen liest ein flaches
-//                   Record (live), ohne Zugriff auf den Ziel-Screen fällt die
-//                   Kachel komplett weg.
+//   screen        → no own query; embeds another declarative screen via
+//                   KumikoScreen. visibleWhen reads a flat record (live); the
+//                   tile is dropped when the user can't access the target.
 //
 // Screen-Filter (DashboardFilterDefinition): der gewählte Wert wird unter
 // `filter.id` in JEDE Panel-Query gemerged. useQuery refetcht automatisch

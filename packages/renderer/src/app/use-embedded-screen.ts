@@ -9,10 +9,7 @@ export type EmbeddedScreenTarget = {
   readonly qn: string;
 };
 
-// `screen` is a same-feature short id or a cross-feature QN, resolved like
-// actionForm `redirect`. Undefined for an unknown or inaccessible target, so
-// the host can drop the whole tile instead of showing KumikoScreen's
-// "not found"/"access denied" banner inside an otherwise working page.
+// Undefined (not KumikoScreen's access-denied banner) so the host can drop the whole tile.
 export function useEmbeddedScreen(
   hostFeatureName: string,
   screen: string,

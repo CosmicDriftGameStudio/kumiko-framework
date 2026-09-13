@@ -709,26 +709,18 @@ export type DashboardCustomPanel = {
   readonly component: PlatformComponent;
 };
 
-// Panel is shown only while `field` of the query's flat result record equals
-// `eq` (e.g. MFA enroll vs. disable depending on `user-mfa:status`). The query
-// runs live, so a write that flips the state swaps the panels without reload.
-// Hidden while loading or on error — a flicker-free default for state-gated UI.
+// Live query, so a write that flips `field` swaps panels without reload; hidden while loading.
 export type DashboardPanelVisibility = {
   readonly query: string;
   readonly field: string;
   readonly eq: string | number | boolean | null;
 };
 
-// Embeds another registered declarative screen (fw#2841) — the answer to
-// "framework screen plus own content on one page" without JSX slots.
-// `screen` is a same-feature short id or a cross-feature QN
-// (`<feature>:screen:<id>`), resolved like actionForm `redirect`. Screen types
-// that need a route id (entityEdit, projectionDetail), nest (dashboard) or are
-// opaque (custom — use a custom panel) are rejected at boot. A user without
-// access to the target screen doesn't see the panel at all.
+// Embedded redirect/cancelTarget navigate away from the dashboard — targets meant for tiles omit both.
 export type DashboardScreenPanel = {
   readonly kind: "screen";
   readonly id: string;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>`. */
   readonly screen: string;
   readonly label?: string;
   readonly visibleWhen?: DashboardPanelVisibility;

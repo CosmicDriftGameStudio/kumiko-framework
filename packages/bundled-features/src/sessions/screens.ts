@@ -95,9 +95,7 @@ export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
   access: listAccess,
 };
 
-// Self-service counterpart to the admin session-list: the caller's own live
-// sessions with revoke. The current session can't be revoked from here —
-// that would sign the user out mid-click; logout covers it.
+// Revoke is hidden on the current session — it would sign the user out mid-click; logout covers it.
 export const sessionMineScreen: ProjectionListScreenDefinition = {
   id: SESSION_MINE_SCREEN_ID,
   type: "projectionList",

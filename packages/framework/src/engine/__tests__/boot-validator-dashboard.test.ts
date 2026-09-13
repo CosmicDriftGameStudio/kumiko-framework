@@ -243,8 +243,6 @@ describe("validateBoot — dashboard screens", () => {
   });
 });
 
-// A second feature owning embeddable targets, so the screen panel is checked
-// against cross-feature resolution — the account-security case (fw#2841).
 const catalogFeature = defineFeature("catalog", (r) => {
   r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
     access: { openToAll: true },

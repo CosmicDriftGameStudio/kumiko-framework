@@ -1,11 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { authFoundationFeature } from "../auth-foundation";
 import {
   AuthMfaHandlers,
-  AuthMfaQueries,
   createAuthMfaFeature,
   MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
@@ -16,43 +15,7 @@ import { createPersonalAccessTokensFeature } from "../personal-access-tokens";
 import { createSessionsFeature, SESSION_MINE_SCREEN_ID, SessionHandlers } from "../sessions";
 import { createTenantFeature } from "../tenant";
 import { createUserFeature } from "../user/feature";
-
-// fw#2841: the page three consumer apps built as a custom screen with a lint
-// ignore must be declarable from bundled screens alone.
-const mfaStatus = { query: AuthMfaQueries.status, field: "enabled" } as const;
-
-const accountSecurityFeature = defineFeature("account-security", (r) => {
-  r.requires("sessions");
-  r.requires("auth-mfa");
-  r.screen({
-    id: "account-security",
-    type: "dashboard",
-    panels: [
-      {
-        kind: "screen",
-        id: "mfa-enable",
-        screen: `auth-mfa:screen:${MFA_ENABLE_SCREEN_ID}`,
-        visibleWhen: { ...mfaStatus, eq: false },
-      },
-      {
-        kind: "screen",
-        id: "mfa-regenerate",
-        screen: `auth-mfa:screen:${MFA_REGENERATE_RECOVERY_SCREEN_ID}`,
-        visibleWhen: { ...mfaStatus, eq: true },
-      },
-      {
-        kind: "screen",
-        id: "mfa-disable",
-        screen: `auth-mfa:screen:${MFA_DISABLE_SCREEN_ID}`,
-        visibleWhen: { ...mfaStatus, eq: true },
-      },
-      { kind: "screen", id: "sessions", screen: `sessions:screen:${SESSION_MINE_SCREEN_ID}` },
-    ],
-  });
-  r.translations({
-    keys: { "screen:account-security.title": { de: "Kontosicherheit", en: "Account security" } },
-  });
-});
+import { accountSecurityFeature, testAuthMfaOptions } from "./account-security-fixture";
 
 function bootFeatures() {
   return [
@@ -62,11 +25,7 @@ function bootFeatures() {
     authFoundationFeature,
     createPersonalAccessTokensFeature({ scopes: {} }),
     createSessionsFeature(),
-    createAuthMfaFeature({
-      setupTokenSecret: "test-setup-token-secret-do-not-use-in-prod",
-      issuer: "Kumiko Test",
-      challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
-    }),
+    createAuthMfaFeature(testAuthMfaOptions),
   ];
 }
 

@@ -530,8 +530,6 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
   });
 });
 
-// fw#2841: a dashboard composes declarative screens of other features — the
-// account-security shape (own sessions list + MFA enroll/disable by status).
 const sessionsSchema: FeatureSchema = {
   featureName: "sessions",
   entities: {},
