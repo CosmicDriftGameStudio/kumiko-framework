@@ -3,11 +3,13 @@ import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { ExtensionSectionProps, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
+  AppFeaturesProvider,
   DashboardBodyProvider,
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
   NavProvider,
+  UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -525,5 +527,155 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
     const kpiCall = calls.find((c) => c.type === "widgets:query:metrics:kpi");
     expect(kpiCall?.payload).toEqual({ tenantId: "t-2" });
+  });
+});
+
+// fw#2841: a dashboard composes declarative screens of other features — the
+// account-security shape (own sessions list + MFA enroll/disable by status).
+const sessionsSchema: FeatureSchema = {
+  featureName: "sessions",
+  entities: {},
+  screens: [
+    {
+      id: "my-sessions",
+      type: "projectionList",
+      query: "sessions:query:user-session:mine",
+      columns: [{ field: "userAgent", label: "sessions.mine.col.userAgent" }],
+      access: { openToAll: true },
+    },
+    {
+      id: "session-list",
+      type: "projectionList",
+      query: "sessions:query:user-session:list",
+      columns: [{ field: "userAgent", label: "sessions.list.col.userAgent" }],
+      access: { roles: ["SystemAdmin"] },
+    },
+  ],
+};
+
+const mfaSchema: FeatureSchema = {
+  featureName: "auth-mfa",
+  entities: {},
+  screens: [
+    {
+      id: "auth-mfa-enable",
+      type: "secretMint",
+      handler: "auth-mfa:write:enable-start",
+      fields: {},
+      layout: { sections: [] },
+      submitLabel: "mfa.enable.start",
+      reveal: { fields: [{ field: "recoveryCodes", label: "codes", display: "list" }] },
+      access: { openToAll: true },
+    },
+    {
+      id: "auth-mfa-disable",
+      type: "actionForm",
+      handler: "auth-mfa:write:disable",
+      fields: { code: { type: "text", required: true } },
+      layout: { sections: [{ fields: ["code"] }] },
+      submitLabel: "mfa.disable.submit",
+      access: { openToAll: true },
+    },
+  ],
+};
+
+const mfaStatus = { query: "auth-mfa:query:user-mfa:status", field: "enabled" } as const;
+
+const accountSecuritySchema: FeatureSchema = {
+  featureName: "account-security",
+  entities: {},
+  screens: [
+    {
+      id: "account-security",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "screen",
+          id: "mfa-enable",
+          screen: "auth-mfa:screen:auth-mfa-enable",
+          visibleWhen: { ...mfaStatus, eq: false },
+        },
+        {
+          kind: "screen",
+          id: "mfa-disable",
+          screen: "auth-mfa:screen:auth-mfa-disable",
+          visibleWhen: { ...mfaStatus, eq: true },
+        },
+        {
+          kind: "screen",
+          id: "sessions",
+          screen: "sessions:screen:my-sessions",
+          label: "account-security:panel:sessions",
+        },
+        { kind: "screen", id: "admin-sessions", screen: "sessions:screen:session-list" },
+      ],
+    },
+  ],
+};
+
+function renderAccountSecurity(mfaEnabled: boolean): void {
+  const dispatcher = createMockDispatcher({
+    query: (async (type: string) => {
+      if (type === mfaStatus.query) return { isSuccess: true, data: { enabled: mfaEnabled } };
+      if (type === "sessions:query:user-session:mine") {
+        return {
+          isSuccess: true,
+          data: { rows: [{ id: "s1", userAgent: "Firefox on Linux" }], nextCursor: null },
+        };
+      }
+      return {
+        isSuccess: true,
+        data: { rows: [{ id: "x", userAgent: "ADMIN ROW" }], nextCursor: null },
+      };
+    }) as unknown as Dispatcher["query"],
+  });
+  render(
+    <DispatcherProvider dispatcher={dispatcher}>
+      <AppFeaturesProvider features={[accountSecuritySchema, sessionsSchema, mfaSchema]}>
+        <UserRolesProvider roles={["User"]}>
+          <BrowserNav>
+            <DashboardBodyProvider value={WebDashboardBody}>
+              <KumikoScreen
+                schema={accountSecuritySchema}
+                qn="account-security:screen:account-security"
+              />
+            </DashboardBodyProvider>
+          </BrowserNav>
+        </UserRolesProvider>
+      </AppFeaturesProvider>
+    </DispatcherProvider>,
+  );
+}
+
+describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  test("bettet einen Cross-Feature-projectionList-Screen samt Label ein", async () => {
+    renderAccountSecurity(false);
+    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-panel-sessions")).toBeTruthy();
+    expect(screen.getByText("account-security:panel:sessions")).toBeTruthy();
+  });
+
+  test("visibleWhen zeigt nur das Panel, das zum Query-Wert passt", async () => {
+    renderAccountSecurity(false);
+    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-enable")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-panel-mfa-disable")).toBeNull();
+  });
+
+  test("visibleWhen mit umgekehrtem Status blendet das jeweils andere Panel ein", async () => {
+    renderAccountSecurity(true);
+    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-disable")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-panel-mfa-enable")).toBeNull();
+  });
+
+  test("ohne Zugriff auf den Ziel-Screen fällt die Kachel komplett weg (kein Access-Banner)", async () => {
+    renderAccountSecurity(false);
+    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-panel-admin-sessions")).toBeNull();
+    expect(screen.queryByText("ADMIN ROW")).toBeNull();
+    expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
   });
 });

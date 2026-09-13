@@ -209,7 +209,13 @@ export function KumikoScreen({
         />
       );
     case "dashboard":
-      return <DashboardScreenBody screen={screen} translate={translate} />;
+      return (
+        <DashboardScreenBody
+          featureName={schema.featureName}
+          screen={screen}
+          translate={translate}
+        />
+      );
     case "actionForm":
       return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
     case "secretMint":
@@ -227,9 +233,11 @@ export function KumikoScreen({
 // Charts) ist plattform-spezifisch und kommt aus dem DashboardBody-Context
 // (renderer-web registriert die Web-Variante in createKumikoApp).
 function DashboardScreenBody({
+  featureName,
   screen,
   translate,
 }: {
+  readonly featureName: string;
   readonly screen: DashboardScreenDefinition;
   readonly translate?: Translate;
 }): ReactNode {
@@ -243,7 +251,13 @@ function DashboardScreenBody({
       </Banner>
     );
   }
-  return <Body screen={screen} {...(translate !== undefined && { translate })} />;
+  return (
+    <Body
+      featureName={featureName}
+      screen={screen}
+      {...(translate !== undefined && { translate })}
+    />
+  );
 }
 
 // Lookup-Body für custom-screens: schaut die Component aus dem

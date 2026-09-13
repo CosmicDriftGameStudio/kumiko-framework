@@ -22,6 +22,16 @@ export const AUTH_MFA_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = 
   "mfa.enable.confirm.submit": { en: "Enable" },
   "mfa.enable.confirm.done": { en: "Two-factor authentication is now enabled." },
 
+  "screen:auth-mfa-disable.title": { en: "Disable two-factor authentication" },
+  "mfa.disable.submit": { en: "Disable" },
+
+  "screen:auth-mfa-regenerate-recovery.title": { en: "Generate new recovery codes" },
+  "mfa.regenerate.submit": { en: "Generate new codes" },
+  "mfa.regenerate.reveal.title": { en: "Your new recovery codes" },
+  "mfa.regenerate.reveal.warning": {
+    en: "Save these codes now — they are shown only this once, and your previous codes no longer work.",
+  },
+
   // Field label for the confirm step's pseudo-entity (`__action-form__`, see
   // action-form-shim.ts) — required by the i18n boot-validator
   // (requiredKeysFromScreen); the declarative renderer resolves this through

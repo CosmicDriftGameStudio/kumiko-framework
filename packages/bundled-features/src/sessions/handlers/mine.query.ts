@@ -1,18 +1,33 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { userSessionTable } from "../schema/user-session";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
 // ONLY the current user's own, currently-live sessions, ordered by most-
-// recently-used first. Revoked rows excluded (revokedAt IS NULL).
-export const mineQuery = defineQueryHandler({
+// recently-used first. Revoked rows excluded (revokedAt IS NULL). Paged
+// envelope so the self-service projectionList screen can bind to it; a user's
+// live-session count is small, so there is a single page (nextCursor null).
+export const mineQuery = definePagedQueryHandler({
   name: "user-session:mine",
   schema: z.object({}),
   access: { openToAll: true },
   description:
     "Lists the calling user's own still-live sessions, newest first, each flagged whether it is the one making the request; use it to show a user their signed-in devices.",
+  outputSchema: z.object({
+    rows: z.array(
+      z.object({
+        id: z.string(),
+        createdAt: z.unknown(),
+        expiresAt: z.unknown(),
+        ip: z.string().nullable(),
+        userAgent: z.string().nullable(),
+        current: z.boolean(),
+      }),
+    ),
+    nextCursor: z.string().nullable(),
+  }),
   handler: async (query, ctx) => {
     const rows = await selectMany<{
       id: string;
@@ -29,7 +44,7 @@ export const mineQuery = defineQueryHandler({
       },
     );
     const currentSid = query.user.sid;
-    return Promise.all(
+    const decryptedRows = await Promise.all(
       rows.map(async (r) => ({
         id: r.id,
         createdAt: r.createdAt,
@@ -41,5 +56,6 @@ export const mineQuery = defineQueryHandler({
         current: currentSid === r.id,
       })),
     );
+    return { rows: decryptedRows, nextCursor: null };
   },
 });

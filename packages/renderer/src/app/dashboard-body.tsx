@@ -8,6 +8,7 @@ import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
 
 export type DashboardBodyProps = {
+  readonly featureName: string;
   readonly screen: DashboardScreenDefinition;
   readonly translate?: Translate;
 };

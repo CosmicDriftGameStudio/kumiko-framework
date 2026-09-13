@@ -4,7 +4,9 @@ export {
   AUTH_MFA_FEATURE,
   AuthMfaHandlers,
   AuthMfaQueries,
+  MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
+  MFA_REGENERATE_RECOVERY_SCREEN_ID,
 } from "./constants";
 export type {
   AuthMfaFeatureOptions,

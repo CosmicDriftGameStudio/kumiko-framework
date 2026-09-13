@@ -54,3 +54,4 @@ export const LAST_SEEN_REFRESH_MS = 3_600_000;
 
 export const SESSION_LIST_SCREEN_ID = "session-list" as const;
 export const SESSION_DETAIL_SCREEN_ID = "session-detail" as const;
+export const SESSION_MINE_SCREEN_ID = "my-sessions" as const;

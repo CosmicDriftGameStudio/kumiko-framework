@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requiredKeysFromScreen } from "../../i18n/required-surface-keys";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
-import type { DashboardScreenDefinition } from "../types/screen";
+import type { DashboardScreenDefinition, DashboardScreenPanel } from "../types/screen";
 
 const STAT_PANEL = {
   kind: "stat",
@@ -240,5 +240,144 @@ describe("validateBoot — dashboard screens", () => {
     expect(keys).toContain("demo:dashboard:filter:region");
     expect(keys).toContain("demo:dashboard:col:name");
     expect(keys).not.toContain("custom-panel");
+  });
+});
+
+// A second feature owning embeddable targets, so the screen panel is checked
+// against cross-feature resolution — the account-security case (fw#2841).
+const catalogFeature = defineFeature("catalog", (r) => {
+  r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+    access: { openToAll: true },
+  });
+  r.queryHandler("items:status", z.object({}), async () => ({ enabled: true }), {
+    access: { openToAll: true },
+  });
+  r.screen({
+    id: "items",
+    type: "projectionList",
+    query: "catalog:query:items:list",
+    columns: ["name"],
+  });
+  r.screen({
+    id: "items-overview",
+    type: "dashboard",
+    panels: [STAT_PANEL],
+  });
+  r.translations({
+    keys: {
+      "screen:items.title": { de: "Artikel", en: "Items" },
+      "screen:items-overview.title": { de: "Übersicht", en: "Overview" },
+      "demo:dashboard:panel:open-incidents": { de: "Offene Vorfälle", en: "Open incidents" },
+    },
+  });
+});
+
+function screenPanelFeature(panel: DashboardScreenPanel) {
+  return dashboardFeature([STAT_PANEL, panel]);
+}
+
+describe("validateBoot — dashboard screen panels (fw#2841)", () => {
+  test("accepts a cross-feature projectionList target with a registered visibleWhen query", () => {
+    const feature = screenPanelFeature({
+      kind: "screen",
+      id: "items",
+      screen: "catalog:screen:items",
+      label: "demo:dashboard:panel:latest",
+      visibleWhen: { query: "catalog:query:items:status", field: "enabled", eq: true },
+    });
+    expect(() => validateBoot([feature, catalogFeature])).not.toThrow();
+  });
+
+  test("accepts a same-feature short id", () => {
+    const feature = defineFeature("demo", (r) => {
+      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: true },
+      });
+      r.screen({
+        id: "items",
+        type: "projectionList",
+        query: "demo:query:items:list",
+        columns: ["name"],
+      });
+      r.screen({
+        id: "overview",
+        type: "dashboard",
+        panels: [{ kind: "screen", id: "items", screen: "items" }],
+      });
+      r.translations({
+        keys: {
+          "screen:items.title": { de: "Artikel", en: "Items" },
+          "screen:overview.title": { de: "Übersicht", en: "Overview" },
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("rejects a target that resolves to no registered screen", () => {
+    const feature = screenPanelFeature({
+      kind: "screen",
+      id: "items",
+      screen: "catalog:screen:ghost",
+    });
+    expect(() => validateBoot([feature, catalogFeature])).toThrow(
+      /screen-panel "items" screen "catalog:screen:ghost" does not resolve/,
+    );
+  });
+
+  test("rejects a short id that only exists in another feature", () => {
+    const feature = screenPanelFeature({ kind: "screen", id: "items", screen: "items" });
+    expect(() => validateBoot([feature, catalogFeature])).toThrow(/checked "demo:screen:items"/);
+  });
+
+  test("rejects embedding a dashboard (no nesting)", () => {
+    const feature = screenPanelFeature({
+      kind: "screen",
+      id: "nested",
+      screen: "catalog:screen:items-overview",
+    });
+    expect(() => validateBoot([feature, catalogFeature])).toThrow(
+      /of type "dashboard", which can't be embedded/,
+    );
+  });
+
+  test("rejects a visibleWhen query that is not registered", () => {
+    const feature = screenPanelFeature({
+      kind: "screen",
+      id: "items",
+      screen: "catalog:screen:items",
+      visibleWhen: { query: "catalog:query:items:ghost", field: "enabled", eq: true },
+    });
+    expect(() => validateBoot([feature, catalogFeature])).toThrow(
+      /screen-panel "items" visibleWhen query "catalog:query:items:ghost" is not a registered query-handler/,
+    );
+  });
+
+  test("rejects a visibleWhen with an empty field", () => {
+    const feature = screenPanelFeature({
+      kind: "screen",
+      id: "items",
+      screen: "catalog:screen:items",
+      visibleWhen: { query: "catalog:query:items:status", field: "", eq: true },
+    });
+    expect(() => validateBoot([feature, catalogFeature])).toThrow(
+      /visibleWhen needs a non-empty query and field/,
+    );
+  });
+
+  test("requiredKeysFromScreen sammelt ein gesetztes Screen-Panel-Label", () => {
+    const screen: DashboardScreenDefinition = {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "screen",
+          id: "items",
+          screen: "catalog:screen:items",
+          label: "demo:dashboard:panel:latest",
+        },
+      ],
+    };
+    expect(requiredKeysFromScreen("demo", screen)).toContain("demo:dashboard:panel:latest");
   });
 });

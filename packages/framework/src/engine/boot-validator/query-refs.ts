@@ -56,6 +56,17 @@ function checkDashboardQueryRefs(
 ): void {
   for (const panel of screen.panels) {
     if (panel.kind === "custom") continue;
+    if (panel.kind === "screen") {
+      if (panel.visibleWhen !== undefined) {
+        checkQueryRef(
+          queryHandlers,
+          panel.visibleWhen.query,
+          () =>
+            `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}" visibleWhen`,
+        );
+      }
+      continue;
+    }
     if (panel.kind === "stat-group") {
       for (const stat of panel.stats) {
         checkQueryRef(

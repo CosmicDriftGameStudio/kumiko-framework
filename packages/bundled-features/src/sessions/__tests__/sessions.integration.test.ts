@@ -300,9 +300,10 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     });
     expect(listRes.status).toBe(200);
     const body = (await listRes.json()) as {
-      data: Array<{ id: string; current: boolean }>;
+      data: { rows: Array<{ id: string; current: boolean }>; nextCursor: string | null };
     };
-    const ids = body.data.map((r) => r.id);
+    expect(body.data.nextCursor).toBeNull();
+    const ids = body.data.rows.map((r) => r.id);
     // Order: most-recently-created first. c was the last login, so it
     // should lead; a (the first login) trails. Pinning the order stops a
     // silent orderBy removal from slipping through.
@@ -310,7 +311,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(ids).not.toContain(_b.sid);
 
     // The caller's OWN sid is flagged as current
-    const currentRow = body.data.find((r) => r.current);
+    const currentRow = body.data.rows.find((r) => r.current);
     expect(currentRow?.id).toBe(c.sid);
   });
 
@@ -959,9 +960,9 @@ describe("sessions with active KMS (#820): ip/userAgent are userOwned PII", () =
       });
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
-        data: Array<{ id: string; ip: string | null; userAgent: string | null }>;
+        data: { rows: Array<{ id: string; ip: string | null; userAgent: string | null }> };
       };
-      const manual = body.data.find((s) => s.id === sid);
+      const manual = body.data.rows.find((s) => s.id === sid);
       expect(manual?.ip).toBe("203.0.113.7");
       expect(manual?.userAgent).toBe("TestBrowser/1.0");
     } finally {
