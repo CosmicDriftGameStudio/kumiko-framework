@@ -1,5 +1,79 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.258.0
+
+### Minor Changes
+
+- f2e57b4: fw#2548: new `secretMint` screen type for "mint → one-time reveal → confirm" flows — an API token, recovery codes, or any other secret that a write-handler hands back only once in its success payload. `actionForm` can't express this: it discards the success payload after extracting the navigation id, and no query can ever redisplay a secret that was never stored in the clear. `secretMint` renders the same field/section form as `actionForm`, then swaps to a one-time reveal card built from `reveal.fields` — a whitelist of success-payload fields, never the payload as a whole — with an explicit confirm before navigating on. The revealed values live only in the form component's own state, never in the URL, a query cache, or nav. `TextFieldDef` grows a `format: "password"` render hint (masked input, no storage semantics) — such a field is also excluded from a wizard's persisted draft blob, so it is never written to the server in the clear or restored on resume — and the renderer ships a new `SecretReveal` primitive for the reveal card (falls back to `Grid`/`GridCell` when a platform hasn't registered one).
+
+  `personal-access-tokens` is migrated onto it end to end: the former dormant `type: "custom"` screen (a hand-written client component) is now two declarative screens — a `projectionList` for "your tokens" (with a `revoke` row action) and the new `secretMint` for minting one, wired through `patGrantOptions`/`patScopeOptionTranslations`. No app needs a client plugin for this feature anymore.
+
+  **BREAKING**
+
+  1. `personal-access-tokens:query:mine` now returns the paged envelope `{ rows, nextCursor }` instead of a blank array. Migration: callers read `response.rows`. The handler also newly accepts `limit`/`sort`/`sortDirection` and each row carries a computed `status` (`"active" | "revoked" | "expired"`).
+
+  2. The subpath export `@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web` is gone (`personalAccessTokensClient()`, `PatTokensScreen`, `defaultTranslations`). The PAT screens are declarative now and need no client plugin. Migration: remove the `personalAccessTokensClient()` entry from `createKumikoApp({ clientFeatures: [...] })`; an app that embedded `<PatTokensScreen embedded />` directly should navigate to the feature's `api-tokens` screen instead.
+
+- c1b53a3: fw#2766: join-row entities declare their carrier once, and both paths gate on it. `EntityDefinition.parentRef` (`{ entityTypeField, entityIdField, allowedTypes? }`) says "rows of this entity hang off a host row named by these two fields". The write handlers and the read path now derive one visibility rule from that single declaration instead of mechanising it twice: a caller may see or touch a join row only if the host row is visible through the host entity's own read path (tenant scope, soft-delete, `access.read` ownership). `note-entry`, `tag-assignment` and `folder-assignment` declare it; the `tag` catalog stays tenant-wide by design.
+
+  The read gate is an `EXISTS` sub-select spliced into the `WHERE` clause, not a post-filter over the fetched page — so it runs before `LIMIT`/`OFFSET` and `rows`, `nextCursor` and `total` all stay honest, including on the `tag-assignment` scatter query that filters on `tagId` across many different host types. One query per page, no N+1. Filtering on the entityType field (`eq` or `in`) narrows the gate to those hosts, which is why the bundled tag widgets now send `entityType` server-side instead of discarding foreign rows after the fetch.
+
+  **BREAKING**
+
+  1. `note-entry:list`, `tag-assignment:list` and `folder-assignment:list` are fail-closed by default. A caller who cannot see the host row no longer receives the join row — previously the only lever was `createNotesHistoryFeature({ ownership })` / `createTagsFeature({ ownership })`, and `folders` had no lever at all. Mounts that relied on tenant-wide reads of these lists will see fewer rows.
+
+  2. Rows whose `entityType` names no registered entity disappear from those lists (default-deny, matching what the write path has rejected since #2721/#2745). Audit before upgrading:
+
+     ```sql
+     SELECT entity_type, count(*) FROM read_tag_assignments GROUP BY 1;
+     SELECT entity_type, count(*) FROM read_note_entries GROUP BY 1;
+     SELECT entity_type, count(*) FROM read_folder_assignments GROUP BY 1;
+     ```
+
+     Any `entity_type` in the result that is not a registered entity name becomes invisible.
+
+  3. Join rows on a soft-deleted host are no longer listed. This mirrors the write path, which has always resolved the host through `executor.detail` (soft-deletes filtered). `includeDeleted: true` lifts it for trash views.
+
+  4. A hand-written `<entity>:list` / `<entity>:detail` query handler on a `parentRef` entity now fails boot validation until it either uses `defineEntityListHandler` / `defineEntityDetailHandler` or passes `parentVisibility` to the executor itself. The gate needs the registry, which only exists at request time; enforcing this at boot keeps the raw executor usable for framework-internal cascade and GDPR paths without turning a missed wiring into a silent leak. A query handler under a _different_ name that calls `executor.list` on a `parentRef` entity is not detectable this way and stays ungated — pass `parentVisibility` there yourself.
+
+  5. Listing a join-row entity now reads the host tables it might match against, so every registered entity that is an admissible host must actually have its table. Migrations provision all of them, so a migrated deployment is fine; hand-rolled test stacks that create only some tables will need the rest. Narrow the set with `parents` (`allowedTypes`) — it is also the lever that keeps the generated SQL and its query plan small.
+
+  Also fixed: the `totalCount` fast path on the search path returned `filterIds.length` even when the `WHERE` had been narrowed further by ownership, field-read rules, screen filters or soft-delete, so `total` could overcount. It now only applies when the search-id clause is the whole `WHERE`.
+
+  `ownership` keeps a distinct job and is no longer the mechanism for host visibility: `ownership.read` is an _additional_ row rule on the join row itself (for example author-only notes) and is AND-ed with the host gate. `ownership.write` is unchanged. New: `createFoldersFeature({ ownership, parents })` — folders had neither — and `createTagsFeature({ parents })`. `createNotesHistoryFeature({ parents })` now narrows the read path too, not just `add-note`.
+
+- 27166cb: fw#2838: `auth-mfa`'s TOTP enrollment is declarative — the last `type: "custom"` screen in the bundled features, and with it the second `app-feature-structure` lint-ignore, is gone. The enable flow is now one `secretMint` screen: mint (no input) → one-time reveal of the QR code, the manual base32 secret and the eight recovery codes → a confirm step that arms MFA with a code from the authenticator app. The recovery codes still exist only in `enable-start`'s success payload, are never persisted in the clear and no query re-serves them; the short-lived `setupToken` is threaded from the mint payload into the confirm payload through component state alone — it is deliberately not part of `reveal.fields`, so it never reaches the screen, the URL, a query cache or a persisted draft.
+
+  Three generic additions to the `secretMint` screen type carry it (none of them auth-mfa-specific, no feature flags):
+
+  1. `SecretMintConfirmStep` (`screen.confirm`) — a proof-of-receipt form rendered on the reveal card in place of the bare acknowledge button, for a mint whose effect is only armed once the user proves they received the secret. `carry` names mint success-payload fields that are merged into the confirm payload at submit time; they live in component state only and are never rendered or written into form values. The boot-validator rejects a confirm step with no fields, a `wizard`/`tabs` layout, `draft: true` (a persisted draft of a reveal-phase form is the exact leak fw#2548 closed) and a `carry` entry that collides with a confirm field name.
+  2. `SecretRevealField.display: "qr"` — renders the value as a scannable QR code. `renderer-web`'s `SecretReveal` primitive ships the implementation (new `qrcode` dependency); platforms without a QR-capable primitive fall back to the monospaced text.
+  3. A `secretMint` may declare `fields: {}` with `layout: { sections: [] }` when the mint takes no user input at all — the secret is server-generated and the mint step is just its submit button. `actionForm` still requires at least one field.
+
+  A `secretMint` without a `redirect` now shows a done banner (`kumiko.secretMint.done`, or `confirm.doneMessage`) after the reveal is confirmed, instead of falling back to the mint form where a stray click would mint the secret again.
+
+  `auth-mfa:write:enable-start` takes `accountLabel` as optional now and derives it from the caller's own email when omitted (there is no client component left that could pass the session email); its success payload additionally carries `totpSecret`, the base32 secret the otpauth URI already embeds, for the reveal's manual-entry display. Both are backward compatible. `auth-mfa:query:user-mfa:status` backs no declarative list and keeps its plain `{ enabled }` shape — no paged-envelope migration like `personal-access-tokens:query:mine` needed.
+
+  **BREAKING**
+
+  `@cosmicdrift/kumiko-bundled-features/auth-mfa/web` no longer exports `MfaEnableScreen` / `MfaEnableScreenProps`, and `authMfaClient()` no longer maps a component onto the `auth-mfa-enable` screen id. The subpath itself stays — the login-time `MfaVerifyScreen`, `MfaDisableDialog`, `MfaRegenerateRecoveryDialog` and `MfaSetupPreauthScreen` are unchanged, and `authMfaClient()` is still required for their translations. Migration: an app that embedded `<MfaEnableScreen embedded />` navigates to the `auth-mfa-enable` screen instead; the `onEnabled` callback has no successor — the screen ends on its own done banner, and a host screen that gated on it should re-read `auth-mfa:query:user-mfa:status` when the user navigates back. The `auth.mfa.enable.*` translation keys that only the deleted component used are gone from the client bundle's defaults; overrides for them can be dropped.
+
+### Patch Changes
+
+- Updated dependencies [021e706]
+- Updated dependencies [f2e57b4]
+- Updated dependencies [db2f2ed]
+- Updated dependencies [c1b53a3]
+- Updated dependencies [27166cb]
+- Updated dependencies [021e706]
+- Updated dependencies [021e706]
+  - @cosmicdrift/kumiko-renderer-web@0.258.0
+  - @cosmicdrift/kumiko-types@0.258.0
+  - @cosmicdrift/kumiko-framework@0.258.0
+  - @cosmicdrift/kumiko-renderer@0.258.0
+  - @cosmicdrift/kumiko-headless@0.258.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.258.0
+
 ## 0.257.0
 
 ### Minor Changes
