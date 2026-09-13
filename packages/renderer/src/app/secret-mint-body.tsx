@@ -64,12 +64,12 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
   const initial = useMemo(
     () =>
-      mergeSearchParamsIntoInitial(
-        screen.fields,
-        nav.searchParams,
-        layoutFieldNames(synthScreen),
-      ) as FormValues,
-    [screen.fields, nav.searchParams, synthScreen],
+      mergeSearchParamsIntoInitial(screen.fields, {
+        searchParams: nav.searchParams,
+        urlPrefillFields: screen.urlPrefillFields,
+        renderableFields: layoutFieldNames(synthScreen),
+      }) as FormValues,
+    [screen.fields, screen.urlPrefillFields, nav.searchParams, synthScreen],
   );
   const [revealed, setRevealed] = useState<Readonly<Record<string, unknown>> | null>(null);
   const [done, setDone] = useState(false);

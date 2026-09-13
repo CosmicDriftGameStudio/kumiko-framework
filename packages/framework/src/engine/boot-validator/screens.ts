@@ -100,6 +100,23 @@ function validateNoWidgetRequiredField(
   );
 }
 
+export function rowFieldExtractorKeys(params: RowFieldExtractor): readonly string[] {
+  return "pick" in params ? params.pick : Object.keys(params.map);
+}
+
+// Mirrors the renderer's navigate: an explicit entityId, or a same-entity
+// entityEdit target (row["id"] auto-fill), opens UPDATE mode, which ignores params.
+export function readsNavigateParamsAsFormPrefill(
+  target: ScreenDefinition,
+  explicitEntityId: string | undefined,
+  sourceScreenEntity: string | undefined,
+): boolean {
+  if (target.type === "actionForm" || target.type === "secretMint") return true;
+  if (target.type !== "entityEdit") return false;
+  if (explicitEntityId !== undefined) return false;
+  return sourceScreenEntity === undefined || target.entity !== sourceScreenEntity;
+}
+
 // Tier 2.7e navigate rowAction → target-screen params validity. Shared by
 // entityList and projectionList (framework#1708) — projectionList has no
 // `screen.entity`, so there's no same-entity row["id"] auto-fill case: any
@@ -141,8 +158,7 @@ function validateRowActionNavigateParams(
           `target dashboard so it has somewhere to read the value from.`,
       );
     }
-    const extractedKeys =
-      "pick" in action.params ? action.params.pick : Object.keys(action.params.map);
+    const extractedKeys = rowFieldExtractorKeys(action.params);
     if (!extractedKeys.includes(filter.id)) {
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}" sets ` +
@@ -155,16 +171,8 @@ function validateRowActionNavigateParams(
     return;
   }
 
-  const isEntityEditUpdate =
-    target.screen.type === "entityEdit" &&
-    (action.entityId !== undefined ||
-      (screenEntity !== undefined && target.screen.entity === screenEntity));
-  if (
-    (target.screen.type !== "actionForm" &&
-      target.screen.type !== "secretMint" &&
-      target.screen.type !== "entityEdit") ||
-    isEntityEditUpdate
-  ) {
+  if (!readsNavigateParamsAsFormPrefill(target.screen, action.entityId, screenEntity)) {
+    const isEntityEditUpdate = target.screen.type === "entityEdit";
     const reason = isEntityEditUpdate
       ? `resolves to UPDATE mode (${
           action.entityId !== undefined
@@ -416,9 +424,7 @@ function validateDrawerTargetAction(
   // the typo would only show up as an empty field at click time.
   // skip: no params extractor — nothing to check against the target's fields.
   if (action.params === undefined) return;
-  const prefilledFields =
-    "pick" in action.params ? action.params.pick : Object.keys(action.params.map);
-  for (const fieldName of prefilledFields) {
+  for (const fieldName of rowFieldExtractorKeys(action.params)) {
     if (Object.hasOwn(target.fields, fieldName)) continue;
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +

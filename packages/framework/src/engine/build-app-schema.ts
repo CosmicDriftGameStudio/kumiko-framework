@@ -36,11 +36,13 @@ import type {
   ScreenDefinition,
   WorkspaceSchema,
 } from "../ui-types";
+import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema";
+import { qualifyEntityName } from "./qualified-name";
 import type { Registry } from "./types/feature";
 import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields";
 
@@ -57,6 +59,9 @@ export type BuildAppSchemaOptions = {
 
 export function buildAppSchema(registry: Registry, options: BuildAppSchemaOptions = {}): AppSchema {
   const features: FeatureSchema[] = [];
+  const urlPrefillFieldsByScreenQn = collectUrlPrefillFieldsByScreenQn([
+    ...registry.features.values(),
+  ]);
   for (const [featureName, feature] of registry.features) {
     const navs = Object.values(feature.navs);
     // The nav entry alone doesn't say which kind a collection lists, so the
@@ -71,7 +76,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),
-      screens: projectScreens(feature.screens, registry),
+      screens: projectScreens(featureName, feature.screens, registry, urlPrefillFieldsByScreenQn),
       ...(navs.length > 0 && { navs }),
       ...(contentCollections.length > 0 && { contentCollections }),
       // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
@@ -308,12 +313,25 @@ export function findNonJsonSafePath(value: unknown, path: string): string | null
 // default (screen.searchable ?? derived); the boot-validator (3a) rejects
 // one that contradicts the schema.
 function projectScreens(
+  featureName: string,
   screens: Readonly<Record<string, ScreenDefinition>>,
   registry: Registry,
+  urlPrefillFieldsByScreenQn: ReadonlyMap<string, ReadonlySet<string>>,
 ): ScreenDefinition[] {
-  return Object.values(screens).map((screen) =>
-    screen.type === "projectionList" ? projectProjectionListScreen(screen, registry) : screen,
-  );
+  return Object.entries(screens).map(([shortId, screen]) => {
+    if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
+    if (
+      screen.type === "actionForm" ||
+      screen.type === "secretMint" ||
+      screen.type === "entityEdit"
+    ) {
+      const declared = urlPrefillFieldsByScreenQn.get(
+        qualifyEntityName(featureName, "screen", shortId),
+      );
+      return { ...screen, urlPrefillFields: declared === undefined ? [] : [...declared].sort() };
+    }
+    return screen;
+  });
 }
 
 function projectProjectionListScreen(

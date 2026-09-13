@@ -19,7 +19,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives";
 import type { FeatureSchema } from "../feature-schema";
 import { KumikoScreen } from "../kumiko-screen";
-import { NavProvider } from "../nav";
+import { type NavApi, NavProvider } from "../nav";
 
 const captured: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {
@@ -65,18 +65,29 @@ function stubDispatcher(): Dispatcher {
   };
 }
 
-function buildSchema(): FeatureSchema {
+function buildSchema(urlPrefillFields: readonly string[] | undefined): FeatureSchema {
   const entity: EntityDefinition = {
     fields: {
       name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
       floorCount: { type: "number", required: false, sortable: false },
+      ownerEmail: { type: "text", maxLength: 200, required: false, searchable: false },
+      accessCode: {
+        type: "text",
+        maxLength: 200,
+        required: false,
+        searchable: false,
+        sensitive: true,
+      },
     },
   };
   const screen: EntityEditScreenDefinition = {
     id: "unit-edit",
     type: "entityEdit",
     entity: "unit",
-    layout: { sections: [{ columns: 1, fields: ["name", "floorCount"] }] },
+    layout: {
+      sections: [{ columns: 1, fields: ["name", "floorCount", "ownerEmail", "accessCode"] }],
+    },
+    ...(urlPrefillFields !== undefined && { urlPrefillFields }),
   };
   return {
     featureName: "housing",
@@ -85,29 +96,41 @@ function buildSchema(): FeatureSchema {
   } as FeatureSchema;
 }
 
+function staticNav(searchParams: Record<string, string>): NavApi {
+  return {
+    route: { screenId: "housing:unit-edit" },
+    navigate: () => {},
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams,
+    setSearchParams: () => {},
+  };
+}
+
+function renderWithNav(nav: NavApi, schema: FeatureSchema): void {
+  render(
+    <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
+      <DispatcherProvider dispatcher={stubDispatcher()}>
+        <NavProvider value={nav}>
+          <PrimitivesProvider value={testPrimitives}>
+            <KumikoScreen schema={schema} qn="housing:screen:unit-edit" />
+          </PrimitivesProvider>
+        </NavProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
+  );
+}
+
+function resetCaptured(): void {
+  for (const key of Object.keys(captured)) delete captured[key];
+}
+
 describe("EntityEditCreateBody — navigate params as initial values (#1680)", () => {
   test("URL searchParams from rowAction navigate prefill the create form", () => {
-    delete captured["name"];
-    delete captured["floorCount"];
-    render(
-      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
-        <DispatcherProvider dispatcher={stubDispatcher()}>
-          <NavProvider
-            value={{
-              route: { screenId: "housing:unit-edit" },
-              navigate: () => {},
-              replace: () => {},
-              hrefFor: () => "",
-              searchParams: { name: "Erdgeschoss", floorCount: "3" },
-              setSearchParams: () => {},
-            }}
-          >
-            <PrimitivesProvider value={testPrimitives}>
-              <KumikoScreen schema={buildSchema()} qn="housing:screen:unit-edit" />
-            </PrimitivesProvider>
-          </NavProvider>
-        </DispatcherProvider>
-      </LocaleProvider>,
+    resetCaptured();
+    renderWithNav(
+      staticNav({ name: "Erdgeschoss", floorCount: "3" }),
+      buildSchema(["name", "floorCount"]),
     );
 
     expect(captured["name"]?.value).toBe("Erdgeschoss");
@@ -115,28 +138,34 @@ describe("EntityEditCreateBody — navigate params as initial values (#1680)", (
   });
 
   test("without a matching searchParam the field keeps its default (empty)", () => {
-    delete captured["name"];
-    render(
-      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
-        <DispatcherProvider dispatcher={stubDispatcher()}>
-          <NavProvider
-            value={{
-              route: { screenId: "housing:unit-edit" },
-              navigate: () => {},
-              replace: () => {},
-              hrefFor: () => "",
-              searchParams: {},
-              setSearchParams: () => {},
-            }}
-          >
-            <PrimitivesProvider value={testPrimitives}>
-              <KumikoScreen schema={buildSchema()} qn="housing:screen:unit-edit" />
-            </PrimitivesProvider>
-          </NavProvider>
-        </DispatcherProvider>
-      </LocaleProvider>,
-    );
+    resetCaptured();
+    renderWithNav(staticNav({}), buildSchema(["name"]));
 
     expect(captured["name"]?.value).toBe("");
+  });
+
+  test("a crafted link cannot prefill a field outside urlPrefillFields", () => {
+    resetCaptured();
+    renderWithNav(
+      staticNav({ name: "Erdgeschoss", ownerEmail: "attacker@example.com" }),
+      buildSchema(["name"]),
+    );
+
+    expect(captured["name"]?.value).toBe("Erdgeschoss");
+    expect(captured["ownerEmail"]?.value).toBe("");
+  });
+
+  test("a screen without urlPrefillFields takes nothing from the URL", () => {
+    resetCaptured();
+    renderWithNav(staticNav({ name: "Erdgeschoss" }), buildSchema(undefined));
+
+    expect(captured["name"]?.value).toBe("");
+  });
+
+  test("a sensitive field stays empty even when urlPrefillFields names it", () => {
+    resetCaptured();
+    renderWithNav(staticNav({ accessCode: "1234" }), buildSchema(["accessCode"]));
+
+    expect(captured["accessCode"]?.value).toBe("");
   });
 });
