@@ -79,6 +79,31 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     expect(screen.getByTestId("kumiko-screen-projection-detail-status").textContent).toBe("active");
   });
 
+  test("status sits in the title row; the subtitle sits in its own row below", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", subtitle: "address", status: "state" },
+    };
+    const dispatcher = dispatcherReturning(rowData);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const title = screen.getByTestId("kumiko-screen-projection-detail-title");
+    const status = screen.getByTestId("kumiko-screen-projection-detail-status");
+    const subtitle = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+    expect(status.parentElement).toBe(title.parentElement);
+    expect(subtitle.parentElement).not.toBe(title.parentElement);
+  });
+
   test("renders the metrics band with fieldLabels-translated labels and query-row values", async () => {
     const metricsScreen: ProjectionDetailScreenDefinition = {
       ...baseScreen,

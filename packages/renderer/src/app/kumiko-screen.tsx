@@ -73,6 +73,7 @@ import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projec
 import { lastSegment, toKebab } from "./qn";
 import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
 import {
+  buildDefaultEditRowAction,
   buildProjectionRowActions,
   evalRowExtractor,
   isWriteHandlerRowAction,
@@ -81,7 +82,7 @@ import {
   runProjectionRowNavigate,
   stringifyNavParams,
 } from "./row-actions";
-import { screenAccessAllows } from "./screen-access";
+import { findEditScreenFor, screenAccessAllows } from "./screen-access";
 import { SecretMintBody } from "./secret-mint-body";
 import { SecretsEditBody } from "./secrets-edit-body";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
@@ -1449,8 +1450,13 @@ function EntityListBody({
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
   const userRoles = useUserRoles();
+  const appFeatures = useAppFeatures();
   const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
     useDrawerAction(schema);
+  const defaultEditScreen = useMemo(
+    () => findEditScreenFor(screen.entity, appFeatures, userRoles),
+    [appFeatures, screen.entity, userRoles],
+  );
 
   // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
   // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
@@ -1672,8 +1678,16 @@ function EntityListBody({
   );
 
   const rowActions = useMemo(() => {
-    if (screen.rowActions === undefined) return undefined;
-    return screen.rowActions
+    const declared = screen.rowActions ?? [];
+    // Prepended unless a declared rowAction already has id "edit" — declared wins.
+    const declaredHasEdit = declared.some((a) => a.id === "edit");
+    const defaultEditRowAction = declaredHasEdit
+      ? undefined
+      : buildDefaultEditRowAction(defaultEditScreen);
+    const effectiveActions: readonly RowAction[] =
+      defaultEditRowAction !== undefined ? [defaultEditRowAction, ...declared] : declared;
+    if (effectiveActions.length === 0) return undefined;
+    return effectiveActions
       .map((action: RowAction): DataTableRowAction | null => {
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
@@ -1757,6 +1771,7 @@ function EntityListBody({
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
   }, [
     screen.rowActions,
+    defaultEditScreen,
     effectiveTranslate,
     dispatcher,
     runNavigate,
@@ -1967,8 +1982,14 @@ function ProjectionListBody({
   const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
   const userRoles = useUserRoles();
+  const appFeatures = useAppFeatures();
   const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
     useDrawerAction(schema);
+  const defaultEditScreen = useMemo(() => {
+    const detailFor = screen.detailFor;
+    if (detailFor === undefined) return undefined;
+    return findEditScreenFor(detailFor, appFeatures, userRoles);
+  }, [appFeatures, screen.detailFor, userRoles]);
 
   // searchable/sortable/paginated are derived at buildAppSchema time from the
   // query handler's Zod schema (fw#2165) — not authored on the screen.
@@ -2060,6 +2081,11 @@ function ProjectionListBody({
     [nav],
   );
 
+  const defaultEditRowAction = useMemo(
+    () => buildDefaultEditRowAction(defaultEditScreen),
+    [defaultEditScreen],
+  );
+
   const rowActions = useMemo(
     () =>
       buildProjectionRowActions({
@@ -2069,8 +2095,17 @@ function ProjectionListBody({
         nav,
         refetch: rowsQuery.refetch,
         openDrawer,
+        defaultEditRowAction,
       }),
-    [screen.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, openDrawer],
+    [
+      screen.rowActions,
+      effectiveTranslate,
+      dispatcher,
+      nav,
+      rowsQuery.refetch,
+      openDrawer,
+      defaultEditRowAction,
+    ],
   );
 
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
@@ -2496,19 +2531,7 @@ function ProjectionDetailBody({
   const editScreen = useMemo(() => {
     const detailFor = screen.detailFor;
     if (detailFor === undefined) return undefined;
-    for (const feature of appFeatures) {
-      // Access-check is part of the find predicate, not a filter applied
-      // after the first match — two entityEdit screens for the same entity
-      // where the first is role-gated must not hide an accessible second one.
-      const match = feature.screens.find(
-        (s): s is EntityEditScreenDefinition =>
-          s.type === "entityEdit" &&
-          s.entity === detailFor &&
-          screenAccessAllows(s.access, userRoles),
-      );
-      if (match !== undefined) return match;
-    }
-    return undefined;
+    return findEditScreenFor(detailFor, appFeatures, userRoles);
   }, [appFeatures, screen.detailFor, userRoles]);
   const defaultEditAction = useMemo((): RenderEditAction | undefined => {
     if (editScreen === undefined) return undefined;
@@ -2740,39 +2763,42 @@ function ProjectionDetailBody({
         <Card>
           {header !== undefined && (
             <>
-              <Heading variant="page" testId="kumiko-screen-projection-detail-title">
-                {String(record[header.title] ?? "")}
-              </Heading>
-              {(header.subtitle !== undefined || header.status !== undefined) && (
+              {header.status !== undefined ? (
                 <Grid columns="auto">
-                  {header.subtitle !== undefined &&
-                    (subtitleHref !== undefined ? (
-                      <Link
-                        href={subtitleHref}
-                        target="_blank"
-                        testId="kumiko-screen-projection-detail-subtitle"
-                      >
-                        {String(record[header.subtitle] ?? "")}
-                      </Link>
-                    ) : (
-                      <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                        {String(record[header.subtitle] ?? "")}
-                      </Text>
-                    ))}
-                  {header.status !== undefined &&
-                    (StatusBadge !== undefined ? (
-                      <StatusBadge
-                        value={String(record[header.status] ?? "")}
-                        tone={statusToneForValue(String(record[header.status] ?? ""))}
-                        testId="kumiko-screen-projection-detail-status"
-                      />
-                    ) : (
-                      <Text testId="kumiko-screen-projection-detail-status">
-                        {String(record[header.status] ?? "")}
-                      </Text>
-                    ))}
+                  <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+                    {String(record[header.title] ?? "")}
+                  </Heading>
+                  {StatusBadge !== undefined ? (
+                    <StatusBadge
+                      value={String(record[header.status] ?? "")}
+                      tone={statusToneForValue(String(record[header.status] ?? ""))}
+                      testId="kumiko-screen-projection-detail-status"
+                    />
+                  ) : (
+                    <Text testId="kumiko-screen-projection-detail-status">
+                      {String(record[header.status] ?? "")}
+                    </Text>
+                  )}
                 </Grid>
+              ) : (
+                <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+                  {String(record[header.title] ?? "")}
+                </Heading>
               )}
+              {header.subtitle !== undefined &&
+                (subtitleHref !== undefined ? (
+                  <Link
+                    href={subtitleHref}
+                    target="_blank"
+                    testId="kumiko-screen-projection-detail-subtitle"
+                  >
+                    {String(record[header.subtitle] ?? "")}
+                  </Link>
+                ) : (
+                  <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                    {String(record[header.subtitle] ?? "")}
+                  </Text>
+                ))}
             </>
           )}
           {hasMetrics && (

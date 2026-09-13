@@ -1,4 +1,5 @@
 import type {
+  EntityEditScreenDefinition,
   IconKey,
   RowAction,
   RowActionDrawer,
@@ -10,7 +11,24 @@ import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
 import type { DataTableRowAction } from "../primitives";
 import type { NavApi } from "./nav";
+import { lastSegment } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
+
+// entityId is explicit: the edit screen may live in another feature than
+// the row source, where the same-feature fallback would miss it.
+export function buildDefaultEditRowAction(
+  editScreen: EntityEditScreenDefinition | undefined,
+  idColumn = "id",
+): RowActionNavigate | undefined {
+  if (editScreen === undefined) return undefined;
+  return {
+    kind: "navigate",
+    id: "edit",
+    label: "kumiko.actions.edit",
+    screen: lastSegment(editScreen.id),
+    entityId: idColumn,
+  };
+}
 
 export function evalRowExtractor(
   extractor: RowFieldExtractor,
@@ -223,11 +241,19 @@ export function buildProjectionRowActions(options: {
    *  without onOpenDrawer) drop drawer actions and get a dev warning —
    *  mirrors the `dispatcher === undefined` skip below for writeHandler. */
   readonly openDrawer?: OpenDrawer;
+  /** Prepended unless a declared action already has id "edit" — declared wins. */
+  readonly defaultEditRowAction?: RowActionNavigate;
 }): readonly DataTableRowAction[] | undefined {
-  const { rowActions, translate, dispatcher, nav, refetch, openDrawer } = options;
-  if (rowActions === undefined) return undefined;
+  const { rowActions, translate, dispatcher, nav, refetch, openDrawer, defaultEditRowAction } =
+    options;
+  const declaredHasEdit = rowActions?.some((a) => a.id === "edit") === true;
+  const effectiveActions: readonly RowAction[] =
+    defaultEditRowAction !== undefined && !declaredHasEdit
+      ? [defaultEditRowAction, ...(rowActions ?? [])]
+      : (rowActions ?? []);
+  if (effectiveActions.length === 0) return undefined;
   const out: DataTableRowAction[] = [];
-  for (const action of rowActions) {
+  for (const action of effectiveActions) {
     if (action.kind === "navigate") {
       out.push(buildNavigateRowAction(action, translate, nav));
       continue;

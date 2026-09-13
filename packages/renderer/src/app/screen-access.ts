@@ -1,4 +1,8 @@
-import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  AccessRule,
+  EntityEditScreenDefinition,
+  FeatureSchema,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Minimal role-gate for the screen-render path (#1203 — nav filtering via
 // filterByAccess in workspace-shell.tsx hid role-gated screens from the
@@ -16,4 +20,21 @@ export function screenAccessAllows(
   if ("openToAll" in access) return access.openToAll;
   if (userRoles === undefined) return false;
   return access.roles.some((role) => userRoles.includes(role));
+}
+
+// Searches all mounted features, and access is part of the predicate so a
+// role-gated first match can't hide an accessible second one.
+export function findEditScreenFor(
+  entity: string,
+  appFeatures: readonly FeatureSchema[],
+  userRoles: readonly string[] | undefined,
+): EntityEditScreenDefinition | undefined {
+  for (const feature of appFeatures) {
+    const match = feature.screens.find(
+      (s): s is EntityEditScreenDefinition =>
+        s.type === "entityEdit" && s.entity === entity && screenAccessAllows(s.access, userRoles),
+    );
+    if (match !== undefined) return match;
+  }
+  return undefined;
 }

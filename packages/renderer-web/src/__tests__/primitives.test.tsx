@@ -404,7 +404,7 @@ describe("DataTable", () => {
         />
       </LocaleProvider>,
     );
-    expect(screen.getByTestId("t-empty").textContent).toBe("Keine Einträge.");
+    expect(screen.getByTestId("t-empty").textContent).toBe("Noch keine Einträge.");
   });
 
   test("rows + cells get individual testIds for E2E hooks", () => {
