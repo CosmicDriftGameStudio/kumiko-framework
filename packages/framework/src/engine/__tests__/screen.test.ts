@@ -1469,6 +1469,26 @@ describe("validateBoot — screen validation", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("wizard entityEdit with slots.footer passes boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "edit-wizard",
+        type: "entityEdit",
+        entity: "product",
+        layout: {
+          mode: "wizard",
+          sections: [
+            { title: "shop:section.basics", fields: ["name"] },
+            { title: "shop:section.details", fields: ["sku"] },
+          ],
+        },
+        slots: { footer: { react: { __component: "f" } } },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("entityList with empty columns fails boot", () => {
     // Blank columns list renders as a blank table — almost always an author
     // oversight. Locked down at boot rather than silently producing an empty

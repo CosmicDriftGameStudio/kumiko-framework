@@ -4,6 +4,7 @@
 // PlatformComponent über dieselbe Registry auf und mountet die passende
 // Component — die Bundled-Feature-/App-Component lädt + persistiert dann
 // ihre eigenen Daten (z.B. custom-fields, oder ein eigenständiger Chart).
+// The entityEdit footer slot (`screen.slots.footer`) mounts through it too.
 //
 // Mounting analog zu CustomScreensProvider — createKumikoApp im
 // renderer-web sammelt alle clientFeatures.extensionSectionComponents und
@@ -66,6 +67,14 @@ export type ExtensionSectionProps = {
    *  `snapshot.errors` on the field instead of a collective message.
    *  Undefined outside entityEdit sections. */
   readonly validate?: () => boolean;
+  /** Whether the host form has unsaved changes. Only set in the entityEdit
+   *  footer slot (`screen.slots.footer`); undefined in all other mounts. */
+  readonly hasUnsavedChanges?: boolean;
+  /** Current wizard step, only set for `layout.mode === "wizard"` forms.
+   *  Only set in the entityEdit footer slot (`screen.slots.footer`);
+   *  undefined in all other mounts, and undefined there too for a
+   *  non-wizard form. */
+  readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;

@@ -1,6 +1,7 @@
 import type {
   EntityEditScreenDefinition,
   FieldCondition,
+  PlatformComponent,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
@@ -187,6 +188,50 @@ function ExtensionSectionMount({
         validate={validate}
       />
     </Section>
+  );
+}
+
+// Resolves `screen.slots.footer`'s `{ react: { __component: "X" } }` marker
+// via the same ExtensionSectionsProvider registry as ExtensionSectionMount /
+// ListHeaderSlotMount and mounts it next to the submit action. Own component
+// for rules-of-hooks (useExtensionSectionComponent must not run conditionally
+// inside RenderEdit's formActions JSX).
+function EditFooterSlotMount({
+  footer,
+  screenId,
+  entityName,
+  entityId,
+  values,
+  hasUnsavedChanges,
+  wizardStep,
+}: {
+  readonly footer: PlatformComponent;
+  readonly screenId: string;
+  readonly entityName: string;
+  readonly entityId: string | null;
+  readonly values: Readonly<Record<string, unknown>>;
+  readonly hasUnsavedChanges: boolean;
+  readonly wizardStep: { readonly index: number; readonly isLast: boolean } | undefined;
+}): ReactNode {
+  const name = extensionSectionName(footer);
+  const Component = useExtensionSectionComponent(name);
+  useEffect(() => {
+    if (name !== undefined && Component === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev warning for a setup error
+      console.warn(
+        `[kumiko] Edit footer slot component "${name}" on screen "${screenId}" is not registered in clientFeatures.extensionSectionComponents — the footer slot renders nothing.`,
+      );
+    }
+  }, [name, Component, screenId]);
+  if (Component === undefined) return null;
+  return (
+    <Component
+      entityName={entityName}
+      entityId={entityId}
+      values={values}
+      hasUnsavedChanges={hasUnsavedChanges}
+      {...(wizardStep !== undefined && { wizardStep })}
+    />
   );
 }
 
@@ -1016,6 +1061,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
     </>
   );
+  const footerSlot = screen.slots?.footer;
   // Mirrors every branch inside formActions below — without this guard
   // DefaultForm renders an empty footer strip (border + padding, no content)
   // on read-only detail screens, since `actions` would otherwise always be
@@ -1024,7 +1070,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     (isWizard && currentStep > 0) ||
     (isWizard && !isLastWizardStep) ||
     ((isFormEditable || hasExtensionRegistrations || isFieldless) &&
-      (!isWizard || isLastWizardStep));
+      (!isWizard || isLastWizardStep)) ||
+    footerSlot !== undefined;
   const formActions = (
     <>
       {isWizard && currentStep > 0 && (
@@ -1037,6 +1084,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         >
           {translate("kumiko.actions.back")}
         </Button>
+      )}
+      {footerSlot !== undefined && (
+        <EditFooterSlotMount
+          footer={footerSlot}
+          screenId={screen.id}
+          entityName={vm.entityName}
+          entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
+          values={snapshot.values}
+          hasUnsavedChanges={snapshot.isDirty || extensionDirty}
+          wizardStep={isWizard ? { index: currentStep, isLast: isLastWizardStep } : undefined}
+        />
       )}
       {isWizard && !isLastWizardStep && (
         <Button

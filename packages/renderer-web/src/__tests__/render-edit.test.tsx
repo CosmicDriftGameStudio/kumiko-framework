@@ -3537,3 +3537,218 @@ describe("RenderEdit fields filter", () => {
     expect(write).not.toHaveBeenCalled();
   });
 });
+
+describe("RenderEdit — slots.footer", () => {
+  function FooterExtra({
+    entityId,
+    hasUnsavedChanges,
+    wizardStep,
+  }: {
+    readonly entityId: string | null;
+    readonly hasUnsavedChanges?: boolean;
+    readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
+  }): ReactNode {
+    return (
+      <button
+        type="button"
+        data-testid="footer-extra"
+        data-entity-id={entityId ?? "(create)"}
+        data-dirty={String(hasUnsavedChanges === true)}
+        data-step={wizardStep !== undefined ? String(wizardStep.index) : "undefined"}
+        data-last={wizardStep !== undefined ? String(wizardStep.isLast) : "undefined"}
+      >
+        extra
+      </button>
+    );
+  }
+
+  function makeFooterScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-edit-footer",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [{ title: "Basics", columns: 1, fields: [{ field: "title" }] }],
+      },
+      slots: { footer: { react: { __component: "FooterExtra" } } },
+    };
+  }
+
+  function makeWizardFooterScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-wizard-footer",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+      slots: { footer: { react: { __component: "FooterExtra" } } },
+    };
+  }
+
+  test("renders inside the form actions container, before the submit button", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const actions = screen.getByTestId("render-edit-form-actions");
+    const footer = within(actions).getByTestId("footer-extra");
+    const submit = within(actions).getByTestId("render-edit-submit");
+    expect(Boolean(footer.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(
+      true,
+    );
+  });
+
+  test("hasUnsavedChanges starts false and flips true after a field change", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("footer-extra").getAttribute("data-dirty")).toBe("false");
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme Corp" } });
+
+    expect(screen.getByTestId("footer-extra").getAttribute("data-dirty")).toBe("true");
+  });
+
+  test("entityId is passed through", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-77"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("footer-extra").getAttribute("data-entity-id")).toBe("order-77");
+  });
+
+  test("wizardStep reflects the current step and last-step flag, and advances on Next", async () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeWizardFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0 }}
+            writeCommand="order:create"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("footer-extra").getAttribute("data-step")).toBe("0");
+    expect(screen.getByTestId("footer-extra").getAttribute("data-last")).toBe("false");
+
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("footer-extra").getAttribute("data-step")).toBe("1");
+    expect(screen.getByTestId("footer-extra").getAttribute("data-last")).toBe("true");
+  });
+
+  test("wizardStep is undefined on a non-wizard form", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("footer-extra").getAttribute("data-step")).toBe("undefined");
+    expect(screen.getByTestId("footer-extra").getAttribute("data-last")).toBe("undefined");
+  });
+
+  test("a declared but unregistered footer slot renders nothing and does not crash; submit stays", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{}}>
+          <RenderEdit<TestValues>
+            screen={makeFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("footer-extra")).toBeNull();
+    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+  });
+
+  test("a screen without slots renders only the pre-existing actions (no extra element)", () => {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit-no-footer",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [{ title: "Basics", columns: 1, fields: [{ field: "title" }] }],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:update"
+          entityId="order-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    const actions = screen.getByTestId("render-edit-form-actions");
+    expect(actions.children.length).toBe(1);
+    expect(actions.children[0]?.getAttribute("data-testid")).toBe("render-edit-submit");
+  });
+});
