@@ -11,15 +11,22 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { useAppFeatures } from "../app/app-features-context";
 import {
   buildFilterFacets,
   buildFilterPayload,
   resolveProjectionFacetSpecs,
 } from "../app/list-facets";
 import { useNav } from "../app/nav";
-import { buildProjectionRowActions, runProjectionRowNavigate } from "../app/row-actions";
+import {
+  buildDefaultEditRowAction,
+  buildProjectionRowActions,
+  runProjectionRowNavigate,
+} from "../app/row-actions";
+import { findEditScreenFor } from "../app/screen-access";
 import { dispatcherErrorText } from "../app/write-failed-error";
 import { useOptionalDispatcher } from "../context/dispatcher-context";
+import { useUserRoles } from "../context/user-roles-context";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
@@ -79,6 +86,17 @@ export function RelatedListSection({
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const dispatcher = useOptionalDispatcher();
+  const appFeatures = useAppFeatures();
+  const userRoles = useUserRoles();
+  const defaultEditScreen = useMemo(() => {
+    const targetEntity = section.rowClick?.entity;
+    if (targetEntity === undefined) return undefined;
+    return findEditScreenFor(targetEntity, appFeatures, userRoles);
+  }, [appFeatures, section.rowClick, userRoles]);
+  const defaultEditRowAction = useMemo(
+    () => buildDefaultEditRowAction(defaultEditScreen, section.rowClick?.idColumn ?? "id"),
+    [defaultEditScreen, section.rowClick],
+  );
 
   const entity = useMemo(() => synthesizeRelatedListEntity(section.columns), [section.columns]);
   const listScreen = useMemo(
@@ -195,8 +213,17 @@ export function RelatedListSection({
         nav,
         refetch: rowsQuery.refetch,
         openDrawer: onOpenDrawer,
+        defaultEditRowAction,
       }),
-    [section.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, onOpenDrawer],
+    [
+      section.rowActions,
+      effectiveTranslate,
+      dispatcher,
+      nav,
+      rowsQuery.refetch,
+      onOpenDrawer,
+      defaultEditRowAction,
+    ],
   );
 
   // A truncated fetch means `sortedRows` is a sort of a partial set, not of

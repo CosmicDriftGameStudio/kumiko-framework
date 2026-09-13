@@ -79,6 +79,31 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     expect(screen.getByTestId("kumiko-screen-projection-detail-status").textContent).toBe("active");
   });
 
+  test("status sits in the title row; the subtitle sits in its own row below", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", subtitle: "address", status: "state" },
+    };
+    const dispatcher = dispatcherReturning(rowData);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const title = screen.getByTestId("kumiko-screen-projection-detail-title");
+    const status = screen.getByTestId("kumiko-screen-projection-detail-status");
+    const subtitle = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+    expect(status.parentElement).toBe(title.parentElement);
+    expect(subtitle.parentElement).not.toBe(title.parentElement);
+  });
+
   test("renders the metrics band with fieldLabels-translated labels and query-row values", async () => {
     const metricsScreen: ProjectionDetailScreenDefinition = {
       ...baseScreen,
@@ -156,6 +181,92 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
 
     expect(navigateCalls).toEqual([{ entity: "tenant", id: "tenant-9" }]);
     expect(setSearchParamsCalls).toContainEqual({ overdueDays: "3" });
+  });
+
+  test("metric.navigate with only tab — clicking stays on the record and just activates the tab", async () => {
+    const navigateCalls: unknown[] = [];
+    const setSearchParamsCalls: Readonly<Record<string, string | null>>[] = [];
+    const navApi: NavApi = {
+      route: undefined,
+      navigate: (target) => navigateCalls.push(target),
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: (updates) => setSearchParamsCalls.push(updates),
+    };
+    const metricsScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      metrics: [
+        {
+          field: "balance",
+          label: "rentals.detail.metric.balance",
+          navigate: { tab: "history" },
+        },
+      ],
+    };
+    const dispatcher = dispatcherReturning(rowData);
+    const user = userEvent.setup();
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(metricsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    await user.click(screen.getByTestId("kumiko-screen-projection-detail-metric-balance"));
+
+    expect(navigateCalls).toEqual([]);
+    expect(setSearchParamsCalls).toContainEqual({ tab: "history" });
+  });
+
+  test("metric.navigate with screen + tab — navigates to the screen and sets the tab search param", async () => {
+    const navigateCalls: unknown[] = [];
+    const setSearchParamsCalls: Readonly<Record<string, string | null>>[] = [];
+    const navApi: NavApi = {
+      route: undefined,
+      navigate: (target) => navigateCalls.push(target),
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: (updates) => setSearchParamsCalls.push(updates),
+    };
+    const metricsScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      metrics: [
+        {
+          field: "balance",
+          label: "rentals.detail.metric.balance",
+          navigate: { screen: "tenant-detail", tab: "history" },
+        },
+      ],
+    };
+    const dispatcher = dispatcherReturning(rowData);
+    const user = userEvent.setup();
+
+    render(
+      <NavProvider value={navApi}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schemaFor(metricsScreen)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    await user.click(screen.getByTestId("kumiko-screen-projection-detail-metric-balance"));
+
+    expect(navigateCalls).toEqual([{ screenId: "tenant-detail" }]);
+    expect(setSearchParamsCalls).toContainEqual({ tab: "history" });
   });
 
   test("header.subtitleHref — an absolute http(s) URL renders the subtitle as an external link", async () => {

@@ -530,6 +530,10 @@ export type MetricNavigate = {
   readonly entity?: string;
   readonly entityId?: string;
   readonly params?: RowFieldExtractor;
+  /** Section id of the tab to activate at the destination. Alone (no
+   *  `screen`/`entity`), it activates that tab on the current record
+   *  instead of navigating away. */
+  readonly tab?: string;
 };
 
 // A metric can navigate on click, so the plain string shorthand (field name,
@@ -1030,8 +1034,13 @@ export type EntityEditScreenDefinition = {
    *  feature to the target at boot time — an app that doesn't mount the
    *  target feature fails the boot-validator; only use this form in a
    *  reusable feature when the target feature is guaranteed to be
-   *  mounted alongside it. */
-  readonly redirect?: string;
+   *  mounted alongside it.
+   *
+   *  The object form additionally names the success-payload field the
+   *  navigation id comes from (`ActionFormRedirect.idFrom`) — needed when
+   *  the edited record is a child and the target screen is the parent's
+   *  detail screen. */
+  readonly redirect?: string | ActionFormRedirect;
   /** Parent list screen (short id) for breadcrumb + nav highlighting when
    *  this screen has no nav entry of its own. Same field/semantics as on
    *  `custom`/`projectionDetail`; an explicit value here wins over the

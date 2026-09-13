@@ -814,6 +814,7 @@ function DefaultInput(props: InputProps): ReactNode {
       );
     case "textarea": {
       const rows = normalizedTextareaRows(props.rows);
+      const onSubmitShortcut = props.onSubmitShortcut;
       return (
         <Textarea
           {...common}
@@ -824,6 +825,14 @@ function DefaultInput(props: InputProps): ReactNode {
           className="resize-y"
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(rows !== undefined && { style: textareaMinHeight(rows) })}
+          {...(onSubmitShortcut !== undefined && {
+            "aria-keyshortcuts": "Control+Enter Meta+Enter",
+            onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => {
+              if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+              e.preventDefault();
+              onSubmitShortcut();
+            },
+          })}
         />
       );
     }

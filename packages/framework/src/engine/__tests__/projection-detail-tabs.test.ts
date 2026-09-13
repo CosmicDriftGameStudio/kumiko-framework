@@ -168,6 +168,49 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     );
   });
 
+  test("metric navigate.tab with no screen/entity — unknown section id throws", () => {
+    const feature = defineFeature("app", (r) => {
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        metrics: [{ field: "balance", label: "rent.balance", navigate: { tab: "unknown" } }],
+        layout: {
+          mode: "tabs",
+          sections: [
+            { id: "overview", title: "Overview", fields: ["description"] },
+            { id: "history", title: "History", fields: ["notes"] },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /navigates to tab "unknown", which is not a section id on this screen/,
+    );
+  });
+
+  test("metric navigate.tab with no screen/entity — a known section id boots cleanly", () => {
+    const feature = defineFeature("app", (r) => {
+      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+        access: { openToAll: true },
+      });
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        metrics: [{ field: "balance", label: "rent.balance", navigate: { tab: "history" } }],
+        layout: {
+          mode: "tabs",
+          sections: [
+            { id: "overview", title: "Overview", fields: ["description"] },
+            { id: "history", title: "History", fields: ["notes"] },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("valid tabs + header + metrics declaration boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {

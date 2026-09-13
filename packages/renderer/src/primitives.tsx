@@ -476,6 +476,9 @@ export type InputProps =
       /** Read-only Textarea. Nicht `disabled` — bleibt fokussier-/
        *  kopierbar (analog zu kind:"text"). */
       readonly readOnly?: boolean;
+      /** Ctrl/Cmd+Enter submits instead of inserting a newline. Plain
+       *  Enter still inserts a newline. */
+      readonly onSubmitShortcut?: () => void;
     };
 
 // Sort-Wire-Format. `null`-State unterscheidet "User hat noch nichts

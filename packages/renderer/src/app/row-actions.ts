@@ -1,4 +1,5 @@
 import type {
+  EntityEditScreenDefinition,
   IconKey,
   RowAction,
   RowActionDrawer,
@@ -10,7 +11,24 @@ import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
 import type { DataTableRowAction } from "../primitives";
 import type { NavApi } from "./nav";
+import { lastSegment } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
+
+// entityId is explicit: the edit screen may live in another feature than
+// the row source, where the same-feature fallback would miss it.
+export function buildDefaultEditRowAction(
+  editScreen: EntityEditScreenDefinition | undefined,
+  idColumn = "id",
+): RowActionNavigate | undefined {
+  if (editScreen === undefined) return undefined;
+  return {
+    kind: "navigate",
+    id: "edit",
+    label: "kumiko.actions.edit",
+    screen: lastSegment(editScreen.id),
+    entityId: idColumn,
+  };
+}
 
 export function evalRowExtractor(
   extractor: RowFieldExtractor,
@@ -206,6 +224,51 @@ function buildDrawerRowAction(
   };
 }
 
+// Prepends defaultEditRowAction unless a declared action already claims id
+// "edit" — declared wins.
+function mergeDefaultEditAction(
+  rowActions: readonly RowAction[] | undefined,
+  defaultEditRowAction: RowActionNavigate | undefined,
+): readonly RowAction[] {
+  const declaredHasEdit = rowActions?.some((a) => a.id === "edit") === true;
+  return defaultEditRowAction !== undefined && !declaredHasEdit
+    ? [defaultEditRowAction, ...(rowActions ?? [])]
+    : (rowActions ?? []);
+}
+
+function buildWriteHandlerRowAction(
+  action: RowActionWriteHandler,
+  translate: Translate,
+  refetch: () => Promise<unknown>,
+  dispatcher: Dispatcher,
+): DataTableRowAction {
+  const writeVisible = action.visible;
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    icon: resolveActionIcon(action.id, action.icon),
+    ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
+    ...(action.confirmLabel !== undefined && {
+      confirmLabel: translate(action.confirmLabel),
+    }),
+    onTrigger: async (row: ListRowViewModel) => {
+      const payload =
+        action.payload !== undefined
+          ? evalRowExtractor(action.payload, row.values)
+          : { id: row.values["id"] };
+      const result = await dispatcher.write(action.handler, payload);
+      if (!result.isSuccess) {
+        throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
+      }
+      await refetchAfterWrite(refetch);
+    },
+    ...(writeVisible !== undefined && {
+      isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
+    }),
+  };
+}
+
 // Builds the DataTable-ready row-action set for a query-driven row source
 // (projectionList, relatedList) — navigate dispatches through
 // runProjectionRowNavigate, writeHandler dispatches through the shared
@@ -223,11 +286,15 @@ export function buildProjectionRowActions(options: {
    *  without onOpenDrawer) drop drawer actions and get a dev warning —
    *  mirrors the `dispatcher === undefined` skip below for writeHandler. */
   readonly openDrawer?: OpenDrawer;
+  /** Prepended unless a declared action already has id "edit" — declared wins. */
+  readonly defaultEditRowAction?: RowActionNavigate;
 }): readonly DataTableRowAction[] | undefined {
-  const { rowActions, translate, dispatcher, nav, refetch, openDrawer } = options;
-  if (rowActions === undefined) return undefined;
+  const { rowActions, translate, dispatcher, nav, refetch, openDrawer, defaultEditRowAction } =
+    options;
+  const effectiveActions = mergeDefaultEditAction(rowActions, defaultEditRowAction);
+  if (effectiveActions.length === 0) return undefined;
   const out: DataTableRowAction[] = [];
-  for (const action of rowActions) {
+  for (const action of effectiveActions) {
     if (action.kind === "navigate") {
       out.push(buildNavigateRowAction(action, translate, nav));
       continue;
@@ -243,32 +310,7 @@ export function buildProjectionRowActions(options: {
     // writeHandler (default-kind) — a swallowed failure result must become a
     // thrown error (fw prod-bug 2026-06-07), same as every other write path.
     if (dispatcher === undefined) continue;
-    const writeAction = action;
-    const writeVisible = writeAction.visible;
-    out.push({
-      id: writeAction.id,
-      label: translate(writeAction.label),
-      ...(writeAction.style !== undefined && { style: writeAction.style }),
-      icon: resolveActionIcon(writeAction.id, writeAction.icon),
-      ...(writeAction.confirm !== undefined && { confirm: translate(writeAction.confirm) }),
-      ...(writeAction.confirmLabel !== undefined && {
-        confirmLabel: translate(writeAction.confirmLabel),
-      }),
-      onTrigger: async (row: ListRowViewModel) => {
-        const payload =
-          writeAction.payload !== undefined
-            ? evalRowExtractor(writeAction.payload, row.values)
-            : { id: row.values["id"] };
-        const result = await dispatcher.write(writeAction.handler, payload);
-        if (!result.isSuccess) {
-          throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
-        }
-        await refetchAfterWrite(refetch);
-      },
-      ...(writeVisible !== undefined && {
-        isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
-      }),
-    });
+    out.push(buildWriteHandlerRowAction(action, translate, refetch, dispatcher));
   }
   return out.length > 0 ? out : undefined;
 }
