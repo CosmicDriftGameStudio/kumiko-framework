@@ -36,17 +36,21 @@ const contractEntity = createEntity({
   table: "h2_contracts",
   softDelete: true,
   fields: {
-    teamId: createTextField({ required: true }),
+    teamId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     assigneeId: createTextField(),
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     // propA: public on read + write
-    propA: createTextField(),
+    propA: createTextField({ personal: false, reason: "test_fixture" }),
     // propB: Admin-only
     propB: createTextField({
+      personal: false,
+      reason: "test_fixture",
       access: { read: { Admin: "all" }, write: { Admin: "all" } },
     }),
     // propC: Admin full, TeamMember scoped to matching teamId
     propC: createTextField({
+      personal: false,
+      reason: "test_fixture",
       access: {
         read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
         write: { Admin: "all", TeamMember: from("claim:teams:teamId") },

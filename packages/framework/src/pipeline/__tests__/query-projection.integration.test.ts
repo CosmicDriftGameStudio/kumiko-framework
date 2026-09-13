@@ -25,7 +25,7 @@ import {
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const widgetTable = buildEntityTable("qp-widget", widgetEntity);
 

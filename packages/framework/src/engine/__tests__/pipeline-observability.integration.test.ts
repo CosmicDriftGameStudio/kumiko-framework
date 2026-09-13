@@ -52,7 +52,7 @@ const observedHandler = defineWriteHandler({
 
 const obsEntity = createEntity({
   table: "obs_smoke_things",
-  fields: { label: createTextField({ required: true }) },
+  fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const obsFeature = defineFeature("obstest", (r) => {

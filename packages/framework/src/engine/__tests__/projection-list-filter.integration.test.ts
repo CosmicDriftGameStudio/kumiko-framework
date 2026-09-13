@@ -22,8 +22,13 @@ import { createEntity, createTextField } from "../factories";
 const memberEntity = createEntity({
   table: "pl_filter_members",
   fields: {
-    name: createTextField({ required: true }),
-    status: createTextField({ required: true, filterable: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    status: createTextField({
+      required: true,
+      filterable: true,
+      personal: false,
+      reason: "test_fixture",
+    }),
   },
 });
 

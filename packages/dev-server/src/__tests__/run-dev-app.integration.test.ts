@@ -29,7 +29,12 @@ import { runDevApp } from "../run-dev-app";
 
 function validFeature() {
   return defineFeature("shop", (r) => {
-    r.entity("product", createEntity({ fields: { name: createTextField() } }));
+    r.entity(
+      "product",
+      createEntity({
+        fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+      }),
+    );
   });
 }
 

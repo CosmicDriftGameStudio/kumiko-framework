@@ -124,7 +124,12 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity(
         "thing",
-        createEntity({ table: "things", fields: { title: createTextField({ searchable: true }) } }),
+        createEntity({
+          table: "things",
+          fields: {
+            title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+          },
+        }),
       );
       r.searchPayloadExtension(thing, contributor);
     });
@@ -151,7 +156,9 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
         "thing-dedup",
         createEntity({
           table: "things_dedup",
-          fields: { title: createTextField({ searchable: true }) },
+          fields: {
+            title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
       r.searchPayloadExtension(thing, () => ({ title: "from-contributor" }));
@@ -177,7 +184,12 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity(
         "thing",
-        createEntity({ table: "things", fields: { title: createTextField({ searchable: true }) } }),
+        createEntity({
+          table: "things",
+          fields: {
+            title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+          },
+        }),
       );
       r.searchPayloadExtension(thing, () => ({ overlap: "first" }));
       r.searchPayloadExtension(thing, () => ({ overlap: "second" }));

@@ -12,7 +12,12 @@ import { runDevApp } from "../run-dev-app";
 
 function unresolvableNavFeature() {
   return defineFeature("shop", (r) => {
-    r.entity("product", createEntity({ fields: { name: createTextField() } }));
+    r.entity(
+      "product",
+      createEntity({
+        fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+      }),
+    );
     r.screen({
       id: "product-list",
       type: "entityList",

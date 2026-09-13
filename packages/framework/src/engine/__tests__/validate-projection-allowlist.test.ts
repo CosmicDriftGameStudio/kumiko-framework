@@ -52,7 +52,9 @@ describe("validateProjectionAllowlist", () => {
         "widget",
         createEntity({
           table: "widgets",
-          fields: { label: createTextField({ required: true }) },
+          fields: {
+            label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
     });
@@ -97,7 +99,9 @@ describe("validateProjectionAllowlist", () => {
         "widget",
         createEntity({
           table: "widgets-delete",
-          fields: { label: createTextField({ required: true }) },
+          fields: {
+            label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
     });
@@ -353,7 +357,9 @@ describe("validateProjectionAllowlist", () => {
         "thing",
         createEntity({
           table: "shared_table",
-          fields: { label: createTextField({ required: true }) },
+          fields: {
+            label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
     });
@@ -362,7 +368,9 @@ describe("validateProjectionAllowlist", () => {
         "thing",
         createEntity({
           table: "shared_table",
-          fields: { label: createTextField({ required: true }) },
+          fields: {
+            label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+          },
         }),
       );
     });

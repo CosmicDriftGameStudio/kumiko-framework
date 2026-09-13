@@ -22,11 +22,11 @@ import { createTenantDb } from "../tenant-db";
 const systemEntity = createEntity({
   table: "sstream_sys",
   systemStream: true,
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const tenantOwnedEntity = createEntity({
   table: "sstream_tn",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const systemTable = buildEntityTable("sstreamSys", systemEntity);

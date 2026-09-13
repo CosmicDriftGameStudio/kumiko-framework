@@ -26,12 +26,12 @@ import {
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 
 const baseEntity = createEntity({
-  fields: { title: createTextField({ required: true }) },
+  fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "phase2_base_thing",
 });
 
 const noteEntity = createEntity({
-  fields: { title: createTextField({ required: true }) },
+  fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "phase2_note",
 });
 

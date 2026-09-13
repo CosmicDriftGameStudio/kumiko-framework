@@ -36,7 +36,7 @@ import {
 const orderEntity = createEntity({
   table: "read_causation_orders",
   fields: {
-    item: createTextField({ required: true }),
+    item: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 

@@ -46,7 +46,7 @@ const memoEntity = createEntity({
   softDelete: true,
   fields: {
     ownerId: createTextField({ required: true }),
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   access: {
     read: { Admin: "all", Member: "all" },

@@ -7,7 +7,10 @@ import { entityTableFromRegistry } from "../entity-table-from-registry";
 import { buildEntityTable } from "../table-builder";
 
 function unitEntity() {
-  return createEntity({ table: "read_units", fields: { name: createTextField() } });
+  return createEntity({
+    table: "read_units",
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+  });
 }
 
 describe("entityTableFromRegistry", () => {
@@ -50,7 +53,10 @@ describe("entityTableFromRegistry", () => {
       }),
     ]);
 
-    const other = createEntity({ table: "read_tenants", fields: { name: createTextField() } });
+    const other = createEntity({
+      table: "read_tenants",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    });
     const derived = entityTableFromRegistry(registry, "tenant", other);
 
     expect(extractTableName(derived)).toBe("read_tenants");

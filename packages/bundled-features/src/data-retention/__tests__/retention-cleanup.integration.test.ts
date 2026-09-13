@@ -72,7 +72,10 @@ const retainedEntity = createEntity({
     // No subject flag on the old fixture either — anonymize alone has no
     // PersonalAnnotations arm, so this stays a spread instead of a direct
     // createTextField(...) override (kumiko-framework#2250).
-    label: { ...createTextField({ required: true }), anonymize: () => "[ANONYMIZED]" },
+    label: {
+      ...createTextField({ personal: false, reason: "test_fixture", required: true }),
+      anonymize: () => "[ANONYMIZED]",
+    },
   },
   retention: { keepFor: "30d", strategy: "blockDelete" },
 });
@@ -82,7 +85,10 @@ const retainedEntity = createEntity({
 const anonEntity = createEntity({
   table: "read_c7_anon",
   fields: {
-    label: { ...createTextField({ required: true }), anonymize: () => "[ANONYMIZED]" },
+    label: {
+      ...createTextField({ personal: false, reason: "test_fixture", required: true }),
+      anonymize: () => "[ANONYMIZED]",
+    },
     note: createTextField({
       personal: false,
       reason: "is_business_data",

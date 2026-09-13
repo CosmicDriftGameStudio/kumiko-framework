@@ -31,8 +31,8 @@ import { createTenantDb, type TenantDb } from "../tenant-db";
 const userEntity = createEntity({
   table: "read_implicit_users",
   fields: {
-    email: createTextField({ required: true }),
-    firstName: createTextField(),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    firstName: createTextField({ personal: false, reason: "test_fixture" }),
     isEnabled: createBooleanField({ default: true }),
   },
   softDelete: true,
@@ -204,7 +204,9 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
   test("ohne softDelete → keine restore-apply-key registriert", () => {
     const hardDeleteEntity = createEntity({
       table: "read_implicit_hard",
-      fields: { name: createTextField({ required: true }) },
+      fields: {
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const hardFeature = defineFeature("implicithard", (r) => {
       r.entity("widget", hardDeleteEntity);
@@ -249,7 +251,7 @@ const SENSITIVE_BIDX_KEY = decodeBlindIndexKey(SENSITIVE_BIDX_KEY_B64);
 const sensitiveEntity = createEntity({
   table: sensitiveTable,
   fields: {
-    email: createTextField({ required: true }),
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     apiKey: createTextField({ personal: "self", find: "exact" }),
   },
 });

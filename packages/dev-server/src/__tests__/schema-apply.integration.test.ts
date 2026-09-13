@@ -125,8 +125,8 @@ describe("runSchemaApply", () => {
     const failItemEntity = createEntity({
       table: "read_apply_fail_items",
       fields: {
-        groupId: createTextField({ required: true }),
-        name: createTextField({ required: true }),
+        groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+        name: createTextField({ personal: false, reason: "test_fixture", required: true }),
       },
     });
     const failItemTable = buildEntityTable("apply-fail-item", failItemEntity);

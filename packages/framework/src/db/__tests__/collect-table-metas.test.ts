@@ -10,7 +10,7 @@ import { buildBaseColumns, buildEntityTable } from "../table-builder";
 function exampleEntity() {
   return createEntity({
     table: "read_units",
-    fields: { name: createTextField() },
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
 }
 
@@ -140,7 +140,9 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
   function widgetEntity() {
     return createEntity({
       table: "read_widgets",
-      fields: { name: createTextField({ required: true }) },
+      fields: {
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
   }
 
@@ -165,13 +167,15 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
   test("throws when the backing table is missing a field's column (superset violated)", () => {
     const thin = createEntity({
       table: "read_widgets",
-      fields: { name: createTextField({ required: true }) },
+      fields: {
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const rich = createEntity({
       table: "read_widgets",
       fields: {
-        name: createTextField({ required: true }),
-        extra: createTextField({ required: true }),
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+        extra: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
     // Backing table built from the THIN entity lacks the `extra` column.

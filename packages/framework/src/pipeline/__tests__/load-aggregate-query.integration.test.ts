@@ -29,8 +29,8 @@ import {
 const invoiceEntity = createEntity({
   table: "read_asof_invoices",
   fields: {
-    customer: createTextField({ required: true }),
-    status: createTextField({ required: true }),
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    status: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const invoiceTable = buildEntityTable("asof-invoice", invoiceEntity);

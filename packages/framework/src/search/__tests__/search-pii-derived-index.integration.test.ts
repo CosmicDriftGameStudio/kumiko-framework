@@ -20,7 +20,13 @@ const contactEntity = createEntity({
   fields: {
     // personal: "self" → subject = entity id. find: "fuzzy" → searchable via derived index.
     label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
-    note: createTextField({ required: true, maxLength: 100, searchable: true }),
+    note: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 100,
+      searchable: true,
+    }),
   },
 });
 

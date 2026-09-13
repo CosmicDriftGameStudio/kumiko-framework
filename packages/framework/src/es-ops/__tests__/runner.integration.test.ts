@@ -43,7 +43,7 @@ import { runPendingSeedMigrations } from "../runner";
 // is exercised against the production write-pipeline, not a stubbed return.
 const probeEntity = createEntity({
   table: "read_esops_probes",
-  fields: { label: createTextField({ required: true }) },
+  fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const probeTable = buildEntityTable("esops-probe", probeEntity);
 const probeExecutor = createEventStoreExecutor(probeTable, probeEntity, {

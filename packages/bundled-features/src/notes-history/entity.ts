@@ -114,7 +114,12 @@ export function createNoteMentionEntity() {
     description:
       "One row recording that a note names a subject via a structured @-mention, keyed by noteId and the mentioned subject's id.",
     fields: {
-      noteId: createTextField({ required: true, maxLength: 64 }),
+      noteId: createTextField({
+        required: true,
+        maxLength: 64,
+        personal: false,
+        reason: "technical_reference",
+      }),
       subjectId: createTextField({ required: true, maxLength: 64, personal: "ref" }),
     },
   });

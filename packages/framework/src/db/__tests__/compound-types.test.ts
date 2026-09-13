@@ -18,7 +18,7 @@ import { flattenCompoundTypes, rehydrateCompoundTypes } from "../compound-types"
 const mixedEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",
   fields: {
-    label: createTextField(),
+    label: createTextField({ personal: false, reason: "test_fixture" }),
     pickup: createLocatedTimestampField(),
     buyingPrice: createMoneyField(),
   },

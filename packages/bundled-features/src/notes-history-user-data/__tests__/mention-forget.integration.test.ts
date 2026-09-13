@@ -60,7 +60,14 @@ function pastInstant(): Instant {
 const CONTACT_TABLE = "notes_mention_forget_test_contacts";
 const contactEntity = createEntity({
   table: CONTACT_TABLE,
-  fields: { name: createTextField({ required: true, maxLength: 64 }) },
+  fields: {
+    name: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 64,
+    }),
+  },
 });
 const contactFixtureFeature = defineFeature("notes-mention-forget-test-contact-fixture", (r) => {
   r.entity("contact", contactEntity);

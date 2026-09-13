@@ -13,9 +13,9 @@ import { from } from "../ownership";
 const contactEntity = createEntity({
   table: "presave_wiring_contacts",
   fields: {
-    firstName: createTextField({ required: true }),
-    lastName: createTextField({ required: true }),
-    displayName: createTextField(),
+    firstName: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    lastName: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    displayName: createTextField({ personal: false, reason: "test_fixture" }),
     // authorId is never set by the client — only deriveAuthorId (a preSave
     // hook) writes it. secretNote's ownership rule checks authorId, so
     // create only succeeds if the hook ran BEFORE the field-ownership check
@@ -64,7 +64,7 @@ const contactFeature = defineFeature("presave-wiring", (r) => {
 
 const throwingEntity = createEntity({
   table: "presave_wiring_throwing",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const throwingFeature = defineFeature("presave-wiring-throw", (r) => {

@@ -33,7 +33,7 @@ const thingEntity = createEntity({
   table: "ctrestore_things",
   softDelete: true,
   fields: {
-    label: createTextField({ required: true }),
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   access: { write: { Admin: "all", SystemAdmin: from("user:tenantId", "tenantId") } },
 });

@@ -47,7 +47,7 @@ import { createLocalProvider } from "../local-provider";
 const documentEntity = createEntity({
   table: "pipeline_documents",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     attachment: createFileField(),
     cover: createImageField(),
     photos: createImagesField(),

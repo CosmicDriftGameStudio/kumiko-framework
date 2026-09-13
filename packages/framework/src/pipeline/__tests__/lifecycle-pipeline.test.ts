@@ -15,7 +15,13 @@ import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecyc
 
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
   const feature = defineFeature("test", (r) => {
-    r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+    r.entity(
+      "user",
+      createEntity({
+        table: "Users",
+        fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+      }),
+    );
     // Dummy handler so hook targets resolve (boot validation requires it)
     r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
       access: { openToAll: true },
@@ -422,7 +428,13 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
     const calls: Array<{ tenant: string }> = [];
 
     const featureA = defineFeature("feat-a", (r) => {
-      r.entity("widget", createEntity({ table: "Widgets", fields: { name: createTextField() } }));
+      r.entity(
+        "widget",
+        createEntity({
+          table: "Widgets",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "widget:create",
         z.object({ name: z.string() }),
@@ -550,7 +562,13 @@ describe("runPreDelete", () => {
   test("runs feature + entity + system hooks, all inTransaction (throw on error)", async () => {
     const calls: string[] = [];
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          table: "Users",
+          fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
         access: { openToAll: true },
       });
@@ -580,7 +598,13 @@ describe("runPreDelete", () => {
 
   test("a hook throwing aborts the delete (rejects, not swallowed)", async () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          table: "Users",
+          fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
         access: { openToAll: true },
       });
@@ -620,7 +644,13 @@ describe("runPostDelete", () => {
   test("runs feature then system hooks (best-effort by default phase)", async () => {
     const calls: string[] = [];
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          table: "Users",
+          fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
         access: { openToAll: true },
       });
@@ -647,7 +677,13 @@ describe("runPostDelete", () => {
 
   test("inTransaction phase: hook errors throw", async () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: { email: createTextField() } }));
+      r.entity(
+        "user",
+        createEntity({
+          table: "Users",
+          fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
         access: { openToAll: true },
       });

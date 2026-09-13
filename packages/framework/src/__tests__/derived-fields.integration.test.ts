@@ -23,7 +23,7 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 const gadgetEntity = createEntity({
   table: "derived_gadgets",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     priceCents: createNumberField({ required: true }),
   },
   derivedFields: {

@@ -17,7 +17,9 @@ import {
 // Used by every pipeline test that only needs SOMETHING to write events
 // against (event-dispatcher*, event-retention, event-dedup, …).
 export const sharedWidgetEntity = createEntity({
-  fields: { name: createTextField({ required: true }) },
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+  },
   softDelete: true,
 });
 export const sharedWidgetTable = buildEntityTable("widget", sharedWidgetEntity);
@@ -55,7 +57,7 @@ export const sharedUserTable = buildEntityTable("user", sharedUserEntity);
 // projection-rebuild — tests that need "a thing you can CRUD".
 export const sharedItemEntity = createEntity({
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     price: createNumberField(),
   },
   softDelete: true,

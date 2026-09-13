@@ -43,8 +43,8 @@ import {
 const itemEntity = createEntity({
   table: "read_pending_items",
   fields: {
-    groupId: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const itemTable = buildEntityTable("pending-item", itemEntity);

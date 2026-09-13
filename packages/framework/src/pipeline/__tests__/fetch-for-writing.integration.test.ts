@@ -22,7 +22,7 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 const cartEntity = createEntity({
   table: "read_f4w_carts",
   fields: {
-    customer: createTextField({ required: true }),
+    customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 

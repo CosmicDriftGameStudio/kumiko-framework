@@ -14,7 +14,7 @@ import { createTenantDb } from "../tenant-db";
 
 const entity = createEntity({
   table: "merge_items",
-  fields: { name: createTextField({ required: true }) },
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 // Brand (#742) is compile-time-only; hold the handle at the unbranded TableColumns
 // view so the method-form scoping test still compiles (runtime shape is identical).
@@ -130,7 +130,10 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (deriveEntityTableMeta)", () => {
   const unmanagedEntity = createEntity({
     table: "merge_meta_items",
-    fields: { tenantId: createTextField({ required: true }), name: createTextField() },
+    fields: {
+      tenantId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      name: createTextField({ personal: false, reason: "test_fixture" }),
+    },
   });
   const unmanagedTable = deriveEntityTableMeta("merge-meta-item", unmanagedEntity);
 

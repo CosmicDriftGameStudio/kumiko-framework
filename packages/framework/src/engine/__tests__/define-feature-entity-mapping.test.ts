@@ -5,11 +5,11 @@ import { createEntity, createTextField } from "../factories";
 
 const noteEntity = createEntity({
   table: "dfm_notes",
-  fields: { title: createTextField({ required: true }) },
+  fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const tagEntity = createEntity({
   table: "dfm_tags",
-  fields: { label: createTextField({ required: true }) },
+  fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const bareCreate = {

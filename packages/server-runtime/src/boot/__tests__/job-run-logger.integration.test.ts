@@ -105,7 +105,7 @@ describe("startDevJobRunners", () => {
 // ctx.write and ctx.queryAs end-to-end.
 const attachNoteEntity = createEntity({
   table: "job_attach_notes",
-  fields: { text: createTextField({ required: true }) },
+  fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const attachNoteTable = buildEntityTable("note", attachNoteEntity);
 

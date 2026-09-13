@@ -16,8 +16,8 @@ function productEntity() {
   return createEntity({
     table: "products",
     fields: {
-      name: createTextField(),
-      sku: createTextField(),
+      name: createTextField({ personal: false, reason: "test_fixture" }),
+      sku: createTextField({ personal: false, reason: "test_fixture" }),
     },
   });
 }
@@ -26,7 +26,7 @@ function derivedProductEntity() {
   return createEntity({
     table: "derived_products",
     fields: {
-      name: createTextField(),
+      name: createTextField({ personal: false, reason: "test_fixture" }),
     },
     derivedFields: {
       summary: createDerivedField({
@@ -306,7 +306,10 @@ describe("r.screen() — registration", () => {
       defineFeature("billing", (r) => {
         r.entity(
           "invoice",
-          createEntity({ table: "invoices", fields: { name: createTextField() } }),
+          createEntity({
+            table: "invoices",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
         );
         r.screen({
           id: "invoice-detail",
@@ -695,7 +698,10 @@ describe("r.screen() — registration", () => {
       defineFeature("billing", (r) => {
         r.entity(
           "invoice",
-          createEntity({ table: "invoices", fields: { name: createTextField() } }),
+          createEntity({
+            table: "invoices",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
         );
         r.screen({
           id: "invoice-detail",
@@ -774,7 +780,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: [],
                 handler: "app:write:save",
               },
@@ -798,7 +804,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["sku"],
                 handler: "app:write:save",
               },
@@ -825,7 +831,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "app:write:save",
               },
@@ -849,7 +855,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "app:write:missing",
               },
@@ -886,7 +892,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "app:write:save",
                 submitLabel: "actions.save",
@@ -928,7 +934,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "app:write:save",
               },
@@ -970,7 +976,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "app:write:save",
               },
@@ -996,7 +1002,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "shop:write:save",
               },
@@ -1027,7 +1033,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "shop:write:save",
               },
@@ -1060,7 +1066,7 @@ describe("r.screen() — registration", () => {
               {
                 kind: "writeForm",
                 title: "s",
-                fieldDefs: { name: createTextField() },
+                fieldDefs: { name: createTextField({ personal: false, reason: "test_fixture" }) },
                 fields: ["name"],
                 handler: "shop:write:save",
               },

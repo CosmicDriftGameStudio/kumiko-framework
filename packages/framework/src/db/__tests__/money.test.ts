@@ -12,7 +12,7 @@ import { flattenMoney, type MoneyRead, moneyPayloadToMinorUnits, rehydrateMoney 
 const orderEntity: EntityDefinition = createEntity({
   defaultCurrency: "EUR",
   fields: {
-    label: createTextField(),
+    label: createTextField({ personal: false, reason: "test_fixture" }),
     buyingPrice: createMoneyField(),
     sellingPrice: createMoneyField(),
   },

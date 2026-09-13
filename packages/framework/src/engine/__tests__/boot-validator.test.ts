@@ -50,7 +50,13 @@ describe("boot-validator", () => {
   test("passes for valid features with no issues", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity("user", createEntity({ table: "Users", fields: { name: createTextField() } }));
+        r.entity(
+          "user",
+          createEntity({
+            table: "Users",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -404,7 +410,7 @@ describe("boot-validator", () => {
           "item",
           createEntity({
             table: "Items",
-            fields: { name: createTextField() },
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
         );
         r.extendsRegistrar("custom", {
@@ -426,7 +432,7 @@ describe("boot-validator", () => {
           "item",
           createEntity({
             table: "Items",
-            fields: { status: createTextField() },
+            fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
             derivedFields: {
               status: createDerivedField({ valueType: "text", derive: () => "computed" }),
             },
@@ -446,7 +452,7 @@ describe("boot-validator", () => {
           "item",
           createEntity({
             table: "Items",
-            fields: { status: createTextField() },
+            fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
             derivedFields: {
               statusLabel: createDerivedField({ valueType: "text", derive: () => "computed" }),
             },
@@ -498,7 +504,7 @@ describe("boot-validator", () => {
           "item",
           createEntity({
             table: "Items",
-            fields: { name: createTextField() },
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
         );
         r.extendsRegistrar("custom", {
@@ -514,7 +520,13 @@ describe("boot-validator", () => {
   test("accepts bare CRUD write handler when feature name matches entity", () => {
     const features = [
       defineFeature("credit", (r) => {
-        r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+        r.entity(
+          "credit",
+          createEntity({
+            table: "Credits",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.writeHandler(
           "create",
           z.object({ name: z.string() }),
@@ -540,7 +552,13 @@ describe("boot-validator", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires("cap-ext");
-      r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+      r.entity(
+        "credit",
+        createEntity({
+          table: "Credits",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "doSomething",
         z.object({}),
@@ -583,7 +601,9 @@ describe("boot-validator", () => {
   test("registerEntityCrud without access options fails boot (no implicit openToAll)", () => {
     const widgetEntity = createEntity({
       table: "phase0_widgets",
-      fields: { name: createTextField({ required: true }) },
+      fields: {
+        name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const features = [
       defineFeature("phase0", (r) => {
@@ -948,7 +968,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { teamId: createTextField({ required: true }) },
+              fields: {
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
               },
@@ -966,7 +992,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { teamId: createTextField({ required: true }) },
+              fields: {
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 // No "teams" feature registered — claim doesn't exist.
                 read: { TeamMember: from("claim:teams:teamId") },
@@ -990,7 +1022,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { teamId: createTextField({ required: true }) },
+              fields: {
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: {
                   // column "nonExistentColumn" not on entity
@@ -1017,12 +1055,18 @@ describe("boot-validator", () => {
             createEntity({
               table: "contracts",
               fields: {
-                teamId: createTextField({ required: true }),
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
                 propC: createTextField({
                   access: {
                     read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
                     write: { Admin: "all", TeamMember: from("claim:teams:teamId") },
                   },
+                  personal: false,
+                  reason: "test_fixture",
                 }),
               },
             }),
@@ -1040,12 +1084,18 @@ describe("boot-validator", () => {
             createEntity({
               table: "contracts",
               fields: {
-                teamId: createTextField({ required: true }),
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
                 propC: createTextField({
                   access: {
                     // claim not declared anywhere
                     read: { TeamMember: from("claim:nowhere:teamId") },
                   },
+                  personal: false,
+                  reason: "test_fixture",
                 }),
               },
             }),
@@ -1064,7 +1114,7 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { assigneeId: createTextField() },
+              fields: { assigneeId: createTextField({ personal: false, reason: "test_fixture" }) },
               access: {
                 read: { Driver: from("user:id", "assigneeId") },
               },
@@ -1082,7 +1132,7 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { assigneeId: createTextField() },
+              fields: { assigneeId: createTextField({ personal: false, reason: "test_fixture" }) },
               access: {
                 read: {
                   Admin: "all",
@@ -1106,7 +1156,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { entityId: createTextField({ required: true }) },
+              fields: {
+                entityId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: {
                   Auditor: {
@@ -1132,7 +1188,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { entityId: createTextField({ required: true }) },
+              fields: {
+                entityId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: {
                   Auditor: {
@@ -1196,7 +1258,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { teamId: createTextField({ required: true }) },
+              fields: {
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: { Admi: "all" },
               },
@@ -1225,7 +1293,11 @@ describe("boot-validator", () => {
             createEntity({
               table: "orders",
               fields: {
-                secret: createTextField({ access: { read: ["Admni"] } }),
+                secret: createTextField({
+                  access: { read: ["Admni"] },
+                  personal: false,
+                  reason: "test_fixture",
+                }),
               },
             }),
           );
@@ -1251,7 +1323,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { teamId: createTextField({ required: true }) },
+              fields: {
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: { Admin: "all", TeamMember: "all" },
               },
@@ -1273,7 +1351,13 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               table: "orders",
-              fields: { teamId: createTextField({ required: true }) },
+              fields: {
+                teamId: createTextField({
+                  required: true,
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
               access: {
                 read: { AnyRole: "all" },
               },
@@ -1807,7 +1891,12 @@ describe("boot-validator", () => {
   describe("entityList column renderer form", () => {
     function shopFeature(renderer: unknown) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -1970,7 +2059,12 @@ describe("boot-validator", () => {
   describe("entityList virtual labeled column", () => {
     function noteFeature(column: unknown) {
       return defineFeature("notes", (r) => {
-        r.entity("note", createEntity({ fields: { title: createTextField() } }));
+        r.entity(
+          "note",
+          createEntity({
+            fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "note-list",
           type: "entityList",
@@ -2030,7 +2124,10 @@ describe("boot-validator", () => {
       return defineFeature("notes", (r) => {
         r.entity(
           "note",
-          createEntity({ fields: { title: createTextField() }, softDelete: options?.softDelete }),
+          createEntity({
+            fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+            softDelete: options?.softDelete,
+          }),
         );
         r.screen({
           id: "note-list",
@@ -2089,7 +2186,12 @@ describe("boot-validator", () => {
     for (const typo of typoColumns) {
       test(`"${typo}" fails validateScreens (via validateBoot)`, () => {
         const feature = defineFeature("notes", (r) => {
-          r.entity("note", createEntity({ fields: { title: createTextField() } }));
+          r.entity(
+            "note",
+            createEntity({
+              fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           r.screen({
             id: "note-list",
             type: "entityList",
@@ -2104,7 +2206,12 @@ describe("boot-validator", () => {
 
       test(`"${typo}" fails validateEntityListScreens directly ("unknown column field")`, () => {
         const feature = defineFeature("notes", (r) => {
-          r.entity("note", createEntity({ fields: { title: createTextField() } }));
+          r.entity(
+            "note",
+            createEntity({
+              fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           r.screen({
             id: "note-list",
             type: "entityList",
@@ -2137,11 +2244,11 @@ describe("boot-validator", () => {
           "product",
           createEntity({
             fields: {
-              name: createTextField({ sortable: true }),
+              name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
               // Bewusst NICHT sortable: bestätigt dass Validator das
               // unterscheidet und nur sortable-Felder als defaultSort
               // akzeptiert.
-              description: createTextField(),
+              description: createTextField({ personal: false, reason: "test_fixture" }),
             },
           }),
         );
@@ -2956,7 +3063,12 @@ describe("boot-validator", () => {
   describe("entityEdit extension section", () => {
     function makeFeature(component: unknown) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -2997,7 +3109,12 @@ describe("boot-validator", () => {
       return defineFeature("shop", (r) => {
         r.entity(
           "product",
-          createEntity({ fields: { name: createTextField(), sku: createTextField() } }),
+          createEntity({
+            fields: {
+              name: createTextField({ personal: false, reason: "test_fixture" }),
+              sku: createTextField({ personal: false, reason: "test_fixture" }),
+            },
+          }),
         );
         r.screen({
           id: "product-edit",
@@ -3054,7 +3171,12 @@ describe("boot-validator", () => {
       return defineFeature("shop", (r) => {
         r.entity(
           "product",
-          createEntity({ fields: { name: createTextField(), sku: createTextField() } }),
+          createEntity({
+            fields: {
+              name: createTextField({ personal: false, reason: "test_fixture" }),
+              sku: createTextField({ personal: false, reason: "test_fixture" }),
+            },
+          }),
         );
         r.screen({
           id: "product-edit",
@@ -3188,7 +3310,7 @@ describe("boot-validator", () => {
             "order",
             createEntity({
               fields: {
-                kind: createTextField(),
+                kind: createTextField({ personal: false, reason: "test_fixture" }),
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
             }),
@@ -3292,7 +3414,12 @@ describe("boot-validator", () => {
     test("reference auf bestehende Entity → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "customer",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           stubListHandler(r, "customer");
           r.entity(
             "order",
@@ -3328,7 +3455,12 @@ describe("boot-validator", () => {
     test("reference labelField auf unknown Field → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "customer",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           r.entity(
             "order",
             createEntity({
@@ -3347,7 +3479,12 @@ describe("boot-validator", () => {
     test("reference labelField=id ist immer ok (PK)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("customer", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "customer",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           stubListHandler(r, "customer");
           r.entity(
             "order",
@@ -3369,7 +3506,7 @@ describe("boot-validator", () => {
             "category",
             createEntity({
               fields: {
-                name: createTextField(),
+                name: createTextField({ personal: false, reason: "test_fixture" }),
                 parentId: { type: "reference", entity: "category", labelField: "name" },
               },
             }),
@@ -3383,13 +3520,18 @@ describe("boot-validator", () => {
     test("reference mit multiple: true → kein Throw (Tier 2.7e-Multi)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("tag", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "tag",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           stubListHandler(r, "tag");
           r.entity(
             "post",
             createEntity({
               fields: {
-                title: createTextField(),
+                title: createTextField({ personal: false, reason: "test_fixture" }),
                 tagIds: {
                   type: "reference",
                   entity: "tag",
@@ -3408,7 +3550,12 @@ describe("boot-validator", () => {
     test("cross-feature reference (feature:entity) → kein Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+          r.entity(
+            "user",
+            createEntity({
+              fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           stubListHandler(r, "user");
         }),
         defineFeature("shop", (r) => {
@@ -3428,7 +3575,12 @@ describe("boot-validator", () => {
     test("Audit-Fix #2: cross-feature reference ohne list-handler → Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+          r.entity(
+            "user",
+            createEntity({
+              fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           // KEINE stubListHandler — das ist der Punkt des Tests
         }),
         defineFeature("shop", (r) => {
@@ -3468,7 +3620,12 @@ describe("boot-validator", () => {
     test("cross-feature reference auf unknown entity → Throw mit feature-context", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+          r.entity(
+            "user",
+            createEntity({
+              fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
         }),
         defineFeature("shop", (r) => {
           r.entity(
@@ -3489,7 +3646,12 @@ describe("boot-validator", () => {
     test("cross-feature labelField auf unknown Field → Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity("user", createEntity({ fields: { email: createTextField() } }));
+          r.entity(
+            "user",
+            createEntity({
+              fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
         }),
         defineFeature("shop", (r) => {
           r.entity(
@@ -3540,7 +3702,12 @@ describe("boot-validator", () => {
     test("reference sub-field with a valid target + registered list-handler → kein Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "product",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           stubListHandler(r, "product");
           r.entity(
             "invoice",
@@ -3560,7 +3727,12 @@ describe("boot-validator", () => {
     test("reference sub-field with a valid target but no registered list-handler → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "product",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           // KEIN stubListHandler — das ist der Punkt des Tests
           r.entity(
             "invoice",
@@ -3582,7 +3754,12 @@ describe("boot-validator", () => {
     test("reference sub-field labelField referencing an unknown field → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "product",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           stubListHandler(r, "product");
           r.entity(
             "invoice",
@@ -3610,7 +3787,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction kind=navigate (Tier 2.7e-1)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3650,7 +3832,12 @@ describe("boot-validator", () => {
       // Custom-Editor der Consumer-App (anderes Feature). Runtime löst die bare
       // id app-weit auf → der Validator muss das erlauben.
       const list = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3673,7 +3860,12 @@ describe("boot-validator", () => {
       // open with no entity context at runtime. The validator must catch it
       // at boot instead.
       const list = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3685,7 +3877,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity("invoice", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "invoice",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -3702,7 +3899,12 @@ describe("boot-validator", () => {
       const list = defineFeature("shop", (r) => {
         r.entity(
           "product",
-          createEntity({ fields: { name: createTextField(), invoiceId: createTextField() } }),
+          createEntity({
+            fields: {
+              name: createTextField({ personal: false, reason: "test_fixture" }),
+              invoiceId: createTextField({ personal: false, reason: "test_fixture" }),
+            },
+          }),
         );
         r.screen({
           id: "product-list",
@@ -3721,7 +3923,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity("invoice", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "invoice",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -3734,7 +3941,12 @@ describe("boot-validator", () => {
 
     test("same-feature navigate to entityEdit WITHOUT entityId → kein Throw (same-feature fallback applies)", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3759,7 +3971,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction kind=navigate entity-target (fw#2228)", () => {
     test("entity-target resolving via detailFor → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3779,7 +3996,12 @@ describe("boot-validator", () => {
 
     test("entity-target with no detailFor screen anywhere → Throw mit klarer Message", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3795,7 +4017,12 @@ describe("boot-validator", () => {
 
     test("both screen and entity set → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3825,7 +4052,12 @@ describe("boot-validator", () => {
 
     test("neither screen nor entity set → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3844,7 +4076,12 @@ describe("boot-validator", () => {
       // detailFor resolution — the owning feature's list navigates to a
       // detail screen a consumer app registers for the entity.
       const list = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3871,7 +4108,12 @@ describe("boot-validator", () => {
       // row["id"]), so the same-feature-fallback gap that check guards
       // against doesn't exist here.
       const list = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -3881,7 +4123,12 @@ describe("boot-validator", () => {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity("invoice", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "invoice",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -3898,7 +4145,12 @@ describe("boot-validator", () => {
       // guaranteed "id" field, unlike entityList rows — an entity-target
       // there must name the field to read the id from.
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
           access: { openToAll: true },
         });
@@ -3923,7 +4175,12 @@ describe("boot-validator", () => {
 
     test("projectionList rowAction entity-target with explicit entityId → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
           access: { openToAll: true },
         });
@@ -3954,7 +4211,12 @@ describe("boot-validator", () => {
 
     test("projectionDetail action entity-target without explicit entityId → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "order-detail",
           type: "projectionDetail",
@@ -4004,7 +4266,12 @@ describe("boot-validator", () => {
 
     test('entityEdit.actions drawer-target unknown → throw with actionLabel "action"', () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -4022,7 +4289,12 @@ describe("boot-validator", () => {
 
     test("entityEdit.actions drawer-target → registered actionForm → no throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.writeHandler(
           "add-note",
           z.object({ note: z.string() }),
@@ -4187,7 +4459,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction rowClick", () => {
     function makeFeature(rowClickCount: number) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
         r.screen({
           id: "product-list",
@@ -4220,7 +4497,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction kind=writeHandler handler-QN", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4261,7 +4543,12 @@ describe("boot-validator", () => {
   describe("entityList rowAction payload pick (Tier 2.7e-3)", () => {
     function makeFeature(pick: readonly string[]) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4318,7 +4605,7 @@ describe("boot-validator", () => {
         r.entity(
           "product",
           createEntity({
-            fields: { name: createTextField() },
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             softDelete: opts.softDelete ?? false,
           }),
         );
@@ -4394,7 +4681,12 @@ describe("boot-validator", () => {
   describe("entityList toolbarAction navigate (Tier 2.7e-2)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4422,7 +4714,12 @@ describe("boot-validator", () => {
 
     test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4443,7 +4740,12 @@ describe("boot-validator", () => {
   describe("entityList toolbarAction writeHandler handler-QN (Tier 2.7e-2)", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4485,7 +4787,12 @@ describe("boot-validator", () => {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4542,7 +4849,12 @@ describe("boot-validator", () => {
 
     test("drawer-target → actionForm in ANOTHER feature → throw (drawer resolves same-feature only)", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4582,7 +4894,12 @@ describe("boot-validator", () => {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -4804,7 +5121,12 @@ describe("boot-validator", () => {
     test('screen.id mit "." → defineFeature throws (kebab-case)', () => {
       expect(() =>
         defineFeature("shop", (r) => {
-          r.entity("product", createEntity({ fields: { name: createTextField() } }));
+          r.entity(
+            "product",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
           r.screen({
             id: "product.list",
             type: "entityList",
@@ -4817,7 +5139,12 @@ describe("boot-validator", () => {
 
     test("screen.id im kebab-case → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
         r.screen({ id: "product-list", type: "entityList", entity: "product", columns: ["name"] });
       });
       expect(() => validateBoot([feature])).not.toThrow();
@@ -4849,7 +5176,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a dashboard screen without a filter → Throw (params would be a no-op)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -4889,7 +5221,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a dashboard screen with a matching filter → no throw (useFilterParams reads it, fw#1708 follow-up)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -4933,7 +5270,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a dashboard screen whose filter id doesn't match any extracted key → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -4979,8 +5321,18 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a cross-entity entityList screen → no throw (list screens read URL search params for filter-prefill, fw#1708)", () => {
     const feature = defineFeature("housing", (r) => {
-      r.entity("unit", createEntity({ fields: { id: createTextField() } }));
-      r.entity("contract", createEntity({ fields: { unitId: createTextField() } }));
+      r.entity(
+        "unit",
+        createEntity({
+          fields: { id: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.entity(
+        "contract",
+        createEntity({
+          fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -5008,7 +5360,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting a custom screen → no throw (author owns the component, may read searchParams itself)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -5038,7 +5395,12 @@ describe("boot-validator — config key backing × scope", () => {
     // runNavigate() auto-fills row["id"], landing in EntityEditUpdateBody,
     // which never reads searchParams. Params would silently no-op.
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -5068,8 +5430,18 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params + explicit entityId targeting an entityEdit screen → Throw (forced update mode)", () => {
     const feature = defineFeature("housing", (r) => {
-      r.entity("unit", createEntity({ fields: { name: createTextField() } }));
-      r.entity("contract", createEntity({ fields: { unitId: createTextField() } }));
+      r.entity(
+        "unit",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.entity(
+        "contract",
+        createEntity({
+          fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -5102,7 +5474,12 @@ describe("boot-validator — config key backing × scope", () => {
   // extended to projectionList rowActions (#1680 covered entityList only).
   test("projectionList rowAction: navigate with params to an entityEdit target + explicit entityId → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "product-projection",
         type: "projectionList",
@@ -5133,7 +5510,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("projectionList rowAction: navigate with params to an entityEdit-create target (no entityId) → no throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
         access: { openToAll: true },
       });
@@ -5168,8 +5550,18 @@ describe("boot-validator — config key backing × scope", () => {
     // renderer's same-entity row["id"] fallback does NOT fire, so this stays
     // in create mode and EntityEditCreateBody reads the params.
     const feature = defineFeature("housing", (r) => {
-      r.entity("unit", createEntity({ fields: { name: createTextField() } }));
-      r.entity("contract", createEntity({ fields: { unitId: createTextField() } }));
+      r.entity(
+        "unit",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.entity(
+        "contract",
+        createEntity({
+          fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -5197,7 +5589,12 @@ describe("boot-validator — config key backing × scope", () => {
 
   test("navigate with params targeting an actionForm screen → no throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("product", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "create",
         z.object({ name: z.string() }),
@@ -5223,7 +5620,7 @@ describe("boot-validator — config key backing × scope", () => {
         id: "product-form",
         type: "actionForm",
         handler: "shop:write:create",
-        fields: { name: createTextField() },
+        fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         layout: { sections: [{ columns: 1, fields: ["name"] }] },
       });
     });

@@ -14,20 +14,20 @@ import { createBigIntField, createEntity, createTextField } from "../engine";
 // ohne `.default(now()).notNull()` macht inserted_at still nullable.
 //
 // PII-Annotations:
-//   - fileName → personal: "self" (Originalname enthält oft Personen-Bezug:
-//     "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf"). Andere Felder
-//     (storageKey, mimeType, size, entityType, entityId, fieldName) treffen
-//     die PII-Heuristik nicht.
+//   - fileName → personal: "self" (original filename often carries a personal
+//     reference: "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf"). The other
+//     fields (storageKey, mimeType, entityType, entityId, fieldName) are
+//     technical references or system metadata, not subject content.
 export const fileRefEntity = createEntity({
   table: "file_refs",
   softDelete: true,
   fields: {
-    storageKey: createTextField({ required: true }),
+    storageKey: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     fileName: createTextField({ required: true, personal: "self", find: "none" }),
-    mimeType: createTextField({ required: true }),
+    mimeType: createTextField({ required: true, personal: false, reason: "system_metadata" }),
     size: createBigIntField({ required: true }),
-    entityType: createTextField(),
-    entityId: createTextField(),
-    fieldName: createTextField(),
+    entityType: createTextField({ personal: false, reason: "technical_reference" }),
+    entityId: createTextField({ personal: false, reason: "technical_reference" }),
+    fieldName: createTextField({ personal: false, reason: "technical_reference" }),
   },
 });

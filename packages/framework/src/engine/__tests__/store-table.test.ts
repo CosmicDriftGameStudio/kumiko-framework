@@ -65,7 +65,7 @@ describe("r.storeTable — declaration", () => {
   test("rejects an EntityTableMeta whose source is not 'unmanaged' (#1209)", () => {
     const managedEntity = createEntity({
       table: "rt_probe_managed",
-      fields: { name: createTextField() },
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     const managedMeta = deriveEntityTableMeta("rt-probe-managed", managedEntity);
     expect(() =>
@@ -173,7 +173,10 @@ describe("createRegistry — storeTable aggregation", () => {
     // default would carry read_, which r.storeTable now rejects outright
     // (#1220), so the collision case needs a table name storeTable can
     // actually register.
-    const widget = createEntity({ table: "shop_widgets", fields: { name: createTextField() } });
+    const widget = createEntity({
+      table: "shop_widgets",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    });
     // resolveTableName mirrors the migrate-runner — pin the exact physical name.
     const physical = resolveTableName("widget", widget, "shop");
     const clashing = defineUnmanagedTable({
@@ -203,7 +206,7 @@ describe("createRegistry — store tables with PII-annotated fields (#820)", () 
   const piiEntity = createEntity({
     table: "rt_pii_probe",
     fields: {
-      userId: createTextField({ required: true }),
+      userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       ip: createTextField({
         personal: { of: "userId" },
         find: "none",

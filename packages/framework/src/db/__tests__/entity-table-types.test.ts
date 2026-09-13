@@ -28,7 +28,7 @@ describe("EntityTable<E> — Property-Names existieren", () => {
   const sampleEntity = createEntity({
     table: "x",
     fields: {
-      title: createTextField({ required: true }),
+      title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       done: createBooleanField({ default: false }),
       priority: createSelectField({ options: ["low", "high"] as const }),
     },
@@ -119,7 +119,7 @@ describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
   const ent = createEntity({
     table: "many",
     fields: {
-      txt: createTextField(),
+      txt: createTextField({ personal: false, reason: "test_fixture" }),
       num: createNumberField(),
       dt: createDateField(),
       ts: createTimestampField(),
@@ -142,12 +142,12 @@ describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
 describe("EntityTable<E> — idType wirkt", () => {
   const uuidEnt = createEntity({
     table: "uuid_ent",
-    fields: { name: createTextField() },
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     // default: idType: "uuid"
   });
   const serialEnt = createEntity({
     table: "serial_ent",
-    fields: { name: createTextField() },
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     idType: "serial",
   });
   const tu = buildEntityTable("uuid_ent", uuidEnt);

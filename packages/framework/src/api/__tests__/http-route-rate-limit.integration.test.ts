@@ -14,7 +14,13 @@ import { setupTestStack, type TestStack } from "../../stack";
 const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000" as TenantId;
 
 const ipLimitedFeature = defineFeature("rl-http", (r) => {
-  r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+  r.entity(
+    "item",
+    createEntity({
+      table: "Items",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
+  );
   r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip", limit: 2, windowSeconds: 60 },

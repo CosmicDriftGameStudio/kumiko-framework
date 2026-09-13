@@ -16,7 +16,12 @@ import { generateE2ESpec, generateZodFixture } from "../e2e-generator";
 const taskEntity = createEntity({
   table: "tasks",
   fields: {
-    title: createTextField({ required: true, maxLength: 200 }),
+    title: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 200,
+    }),
     done: createBooleanField({ default: false }),
     status: createSelectField({ options: ["todo", "doing", "done"] as const }),
   },
@@ -92,7 +97,7 @@ describe("generateE2ESpec", () => {
     const entity = createEntity({
       table: "events",
       fields: {
-        title: createTextField({ required: true }),
+        title: createTextField({ personal: false, reason: "test_fixture", required: true }),
         day: createDateField(),
         at: createTimestampField(),
       },
@@ -180,9 +185,14 @@ describe("generateE2ESpec", () => {
     const contactEntity = createEntity({
       table: "contacts",
       fields: {
-        name: createTextField({ required: true }),
-        email: createTextField({ required: true, format: "email" }),
-        homepage: createTextField({ format: "url" }),
+        name: createTextField({ personal: false, reason: "test_fixture", required: true }),
+        email: createTextField({
+          personal: false,
+          reason: "test_fixture",
+          required: true,
+          format: "email",
+        }),
+        homepage: createTextField({ personal: false, reason: "test_fixture", format: "url" }),
       },
     });
     const feature = defineFeature("contacts", (r) => {

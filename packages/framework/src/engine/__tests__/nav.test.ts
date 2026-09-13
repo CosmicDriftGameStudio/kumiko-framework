@@ -12,7 +12,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 function productEntity() {
   return createEntity({
     table: "products",
-    fields: { name: createTextField() },
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
 }
 

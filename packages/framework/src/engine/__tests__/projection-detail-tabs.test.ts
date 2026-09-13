@@ -100,7 +100,12 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("mode: tabs on entityEdit throws — tabs are projectionDetail-only", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity("rent", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "rent",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "rent-edit",
         type: "entityEdit",

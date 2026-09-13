@@ -22,7 +22,7 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 const itemEntity = createEntity({
   table: "batch_items",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     counter: createNumberField({ default: 0 }),
   },
 });
@@ -34,8 +34,8 @@ const itemTable = buildEntityTable("item", itemEntity);
 const auditEntity = createEntity({
   table: "batch_audit",
   fields: {
-    action: createTextField({ required: true }),
-    itemId: createTextField({ required: true }),
+    action: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    itemId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 // Brand (#742) is compile-time-only; the postSave hook writes this sink via method-form,

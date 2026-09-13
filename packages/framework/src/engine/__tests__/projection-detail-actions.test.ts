@@ -87,7 +87,12 @@ describe("validateBoot — projectionDetail actions (fw#2166)", () => {
 
   test("navigate action with params targeting an entityEdit of the SAME entity (via detailFor) throws — params are a no-op on an update target (review finding 3b)", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity("rent", createEntity({ fields: { name: createTextField() } }));
+      r.entity(
+        "rent",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",

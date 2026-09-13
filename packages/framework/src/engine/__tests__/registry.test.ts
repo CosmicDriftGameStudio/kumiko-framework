@@ -65,11 +65,15 @@ describe("getAllQueryHandlers", () => {
   test("returns every registered query handler, qualified, across multiple features", () => {
     const taskEntity = createEntity({
       table: "registry_test_tasks",
-      fields: { title: createTextField({ required: true }) },
+      fields: {
+        title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const noteEntity = createEntity({
       table: "registry_test_notes",
-      fields: { body: createTextField({ required: true }) },
+      fields: {
+        body: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      },
     });
     const taskFeature = defineFeature("registry-test-task", (r) => {
       r.crud("task", taskEntity, {
@@ -283,7 +287,13 @@ describe("extensionSelector boot-validation", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires("cap-ext");
-      r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+      r.entity(
+        "credit",
+        createEntity({
+          table: "Credits",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
       r.writeHandler(
         "doSomething",
         z.object({}),

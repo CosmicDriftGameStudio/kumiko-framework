@@ -31,7 +31,12 @@ const widgetEntity = createEntity({
   table: "read_reindex_widgets",
   softDelete: true,
   fields: {
-    name: createTextField({ required: true, searchable: true }),
+    name: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      searchable: true,
+    }),
   },
 });
 

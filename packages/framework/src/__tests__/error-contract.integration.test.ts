@@ -35,7 +35,7 @@ import {
 const itemEntity = createEntity({
   table: "errctr_items",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     stock: createNumberField({ default: 0 }),
   },
 });
