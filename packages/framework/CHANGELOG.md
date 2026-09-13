@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.258.1
+
+### Patch Changes
+
+- 3c6c428: Declare the personal stance on the remaining non-test createTextField call sites (kumiko-framework#2810).
+  - @cosmicdrift/kumiko-types@0.258.1
+
 ## 0.258.0
 
 ### Minor Changes
