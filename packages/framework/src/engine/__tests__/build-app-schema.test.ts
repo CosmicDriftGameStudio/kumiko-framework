@@ -420,10 +420,10 @@ describe("buildAppSchema", () => {
       "default", // array-valued for multiSelect — projectField's
       // isJsonSafeValue() (fw#2497) now recurses into arrays/plain
       // objects instead of only string/number/boolean/null.
+      "sensitive", // write-response redaction server-side AND the renderer's prefill block
     ] as const;
 
     const SERVER_ONLY_KEYS = [
-      "sensitive", // controls write-response redaction, never rendered
       "access", // server-side authz check, not a renderer concern
       "pii", // PII classification, drives crypto/storage — not client-relevant
       "userOwned", // same: subject-key annotation, server/crypto-only

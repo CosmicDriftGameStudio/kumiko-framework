@@ -466,6 +466,9 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
     out["unit"] = unit;
   // text: "password" masks the input and blocks URL prefill in the renderer.
   if (typeof def["format"] === "string") out["format"] = def["format"];
+  // Write-response redaction stays server-side; the renderer needs the flag to
+  // refuse any prefill (URL or handoff) into the field.
+  if (def["sensitive"] === true) out["sensitive"] = true;
   // timestamp: the edit view-model derives its wall-clock input mode from this.
   if (typeof def["locatedBy"] === "string") out["locatedBy"] = def["locatedBy"];
   // file/image/images: upload picker constraints; the first variant key picks
