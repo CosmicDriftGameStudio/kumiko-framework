@@ -48,6 +48,27 @@ describe("synthesizeActionFormScreen", () => {
     });
     expect("description" in withoutDescription).toBe(false);
   });
+
+  test("carries slots through so RenderEdit can mount header/footer slots on an actionForm", () => {
+    const withSlots = synthesizeActionFormScreen({
+      id: "invite-user",
+      type: "actionForm",
+      handler: "users:write:invite-user",
+      layout: { sections: [{ title: "Invite", fields: ["email"] }] },
+      fields: { email: { type: "text" } },
+      slots: { footer: { react: { __component: "f" } } },
+    });
+    expect(withSlots.slots).toEqual({ footer: { react: { __component: "f" } } });
+
+    const withoutSlots = synthesizeActionFormScreen({
+      id: "invite-user",
+      type: "actionForm",
+      handler: "users:write:invite-user",
+      layout: { sections: [{ title: "Invite", fields: ["email"] }] },
+      fields: { email: { type: "text" } },
+    });
+    expect("slots" in withoutSlots).toBe(false);
+  });
 });
 
 describe("synthesizeSecretMintConfirmScreen (fw#2838)", () => {

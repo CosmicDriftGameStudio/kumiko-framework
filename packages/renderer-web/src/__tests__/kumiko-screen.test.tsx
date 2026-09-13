@@ -1911,6 +1911,40 @@ describe("KumikoScreen", () => {
     expect(writeCalls[0]?.payload).toEqual({ title: "New Task", priority: 1 });
   });
 
+  // slots.header/footer on entityEdit are shared through action-form-shim's
+  // synthesizeActionFormScreen — an actionForm mounts them the same way.
+  test("actionForm: slots.header and slots.footer both render (fw#2853)", async () => {
+    const TopBanner = () => <div data-testid="action-form-header-slot">top banner</div>;
+    const BottomAction = () => <button type="button" data-testid="action-form-footer-slot" />;
+
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add-slots",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "Basics", fields: ["title"] }] },
+      slots: {
+        header: { react: { __component: "TopBanner" } },
+        footer: { react: { __component: "BottomAction" } },
+      },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ TopBanner, BottomAction }}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen] }}
+            qn="tasks:screen:quick-add-slots"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("action-form-header-slot")).toBeTruthy();
+    expect(screen.getByTestId("action-form-footer-slot")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+  });
+
   // fw#2752: actionForm submitStyle reaches the submit button.
   test("actionForm submitStyle='danger': submit button renders destructive variant", async () => {
     const dispatcher = makeDispatcher({
