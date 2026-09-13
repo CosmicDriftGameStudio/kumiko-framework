@@ -3167,7 +3167,10 @@ describe("boot-validator", () => {
   // Post-save navigation target, same validation as actionForm's redirect:
   // short screen-ID, same feature, must resolve to a registered screen.
   describe("entityEdit redirect", () => {
-    function makeFeature(redirect?: string, extraScreens: readonly string[] = []) {
+    function makeFeature(
+      redirect?: string | { readonly screen: string; readonly idFrom: string },
+      extraScreens: readonly string[] = [],
+    ) {
       return defineFeature("shop", (r) => {
         r.entity(
           "product",
@@ -3223,6 +3226,27 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature("statements:screen:ghost-screen")])).toThrow(
         /redirect "statements:screen:ghost-screen" does not resolve to a registered screen/,
       );
+    });
+
+    // --- redirect object form with idFrom (same rule as actionForm's) ---
+    test("redirect object → existing screen-id → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({ screen: "product-list", idFrom: "parentId" }, ["product-list"]),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("redirect object → unknown screen-id → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ screen: "ghost-screen", idFrom: "parentId" })]),
+      ).toThrow(/redirect "ghost-screen" does not resolve to a registered screen/);
+    });
+
+    test("redirect object mit leerem idFrom → Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ screen: "product-list", idFrom: "  " }, ["product-list"])]),
+      ).toThrow(/redirect\.idFrom is empty/);
     });
   });
 

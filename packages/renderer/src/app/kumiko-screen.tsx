@@ -1,5 +1,6 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  ActionFormRedirect,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
   DashboardScreenDefinition,
@@ -686,6 +687,7 @@ function EntityEditCreateBody({
   readonly onSaved?: () => void;
 }): ReactNode {
   const nav = useNav();
+  const appFeatures = useAppFeatures();
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(
@@ -703,17 +705,31 @@ function EntityEditCreateBody({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        const entityId = extractCreatedId(result.data);
-        nav.navigate({
-          screenId: lastSegment(screen.redirect),
-          ...(entityId !== undefined && { entityId }),
-        });
+        // String form unchanged: always carries the newly created
+        // record's own id, regardless of the target screen's type. The
+        // object form resolves like actionForm's — a child record's own id
+        // is useless for a parent-detail redirect.
+        if (typeof screen.redirect === "string") {
+          const entityId = extractCreatedId(result.data);
+          nav.navigate({
+            screenId: lastSegment(screen.redirect),
+            ...(entityId !== undefined && { entityId }),
+          });
+          return;
+        }
+        const { screenId, entityId } = resolveRedirectTarget(
+          screen.redirect,
+          result.data,
+          schema,
+          appFeatures,
+        );
+        nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         return;
       }
       navigateToList();
       onSaved?.();
     },
-    [nav, screen.redirect, navigateToList, onSaved],
+    [nav, screen.redirect, schema, appFeatures, navigateToList, onSaved],
   );
   // Deliberately no `actions` prop here: `screen.actions` targets an
   // EXISTING record (publish/archive/duplicate and friends), which the
@@ -886,6 +902,7 @@ function EntityEditUpdateForm({
   );
 
   const nav = useNav();
+  const appFeatures = useAppFeatures();
   const dispatcher = useDispatcher();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -1008,13 +1025,30 @@ function EntityEditUpdateForm({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        nav.navigate({ screenId: lastSegment(screen.redirect) });
+        // String form unchanged: navigates without an entityId, same as
+        // before the object form existed. The object form resolves like
+        // actionForm's — the update handler's success payload usually
+        // reports only this record's own id (event-store-executor-write.ts),
+        // so a parent FK named by `idFrom` falls back to the already-loaded
+        // `record`.
+        if (typeof screen.redirect === "string") {
+          nav.navigate({ screenId: lastSegment(screen.redirect) });
+          return;
+        }
+        const { screenId, entityId } = resolveRedirectTarget(
+          screen.redirect,
+          result.data,
+          schema,
+          appFeatures,
+          record,
+        );
+        nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         return;
       }
       navigateToList();
       onSaved?.();
     },
-    [nav, screen.redirect, navigateToList, onSaved],
+    [nav, screen.redirect, schema, appFeatures, record, navigateToList, onSaved],
   );
   const handleDelete = useCallback(async () => {
     const res = await dispatcher.write(deleteCommand, { id: entityId });
@@ -2907,6 +2941,45 @@ function redirectScreenTarget(
   return typeof redirect === "string" ? redirect : redirect.screen;
 }
 
+// Resolves an object-form redirect to a nav target — shared by
+// actionForm and entityEdit (create + update) so the id
+// carries over identically regardless of which screen type triggered it.
+// The target screen may live in another feature (cross-feature QN), so
+// resolution checks this schema first, then every mounted feature — same
+// fallback order as the create-dialog's reference-field screen lookup.
+// `carriesId` gates entityId on the TARGET screen type: a redirect to a
+// list screen never gets an id attached, matching actionForm's original
+// behavior. The id itself prefers the write-handler's success payload
+// (`submittedData`) and falls back to `fallbackRecord` — the entityEdit
+// update path's already-loaded record, which has fields (e.g. a parent FK)
+// the CRUD write executor's success payload doesn't flatly expose.
+function resolveRedirectTarget(
+  redirect: string | ActionFormRedirect,
+  submittedData: unknown,
+  schema: FeatureSchema,
+  appFeatures: readonly FeatureSchema[],
+  fallbackRecord?: Readonly<Record<string, unknown>>,
+): { readonly screenId: string; readonly entityId: string | undefined } {
+  const redirectScreen = redirectScreenTarget(redirect);
+  const idField = typeof redirect === "string" ? "id" : redirect.idFrom;
+  const targetId = lastSegment(redirectScreen);
+  const targetFeatureName = featureNameFromQualifiedScreenId(redirectScreen);
+  const target =
+    schema.screens.find((s) => lastSegment(s.id) === targetId) ??
+    (targetFeatureName !== undefined
+      ? appFeatures
+          .find((f) => f.featureName === targetFeatureName)
+          ?.screens.find((s) => lastSegment(s.id) === targetId)
+      : appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId));
+  const carriesId =
+    target !== undefined && (target.type === "entityEdit" || target.type === "projectionDetail");
+  if (!carriesId) return { screenId: targetId, entityId: undefined };
+  const entityId =
+    extractIdField(submittedData, idField) ??
+    (fallbackRecord !== undefined ? extractIdField(fallbackRecord, idField) : undefined);
+  return { screenId: targetId, entityId };
+}
+
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses
 // RenderEdit über synthetisierte EntityDefinition + EntityEditScreen-
 // Definition (siehe action-form-shim.ts für die Schulden-Doku). Die
@@ -2965,39 +3038,16 @@ function ActionFormBody({
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
       if (screen.redirect !== undefined) {
-        const redirectScreen = redirectScreenTarget(screen.redirect);
-        const idField = typeof screen.redirect === "string" ? "id" : screen.redirect.idFrom;
-        const targetId = lastSegment(redirectScreen);
-        const targetFeatureName = featureNameFromQualifiedScreenId(redirectScreen);
-        // A qualified redirect target may live in a different feature than
-        // this screen's own schema (fw#2485) — resolve over all mounted
-        // features (own schema first, cheap and provider-independent) same
-        // as ProjectionDetailBody's cross-feature editScreen lookup above.
-        // A screen id is only unique WITHIN a feature, so once the QN names
-        // a feature, the fallback must look inside THAT feature, not just
-        // take the first short-id match across every mounted feature — two
-        // features can easily share an id like "list" or "edit".
-        const target =
-          schema.screens.find((s) => lastSegment(s.id) === targetId) ??
-          (targetFeatureName !== undefined
-            ? appFeatures
-                .find((f) => f.featureName === targetFeatureName)
-                ?.screens.find((s) => lastSegment(s.id) === targetId)
-            : // Bare short-id redirect (no feature prefix) names no feature to
-              // pick by — fall back to the pre-fw#2485 best-effort match by
-              // short id across all mounted features.
-              appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId));
-        const entityId = extractIdField(result.data, idField);
-        const carriesId =
-          target !== undefined &&
-          (target.type === "entityEdit" || target.type === "projectionDetail");
-        nav.navigate({
-          screenId: targetId,
-          ...(carriesId && entityId !== undefined && { entityId }),
-        });
+        const { screenId, entityId } = resolveRedirectTarget(
+          screen.redirect,
+          result.data,
+          schema,
+          appFeatures,
+        );
+        nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
       }
     },
-    [nav, screen.redirect, onSuccess, schema.screens, appFeatures],
+    [nav, screen.redirect, onSuccess, schema, appFeatures],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
