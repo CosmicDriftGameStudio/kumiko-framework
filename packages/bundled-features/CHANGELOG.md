@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.258.1
+
+### Patch Changes
+
+- b555e6c: Fix consumer typecheck failures against the published package: `@types/qrcode` was only in `devDependencies`, but both packages publish their `.tsx` sources (typechecked by consumers) and import the runtime `qrcode` package. Consumers don't install `devDependencies`, so `qrcode`'s missing type declarations broke their typecheck (`TS7016`/`TS7006` in `primitives/index.tsx`, introduced by #2840). Moved `@types/qrcode` to `dependencies` in both packages.
+- 3c6c428: Declare the personal stance on the remaining non-test createTextField call sites (kumiko-framework#2810).
+- Updated dependencies [b555e6c]
+- Updated dependencies [3c6c428]
+- Updated dependencies [2eb767b]
+  - @cosmicdrift/kumiko-renderer-web@0.258.1
+  - @cosmicdrift/kumiko-framework@0.258.1
+  - @cosmicdrift/kumiko-headless@0.258.1
+  - @cosmicdrift/kumiko-renderer@0.258.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.258.1
+  - @cosmicdrift/kumiko-types@0.258.1
+
 ## 0.258.0
 
 ### Minor Changes

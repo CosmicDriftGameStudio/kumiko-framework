@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.258.1
+
+### Patch Changes
+
+- 3c6c428: Declare the personal stance on the remaining non-test createTextField call sites (kumiko-framework#2810).
+- Updated dependencies [b555e6c]
+- Updated dependencies [3c6c428]
+  - @cosmicdrift/kumiko-bundled-features@0.258.1
+  - @cosmicdrift/kumiko-framework@0.258.1
+  - @cosmicdrift/kumiko-server-runtime@0.258.1
+
 ## 0.258.0
 
 ### Patch Changes
