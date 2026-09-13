@@ -1,3 +1,4 @@
+// @runtime client
 import { localeDeBundle } from "./strings";
 
 export type GermanAddress = "informal" | "formal";
@@ -114,6 +115,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "pat.create.subtitle":
     "Wählen Sie Berechtigungen und eine Gültigkeit. Der Token wird nur einmal angezeigt.",
   "pat.list.title": "Ihre Tokens",
+  "screen:my-sessions.title": "Ihre Sitzungen",
   "profile.danger.cancelSuccess": "Löschung abgebrochen. Ihr Konto bleibt bestehen.",
   "profile.danger.dialogDescription":
     "Nach Ablauf der Frist werden Ihre Daten endgültig gelöscht. Bis dahin können Sie die Löschung abbrechen.",
