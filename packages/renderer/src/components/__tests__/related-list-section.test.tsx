@@ -1,10 +1,13 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import type { RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { AppFeaturesProvider } from "../../app/app-features-context";
+import type { FeatureSchema } from "../../app/feature-schema";
 import { type NavApi, NavProvider } from "../../app/nav";
 import { DispatcherProvider } from "../../context/dispatcher-context";
+import { UserRolesProvider } from "../../context/user-roles-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
@@ -936,5 +939,120 @@ describe("RelatedListSection — search + facets (fw#2740)", () => {
     expect(payloads[payloads.length - 1]?.["filters"]).toEqual([
       { field: "paid", op: "in", value: [true] },
     ]);
+  });
+});
+
+// Same findEditScreenFor/buildDefaultEditRowAction resolution as
+// entityList/projectionList, driven by rowClick.entity and rowClick.idColumn.
+describe("RelatedListSection — default edit row action", () => {
+  function editScreen(entity: string, roles?: readonly string[]): EntityEditScreenDefinition {
+    return {
+      id: "lease:screen:item-edit",
+      type: "entityEdit",
+      entity,
+      layout: { sections: [{ columns: 1, fields: ["name"] }] },
+      ...(roles !== undefined && { access: { roles } }),
+    };
+  }
+
+  function renderWithFeatures(
+    section: EditRelatedListSectionViewModel,
+    dispatcher: Dispatcher,
+    features: readonly FeatureSchema[],
+    userRoles: readonly string[] = [],
+    nav: NavApi = stubNav().nav,
+  ) {
+    return render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <AppFeaturesProvider features={features}>
+            <UserRolesProvider roles={userRoles}>
+              <PrimitivesProvider value={testPrimitives()}>
+                <NavProvider value={nav}>
+                  <RelatedListSection section={section} parentId="order-1" featureName="orders" />
+                </NavProvider>
+              </PrimitivesProvider>
+            </UserRolesProvider>
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+  }
+
+  const sectionWithRowClick: EditRelatedListSectionViewModel = {
+    kind: "relatedList",
+    title: "Positions",
+    query: "lease:query:items:list",
+    columns: [{ field: "name" }],
+    rowClick: { entity: "item" },
+  };
+
+  test("adds a default edit action at the first position when rowClick.entity resolves an entityEdit screen", async () => {
+    const { dispatcher } = stubDispatcher();
+    const { nav, navigations } = stubNav();
+    const schema: FeatureSchema = {
+      featureName: "lease",
+      entities: {},
+      screens: [editScreen("item")],
+    };
+    renderWithFeatures(sectionWithRowClick, dispatcher, [schema], [], nav);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    const editButton = rtlScreen.getByTestId("action-edit-r1");
+    expect(editButton.textContent).toBe("Edit");
+
+    fireEvent.click(editButton);
+    await waitFor(() => expect(navigations).toHaveLength(1));
+    expect(navigations[0]).toEqual({ screenId: "item-edit", entityId: "r1" });
+  });
+
+  test("a declared rowAction with id 'edit' wins — no doubling", async () => {
+    const { dispatcher } = stubDispatcher();
+    const schema: FeatureSchema = {
+      featureName: "lease",
+      entities: {},
+      screens: [editScreen("item")],
+    };
+    renderWithFeatures(
+      {
+        ...sectionWithRowClick,
+        rowActions: [{ kind: "navigate", id: "edit", label: "custom-edit", screen: "item-edit" }],
+      },
+      dispatcher,
+      [schema],
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryAllByTestId("action-edit-r1")).toHaveLength(1);
+    expect(rtlScreen.getByTestId("action-edit-r1").textContent).toBe("custom-edit");
+  });
+
+  test("no rowClick.entity → no default edit action", async () => {
+    const { dispatcher } = stubDispatcher();
+    const schema: FeatureSchema = {
+      featureName: "lease",
+      entities: {},
+      screens: [editScreen("item")],
+    };
+    renderWithFeatures({ ...sectionWithRowClick, rowClick: undefined }, dispatcher, [schema]);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("action-edit-r1")).toBeNull();
+  });
+
+  test("access denied to the entityEdit screen → no default edit action", async () => {
+    const { dispatcher } = stubDispatcher();
+    const schema: FeatureSchema = {
+      featureName: "lease",
+      entities: {},
+      screens: [editScreen("item", ["admin"])],
+    };
+    renderWithFeatures(sectionWithRowClick, dispatcher, [schema]);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("action-edit-r1")).toBeNull();
   });
 });

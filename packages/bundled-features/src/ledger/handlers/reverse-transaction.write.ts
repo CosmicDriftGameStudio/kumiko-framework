@@ -68,6 +68,12 @@ export function createReverseTransactionHandler(
         amount: -l.amount,
       }));
 
+      // The reversal shares its subject with the original so filtering by
+      // subjectId still finds the Storno; unset on the original stays unset.
+      const subjectType =
+        typeof original["subjectType"] === "string" ? original["subjectType"] : null;
+      const subjectId = typeof original["subjectId"] === "string" ? original["subjectId"] : null;
+
       return transactionExecutor.create(
         {
           id: generateId(),
@@ -78,6 +84,8 @@ export function createReverseTransactionHandler(
           reference: payload.id,
           status: "posted",
           lines,
+          subjectType,
+          subjectId,
         },
         event.user,
         ctx.db,

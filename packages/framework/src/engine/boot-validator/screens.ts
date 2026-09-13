@@ -18,6 +18,7 @@ import {
 import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
 import { metricField } from "../types";
 import type {
+  ActionFormRedirect,
   ActionFormScreenDefinition,
   DashboardCustomPanel,
   DashboardFilterDefinition,
@@ -631,6 +632,42 @@ function validateFormLayoutSections(
   }
 }
 
+// redirect is either a short screen id (same-feature, e.g. "item-list") or
+// a fully-qualified cross-feature QN (`<feature>:screen:<id>`) — the
+// renderer strips the latter to the short id (lastSegment) when
+// navigating, which the nav-router resolves app-wide (#1946). The object
+// form (fw#2670) carries the same target under `screen` plus the payload
+// field `idFrom`. Shared by actionForm/secretMint (validateInlineFormNavTargets)
+// and entityEdit — same rule, same error message, one place to keep them in sync.
+function validateRedirectTarget(
+  feature: FeatureDefinition,
+  screenId: string,
+  screenKind: "actionForm" | "secretMint" | "entityEdit",
+  redirect: string | ActionFormRedirect,
+  allScreenQns: ReadonlySet<string>,
+): void {
+  const redirectTarget = typeof redirect === "string" ? redirect : redirect.screen;
+  if (
+    typeof redirect !== "string" &&
+    (typeof redirect.idFrom !== "string" || redirect.idFrom.trim() === "")
+  ) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom is empty or not a string — ` +
+        `name the success-payload field carrying the navigation id, or use the plain string ` +
+        `redirect form to navigate with the handler's own "id".`,
+    );
+  }
+  validateScreenNavTarget(
+    feature.name,
+    screenId,
+    screenKind,
+    "redirect",
+    redirectTarget,
+    allScreenQns,
+    feature.screens,
+  );
+}
+
 function validateInlineFormNavTargets(
   feature: FeatureDefinition,
   screenId: string,
@@ -639,33 +676,7 @@ function validateInlineFormNavTargets(
   allScreenQns: ReadonlySet<string>,
 ): void {
   if (screen.redirect !== undefined) {
-    // redirect is either a short screen id (same-feature, e.g. "item-list")
-    // or a fully-qualified cross-feature QN (`<feature>:screen:<id>`) — the
-    // renderer strips the latter to the short id (lastSegment) when
-    // navigating, which the nav-router resolves app-wide (#1946). The object
-    // form (fw#2670, actionForm only) carries the same target under `screen`
-    // plus the payload field `idFrom`.
-    const redirectTarget =
-      typeof screen.redirect === "string" ? screen.redirect : screen.redirect.screen;
-    if (
-      typeof screen.redirect !== "string" &&
-      (typeof screen.redirect.idFrom !== "string" || screen.redirect.idFrom.trim() === "")
-    ) {
-      throw new Error(
-        `[Feature ${feature.name}] Screen "${screenId}" (${kind}) redirect.idFrom is empty or not a string — ` +
-          `name the success-payload field carrying the navigation id, or use the plain string ` +
-          `redirect form to navigate with the handler's own "id".`,
-      );
-    }
-    validateScreenNavTarget(
-      feature.name,
-      screenId,
-      kind,
-      "redirect",
-      redirectTarget,
-      allScreenQns,
-      feature.screens,
-    );
+    validateRedirectTarget(feature, screenId, kind, screen.redirect, allScreenQns);
   }
   if (typeof screen.cancelTarget === "string") {
     // Same rule as redirect — `false` (no Cancel button) needs no validation.
@@ -984,6 +995,20 @@ export function validateScreens(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" has ` +
                 `no entry in fieldLabels and no own "label" — every metrics field needs one of the two, ` +
                 `there is no fallback to the raw column name.`,
+            );
+          }
+          const navigate = typeof metric === "string" ? undefined : metric.navigate;
+          // Cross-screen navigate+tab isn't checked here — the target screen
+          // validates its own section ids when the loop reaches it.
+          if (
+            navigate?.tab !== undefined &&
+            navigate.screen === undefined &&
+            navigate.entity === undefined &&
+            !screen.layout.sections.some((section) => section.id === navigate.tab)
+          ) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
+                `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
             );
           }
         }
@@ -1785,17 +1810,7 @@ export function validateScreens(
         }
       }
       if (screen.redirect !== undefined) {
-        // Same rule as actionForm's redirect: short screen-ID (same-feature)
-        // or a fully-qualified cross-feature QN (#1946).
-        validateScreenNavTarget(
-          feature.name,
-          screenId,
-          "entityEdit",
-          "redirect",
-          screen.redirect,
-          allScreenQns,
-          feature.screens,
-        );
+        validateRedirectTarget(feature, screenId, "entityEdit", screen.redirect, allScreenQns);
       }
     }
   }

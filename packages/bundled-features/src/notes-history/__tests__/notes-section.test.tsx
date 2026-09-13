@@ -20,9 +20,9 @@ import {
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { NotesHistoryQueries } from "../constants";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
 import { defaultTranslations } from "../web/i18n";
 import { NotesSection } from "../web/notes-section";
 
@@ -201,5 +201,108 @@ describe("NotesSection — entry display", () => {
     const metaEl = view.getByTestId("notes-section-meta-note-1");
     expect(metaEl.textContent).not.toContain(INSERTED_AT);
     expect(metaEl.textContent).toContain(formatWhen(INSERTED_AT));
+  });
+});
+
+function makeWriteCapturingDispatcher(): {
+  readonly dispatcher: Dispatcher;
+  readonly writes: { readonly type: string; readonly payload: unknown }[];
+} {
+  const writes: { type: string; payload: unknown }[] = [];
+  const statusStore = createStore<DispatcherStatus>("online");
+  const query = (async (type: string) => {
+    if (type === NotesHistoryQueries.noteList) {
+      return { isSuccess: true, data: { rows: [] } };
+    }
+    return { isSuccess: true, data: null };
+  }) as unknown as Dispatcher["query"];
+  const write = (async (type: string, payload: unknown) => {
+    writes.push({ type, payload });
+    return { isSuccess: true, data: null };
+  }) as unknown as Dispatcher["write"];
+  return {
+    dispatcher: {
+      write,
+      query,
+      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+      statusStore,
+      async *stream() {},
+      pendingWrites: () => [],
+      pendingFiles: () => [],
+    } as unknown as Dispatcher, // @cast-boundary test-stub
+    writes,
+  };
+}
+
+function renderSectionWith(dispatcher: Dispatcher): ReturnType<typeof render> {
+  const wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
+    <TokensProvider value={stubTokens}>
+      <LocaleProvider
+        resolver={stubResolver}
+        fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <LiveEventsProvider value={stubLiveEvents}>
+            <DispatcherProvider dispatcher={dispatcher}>{children}</DispatcherProvider>
+          </LiveEventsProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    </TokensProvider>
+  );
+  return render(<NotesSection entityName="contact" entityId="contact-1" />, { wrapper });
+}
+
+function requireTextarea(container: HTMLElement): HTMLTextAreaElement {
+  const textarea = container.querySelector("textarea");
+  if (textarea === null) throw new Error("no textarea rendered");
+  return textarea;
+}
+
+describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
+  test("Ctrl+Enter with a non-empty draft dispatches addNote, same as the button", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const view = renderSectionWith(dispatcher);
+    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+
+    const textarea = requireTextarea(view.container);
+    fireEvent.change(textarea, { target: { value: "Ctrl+Enter note" } });
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toEqual({
+      type: NotesHistoryHandlers.addNote,
+      payload: { entityType: "contact", entityId: "contact-1", body: "Ctrl+Enter note" },
+    });
+  });
+
+  test("Cmd+Enter (metaKey) also dispatches addNote", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const view = renderSectionWith(dispatcher);
+    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+
+    const textarea = requireTextarea(view.container);
+    fireEvent.change(textarea, { target: { value: "Cmd+Enter note" } });
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.payload).toEqual({
+      entityType: "contact",
+      entityId: "contact-1",
+      body: "Cmd+Enter note",
+    });
+  });
+
+  test("Ctrl+Enter with an empty draft does nothing", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const view = renderSectionWith(dispatcher);
+    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+
+    const textarea = requireTextarea(view.container);
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+
+    // No affirmative signal to await on a no-op — give pending microtasks a
+    // tick, then assert nothing landed.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(writes).toHaveLength(0);
   });
 });

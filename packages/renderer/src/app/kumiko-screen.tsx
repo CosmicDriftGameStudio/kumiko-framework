@@ -1,5 +1,6 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  ActionFormRedirect,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
   DashboardScreenDefinition,
@@ -73,6 +74,7 @@ import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projec
 import { lastSegment, toKebab } from "./qn";
 import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
 import {
+  buildDefaultEditRowAction,
   buildProjectionRowActions,
   evalRowExtractor,
   isWriteHandlerRowAction,
@@ -81,7 +83,7 @@ import {
   runProjectionRowNavigate,
   stringifyNavParams,
 } from "./row-actions";
-import { screenAccessAllows } from "./screen-access";
+import { findEditScreenFor, screenAccessAllows } from "./screen-access";
 import { SecretMintBody } from "./secret-mint-body";
 import { SecretsEditBody } from "./secrets-edit-body";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
@@ -685,6 +687,7 @@ function EntityEditCreateBody({
   readonly onSaved?: () => void;
 }): ReactNode {
   const nav = useNav();
+  const appFeatures = useAppFeatures();
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(
@@ -702,17 +705,31 @@ function EntityEditCreateBody({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        const entityId = extractCreatedId(result.data);
-        nav.navigate({
-          screenId: lastSegment(screen.redirect),
-          ...(entityId !== undefined && { entityId }),
-        });
+        // String form unchanged: always carries the newly created
+        // record's own id, regardless of the target screen's type. The
+        // object form resolves like actionForm's — a child record's own id
+        // is useless for a parent-detail redirect.
+        if (typeof screen.redirect === "string") {
+          const entityId = extractCreatedId(result.data);
+          nav.navigate({
+            screenId: lastSegment(screen.redirect),
+            ...(entityId !== undefined && { entityId }),
+          });
+          return;
+        }
+        const { screenId, entityId } = resolveRedirectTarget(
+          screen.redirect,
+          result.data,
+          schema,
+          appFeatures,
+        );
+        nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         return;
       }
       navigateToList();
       onSaved?.();
     },
-    [nav, screen.redirect, navigateToList, onSaved],
+    [nav, screen.redirect, schema, appFeatures, navigateToList, onSaved],
   );
   // Deliberately no `actions` prop here: `screen.actions` targets an
   // EXISTING record (publish/archive/duplicate and friends), which the
@@ -885,6 +902,7 @@ function EntityEditUpdateForm({
   );
 
   const nav = useNav();
+  const appFeatures = useAppFeatures();
   const dispatcher = useDispatcher();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -1007,13 +1025,30 @@ function EntityEditUpdateForm({
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
       if (screen.redirect !== undefined) {
-        nav.navigate({ screenId: lastSegment(screen.redirect) });
+        // String form unchanged: navigates without an entityId, same as
+        // before the object form existed. The object form resolves like
+        // actionForm's — the update handler's success payload usually
+        // reports only this record's own id (event-store-executor-write.ts),
+        // so a parent FK named by `idFrom` falls back to the already-loaded
+        // `record`.
+        if (typeof screen.redirect === "string") {
+          nav.navigate({ screenId: lastSegment(screen.redirect) });
+          return;
+        }
+        const { screenId, entityId } = resolveRedirectTarget(
+          screen.redirect,
+          result.data,
+          schema,
+          appFeatures,
+          record,
+        );
+        nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         return;
       }
       navigateToList();
       onSaved?.();
     },
-    [nav, screen.redirect, navigateToList, onSaved],
+    [nav, screen.redirect, schema, appFeatures, record, navigateToList, onSaved],
   );
   const handleDelete = useCallback(async () => {
     const res = await dispatcher.write(deleteCommand, { id: entityId });
@@ -1449,8 +1484,13 @@ function EntityListBody({
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
   const userRoles = useUserRoles();
+  const appFeatures = useAppFeatures();
   const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
     useDrawerAction(schema);
+  const defaultEditScreen = useMemo(
+    () => findEditScreenFor(screen.entity, appFeatures, userRoles),
+    [appFeatures, screen.entity, userRoles],
+  );
 
   // URL-State: sort/dir/q/page leben unter dem screen.id-Namespace
   // (`/orders?orders.sort=createdAt&orders.dir=desc&orders.q=acme`),
@@ -1672,8 +1712,16 @@ function EntityListBody({
   );
 
   const rowActions = useMemo(() => {
-    if (screen.rowActions === undefined) return undefined;
-    return screen.rowActions
+    const declared = screen.rowActions ?? [];
+    // Prepended unless a declared rowAction already has id "edit" — declared wins.
+    const declaredHasEdit = declared.some((a) => a.id === "edit");
+    const defaultEditRowAction = declaredHasEdit
+      ? undefined
+      : buildDefaultEditRowAction(defaultEditScreen);
+    const effectiveActions: readonly RowAction[] =
+      defaultEditRowAction !== undefined ? [defaultEditRowAction, ...declared] : declared;
+    if (effectiveActions.length === 0) return undefined;
+    return effectiveActions
       .map((action: RowAction): DataTableRowAction | null => {
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
@@ -1757,6 +1805,7 @@ function EntityListBody({
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
   }, [
     screen.rowActions,
+    defaultEditScreen,
     effectiveTranslate,
     dispatcher,
     runNavigate,
@@ -1967,8 +2016,14 @@ function ProjectionListBody({
   const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
   const userRoles = useUserRoles();
+  const appFeatures = useAppFeatures();
   const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
     useDrawerAction(schema);
+  const defaultEditScreen = useMemo(() => {
+    const detailFor = screen.detailFor;
+    if (detailFor === undefined) return undefined;
+    return findEditScreenFor(detailFor, appFeatures, userRoles);
+  }, [appFeatures, screen.detailFor, userRoles]);
 
   // searchable/sortable/paginated are derived at buildAppSchema time from the
   // query handler's Zod schema (fw#2165) — not authored on the screen.
@@ -2060,6 +2115,11 @@ function ProjectionListBody({
     [nav],
   );
 
+  const defaultEditRowAction = useMemo(
+    () => buildDefaultEditRowAction(defaultEditScreen),
+    [defaultEditScreen],
+  );
+
   const rowActions = useMemo(
     () =>
       buildProjectionRowActions({
@@ -2069,8 +2129,17 @@ function ProjectionListBody({
         nav,
         refetch: rowsQuery.refetch,
         openDrawer,
+        defaultEditRowAction,
       }),
-    [screen.rowActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, openDrawer],
+    [
+      screen.rowActions,
+      effectiveTranslate,
+      dispatcher,
+      nav,
+      rowsQuery.refetch,
+      openDrawer,
+      defaultEditRowAction,
+    ],
   );
 
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
@@ -2242,6 +2311,13 @@ function runMetricNavigate(
   navigate: MetricNavigate,
   record: Readonly<Record<string, unknown>>,
 ): void {
+  // tab alone (no screen/entity) stays on the current record and just
+  // activates that tab — no route change, so runProjectionRowNavigate
+  // (which always navigates) doesn't apply here.
+  if (navigate.screen === undefined && navigate.entity === undefined) {
+    if (navigate.tab !== undefined) nav.setSearchParams({ tab: navigate.tab });
+    return;
+  }
   const base = { kind: "navigate" as const, id: "metric-navigate", label: "" };
   const action: RowActionNavigate | undefined =
     navigate.entity !== undefined
@@ -2261,6 +2337,7 @@ function runMetricNavigate(
         : undefined;
   if (action === undefined) return;
   runProjectionRowNavigate(nav, action, { id: "", values: record });
+  if (navigate.tab !== undefined) nav.setSearchParams({ tab: navigate.tab });
 }
 
 // Absolute http(s) check for RecordHeaderSpec.subtitleHref — deliberately
@@ -2496,19 +2573,7 @@ function ProjectionDetailBody({
   const editScreen = useMemo(() => {
     const detailFor = screen.detailFor;
     if (detailFor === undefined) return undefined;
-    for (const feature of appFeatures) {
-      // Access-check is part of the find predicate, not a filter applied
-      // after the first match — two entityEdit screens for the same entity
-      // where the first is role-gated must not hide an accessible second one.
-      const match = feature.screens.find(
-        (s): s is EntityEditScreenDefinition =>
-          s.type === "entityEdit" &&
-          s.entity === detailFor &&
-          screenAccessAllows(s.access, userRoles),
-      );
-      if (match !== undefined) return match;
-    }
-    return undefined;
+    return findEditScreenFor(detailFor, appFeatures, userRoles);
   }, [appFeatures, screen.detailFor, userRoles]);
   const defaultEditAction = useMemo((): RenderEditAction | undefined => {
     if (editScreen === undefined) return undefined;
@@ -2740,39 +2805,42 @@ function ProjectionDetailBody({
         <Card>
           {header !== undefined && (
             <>
-              <Heading variant="page" testId="kumiko-screen-projection-detail-title">
-                {String(record[header.title] ?? "")}
-              </Heading>
-              {(header.subtitle !== undefined || header.status !== undefined) && (
+              {header.status !== undefined ? (
                 <Grid columns="auto">
-                  {header.subtitle !== undefined &&
-                    (subtitleHref !== undefined ? (
-                      <Link
-                        href={subtitleHref}
-                        target="_blank"
-                        testId="kumiko-screen-projection-detail-subtitle"
-                      >
-                        {String(record[header.subtitle] ?? "")}
-                      </Link>
-                    ) : (
-                      <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                        {String(record[header.subtitle] ?? "")}
-                      </Text>
-                    ))}
-                  {header.status !== undefined &&
-                    (StatusBadge !== undefined ? (
-                      <StatusBadge
-                        value={String(record[header.status] ?? "")}
-                        tone={statusToneForValue(String(record[header.status] ?? ""))}
-                        testId="kumiko-screen-projection-detail-status"
-                      />
-                    ) : (
-                      <Text testId="kumiko-screen-projection-detail-status">
-                        {String(record[header.status] ?? "")}
-                      </Text>
-                    ))}
+                  <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+                    {String(record[header.title] ?? "")}
+                  </Heading>
+                  {StatusBadge !== undefined ? (
+                    <StatusBadge
+                      value={String(record[header.status] ?? "")}
+                      tone={statusToneForValue(String(record[header.status] ?? ""))}
+                      testId="kumiko-screen-projection-detail-status"
+                    />
+                  ) : (
+                    <Text testId="kumiko-screen-projection-detail-status">
+                      {String(record[header.status] ?? "")}
+                    </Text>
+                  )}
                 </Grid>
+              ) : (
+                <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+                  {String(record[header.title] ?? "")}
+                </Heading>
               )}
+              {header.subtitle !== undefined &&
+                (subtitleHref !== undefined ? (
+                  <Link
+                    href={subtitleHref}
+                    target="_blank"
+                    testId="kumiko-screen-projection-detail-subtitle"
+                  >
+                    {String(record[header.subtitle] ?? "")}
+                  </Link>
+                ) : (
+                  <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+                    {String(record[header.subtitle] ?? "")}
+                  </Text>
+                ))}
             </>
           )}
           {hasMetrics && (
@@ -2881,6 +2949,45 @@ function redirectScreenTarget(
   return typeof redirect === "string" ? redirect : redirect.screen;
 }
 
+// Resolves an object-form redirect to a nav target — shared by
+// actionForm and entityEdit (create + update) so the id
+// carries over identically regardless of which screen type triggered it.
+// The target screen may live in another feature (cross-feature QN), so
+// resolution checks this schema first, then every mounted feature — same
+// fallback order as the create-dialog's reference-field screen lookup.
+// `carriesId` gates entityId on the TARGET screen type: a redirect to a
+// list screen never gets an id attached, matching actionForm's original
+// behavior. The id itself prefers the write-handler's success payload
+// (`submittedData`) and falls back to `fallbackRecord` — the entityEdit
+// update path's already-loaded record, which has fields (e.g. a parent FK)
+// the CRUD write executor's success payload doesn't flatly expose.
+function resolveRedirectTarget(
+  redirect: string | ActionFormRedirect,
+  submittedData: unknown,
+  schema: FeatureSchema,
+  appFeatures: readonly FeatureSchema[],
+  fallbackRecord?: Readonly<Record<string, unknown>>,
+): { readonly screenId: string; readonly entityId: string | undefined } {
+  const redirectScreen = redirectScreenTarget(redirect);
+  const idField = typeof redirect === "string" ? "id" : redirect.idFrom;
+  const targetId = lastSegment(redirectScreen);
+  const targetFeatureName = featureNameFromQualifiedScreenId(redirectScreen);
+  const target =
+    schema.screens.find((s) => lastSegment(s.id) === targetId) ??
+    (targetFeatureName !== undefined
+      ? appFeatures
+          .find((f) => f.featureName === targetFeatureName)
+          ?.screens.find((s) => lastSegment(s.id) === targetId)
+      : appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId));
+  const carriesId =
+    target !== undefined && (target.type === "entityEdit" || target.type === "projectionDetail");
+  if (!carriesId) return { screenId: targetId, entityId: undefined };
+  const entityId =
+    extractIdField(submittedData, idField) ??
+    (fallbackRecord !== undefined ? extractIdField(fallbackRecord, idField) : undefined);
+  return { screenId: targetId, entityId };
+}
+
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses
 // RenderEdit über synthetisierte EntityDefinition + EntityEditScreen-
 // Definition (siehe action-form-shim.ts für die Schulden-Doku). Die
@@ -2939,39 +3046,16 @@ function ActionFormBody({
       // Author entscheidet bewusst ob "stay on form" (default) oder
       // "back to list" (typisch bei Create-style Aktionen).
       if (screen.redirect !== undefined) {
-        const redirectScreen = redirectScreenTarget(screen.redirect);
-        const idField = typeof screen.redirect === "string" ? "id" : screen.redirect.idFrom;
-        const targetId = lastSegment(redirectScreen);
-        const targetFeatureName = featureNameFromQualifiedScreenId(redirectScreen);
-        // A qualified redirect target may live in a different feature than
-        // this screen's own schema (fw#2485) — resolve over all mounted
-        // features (own schema first, cheap and provider-independent) same
-        // as ProjectionDetailBody's cross-feature editScreen lookup above.
-        // A screen id is only unique WITHIN a feature, so once the QN names
-        // a feature, the fallback must look inside THAT feature, not just
-        // take the first short-id match across every mounted feature — two
-        // features can easily share an id like "list" or "edit".
-        const target =
-          schema.screens.find((s) => lastSegment(s.id) === targetId) ??
-          (targetFeatureName !== undefined
-            ? appFeatures
-                .find((f) => f.featureName === targetFeatureName)
-                ?.screens.find((s) => lastSegment(s.id) === targetId)
-            : // Bare short-id redirect (no feature prefix) names no feature to
-              // pick by — fall back to the pre-fw#2485 best-effort match by
-              // short id across all mounted features.
-              appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId));
-        const entityId = extractIdField(result.data, idField);
-        const carriesId =
-          target !== undefined &&
-          (target.type === "entityEdit" || target.type === "projectionDetail");
-        nav.navigate({
-          screenId: targetId,
-          ...(carriesId && entityId !== undefined && { entityId }),
-        });
+        const { screenId, entityId } = resolveRedirectTarget(
+          screen.redirect,
+          result.data,
+          schema,
+          appFeatures,
+        );
+        nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
       }
     },
-    [nav, screen.redirect, onSuccess, schema.screens, appFeatures],
+    [nav, screen.redirect, onSuccess, schema, appFeatures],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget

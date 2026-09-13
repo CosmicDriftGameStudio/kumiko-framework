@@ -126,6 +126,9 @@ export function NotesSection({
           name="draft"
           value={draft}
           onChange={setDraft}
+          onSubmitShortcut={() => {
+            if (!busy && draft.trim() !== "") addNote();
+          }}
         />
         <div>
           <Button

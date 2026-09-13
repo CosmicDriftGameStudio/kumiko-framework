@@ -42,6 +42,44 @@ function buildSchema(redirect?: string): FeatureSchema {
   } as FeatureSchema;
 }
 
+// The edited "product" stands in for a child record (a deposit movement's
+// deposit, a protocol section's protocol) — a "parent-detail" entityEdit
+// screen is the redirect target, and parentEntity's own field carries the
+// parent id.
+const parentEntity: EntityDefinition = {
+  fields: {
+    name: { type: "text", required: false, searchable: false, sortable: false },
+    parentId: { type: "text", required: false, searchable: false, sortable: false },
+  },
+};
+
+function buildParentRedirectSchema(): FeatureSchema {
+  const editScreen: ScreenDefinition = {
+    id: "product-edit",
+    type: "entityEdit",
+    entity: "product",
+    layout: { sections: [{ fields: ["name"] }] },
+    redirect: { screen: "parent-detail", idFrom: "parentId" },
+  };
+  const parentDetailScreen: ScreenDefinition = {
+    id: "parent-detail",
+    type: "entityEdit",
+    entity: "product",
+    layout: { sections: [{ fields: ["name"] }] },
+  };
+  const listScreen: ScreenDefinition = {
+    id: "product-list",
+    type: "entityList",
+    entity: "product",
+    columns: ["name"],
+  };
+  return {
+    featureName: "shop",
+    entities: { product: parentEntity },
+    screens: [editScreen, parentDetailScreen, listScreen],
+  } as FeatureSchema;
+}
+
 function fillNameAndSubmit(): void {
   const nameInput = screen.getByTestId("field-name").querySelector("input") as HTMLInputElement;
   fireEvent.change(nameInput, { target: { value: "Widget" } });
@@ -305,5 +343,125 @@ describe("entityEdit redirect (#1942)", () => {
     await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
+  });
+
+  // entityEdit's redirect object form + idFrom — same resolution as
+  // actionForm's, reused by EntityEditUpdateForm's handleSubmitted.
+  test("update: redirect object form with idFrom falls back to the loaded record when the payload lacks the field", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "42", version: 1, name: "Existing", parentId: "parent-1" },
+      })) as unknown as Dispatcher["query"],
+      // The update handler's success payload reports only its own id
+      // (event-store-executor-write.ts) — no "parentId" field.
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "42" },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit", entityId: "42" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={buildParentRedirectSchema()}
+            qn="shop:screen:product-edit"
+            entityId="42"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "parent-1" }]),
+    );
+  });
+
+  test("update: redirect object form with idFrom prefers the payload value over the loaded record", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "42", version: 1, name: "Existing", parentId: "record-parent" },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "42", parentId: "payload-parent" },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit", entityId: "42" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={buildParentRedirectSchema()}
+            qn="shop:screen:product-edit"
+            entityId="42"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "payload-parent" }]),
+    );
+  });
+
+  test("create: redirect object form with idFrom reads the id from the write handler's payload", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "new-1", parentId: "parent-1" },
+      })) as unknown as Dispatcher["write"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen schema={buildParentRedirectSchema()} qn="shop:screen:product-edit" />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "parent-1" }]),
+    );
   });
 });
