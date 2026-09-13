@@ -390,6 +390,9 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
       derivedFields: derivedOut as unknown as Record<string, DerivedFieldDef>,
     }),
     ...(typeof entity.table === "string" && { table: entity.table }),
+    ...(typeof entity.defaultCurrency === "string" && {
+      defaultCurrency: entity.defaultCurrency,
+    }),
   };
 }
 
@@ -457,6 +460,22 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["locale"] === "string") out["locale"] = def["locale"];
   // image: which camera a mobile capture opens (fw#2497).
   if (typeof def["capture"] === "string") out["capture"] = def["capture"];
+  // number: display-only suffix, static or read from a sibling field of the row.
+  const unit = def["unit"];
+  if (typeof unit === "string" || (isPlainObject(unit) && typeof unit["field"] === "string"))
+    out["unit"] = unit;
+  // text: "password" masks the input and blocks URL prefill in the renderer.
+  if (typeof def["format"] === "string") out["format"] = def["format"];
+  // timestamp: the edit view-model derives its wall-clock input mode from this.
+  if (typeof def["locatedBy"] === "string") out["locatedBy"] = def["locatedBy"];
+  // file/image/images: upload picker constraints; the first variant key picks
+  // the preview variant.
+  if (Array.isArray(def["accept"]) && isJsonSafeValue(def["accept"])) out["accept"] = def["accept"];
+  if (typeof def["maxSize"] === "string") out["maxSize"] = def["maxSize"];
+  if (isPlainObject(def["variants"]) && isJsonSafeValue(def["variants"]))
+    out["variants"] = def["variants"];
+  // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
+  if (typeof def["scale"] === "number") out["scale"] = def["scale"];
   // embedded lists: row-count bounds, computed cells, totals row, and the
   // sibling-money-field totals check (fw#2497).
   if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];

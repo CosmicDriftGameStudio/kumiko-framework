@@ -582,6 +582,95 @@ describe("buildAppSchema", () => {
     expect(fields["avatar"]?.["capture"]).toBeUndefined();
   });
 
+  test("number unit (static and sibling-field form) and entity defaultCurrency survive the projection", () => {
+    // Regression: the edit view-model reads `unit` and `entity.defaultCurrency`,
+    // but the client schema never carried them — the suffix never rendered and
+    // money fields always fell back to "EUR".
+    const entity = {
+      defaultCurrency: "USD",
+      fields: {
+        distance: { type: "number", unit: "mi" },
+        mileage: { type: "number", unit: { field: "mileageUnit" } },
+        mileageUnit: { type: "text" },
+        count: { type: "number" },
+        bogus: { type: "number", unit: { field: () => "km" } },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const projected = app.features[0]!.entities["thing"] as unknown as {
+      defaultCurrency?: string;
+      fields: Record<string, Record<string, unknown>>;
+    };
+
+    expect(projected.defaultCurrency).toBe("USD");
+    expect(projected.fields["distance"]?.["unit"]).toBe("mi");
+    expect(projected.fields["mileage"]?.["unit"]).toEqual({ field: "mileageUnit" });
+    expect(projected.fields["count"]?.["unit"]).toBeUndefined();
+    expect(projected.fields["bogus"]?.["unit"]).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(projected))).toEqual(projected);
+  });
+
+  test("entity without defaultCurrency omits the key", () => {
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", { fields: { label: { type: "text" } } } as unknown as EntityDefinition);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    expect("defaultCurrency" in app.features[0]!.entities["thing"]!).toBe(false);
+  });
+
+  test("text format, timestamp locatedBy, file accept/maxSize, image variants and decimal scale survive the projection", () => {
+    // Regression: all of these are read by the edit view-model (password
+    // masking, wall-clock input, upload constraints, preview variant, derived
+    // embedded-cell rounding) but were missing from the client schema.
+    const entity = {
+      fields: {
+        secret: { type: "text", format: "password" },
+        pickupAt: { type: "timestamp", locatedBy: "pickupTz" },
+        pickupTz: { type: "tz" },
+        contract: { type: "file", accept: ["application/pdf"], maxSize: "5mb" },
+        photo: {
+          type: "image",
+          accept: ["image/*"],
+          maxSize: "10mb",
+          variants: { thumb: { fit: "cover", size: { width: 120, height: 120 } } },
+        },
+        positions: {
+          type: "embedded",
+          multiple: true,
+          schema: { price: { type: "decimal", scale: 2 } },
+        },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["secret"]?.["format"]).toBe("password");
+    expect(fields["pickupAt"]?.["locatedBy"]).toBe("pickupTz");
+    expect(fields["contract"]?.["accept"]).toEqual(["application/pdf"]);
+    expect(fields["contract"]?.["maxSize"]).toBe("5mb");
+    expect(fields["photo"]?.["accept"]).toEqual(["image/*"]);
+    expect(fields["photo"]?.["variants"]).toEqual({
+      thumb: { fit: "cover", size: { width: 120, height: 120 } },
+    });
+    const positionsSchema = fields["positions"]?.["schema"] as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(positionsSchema["price"]?.["scale"]).toBe(2);
+  });
+
   test("embedded: minItems/maxItems/derived/totals/totalsMatch überleben die Projection (fw#2497)", () => {
     // Regression: `totals` carries "Renderer metadata: numeric sub-field
     // names to sum in a totals row" in its own doc-comment but was never
