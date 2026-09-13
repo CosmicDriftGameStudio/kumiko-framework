@@ -1,6 +1,10 @@
 import { qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition } from "../types";
-import type { RowFieldExtractor, ScreenDefinition } from "../types/screen";
+import type {
+  ProjectionDetailScreenDefinition,
+  RowFieldExtractor,
+  ScreenDefinition,
+} from "../types/screen";
 import {
   collectScreensByShortId,
   readsNavigateParamsAsFormPrefill,
@@ -15,56 +19,80 @@ type NavigateParamsSource = {
   readonly sourceScreenEntity: string | undefined;
 };
 
+type NavigateActionLike = {
+  readonly kind?: string;
+  readonly screen?: string;
+  readonly entity?: string;
+  readonly entityId?: string;
+  readonly params?: RowFieldExtractor;
+};
+type NavigateActionWithParams = NavigateActionLike & { readonly params: RowFieldExtractor };
+type ScopedNavigateAction = {
+  readonly action: NavigateActionLike;
+  readonly sourceScreenEntity: string | undefined;
+};
+
+function isNavigateKind(action: NavigateActionLike): boolean {
+  return action.kind === undefined || action.kind === "navigate";
+}
+function isNavigateWithParams(action: NavigateActionLike): action is NavigateActionWithParams {
+  return isNavigateKind(action) && action.params !== undefined;
+}
+function scopeActions(
+  actions: readonly NavigateActionLike[] | undefined,
+  sourceScreenEntity: string | undefined,
+): ScopedNavigateAction[] {
+  return (actions ?? []).map((action) => ({ action, sourceScreenEntity }));
+}
+function projectionDetailNavigateActions(
+  screen: ProjectionDetailScreenDefinition,
+): ScopedNavigateAction[] {
+  return [
+    ...scopeActions(screen.actions, screen.detailFor),
+    ...screen.layout.sections.flatMap((section) =>
+      section.kind === "relatedList" ? scopeActions(section.rowActions, undefined) : [],
+    ),
+    ...(screen.metrics ?? []).flatMap((metric) =>
+      typeof metric === "string" || metric.navigate === undefined
+        ? []
+        : scopeActions([metric.navigate], undefined),
+    ),
+  ];
+}
+function navigateActionsOf(screen: ScreenDefinition): ScopedNavigateAction[] {
+  switch (screen.type) {
+    case "entityList":
+      return scopeActions(screen.rowActions, screen.entity);
+    case "projectionList":
+      return scopeActions(screen.rowActions, undefined);
+    case "entityEdit":
+      return scopeActions(screen.actions, screen.entity);
+    case "projectionDetail":
+      return projectionDetailNavigateActions(screen);
+    default:
+      return [];
+  }
+}
+function toNavigateParamsSource(
+  action: NavigateActionWithParams,
+  sourceScreenEntity: string | undefined,
+): NavigateParamsSource {
+  return {
+    ...(action.screen !== undefined && { screen: action.screen }),
+    ...(action.entity !== undefined && { entity: action.entity }),
+    ...(action.entityId !== undefined && { entityId: action.entityId }),
+    params: action.params,
+    sourceScreenEntity,
+  };
+}
+
 // Every declarative navigate that writes `params` into the target's URL —
 // the same sources validateScreens pairs with validateRowActionNavigateParams,
 // plus projectionDetail metrics (runMetricNavigate), which reuse that shape.
 function navigateParamsSources(screen: ScreenDefinition): NavigateParamsSource[] {
-  const out: NavigateParamsSource[] = [];
-  const push = (
-    action: {
-      readonly kind?: string;
-      readonly screen?: string;
-      readonly entity?: string;
-      readonly entityId?: string;
-      readonly params?: RowFieldExtractor;
-    },
-    sourceScreenEntity: string | undefined,
-  ): void => {
-    if (action.kind !== undefined && action.kind !== "navigate") return;
-    if (action.params === undefined) return;
-    out.push({
-      ...(action.screen !== undefined && { screen: action.screen }),
-      ...(action.entity !== undefined && { entity: action.entity }),
-      ...(action.entityId !== undefined && { entityId: action.entityId }),
-      params: action.params,
-      sourceScreenEntity,
-    });
-  };
-  switch (screen.type) {
-    case "entityList":
-      for (const action of screen.rowActions ?? []) push(action, screen.entity);
-      break;
-    case "projectionList":
-      for (const action of screen.rowActions ?? []) push(action, undefined);
-      break;
-    case "entityEdit":
-      for (const action of screen.actions ?? []) push(action, screen.entity);
-      break;
-    case "projectionDetail":
-      for (const action of screen.actions ?? []) push(action, screen.detailFor);
-      for (const section of screen.layout.sections) {
-        if (section.kind !== "relatedList") continue;
-        for (const action of section.rowActions ?? []) push(action, undefined);
-      }
-      for (const metric of screen.metrics ?? []) {
-        if (typeof metric === "string" || metric.navigate === undefined) continue;
-        push(metric.navigate, undefined);
-      }
-      break;
-    default:
-      break;
-  }
-  return out;
+  return navigateActionsOf(screen).flatMap(({ action, sourceScreenEntity }) =>
+    isNavigateWithParams(action) ? [toNavigateParamsSource(action, sourceScreenEntity)] : [],
+  );
 }
 
 // Per target screen QN, the union of field names any navigate `params` may
