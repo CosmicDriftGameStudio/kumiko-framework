@@ -242,6 +242,46 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
     // Original + exactly ONE Storno — a second reverse must not book again.
     expect(await listTransactions()).toHaveLength(2);
   });
+
+  test("the Storno inherits the original's subject — an eq filter on subjectId finds both", async () => {
+    const bank = await createAccount("Bank Subj", "asset");
+    const rent = await createAccount("Subj Income", "income");
+    const tx = await createTransaction(
+      [
+        { accountId: bank, amount: 40000 },
+        { accountId: rent, amount: -40000 },
+      ],
+      { description: "Miete WE1", subjectType: "lease", subjectId: "lease-1" },
+    );
+
+    await stack.http.writeOk(LedgerHandlers.reverseTransaction, { id: tx.id }, admin);
+
+    const rows = await listTransactions(admin, {
+      filter: { field: "subjectId", op: "eq", value: "lease-1" },
+    });
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row["subjectType"]).toBe("lease");
+      expect(row["subjectId"]).toBe("lease-1");
+    }
+  });
+
+  test("reversing a booking without a subject leaves the Storno without one", async () => {
+    const bank = await createAccount("Bank NoSubj", "asset");
+    const rent = await createAccount("NoSubj Income", "income");
+    const tx = await createTransaction([
+      { accountId: bank, amount: 15000 },
+      { accountId: rent, amount: -15000 },
+    ]);
+
+    await stack.http.writeOk(LedgerHandlers.reverseTransaction, { id: tx.id }, admin);
+
+    const rows = await listTransactions();
+    const storno = rows.find((r) => r["reference"] === tx.id);
+    expect(storno).toBeDefined();
+    expect(storno?.["subjectType"]).toBeNull();
+    expect(storno?.["subjectId"]).toBeNull();
+  });
 });
 
 describe("ledger integration — trial balance (golden invariant)", () => {

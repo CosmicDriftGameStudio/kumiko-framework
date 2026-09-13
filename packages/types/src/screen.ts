@@ -530,6 +530,10 @@ export type MetricNavigate = {
   readonly entity?: string;
   readonly entityId?: string;
   readonly params?: RowFieldExtractor;
+  /** Section id of the tab to activate at the destination. Alone (no
+   *  `screen`/`entity`), it activates that tab on the current record
+   *  instead of navigating away. */
+  readonly tab?: string;
 };
 
 // A metric can navigate on click, so the plain string shorthand (field name,

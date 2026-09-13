@@ -2311,6 +2311,13 @@ function runMetricNavigate(
   navigate: MetricNavigate,
   record: Readonly<Record<string, unknown>>,
 ): void {
+  // tab alone (no screen/entity) stays on the current record and just
+  // activates that tab — no route change, so runProjectionRowNavigate
+  // (which always navigates) doesn't apply here.
+  if (navigate.screen === undefined && navigate.entity === undefined) {
+    if (navigate.tab !== undefined) nav.setSearchParams({ tab: navigate.tab });
+    return;
+  }
   const base = { kind: "navigate" as const, id: "metric-navigate", label: "" };
   const action: RowActionNavigate | undefined =
     navigate.entity !== undefined
@@ -2330,6 +2337,7 @@ function runMetricNavigate(
         : undefined;
   if (action === undefined) return;
   runProjectionRowNavigate(nav, action, { id: "", values: record });
+  if (navigate.tab !== undefined) nav.setSearchParams({ tab: navigate.tab });
 }
 
 // Absolute http(s) check for RecordHeaderSpec.subtitleHref — deliberately

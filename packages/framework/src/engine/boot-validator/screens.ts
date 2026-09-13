@@ -997,6 +997,20 @@ export function validateScreens(
                 `there is no fallback to the raw column name.`,
             );
           }
+          const navigate = typeof metric === "string" ? undefined : metric.navigate;
+          // Cross-screen navigate+tab isn't checked here — the target screen
+          // validates its own section ids when the loop reaches it.
+          if (
+            navigate?.tab !== undefined &&
+            navigate.screen === undefined &&
+            navigate.entity === undefined &&
+            !screen.layout.sections.some((section) => section.id === navigate.tab)
+          ) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
+                `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
+            );
+          }
         }
       }
       for (const section of screen.layout.sections) {
