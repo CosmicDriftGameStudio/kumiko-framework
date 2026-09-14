@@ -10,7 +10,7 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
-## 0.271.0
+## 0.272.0
 
 ### framework-core
 
@@ -19,6 +19,10 @@ Use `kumiko upgrade` to check what's new since your current version.
 `r.step.read.findOne`/`r.step.read.findMany` no longer read through the raw `DbRunner` bound to `ctx.db` (`tenantDbRunner(ctx.db)`, which bypassed every tenant filter). They now call `selectMany(ctx.db, table, where, opts)` — `ctx.db` is a `TenantDb`, so the same `TenantDb.selectMany` tenant filter that `ctx.db` method-form reads already apply now also applies here: own tenant + `SYSTEM_TENANT_ID` reference rows, and a caller-supplied `where.tenantId` outside that scope is narrowed away instead of passed through. Both steps gain an optional `unsafeAllTenants: { reason: string }` argument; when set, the step reads through `ctx.systemDb.unsafeRaw(reason)` (`r.systemScope()` features, already granted by the feature's own systemScope) or `ctx.db.unsafeRaw(reason)` otherwise — the latter throws `AccessDeniedError` unless the write/query handler declares `escapeHatch: { reason }` — and reports an `"unsafe-raw"` escape-hatch audit event, same as any other `ctx.db.unsafeRaw` use. Inside an `r.systemScope()` handler `ctx.db` stays a fail-closed guard, so a read step there without `unsafeAllTenants` still throws `InternalError` (the message now points at `ctx.systemDb`).
 
 **Migration:** No change needed for a read step that only ever reads within the caller's own tenant — it now gets the same tenant filter `ctx.db` method-form reads already had, and a `where.tenantId` for a foreign tenant is silently narrowed to the caller's own scope instead of leaking rows. A read step that intentionally reads across tenants must add `unsafeAllTenants: { reason: "<why the tenant filter cannot apply>" }` to the step AND `escapeHatch: { reason }` (same reason) to the owning write/query handler (or run the step inside an `r.systemScope()` feature, where the grant already exists). No codemod — cross-tenant read-step usage is expected to be rare and needs a real reason per call site.
+
+## 0.271.0
+
+### framework-core
 
 **systemScope handlers default to a per-tenant+handler rate limit; nested-write refuses a foreign-tenant/foreign-owner parent row (fw#2861).**
 
