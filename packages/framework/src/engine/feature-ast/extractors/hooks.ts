@@ -42,12 +42,16 @@ export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
     return { roles: value["roles"] as readonly string[] };
   }
-  const publicIntake = value["publicIntake"] === true ? { publicIntake: true as const } : {};
   if (value["openToAll"] === true) {
-    return { openToAll: true, ...publicIntake };
+    return { openToAll: true };
   }
-  if (isPlainObject(value["openToAll"]) && typeof value["openToAll"]["reason"] === "string") {
-    return { openToAll: { reason: value["openToAll"]["reason"] }, ...publicIntake };
+  const openToAll = value["openToAll"];
+  if (isPlainObject(openToAll) && typeof openToAll["reason"] === "string") {
+    const personalData =
+      openToAll["personalData"] === "tenant-members"
+        ? { personalData: "tenant-members" as const }
+        : {};
+    return { openToAll: { reason: openToAll["reason"], ...personalData } };
   }
   return undefined;
 }

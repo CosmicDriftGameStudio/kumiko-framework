@@ -16,13 +16,17 @@ import type { TzContext } from "./tz-context";
 
 // --- Access ---
 
-export type OpenToAllDeclaration = { readonly reason: string };
+// "tenant-members": signed-in members may write personal data not bound to the caller by an owner rule.
+export type OpenToAllPersonalData = "tenant-members";
+
+export type OpenToAllDeclaration = {
+  readonly reason: string;
+  readonly personalData?: OpenToAllPersonalData;
+};
 
 export type OpenToAllAccessRule = {
   // `true` is the deprecated pre-#2855 form, kept until the call-site migration (fw#2854).
   readonly openToAll: OpenToAllDeclaration | true;
-  // Write handler intentionally accepts personal data from any authenticated caller (boot-validator gate).
-  readonly publicIntake?: true;
 };
 
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.

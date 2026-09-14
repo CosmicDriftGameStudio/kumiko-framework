@@ -178,6 +178,7 @@ export type {
   NotifyPriority,
   OpenToAllAccessRule,
   OpenToAllDeclaration,
+  OpenToAllPersonalData,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,
