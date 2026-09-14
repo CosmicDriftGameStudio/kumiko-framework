@@ -15,6 +15,7 @@ const homeFeature = defineFeature("home", (r) => {
     id: "home",
     type: "custom",
     renderer: { react: { __component: "admin-console-home" } },
+    dormant: true,
   });
   r.translations({
     keys: { "screen:home.title": { de: "Start", en: "Home" } },

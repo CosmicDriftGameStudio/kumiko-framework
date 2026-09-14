@@ -123,6 +123,7 @@ function computeRelatedListSectionViewModel(
     title: translate(sectionSpec.title),
     query: sectionSpec.query,
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
+    ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     columns: sectionSpec.columns,
     ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
     ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
@@ -130,6 +131,7 @@ function computeRelatedListSectionViewModel(
     ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),
     ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
     ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
+    ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
   };
 }
 
@@ -163,7 +165,13 @@ export function computeEditViewModel<
     if (!isFieldsEditSection(sectionSpec)) {
       return computeRelatedListSectionViewModel(sectionSpec, translate);
     }
-    const fields: EditFieldViewModel[] = sectionSpec.fields.map((fieldSpec) => {
+    // `groups` flattens into the same per-field pipeline as plain `fields`;
+    // the group structure below just re-groups the computed views by name.
+    const flatFieldSpecs =
+      sectionSpec.groups !== undefined
+        ? sectionSpec.groups.flatMap((group) => group.fields)
+        : sectionSpec.fields;
+    const fields: EditFieldViewModel[] = flatFieldSpecs.map((fieldSpec) => {
       const normalized = normalizeEditField(fieldSpec);
       const fieldDef = entity.fields[normalized.field];
       if (!fieldDef) {
@@ -424,9 +432,27 @@ export function computeEditViewModel<
       };
       return view;
     });
-    // Boot-validator rejects fields.length === 0 (screens.ts), so an empty
-    // section never reaches this code.
+    // Boot-validator rejects fields.length === 0 with no groups (screens.ts),
+    // so an empty section never reaches this code.
     const visible = fields.some((field) => field.visible);
+    // Tabs mode renders this section as its own card, where two columns reads
+    // better than the single-column default a stacked form keeps.
+    const defaultColumns = screen.layout.mode === "tabs" ? 2 : 1;
+    const groups = sectionSpec.groups?.map((group) => ({
+      title: translate(group.title),
+      columns: group.columns ?? 2,
+      fields: group.fields.map((fieldSpec) => {
+        const fieldName = normalizeEditField(fieldSpec).field;
+        const fieldView = fields.find((f) => f.field === fieldName);
+        if (fieldView === undefined) {
+          throw new Error(
+            `computeEditViewModel: screen "${screen.id}" group "${group.title}" references field ` +
+              `"${fieldName}" that failed to resolve.`,
+          );
+        }
+        return fieldView;
+      }),
+    }));
     return {
       kind: "fields" as const,
       visible,
@@ -435,8 +461,9 @@ export function computeEditViewModel<
       ...(sectionSpec.description !== undefined && {
         description: translate(sectionSpec.description),
       }),
-      columns: sectionSpec.columns ?? 1,
+      columns: sectionSpec.columns ?? defaultColumns,
       fields,
+      ...(groups !== undefined && { groups }),
       ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
     };
   });

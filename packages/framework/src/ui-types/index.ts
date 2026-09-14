@@ -27,12 +27,14 @@ export type { ParsedRefTarget } from "../engine/parse-ref-target";
 export { parseRefTarget } from "../engine/parse-ref-target";
 export {
   evalFieldCondition,
+  explicitListScreenId,
   isExtensionEditSection,
   isFieldsEditSection,
   isFormatSpec,
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
+  resolveNavParentScreen,
 } from "../engine/screen-helpers";
 // Entity + field types. EntityDefinition is the canonical shape that
 // view-model builders iterate; FieldDefinition is the per-field union
@@ -99,6 +101,7 @@ export type {
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
+  RelatedListToolbarAction,
   RowAction,
   RowActionDrawer,
   RowActionNavigate,

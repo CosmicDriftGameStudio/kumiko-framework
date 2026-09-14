@@ -11,9 +11,61 @@ import type {
   FormatSpec,
   ListColumnSpec,
   ProjectionDetailScreenDefinition,
+  RowAction,
   ScreenDefinition,
   SecretMintScreenDefinition,
+  ToolbarAction,
 } from "./types/screen";
+
+// Every screen type carrying `listScreenId` declares it identically; centralizing
+// here keeps the switch the only place that grows for a new screen type.
+export function explicitListScreenId(screen: ScreenDefinition): string | undefined {
+  switch (screen.type) {
+    case "custom":
+    case "projectionDetail":
+    case "entityEdit":
+    case "actionForm":
+    case "secretMint":
+      return screen.listScreenId;
+    default:
+      return undefined;
+  }
+}
+
+// Shared by the renderer breadcrumb and the boot-validator so both resolve
+// parents the same way; `getId` lets each caller normalize `screen.id`.
+export function resolveNavParentScreen(
+  screens: readonly ScreenDefinition[],
+  detail: ScreenDefinition,
+  getId: (screen: ScreenDefinition) => string,
+): ScreenDefinition | undefined {
+  const detailScreenId = getId(detail);
+
+  const listFromExplicit = ((): ScreenDefinition | undefined => {
+    const explicitId = explicitListScreenId(detail);
+    return explicitId !== undefined ? screens.find((s) => getId(s) === explicitId) : undefined;
+  })();
+
+  // rowActions, toolbarActions, and drawer-kind actions (which mount inline
+  // and have no page of their own) all count as "reached from" this list.
+  const navigatesToDetail = (
+    actions: readonly (RowAction | ToolbarAction)[] | undefined,
+  ): boolean =>
+    (actions ?? []).some(
+      (a) => (a.kind === "navigate" || a.kind === "drawer") && a.screen === detailScreenId,
+    );
+  const listFromRowAction = screens.find((s) => {
+    if (s.type !== "entityList" && s.type !== "projectionList") return false;
+    return navigatesToDetail(s.rowActions) || navigatesToDetail(s.toolbarActions);
+  });
+
+  const listFromEntity =
+    detail.type === "entityEdit"
+      ? screens.find((s) => s.type === "entityList" && s.entity === detail.entity)
+      : undefined;
+
+  return listFromExplicit ?? listFromRowAction ?? listFromEntity;
+}
 
 export type EditLayoutScreen =
   | ProjectionDetailScreenDefinition

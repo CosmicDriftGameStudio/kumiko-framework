@@ -9,6 +9,7 @@ import {
   type AppContext,
   type DispatchWriteRef,
   type JobContext,
+  type JobDefinition,
   type JobRunIn,
   type MemberReader,
   type Registry,
@@ -249,6 +250,16 @@ function timeoutReject(
       if (timer !== undefined) clearTimeout(timer);
     },
   };
+}
+
+// Shared by dispatch() and handleEvent() — an event-triggered job must retry
+// on failure the same way a directly-dispatched one does; a duplicated
+// inline computation in handleEvent previously dropped both options.
+function buildRetryBullOpts(jobDef: JobDefinition): Record<string, unknown> {
+  const opts: Record<string, unknown> = {};
+  if (jobDef.retries !== undefined) opts["attempts"] = jobDef.retries + 1;
+  if (jobDef.backoff) opts["backoff"] = { type: jobDef.backoff };
+  return opts;
 }
 
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
@@ -883,8 +894,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           break;
       }
 
-      if (jobDef.retries !== undefined) bullOpts["attempts"] = jobDef.retries + 1;
-      if (jobDef.backoff) bullOpts["backoff"] = { type: jobDef.backoff };
+      Object.assign(bullOpts, buildRetryBullOpts(jobDef));
       if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
       if (meta?.priority !== undefined) bullOpts["priority"] = meta.priority;
 
@@ -948,7 +958,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         }
         // Route to the job's declared lane, not a fixed queue — that's
         // the whole reason both queues are held.
-        await queues[laneForJob(jobDef)].add(name, data);
+        await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));
       }
     },
     attachDispatcher(ref: DispatchWriteRef): void {

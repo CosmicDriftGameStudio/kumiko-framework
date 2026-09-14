@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
-import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context";
 import type { FeatureSchema } from "../../app/feature-schema";
@@ -175,7 +175,12 @@ function renderRelatedList(
       <DispatcherProvider dispatcher={dispatcher}>
         <PrimitivesProvider value={testPrimitives()}>
           <NavProvider value={nav}>
-            <RelatedListSection section={section} parentId="order-1" featureName="orders" />
+            <RelatedListSection
+              section={section}
+              parentId="order-1"
+              record={{ id: "order-1" }}
+              featureName="orders"
+            />
           </NavProvider>
         </PrimitivesProvider>
       </DispatcherProvider>
@@ -184,7 +189,7 @@ function renderRelatedList(
 }
 
 describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
-  test("hideTitle (tabs mode) renders the list without a Section wrapper and marks the table chromeless + scrollBody", async () => {
+  test("hideTitle (tabs mode) renders the list without a Section wrapper, keeps the table frame, and marks scrollBody", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
     let capturedScrollBody: boolean | undefined;
@@ -204,6 +209,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
               <RelatedListSection
                 section={historySection}
                 parentId="order-1"
+                record={{ id: "order-1" }}
                 featureName="orders"
                 hideTitle
               />
@@ -215,7 +221,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.queryByTestId(`related-list-${historySection.title}`)).toBeNull();
-    expect(capturedChromeless).toBe(true);
+    expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBe(true);
   });
 
@@ -239,6 +245,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
               <RelatedListSection
                 section={historySection}
                 parentId="order-1"
+                record={{ id: "order-1" }}
                 featureName="orders"
               />
             </NavProvider>
@@ -251,6 +258,404 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     expect(rtlScreen.getByTestId(`related-list-${historySection.title}`)).toBeTruthy();
     expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBeUndefined();
+  });
+});
+
+describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
+  test("hideTitle (tabs mode) still surfaces search, facets and a toolbarActions button", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedFilterFacets: DataTableProps["filterFacets"];
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedFilterFacets = props.filterFacets;
+      return (
+        <>
+          {props.toolbarEnd}
+          {testDataTable(props)}
+        </>
+      );
+    };
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      searchable: true,
+      facets: [
+        {
+          field: "name",
+          type: "select",
+          label: "Name",
+          options: [{ value: "Alice", label: "Alice" }],
+        },
+      ],
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "create",
+          label: "New notification",
+          screen: "notification-create",
+        },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={section}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+                hideTitle
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(capturedFilterFacets?.length).toBe(1);
+    expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy();
+  });
+
+  test("clicking a toolbarAction navigates to its screen and prefills the parent id under parentParam", async () => {
+    const { dispatcher } = stubDispatcher();
+    const { nav, navigations, searchParams } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      parentParam: "leaseId",
+      toolbarActions: [
+        { kind: "navigate", id: "create", label: "Add position", screen: "position-create" },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection
+                section={section}
+                parentId="lease-9"
+                record={{ id: "lease-9" }}
+                featureName="leases"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    rtlScreen.getByTestId("render-list-toolbar-action-create").click();
+
+    await waitFor(() => expect(navigations).toHaveLength(1));
+    expect(navigations[0]).toEqual({ screenId: "position-create" });
+    expect(searchParams).toEqual([{ leaseId: "lease-9" }]);
+  });
+
+  test("a toolbarAction with a visible condition that the parent record fails is not rendered", async () => {
+    const { dispatcher } = stubDispatcher();
+    const { nav } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+    }) => (
+      <button type="button" data-testid={testId}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      parentParam: "leaseId",
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "create",
+          label: "Add position",
+          screen: "position-create",
+          visible: { field: "status", eq: "active" },
+        },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection
+                section={section}
+                parentId="lease-9"
+                record={{ id: "lease-9", status: "closed" }}
+                featureName="leases"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("render-list-toolbar-action-create")).toBeNull();
+  });
+
+  test("a toolbarAction with a visible condition the parent record satisfies is rendered", async () => {
+    const { dispatcher } = stubDispatcher();
+    const { nav } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+    }) => (
+      <button type="button" data-testid={testId}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      parentParam: "leaseId",
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "create",
+          label: "Add position",
+          screen: "position-create",
+          visible: { field: "status", eq: "active" },
+        },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection
+                section={section}
+                parentId="lease-9"
+                record={{ id: "lease-9", status: "active" }}
+                featureName="leases"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() =>
+      expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy(),
+    );
+  });
+
+  test("a toolbarAction's params extractor maps the parent record and replaces the implicit parentParam prefill", async () => {
+    const { dispatcher } = stubDispatcher();
+    const { nav, navigations, searchParams } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      // Default parentParam ("id") would prefill `{ id: "lease-9" }` — the
+      // declared params extractor below must produce `{ leaseId: ... }`
+      // instead, proving params replaces rather than merges with it.
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "create",
+          label: "Add position",
+          screen: "position-create",
+          params: { map: { leaseId: "id" } },
+        },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection
+                section={section}
+                parentId="lease-9"
+                record={{ id: "lease-9" }}
+                featureName="leases"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    rtlScreen.getByTestId("render-list-toolbar-action-create").click();
+
+    await waitFor(() => expect(navigations).toHaveLength(1));
+    expect(searchParams).toEqual([{ leaseId: "lease-9" }]);
+  });
+
+  test("a reference facet loads its options from the referenced entity's list query, and selecting one sends an id filter", async () => {
+    const calls: Array<{ type: string; payload: unknown }> = [];
+    const dispatcher: Dispatcher = {
+      write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
+      query: (async (type: string, payload: unknown) => {
+        calls.push({ type, payload });
+        if (type === "orders:query:tenant:list") {
+          return {
+            isSuccess: true,
+            data: {
+              rows: [{ id: "t1", name: "Acme" }],
+              nextCursor: null,
+            },
+          };
+        }
+        return { isSuccess: true, data: { rows: [{ id: "r1", name: "Alice" }], nextCursor: null } };
+      }) as Dispatcher["query"],
+      batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
+      statusStore: {
+        getState: () => "online",
+        subscribe: () => () => {},
+      } as unknown as Dispatcher["statusStore"],
+      async *stream() {},
+      pendingWrites: () => [],
+      pendingFiles: () => [],
+    };
+    let capturedFilterFacets: DataTableProps["filterFacets"];
+    let capturedOnFilterChange: DataTableProps["onFilterChange"];
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedFilterFacets = props.filterFacets;
+      capturedOnFilterChange = props.onFilterChange;
+      return testDataTable(props);
+    };
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      facets: [
+        { field: "name", type: "reference", label: "Tenant", entity: "tenant", labelField: "name" },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={section}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+                hideTitle
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => expect(capturedFilterFacets?.[0]?.options).toHaveLength(1));
+    expect(capturedFilterFacets).toEqual([
+      { field: "name", label: "Tenant", options: [{ value: "t1", label: "Acme" }] },
+    ]);
+
+    const countBeforeSelect = calls.length;
+    await act(async () => {
+      capturedOnFilterChange?.("name", ["t1"]);
+    });
+    await waitFor(() => expect(calls.length).toBeGreaterThan(countBeforeSelect));
+    const lastListCall = [...calls]
+      .reverse()
+      .find((c) => c.type === "orders:query:notifications:list");
+    expect(lastListCall?.payload).toMatchObject({
+      filters: [{ field: "name", op: "in", value: ["t1"] }],
+    });
   });
 });
 
@@ -359,6 +764,7 @@ describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
                   ],
                 }}
                 parentId="order-1"
+                record={{ id: "order-1" }}
                 featureName="orders"
                 onOpenDrawer={(action, initialValues) =>
                   openDrawerCalls.push([action, initialValues])
@@ -456,6 +862,7 @@ describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
                     ],
                   }}
                   parentId="order-1"
+                  record={{ id: "order-1" }}
                   featureName="orders"
                   onOpenDrawer={noop}
                 />
@@ -532,6 +939,7 @@ describe("RelatedListSection — sorting (fw#2722)", () => {
                   defaultSort: { field: "amount", dir: "asc" },
                 }}
                 parentId="order-1"
+                record={{ id: "order-1" }}
                 featureName="orders"
               />
             </NavProvider>
@@ -562,6 +970,7 @@ describe("RelatedListSection — sorting (fw#2722)", () => {
                   columns: [{ field: "amount", sortable: true }],
                 }}
                 parentId="order-1"
+                record={{ id: "order-1" }}
                 featureName="orders"
               />
             </NavProvider>
@@ -597,6 +1006,7 @@ describe("RelatedListSection — sorting (fw#2722)", () => {
                   columns: [{ field: "amount" }],
                 }}
                 parentId="order-1"
+                record={{ id: "order-1" }}
                 featureName="orders"
               />
             </NavProvider>
@@ -757,6 +1167,7 @@ function renderWithDataTable(
             <RelatedListSection
               section={section}
               parentId="order-1"
+              record={{ id: "order-1" }}
               featureName="orders"
               {...(hideTitle === true && { hideTitle: true })}
             />
@@ -942,6 +1353,196 @@ describe("RelatedListSection — search + facets (fw#2740)", () => {
   });
 });
 
+// A dispatcher stub that filters a fixed row set by `payload.filter` (single
+// eq clause), `payload.search` (substring on `name`) and `payload.filters`
+// (facet membership) together — proves parentFilter composes with search
+// and facets instead of being clobbered by either (fw akte-bedienkonzept-2).
+function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
+  dispatcher: Dispatcher;
+  payloads: Record<string, unknown>[];
+} {
+  const payloads: Record<string, unknown>[] = [];
+  const dispatcher: Dispatcher = {
+    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
+    query: (async (_type: string, payload: unknown) => {
+      const p = payload as {
+        filter?: { field: string; op: "eq"; value: unknown };
+        search?: string;
+        filters?: readonly { field: string; op: "in"; value: readonly unknown[] }[];
+      };
+      payloads.push(p);
+      let result = rows;
+      if (p.filter !== undefined) {
+        const { field, value } = p.filter;
+        result = result.filter((r) => r[field] === value);
+      }
+      if (p.search !== undefined && p.search !== "") {
+        const term = p.search.toLowerCase();
+        result = result.filter((r) =>
+          String(r["name"] ?? "")
+            .toLowerCase()
+            .includes(term),
+        );
+      }
+      for (const f of p.filters ?? []) {
+        result = result.filter((r) => f.value.includes(r[f.field]));
+      }
+      return { isSuccess: true, data: { rows: result, nextCursor: null } };
+    }) as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
+  return { dispatcher, payloads };
+}
+
+describe("RelatedListSection — parentFilter (fw akte-bedienkonzept-2)", () => {
+  const rows = [
+    { id: "r1", parentId: "order-1", name: "Alice", status: "active" },
+    { id: "r2", parentId: "order-1", name: "Bob", status: "ended" },
+    { id: "r3", parentId: "order-2", name: "Carol", status: "active" },
+  ];
+  const section: EditRelatedListSectionViewModel = {
+    kind: "relatedList",
+    title: "Positions",
+    query: "orders:query:items:list",
+    columns: [{ field: "name" }, { field: "status" }],
+    parentFilter: { field: "parentId" },
+    pageSize: 25,
+    searchable: true,
+    facets: [
+      {
+        field: "status",
+        type: "select",
+        label: "Status",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "ended", label: "Ended" },
+        ],
+      },
+    ],
+  };
+
+  test("sends payload.filter eq parentId (no top-level parentParam key), combined with limit/search/facets, and only the parent's rows render", async () => {
+    const { dispatcher, payloads } = parentFilterDispatcher(rows);
+    renderWithDataTable(dispatcher, section, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
+    expect(rtlScreen.queryByTestId("row-r3")).toBeNull();
+
+    const firstPayload = payloads[0];
+    expect(firstPayload).toEqual({
+      filter: { field: "parentId", op: "eq", value: "order-1" },
+      limit: 25,
+    });
+    expect(firstPayload?.["id"]).toBeUndefined();
+    expect(firstPayload?.["parentId"]).toBeUndefined();
+  });
+
+  test("typing a search term keeps payload.filter and narrows via payload.search together", async () => {
+    const { dispatcher, payloads } = parentFilterDispatcher(rows);
+    renderWithDataTable(dispatcher, section, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
+      target: { value: "ali" },
+    });
+
+    await waitFor(
+      () => {
+        const last = payloads[payloads.length - 1];
+        expect(last?.["search"]).toBe("ali");
+      },
+      { timeout: 2000 },
+    );
+    const last = payloads[payloads.length - 1];
+    expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+  });
+
+  test("selecting a facet leaves payload.filter unchanged and adds payload.filters", async () => {
+    const { dispatcher, payloads } = parentFilterDispatcher(rows);
+    renderWithDataTable(dispatcher, section, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    fireEvent.click(rtlScreen.getByTestId("facet-status-active"));
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
+    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
+    const last = payloads[payloads.length - 1];
+    expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
+    expect(last?.["filters"]).toEqual([{ field: "status", op: "in", value: ["active"] }]);
+  });
+
+  test("a toolbarAction without params prefills the parent id under parentFilter.field, not parentParam/id", async () => {
+    const { dispatcher } = parentFilterDispatcher(rows);
+    const { nav, navigations, searchParams } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection
+                section={{
+                  ...section,
+                  toolbarActions: [
+                    {
+                      kind: "navigate",
+                      id: "create",
+                      label: "Add position",
+                      screen: "item-create",
+                    },
+                  ],
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    rtlScreen.getByTestId("render-list-toolbar-action-create").click();
+
+    await waitFor(() => expect(navigations).toHaveLength(1));
+    expect(searchParams).toEqual([{ parentId: "order-1" }]);
+  });
+});
+
 // Same findEditScreenFor/buildDefaultEditRowAction resolution as
 // entityList/projectionList, driven by rowClick.entity and rowClick.idColumn.
 describe("RelatedListSection — default edit row action", () => {
@@ -972,7 +1573,12 @@ describe("RelatedListSection — default edit row action", () => {
             <UserRolesProvider roles={userRoles}>
               <PrimitivesProvider value={testPrimitives()}>
                 <NavProvider value={nav}>
-                  <RelatedListSection section={section} parentId="order-1" featureName="orders" />
+                  <RelatedListSection
+                    section={section}
+                    parentId="order-1"
+                    record={{ id: "order-1" }}
+                    featureName="orders"
+                  />
                 </NavProvider>
               </PrimitivesProvider>
             </UserRolesProvider>

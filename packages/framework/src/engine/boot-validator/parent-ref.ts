@@ -11,7 +11,7 @@ import type { EntityDefinition, FeatureDefinition, QueryHandlerDef } from "../ty
 // framework-internal detail() call that doesn't wire it, so the enforcement
 // has to happen loudly here instead, once, at boot.
 
-function findEntity(
+export function findEntity(
   featureMap: ReadonlyMap<string, FeatureDefinition>,
   entityName: string,
 ): EntityDefinition | undefined {

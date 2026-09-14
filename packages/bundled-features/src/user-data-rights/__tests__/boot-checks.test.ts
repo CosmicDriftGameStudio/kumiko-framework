@@ -270,3 +270,19 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     expect(() => validateBoot([...minimalTenantLifecycleFeatures(), hooked])).not.toThrow();
   });
 });
+
+describe("nav-area boot check — bundled dormant screens survive a real app nav", () => {
+  test("baseFeatures() (privacy-center included) boots clean once the app registers its own nav area", () => {
+    const appShell = defineFeature("app-shell", (r) => {
+      r.screen({ id: "home", type: "custom", renderer: { react: "Home" } });
+      r.nav({ id: "home", label: "app-shell:nav.home", screen: "app-shell:screen:home" });
+      r.translations({
+        keys: {
+          "app-shell:nav.home": { de: "Start", en: "Home" },
+          "screen:home.title": { de: "Start", en: "Home" },
+        },
+      });
+    });
+    expect(() => validateBoot([...baseFeatures(), appShell])).not.toThrow();
+  });
+});

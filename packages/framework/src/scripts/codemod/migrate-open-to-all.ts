@@ -140,7 +140,8 @@ function parseArgs(argv: string[]): CliOptions {
   const paths: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
+    const arg = argv[i];
+    if (!arg) break;
     if (arg === "--dry-run") {
       dryRun = true;
       continue;

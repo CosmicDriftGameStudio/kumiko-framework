@@ -44,6 +44,22 @@ describe("requiredKeysFromScreen", () => {
     expect(keys).toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "title"));
   });
 
+  test("actionForm honors a fieldLabels override, falls back to ACTION_FORM_ENTITY otherwise", () => {
+    const keys = requiredKeysFromScreen("publicstatus", {
+      id: "reschedule-form",
+      type: "actionForm",
+      handler: "publicstatus:write:incident:reschedule",
+      fields: { dueAt: { type: "date" }, note: { type: "text" } },
+      fieldLabels: { dueAt: "publicstatus:override.dueAt" },
+      layout: {
+        sections: [{ fields: ["dueAt", "note"] }],
+      },
+    });
+    expect(keys).toContain("publicstatus:override.dueAt");
+    expect(keys).not.toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "dueAt"));
+    expect(keys).toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "note"));
+  });
+
   test("entityEdit emits submitLabel + section titles + field labels (override honored)", () => {
     const screen: EntityEditScreenDefinition = {
       id: "component-edit",

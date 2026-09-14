@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { metricField } from "../types";
 import { buildQueryHandlerMap } from "./projection-list-screens";
+import { validateActionFieldRefs } from "./screens";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape";
 
 // fw#2493: query handlers can now declare `outputSchema` (the Zod shape of
@@ -138,6 +139,38 @@ function checkProjectionDetailOutputFields(
       () =>
         `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
     );
+  }
+  checkRelatedListToolbarActionFields(recordShape, featureName, screenId, screen);
+}
+
+// relatedList toolbarActions' visible/params evaluate against the ENCLOSING
+// projectionDetail's record, not the relatedList's own row — reuses the
+// same per-action field-ref check as rowActions/toolbarActions elsewhere
+// (validateActionFieldRefs), pinned to this screen's own outputSchema shape
+// instead of an entity's field map. Same additive policy as the rest of this
+// module: no introspectable outputSchema → no-op, not a throw.
+function checkRelatedListToolbarActionFields(
+  recordShape: ShapeLookup | undefined,
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  // skip: no introspectable outputSchema — same additive policy as the rest of this module.
+  if (recordShape === undefined) return;
+  const fieldNames = new Set(Object.keys(recordShape));
+  for (const section of screen.layout.sections) {
+    if (section.kind !== "relatedList") continue;
+    for (const action of section.toolbarActions ?? []) {
+      validateActionFieldRefs(
+        featureName,
+        screenId,
+        "toolbarAction",
+        action.id,
+        action,
+        fieldNames,
+        new Set(),
+      );
+    }
   }
 }
 

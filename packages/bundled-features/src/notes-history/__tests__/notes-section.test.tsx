@@ -127,6 +127,29 @@ function renderSection(): ReturnType<typeof render> {
   return render(<NotesSection entityName="contact" entityId="contact-1" />, { wrapper });
 }
 
+describe("NotesSection — two-card layout", () => {
+  test("renders a 'new note' card and a 'history' card as two separate cards", async () => {
+    const view = renderSection();
+    await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());
+
+    const newNoteCard = view.getByTestId("notes-section-new");
+    const historyCard = view.getByTestId("notes-section-history");
+    expect(newNoteCard).not.toBe(historyCard);
+    expect(newNoteCard.textContent).toContain("New note");
+    expect(historyCard.textContent).toContain("History");
+  });
+
+  test("history entries are separated by dividers, not individual borders", async () => {
+    const view = renderSection();
+    await waitFor(() => expect(view.getByTestId("notes-section-row-note-1")).toBeTruthy());
+
+    const row = view.getByTestId("notes-section-row-note-1");
+    expect(row.className).not.toContain("border");
+    const historyCard = view.getByTestId("notes-section-history");
+    expect(historyCard.querySelector(".divide-y")).not.toBeNull();
+  });
+});
+
 describe("NotesSection — entry display", () => {
   test("note body and meta line render as two distinct nodes, not one run-on line", async () => {
     const view = renderSection();

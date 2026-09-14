@@ -4,6 +4,7 @@ import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
 import { validateBoot as validateBootRaw } from "../boot-validator";
 import { createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
+import { defineEntityListHandler } from "../entity-handlers";
 import { createDerivedField, createEntity, createTextField } from "../factories";
 import { createRegistry } from "../registry";
 import type { ScreenDefinition } from "../types/screen";
@@ -548,6 +549,155 @@ describe("r.screen() — registration", () => {
                 },
               ],
             },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
+  describe("relatedList parentFilter (fw akte-bedienkonzept-2)", () => {
+    test("rejects parentFilter combined with parentParam on the same section", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.queryHandler(
+            "foo:list",
+            z.object({ filter: z.unknown().optional() }),
+            async () => ({ rows: [], nextCursor: null }),
+            {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            },
+          );
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name"],
+                  parentParam: "orderId",
+                  parentFilter: { field: "orderId" },
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/declares both parentFilter and parentParam/);
+    });
+
+    test("rejects parentFilter when the bound query's schema has no filter parameter", () => {
+      const features = [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name"],
+                  parentFilter: { field: "orderId" },
+                },
+              ],
+            },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /declares parentFilter but query.*no "filter" parameter/,
+      );
+    });
+
+    test("rejects parentFilter.field that is not a declared field on the entity behind the query", () => {
+      const orderEntity = createEntity({
+        table: "orders",
+        fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+      });
+      const features = [
+        defineFeature("app", (r) => {
+          r.entity("order", orderEntity);
+          r.queryHandler(
+            defineEntityListHandler("order", orderEntity, {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            }),
+          );
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:order:list",
+                  columns: ["name"],
+                  parentFilter: { field: "unknownField" },
+                },
+              ],
+            },
+          });
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /parentFilter\.field "unknownField" is not a declared field/,
+      );
+    });
+
+    test("accepts a valid parentFilter whose field is a real entity field and the query accepts filter", () => {
+      const orderEntity = createEntity({
+        table: "orders",
+        fields: {
+          name: createTextField({ personal: false, reason: "test_fixture" }),
+          orderId: createTextField({ personal: false, reason: "test_fixture" }),
+        },
+      });
+      const features = [
+        defineFeature("app", (r) => {
+          r.entity("order", orderEntity);
+          r.queryHandler(
+            defineEntityListHandler("order", orderEntity, {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            }),
+          );
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:order:list",
+                  columns: ["name"],
+                  parentFilter: { field: "orderId" },
+                },
+              ],
+            },
+          });
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
         }),
       ];

@@ -22,6 +22,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
 import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
   type ButtonProps,
+  type CardProps,
   type CorePrimitives,
   type DataTableProps,
   type DataTableRowAction,
@@ -62,6 +63,16 @@ const captureDataTable: ComponentType<DataTableProps> = (props) => {
 };
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
+// Card's title/subtitle/headerActions arrive as `slots` instead of raw
+// JSX children.
+const cardWithSlots: ComponentType<CardProps> = ({ slots, children }) => (
+  <>
+    {slots?.title}
+    {slots?.subtitle}
+    {slots?.headerActions}
+    {children}
+  </>
+);
 
 const testPrimitives: CorePrimitives = {
   Button: noop,
@@ -71,7 +82,7 @@ const testPrimitives: CorePrimitives = {
   DataTable: captureDataTable,
   Form: passChildren,
   Section: passChildren,
-  Card: passChildren,
+  Card: cardWithSlots,
   Grid: passChildren,
   GridCell: passChildren,
   Text: passChildren,

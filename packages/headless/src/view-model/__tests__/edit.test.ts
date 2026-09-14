@@ -847,6 +847,46 @@ describe("computeEditViewModel — relatedList searchable/facets passthrough (fw
   });
 });
 
+describe("computeEditViewModel — relatedList parentFilter passthrough (fw akte-bedienkonzept-2)", () => {
+  test("parentFilter passes through onto the relatedList section view-model verbatim", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "relatedList",
+            title: "History",
+            query: "app:query:history",
+            columns: ["name"],
+            parentFilter: { field: "orderId" },
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asRelatedList(vm.sections[0]).parentFilter).toEqual({ field: "orderId" });
+  });
+
+  test("parentFilter is absent from the view-model when the section spec has none", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          { kind: "relatedList", title: "History", query: "app:query:history", columns: ["name"] },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asRelatedList(vm.sections[0]).parentFilter).toBeUndefined();
+  });
+});
+
 describe("computeEditViewModel — writeForm sections (fw editable-detail-screens)", () => {
   test("resolves the section's own fieldDefs/fields through the same per-field pipeline as a fields section", () => {
     const vm = computeEditViewModel({

@@ -136,8 +136,17 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
     },
   });
 
+  r.nav({
+    id: "note-list",
+    label: "notes-demo:nav.noteList",
+    icon: "list",
+    screen: "notes-demo:screen:note-list",
+    order: 50,
+    workspaces: ["admin-shell:workspace:tenant-admin"],
+  });
   r.translations({
     keys: {
+      "notes-demo:nav.noteList": { en: "Notes", de: "Notizen" },
       "screen:note-list.title": { en: "Notes", de: "Notizen" },
       "screen:note-edit.title": { en: "Note", de: "Notiz" },
       "notes-demo:entity:note:field:title": { en: "Title", de: "Titel" },

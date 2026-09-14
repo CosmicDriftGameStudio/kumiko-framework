@@ -53,6 +53,9 @@ export const patListScreen: ProjectionListScreenDefinition = {
         "each signed-in user views only their own personal access tokens, mirroring the list handler",
     },
   },
+  // Self-service settings-area screen, placed by the consuming app's own
+  // r.nav() — no nav area to resolve in isolation.
+  dormant: true,
 };
 
 // Grant-string vocabulary for a scope config's multiSelect field — a
