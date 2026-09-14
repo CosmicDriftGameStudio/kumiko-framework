@@ -102,7 +102,13 @@ const editScreen: EntityEditScreenDefinition = {
   },
 };
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason: "scaffolded demo handler: every signed-in user of the demo tenant manages their tasks",
+    },
+  },
+} as const;
 
 export const tasksFeature = defineFeature("tasks", (r) => {
   r.entity("task", taskEntity);
