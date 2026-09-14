@@ -75,6 +75,7 @@ import {
 } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { createGatedIdentitySwitch } from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
@@ -208,6 +209,11 @@ export async function buildHandlerContext(
   const reqCtx = requestContext.get();
   // db.global()'s write-gate — undefined for query/stream handlers, which can't declare escapeHatch.
   const escapeHatch = registry.getWriteHandler(type)?.escapeHatch;
+  // Broader than `escapeHatch` above — a query handler can't reach db.global() but can still opt in here.
+  const allowSystemIdentity =
+    isSystem ||
+    (registry.getWriteHandler(type)?.escapeHatch ?? registry.getQueryHandler(type)?.escapeHatch) !==
+      undefined;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -304,29 +310,27 @@ export async function buildHandlerContext(
     ? (targetFeatureName: string) => createSafeMetricsHandle(meter, targetFeatureName)
     : () => createNoopMetricsHandle();
 
-  // Cross-feature bridge. Queries and writes invoked through ctx.* share:
-  //   - the current transaction (tx) — nested writes roll back with the parent
-  //   - the current afterCommitHooks sink — deferred side-effects fire once
-  //     when the outermost transaction commits
-  // `queryAs` / `writeAs` let a handler explicitly switch identity
-  // (e.g. system-privileged lookups that bypass field-access read filters).
+  // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
+  // queryAs/writeAs switch identity; SYSTEM needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
+  const identitySwitch = createGatedIdentitySwitch(`handler "${type}"`, allowSystemIdentity, {
+    queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+      executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+    writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+      executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
+  });
   const bridge = {
     query: (targetType: string, payload: unknown) =>
       executeQuery(ctx, targetType, payload, user, tx), // @wrapper-known semantic-alias
-    queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-      executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+    queryAs: identitySwitch.queryAs,
     write: async (targetType: string, payload: unknown) => {
       const res = await executeWrite(ctx, targetType, payload, user, tx, bridgeSink);
       return res;
     },
-    writeAs: async (asUser: SessionUser, targetType: string, payload: unknown) => {
-      const res = await executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink);
-      return res;
-    },
+    writeAs: identitySwitch.writeAs,
     // Strict + unsafe share the same runtime — only the type-surface
     // differs. The strict signature is what's exposed to typed callers;
     // unsafe is the explicit escape-hatch for runtime-pluggable events.
@@ -949,8 +953,8 @@ export async function enforceRateLimit(
 // Build the per-hook context every auth-claims invocation gets. Claims
 // hooks run OUTSIDE any request transaction (login is itself the root
 // operation, not a nested call) and read-only — so the TenantDb is
-// scoped as "tenant" and no tx is threaded through. Hooks that need
-// cross-tenant lookups opt in explicitly via queryAs(systemUser, ...).
+// scoped as "tenant" and no tx is threaded through. Cross-tenant lookups
+// go through queryAs(otherUser, ...); SYSTEM is always denied (no escapeHatch declaration site here).
 function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthClaimsContext {
   const { appContext: context } = ctx;
   const dbSource = resolveDbSource(ctx, undefined);
@@ -967,10 +971,18 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
         secrets: context.secrets,
       })
     : undefined;
-  return {
-    db,
+  const identitySwitch = createGatedIdentitySwitch("r.authClaims hook", false, {
     queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
       executeQuery(ctx, qn, payload, asUser), // @wrapper-known semantic-alias
+    writeAs: async () => {
+      throw new InternalError({
+        message: "r.authClaims hook context has no writeAs — auth-claims hooks are read-only.",
+      });
+    },
+  });
+  return {
+    db,
+    queryAs: identitySwitch.queryAs,
     ...(configAccessor && { config: configAccessor }),
   };
 }

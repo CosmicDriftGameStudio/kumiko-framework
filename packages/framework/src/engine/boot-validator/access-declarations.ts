@@ -1,4 +1,4 @@
-import type { AccessRule, FeatureDefinition, WriteHandlerDef } from "../types";
+import type { AccessRule, FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types";
 import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
 import { getZodObjectShape } from "./zod-shape";
 
@@ -73,15 +73,16 @@ function validateOpenToAllReason(
 
 function validateEscapeHatchReason(
   feature: FeatureDefinition,
+  kind: HandlerKind,
   handlerName: string,
-  escapeHatch: WriteHandlerDef["escapeHatch"],
+  escapeHatch: WriteHandlerDef["escapeHatch"] | QueryHandlerDef["escapeHatch"],
 ): void {
   // skip: no escapeHatch declared, or its reason is already non-empty
   if (!escapeHatch || escapeHatch.reason.trim().length > 0) return;
   throw new Error(
-    `[Feature ${feature.name}] write handler "${handlerName}" declares ` +
+    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +
-      "explaining why this handler needs db.global() write access.",
+      "explaining why this handler needs db.global() write access or a SYSTEM identity switch.",
   );
 }
 
@@ -127,11 +128,12 @@ function validateOpenToAllPersonalData(
 export function validateAccessDeclarations(feature: FeatureDefinition): void {
   for (const [handlerName, handler] of Object.entries(feature.writeHandlers)) {
     validateOpenToAllReason(feature, "write", handlerName, handler.access);
-    validateEscapeHatchReason(feature, handlerName, handler.escapeHatch);
+    validateEscapeHatchReason(feature, "write", handlerName, handler.escapeHatch);
     validateOpenToAllPersonalData(feature, handlerName, handler);
   }
   for (const [handlerName, handler] of Object.entries(feature.queryHandlers)) {
     validateOpenToAllReason(feature, "query", handlerName, handler.access);
+    validateEscapeHatchReason(feature, "query", handlerName, handler.escapeHatch);
     validatePublicIntakeOnlyOnWrite(feature, "query", handlerName, handler.access);
   }
   for (const [handlerName, handler] of Object.entries(feature.streamHandlers)) {

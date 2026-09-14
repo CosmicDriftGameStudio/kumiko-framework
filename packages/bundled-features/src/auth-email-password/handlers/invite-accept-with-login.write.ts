@@ -116,6 +116,11 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     name: "invite-accept-with-login",
     schema: InviteAcceptWithLoginSchema,
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Anonymous invite-accept has no session in the invited tenant yet — checks existing " +
+        "membership via ctx.queryAs(SYSTEM, tenant:query:memberships) of the invitation's tenant.",
+    },
     agent: { expose: false },
     // kumiko-lint-ignore complexity-budget reuses login.write.ts's gate chain (lockout/password/email/status/membership/mfa) plus invite-specific branches (email match, already-member check, invitation update, unburn-on-failure) — splitting would scatter gate order across functions without reducing risk
     handler: async (event, ctx) => {

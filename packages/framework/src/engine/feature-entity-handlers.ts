@@ -185,6 +185,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         outputSchema?: ZodType;
         description?: string;
         agent?: AgentHandlerHints;
+        escapeHatch?: EscapeHatchDeclaration;
       },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
@@ -198,6 +199,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...agentSlots(def),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.outputSchema && { outputSchema: def.outputSchema }),
+          ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
           // Carry the definePagedQueryHandler brand through — this rebuild
           // drops any field not explicitly listed.
           ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
@@ -217,6 +219,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...agentSlots(inline.options),
         ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
         ...(inline.options.outputSchema && { outputSchema: inline.options.outputSchema }),
+        ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
       };
       tryMapEntity(state, name, nameOrDef);
       return { name: nameOrDef };

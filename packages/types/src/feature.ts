@@ -477,6 +477,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       outputSchema?: ZodType;
       description?: string;
       agent?: AgentHandlerHints;
+      escapeHatch?: EscapeHatchDeclaration;
     },
   ): HandlerRef;
 
@@ -500,7 +501,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   ): void;
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
-  hook(type: "preSave", target: RefOrRefs, fn: PreSaveHookFn): void;
+  // escapeHatch grants this hook (not the handler) SYSTEM identity-switches — see system-identity-switch.ts.
+  hook(
+    type: "preSave",
+    target: RefOrRefs,
+    fn: PreSaveHookFn,
+    options?: { escapeHatch?: EscapeHatchDeclaration },
+  ): void;
   // postSave/preDelete/postDelete/postQuery accept `{ allOf: entityRef }` —
   // fires for every write/query handler of that entity, replacing the old
   // r.entityHook(type, entity, fn). postQuery's entity-wide form fires for
@@ -511,19 +518,34 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     type: "postSave",
     target: HookTarget,
     fn: PostSaveHookFn,
-    options?: { phase?: HookPhase },
+    options?: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration },
   ): void;
   // preDelete always runs in-transaction (it guards the delete — there is no
   // meaningful "after" for a pre-hook). No phase option.
-  hook(type: "preDelete", target: HookTarget, fn: PreDeleteHookFn): void;
+  hook(
+    type: "preDelete",
+    target: HookTarget,
+    fn: PreDeleteHookFn,
+    options?: { escapeHatch?: EscapeHatchDeclaration },
+  ): void;
   hook(
     type: "postDelete",
     target: HookTarget,
     fn: PostDeleteHookFn,
-    options?: { phase?: HookPhase },
+    options?: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration },
   ): void;
-  hook(type: "preQuery", target: RefOrRefs, fn: PreQueryHookFn): void;
-  hook(type: "postQuery", target: HookTarget, fn: PostQueryHookFn): void;
+  hook(
+    type: "preQuery",
+    target: RefOrRefs,
+    fn: PreQueryHookFn,
+    options?: { escapeHatch?: EscapeHatchDeclaration },
+  ): void;
+  hook(
+    type: "postQuery",
+    target: HookTarget,
+    fn: PostQueryHookFn,
+    options?: { escapeHatch?: EscapeHatchDeclaration },
+  ): void;
 
   // F3 — Search-Payload-Extension: contributor function adds flat fields to
   // an entity's search-index document. Fires synchronously during

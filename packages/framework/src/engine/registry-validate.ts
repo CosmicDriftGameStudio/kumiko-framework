@@ -1,4 +1,5 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii";
+import { bindHookIdentitySwitchGrant } from "../pipeline/system-identity-switch";
 import { resolveName } from "./handler-helpers";
 import type {
   RegistryState,
@@ -14,7 +15,16 @@ import {
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteGraceDaysConfig,
 } from "./soft-delete-cleanup";
-import type { EventPiiFields, EventUpcastFn, FeatureDefinition, ReferenceFieldDef } from "./types";
+import type {
+  EventPiiFields,
+  EventUpcastFn,
+  FeatureDefinition,
+  PostDeleteHookFn,
+  PostSaveHookFn,
+  PreDeleteHookFn,
+  PreSaveHookFn,
+  ReferenceFieldDef,
+} from "./types";
 import { HookPhases } from "./types";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
@@ -115,29 +125,46 @@ export function applyExtensionUsages(state: RegistryState): void {
     // to also be gated, store the registering-feature on
     // RegistrarExtensionRegistration and use that here.
     const extOwner = "*";
+    // Extensions have no declaration site for escapeHatch, so SYSTEM is always denied
+    // (system-identity-switch.ts) — bindHookIdentitySwitchGrant(..., undefined) below.
     if (ext.hooks) {
       if (ext.hooks.postSave) {
+        const wrapped = bindHookIdentitySwitchGrant(
+          ext.hooks.postSave,
+          `postSave hook of extension "${usage.extensionName}"`,
+          undefined,
+        ) as PostSaveHookFn; // @cast-boundary engine-bridge
         const existing = state.entityPostSaveHooks.get(usage.entityName) ?? [];
         existing.push({
-          fn: ext.hooks.postSave,
+          fn: wrapped,
           phase: HookPhases.afterCommit,
           featureName: extOwner,
         });
         state.entityPostSaveHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.preDelete) {
+        const wrapped = bindHookIdentitySwitchGrant(
+          ext.hooks.preDelete,
+          `preDelete hook of extension "${usage.extensionName}"`,
+          undefined,
+        ) as PreDeleteHookFn; // @cast-boundary engine-bridge
         const existing = state.entityPreDeleteHooks.get(usage.entityName) ?? [];
         existing.push({
-          fn: ext.hooks.preDelete,
+          fn: wrapped,
           phase: HookPhases.afterCommit,
           featureName: extOwner,
         });
         state.entityPreDeleteHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.postDelete) {
+        const wrapped = bindHookIdentitySwitchGrant(
+          ext.hooks.postDelete,
+          `postDelete hook of extension "${usage.extensionName}"`,
+          undefined,
+        ) as PostDeleteHookFn; // @cast-boundary engine-bridge
         const existing = state.entityPostDeleteHooks.get(usage.entityName) ?? [];
         existing.push({
-          fn: ext.hooks.postDelete,
+          fn: wrapped,
           phase: HookPhases.afterCommit,
           featureName: extOwner,
         });
@@ -145,11 +172,15 @@ export function applyExtensionUsages(state: RegistryState): void {
       }
       // preSave on extensions: store as handler hook for all CRUD handlers of this entity
       if (ext.hooks.preSave) {
-        // Find all write handlers that belong to this entity via state.handlerEntityMap
+        const wrapped = bindHookIdentitySwitchGrant(
+          ext.hooks.preSave,
+          `preSave hook of extension "${usage.extensionName}"`,
+          undefined,
+        ) as PreSaveHookFn; // @cast-boundary engine-bridge
         for (const qualifiedHandler of state.writeHandlerMap.keys()) {
           if (state.handlerEntityMap.get(qualifiedHandler) === usage.entityName) {
             const existing = state.preSaveHooks.get(qualifiedHandler) ?? [];
-            existing.push({ fn: ext.hooks.preSave, featureName: extOwner });
+            existing.push({ fn: wrapped, featureName: extOwner });
             state.preSaveHooks.set(qualifiedHandler, existing);
           }
         }

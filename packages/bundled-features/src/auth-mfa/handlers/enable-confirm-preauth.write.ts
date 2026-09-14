@@ -64,6 +64,11 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       code: z.string().length(6),
     }),
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Pre-auth MFA enrollment step has no session yet — re-checks status and membership via " +
+        "ctx.queryAs(SYSTEM, user:findForAuth / tenant:query:memberships) for the setup token's user.",
+    },
     description:
       "Completes the enrollment that unblocks a sign-in forced into two-factor setup: verifies the code against the pre-auth setup token, stores the factor and derives the session the blocked login never got.",
     // Changes the caller's authentication state and mints a session.

@@ -61,8 +61,12 @@ describe("postQuery hook registration", () => {
 });
 
 describe("Registry getters", () => {
-  test("getPostQueryHooks returns handler-keyed hooks", () => {
-    const fn: PostQueryHookFn = async ({ rows }) => ({ rows });
+  test("getPostQueryHooks returns handler-keyed hooks", async () => {
+    const calls: ReadonlyArray<Record<string, unknown>>[] = [];
+    const fn: PostQueryHookFn = async ({ rows }) => {
+      calls.push(rows);
+      return { rows };
+    };
 
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
@@ -73,11 +77,20 @@ describe("Registry getters", () => {
     const registry = createRegistry([feature]);
     const hooks = registry.getPostQueryHooks("test:query:thing:list");
     expect(hooks).toHaveLength(1);
-    expect(hooks[0]).toBe(fn);
+    // Hooks are wrapped for the SYSTEM identity-switch gate
+    // (system-identity-switch.ts), so the stored fn is no longer
+    // reference-equal to `fn` — prove behaviour (calling the original) instead.
+    const inputRows: ReadonlyArray<Record<string, unknown>> = [{ id: "1" }];
+    await hooks[0]?.({ entityName: "thing", rows: inputRows }, stubContext);
+    expect(calls).toEqual([inputRows]);
   });
 
-  test("getEntityPostQueryHooks returns entity-keyed hooks", () => {
-    const fn: PostQueryHookFn = async ({ rows }) => ({ rows });
+  test("getEntityPostQueryHooks returns entity-keyed hooks", async () => {
+    const calls: ReadonlyArray<Record<string, unknown>>[] = [];
+    const fn: PostQueryHookFn = async ({ rows }) => {
+      calls.push(rows);
+      return { rows };
+    };
 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
@@ -87,7 +100,9 @@ describe("Registry getters", () => {
     const registry = createRegistry([feature]);
     const hooks = registry.getEntityPostQueryHooks("thing");
     expect(hooks).toHaveLength(1);
-    expect(hooks[0]).toBe(fn);
+    const inputRows: ReadonlyArray<Record<string, unknown>> = [{ id: "1" }];
+    await hooks[0]?.({ entityName: "thing", rows: inputRows }, stubContext);
+    expect(calls).toEqual([inputRows]);
   });
 
   test("getPostQueryHooks empty for unknown target", () => {

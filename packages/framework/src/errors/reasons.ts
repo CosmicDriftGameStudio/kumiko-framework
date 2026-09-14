@@ -38,6 +38,10 @@ export const FrameworkReasons = {
   // Distinct from access-denied — clients should surface "feature X is
   // currently unavailable" not "you don't have permission".
   featureDisabled: "feature_disabled",
+
+  // AccessDeniedError: a handler/hook called ctx.queryAs/ctx.writeAs with a
+  // SYSTEM identity without an r.systemScope() feature or a declared escapeHatch.
+  systemIdentitySwitchDenied: "system_identity_switch_denied",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

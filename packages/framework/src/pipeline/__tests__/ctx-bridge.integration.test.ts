@@ -135,7 +135,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 
       return created;
     },
-    { access: { roles: ["Admin"] } },
+    {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller" },
+    },
   );
 
   // Two inserts, one via ctx.db (tx-bound) and one via ctx.dbOutsideTransaction
@@ -168,7 +171,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
         owner: query.payload.owner,
       });
     },
-    { access: { roles: ["Admin"] } },
+    {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "test fixture: queryAs(SYSTEM) reads the privileged token field" },
+    },
   );
 
   // Records whether ctx.db threw (should, once the request signal is

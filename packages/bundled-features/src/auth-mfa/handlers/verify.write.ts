@@ -46,6 +46,11 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
     name: "verify",
     schema: z.object({ challengeToken: z.string().min(1), code: z.string().min(6).max(9) }),
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Pre-auth MFA step has no session yet — re-derives it via ctx.queryAs(SYSTEM, " +
+        "user:findForAuth / tenant:query:memberships) for the user the challenge token names.",
+    },
     description:
       "Finishes a two-step sign-in by checking a TOTP or recovery code against the challenge token that login handed back, under a per-account attempt cap, and derives the resulting session.",
     handler: async (event, ctx) => {

@@ -50,6 +50,12 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     name: "confirm-deletion-by-token",
     schema: z.object({ token: z.string().min(1) }),
     access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+    escapeHatch: {
+      reason:
+        "startDeletionGracePeriod reads the tenant compliance profile via ctx.queryAs(SYSTEM, " +
+        "...) to compute the grace period end — the anonymous token holder has no read access " +
+        "to that tenant-config projection.",
+    },
     agent: { expose: false },
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
