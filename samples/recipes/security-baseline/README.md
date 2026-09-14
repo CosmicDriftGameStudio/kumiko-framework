@@ -39,7 +39,7 @@ Any app that also mounts `dsgvoSelfServiceFeatures()` — that preset already
 mounts `sessions` as part of its own require-chain. Combine both with
 `includeSessions: false` to avoid a duplicate-feature-name boot failure:
 
-```ts
+```ts illustration
 import { dsgvoSelfServiceFeatures, securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 
 export const APP_FEATURES = [
