@@ -325,10 +325,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
 
     // Self-service screen (Art. 15/17/18/20): export, restriction, deletion
     // in one projectionDetail screen bound to the user's own `me` row. No
-    // r.nav — the app places it in its logged-in area; `dormant: true`
-    // opts it out of the boot-validator's nav-area check (fw
-    // akte-bedienkonzept-2 V1) instead of an isolated smoke boot flagging
-    // it as unreachable. access is openToAll because no app role name is
+    // r.nav — the app places it in its logged-in area; `dormant: true` opts
+    // it out of the nav-area boot check. access is openToAll because no app role name is
     // portable; the per-user handlers enforce auth server-side.
     //
     // Restriction/Deletion are declarative fields + actions; Export stays a

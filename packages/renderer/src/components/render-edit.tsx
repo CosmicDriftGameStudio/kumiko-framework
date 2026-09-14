@@ -1396,10 +1396,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               ))}
             </Grid>
           );
-          // Tabs mode (fw akte-bedienkonzept-2 S1/S2): render as one or more
-          // titled cards — the Tab strip's own label stays short, this card
-          // title is the section's actual (possibly longer) heading, so the
-          // two aren't the same string and don't visually duplicate.
+          // Tabs mode renders one or more titled cards, so this card's actual
+          // heading doesn't visually duplicate the short Tab strip label.
           if (hideSectionTitles === true) {
             if (section.groups !== undefined) {
               const groupsEl = (
@@ -1432,9 +1430,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             );
             return wrapWizardStep(sectionKey, cardEl);
           }
-          // Section-Header unterdrücken wenn er den Form-Titel der
-          // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
-          // ActionForms, deren Section-Label = Screen-Titel ist).
+          // Suppress the section header when it would just repeat the form
+          // title verbatim (typical for single-section actionForms).
           const sectionTitle = section.title === formTitle ? undefined : section.title;
           const sectionEl = (
             <Section

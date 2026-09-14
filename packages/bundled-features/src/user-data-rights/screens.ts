@@ -72,6 +72,6 @@ export const downloadAttemptListScreen: EntityListScreenDefinition = {
   searchable: false,
   access: { roles: access.systemAdmin },
   // Inert until an app navs it (see file header) — no nav area to resolve
-  // in isolation (fw akte-bedienkonzept-2 V1).
+  // in isolation.
   dormant: true,
 };

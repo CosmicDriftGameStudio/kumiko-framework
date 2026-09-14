@@ -11,9 +11,8 @@ export function screenTitleKey(screenShortId: string): string {
   return `screen:${screenShortId}.title`;
 }
 
-// Shared with the boot-validator's nav-area check (fw akte-bedienkonzept-2
-// V1) via resolveNavParentScreen — this file just supplies the
-// feature-qualified-id normalization the client-side schema needs.
+// Delegates to resolveNavParentScreen, supplying the feature-qualified-id
+// normalization the client-side schema needs.
 function resolveParentScreen(
   screens: readonly ScreenDefinition[],
   detail: ScreenDefinition,

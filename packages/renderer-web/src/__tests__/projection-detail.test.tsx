@@ -679,11 +679,8 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     );
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
-    // Bedienkonzept A1: the head is its own card. A "fields" tab now also
-    // renders as its own titled card (S1) instead of sitting bare on the
-    // page background — so a tabbed Akte with one active fields-section
-    // tab shows exactly two cards. Checked via the card's structural
-    // marker, not a Tailwind class string.
+    // Head card plus one titled card for the fields tab — checked via the
+    // card's structural marker, not a Tailwind class string.
     expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
   });
 

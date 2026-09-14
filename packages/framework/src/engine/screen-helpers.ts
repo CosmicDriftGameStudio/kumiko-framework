@@ -17,9 +17,8 @@ import type {
   ToolbarAction,
 } from "./types/screen";
 
-// Every screen type carrying `listScreenId` declares it identically — reading
-// it here (instead of at each call site) keeps the switch the only place
-// that has to grow when a new screen type adopts the field.
+// Every screen type carrying `listScreenId` declares it identically; centralizing
+// here keeps the switch the only place that grows for a new screen type.
 export function explicitListScreenId(screen: ScreenDefinition): string | undefined {
   switch (screen.type) {
     case "custom":
@@ -33,12 +32,8 @@ export function explicitListScreenId(screen: ScreenDefinition): string | undefin
   }
 }
 
-// Shared by the renderer-web breadcrumb/NavTree (via ui-types re-export) and
-// the boot-validator's nav-area check (fw akte-bedienkonzept-2 V1) — one
-// place answering "which list screen does this detail belong to", so the
-// two never drift. `getId` lets each caller normalize `screen.id` its own
-// way (the boot-validator's ids are already short; the renderer's are
-// feature-qualified and need `lastSegment` first).
+// Shared by the renderer breadcrumb and the boot-validator so both resolve
+// parents the same way; `getId` lets each caller normalize `screen.id`.
 export function resolveNavParentScreen(
   screens: readonly ScreenDefinition[],
   detail: ScreenDefinition,
@@ -51,12 +46,8 @@ export function resolveNavParentScreen(
     return explicitId !== undefined ? screens.find((s) => getId(s) === explicitId) : undefined;
   })();
 
-  // Both rowActions (a row opens the detail) and toolbarActions (e.g. "+
-  // Mint token" opening a secretMint) count as "this list is the detail's
-  // parent" — entityList and projectionList both support either kind.
-  // drawer-kind counts too: the target actionForm is never routed to
-  // directly (it mounts inline in a Drawer), so it has no page of its own
-  // needing a parent — but it's still "reached from" this list.
+  // rowActions, toolbarActions, and drawer-kind actions (which mount inline
+  // and have no page of their own) all count as "reached from" this list.
   const navigatesToDetail = (
     actions: readonly (RowAction | ToolbarAction)[] | undefined,
   ): boolean =>

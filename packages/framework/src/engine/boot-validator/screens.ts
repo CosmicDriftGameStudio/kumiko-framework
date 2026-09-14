@@ -583,11 +583,8 @@ function validateFormFieldsMap(
 // (an input-less secretMint declares BOTH `fields: {}` and
 // `layout.sections: []`; fields declared with no layout to show them stays
 // an error).
-// `fields`/`groups` are mutually exclusive on a fields-kind section — reused
-// by every screen type that walks EditLayout sections (entityEdit,
-// configEdit, projectionDetail, and validateFormLayoutSections's own
-// actionForm/secretMint callers) so the pair of checks and the flattening
-// they both need can't drift into four hand-rolled copies.
+// `fields`/`groups` are mutually exclusive on a fields-kind section; shared by
+// every EditLayout-walking screen type instead of four hand-rolled copies.
 function validateFieldsXorGroups(
   errorPrefix: string,
   section: { readonly title?: string; readonly fields: readonly EditFieldSpec[] } & {
@@ -823,13 +820,8 @@ function validateSecretMintConfirm(
   }
 }
 
-// A standalone r.nav() may live in ANY feature (nav.screen is a full QN,
-// cross-feature capable by design — see NavDefinition doc) — unlike a
-// screen's own inline `nav` sugar, it isn't found on the screen object
-// itself, so this scans every feature's registered nav entries for one
-// pointed at `targetQn`. `createAction`/`actions` are real click-through
-// nav paths too (the "+" affordance / hover-actions on a nav node), not
-// just the node's own primary `screen` target.
+// nav.screen is a full QN (cross-feature), so a standalone r.nav() pointing
+// at `targetQn` must be found by scanning every feature's nav entries and actions.
 function hasStandaloneNavEntry(
   targetQn: string,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -844,17 +836,8 @@ function hasStandaloneNavEntry(
   return false;
 }
 
-// Every screen must be reachable from somewhere in the app's nav tree —
-// its own `nav` sugar, a standalone `r.nav()` elsewhere (same convention a
-// consuming app uses to place a bundled settings-area screen), or a
-// resolvable parent list (same heuristic as the renderer's breadcrumb/
-// NavTree, see resolveNavParentScreen) — or it declares `dormant: true`
-// to opt out explicitly instead of silently falling through a hidden
-// allowlist (fw akte-bedienkonzept-2 V1). Skipped when the whole composed
-// set registers no nav entries at all: that's a feature/recipe/test
-// fixture booted without any app shell around it (no nav tree exists to be
-// orphaned from), not an accidental omission the way one unreachable
-// screen among many reachable siblings would be.
+// Every screen must resolve nav via `nav`, `r.nav()`, a parent list, or
+// `dormant: true`. Skipped when the composed set has no nav entries at all.
 function validateScreenHasNavArea(
   feature: FeatureDefinition,
   screenId: string,
@@ -1256,9 +1239,8 @@ export function validateScreens(
               featureMap,
             );
           }
-          // Only drawer-kind is validated here — same pre-existing gap as
-          // entityList/projectionList's toolbarActions above (navigate/
-          // writeHandler have no boot check yet).
+          // Only drawer-kind is validated here — navigate/writeHandler
+          // toolbarActions have no boot check yet, same gap as above.
           if (section.toolbarActions !== undefined) {
             for (const action of section.toolbarActions) {
               if (action.kind === "drawer") {

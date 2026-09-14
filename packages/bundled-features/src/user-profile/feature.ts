@@ -79,8 +79,7 @@ export function createUserProfileFeature(): FeatureDefinition {
       singleton: true,
       access: { openToAll: true },
       // Self-service settings-area screen, placed by the consuming app's own
-      // r.nav() (see samples/apps/use-all-bundled's screens-feature.ts) — no
-      // nav area to resolve in isolation (fw akte-bedienkonzept-2 V1).
+      // r.nav() (see samples/apps/use-all-bundled's screens-feature.ts).
       dormant: true,
       description:
         "Self-service account page: change password, change email (with re-auth and " +

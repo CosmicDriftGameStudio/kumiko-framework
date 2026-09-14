@@ -1,10 +1,5 @@
-// fw akte-bedienkonzept-2 F1: ActionFormScreenDefinition.fieldLabels mirrors
-// EntityEditScreenDefinition.fieldLabels — a per-screen label override for a
-// field that reuses the DEFAULT actionForm namespace elsewhere (e.g. a date
-// field named "dueAt" needs a different label in this one actionForm than in
-// another). Reuses the same synthesizeActionFormScreen → RenderEdit →
-// computeEditViewModel label-resolution pipeline as entityEdit — no
-// duplicated logic, see action-form-shim.ts.
+// fieldLabels overrides a field's label per screen, via the same
+// label-resolution pipeline as entityEdit (see action-form-shim.ts).
 
 import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";

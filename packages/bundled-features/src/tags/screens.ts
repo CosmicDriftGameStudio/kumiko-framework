@@ -41,7 +41,7 @@ export function createTagListScreen(
     ],
     access,
     // App navs via r.nav("tags:screen:tag-list") — no nav area to resolve
-    // in isolation (fw akte-bedienkonzept-2 V1).
+    // in isolation.
     dormant: true,
   };
 }

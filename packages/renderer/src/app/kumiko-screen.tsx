@@ -1699,7 +1699,7 @@ function EntityListBody({
   // Faceted-Filter: ein Dropdown pro filterable select/boolean/reference-Feld.
   // Labels + select-Option-Labels über dieselbe i18n-Konvention wie die
   // Spalten-Header (fieldLabelKey / :option:<value>); reference-Felder laden
-  // ihre Optionen asynchron über ReferenceFacetBridges (fw akte-bedienkonzept-2 M1).
+  // ihre Optionen asynchron über ReferenceFacetBridges.
   const entityFacetSpecs = useMemo(
     () => resolveEntityFacetSpecs(entity.fields, featureName, screen.entity, effectiveTranslate),
     [entity.fields, featureName, screen.entity, effectiveTranslate],
@@ -2799,9 +2799,8 @@ function ProjectionDetailBody({
   // header polish).
   const header = screen.header;
   const subtitleHref = resolveSubtitleHref(header, record);
-  // Plain Text, not Heading — the Card title slot already renders as its
-  // own heading element (h3); nesting another heading (h1) inside it is
-  // invalid HTML (fw akte-bedienkonzept-2 K2).
+  // Plain Text, not Heading — the Card title slot already renders as its own
+  // heading element (h3); nesting another heading (h1) inside it is invalid HTML.
   const headerTitleSlot =
     header !== undefined ? (
       header.status !== undefined ? (

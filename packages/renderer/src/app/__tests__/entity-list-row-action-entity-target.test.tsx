@@ -63,8 +63,8 @@ const captureDataTable: ComponentType<DataTableProps> = (props) => {
 };
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
-// Card's title/subtitle/headerActions now arrive as `slots` (fw akte-
-// bedienkonzept-2 K2) instead of raw JSX children.
+// Card's title/subtitle/headerActions arrive as `slots` instead of raw
+// JSX children.
 const cardWithSlots: ComponentType<CardProps> = ({ slots, children }) => (
   <>
     {slots?.title}

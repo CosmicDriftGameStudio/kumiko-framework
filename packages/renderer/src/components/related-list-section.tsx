@@ -249,8 +249,8 @@ export function RelatedListSection({
     ],
   );
 
-  // Toolbar-Aktionen (e.g. "+ Anlegen" above the tab table) — same schema
-  // and dispatch semantics as entityList/projectionList (fw akte-bedienkonzept-2 L4).
+  // Toolbar actions (e.g. "+ Create" above the tab table) — same schema
+  // and dispatch semantics as entityList/projectionList.
   const toolbarActionButtons = useMemo(
     () =>
       buildProjectionToolbarActions({
@@ -259,11 +259,21 @@ export function RelatedListSection({
         dispatcher,
         nav,
         refetch: rowsQuery.refetch,
+        navigatePrefill: { [section.parentParam ?? "id"]: parentId },
         ...(onOpenDrawer !== undefined && {
           openDrawer: (action) => onOpenDrawer(action, undefined),
         }),
       }),
-    [section.toolbarActions, effectiveTranslate, dispatcher, nav, rowsQuery.refetch, onOpenDrawer],
+    [
+      section.toolbarActions,
+      section.parentParam,
+      parentId,
+      effectiveTranslate,
+      dispatcher,
+      nav,
+      rowsQuery.refetch,
+      onOpenDrawer,
+    ],
   );
 
   // A truncated fetch means `sortedRows` is a sort of a partial set, not of
@@ -320,12 +330,8 @@ export function RelatedListSection({
     );
 
   // hideTitle (tabs mode) → the tab panel is already the boundary: no
-  // Section card wrapper here — the table keeps its own frame though
-  // (matches the list-screen look, fw akte-bedienkonzept-2 L1). `scrollBody`
-  // caps this wrapper at the panel's available height so a long Akte tab
-  // scrolls internally instead of stretching the page, while a short one
-  // still sizes to its content instead of stretching to the bottom
-  // (fw#2722, fw#2778) — the list sits directly in the tab. `FillContainer` is this section's
+  // Section card wrapper here — the table keeps its own frame to match the
+  // list-screen look; `scrollBody` caps it to the panel height. `FillContainer` is this section's
   // link in RenderEdit's `fillHeight` chain (see render-edit.tsx): it is
   // always this section's own root whenever hideTitle is set, since tabs
   // mode narrows RenderEdit to exactly this one active section. A platform

@@ -164,10 +164,8 @@ export function computeEditViewModel<
     if (!isFieldsEditSection(sectionSpec)) {
       return computeRelatedListSectionViewModel(sectionSpec, translate);
     }
-    // groups (fw akte-bedienkonzept-2 S2) flattens into the same per-field
-    // pipeline as a plain `fields` list — one shared computation, then the
-    // group structure below just re-groups the already-computed views by
-    // field name instead of recomputing them.
+    // `groups` flattens into the same per-field pipeline as plain `fields`;
+    // the group structure below just re-groups the computed views by name.
     const flatFieldSpecs =
       sectionSpec.groups !== undefined
         ? sectionSpec.groups.flatMap((group) => group.fields)
@@ -436,9 +434,8 @@ export function computeEditViewModel<
     // Boot-validator rejects fields.length === 0 with no groups (screens.ts),
     // so an empty section never reaches this code.
     const visible = fields.some((field) => field.visible);
-    // Tabs mode renders this section as its own card (fw akte-bedienkonzept-2
-    // S1) — two columns reads better there than the single-column default a
-    // stacked (non-tabs) form keeps for backward compatibility.
+    // Tabs mode renders this section as its own card, where two columns reads
+    // better than the single-column default a stacked form keeps.
     const defaultColumns = screen.layout.mode === "tabs" ? 2 : 1;
     const groups = sectionSpec.groups?.map((group) => ({
       title: translate(group.title),

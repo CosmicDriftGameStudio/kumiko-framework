@@ -326,6 +326,60 @@ describe("RelatedListSection — list-screen toolbar in tabs mode (fw akte-bedie
     expect(capturedFilterFacets?.length).toBe(1);
     expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy();
   });
+
+  test("clicking a toolbarAction navigates to its screen and prefills the parent id under parentParam", async () => {
+    const { dispatcher } = stubDispatcher();
+    const { nav, navigations, searchParams } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      parentParam: "leaseId",
+      toolbarActions: [
+        { kind: "navigate", id: "create", label: "Add position", screen: "position-create" },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection section={section} parentId="lease-9" featureName="leases" />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    rtlScreen.getByTestId("render-list-toolbar-action-create").click();
+
+    await waitFor(() => expect(navigations).toHaveLength(1));
+    expect(navigations[0]).toEqual({ screenId: "position-create" });
+    expect(searchParams).toEqual([{ leaseId: "lease-9" }]);
+  });
 });
 
 describe("RelatedListSection — rowActions", () => {

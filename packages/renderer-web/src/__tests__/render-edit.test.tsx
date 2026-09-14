@@ -204,10 +204,8 @@ describe("RenderEdit", () => {
 
   // Fall 2: tabs layout sets hideSectionTitles (kumiko-screen.tsx's
   // ProjectionDetailBody, the only real caller) to blank out each section's
-  // OWN title — the active tab already names it. screen.description
-  // (the form's own subtitle) is head-card copy, not tab content — the
-  // head card already carries title/subtitle/status, so it must NOT also
-  // render here in tabs mode (fw akte-bedienkonzept-2 K3).
+  // OWN title — the active tab already names it. The head card also carries
+  // screen.description as its subtitle, so it must not render again here.
   test("tabs layout (hideSectionTitles) keeps the section title hidden and drops the screen's own subtitle", () => {
     const entity = {
       fields: { email: { type: "text", required: true } },

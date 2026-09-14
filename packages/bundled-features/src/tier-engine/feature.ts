@@ -292,7 +292,7 @@ export function createTierEngineFeature<
         "Operator form that assigns a tier to any tenant as a manual grant without a billing purchase.",
       access: { roles: ["SystemAdmin"] },
       // Apps place it via r.nav() (see above) — no nav area to resolve in
-      // isolation (fw akte-bedienkonzept-2 V1).
+      // isolation.
       dormant: true,
     });
 

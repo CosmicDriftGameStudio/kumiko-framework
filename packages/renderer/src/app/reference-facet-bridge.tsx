@@ -1,9 +1,5 @@
-// Reference-facet options (fw akte-bedienkonzept-2 M1) load asynchronously
-// from the referenced entity's own list query — the same "one hook call per
-// dynamic target, fan out via mounted bridge components" pattern render-list
-// already uses for reference COLUMNS (see ReferenceLookupBridge there):
-// the number of reference facets varies per screen, so useReferenceLookup
-// can't be called in a loop directly (rules-of-hooks).
+// One bridge component per reference facet, mirroring ReferenceLookupBridge —
+// facet count varies per screen, so the hook can't be called in a loop.
 import { type ReactNode, useEffect } from "react";
 import { useReferenceLookup } from "../hooks/use-reference-lookup";
 import type { ResolvedFacetSpec } from "./list-facets";
@@ -34,9 +30,8 @@ function ReferenceFacetOptionsBridge({
   return null;
 }
 
-// Mounted once per screen alongside its facet UI — one invisible bridge per
-// "reference" facet spec, each publishing its resolved options back via
-// `onOptions` once loaded.
+// One invisible bridge per "reference" facet spec, each publishing its
+// resolved options back via `onOptions` once loaded.
 export function ReferenceFacetBridges({
   specs,
   onOptions,

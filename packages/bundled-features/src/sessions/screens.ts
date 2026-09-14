@@ -58,7 +58,7 @@ export const sessionListScreen: ProjectionListScreenDefinition = {
   ],
   access: listAccess,
   // Admin view, placed by the consuming app's own r.nav() — no nav area
-  // to resolve in isolation (fw akte-bedienkonzept-2 V1).
+  // to resolve in isolation.
   dormant: true,
 };
 
@@ -145,6 +145,6 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
   ],
   access: { openToAll: true },
   // Self-service settings-area screen, placed by the consuming app's own
-  // r.nav() — no nav area to resolve in isolation (fw akte-bedienkonzept-2 V1).
+  // r.nav() — no nav area to resolve in isolation.
   dormant: true,
 };

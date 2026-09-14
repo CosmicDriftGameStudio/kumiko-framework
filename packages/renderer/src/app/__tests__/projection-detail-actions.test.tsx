@@ -41,9 +41,8 @@ import { NavProvider } from "../nav";
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-// Card's title/subtitle/headerActions now arrive as `slots` (fw akte-
-// bedienkonzept-2 K2) instead of raw JSX children — this stub renders them
-// so tests asserting on header-action content still see it.
+// Card's title/subtitle/headerActions arrive as `slots`; this stub renders
+// them so tests asserting on header-action content still see it.
 const CardWithSlots: ComponentType<CardProps> = ({ slots, children }) => (
   <>
     {slots?.title}

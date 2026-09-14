@@ -8,15 +8,13 @@ import type { DataTableFacet } from "../primitives";
 
 // One resolved facet, independent of where the type info came from — an
 // entity field (entityList) or an explicit ListFacetSpec (projectionList,
-// relatedList, fw#2224). Shared by buildFilterFacets/buildFilterPayload below
-// so all list-shaped screens build their query-payload filters and DataTable
-// facet-UI through the same code, instead of copies that can drift.
+// relatedList). Shared by buildFilterFacets/buildFilterPayload so all list
+// screens build filters and facet UI through one code path.
 export type ResolvedFacetSpec = {
   readonly field: string;
   readonly type: "select" | "boolean" | "reference";
   readonly label: string;
   /** Empty for a "reference" facet until `ReferenceFacetBridges` resolves it
-   *  (fw akte-bedienkonzept-2 M1) — the referenced entity's rows are loaded
    *  at render time, unlike select/boolean's author-declared options. */
   readonly options: readonly { readonly value: string; readonly label: string }[];
   /** Present only for a "reference" facet — the resolved lookup target
@@ -28,10 +26,8 @@ export type ResolvedFacetSpec = {
   };
 };
 
-// Merges freshly-loaded reference-facet options (keyed by field, from
-// ReferenceFacetBridges) into the resolved specs — the one seam where a
-// "reference" spec's initially-empty `options` gets filled in, shared by
-// every caller instead of each re-deriving the merge.
+// Fills in a "reference" spec's initially-empty `options` from the
+// field-keyed options ReferenceFacetBridges resolved, shared by every caller.
 export function mergeReferenceFacetOptions(
   specs: readonly ResolvedFacetSpec[],
   optionsByField: Readonly<

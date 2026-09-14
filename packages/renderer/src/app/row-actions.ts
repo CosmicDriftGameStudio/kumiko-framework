@@ -189,10 +189,8 @@ type OpenDrawer = (
   initialValues: Readonly<Record<string, unknown>> | undefined,
 ) => void;
 
-// buildProjectionRowActions/buildProjectionToolbarActions run inside a
-// useMemo (re-evaluated on every dep change), so this dedupes the
-// "openDrawer not wired" warning per action id instead of firing on every
-// recompute.
+// Dedupes the "openDrawer not wired" warning per action id, since the
+// builders re-run inside a useMemo on every dep change.
 const warnedDrawerActionIds = new Set<string>();
 
 function warnDrawerActionDropped(
@@ -328,6 +326,7 @@ function buildNavigateToolbarAction(
   action: ToolbarAction & { readonly kind: "navigate" },
   translate: Translate,
   nav: NavApi,
+  prefill: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
   const actionIcon = resolveActionIcon(action.id);
   const target = action.screen;
@@ -337,7 +336,12 @@ function buildNavigateToolbarAction(
     ...(action.style !== undefined && { style: action.style }),
     confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
-    onTrigger: () => nav.navigate({ screenId: target }),
+    onTrigger: () => {
+      nav.navigate({ screenId: target });
+      if (prefill !== undefined) {
+        nav.setSearchParams(stringifyNavParams(prefill));
+      }
+    },
   };
 }
 
@@ -383,27 +387,28 @@ function buildWriteHandlerToolbarAction(
   };
 }
 
-// Builds the DataTable-toolbar-ready action set for a query-driven list
-// header (entityList, projectionList, and a projectionDetail relatedList
-// section) — single implementation so the three call sites can't drift
-// apart (fw akte-bedienkonzept-2, same reasoning as buildProjectionRowActions).
+// Shared by entityList, projectionList, and relatedList toolbars so the
+// three call sites can't drift apart.
 export function buildProjectionToolbarActions(options: {
   readonly toolbarActions: readonly ToolbarAction[] | undefined;
   readonly translate: Translate;
   readonly dispatcher: Dispatcher | undefined;
   readonly nav: NavApi;
   readonly refetch: () => Promise<unknown>;
-  /** Omitted callers (e.g. RelatedListSection embedded without onOpenDrawer)
-   *  drop drawer-kind toolbar actions and get a dev warning — mirrors the
-   *  rowActions behavior above. */
+  /** Omitted callers drop drawer-kind toolbar actions and get a dev warning,
+   *  mirroring the rowActions behavior above. */
   readonly openDrawer?: OpenToolbarDrawer;
+  /** Search params set on the target after a navigate-kind action, e.g. a
+   *  relatedList's parent id for create-form prefill. */
+  readonly navigatePrefill?: Readonly<Record<string, unknown>>;
 }): readonly ToolbarActionButton[] | undefined {
-  const { toolbarActions, translate, dispatcher, nav, refetch, openDrawer } = options;
+  const { toolbarActions, translate, dispatcher, nav, refetch, openDrawer, navigatePrefill } =
+    options;
   if (toolbarActions === undefined) return undefined;
   const out: ToolbarActionButton[] = [];
   for (const action of toolbarActions) {
     if (action.kind === "navigate") {
-      out.push(buildNavigateToolbarAction(action, translate, nav));
+      out.push(buildNavigateToolbarAction(action, translate, nav, navigatePrefill));
       continue;
     }
     if (action.kind === "drawer") {
