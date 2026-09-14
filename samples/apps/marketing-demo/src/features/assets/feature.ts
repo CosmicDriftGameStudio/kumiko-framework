@@ -6,7 +6,16 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { assetsTranslations } from "./i18n";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
-const open = { access: { openToAll: true } } as const;
+const ASSETS_MANAGE_OPEN_REASON =
+  "demo app: any signed-in user manages every marketing asset; there is no per-user ownership in this sample";
+
+const open = {
+  access: {
+    openToAll: {
+      reason: ASSETS_MANAGE_OPEN_REASON,
+    },
+  },
+} as const;
 
 // r.translations() wants key-first shape ({key: {de, en}}); assetsTranslations
 // is locale-first (client TranslationsByLocale shape) — invert here (bracket

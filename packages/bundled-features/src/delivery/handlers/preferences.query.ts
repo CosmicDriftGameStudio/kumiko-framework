@@ -7,7 +7,13 @@ import { notificationPreferencesTable } from "../tables";
 export const preferencesQuery = defineQueryHandler({
   name: "preferences",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user reads only their own notification preference rows; the " +
+        "query filters notificationPreferencesTable by the caller's own tenantId and userId",
+    },
+  },
   description:
     "Returns the calling user's notification preference rows for their own tenant; use it to show which notification types and channels that user has enabled or muted.",
   handler: async (query, ctx) => {

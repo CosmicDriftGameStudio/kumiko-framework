@@ -99,7 +99,12 @@ let tagId: string;
 beforeAll(async () => {
   stack = await setupTestStack({
     // Deliberately no `ownership` — the gate must hold on a bare mount.
-    features: [createTagsFeature({ access: { openToAll: true } }), hostFixturesFeature],
+    features: [
+      createTagsFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+      hostFixturesFeature,
+    ],
   });
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
@@ -303,7 +308,7 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
     ownedStack = await setupTestStack({
       features: [
         createTagsFeature({
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           // An extra row rule on the assignment row itself, unrelated to who
           // may see the host: the caller's claim must name the row's host type.
           ownership: {

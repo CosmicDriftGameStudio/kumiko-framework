@@ -15,7 +15,13 @@ import { SESSION_REVOKED_AGGREGATE_TYPE, SESSION_REVOKED_EVENT_QN } from "../ses
 export const revokeAllOthersWrite = defineWriteHandler({
   name: "user-session:revoke-all-others",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user revokes only their own other sessions; the update is " +
+        "scoped to the caller's own userId, keeping only their current session (sid)",
+    },
+  },
   description:
     'Irreversibly signs the calling user out of every session except the one making the request and reports how many were dropped; use it for a "sign out everywhere else" action after a suspected compromise.',
   agent: { risk: "high" },

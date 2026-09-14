@@ -115,14 +115,19 @@ function sidePanelClass(
       // same-group `top-0` vs `top-(--x)`, which it does). Overriding top
       // via inline `style` instead (Drawer's `verticalOffsetStyle`) always
       // wins over both, without depending on that gap.
+      // `h-full` fights that same style override on height: it pins the
+      // panel to 100% of the viewport regardless of `top`, pushing the
+      // bottom edge (and the footer slot) past the viewport when belowHeader
+      // also shifts `top` down. `h-auto` lets `inset-y-0`'s `bottom-0` (kept
+      // in sync by the inline `bottom: 0`) determine the height instead.
       case "left":
-        return `inset-y-0 left-0 h-full ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
+        return `inset-y-0 left-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
       case "top":
         return `inset-x-0 ${belowHeader ? "top-(--shell-header-height)" : "top-0"} h-auto max-h-[80vh] border-b shadow-2xl overflow-hidden`;
       case "bottom":
         return "inset-x-0 bottom-0 h-auto max-h-[80vh] border-t shadow-2xl overflow-hidden";
       default:
-        return `inset-y-0 right-0 h-full ${WIDTH_CLASS} border-l shadow-2xl overflow-hidden`;
+        return `inset-y-0 right-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-l shadow-2xl overflow-hidden`;
     }
   }
   switch (side) {

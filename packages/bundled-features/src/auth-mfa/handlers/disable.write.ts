@@ -30,7 +30,13 @@ export function createDisableHandler(opts: DisableOptions) {
   return defineWriteHandler({
     name: "disable",
     schema: z.object({ code: z.string().min(6).max(9) }),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user may disable only their own MFA enrollment after proving " +
+          "possession of a TOTP or recovery code; the handler looks up and removes the caller's own user-mfa row",
+      },
+    },
     description:
       "Removes the caller's TOTP enrollment for good after they prove possession with a TOTP or recovery code, and signs their other sessions and access tokens out; use it when a user wants two-factor authentication turned off.",
     agent: { risk: "high" },

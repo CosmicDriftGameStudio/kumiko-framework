@@ -77,7 +77,14 @@ export function createUserProfileFeature(): FeatureDefinition {
       type: "projectionDetail",
       query: UserProfileQueries.me,
       singleton: true,
-      access: { openToAll: true },
+      access: {
+        openToAll: {
+          reason:
+            "each signed-in user manages only their own profile: change-email/password " +
+            "re-authenticate the caller, and deletion request/cancel act on the caller's " +
+            "own userId; no app role name is portable enough to gate this",
+        },
+      },
       // Self-service settings-area screen, placed by the consuming app's own
       // r.nav() (see samples/apps/use-all-bundled's screens-feature.ts).
       dormant: true,

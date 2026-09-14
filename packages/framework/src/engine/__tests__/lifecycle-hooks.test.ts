@@ -69,7 +69,9 @@ describe("lifecycle hooks in registry", () => {
   test("merges preSave hooks within same feature", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), stubHandler, { access: { openToAll: true } });
+      r.writeHandler("user", z.object({}), stubHandler, {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.hook("preSave", "user", async (changes) => changes);
       r.hook("preSave", "user", async (changes) => changes);
     });
@@ -81,12 +83,16 @@ describe("lifecycle hooks in registry", () => {
   test("cross-feature hooks use full prefixed name", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.writeHandler("user", z.object({}), stubHandler, { access: { openToAll: true } });
+      r.writeHandler("user", z.object({}), stubHandler, {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.hook("postSave", "user", async () => {});
     });
     // Feature b hooks into a.user by using the full prefixed name
     const f2 = defineFeature("b", (r) => {
-      r.writeHandler("a.user", z.object({}), stubHandler, { access: { openToAll: true } });
+      r.writeHandler("a.user", z.object({}), stubHandler, {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.hook("postSave", "a.user", async () => {});
       r.hook("postSave", "a.user", async () => {});
     });

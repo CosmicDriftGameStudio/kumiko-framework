@@ -24,7 +24,7 @@ function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHo
     );
     // Dummy handler so hook targets resolve (boot validation requires it)
     r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     if (hooks?.preSave) {
       for (const h of hooks.preSave) r.hook("preSave", "user", h);
@@ -296,7 +296,7 @@ describe("runPostSave phase routing", () => {
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook(
         "postSave",
@@ -325,7 +325,7 @@ describe("runPostSave phase routing", () => {
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook(
         "postSave",
@@ -351,7 +351,7 @@ describe("runPostSave phase routing", () => {
       const feature = defineFeature("phases", (r) => {
         r.entity("user", createEntity({ table: "Users", fields: {} }));
         r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.hook("postSave", "user", async () => {
           throw new Error("afterCommit-boom");
@@ -378,7 +378,7 @@ describe("runPostSave phase routing", () => {
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const registry = createRegistry([feature]);
@@ -439,7 +439,7 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
         "widget:create",
         z.object({ name: z.string() }),
         async () => ({ isSuccess: true as const, data: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
 
@@ -570,7 +570,7 @@ describe("runPreDelete", () => {
         }),
       );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("preDelete", "user", async () => {
         calls.push("handler");
@@ -606,7 +606,7 @@ describe("runPreDelete", () => {
         }),
       );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("preDelete", "user", async () => {
         throw new Error("blocked-delete");
@@ -652,7 +652,7 @@ describe("runPostDelete", () => {
         }),
       );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postDelete", "user", async () => {
         calls.push("feature");
@@ -685,7 +685,7 @@ describe("runPostDelete", () => {
         }),
       );
       r.writeHandler("user", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook(
         "postDelete",

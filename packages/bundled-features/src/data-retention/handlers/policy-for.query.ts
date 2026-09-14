@@ -22,7 +22,14 @@ export const policyForQuery = defineQueryHandler({
   schema: z.object({
     entityName: z.string().min(1).max(100),
   }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in tenant member (and other features calling cross-feature) may " +
+        "resolve the retention policy for an entity name in their own tenant; the result " +
+        "carries only policy metadata, no PII",
+    },
+  },
   description:
     "Resolves the effective retention policy for one entity name in the caller's tenant (keep-for duration plus delete or anonymize strategy) by layering the entity default, tenant preset and tenant override, so a forget flow or cleanup job knows how that data may be removed.",
   handler: async (query, ctx): Promise<EffectiveRetentionPolicy> => {

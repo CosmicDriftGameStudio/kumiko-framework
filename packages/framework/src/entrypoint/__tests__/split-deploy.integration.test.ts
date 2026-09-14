@@ -57,7 +57,7 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
       });
       return { isSuccess: true as const, data: { note: event.payload.note } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.multiStreamProjection({
     name: "consume-notes",

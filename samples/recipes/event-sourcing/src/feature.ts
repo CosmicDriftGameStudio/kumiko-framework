@@ -395,7 +395,15 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       }
       return state;
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo recipe: any signed-in user may read the event-sourced invoice state; " +
+            "there is no per-user invoice ownership in this sample",
+        },
+      },
+    },
   );
 
   // Snapshot-aware fast path. Uses the latest snapshot if available and
@@ -425,7 +433,15 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         snapshotHit: result.snapshotHit,
       };
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo recipe: any signed-in user may read the snapshot-accelerated invoice " +
+            "state; there is no per-user invoice ownership in this sample",
+        },
+      },
+    },
   );
 
   // Read-model query via ctx.queryProjection — auto-tenant-scoped. The
@@ -434,7 +450,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   // consistent with other list handlers.
   r.queryHandler(
     defineProjectionQueryHandler("revenue:list", "showcase:projection:customer-revenue", {
-      access: { openToAll: true },
+      access: {
+        openToAll: {
+          reason:
+            "demo recipe: any signed-in user may read the customer-revenue projection; " +
+            "there is no per-user restriction in this sample",
+        },
+      },
     }),
   );
 

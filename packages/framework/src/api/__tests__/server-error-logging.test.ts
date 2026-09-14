@@ -20,7 +20,7 @@ const boomFeature = defineFeature("boom", (r) => {
     async () => {
       throw new Error("disk on fire");
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

@@ -84,10 +84,10 @@ describe("writeform-section sample — boot-validator catches author mistakes", 
     const broken = defineFeature("broken-note-desk", (r) => {
       r.translations({ keys: { "screen:x.title": { en: "X" } } });
       r.queryHandler("foo:detail", z.object({ id: z.string() }), async () => ({}), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.writeHandler("save", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "x",

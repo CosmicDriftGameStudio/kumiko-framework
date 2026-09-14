@@ -140,7 +140,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   test("object-form metric with its own label needs no fieldLabels entry", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "rent-detail",
@@ -192,7 +192,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   test("metric navigate.tab with no screen/entity — a known section id boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "rent-detail",
@@ -214,7 +214,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   test("valid tabs + header + metrics declaration boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "rent-detail",

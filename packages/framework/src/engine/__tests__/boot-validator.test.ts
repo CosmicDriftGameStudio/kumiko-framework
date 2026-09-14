@@ -42,7 +42,7 @@ function stubListHandler(
     name: `${entityName}:list`,
     schema: z.object({}),
     handler: async () => ({ rows: [], nextCursor: null }) as never,
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 }
 
@@ -534,7 +534,7 @@ describe("boot-validator", () => {
             isSuccess: true as const,
             data: { id: "1" },
           }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
       }),
     ];
@@ -566,7 +566,7 @@ describe("boot-validator", () => {
           isSuccess: true as const,
           data: {},
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.useExtension("credit-cap", "credit");
     });
@@ -631,7 +631,7 @@ describe("boot-validator", () => {
     const features = [
       defineFeature("a", (r) => {
         r.queryHandler("list", z.object({}), async () => [], {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
       }),
     ];
@@ -711,7 +711,7 @@ describe("boot-validator", () => {
     const features = [
       defineFeature("a", (r) => {
         r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
       }),
     ];
@@ -2434,7 +2434,7 @@ describe("boot-validator", () => {
           name: "invoice:approve",
           schema: { _type: "stub" } as never,
           handler: async () => ({ isSuccess: true, data: {} }) as never,
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "approve-invoice",
@@ -2764,14 +2764,14 @@ describe("boot-validator", () => {
           name: "token:mint",
           schema: { _type: "stub" } as never,
           handler: async () => ({ isSuccess: true, data: {} }) as never,
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         if (confirmOverride !== undefined) {
           r.writeHandler({
             name: "token:confirm",
             schema: { _type: "stub" } as never,
             handler: async () => ({ isSuccess: true, data: {} }) as never,
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
         }
         r.screen({
@@ -4228,7 +4228,7 @@ describe("boot-validator", () => {
           }),
         );
         r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "product-projection",
@@ -4258,7 +4258,7 @@ describe("boot-validator", () => {
           }),
         );
         r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "product-projection",
@@ -4477,13 +4477,13 @@ describe("boot-validator", () => {
     test("projectionDetail relatedList defaultSort.field sortable → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.queryHandler("order-detail", z.object({}), async () => ({ id: "o1" }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.queryHandler(
           "order-positions",
           z.object({}),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "order-detail",
@@ -5044,7 +5044,7 @@ describe("boot-validator", () => {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
         r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.writeHandler(
           "restock",
@@ -5274,7 +5274,7 @@ describe("boot-validator — config key backing × scope", () => {
         ],
       });
       r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "product-dashboard",
@@ -5319,7 +5319,7 @@ describe("boot-validator — config key backing × scope", () => {
         ],
       });
       r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "product-dashboard",
@@ -5368,7 +5368,7 @@ describe("boot-validator — config key backing × scope", () => {
         ],
       });
       r.queryHandler("count", z.object({}), async () => ({ total: 0 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "product-dashboard",
@@ -5593,7 +5593,7 @@ describe("boot-validator — config key backing × scope", () => {
         }),
       );
       r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "product-projection",
@@ -5675,7 +5675,7 @@ describe("boot-validator — config key backing × scope", () => {
         "create",
         z.object({ name: z.string() }),
         async () => ({ isSuccess: true as const, data: { id: "1" } }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "product-list",

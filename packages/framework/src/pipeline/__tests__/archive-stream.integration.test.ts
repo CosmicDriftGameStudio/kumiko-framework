@@ -109,14 +109,14 @@ const archFeature = defineFeature("archtest", (r) => {
     "item:events",
     z.object({ id: z.uuid() }),
     async (query, ctx) => ctx.loadAggregate(query.payload.id),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.queryHandler(
     "item:is-archived",
     z.object({ id: z.uuid() }),
     async (query, ctx) => ctx.isStreamArchived(query.payload.id),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

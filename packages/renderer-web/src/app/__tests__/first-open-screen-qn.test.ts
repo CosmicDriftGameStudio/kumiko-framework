@@ -31,7 +31,12 @@ describe("firstOpenScreenQn", () => {
     const features: readonly FeatureSchema[] = [
       feature({
         featureName: "auth-mfa",
-        screens: [customScreen({ id: "auth-mfa-enable", access: { openToAll: true } })],
+        screens: [
+          customScreen({
+            id: "auth-mfa-enable",
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          }),
+        ],
         // No nav entry — this is auth-mfa's dormant custom-screen convention.
       }),
       feature({
@@ -58,7 +63,12 @@ describe("firstOpenScreenQn", () => {
     const features: readonly FeatureSchema[] = [
       feature({
         featureName: "auth-mfa",
-        screens: [customScreen({ id: "auth-mfa-enable", access: { openToAll: true } })],
+        screens: [
+          customScreen({
+            id: "auth-mfa-enable",
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          }),
+        ],
       }),
     ];
     expect(firstOpenScreenQn(features)).toBeUndefined();

@@ -19,10 +19,10 @@ function dashboardFeature(
 ) {
   return defineFeature("demo", (r) => {
     r.queryHandler("incident:open-count", z.object({}), async () => ({ count: 3 }), {
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.queryHandler("incident:latest", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.screen({
       id: "overview",
@@ -245,10 +245,10 @@ describe("validateBoot — dashboard screens", () => {
 
 const catalogFeature = defineFeature("catalog", (r) => {
   r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.queryHandler("items:status", z.object({}), async () => ({ enabled: true }), {
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.screen({
     id: "items",
@@ -289,7 +289,7 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
   test("accepts a same-feature short id", () => {
     const feature = defineFeature("demo", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "items",

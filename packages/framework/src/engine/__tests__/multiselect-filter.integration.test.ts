@@ -28,7 +28,7 @@ const LIST_QN = "checklist:query:equipment:list";
 const checklistFeature = defineFeature("checklist", (r) => {
   r.crud("equipment", equipmentEntity, {
     write: { access: { roles: ["Admin"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
 });
 

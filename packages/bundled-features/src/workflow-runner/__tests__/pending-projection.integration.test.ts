@@ -52,7 +52,7 @@ const testEventsFeature = defineFeature("wr-pending-test", (r) => {
       });
       return { isSuccess: true, data: {} };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

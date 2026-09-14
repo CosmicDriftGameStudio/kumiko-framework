@@ -123,7 +123,7 @@ const testFeature = defineFeature("test", (r) => {
     "capped-event",
     z.object({ n: z.number() }),
     async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   // Event-triggered twin — exercises handleEvent's maxPerTenant guard
   // (dispatch and handleEvent share isOverPerTenantLimit).

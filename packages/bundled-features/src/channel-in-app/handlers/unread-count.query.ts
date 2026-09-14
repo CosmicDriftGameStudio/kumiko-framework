@@ -6,7 +6,13 @@ import { inAppMessagesTable } from "../tables";
 export const unreadCountQuery = defineQueryHandler({
   name: "unreadCount",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user counts only their own unread in-app messages; the query " +
+        "filters inAppMessagesTable by the caller's own id",
+    },
+  },
   description:
     "Counts the calling user's unread in-app notification messages; use it for an inbox badge or to check whether a user has pending notifications.",
   handler: async (query, ctx) => {

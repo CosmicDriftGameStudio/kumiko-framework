@@ -25,7 +25,15 @@ export const deliveryEntity = createEntity({
 
 const write = { access: { roles: ["Admin", "User"] } } as const;
 const adminWrite = { access: { roles: ["Admin"] } } as const;
-const openRead = { access: { openToAll: true } } as const;
+const openRead = {
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may list deliveries and query the timezone helpers below; " +
+        "writes are still gated by the roles above",
+    },
+  },
+} as const;
 
 export const timezonesFeature = defineFeature("timezones", (r) => {
   r.crud("delivery", deliveryEntity, {

@@ -40,14 +40,32 @@ describe("account-security composed from bundled screens (fw#2841)", () => {
 
   test("the self-service screens are open to every signed-in user", () => {
     const [, , , , , sessions, mfa] = bootFeatures();
-    const screens = [
-      sessions?.screens[SESSION_MINE_SCREEN_ID],
-      mfa?.screens[MFA_ENABLE_SCREEN_ID],
-      mfa?.screens[MFA_DISABLE_SCREEN_ID],
-      mfa?.screens[MFA_REGENERATE_RECOVERY_SCREEN_ID],
+    const screensWithReason: ReadonlyArray<{
+      readonly screen: { readonly access?: unknown } | undefined;
+      readonly reason: string;
+    }> = [
+      {
+        screen: sessions?.screens[SESSION_MINE_SCREEN_ID],
+        reason:
+          "each signed-in user views and revokes only their own sessions, mirroring the mine/revoke handlers",
+      },
+      {
+        screen: mfa?.screens[MFA_ENABLE_SCREEN_ID],
+        reason:
+          "each signed-in user may enroll their own account in MFA, mirroring the enable-start handler",
+      },
+      {
+        screen: mfa?.screens[MFA_DISABLE_SCREEN_ID],
+        reason: "each signed-in user may turn off their own MFA, mirroring the disable handler",
+      },
+      {
+        screen: mfa?.screens[MFA_REGENERATE_RECOVERY_SCREEN_ID],
+        reason:
+          "each signed-in user may regenerate their own recovery codes, mirroring the regenerate-recovery handler",
+      },
     ];
-    for (const screen of screens) {
-      expect(screen?.access).toEqual({ openToAll: true });
+    for (const { screen, reason } of screensWithReason) {
+      expect(screen?.access).toEqual({ openToAll: { reason } });
     }
   });
 

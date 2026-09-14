@@ -35,7 +35,13 @@ defineFeature("designerDemo", (r) => {
     handler: async (_event, _ctx) => {
       return { isSuccess: true, data: {} };
     },
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "sample handler: any signed-in user may complete a task in this designer-skeleton " +
+          "demo; there is no per-user task ownership",
+      },
+    },
   });
 
   r.nav({

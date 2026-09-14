@@ -212,7 +212,7 @@ describe("r.screen() — registration", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "x",
@@ -282,10 +282,10 @@ describe("r.screen() — registration", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "x",
@@ -346,10 +346,10 @@ describe("r.screen() — registration", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "x",
@@ -371,10 +371,10 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
             id: "x",
@@ -401,13 +401,15 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler(
             "foo:list",
             z.object({ search: z.string().optional() }),
             async () => ({ rows: [], nextCursor: null }),
-            { access: { openToAll: true } },
+            {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            },
           );
           r.screen({
             id: "x",
@@ -434,10 +436,10 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
             id: "x",
@@ -471,13 +473,15 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler(
             "foo:list",
             z.object({ filters: z.array(z.object({})).optional() }),
             async () => ({ rows: [], nextCursor: null }),
-            { access: { openToAll: true } },
+            {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            },
           );
           r.screen({
             id: "x",
@@ -513,13 +517,15 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler(
             "foo:list",
             z.object({ filters: z.array(z.object({})).optional() }),
             async () => ({ rows: [], nextCursor: null }),
-            { access: { openToAll: true } },
+            {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            },
           );
           r.screen({
             id: "x",
@@ -802,10 +808,10 @@ describe("r.screen() — registration", () => {
           },
         );
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
           id: "x",
@@ -1015,7 +1021,7 @@ describe("r.screen() — registration", () => {
     const features = [
       defineFeature("app", (r) => {
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.writeHandler(
           "save",
@@ -1059,7 +1065,7 @@ describe("r.screen() — registration", () => {
         // here so the throw below isolates the one key this test is about.
         r.translations({ keys: { "screen:x.title": { en: "X" } } });
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.writeHandler(
           "save",
@@ -1101,7 +1107,7 @@ describe("r.screen() — registration", () => {
           },
         });
         r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.writeHandler(
           "save",

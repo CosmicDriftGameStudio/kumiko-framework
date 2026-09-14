@@ -78,13 +78,17 @@ describe("getAllQueryHandlers", () => {
     const taskFeature = defineFeature("registry-test-task", (r) => {
       r.crud("task", taskEntity, {
         write: { access: { roles: ["Admin"] } },
-        read: { access: { openToAll: true } },
+        read: {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        },
       });
     });
     const noteFeature = defineFeature("registry-test-note", (r) => {
       r.crud("note", noteEntity, {
         write: { access: { roles: ["Admin"] } },
-        read: { access: { openToAll: true } },
+        read: {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        },
       });
     });
 
@@ -109,12 +113,12 @@ describe("getAllStreamHandlers", () => {
   test("returns every registered stream handler, qualified, across multiple features", () => {
     const aiFeature = defineFeature("registry-test-ai", (r) => {
       r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const otherFeature = defineFeature("registry-test-other", (r) => {
       r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -137,12 +141,12 @@ describe("getAllStreamHandlers", () => {
   test("duplicate stream-handler short-name across features qualifies independently, no collision", () => {
     const aiFeature = defineFeature("registry-test-dup-a", (r) => {
       r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const otherFeature = defineFeature("registry-test-dup-b", (r) => {
       r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     expect(() => createRegistry([aiFeature, otherFeature])).not.toThrow();
@@ -154,12 +158,12 @@ describe("getAllStreamHandlers", () => {
     // fire) but toKebab() collapses both to the same qualified name.
     const featureA = defineFeature("registry-test-kebab-dup", (r) => {
       r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const featureB = defineFeature("registryTestKebabDup", (r) => {
       r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     expect(() => createRegistry([featureA, featureB])).toThrow(/Duplicate stream handler/);
@@ -173,7 +177,7 @@ describe("getAllStreamHandlers", () => {
         name: "chat:complete",
         schema,
         handler: handlerFn,
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 60 },
       });
     });
@@ -184,7 +188,9 @@ describe("getAllStreamHandlers", () => {
     expect(registered).toBeDefined();
     expect(registered?.schema).toBe(schema);
     expect(registered?.handler).toBe(handlerFn);
-    expect(registered?.access).toEqual({ openToAll: true });
+    expect(registered?.access).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
     expect(registered?.rateLimit).toEqual({ per: "ip+handler", limit: 5, windowSeconds: 60 });
   });
 });
@@ -196,7 +202,7 @@ describe("double-qualified handler names (#1991)", () => {
         "registry-test-ai-orch:query:duplicate-candidates",
         z.object({}),
         async () => ({}),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
 
@@ -206,7 +212,7 @@ describe("double-qualified handler names (#1991)", () => {
   test("createRegistry allows a sub-structured short name whose entity prefix merely resembles the feature name", () => {
     const feature = defineFeature("registry-test-invoices", (r) => {
       r.queryHandler("invoice:mark-paid", z.object({}), async () => ({}), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -309,7 +315,7 @@ describe("extensionSelector boot-validation", () => {
         "doSomething",
         z.object({}),
         async () => ({ isSuccess: true as const, data: {} }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.useExtension("credit-cap", "credit");
     });

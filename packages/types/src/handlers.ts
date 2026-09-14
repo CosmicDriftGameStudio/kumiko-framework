@@ -25,15 +25,13 @@ export type OpenToAllDeclaration = {
 };
 
 export type OpenToAllAccessRule = {
-  // `true` is the deprecated pre-#2855 form, kept until the call-site migration (fw#2854).
-  readonly openToAll: OpenToAllDeclaration | true;
+  readonly openToAll: OpenToAllDeclaration;
 };
 
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
 // To grant access, set one of:
 //   - { roles: ["Admin", ...] }             — role-based allowlist (empty array denies everyone)
 //   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
-//   - { openToAll: true }                   — deprecated pre-#2855 form, still accepted
 export type AccessRule = { readonly roles: readonly string[] } | OpenToAllAccessRule;
 
 export type EscapeHatchDeclaration = { readonly reason: string };
@@ -44,7 +42,6 @@ export type EscapeHatchDeclaration = { readonly reason: string };
 export function isOpenToAllGranted(rule: AccessRule): boolean {
   if (!("openToAll" in rule)) return false;
   const openToAll: unknown = rule.openToAll;
-  if (openToAll === true) return true;
   if (typeof openToAll !== "object" || openToAll === null) return false;
   if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return false;
   return openToAll.reason.trim().length > 0;

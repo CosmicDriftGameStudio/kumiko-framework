@@ -457,7 +457,12 @@ describe("tags integration — openToAll access model", () => {
 
   beforeAll(async () => {
     openStack = await setupTestStack({
-      features: [createTagsFeature({ access: { openToAll: true } }), hostFixturesFeature],
+      features: [
+        createTagsFeature({
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+        hostFixturesFeature,
+      ],
     });
     await unsafeCreateEntityTable(openStack.db, tagEntity);
     await unsafeCreateEntityTable(openStack.db, tagAssignmentEntity);

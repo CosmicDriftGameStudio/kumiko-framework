@@ -149,9 +149,11 @@ describe("defineEntityQueryHandler", () => {
 
   test("access option is forwarded", () => {
     const def = defineEntityListHandler("note", noteEntity, {
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
-    expect(def.access).toEqual({ openToAll: true });
+    expect(def.access).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
   });
 });
 
@@ -180,10 +182,12 @@ describe("defineProjectionQueryHandler", () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
-      { access: { openToAll: true } },
+      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     );
     expect(def.name).toBe("revenue:list");
-    expect(def.access).toEqual({ openToAll: true });
+    expect(def.access).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
     // Empty-object schema — handler takes no payload fields.
     expect(def.schema.safeParse({}).success).toBe(true);
   });
@@ -192,7 +196,7 @@ describe("defineProjectionQueryHandler", () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
-      { access: { openToAll: true } },
+      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     );
     const fakeRows = [{ customer: "a", totalCents: 100 }];
     const ctx = {
@@ -215,7 +219,10 @@ describe("defineProjectionQueryHandler", () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
-      { access: { openToAll: true }, unsafeAllTenants: true },
+      {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        unsafeAllTenants: true,
+      },
     );
     const ctx = { queryProjection: mock().mockResolvedValue([]) };
     await def.handler(
@@ -328,7 +335,9 @@ describe("registerEntityCrud", () => {
     const { r, entities, writes, queries } = createCrudRegistrarMock();
     registerEntityCrud(r, "note", noteEntitySoftDelete, {
       write: { access: { roles: ["Admin"] } },
-      read: { access: { openToAll: true } },
+      read: {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      },
     });
     expect(entities["note"]).toBe(noteEntitySoftDelete);
     expect(writes.map((w) => w.name)).toEqual([
@@ -339,7 +348,9 @@ describe("registerEntityCrud", () => {
     ]);
     expect(queries.map((q) => q.name)).toEqual(["note:list", "note:detail"]);
     expect(writes[0]?.access).toEqual({ roles: ["Admin"] });
-    expect(queries[0]?.access).toEqual({ openToAll: true });
+    expect(queries[0]?.access).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
   });
 
   test("verbs.delete: false skips delete handler", () => {

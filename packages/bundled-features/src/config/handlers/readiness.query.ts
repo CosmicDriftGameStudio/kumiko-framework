@@ -131,7 +131,13 @@ export const readinessQuery = defineQueryHandler({
     "Lists the required config keys that are still unset for the caller's tenant, each with its scope and type; use it to find out what is missing before a feature can run.",
   schema: z.object({}),
   // Per-key read access enforced via hasConfigAccess inside the handler.
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may call readiness; collectMissingRequiredConfig filters " +
+        "candidate keys through hasConfigAccess so only keys the caller's roles may read are reported",
+    },
+  },
   handler: async (query, ctx) => {
     const db = requireSystemDb(ctx, "config:query:readiness", query.user.tenantId);
     const missing = await collectMissingRequiredConfig(

@@ -10,7 +10,13 @@ export const markReadWrite = defineWriteHandler({
     // inAppMessages.id is a serial integer (table is infra, not an ES aggregate).
     id: z.number().int(),
   }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user marks only their own in-app message as read; the update " +
+        "requires id + the caller's own userId to match, otherwise it fails not-found",
+    },
+  },
   description:
     "Marks one in-app message of the calling user as read by its numeric id, failing with not-found when no such message belongs to the caller; use it when a user opens a single notification.",
   handler: async (event, ctx) => {

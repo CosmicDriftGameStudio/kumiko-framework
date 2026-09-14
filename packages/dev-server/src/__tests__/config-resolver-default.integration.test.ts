@@ -36,7 +36,7 @@ const PAGE_SIZE = "devcfg:config:page-size";
 const readPageSizeQuery = defineQueryHandler({
   name: "read-page-size",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   handler: async (_query, ctx) => ({ pageSize: await ctx.config?.(PAGE_SIZE) }),
 });
 

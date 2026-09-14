@@ -63,7 +63,13 @@ export const downloadByJobQuery = defineQueryHandler({
   schema: z.object({
     jobId: z.string().min(1, "jobId required"),
   }),
-  access: { openToAll: true }, // openToAll = auth-required, kein anonymous
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user downloads only their own finished export job; the job " +
+        "lookup checks jobRow.userId against the caller's own id and 404s otherwise",
+    },
+  }, // openToAll = auth-required, kein anonymous
   description:
     "Returns a short-lived signed download URL for the calling user's own finished data-export job named by job id, backing the download button in the privacy center once export-status reports the job done.",
   escapeHatch: {

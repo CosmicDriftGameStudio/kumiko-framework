@@ -64,7 +64,7 @@ defineFeature("todoList", (r) => {
     "task:list",
     z.object({}),
     async (q, ctx) => [],
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.hook("postSave", "task", async (event, ctx) => {
@@ -168,7 +168,7 @@ describe("parseSourceFile against a complete inline-form feature", () => {
 
     const queryList = result.patterns.find((p) => p.kind === "queryHandler");
     expect(queryList).toMatchObject({
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
   });
 

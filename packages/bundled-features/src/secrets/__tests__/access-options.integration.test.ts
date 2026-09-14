@@ -100,7 +100,11 @@ describe("secrets — access: { openToAll: true } (#2296)", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await buildStack(createSecretsFeature({ access: { openToAll: true } }));
+    stack = await buildStack(
+      createSecretsFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+    );
   });
 
   afterAll(async () => {

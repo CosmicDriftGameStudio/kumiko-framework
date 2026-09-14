@@ -71,7 +71,13 @@ const createSchema = z.object({
 const createTodoHandler = defineWriteHandler({
   name: "create",
   schema: createSchema,
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in tenant user may create their own todo; the author id is " +
+        "stamped server-side from the caller, never client-supplied",
+    },
+  },
   handler: async (event, ctx) => {
     const id = crypto.randomUUID();
     await insertOne(ctx.db, todosTable, {
@@ -88,7 +94,13 @@ const createTodoHandler = defineWriteHandler({
 const listTodosHandler = defineQueryHandler({
   name: "list",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in tenant user lists only their own todos; the query filters " +
+        "by authorId = the caller's own id",
+    },
+  },
   handler: async (query, ctx) => {
     const rows = await selectMany<{ id: string; title: string; body: string }>(ctx.db, todosTable, {
       authorId: query.user.id,

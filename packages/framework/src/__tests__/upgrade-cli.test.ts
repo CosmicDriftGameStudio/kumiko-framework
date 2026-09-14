@@ -3,8 +3,10 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -12,6 +14,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   findCodemodScriptsRoot,
+  findCoreChangelogFile,
+  findFeaturesDirs,
   resolveCodemodScript,
   runUpgradeCli,
   type UpgradeCliOut,
@@ -590,5 +594,55 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     const result = await runJson(cwd, "0.170.0");
 
     expect(result.pending.map((e) => e.title)).toEqual(["explicit-from-test-entry"]);
+  });
+});
+
+describe("changes.json codemod fields resolve to real published scripts", () => {
+  function findChangesJsonFiles(dir: string): string[] {
+    const found: string[] = [];
+    for (const name of readdirSync(dir)) {
+      if (name === "node_modules") continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) {
+        found.push(...findChangesJsonFiles(full));
+      } else if (name === "changes.json") {
+        found.push(full);
+      }
+    }
+    return found;
+  }
+
+  test("every codemod field is a scripts/codemod/*.ts path that resolves to an existing published script", () => {
+    const coreChangelog = findCoreChangelogFile(REAL_REPO_ROOT);
+    const changesJsonFiles = [
+      ...(coreChangelog ? [coreChangelog] : []),
+      ...findFeaturesDirs(REAL_REPO_ROOT).flatMap((dir) => findChangesJsonFiles(dir)),
+    ];
+    expect(changesJsonFiles.length).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const file of changesJsonFiles) {
+      const entries = JSON.parse(readFileSync(file, "utf-8")) as ReadonlyArray<{
+        readonly version: string;
+        readonly title: string;
+        readonly codemod?: string;
+      }>;
+      for (const entry of entries) {
+        if (typeof entry.codemod !== "string") continue;
+        if (/\s/.test(entry.codemod)) {
+          offenders.push(
+            `${file} · ${entry.version} "${entry.title}": codemod is a shell command, not a path: "${entry.codemod}"`,
+          );
+          continue;
+        }
+        if (resolveCodemodScript(REAL_REPO_ROOT, entry.codemod) === null) {
+          offenders.push(
+            `${file} · ${entry.version} "${entry.title}": codemod path does not resolve: "${entry.codemod}"`,
+          );
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 });

@@ -21,6 +21,11 @@ export const counterEntity = createEntity({
   },
 });
 
+const COUNTER_ACTIVE_LIST_OPEN_REASON =
+  "any signed-in user may list active counters; the sample has no per-user counter ownership";
+const COUNTER_DETAIL_OPEN_REASON =
+  "any signed-in user may read a counter by id; the sample has no per-user counter ownership";
+
 export const counterFeature = defineFeature("counters", (r) => {
   r.entity("counter", counterEntity);
 
@@ -91,7 +96,13 @@ export const counterFeature = defineFeature("counters", (r) => {
         rows: all.rows.filter((r) => (r["count"] as number) >= query.payload.minCount),
       };
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason: COUNTER_ACTIVE_LIST_OPEN_REASON,
+        },
+      },
+    },
   );
 
   // Standard detail
@@ -99,6 +110,12 @@ export const counterFeature = defineFeature("counters", (r) => {
     "counter:detail",
     z.object({ id: z.uuid() }),
     async (query, ctx) => counterExecutor.detail(query.payload, query.user, ctx.db),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason: COUNTER_DETAIL_OPEN_REASON,
+        },
+      },
+    },
   );
 });

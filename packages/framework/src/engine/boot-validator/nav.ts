@@ -4,6 +4,7 @@
 
 import { qualifyEntityName } from "../qualified-name";
 import type { AccessRule, FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
+import { isOpenToAllGranted } from "../types";
 
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
@@ -135,10 +136,10 @@ export function validateNavCycles(
   }
 }
 
-// undefined access or `{ openToAll: true }` both mean "visible to everyone"
-// — neither has a role-set an inversion check could compare against.
+// undefined or granted openToAll means visible to everyone (no role-set to compare); malformed/denied openToAll returns `[]`, same as an explicit `roles: []`.
 function navViewerRoles(access: AccessRule | undefined): readonly string[] | undefined {
-  if (access === undefined || "openToAll" in access) return undefined;
+  if (access === undefined) return undefined;
+  if ("openToAll" in access) return isOpenToAllGranted(access) ? undefined : [];
   return access.roles;
 }
 

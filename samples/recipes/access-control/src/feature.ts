@@ -4,8 +4,8 @@
 //
 //  1. Default-deny: every handler must declare an access rule. Boot fails
 //     loudly when one is missing. Two shapes:
-//       { roles: ["Admin", ...] } — role allowlist
-//       { openToAll: true }       — any authenticated user
+//       { roles: ["Admin", ...] }          — role allowlist
+//       { openToAll: { reason: "..." } }   — any authenticated user, with a required reason
 //
 //  2. Foreign-key relations declared via r.relation() become indexed columns
 //     automatically — no manual CREATE INDEX. Inspect the Drizzle table
@@ -63,6 +63,11 @@ export const taskTable = buildEntityTable("task", taskEntity, {
   relations: taskRelations,
 });
 
+const TASK_CREATE_OPEN_REASON =
+  "any signed-in tenant user may create a task; assigneeId defaults to the caller when omitted";
+const TASK_LIST_OPEN_REASON =
+  "any signed-in tenant user may list tasks; there is no per-user filter in this recipe";
+
 export const accessControlFeature = defineFeature("access-control", (r) => {
   r.entity("project", projectEntity);
   r.entity("task", taskEntity);
@@ -96,7 +101,13 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason: TASK_CREATE_OPEN_REASON,
+        },
+      },
+    },
   );
 
   // Update requires version — optimistic locking is the default and this
@@ -113,9 +124,25 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
       }),
     }),
     async (event, ctx) => taskExecutor.update(event.payload, event.user, ctx.db),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "any signed-in tenant user may update a task; optimistic locking (version) " +
+            "guards against concurrent overwrites, not caller identity",
+        },
+      },
+    },
   );
 
   // Self-service list — no custom logic.
-  r.queryHandler(defineEntityListHandler("task", taskEntity, { access: { openToAll: true } }));
+  r.queryHandler(
+    defineEntityListHandler("task", taskEntity, {
+      access: {
+        openToAll: {
+          reason: TASK_LIST_OPEN_REASON,
+        },
+      },
+    }),
+  );
 });

@@ -10,6 +10,13 @@ import {
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
 } from "./constants";
 
+const MFA_ENABLE_OPEN_REASON =
+  "each signed-in user may enroll their own account in MFA, mirroring the enable-start handler";
+const MFA_DISABLE_OPEN_REASON =
+  "each signed-in user may turn off their own MFA, mirroring the disable handler";
+const MFA_REGENERATE_RECOVERY_OPEN_REASON =
+  "each signed-in user may regenerate their own recovery codes, mirroring the regenerate-recovery handler";
+
 // Declarative TOTP-enrollment screen: mint (no input) -> reveal QR/secret/
 // recovery-codes -> confirm with a 6-digit code. `setupToken` is carried
 // from the mint payload into the confirm payload but never listed in
@@ -21,7 +28,11 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   fields: {},
   layout: { sections: [] },
   submitLabel: i18nKey("mfa.enable.start"),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason: MFA_ENABLE_OPEN_REASON,
+    },
+  },
   // Reached only via a direct link from account settings, never from a
   // list — no nav area to resolve in isolation.
   dormant: true,
@@ -76,7 +87,11 @@ export const mfaDisableScreen: ActionFormScreenDefinition = {
   submitLabel: i18nKey("mfa.disable.submit"),
   submitStyle: "danger",
   cancelTarget: false,
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason: MFA_DISABLE_OPEN_REASON,
+    },
+  },
   // Reached only via a direct link from account settings, never from a
   // list — no nav area to resolve in isolation.
   dormant: true,
@@ -92,7 +107,11 @@ export const mfaRegenerateRecoveryScreen: SecretMintScreenDefinition = {
   layout: { sections: [{ fields: ["code"] }] },
   submitLabel: i18nKey("mfa.regenerate.submit"),
   cancelTarget: false,
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason: MFA_REGENERATE_RECOVERY_OPEN_REASON,
+    },
+  },
   // Reached only via a direct link from account settings, never from a
   // list — no nav area to resolve in isolation.
   dormant: true,

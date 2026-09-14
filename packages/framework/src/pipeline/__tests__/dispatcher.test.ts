@@ -33,7 +33,7 @@ const echoFeature = defineFeature("echo", (r) => {
       items: [],
       search: query.payload.search,
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.streamHandler(
@@ -137,7 +137,7 @@ describe("dispatcher.write", () => {
         z.object({ name: z.string() }),
         async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
         {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           rateLimit: { per: "ip+handler", limit: 3, windowSeconds: 60 },
         },
       );
@@ -168,7 +168,7 @@ describe("dispatcher.write", () => {
         z.object({ name: z.string() }),
         async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
         {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
         },
       );
@@ -428,7 +428,7 @@ describe("dispatcher.stream", () => {
             yield { i };
           }
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const dispatcher = createDispatcher(createRegistry([nestedFeature]), {
@@ -466,7 +466,7 @@ describe("dispatcher.stream", () => {
             throw new Error("close-boom");
           }
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const dispatcher = createDispatcher(createRegistry([closeFailFeature]), {
@@ -500,7 +500,7 @@ describe("dispatcher.stream", () => {
           yield { i: 0 };
           yield { i: 1 };
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const dispatcher = createDispatcher(createRegistry([feature]), {
@@ -536,7 +536,7 @@ describe("dispatcher.stream", () => {
           yield { i: 1 };
           yield { i: 2 };
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const dispatcher = createDispatcher(createRegistry([feature]), {
@@ -571,7 +571,7 @@ describe("dispatcher.query postQuery hooks", () => {
     // pass on entity-existence makes such a hook register silently + never run.
     const feature = defineFeature("dash", (r) => {
       r.queryHandler("dashboard", z.object({}), async () => ({ count: 1 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postQuery", "dashboard", async ({ entityName, rows }) => {
         expect(entityName).toBeUndefined();
@@ -590,7 +590,7 @@ describe("dispatcher.query postQuery hooks", () => {
     // [...null]). The hook here returns the row unchanged so the shape survives.
     const feature = defineFeature("nullrows", (r) => {
       r.queryHandler("dashboard", z.object({}), async () => ({ rows: null, nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postQuery", "dashboard", async ({ rows }) => ({ rows }));
     });
@@ -603,7 +603,7 @@ describe("dispatcher.query postQuery hooks", () => {
   test("single-object postQuery hook returning ≠1 row throws", async () => {
     const feature = defineFeature("multi", (r) => {
       r.queryHandler("dashboard", z.object({}), async () => ({ count: 1 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postQuery", "dashboard", async ({ rows }) => ({ rows: [...rows, ...rows] }));
     });
@@ -708,7 +708,7 @@ describe("dispatcher feature-gate", () => {
         }),
       );
       r.queryHandler("widget:list", z.object({}).passthrough(), async () => ({ items: [] }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.writeHandler(
         "widget:create",
@@ -728,7 +728,7 @@ describe("dispatcher feature-gate", () => {
             i++;
           }
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
   }
@@ -900,7 +900,7 @@ describe("dispatcher feature-gate", () => {
         "check",
         z.object({}).passthrough(),
         async (_event, ctx) => ({ enabled: await ctx.hasFeature("toggled") }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const registry = createRegistry([toggled(), probe]);
@@ -940,7 +940,7 @@ describe("dispatcher feature-gate", () => {
         "check",
         z.object({}).passthrough(),
         async (_event, ctx) => ({ enabled: await ctx.hasFeature("premium-companion") }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const registry = createRegistry([probe]);
@@ -1027,7 +1027,7 @@ describe("dispatcher context.geoTzProvider (680/1)", () => {
             longitude: query.payload.longitude,
           }),
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     const registry = createRegistry([geoFeature]);

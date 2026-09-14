@@ -87,7 +87,7 @@ describe("defineFeature", () => {
           const _email: string = event.payload.email;
           return { isSuccess: true, data: { id: 1 } };
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
 
@@ -105,7 +105,7 @@ describe("defineFeature", () => {
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     expect(ref?.name).toBe("order:create");
@@ -115,7 +115,7 @@ describe("defineFeature", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
       ref = r.queryHandler("order:list", z.object({}), async () => [], {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     expect(ref?.name).toBe("order:list");
@@ -130,13 +130,15 @@ describe("defineFeature", () => {
         async function* (query) {
           yield `echo:${query.payload.prompt}`;
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
     expect(ref?.name).toBe("chat:complete");
 
     const stored = feature.streamHandlers["chat:complete"];
-    expect(stored?.access).toEqual({ openToAll: true });
+    expect(stored?.access).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
 
     const chunks: string[] = [];
     for await (const chunk of stored!.handler(
@@ -225,7 +227,7 @@ describe("defineFeature", () => {
           const _id: number = query.payload.userId;
           return { id: _id, email: "test@test.de" };
         },
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
 
@@ -239,7 +241,7 @@ describe("defineFeature", () => {
       handler: async () => {
         return [{ id: 1, email: "test@test.de" }];
       },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
 
     const feature = defineFeature("test", (r) => {
@@ -402,12 +404,12 @@ describe("createRegistry", () => {
   test("looks up handlers across features", () => {
     const f1 = defineFeature("admin", (r) => {
       r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const f2 = defineFeature("profile", (r) => {
       r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -442,12 +444,12 @@ describe("createRegistry", () => {
   test("different features can have same handler short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
       r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const f2 = defineFeature("b", (r) => {
       r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -513,7 +515,7 @@ describe("createRegistry", () => {
       );
       // Handler name "promote" has no entity prefix → can't be mapped
       r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -531,7 +533,7 @@ describe("createRegistry", () => {
       );
       // No field-access rules on entity → "reset" without entity prefix is fine
       r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -562,7 +564,7 @@ describe("createRegistry", () => {
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
     });
 
@@ -591,10 +593,12 @@ describe("createRegistry", () => {
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       // Typo: "emp" instead of "employee"
-      r.queryHandler("emp:list", z.object({}), async () => [], { access: { openToAll: true } });
+      r.queryHandler("emp:list", z.object({}), async () => [], {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/emp:list.*entity-bound.*no matching entity/i);
@@ -622,13 +626,15 @@ describe("createRegistry", () => {
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       // Standalone queries — no dot, intentionally not entity-bound
       r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.queryHandler("orgChart", z.object({}), async () => [], { access: { openToAll: true } });
+      r.queryHandler("orgChart", z.object({}), async () => [], {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -924,12 +930,20 @@ describe("hasAccess", () => {
 
   test("openToAll grants access to any authenticated user", () => {
     const user = createTestUser({ roles: ["Employee"] });
-    expect(hasAccess(user, { openToAll: true })).toBe(true);
+    expect(
+      hasAccess(user, {
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      }),
+    ).toBe(true);
   });
 
   test("openToAll grants access even to user with no roles", () => {
     const user = createTestUser({ roles: [] });
-    expect(hasAccess(user, { openToAll: true })).toBe(true);
+    expect(
+      hasAccess(user, {
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      }),
+    ).toBe(true);
   });
 
   test.each([{ openToAll: false }, { openToAll: {} }])(
@@ -2105,10 +2119,10 @@ describe("registry boot validation", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("order", createEntity({ table: "Orders", fields: {} }));
       r.writeHandler("order:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.writeHandler("order:cancel", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       // Ein Job-Body, zwei Trigger — DRY-Pattern für Fanout-Cases.
       r.job(
@@ -2129,7 +2143,7 @@ describe("registry boot validation", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("order", createEntity({ table: "Orders", fields: {} }));
       r.writeHandler("order:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       // create existiert, cancel nicht — zweiter Trigger ist Geist
       r.job(
@@ -2153,7 +2167,7 @@ describe("registry boot validation", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("item", createEntity({ table: "Items", fields: {} }));
       r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postSave", "item.create", async () => {});
     });

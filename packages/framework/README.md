@@ -45,7 +45,11 @@ export const taskFeature = defineFeature("tasks", (r) => {
   // control, all explicit via the options below.
   r.crud("task", taskEntity, {
     write: { access: { roles: ["User"] } },
-    read: { access: { openToAll: true } },
+    read: {
+      access: {
+        openToAll: { reason: "any signed-in user may list and view tasks; only writes are role-gated" },
+      },
+    },
   });
 
   // Read-model fed from task events, rebuildable via the CLI

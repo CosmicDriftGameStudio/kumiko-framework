@@ -37,7 +37,13 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       setupToken: z.string().min(1),
       code: z.string().length(6),
     }),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user may complete their own MFA enrollment; the setup token is bound " +
+          "to the caller's id and any token minted for another user is rejected",
+      },
+    },
     description:
       "Completes TOTP enrollment for the signed-in user by checking a code against the secret carried in the setup token from enable-start, then storing the factor and signing every other session and access token out.",
     // Changes the caller's authentication state and signs their other sessions out.

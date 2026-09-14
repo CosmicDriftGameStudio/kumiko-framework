@@ -133,7 +133,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
       }
       return state;
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

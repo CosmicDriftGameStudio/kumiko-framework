@@ -534,7 +534,7 @@ export function createEntityExecutor(
 //
 //   r.queryHandler(
 //     defineProjectionQueryHandler("revenue:list", "showcase:projection:customer-revenue", {
-//       access: { openToAll: true },
+//       access: { openToAll: { reason: "any signed-in user reviews aggregate revenue" } },
 //     }),
 //   );
 //

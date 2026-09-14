@@ -25,7 +25,7 @@ const probeFeature = defineFeature("tz-probe", (r) => {
     "read-tz",
     z.object({}),
     async (_event, ctx) => ({ isSuccess: true, data: { tenant: ctx.tz.tenant } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 
@@ -35,7 +35,7 @@ const probeFeature = defineFeature("tz-probe", (r) => {
 const queryProbeFeature = defineFeature("tz-cache-probe", (r) => {
   r.requires("tenant");
   r.queryHandler("read-tz", z.object({}), async (_query, ctx) => ({ tenant: ctx.tz.tenant }), {
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
 

@@ -34,7 +34,15 @@ export const demoEntity = createEntity({
   defaultCurrency: "EUR",
 });
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "demo app: any signed-in user manages every styleguide item, including the " +
+        "archive/publish/duplicate actions below; there is no per-user ownership in this sample",
+    },
+  },
+} as const;
 
 export const demoFeature = defineFeature("styleguide", (r) => {
   r.translations({ keys: DEMO_I18N });

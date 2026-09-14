@@ -9,7 +9,15 @@ export const noteEntity = createEntity({
 });
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
-const openRead = { access: { openToAll: true } } as const;
+const openRead = {
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may list and view notes in their own tenant (tenant " +
+        "isolation, not per-user); writes are still gated by adminWrite",
+    },
+  },
+} as const;
 
 export const noteFeature = defineFeature("notes", (r) => {
   r.crud("note", noteEntity, {
