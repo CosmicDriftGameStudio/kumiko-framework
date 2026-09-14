@@ -23,11 +23,38 @@ export function isSystemIdentity(user: SessionUser): boolean {
   return user.id === SYSTEM_USER_ID || user.roles.includes(SYSTEM_ROLE);
 }
 
-export function isSystemIdentitySwitchAllowed(
+function hasSameClaims(caller: SessionUser, asUser: SessionUser): boolean {
+  if (caller.claims === asUser.claims) return true;
+  const callerClaims = caller.claims ?? {};
+  const asUserClaims = asUser.claims ?? {};
+  const keys = Object.keys(callerClaims);
+  if (keys.length !== Object.keys(asUserClaims).length) return false;
+  return keys.every(
+    (key) =>
+      Object.hasOwn(asUserClaims, key) &&
+      JSON.stringify(callerClaims[key]) === JSON.stringify(asUserClaims[key]),
+  );
+}
+
+// claims drive ownership row filters and origin makes a ctx read-only, so both must match exactly.
+export function isSelfDelegation(caller: SessionUser, asUser: SessionUser): boolean {
+  return (
+    asUser.id === caller.id &&
+    asUser.tenantId === caller.tenantId &&
+    asUser.origin === caller.origin &&
+    asUser.roles.every((role) => caller.roles.includes(role)) &&
+    hasSameClaims(caller, asUser)
+  );
+}
+
+export function isIdentitySwitchAllowed(
+  caller: SessionUser | undefined,
   asUser: SessionUser,
-  allowSystemIdentity: boolean,
+  hasGrant: boolean,
 ): boolean {
-  return !isSystemIdentity(asUser) || allowSystemIdentity;
+  if (hasGrant) return true;
+  if (isSystemIdentity(asUser) || caller === undefined) return false;
+  return isSelfDelegation(caller, asUser);
 }
 
 export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedError {
@@ -39,31 +66,48 @@ export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedErr
   });
 }
 
-// Reverse-lookup so withHookEscapeHatchGrant can re-gate the SAME ungated pair under a narrower grant.
-const ungatedByGated = new WeakMap<QueryAsFn | WriteAsFn, IdentitySwitch>();
+export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): AccessDeniedError {
+  if (isSystemIdentity(asUser)) return systemIdentitySwitchDenied(callerLabel);
+  return new AccessDeniedError({
+    message:
+      `${callerLabel} may only switch identity to its own caller (same user, tenant, claims and ` +
+      "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason } on it",
+    details: { reason: FrameworkReasons.identitySwitchDenied },
+  });
+}
+
+type GatedIdentitySwitchSource = {
+  readonly ungated: IdentitySwitch;
+  readonly caller: SessionUser | undefined;
+};
+
+// Reverse-lookup so withHookEscapeHatchGrant can re-gate the SAME ungated pair (and caller) under a narrower grant.
+const sourceByGated = new WeakMap<QueryAsFn | WriteAsFn, GatedIdentitySwitchSource>();
 // Same idea, for ctx.queryAsMember — a single function rather than a pair.
 const ungatedMemberReaderByGated = new WeakMap<MemberReader, MemberReader>();
 
 export function createGatedIdentitySwitch(
   callerLabel: string,
-  allowSystemIdentity: boolean,
+  caller: SessionUser | undefined,
+  hasGrant: boolean,
   ungated: IdentitySwitch,
 ): IdentitySwitch {
   const queryAs: QueryAsFn = async (asUser, qn, payload) => {
-    if (!isSystemIdentitySwitchAllowed(asUser, allowSystemIdentity)) {
-      throw systemIdentitySwitchDenied(callerLabel);
+    if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
+      throw identitySwitchDenied(callerLabel, asUser);
     }
     return ungated.queryAs(asUser, qn, payload);
   };
   const writeAs: WriteAsFn = async (asUser, qn, payload) => {
-    if (!isSystemIdentitySwitchAllowed(asUser, allowSystemIdentity)) {
-      throw systemIdentitySwitchDenied(callerLabel);
+    if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
+      throw identitySwitchDenied(callerLabel, asUser);
     }
     return ungated.writeAs(asUser, qn, payload);
   };
   const gated: IdentitySwitch = { queryAs, writeAs };
-  ungatedByGated.set(queryAs, ungated);
-  ungatedByGated.set(writeAs, ungated);
+  const source: GatedIdentitySwitchSource = { ungated, caller };
+  sourceByGated.set(queryAs, source);
+  sourceByGated.set(writeAs, source);
   return gated;
 }
 
@@ -126,6 +170,16 @@ function fallbackUngatedIdentitySwitch(
   };
 }
 
+// Only a dispatcher-registered gate names the caller; ctx.user is never trusted, and two
+// gates for different callers (a hand-mixed ctx) yield none, so only a grant passes.
+function resolveDispatcherCaller(
+  querySource: GatedIdentitySwitchSource | undefined,
+  writeSource: GatedIdentitySwitchSource | undefined,
+): SessionUser | undefined {
+  if (querySource && writeSource && querySource.caller !== writeSource.caller) return undefined;
+  return (querySource ?? writeSource)?.caller;
+}
+
 // Resolved per function: a shared ungated pair would revive a member-resolution
 // ctx's deny-stubbed writeAs through its still-registered queryAs.
 function gatedIdentitySwitchFields(
@@ -135,10 +189,13 @@ function gatedIdentitySwitchFields(
   ctxWriteAs: WriteAsFn | undefined,
 ): Partial<IdentitySwitch> {
   if (!ctxQueryAs && !ctxWriteAs) return {};
-  const ungatedQueryAs = ctxQueryAs && (ungatedByGated.get(ctxQueryAs)?.queryAs ?? ctxQueryAs);
-  const ungatedWriteAs = ctxWriteAs && (ungatedByGated.get(ctxWriteAs)?.writeAs ?? ctxWriteAs);
+  const querySource = ctxQueryAs && sourceByGated.get(ctxQueryAs);
+  const writeSource = ctxWriteAs && sourceByGated.get(ctxWriteAs);
+  const ungatedQueryAs = ctxQueryAs && (querySource?.ungated.queryAs ?? ctxQueryAs);
+  const ungatedWriteAs = ctxWriteAs && (writeSource?.ungated.writeAs ?? ctxWriteAs);
   const ungated = fallbackUngatedIdentitySwitch(callerLabel, ungatedQueryAs, ungatedWriteAs);
-  const gated = createGatedIdentitySwitch(callerLabel, escapeHatch !== undefined, ungated);
+  const caller = resolveDispatcherCaller(querySource, writeSource);
+  const gated = createGatedIdentitySwitch(callerLabel, caller, escapeHatch !== undefined, ungated);
   return {
     ...(ctxQueryAs && { queryAs: gated.queryAs }),
     ...(ctxWriteAs && { writeAs: gated.writeAs }),
