@@ -5,6 +5,7 @@ export {
   type UserStreamBackfillResult,
 } from "./db/queries/stream-tenant-backfill";
 export { createUserFeature } from "./feature";
+export { isPrincipalBlocked, principalStatusPlugin } from "./principal-status";
 export type { UserStatus } from "./schema/user";
 export {
   USER_ANONYMIZED_DISPLAY_NAME,

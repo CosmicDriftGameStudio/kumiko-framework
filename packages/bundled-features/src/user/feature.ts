@@ -1,4 +1,8 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_PRINCIPAL_STATUS,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createWrite } from "./handlers/create.write";
 import { detailQuery } from "./handlers/detail.query";
 import { findForAuthQuery } from "./handlers/find-for-auth.query";
@@ -6,6 +10,7 @@ import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
 import { updateWrite } from "./handlers/update.write";
 import { USER_I18N } from "./i18n";
+import { principalStatusPlugin } from "./principal-status";
 import { userEntity } from "./schema/user";
 import { userEditScreen, userListScreen } from "./screens";
 
@@ -24,6 +29,11 @@ export function createUserFeature(): FeatureDefinition {
     });
     r.systemScope();
     r.entity("user", userEntity);
+
+    // Self-extension: `user` declares AND fulfils principalStatus (precedent:
+    // tier-engine/feature.ts) — wires the blocked-principal check into every stack that mounts `user`.
+    r.extendsRegistrar(EXT_PRINCIPAL_STATUS, {});
+    r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin);
 
     const handlers = {
       create: r.writeHandler(createWrite),

@@ -45,6 +45,10 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async resolveAuthClaims(): Promise<Record<string, unknown>> {
       return {};
     },
+    // Not exercised by these routes — always "not_a_member" is fine.
+    async resolveActiveMembership() {
+      return { kind: "rejected", reason: "not_a_member" };
+    },
   };
   return { ...base, ...overrides };
 }

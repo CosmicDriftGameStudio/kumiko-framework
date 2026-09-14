@@ -138,6 +138,9 @@ export type {
 } from "@cosmicdrift/kumiko-types/fields";
 export type {
   AccessRule,
+  ActiveMembership,
+  ActiveMembershipRejection,
+  ActiveMembershipResult,
   AgentExposure,
   AgentHandlerHints,
   AgentRisk,

@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.265.0
+
+### Minor Changes
+
+- 371a263: New `dispatcher.resolveActiveMembership(userId, tenantId)` / `ctx.resolveActiveMembership` returns an `ActiveMembershipResult` — either `active` with the raw membership roles, or `rejected` with reason `not_a_member` | `principal_blocked` | `tenant_teardown` (membership is checked first, so a non-member can't learn a foreign tenant's lifecycle/blocked state). It composes two new framework contracts, `EXT_PRINCIPAL_STATUS` (fulfilled by the bundled `user` feature) and `EXT_TENANT_LIFECYCLE_STATUS` (fulfilled by `tenant-lifecycle`), plus `TENANT_TEARDOWN_STATUSES` and the default `TENANT_MEMBERSHIPS_QUERY` handler name, and is now used by switch-tenant, login and auth-mfa verify/enable-confirm-preauth instead of each independently composing membership + status checks. `ctx.resolveActiveMembership` requires the same SYSTEM-identity grant as `ctx.queryAs`/`ctx.writeAs` with a system user (`r.systemScope()` or a declared `escapeHatch`), since it queries memberships as SYSTEM internally. Behaviourally: `POST /api/auth/switch-tenant` now answers 403 `principal_blocked` for a blocked principal and 410 `tenant_unavailable` for a target tenant in teardown (a tenant in `destroyRequested` is still allowed so its owner can cancel destruction); login skips a last-active tenant that is in teardown and falls through to the next active membership; MFA verify and enable-confirm-preauth reject a tenant in teardown; `buildServer` now throws at boot when the auth `membershipQuery` handler is registered but no feature provides the `principalStatus` contract (mount the bundled `user` feature); and `isPrincipalBlocked` now lives in `user` (still re-exported from `sessions` for existing importers).
+
+### Patch Changes
+
+- Updated dependencies [371a263]
+  - @cosmicdrift/kumiko-types@0.265.0
+
+## 0.264.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.264.1
+
 ## 0.264.0
 
 ### Minor Changes

@@ -179,6 +179,25 @@ export type AuthClaimsHookDef = {
   readonly declaredKeys?: ReadonlySet<string>;
 };
 
+// --- Active Membership ---
+
+// Not a member of the target tenant, the principal is blocked (see
+// engine/active-membership.ts's principalStatus contract), or the tenant is in teardown.
+export type ActiveMembershipRejection = "not_a_member" | "principal_blocked" | "tenant_teardown";
+
+export type ActiveMembership = {
+  readonly tenantId: TenantId;
+  // Raw membership roles — the caller runs buildSessionRoles(globalRoles,
+  // roles) itself; this building block never merges global roles in.
+  readonly roles: readonly string[];
+  readonly tenantName?: string;
+  readonly tenantKey?: string;
+};
+
+export type ActiveMembershipResult =
+  | { readonly kind: "active"; readonly membership: ActiveMembership }
+  | { readonly kind: "rejected"; readonly reason: ActiveMembershipRejection };
+
 // --- Handler Events ---
 
 export type WriteEvent<TPayload = unknown> = {
@@ -610,6 +629,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // before the JWT is signed. Thin pass-through to dispatcher.resolveAuthClaims
   // so there's a single resolve impl — both entry-points can't drift.
   readonly resolveAuthClaims: (user: SessionUser) => Promise<Record<string, unknown>>;
+
+  // Membership check for interactive sign-in paths (login, MFA completion,
+  // tenant switch). Thin pass-through to dispatcher.resolveActiveMembership so there's a single resolve impl.
+  readonly resolveActiveMembership: (
+    userId: string,
+    tenantId: TenantId,
+  ) => Promise<ActiveMembershipResult>;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed, plus a

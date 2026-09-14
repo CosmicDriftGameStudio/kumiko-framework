@@ -20,7 +20,7 @@ import { createJwtHelper } from "../jwt";
 const JWT_SECRET = "auth-routes-cookie-test-secret-min-32-characters";
 
 function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
-  const base: Dispatcher = {
+  const merged: Dispatcher = {
     async write(): Promise<WriteResult> {
       // Explicit `const: WriteResult` locks the `isSuccess: true` branch of
       // the union without an `as`-cast (which widens + silences the
@@ -46,8 +46,27 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async resolveAuthClaims(): Promise<Record<string, unknown>> {
       return {};
     },
+    // Delegates to `merged.query` (not to a pre-override `base`) so the
+    // switch-tenant test's `query` override — which answers
+    // "tenant:query:memberships" — is what this sees too.
+    async resolveActiveMembership(userId, tenantId) {
+      const memberships = (await merged.query(
+        "tenant:query:memberships",
+        { userId },
+        TestUsers.user,
+      )) as ReadonlyArray<{
+        tenantId: string;
+        roles: readonly string[];
+      }>;
+      const membership = memberships.find((m) => m.tenantId === tenantId);
+      if (!membership) {
+        return { kind: "rejected", reason: "not_a_member" };
+      }
+      return { kind: "active", membership: { tenantId, roles: membership.roles } };
+    },
+    ...overrides,
   };
-  return { ...base, ...overrides };
+  return merged;
 }
 
 async function buildApp(

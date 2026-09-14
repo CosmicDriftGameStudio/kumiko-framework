@@ -16,13 +16,19 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthHandlers as AuthEmailPasswordHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import {
+  createComplianceProfilesFeature,
+  tenantComplianceProfileEntity,
+} from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate";
 import { USER_STATUS } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
@@ -62,6 +68,8 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
       authMfaFeature,
       createAuthEmailPasswordFeature({
         mfaStatusChecker: mfaStatusCheckerFromFeature(authMfaFeature),
@@ -75,6 +83,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, userMfaEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
@@ -348,6 +357,37 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
       GUEST,
     );
     expectErrorIncludes(err, "invalid_challenge_token");
+  });
+
+  test("tenant enters teardown between login and verify → challenge rejected", async () => {
+    const { user, secret } = await enableMfaFor(11);
+    const challengeToken = challengeFor(user.id, user.tenantId);
+
+    // user.tenantId is the shared default test tenant (TestUsers.admin) —
+    // restore it to "active" afterwards so later tests reusing it aren't affected.
+    await seedRow(stack.db, tenantTable, {
+      id: user.tenantId,
+      tenantId: user.tenantId,
+      key: `t-${user.tenantId.slice(-8)}`,
+      name: "Tenant",
+      status: "destroying",
+    });
+    resetTenantLifecycleGateCacheForTests();
+
+    try {
+      const err = await stack.http.writeErr(
+        AuthMfaHandlers.verify,
+        { challengeToken, code: currentTotpCode(secret) },
+        GUEST,
+      );
+      expectErrorIncludes(err, "invalid_challenge_token");
+    } finally {
+      await asRawClient(stack.db).unsafe(
+        `UPDATE "${tenantTable.tableName}" SET status = $1 WHERE id = $2`,
+        ["active", user.tenantId],
+      );
+      resetTenantLifecycleGateCacheForTests();
+    }
   });
 
   test("user row homed in a DIFFERENT tenant than the challenge → verify succeeds (#1235)", async () => {
