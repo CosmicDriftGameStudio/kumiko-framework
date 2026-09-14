@@ -10,7 +10,7 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
-## 0.264.0
+## 0.266.0
 
 ### framework-core
 
