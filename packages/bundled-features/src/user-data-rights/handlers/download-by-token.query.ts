@@ -82,15 +82,20 @@ export const downloadByTokenQuery = defineQueryHandler({
   // Connection-Abbruch); blockiert automatisierte Probing-Loops.
   // Memory `feedback_security_default_on`.
   rateLimit: { per: "ip", limit: 30, windowSeconds: 60 },
+  escapeHatch: {
+    reason:
+      "the download token, its job and audit rows are keyed by token hash / job id, not the caller's tenant — the anonymous magic-link path has no tenant context at all",
+  },
   handler: async (query, ctx) => {
     const T = getTemporal();
     const now = T.Now.instant();
+    const runner = ctx.db.unsafeRaw(
+      "the download token, its job and audit rows are keyed by token hash / job id, not the caller's tenant — the anonymous magic-link path has no tenant context at all",
+    );
 
     // Step 1: hash + lookup
     const hash = await hashDownloadToken(query.payload.token);
-    // ctx.db.raw weil Token+Job tenant-agnostisch — anonymous-pfad hat
-    // keinen tenant-context im query.user.
-    const tokenRow = await fetchOne<TokenRow>(ctx.db.raw, exportDownloadTokensTable, {
+    const tokenRow = await fetchOne<TokenRow>(runner, exportDownloadTokensTable, {
       tokenHash: hash,
     });
 
@@ -118,13 +123,15 @@ export const downloadByTokenQuery = defineQueryHandler({
       // tenantId unbekannt. Wir laden den Job hier noch fuer Audit-Context
       // (best-effort — wenn Job auch fehlt, audit-skip ist akzeptabel).
       const jobForAudit = await fetchOne<{ requestedFromTenantId: string }>(
-        ctx.db.raw,
+        runner,
         exportJobsTable,
-        { id: tokenRow.jobId },
+        {
+          id: tokenRow.jobId,
+        },
       );
       if (jobForAudit) {
         await recordInvalidAttempt({
-          db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+          db: runner,
           tenantId: jobForAudit.requestedFromTenantId,
           now,
           result: "expired",
@@ -142,7 +149,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
 
     // Step 3-4: job-checks
-    const jobRow = await fetchOne<JobRow>(ctx.db.raw, exportJobsTable, {
+    const jobRow = await fetchOne<JobRow>(runner, exportJobsTable, {
       id: tokenRow.jobId,
     });
 
@@ -153,7 +160,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+        db: runner,
         tenantId: jobRow.requestedFromTenantId,
         now,
         result: "failed",
@@ -170,7 +177,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+        db: runner,
         tenantId: jobRow.requestedFromTenantId,
         now,
         result: "expired",
@@ -193,13 +200,15 @@ export const downloadByTokenQuery = defineQueryHandler({
       registry: ctx.registry,
       configResolver: ctx.configResolver,
       secrets: ctx.secrets,
-      db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+      // @cast-boundary db-runner — helpers use only the query API that
+      // DbConnection and DbTx share.
+      db: runner as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
       userId: SYSTEM_USER_ID,
       handlerName: "user-data-rights:query:download-by-token",
     })(jobRow.requestedFromTenantId as TenantId); // @cast-boundary engine-payload: TenantId brand
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+        db: runner,
         tenantId: jobRow.requestedFromTenantId,
         now,
         result: "signedUrlNotSupported",
@@ -230,7 +239,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     // Wrapper (trusted-source). Direct-API-caller koennen luegen, aber
     // Audit ist nicht security-relevant.
     await recordDownloadUse({
-      db: ctx.db.raw as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+      db: runner,
       tokenId: tokenRow.id,
       tokenVersion: tokenRow.version,
       tokenUseCount: tokenRow.useCount ?? 0,

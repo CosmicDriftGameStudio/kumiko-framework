@@ -1,5 +1,5 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii";
-import { bindHookIdentitySwitchGrant } from "../pipeline/system-identity-switch";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
 import { resolveName } from "./handler-helpers";
 import type {
   RegistryState,
@@ -126,10 +126,10 @@ export function applyExtensionUsages(state: RegistryState): void {
     // RegistrarExtensionRegistration and use that here.
     const extOwner = "*";
     // Extensions have no declaration site for escapeHatch, so SYSTEM is always denied
-    // (system-identity-switch.ts) — bindHookIdentitySwitchGrant(..., undefined) below.
+    // (system-identity-switch.ts) — bindHookEscapeHatchGrant(..., undefined) below.
     if (ext.hooks) {
       if (ext.hooks.postSave) {
-        const wrapped = bindHookIdentitySwitchGrant(
+        const wrapped = bindHookEscapeHatchGrant(
           ext.hooks.postSave,
           `postSave hook of extension "${usage.extensionName}"`,
           undefined,
@@ -143,7 +143,7 @@ export function applyExtensionUsages(state: RegistryState): void {
         state.entityPostSaveHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.preDelete) {
-        const wrapped = bindHookIdentitySwitchGrant(
+        const wrapped = bindHookEscapeHatchGrant(
           ext.hooks.preDelete,
           `preDelete hook of extension "${usage.extensionName}"`,
           undefined,
@@ -157,7 +157,7 @@ export function applyExtensionUsages(state: RegistryState): void {
         state.entityPreDeleteHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.postDelete) {
-        const wrapped = bindHookIdentitySwitchGrant(
+        const wrapped = bindHookEscapeHatchGrant(
           ext.hooks.postDelete,
           `postDelete hook of extension "${usage.extensionName}"`,
           undefined,
@@ -172,7 +172,7 @@ export function applyExtensionUsages(state: RegistryState): void {
       }
       // preSave on extensions: store as handler hook for all CRUD handlers of this entity
       if (ext.hooks.preSave) {
-        const wrapped = bindHookIdentitySwitchGrant(
+        const wrapped = bindHookEscapeHatchGrant(
           ext.hooks.preSave,
           `preSave hook of extension "${usage.extensionName}"`,
           undefined,

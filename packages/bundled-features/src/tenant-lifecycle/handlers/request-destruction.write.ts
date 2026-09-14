@@ -25,9 +25,16 @@ export const requestDestructionWrite = defineWriteHandler({
   description:
     "Puts the caller's own tenant into destroyRequested, starts the compliance-profile grace period after which its data is erased, and revokes every session in the tenant; use it when an account owner asks to close their account.",
   agent: { risk: "high" },
+  escapeHatch: {
+    reason:
+      "reads the caller's tenant row, whose tenant_id is the creating tenant, its compliance profile, and revokes its sessions via DbRunner helpers",
+  },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const row = await fetchOne<TenantLifecycleRow>(ctx.db.raw, tenantTable, { id: tenantId });
+    const runner = ctx.db.unsafeRaw(
+      "reads the caller's tenant row, whose tenant_id is the creating tenant, its compliance profile, and revokes its sessions via DbRunner helpers",
+    );
+    const row = await fetchOne<TenantLifecycleRow>(runner, tenantTable, { id: tenantId });
     if (!row) {
       return writeFailure(new UnprocessableError("tenant_not_found", { details: { tenantId } }));
     }
@@ -39,7 +46,7 @@ export const requestDestructionWrite = defineWriteHandler({
       );
     }
 
-    const { profile } = await resolveProfileForTenant({ db: ctx.db.raw, tenantId });
+    const { profile } = await resolveProfileForTenant({ db: runner, tenantId });
     const T = getTemporal();
     const gracePeriodEnd = addDurationSpec(T.Now.instant(), profile.tenantDestroyGracePeriod);
 
@@ -71,7 +78,7 @@ export const requestDestructionWrite = defineWriteHandler({
     });
 
     if (await ctx.hasFeature("sessions")) {
-      await revokeTenantSessions(ctx.db.raw, tenantId);
+      await revokeTenantSessions(runner, tenantId);
     }
 
     return {

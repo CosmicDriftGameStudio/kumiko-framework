@@ -28,12 +28,13 @@ export const myAuditLogQuery = defineQueryHandler({
   access: { openToAll: true },
   description:
     "Returns the calling user's own event-store entries across all their tenant memberships, paged and filterable by aggregate type, event type and time range, for the GDPR Art. 15 self-disclosure; it can never read another user's history.",
+  escapeHatch: {
+    reason:
+      "reads the caller's own events across all tenant memberships, bounded by createdBy = caller",
+  },
   handler: async (query, ctx) => {
     const p = query.payload;
 
-    // ctx.db.raw weil events-table tenantId-Spalte hat und TenantDb
-    // sonst auto-filtert auf currentTenant. Account-weite Sicht ist
-    // hier explizit gewollt; Sicherung erfolgt via createdBy-Filter.
     const where: WhereObject = { createdBy: query.user.id };
     if (p.aggregateType) where["aggregateType"] = p.aggregateType;
     if (p.eventType) where["type"] = p.eventType;
@@ -53,10 +54,17 @@ export const myAuditLogQuery = defineQueryHandler({
       type: string;
       payload: Record<string, unknown>;
       created_at: unknown;
-    }>(ctx.db.raw, eventsTable, where, {
-      orderBy: { col: "id", direction: "desc" },
-      limit: p.limit,
-    });
+    }>(
+      ctx.db.unsafeRaw(
+        "reads the caller's own events across all tenant memberships, bounded by createdBy = caller",
+      ),
+      eventsTable,
+      where,
+      {
+        orderBy: { col: "id", direction: "desc" },
+        limit: p.limit,
+      },
+    );
 
     const serialised = rows.map((r) => ({
       id: String(r["id"]),

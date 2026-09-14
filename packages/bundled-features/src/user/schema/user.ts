@@ -65,6 +65,9 @@ export const userEntity = createEntity({
   // Tenant-independent identity aggregate — its event stream lives on
   // SYSTEM_TENANT_ID instead of whichever tenant happened to create it (#497).
   systemStream: true,
+  // Every row lives on SYSTEM_TENANT_ID; writes with another tenantId are
+  // rejected (fw#2858).
+  tenancy: "global",
   fields: {
     // Identity — anyone who can see the user can read the email, but only
     // privileged roles (SYSTEM auth code, SystemAdmin) may change it.

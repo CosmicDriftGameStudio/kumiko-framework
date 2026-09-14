@@ -137,9 +137,19 @@ export const shareByTokenQuery = defineQueryHandler({
   schema: z.object({ token: z.string().min(1) }),
   access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
+  escapeHatch: {
+    reason:
+      "resolves the share link by token hash for callers whose dispatch tenant is not the link owner's",
+  },
   handler: async (query, ctx) => {
     const hash = await hashToken(query.payload.token);
-    const row = await fetchOne<ShareLinkRow>(ctx.db.raw, table, { tokenHash: hash });
+    const row = await fetchOne<ShareLinkRow>(
+      ctx.db.unsafeRaw(
+        "resolves the share link by token hash for callers whose dispatch tenant is not the link owner's",
+      ),
+      table,
+      { tokenHash: hash },
+    );
 
     if (!row) {
       throw new NotFoundError("share-link");

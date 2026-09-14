@@ -1,3 +1,4 @@
+import { type TenantDb, withUnsafeRawGrant } from "../db/tenant-db";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type {
   EscapeHatchDeclaration,
@@ -31,7 +32,7 @@ function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedError {
   });
 }
 
-// Reverse-lookup so withHookIdentitySwitchGrant can re-gate the SAME ungated pair under a narrower grant.
+// Reverse-lookup so withHookEscapeHatchGrant can re-gate the SAME ungated pair under a narrower grant.
 const ungatedByGated = new WeakMap<QueryAsFn | WriteAsFn, IdentitySwitch>();
 
 export function createGatedIdentitySwitch(
@@ -66,6 +67,13 @@ function readIdentitySwitchFn<TFn extends QueryAsFn | WriteAsFn>(
   return typeof value === "function" ? (value as TFn) : undefined; // @cast-boundary engine-bridge — checked via typeof above
 }
 
+// context's own keys only — never touch a property of the resolved value, which may be a Proxy that throws on any get.
+function readDbLikeValue(context: object, key: "db" | "dbOutsideTransaction"): object | undefined {
+  if (!(key in context)) return undefined;
+  const value = (context as Record<string, unknown>)[key];
+  return typeof value === "object" && value !== null ? value : undefined;
+}
+
 function unavailableIdentitySwitchFn(callerLabel: string, kind: "queryAs" | "writeAs") {
   return async () => {
     throw new InternalError({
@@ -86,14 +94,16 @@ function fallbackUngatedIdentitySwitch(
   };
 }
 
-export function withHookIdentitySwitchGrant<TContext extends object>(
+export function withHookEscapeHatchGrant<TContext extends object>(
   context: TContext,
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
 ): TContext {
   const ctxQueryAs = readIdentitySwitchFn<QueryAsFn>(context, "queryAs");
   const ctxWriteAs = readIdentitySwitchFn<WriteAsFn>(context, "writeAs");
-  if (!ctxQueryAs && !ctxWriteAs) return context;
+  const ctxDb = readDbLikeValue(context, "db");
+  const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
+  if (!ctxQueryAs && !ctxWriteAs && !ctxDb && !ctxDbOutsideTransaction) return context;
 
   // Reuse the ORIGINAL ungated pair when known, so this grant doesn't compose with the caller's.
   const ungated: IdentitySwitch =
@@ -106,11 +116,16 @@ export function withHookIdentitySwitchGrant<TContext extends object>(
     ...context,
     ...(ctxQueryAs && { queryAs: gated.queryAs }),
     ...(ctxWriteAs && { writeAs: gated.writeAs }),
+    // @cast-boundary engine-bridge — withUnsafeRawGrant passes non-TenantDb values (e.g. a guard Proxy) through unchanged.
+    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, escapeHatch) }),
+    ...(ctxDbOutsideTransaction && {
+      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction as TenantDb, escapeHatch),
+    }),
   };
 }
 
-// Re-gates a hook's own ctx.queryAs/ctx.writeAs instead of inheriting the handler's grant.
-export function bindHookIdentitySwitchGrant(
+// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.db/ctx.dbOutsideTransaction instead of inheriting the handler's grant.
+export function bindHookEscapeHatchGrant(
   fn: LifecycleHookFn,
   label: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
@@ -118,6 +133,6 @@ export function bindHookIdentitySwitchGrant(
   return ((payload: unknown, context: object) =>
     (fn as (payload: unknown, context: object) => unknown)(
       payload,
-      withHookIdentitySwitchGrant(context, label, escapeHatch),
+      withHookEscapeHatchGrant(context, label, escapeHatch),
     )) as LifecycleHookFn; // @cast-boundary engine-bridge — LifecycleHookFn union, same (payload, context) shape at runtime
 }

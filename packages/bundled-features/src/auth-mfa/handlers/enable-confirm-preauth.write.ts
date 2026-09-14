@@ -67,7 +67,9 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
     escapeHatch: {
       reason:
         "Pre-auth MFA enrollment step has no session yet — re-checks status and membership via " +
-        "ctx.queryAs(SYSTEM, user:findForAuth / tenant:query:memberships) for the setup token's user.",
+        "ctx.queryAs(SYSTEM, user:findForAuth / tenant:query:memberships) for the setup token's user. " +
+        "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
+        "guest dispatch tenant.",
     },
     description:
       "Completes the enrollment that unblocks a sign-in forced into two-factor setup: verifies the code against the pre-auth setup token, stores the factor and derives the session the blocked login never got.",
@@ -125,7 +127,13 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
 
       // "system" mode: no session exists yet, tenantId comes from the
       // verified token, mirroring enable-start-preauth.write.ts.
-      const scopedDb = createTenantDb(ctx.db.raw, tenantId, "system");
+      const scopedDb = createTenantDb(
+        ctx.db.unsafeRaw(
+          "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",
+        ),
+        tenantId,
+        "system",
+      );
       const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
       const existing = await findUserMfaRow(scopedDb, scopedUser);
       if (existing) return mfaAlreadyEnabled();

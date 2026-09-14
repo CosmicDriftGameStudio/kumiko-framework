@@ -21,9 +21,19 @@ export const cancelDestructionWrite = defineWriteHandler({
   access: { roles: ["TenantOwner", "Admin"] },
   description:
     "Returns a tenant whose destruction was requested back to active and clears the grace period; use it to undo a close-account request while the grace period is still running.",
+  escapeHatch: {
+    reason:
+      "reads the caller's tenant row, whose tenant_id is the creating tenant, not the row's own id",
+  },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const row = await fetchOne<TenantLifecycleRow>(ctx.db.raw, tenantTable, { id: tenantId });
+    const row = await fetchOne<TenantLifecycleRow>(
+      ctx.db.unsafeRaw(
+        "reads the caller's tenant row, whose tenant_id is the creating tenant, not the row's own id",
+      ),
+      tenantTable,
+      { id: tenantId },
+    );
     if (!row) {
       return writeFailure(new UnprocessableError("tenant_not_found", { details: { tenantId } }));
     }

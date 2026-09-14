@@ -45,6 +45,9 @@ export const setWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
     "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
+  escapeHatch: {
+    reason: "SystemAdmin tenantIdOverride re-scopes the page write to the target tenant",
+  },
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;
@@ -63,7 +66,15 @@ export const setWrite = defineWriteHandler({
     // on both the existing-check and the executor's stream reads; re-scope to the target.
     // Safe: the override branch is SystemAdmin-gated above.
     const scopedDb =
-      override !== undefined ? createTenantDb(db.raw, override as TenantId, "tenant") : db; // @cast-boundary engine-bridge
+      override !== undefined
+        ? createTenantDb(
+            db.unsafeRaw(
+              "SystemAdmin tenantIdOverride re-scopes the page write to the target tenant",
+            ),
+            override as TenantId, // @cast-boundary engine-bridge
+            "tenant",
+          )
+        : db;
     const existing = await fetchOne<PageRow>(scopedDb, pagesTable, {
       tenantId,
       slug: event.payload.slug,

@@ -178,7 +178,9 @@ describe("my-audit-log — kumiko-framework#1525: no ambient Temporal global", (
           payload: { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
           user: alice,
         } as Parameters<typeof myAuditLogQuery.handler>[0],
-        { db: { raw: stack.db } } as unknown as Parameters<typeof myAuditLogQuery.handler>[1],
+        { db: { unsafeRaw: () => stack.db } } as unknown as Parameters<
+          typeof myAuditLogQuery.handler
+        >[1],
       );
       expect(res.rows.length).toBeGreaterThanOrEqual(1);
     } finally {

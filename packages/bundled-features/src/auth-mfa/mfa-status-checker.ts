@@ -38,7 +38,13 @@ export function createMfaStatusChecker(opts: {
   readonly challengeTokenSecret: string;
 }): MfaStatusChecker {
   return async (ctx, userId, tenantId, roles) => {
-    const scopedDb = createTenantDb(ctx.db.raw, tenantId, "system");
+    const scopedDb = createTenantDb(
+      ctx.db.unsafeRaw(
+        "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",
+      ),
+      tenantId,
+      "system",
+    );
     const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
     const row = await findUserMfaRow(scopedDb, scopedUser);
 

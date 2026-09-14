@@ -7,8 +7,6 @@
 // selbst + TenantAdmin/SystemAdmin (Compliance-Sicht). Filter läuft
 // in-memory nach dem tenant-scoped select — Volumen ist die Anzahl
 // verbundener Postfächer eines Tenants (einstellig bis zweistellig).
-
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
@@ -28,7 +26,7 @@ export const listAccountsQuery: QueryHandlerDef = {
   description:
     "Lists the connected mailboxes of the caller's tenant with the mailbox address decrypted, hiding personal mailboxes the caller neither owns nor administers; use it for the mail connect and settings views.",
   handler: async (_query, ctx) => {
-    const allRows = await selectMany(ctx.db.raw, mailAccountsProjectionTable, {
+    const allRows = await ctx.db.selectMany(mailAccountsProjectionTable, {
       tenantId: ctx.user.tenantId,
     });
     const rows = allRows.filter((row) => isVisibleToCaller(row, ctx.user));

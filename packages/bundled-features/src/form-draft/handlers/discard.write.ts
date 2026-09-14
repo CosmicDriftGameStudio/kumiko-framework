@@ -30,6 +30,9 @@ export const discardDraftWrite = defineWriteHandler({
   description:
     "Deletes the calling user's draft for one draftKey and, when releaseFiles is set, hard-deletes the file references that draft alone uploaded; use it after a successful submit or when the user abandons the form.",
   agent: { risk: "high" },
+  escapeHatch: {
+    reason: "matches draft storage keys against the caller's own file_refs rows via raw SQL",
+  },
   handler: async (event, ctx) => {
     const ownerId = event.user.id;
     const existing = await lookupDraft(
@@ -62,7 +65,9 @@ export const discardDraftWrite = defineWriteHandler({
       // predates the draft row, so the insertedAt filter must not apply.
       const isCreateMode = event.payload.draftKey.includes(":new:");
       const ownedRefs = await filterOwnedFileRefs(
-        ctx.db.raw,
+        ctx.db.unsafeRaw(
+          "matches draft storage keys against the caller's own file_refs rows via raw SQL",
+        ),
         event.user.tenantId,
         ownerId,
         candidateKeys,

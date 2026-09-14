@@ -2,8 +2,6 @@
 // `read_subscriptions`-projection. Tenant-Admins lesen ihre eigene
 // subscription via getSubscriptionForTenant-helper (= ctx.db ist
 // tenant-scoped, gibt automatisch nur die row des Callers zurück).
-
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
@@ -22,7 +20,7 @@ export const listSubscriptionsQuery: QueryHandlerDef = {
   schema: listSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
   handler: async (_query, ctx) => {
-    const rows = await selectMany(ctx.db.raw, subscriptionsProjectionTable, {
+    const rows = await ctx.db.selectMany(subscriptionsProjectionTable, {
       tenantId: ctx.user.tenantId,
     });
     const piiKms = configuredPiiSubjectKms();

@@ -510,8 +510,8 @@ async function runInSubTransaction(
   db: DbRunner,
   fn: (tx: DbRunner) => Promise<void>,
 ): Promise<void> {
-  // `db` is already the raw runner (the handler passes ctx.db.raw, the tests a
-  // top-level connection) — cast to read the transaction surface directly,
+  // `db` is already the raw runner (the handler passes ctx.db.unsafeRaw(...),
+  // the tests a top-level connection) — cast to read the transaction surface directly,
   // without asRawClient (a test-only escape hatch). A top-level connection
   // exposes `.begin`; a TransactionSql only `.savepoint`. They are mutually
   // exclusive, so prefer whichever is present.

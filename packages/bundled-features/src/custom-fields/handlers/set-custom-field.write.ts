@@ -52,6 +52,10 @@ export const setCustomFieldHandler: WriteHandlerDef = {
   access: { roles: DEFAULT_VALUE_WRITE_ROLES },
   description:
     "Stores one custom-field value on a single host entity row after validating it against the field definition's declared type and per-field write roles; use it to save what a user entered into a custom field.",
+  escapeHatch: {
+    reason:
+      "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry",
+  },
   handler: async (event, ctx) => {
     const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
 

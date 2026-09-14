@@ -137,15 +137,46 @@ function tableNameOf(table: Table | EntityTableMeta): string {
   return asEntityTableMeta(table)?.tableName ?? "<unknown>";
 }
 
+// A grant is only real when its reason is non-empty — `{ reason: "" }` must not silently unlock it.
+function hasGrant(decl: EscapeHatchDeclaration | undefined): boolean {
+  return decl !== undefined && decl.reason.trim().length > 0;
+}
+
+function isForeignTenantId(tenantIdValue: unknown): boolean {
+  return tenantIdValue !== undefined && tenantIdValue !== SYSTEM_TENANT_ID;
+}
+
 // Checks the canonical EntityTableMeta (branded EntityTable's KUMIKO_META_SYMBOL
 // or a plain deriveEntityTableMeta/defineUnmanagedTable result), not a direct
 // `table.tenantId` property read — the latter only exists on branded EntityTables
 // and silently returned false (no tenant filter!) for plain EntityTableMeta
 // tables like unmanaged direct-write stores, e.g. userSessionTable.
-function hasTenantColumn(table: Table): boolean {
+function hasTenantColumn(table: Table | EntityTableMeta): boolean {
   const meta = asEntityTableMeta(table);
   if (meta) return meta.columns.some((c) => c.name === "tenant_id");
   return (table as Record<string, unknown>)["tenantId"] !== undefined;
+}
+
+// Grants for TenantDb's two escape hatches: db.global()'s write methods
+// (write-handler-only) and ctx.db.unsafeRaw() (handler or hook, re-granted per hook).
+export type TenantDbGrants = {
+  readonly globalWrites?: EscapeHatchDeclaration;
+  readonly unsafeRaw?: EscapeHatchDeclaration;
+};
+
+const unsafeRawRebinders = new WeakMap<
+  TenantDb,
+  (grant: EscapeHatchDeclaration | undefined) => TenantDb
+>();
+
+// Rebinds tenantDb's unsafeRaw grant (e.g. a hook's own escapeHatch); inputs not built by
+// createTenantDb pass through unchanged, without touching any property (ctx.db may be a throwing Proxy).
+export function withUnsafeRawGrant(
+  tenantDb: TenantDb,
+  grant: EscapeHatchDeclaration | undefined,
+): TenantDb {
+  const rebind = unsafeRawRebinders.get(tenantDb);
+  return rebind ? rebind(grant) : tenantDb;
 }
 
 export function createTenantDb(
@@ -155,8 +186,7 @@ export function createTenantDb(
   tracer?: Tracer,
   meter?: Meter,
   signal?: AbortSignal,
-  // Gates db.global(table)'s write methods; write-path-only (see dispatch-shared.ts buildHandlerContext).
-  escapeHatch?: EscapeHatchDeclaration,
+  grants?: TenantDbGrants,
 ): TenantDb {
   if (meter) registerStandardMetrics(meter);
 
@@ -215,7 +245,7 @@ export function createTenantDb(
   // (e.g. exclude SYSTEM reference rows at the DB instead of post-filtering
   // after a limit). Values outside the scope are dropped; if nothing valid
   // remains, the full enforced scope applies — widening is never possible.
-  function readWhere(table: Table, where?: WhereObject): WhereObject | undefined {
+  function readWhere(table: Table | EntityTableMeta, where?: WhereObject): WhereObject | undefined {
     if (!hasTenantColumn(table) || mode === "system") return where;
     const allowed = [tenantId, SYSTEM_TENANT_ID];
     const requested = where?.["tenantId"];
@@ -242,13 +272,22 @@ export function createTenantDb(
   }
 
   function missingEscapeHatch(table: Table | EntityTableMeta): AccessDeniedError | undefined {
-    if (escapeHatch && escapeHatch.reason.trim().length > 0) return undefined;
+    if (hasGrant(grants?.globalWrites)) return undefined;
     return new AccessDeniedError({
       message:
         `db.global(${tableNameOf(table)}): write rejected — declare ` +
         `\`escapeHatch: { reason: "..." }\` on the write handler to allow ` +
         "writes through db.global().",
     });
+  }
+
+  function foreignTenantOnGlobalWrite(
+    table: Table | EntityTableMeta,
+    tenantIdValue: unknown,
+    message: string = `db.global(${tableNameOf(table)}): tenantId "${String(tenantIdValue)}" is not SYSTEM_TENANT_ID — a "global" table's rows must carry the system tenant, not an arbitrary tenant's id.`,
+  ): AccessDeniedError | undefined {
+    if (!isForeignTenantId(tenantIdValue)) return undefined;
+    return new AccessDeniedError({ message });
   }
 
   function globalTable<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
@@ -273,7 +312,8 @@ export function createTenantDb(
       insertOne<T = Record<string, unknown>>(
         values: Record<string, unknown>,
       ): Promise<T | undefined> {
-        const denied = missingEscapeHatch(table);
+        const denied =
+          missingEscapeHatch(table) ?? foreignTenantOnGlobalWrite(table, values["tenantId"]);
         if (denied) return Promise.reject(denied);
         return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, values));
       },
@@ -281,7 +321,8 @@ export function createTenantDb(
         set: Record<string, unknown>,
         where: WhereObject,
       ): Promise<readonly T[]> {
-        const denied = missingEscapeHatch(table);
+        const denied =
+          missingEscapeHatch(table) ?? foreignTenantOnGlobalWrite(table, set["tenantId"]);
         if (denied) return Promise.reject(denied);
         if (!where || Object.keys(where).length === 0) {
           return Promise.reject(
@@ -308,14 +349,28 @@ export function createTenantDb(
     } as GlobalTableDb<TTable>;
   }
 
-  return {
+  const tenantDb: TenantDb = {
     tenantId,
     mode,
     raw: db,
     global: globalTable,
 
+    unsafeRaw(reason: string): DbRunner {
+      if (reason.trim().length === 0) {
+        throw new Error("unsafeRaw requires a non-empty reason");
+      }
+      if (!hasGrant(grants?.unsafeRaw)) {
+        throw new AccessDeniedError({
+          message:
+            'ctx.db.unsafeRaw(reason): rejected — declare `escapeHatch: { reason: "..." }` on ' +
+            "the handler or hook to allow unsafeRaw.",
+        });
+      }
+      return db;
+    },
+
     selectMany<T = Record<string, unknown>>(
-      table: Table,
+      table: Table | EntityTableMeta,
       where?: WhereObject,
       options?: SelectOptions,
     ): Promise<readonly T[]> {
@@ -324,7 +379,7 @@ export function createTenantDb(
     },
 
     fetchOne<T = Record<string, unknown>>(
-      table: Table,
+      table: Table | EntityTableMeta,
       where: WhereObject,
     ): Promise<T | undefined> {
       const filter = readWhere(table, where) ?? {};
@@ -335,6 +390,19 @@ export function createTenantDb(
       table: Table,
       values: Record<string, unknown>,
     ): Promise<T | undefined> {
+      if (
+        mode === "tenant" &&
+        hasTenantColumn(table) &&
+        asEntityTableMeta(table)?.tenancy === "global"
+      ) {
+        const denied = foreignTenantOnGlobalWrite(
+          table,
+          tenantId,
+          `insertOne(${tableNameOf(table)}): "global" table rows must carry SYSTEM_TENANT_ID; ` +
+            "use db.global(table) with escapeHatch instead.",
+        );
+        if (denied) return Promise.reject(denied);
+      }
       const data = insertValues(table, values);
       return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, data));
     },
@@ -367,6 +435,11 @@ export function createTenantDb(
       return withDbSpan("delete", table, async () => bunDeleteMany(db, table, filter));
     },
   };
+
+  unsafeRawRebinders.set(tenantDb, (grant) =>
+    createTenantDb(db, tenantId, mode, tracer, meter, signal, { ...grants, unsafeRaw: grant }),
+  );
+  return tenantDb;
 }
 
 export { asRawClient };

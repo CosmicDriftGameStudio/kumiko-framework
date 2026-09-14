@@ -230,25 +230,28 @@ async function appendDenialAuditEvent(
   // This event is the only proof the denial happened. Skipping
   // runProjectionsForEvent here is fine — nothing projects
   // crypto-shredding:event:forget-denied.
-  await append(outsideTx.raw, {
-    aggregateId: generateId(),
-    aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-    // MUST be event.user.tenantId (the prober's own tenant), never
-    // SYSTEM_TENANT_ID — .raw bypasses TenantDb's scoping wrapper, so this
-    // is the only thing keeping the denial event out of the foreign
-    // subject's tenant (fw#2452).
-    tenantId: event.user.tenantId,
-    expectedVersion: 0,
-    type: SUBJECT_FORGET_DENIED_EVENT_NAME,
-    eventVersion: eventDef.version,
-    payload,
-    metadata: {
-      userId: event.user.id,
-      ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
-      ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
-      ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+  await append(
+    outsideTx.unsafeRaw(
+      "denial audit append: names the prober's own tenant stream on the outside-transaction db",
+    ),
+    {
+      aggregateId: generateId(),
+      aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+      // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw
+      // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event (fw#2452).
+      tenantId: event.user.tenantId,
+      expectedVersion: 0,
+      type: SUBJECT_FORGET_DENIED_EVENT_NAME,
+      eventVersion: eventDef.version,
+      payload,
+      metadata: {
+        userId: event.user.id,
+        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+        ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+        ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+      },
     },
-  });
+  );
   return null;
 }
 
@@ -270,6 +273,13 @@ export const forgetSubjectWrite = defineWriteHandler({
   // Erasing the subject key is irreversible: there is no undo, so an agent must
   // not be able to reach it at all.
   agent: { expose: false },
+  escapeHatch: {
+    reason:
+      "denial audit append names the prober's own tenant stream on the outside-transaction db; " +
+      "the tenant-scope check runs against the subject's tenant, not necessarily the caller's; " +
+      "the blind-index sweep and search purge address the subject across tenants; the user " +
+      "lifecycle update and PAT revoke run on the SYSTEM user stream.",
+  },
   handler: async (event, ctx) => {
     const kms = configuredPiiSubjectKms();
     if (!kms) {
@@ -292,7 +302,9 @@ export const forgetSubjectWrite = defineWriteHandler({
     const subjectKey = subjectIdToKey(subject);
 
     const tenantScopeDenial = await resolveTenantScopeDenial(
-      ctx.db.raw,
+      ctx.db.unsafeRaw(
+        "tenant-scope check runs against the subject's tenant, not necessarily the caller's",
+      ),
       ctx.registry.features,
       event.user,
       raw,
@@ -337,17 +349,18 @@ export const forgetSubjectWrite = defineWriteHandler({
       eraseReason: event.payload.reason,
     });
 
-    // Blind-index sweep (#818): null the erased subject's bidx columns now —
-    // otherwise the deterministic HMAC stays equality-matchable until the next
-    // rebuild. Deliberately ctx.db.raw: the ciphertext prefix addresses the
-    // subject across tenants.
-    await nullBlindIndexesForSubject(ctx.db.raw, ctx.registry.features, subjectKey);
+    // Blind-index sweep (#818): nulls bidx columns now so the deterministic
+    // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
+    const crossTenantSubjectRunner = ctx.db.unsafeRaw(
+      "blind-index sweep and search purge address the subject across tenants",
+    );
+    await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
 
     // Derived search index still holds plaintext (#1610) — purge next to the
     // blind-index sweep. No adapter → no-op (apps without search).
     if (ctx.searchAdapter) {
       await purgeSearchDocumentsForSubject(
-        ctx.db.raw,
+        crossTenantSubjectRunner,
         ctx.registry.features,
         ctx.searchAdapter,
         subjectKey,
@@ -376,9 +389,12 @@ export const forgetSubjectWrite = defineWriteHandler({
     // update is best-effort for real users.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
       try {
-        await updateUserLifecycle(ctx.db.raw, raw.userId, { status: USER_STATUS.Deleted });
+        const userLifecycleRunner = ctx.db.unsafeRaw(
+          "user lifecycle update and PAT revoke run on the SYSTEM user stream",
+        );
+        await updateUserLifecycle(userLifecycleRunner, raw.userId, { status: USER_STATUS.Deleted });
         if (ctx.registry.features.has("personal-access-tokens")) {
-          await revokeAllPatTokensForUser(ctx.db.raw, raw.userId);
+          await revokeAllPatTokensForUser(userLifecycleRunner, raw.userId);
         }
       } catch {
         // User row may not exist (e.g. email subscribers with user-style

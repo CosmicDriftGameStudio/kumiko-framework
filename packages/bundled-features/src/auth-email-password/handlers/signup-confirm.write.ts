@@ -66,6 +66,10 @@ export function createSignupConfirmHandler() {
     schema: SignupConfirmSchema,
     access: { roles: ["all"] },
     agent: { expose: false },
+    escapeHatch: {
+      reason:
+        "provisions a new tenant, its first user and membership before any tenant context exists",
+    },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(
@@ -90,11 +94,11 @@ export function createSignupConfirmHandler() {
         // Tenant-Key: 2-Wort-Slug aus framework/random, mit DB-Conflict-
         // Check gegen tenants.key. 22.500 Default-Combos + Suffix-
         // Fallback bei Kollision (siehe generateUniqueName).
-        // @cast-boundary db-runner — TenantDb.raw is DbRunner (Connection|Tx);
-        // provisioning helpers operate on plain drizzle-API that both shapes
-        // expose identically. Inside an event-store transaction the cast lands
-        // on the Tx flavor — same drizzle calls, same behavior.
-        const dbConn = ctx.db.raw as DbConnection;
+        // @cast-boundary db-runner — helpers use only the query API that
+        // DbConnection and DbTx share.
+        const dbConn = ctx.db.unsafeRaw(
+          "provisions a new tenant, its first user and membership before any tenant context exists",
+        ) as DbConnection;
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {

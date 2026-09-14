@@ -28,6 +28,10 @@ export function createAddNoteHandler(
     access,
     description:
       "Appends a note to one host entity's history, stamping the author from the authenticated caller rather than the payload; use it for every remark and correction alike, because entries can never be edited or removed afterwards.",
+    escapeHatch: {
+      reason:
+        "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction",
+    },
     handler: async (event, ctx) => {
       const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
 
@@ -47,16 +51,21 @@ export function createAddNoteHandler(
 
       let authorName: string | null = null;
       try {
-        // read_users is tenant-agnostic → ctx.db.raw, not the tenant-scoped ctx.db.
+        // read_users is tenant-agnostic → ctx.db.unsafeRaw, not the tenant-scoped ctx.db.
         // Bun.SQL poisons the whole tx after any error inside it, even one that's
         // caught — a bare try/catch here would take the note write down with it.
-        authorName = await runInSavepointIfSupported(ctx.db.raw, async (sp) => {
-          const userRow = await fetchOne<{ displayName: string | null }>(sp, userTable, {
-            id: event.user.id,
-          });
-          if (!userRow?.displayName) return null;
-          return decryptStoredPii(userRow.displayName, "displayName", "notes-history:add-note");
-        });
+        authorName = await runInSavepointIfSupported(
+          ctx.db.unsafeRaw(
+            "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction",
+          ),
+          async (sp) => {
+            const userRow = await fetchOne<{ displayName: string | null }>(sp, userTable, {
+              id: event.user.id,
+            });
+            if (!userRow?.displayName) return null;
+            return decryptStoredPii(userRow.displayName, "displayName", "notes-history:add-note");
+          },
+        );
       } catch (e) {
         ctx.log?.warn("notes-history: authorName lookup failed", {
           error: e,

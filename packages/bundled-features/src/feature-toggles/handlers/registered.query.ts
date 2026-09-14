@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants";
@@ -36,7 +35,7 @@ export const registeredQuery = defineQueryHandler({
     const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
     type OverrideRow = { featureName: string; enabled: boolean };
-    const overrideRows = await selectMany<OverrideRow>(db.raw, globalFeatureStateTable);
+    const overrideRows = await db.global(globalFeatureStateTable).selectMany<OverrideRow>();
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
     // SystemAdmin operator-tooling: das listing soll die PLATTFORM-truth

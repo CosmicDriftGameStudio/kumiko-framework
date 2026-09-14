@@ -3,6 +3,7 @@ import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type { EntityId, SessionUser } from "../engine/types";
 import {
+  AccessDeniedError,
   VersionConflictError as FrameworkVersionConflict,
   IdempotentReplayError,
   InternalError,
@@ -25,6 +26,7 @@ import {
   buildEventMetadata,
   type ExecutorContext,
   entityEventName,
+  isForeignTenantOnGlobalEntity,
   tryMapUniqueViolation,
 } from "./event-store-executor-context";
 import { runInSavepointIfSupported } from "./query";
@@ -115,6 +117,13 @@ export function createWriteVerbs(
 
   return {
     async create(payload, user, db, options) {
+      if (isForeignTenantOnGlobalEntity(entity, payload["tenantId"])) {
+        throw new AccessDeniedError({
+          message:
+            `${entityName}.create: entity is tenancy: "global" — payload.tenantId must be ` +
+            "SYSTEM_TENANT_ID or omitted.",
+        });
+      }
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
       // event payload so defaults + downstream consumers don't see a redundant id field.
@@ -299,6 +308,13 @@ export function createWriteVerbs(
     },
 
     async update(payload, user, db, updateOptions) {
+      if (isForeignTenantOnGlobalEntity(entity, payload.changes["tenantId"])) {
+        throw new AccessDeniedError({
+          message:
+            `${entityName}.update: entity is tenancy: "global" — payload.changes.tenantId must ` +
+            "be SYSTEM_TENANT_ID or omitted.",
+        });
+      }
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
 

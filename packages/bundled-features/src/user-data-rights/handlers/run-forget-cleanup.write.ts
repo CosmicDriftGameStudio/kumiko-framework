@@ -29,6 +29,9 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
     schema: z.object({}),
     access: { roles: access.privileged },
     agent: { expose: false },
+    escapeHatch: {
+      reason: "operator forget cleanup iterates users across tenants in per-user sub-transactions",
+    },
     handler: async (_event, ctx) => {
       if (!ctx.registry) {
         return writeFailure(
@@ -38,15 +41,15 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
         );
       }
 
-      // ctx.db.raw ist DbRunner. runForgetCleanup oeffnet pro User eine
-      // Sub-Tx (SAVEPOINT wenn Outer-Dispatcher-Tx aktiv) — siehe
-      // run-forget-cleanup.ts Header.
       const T = getTemporal();
+      const runner = ctx.db.unsafeRaw(
+        "operator forget cleanup iterates users across tenants in per-user sub-transactions",
+      );
       // Operator-triggered forget must also erase binaries, not just rows —
       // it flips users to Deleted, after which the cron never re-processes
       // them, so a row-only delete here would permanently leak the binaries.
       // Resolve through the same file-foundation path the cron uses.
-      const forgetDb = ctx.db.raw as DbConnection; // @cast-boundary db-operator: config reads tolerate the outer tx
+      const forgetDb = runner as DbConnection; // @cast-boundary db-runner — DbRunner narrows to DbConnection, config reads tolerate the outer tx
       const tenantModel = await resolveAppTenantModel({
         registry: ctx.registry,
         configResolver: ctx.configResolver,
@@ -54,7 +57,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
         userId: ctx._userId ?? SYSTEM_USER_ID,
       });
       const result = await runForgetCleanup({
-        db: ctx.db.raw,
+        db: runner,
         registry: ctx.registry,
         now: T.Now.instant(),
         tenantModel,

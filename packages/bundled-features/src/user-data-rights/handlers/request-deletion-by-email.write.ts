@@ -1,4 +1,3 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
@@ -66,18 +65,21 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     agent: { risk: "high" },
     // Defense-in-depth gegen Email-Probing auf dem anonymen Endpoint.
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+    escapeHatch: {
+      reason: "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream",
+    },
     handler: async (event, ctx) => {
       const success = { isSuccess: true as const, data: { kind: "requested" as const } };
 
       // not-configured-safe: ohne Secret/URL kein Link, aber gleiche Antwort.
       if (!opts.deletionTokenSecret || !opts.deletionVerifyUrl) return success;
 
-      // userTable ist tenant-agnostisch (Account-weite Löschung) → ctx.db.raw.
-      const userRow = await fetchOne<{ id: string; status: string; email: string }>(
-        ctx.db.raw,
-        userTable,
-        { email: event.payload.email, isDeleted: false },
-      );
+      const userRow = await ctx.db
+        .global(userTable)
+        .fetchOne<{ id: string; status: string; email: string }>({
+          email: event.payload.email,
+          isDeleted: false,
+        });
       if (!userRow || userRow["status"] !== USER_STATUS.Active || !userRow["email"]) {
         return success;
       }
@@ -86,9 +88,11 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       // user-Row landet und in die Token-HMAC-Purpose gefaltet wird. cancel
       // nullt sie → ein nach Cancel nachgespieltes Token verifiziert nicht mehr.
       const requestId = crypto.randomUUID();
-      await updateUserLifecycle(ctx.db.raw, userRow["id"], {
-        pendingDeletionRequestId: requestId,
-      });
+      await updateUserLifecycle(
+        ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+        userRow["id"],
+        { pendingDeletionRequestId: requestId },
+      );
 
       const { token, expiresAt } = signDeletionToken(
         userRow["id"],

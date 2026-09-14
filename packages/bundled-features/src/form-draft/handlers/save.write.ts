@@ -37,6 +37,9 @@ export const saveDraftWrite = defineWriteHandler({
   access: FORM_DRAFT_ACCESS,
   description:
     "Upserts the calling user's draft for one draftKey with the given form values and step index, stamping savedAt server-side and refusing a brand-new draft once the per-owner draft cap is reached; use it to persist an in-progress form before the real entity exists.",
+  escapeHatch: {
+    reason: "COUNT(*) of the caller's own drafts without loading 64KB value blobs",
+  },
   handler: async (event, ctx) => {
     const ownerId = event.user.id;
     const { draftKey, values, stepIndex } = event.payload;
@@ -55,7 +58,11 @@ export const saveDraftWrite = defineWriteHandler({
     // Cap check only on the create path — an update never grows the number
     // of drafts this owner has, so a user already at the limit can still
     // keep saving their existing drafts.
-    const draftCount = await countDraftsByOwner(ctx.db.raw, event.user.tenantId, ownerId);
+    const draftCount = await countDraftsByOwner(
+      ctx.db.unsafeRaw("COUNT(*) of the caller's own drafts without loading 64KB value blobs"),
+      event.user.tenantId,
+      ownerId,
+    );
     if (draftCount >= FORM_DRAFT_MAX_PER_OWNER) {
       return failUnprocessable("draft_limit_reached", { limit: FORM_DRAFT_MAX_PER_OWNER });
     }

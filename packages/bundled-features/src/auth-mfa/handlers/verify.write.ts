@@ -49,7 +49,9 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
     escapeHatch: {
       reason:
         "Pre-auth MFA step has no session yet — re-derives it via ctx.queryAs(SYSTEM, " +
-        "user:findForAuth / tenant:query:memberships) for the user the challenge token names.",
+        "user:findForAuth / tenant:query:memberships) for the user the challenge token names. " +
+        "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
+        "guest dispatch tenant.",
     },
     description:
       "Finishes a two-step sign-in by checking a TOTP or recovery code against the challenge token that login handed back, under a per-account attempt cap, and derives the resulting session.",
@@ -92,7 +94,13 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // "system" mode: this handler runs with a guest identity whose own
       // tenantId is meaningless here — the challenge token is the source
       // of truth for which tenant's row to read.
-      const scopedDb = createTenantDb(ctx.db.raw, tenantId, "system");
+      const scopedDb = createTenantDb(
+        ctx.db.unsafeRaw(
+          "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",
+        ),
+        tenantId,
+        "system",
+      );
       const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
       const row = await findUserMfaRow(scopedDb, scopedUser);
       // MFA got disabled between login and verify (race, or a stale

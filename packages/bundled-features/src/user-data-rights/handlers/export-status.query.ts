@@ -5,7 +5,7 @@
 //
 // **Cross-User-Isolation:** Filter ist `userId === query.user.id` — kein
 // User kann fremde Job-Status sehen, auch nicht via ID-Guess. Pre-Check
-// nutzt ctx.db.raw weil ExportJob tenant-agnostisch ist (Plan-Doc-
+// uses ctx.db.unsafeRaw — ExportJob is tenant-agnostic (see plan doc,
 // "Cross-Tenant-Semantik").
 //
 // **Read-Only-Endpoint:** Pollt nur, kein State-Flip. Idempotent + cache-
@@ -35,11 +35,15 @@ export const exportStatusQuery = defineQueryHandler({
   access: { openToAll: true },
   description:
     "Returns the calling user's own most recent data-export job with its status, expiry and error, or hasJob false, for polling after a request-export while the job is still running.",
+  escapeHatch: {
+    reason:
+      "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant",
+  },
   handler: async (query, ctx) => {
-    // ctx.db.raw weil tenant-agnostisch — ein User der aus Tenant B
-    // pollt, sieht den aus Tenant A erstellten Job.
     const rows = await selectMany<ExportJobRow>(
-      ctx.db.raw,
+      ctx.db.unsafeRaw(
+        "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant",
+      ),
       exportJobsTable,
       { userId: query.user.id },
       { limit: 1, orderBy: { col: "requestedAt", direction: "desc" } },

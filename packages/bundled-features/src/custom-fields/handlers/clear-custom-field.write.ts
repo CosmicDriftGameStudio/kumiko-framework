@@ -29,6 +29,10 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
   access: { roles: DEFAULT_VALUE_WRITE_ROLES },
   description:
     "Removes the stored value of one custom field from a single host entity row after re-checking that field's per-field write roles; use it to blank a field the user emptied instead of writing a null value.",
+  escapeHatch: {
+    reason:
+      "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry",
+  },
   handler: async (event, ctx) => {
     const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
 

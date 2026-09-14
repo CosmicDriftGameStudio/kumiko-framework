@@ -46,7 +46,6 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineEntityCreateHandler,
@@ -373,6 +372,8 @@ export function createTierEngineFeature<
     // neuer Tenant (Memory `feedback_event_store_tenant_consistency`).
     if (opts.defaultTier !== undefined) {
       const defaultTier = opts.defaultTier;
+      const autoDefaultTierHookReason =
+        "seeds the default tier-assignment stream of the tenant just created";
       r.hook(
         "postSave",
         { allOf: "tenant" },
@@ -392,26 +393,17 @@ export function createTierEngineFeature<
 
           // tenant is an r.systemScope() feature, so this cross-feature hook gets a
           // fail-closed ctx.db — reach for ctx.systemDb instead (see entity-handlers.ts).
-          const db = ctx.systemDb
-            ? ctx.systemDb.acknowledgeCrossTenant(
-                `tier-engine auto-default-tier hook on r.systemScope() tenant write (${newTenantId})`,
-              )
-            : ctx.db;
+          // Event-store paths need the raw DbConnection — TenantDb only exposes
+          // select/insert/update/delete, not execute (db.execute(sql`SELECT pg_notify(...)`) would TypeError).
+          const rawDb = ctx.systemDb
+            ? ctx.systemDb.unsafeRaw(autoDefaultTierHookReason)
+            : ctx.db && "unsafeRaw" in ctx.db
+              ? ctx.db.unsafeRaw(autoDefaultTierHookReason)
+              : undefined;
           // skip: defensive — inTransaction phase always sets db, but AppContext's
           // type makes it optional. Throwing would be overreach (lifecycle
           // blocking), silent-skip is defensive-soft.
-          if (!db) return;
-
-          // db is a TenantDb in the inTransaction phase (tenant-scoped proxy over
-          // the real tx). Event-store paths need the raw DbConnection — TenantDb
-          // only exposes select/insert/update/delete, not execute
-          // (event-store-append.ts:102 calls db.execute(sql`SELECT pg_notify(...)`)
-          // → TypeError otherwise). Pattern matches signup-confirm.write.ts:107
-          // (.raw), not `as DbConnection` — that's a type-lie that only crashes on
-          // the first .execute() call.
-          // skip: defensive — should never trip in the inTransaction phase.
-          if (!("raw" in db)) return;
-          const rawDb = db.raw as DbConnection; // @cast-boundary db-runner
+          if (!rawDb) return;
 
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
@@ -438,7 +430,7 @@ export function createTierEngineFeature<
             tdb,
           );
         },
-        { phase: HookPhases.inTransaction },
+        { phase: HookPhases.inTransaction, escapeHatch: { reason: autoDefaultTierHookReason } },
       );
     }
 

@@ -1,4 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
+import type { DbRunner } from "../../db/connection";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine";
 import type { SessionUser } from "../../engine/types";
 import type { TenantId } from "../../engine/types/identifiers";
@@ -8,7 +10,7 @@ import {
   type IdentitySwitch,
   isSystemIdentity,
   isSystemIdentitySwitchAllowed,
-  withHookIdentitySwitchGrant,
+  withHookEscapeHatchGrant,
 } from "../system-identity-switch";
 
 const TENANT = "00000000-0000-4000-8000-00000000ab01" as TenantId;
@@ -120,18 +122,14 @@ describe("createGatedIdentitySwitch", () => {
   });
 });
 
-describe("withHookIdentitySwitchGrant", () => {
+describe("withHookEscapeHatchGrant", () => {
   test("hook without escapeHatch does NOT inherit the handler's SYSTEM grant", async () => {
     const { ungated } = makeUngated();
     // Simulates dispatch-shared.ts's buildHandlerContext for a handler that
     // itself declared escapeHatch / is systemScope (allowSystemIdentity=true).
     const handlerCtx = { ...createGatedIdentitySwitch('handler "outer"', true, ungated) };
 
-    const hookCtx = withHookIdentitySwitchGrant(
-      handlerCtx,
-      'postSave hook of feature "f"',
-      undefined,
-    );
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, 'postSave hook of feature "f"', undefined);
 
     await expect(hookCtx.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(
       AccessDeniedError,
@@ -143,7 +141,7 @@ describe("withHookIdentitySwitchGrant", () => {
     // Handler itself has NO escapeHatch (allowSystemIdentity=false).
     const handlerCtx = { ...createGatedIdentitySwitch('handler "outer"', false, ungated) };
 
-    const hookCtx = withHookIdentitySwitchGrant(handlerCtx, 'postSave hook of feature "f"', {
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, 'postSave hook of feature "f"', {
       reason: "test hook needs SYSTEM",
     });
 
@@ -155,7 +153,7 @@ describe("withHookIdentitySwitchGrant", () => {
   test("a non-system asUser is always allowed through the hook's own gate", async () => {
     const { ungated, queryAsMock } = makeUngated();
     const handlerCtx = { ...createGatedIdentitySwitch('handler "outer"', false, ungated) };
-    const hookCtx = withHookIdentitySwitchGrant(handlerCtx, "hook", undefined);
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", undefined);
 
     await hookCtx.queryAs(normalUser, "q", {});
     expect(queryAsMock).toHaveBeenCalledWith(normalUser, "q", {});
@@ -166,15 +164,15 @@ describe("withHookIdentitySwitchGrant", () => {
     const handlerCtx = { ...createGatedIdentitySwitch('handler "outer"', true, ungated), extra: 1 };
     const spread = { ...handlerCtx };
 
-    const hookCtx = withHookIdentitySwitchGrant(spread, "hook", { reason: "needs system" });
+    const hookCtx = withHookEscapeHatchGrant(spread, "hook", { reason: "needs system" });
     await hookCtx.queryAs(systemUserById, "q", {});
 
     expect(queryAsMock).toHaveBeenCalledWith(systemUserById, "q", {});
   });
 
-  test("a context without queryAs/writeAs is returned unchanged", () => {
-    const plainContext = { db: {} };
-    const result = withHookIdentitySwitchGrant(plainContext, "hook", { reason: "x" });
+  test("a context without queryAs/writeAs/db/dbOutsideTransaction is returned unchanged", () => {
+    const plainContext = { unrelated: 1 };
+    const result = withHookEscapeHatchGrant(plainContext, "hook", { reason: "x" });
     expect(result).toBe(plainContext);
   });
 
@@ -182,14 +180,38 @@ describe("withHookIdentitySwitchGrant", () => {
     const stubQueryAs = mock(async (_user: SessionUser, _qn: string, _payload: unknown) => "ok");
     const stubContext = { queryAs: stubQueryAs };
 
-    const hookCtx = withHookIdentitySwitchGrant(stubContext, "hook", undefined);
+    const hookCtx = withHookEscapeHatchGrant(stubContext, "hook", undefined);
     await expect(hookCtx.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(
       AccessDeniedError,
     );
     expect(stubQueryAs).not.toHaveBeenCalled();
 
-    const allowedHookCtx = withHookIdentitySwitchGrant(stubContext, "hook", { reason: "x" });
+    const allowedHookCtx = withHookEscapeHatchGrant(stubContext, "hook", { reason: "x" });
     await allowedHookCtx.queryAs(systemUserById, "q", {});
     expect(stubQueryAs).toHaveBeenCalledWith(systemUserById, "q", {});
+  });
+
+  test("hook re-gates ctx.db.unsafeRaw() independently of the handler's own grant", () => {
+    const rawDb: DbRunner = {
+      unsafe: async () => [],
+      begin: async () => {
+        throw new Error("begin not used in this test");
+      },
+    } as DbRunner;
+    // Simulates buildHandlerContext granting the HANDLER its own unsafeRaw escapeHatch.
+    const handlerDb = createTenantDb(rawDb, TENANT, "tenant", undefined, undefined, undefined, {
+      unsafeRaw: { reason: "handler's own grant" },
+    });
+    const handlerCtx = { db: handlerDb };
+
+    const hookCtxWithoutEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", undefined) as {
+      db: TenantDb;
+    };
+    expect(() => hookCtxWithoutEscapeHatch.db.unsafeRaw("test reason")).toThrow(AccessDeniedError);
+
+    const hookCtxWithEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", {
+      reason: "hook's own grant",
+    }) as { db: TenantDb };
+    expect(hookCtxWithEscapeHatch.db.unsafeRaw("test reason")).toBe(rawDb);
   });
 });

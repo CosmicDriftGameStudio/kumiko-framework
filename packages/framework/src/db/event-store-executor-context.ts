@@ -80,6 +80,16 @@ export function buildFilterWhere(
 // doesn't carry a default or no default was declared. Only scalar types
 // (text/number/boolean/select) support creation-time defaults — money/date/
 // file/embedded fields don't.
+// A "global" entity's stream must live on SYSTEM_TENANT_ID — otherwise the
+// projection row and event stream would disagree on which tenant "owns" it.
+export function isForeignTenantOnGlobalEntity(
+  entity: EntityDefinition,
+  tenantIdValue: unknown,
+): boolean {
+  if (entity.tenancy !== "global") return false;
+  return tenantIdValue !== undefined && tenantIdValue !== SYSTEM_TENANT_ID;
+}
+
 function scalarDefault(field: FieldDefinition): unknown {
   switch (field.type) {
     case "text":
@@ -179,6 +189,15 @@ export function buildExecutorContext(
 ): ExecutorContext {
   const { searchAdapter, entityName, entityCache } = options;
   const softDelete = entity.softDelete ?? false;
+
+  // Without systemStream: true, a "global" entity would silently fork one event stream per creating tenant.
+  if (entity.tenancy === "global" && entity.systemStream !== true) {
+    throw new Error(
+      `event-store-executor requires entity "${entityName}" to declare systemStream: true ` +
+        'when tenancy: "global" is set — a global entity\'s event stream must live on the ' +
+        "system tenant, not the creating tenant's.",
+    );
+  }
 
   // Stream-tenant choke-point. A systemStream entity (tenant-independent, e.g.
   // user) lives on SYSTEM_TENANT_ID deterministically — every op addresses it

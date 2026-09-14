@@ -61,7 +61,8 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
     escapeHatch: {
       reason:
         "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, " +
-        "user:findForAuth) to re-verify the current password before minting the token.",
+        "user:findForAuth) to re-verify the current password before minting the token. Also " +
+        "reads the MFA enrollment of the user being re-authenticated via the mfaVerifier callback.",
     },
     description:
       "Mints a personal access token for the calling user after re-verifying their password (and MFA code when enrolled) and returns the plaintext token exactly once; use it when a user needs a long-lived API credential.",

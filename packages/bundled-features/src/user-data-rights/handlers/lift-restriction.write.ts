@@ -1,4 +1,3 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -14,11 +13,8 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 // endpoint. There is no self-service path today, so lifting a restriction
 // always targets someone else's account by id.
 //
-// Tenant scope: `access.admin` includes TenantAdmin, which is tenant-
-// scoped even though the User-entity lookup below uses `ctx.db.raw`
-// (bypasses the auto-tenant-filter, same as restrict-account.write.ts —
-// User status is intentionally global, see user-data-rights.md
-// "Cross-Tenant-Semantik"). Without a membership check, a TenantAdmin
+// Tenant scope: `access.admin` includes TenantAdmin (tenant-scoped) even
+// though the User-entity is global — see user-data-rights.md "Cross-Tenant-Semantik". Without a membership check, a TenantAdmin
 // from tenant A could unrestrict/reactivate a user who has never been a
 // member of tenant A. Only SystemAdmin (platform-wide) skips the check;
 // the target must have a membership row in the acting admin's
@@ -35,13 +31,23 @@ export const liftRestrictionWrite = defineWriteHandler({
   access: { roles: access.admin },
   description:
     "Lifts a GDPR Art. 18 processing restriction on the named user and returns the account to active; operator-only, because a restricted user's own session is rejected and cannot reach this endpoint.",
+  escapeHatch: {
+    reason:
+      "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.",
+  },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 
-    const outside = await denyIfTargetOutsideAdminTenant(ctx.db.raw, event.user, targetUserId);
+    const outside = await denyIfTargetOutsideAdminTenant(
+      ctx.db.unsafeRaw(
+        "checks the target user's membership in the admin's tenant via the DbRunner helper",
+      ),
+      event.user,
+      targetUserId,
+    );
     if (outside) return outside;
 
-    const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
+    const userRow = await ctx.db.global(userTable).fetchOne<{ status: string }>({
       id: targetUserId,
     });
 
@@ -62,7 +68,11 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.raw, targetUserId, { status: USER_STATUS.Active });
+    await updateUserLifecycle(
+      ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+      targetUserId,
+      { status: USER_STATUS.Active },
+    );
 
     return {
       isSuccess: true as const,

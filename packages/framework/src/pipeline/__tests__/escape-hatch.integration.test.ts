@@ -19,7 +19,6 @@ const globalStoreTable = defineUnmanagedTable({
       primaryKey: true,
       defaultSql: "gen_random_uuid()",
     },
-    { name: "tenant_id", pgType: "uuid", notNull: true },
     { name: "note", pgType: "text", notNull: true },
   ],
 });
@@ -36,7 +35,6 @@ const escapeHatchFeature = defineFeature("escape-hatch-probe", (r) => {
     escapeHatch: { reason: "fw#2855 integration test — declared cross-tenant write" },
     handler: async (event, ctx) => {
       const row = await ctx.db.global(globalStoreTable).insertOne<{ id: string }>({
-        tenantId: event.user.tenantId,
         note: event.payload.note,
       });
       return { isSuccess: true as const, data: row };
@@ -49,7 +47,6 @@ const escapeHatchFeature = defineFeature("escape-hatch-probe", (r) => {
     access: { roles: ["User"] },
     handler: async (event, ctx) => {
       const row = await ctx.db.global(globalStoreTable).insertOne<{ id: string }>({
-        tenantId: event.user.tenantId,
         note: event.payload.note,
       });
       return { isSuccess: true as const, data: row };
