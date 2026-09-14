@@ -1,11 +1,5 @@
-// buildInsertSchema's optional `id` field only lets a caller-chosen id
-// survive schema parsing — the create handler still only honors it for a
-// system-identity caller: createSystemUser(tenantId, extraRoles) (jobs/
-// hooks), extraRoles added so it still clears a role-gated handler's
-// hasAccess check. An ordinary HTTP-authenticated user can never present
-// that identity (SYSTEM_ROLE is reserved, never assignable through tenant
-// membership), so this pins both halves of that gate end-to-end through
-// the real dispatcher.
+// The schema lets a caller id through, but only a system identity gets it honored; HTTP users
+// can never present one (SYSTEM_ROLE is reserved), so both halves are pinned end to end here.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
