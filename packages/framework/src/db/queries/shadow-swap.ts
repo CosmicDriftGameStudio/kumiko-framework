@@ -105,6 +105,40 @@ export async function assertLiveColumnsMatchMeta(
   );
 }
 
+// EntityTableMeta carries no RLS/policies, so the swap would silently drop them (#2907).
+export async function assertLiveTableHasNoRowLevelSecurity(
+  tx: AnyDb,
+  tableName: string,
+  projectionName?: string,
+): Promise<void> {
+  const rows = await asRawClient(tx).unsafe<{
+    rls_enabled: boolean;
+    rls_forced: boolean;
+    policy_count: number;
+  }>(
+    `SELECT c.relrowsecurity AS rls_enabled, c.relforcerowsecurity AS rls_forced,
+       (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid) AS policy_count
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relname = $1`,
+    [tableName],
+  );
+  const row = rows[0];
+  // skip: no live table yet — nothing to have RLS on
+  if (!row) return;
+  // skip: no RLS flags and no policies — nothing the swap could drop
+  if (!row.rls_enabled && !row.rls_forced && row.policy_count === 0) return;
+  const context =
+    projectionName !== undefined ? `projection-rebuild "${projectionName}"` : "shadow swap";
+  throw new Error(
+    `${context}: live table "${tableName}" has row level security (enabled: ${row.rls_enabled}, ` +
+      `forced: ${row.rls_forced}, policies: ${row.policy_count}). The shadow swap rebuilds the table ` +
+      "from EntityTableMeta and would silently drop RLS and every policy. Kumiko does not support RLS " +
+      "on rebuildable tables — see kumiko-platform docs/plans/rls-evaluation.md. Rebuild aborted; live " +
+      "table untouched.",
+  );
+}
+
 // Runs INSIDE the rebuild tx, AFTER the state/consumer row lock is taken.
 // Points search_path at the shadow schema (SET LOCAL → auto-reset on commit or
 // rollback), drops any leftover shadow from a crashed run, then builds the
@@ -300,6 +334,8 @@ export async function countColumnDrift(
 // object depends on the live table the swap fails loud and the whole rebuild
 // rolls back, leaving the old table untouched.
 export async function swapShadowIntoLive(tx: AnyDb, tableName: string): Promise<void> {
+  // Re-checked right before DROP: RLS could have been enabled after the early check.
+  await assertLiveTableHasNoRowLevelSecurity(tx, tableName);
   const raw = asRawClient(tx);
   const ident = quoteTableIdent(tableName);
   await raw.unsafe(`DROP TABLE public.${ident}`);

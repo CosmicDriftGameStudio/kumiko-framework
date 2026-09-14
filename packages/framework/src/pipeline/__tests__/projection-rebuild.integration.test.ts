@@ -938,3 +938,97 @@ describe("rebuildProjection — stale-registry column fence (#835)", () => {
     expect(await getCount(group)).toBe(1);
   });
 });
+
+describe("rebuildProjection — row level security guard (#2907)", () => {
+  test("aborts when the live table has RLS enabled — data and RLS survive", async () => {
+    const group = "00000000-0000-4000-8000-000000000051";
+    await appendCreatedEvent(group, "item1");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(1);
+
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" ENABLE ROW LEVEL SECURITY`);
+    try {
+      await expect(
+        rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry }),
+      ).rejects.toThrow(/read_rebuild_items_per_group.*has row level security/);
+
+      // Live table untouched: row count AND the RLS flag itself survive.
+      expect(await getCount(group)).toBe(1);
+      const [pgClass] = await raw.unsafe<{ relrowsecurity: boolean }>(
+        `SELECT relrowsecurity FROM pg_class WHERE relname = 'read_rebuild_items_per_group'`,
+      );
+      expect(pgClass?.relrowsecurity).toBe(true);
+
+      const state = await getProjectionState(testDb.db, qualifiedProjectionName);
+      expect(state?.status).toBe("failed");
+    } finally {
+      await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" DISABLE ROW LEVEL SECURITY`);
+    }
+
+    // RLS cleared again → rebuild works.
+    const result = await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(result.eventsProcessed).toBe(1);
+    expect(await getCount(group)).toBe(1);
+  });
+
+  test("aborts on a policy alone, without RLS enabled — policy count reported and survives", async () => {
+    const group = "00000000-0000-4000-8000-000000000052";
+    await appendCreatedEvent(group, "item1");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(
+      `CREATE POLICY rls_guard_probe ON "read_rebuild_items_per_group" USING (true)`,
+    );
+    try {
+      await expect(
+        rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry }),
+      ).rejects.toThrow(/policies: 1/);
+
+      const [policyCount] = await raw.unsafe<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_policy p
+         JOIN pg_class c ON c.oid = p.polrelid
+         WHERE c.relname = 'read_rebuild_items_per_group'`,
+      );
+      expect(policyCount?.n).toBe(1);
+    } finally {
+      await raw.unsafe(`DROP POLICY IF EXISTS rls_guard_probe ON "read_rebuild_items_per_group"`);
+    }
+  });
+
+  test("aborts on FORCE ROW LEVEL SECURITY alone, without ENABLE", async () => {
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" FORCE ROW LEVEL SECURITY`);
+    try {
+      await expect(
+        rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry }),
+      ).rejects.toThrow(/row level security/);
+    } finally {
+      await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" NO FORCE ROW LEVEL SECURITY`);
+      await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" DISABLE ROW LEVEL SECURITY`);
+    }
+  });
+
+  test("swapShadowIntoLive rejects directly when RLS is enabled — live table survives", async () => {
+    const group = "00000000-0000-4000-8000-000000000053";
+    await appendCreatedEvent(group, "item1");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(1);
+
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" ENABLE ROW LEVEL SECURITY`);
+    try {
+      const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
+      await expect(
+        db.begin(async (tx: DbTx) => {
+          await swapShadowIntoLive(tx, "read_rebuild_items_per_group");
+        }),
+      ).rejects.toThrow(/shadow swap:.*row level security/);
+
+      expect(await getCount(group)).toBe(1);
+    } finally {
+      await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" DISABLE ROW LEVEL SECURITY`);
+    }
+  });
+});

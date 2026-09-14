@@ -847,7 +847,7 @@ describe("computeEditViewModel — relatedList searchable/facets passthrough (fw
   });
 });
 
-describe("computeEditViewModel — relatedList parentFilter passthrough (fw akte-bedienkonzept-2)", () => {
+describe("computeEditViewModel — relatedList parentFilter passthrough", () => {
   test("parentFilter passes through onto the relatedList section view-model verbatim", () => {
     const vm = computeEditViewModel({
       screen: editScreen({

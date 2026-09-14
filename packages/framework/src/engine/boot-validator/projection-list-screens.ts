@@ -157,7 +157,7 @@ function validateRelatedListFacets(
   );
 }
 
-// parentFilter (fw akte-bedienkonzept-2) resolves an entity field map to
+// parentFilter resolves an entity field map to
 // check `field` against ONLY when the query is one of the entity-convention
 // factories (defineEntityListHandler et al., branded by
 // ENTITY_CONVENTION_QUERY_BRAND) — a hand-written handler carries no entity,
@@ -180,7 +180,7 @@ function resolveEntityBehindQuery(
   return entityName === "" ? undefined : findEntity(featureMap, entityName);
 }
 
-// parentFilter (fw akte-bedienkonzept-2) lets a relatedList reuse the
+// parentFilter lets a relatedList reuse the
 // generic `<entity>:list` query instead of a bespoke child-rows handler —
 // same 422 footgun as facets/filter above, plus its own mutual-exclusivity
 // and field-existence checks.

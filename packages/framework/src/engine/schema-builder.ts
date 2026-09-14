@@ -380,6 +380,12 @@ export function buildInsertSchema(
     shape[name] = isRequired || hasDefault ? zodField : zodField.optional();
   }
 
+  // Caller-chosen aggregate id for idempotent creates (deterministic-id
+  // patterns). Accepting it here only lets it survive parsing — the create
+  // handler still honors it only for a system-identity caller (jobs/hooks
+  // via createSystemUser), never for an ordinary HTTP-authenticated user.
+  shape["id"] = z.uuid().optional();
+
   return applyTotalsMatchRefinements(entity, z.object(shape));
 }
 
