@@ -412,8 +412,9 @@ export type AppContext = SharedContextFields & {
 //   sharing the active tx + afterCommit queue. Field-access filters apply.
 //   ctx.queryAs / ctx.writeAs switch identity (e.g. SYSTEM for privileged
 //   lookups like "find user by email for auth" — system reads aren't filtered
-//   by field-access read rules). SYSTEM as the target is gated: reachable
-//   only from an r.systemScope() feature, a job, or a handler/hook that
+//   by field-access read rules). Any target other than the caller itself (or
+//   a subset of its roles) is gated: reachable only from an r.systemScope()
+//   feature, a job, or a handler/hook that
 //   declared { escapeHatch: { reason } } (system-identity-switch.ts).
 //
 // The design: handlers are the contract between features. Feature A requires
@@ -1125,4 +1126,8 @@ export type StreamHandlerDef = {
   readonly handler: StreamHandlerFn;
   readonly access: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  // Stream handlers can't reach db.global() (that gate is write-only), but
+  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // in, same contract as WriteHandlerDef.escapeHatch.
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };

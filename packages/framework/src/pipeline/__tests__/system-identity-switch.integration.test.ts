@@ -1,5 +1,5 @@
-// fw#2859 — ctx.queryAs/ctx.writeAs to SYSTEM needs r.systemScope() or { escapeHatch }; a
-// non-SYSTEM switch is ungated. Real HTTP calls + setupTestStack — never createTestDispatcher.
+// fw#2859/#2876 — ctx.queryAs/ctx.writeAs to anyone but the caller itself (or a role subset) needs
+// r.systemScope() or { escapeHatch }. Real HTTP calls + setupTestStack — never createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
@@ -33,6 +33,21 @@ const otherUserWithAdminRole: SessionUser = createTestUser({
   roles: ["Admin"],
 });
 
+const multiRoleUser: SessionUser = createTestUser({
+  id: 52,
+  tenantId: user.tenantId,
+  roles: ["User", "Editor"],
+});
+
+function foreignTenantTwin(caller: SessionUser): SessionUser {
+  return { ...caller, tenantId: TestUsers.otherTenant.tenantId };
+}
+
+function errorReason(details: unknown): string | undefined {
+  if (!details || typeof details !== "object" || !("reason" in details)) return undefined;
+  return typeof details.reason === "string" ? details.reason : undefined;
+}
+
 const hookThingEntity = createEntity({
   table: "idswitch_hook_things",
   fields: {
@@ -46,6 +61,7 @@ const hookThingExecutor = createEventStoreExecutor(hookThingTable, hookThingEnti
 
 const hookNoEscapeHatchOutcomes: Array<{ readonly threw: boolean }> = [];
 const hookWithEscapeHatchOutcomes: Array<{ readonly ok: boolean }> = [];
+const hookForeignNoEscapeHatchOutcomes: Array<{ readonly threw: boolean }> = [];
 
 const probeFeature = defineFeature("idswitch-probe", (r) => {
   r.entity("hookThing", hookThingEntity);
@@ -132,9 +148,29 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     },
   );
 
-  // --- Non-SYSTEM switch: never gated by this feature, only the target's own access rule ---
+  // --- Non-SYSTEM switch (fw#2876): only the caller itself (or a role subset) is free ---
+  r.queryHandler(
+    "query-as-self",
+    z.object({ roles: z.array(z.string()).optional() }),
+    async (query, ctx) =>
+      ctx.queryAs(
+        query.payload.roles ? { ...query.user, roles: query.payload.roles } : query.user,
+        "idswitch-probe:query:whoami",
+        {},
+      ),
+    { access: { roles: ["User"] } },
+  );
+
   r.queryHandler(
     "query-as-normal-user",
+    z.object({}),
+    async (_query, ctx) =>
+      ctx.queryAs(otherUserWithAdminRole, "idswitch-probe:query:admin-only", {}),
+    { access: { roles: ["User"] } },
+  );
+
+  r.queryHandler(
+    "query-as-normal-user-with-hatch",
     z.object({ granted: z.boolean() }),
     async (query, ctx) =>
       ctx.queryAs(
@@ -142,7 +178,46 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         "idswitch-probe:query:admin-only",
         {},
       ),
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: reads admin-only data as a named colleague" },
+    },
+  );
+
+  r.writeHandler(
+    "write-as-foreign-tenant",
+    z.object({}),
+    async (event, ctx) =>
+      ctx.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
     { access: { roles: ["User"] } },
+  );
+
+  r.writeHandler(
+    "write-as-foreign-tenant-with-hatch",
+    z.object({}),
+    async (event, ctx) =>
+      ctx.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: acts for the same user inside a second tenant" },
+    },
+  );
+
+  // Reached through outer-with-hatch as a colleague — must not inherit the outer grant.
+  r.writeHandler(
+    "inner-foreign-no-hatch",
+    z.object({}),
+    async (event, ctx) =>
+      ctx.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
+    { access: { roles: ["User"] } },
+  );
+
+  r.writeHandler(
+    "outer-as-colleague-with-hatch",
+    z.object({}),
+    async (_event, ctx) =>
+      ctx.writeAs(otherUserNoRole, "idswitch-probe:write:inner-foreign-no-hatch", {}),
+    { access: { roles: ["User"] }, escapeHatch: { reason: "test: outer acts as a colleague" } },
   );
 
   // --- Nested: no transitive grant ---
@@ -229,6 +304,29 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     },
     { phase: HookPhases.inTransaction, escapeHatch: { reason: "test: hook needs SYSTEM" } },
   );
+
+  r.writeHandler(
+    "hook-foreign-target-with-hatch",
+    z.object({ label: z.string() }),
+    async (event, ctx) => hookThingExecutor.create(event.payload, event.user, ctx.db),
+    { access: { roles: ["User"] }, escapeHatch: { reason: "test: handler acts cross-tenant" } },
+  );
+
+  r.hook(
+    "postSave",
+    "hook-foreign-target-with-hatch",
+    async (_result, ctx) => {
+      const handlerCtx = ctx as unknown as HandlerContext;
+      try {
+        await handlerCtx.writeAs(foreignTenantTwin(user), "idswitch-probe:write:whoami-write", {});
+        hookForeignNoEscapeHatchOutcomes.push({ threw: false });
+      } catch (err) {
+        hookForeignNoEscapeHatchOutcomes.push({ threw: true });
+        throw err;
+      }
+    },
+    { phase: HookPhases.inTransaction },
+  );
 });
 
 const systemScopeFeature = defineFeature("idswitch-probe-system", (r) => {
@@ -239,6 +337,18 @@ const systemScopeFeature = defineFeature("idswitch-probe-system", (r) => {
     z.object({}),
     async (event, ctx) =>
       ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.writeHandler(
+    "write-as-foreign-tenant",
+    z.object({}),
+    async (event, ctx) =>
+      ctx.writeAs(
+        { ...foreignTenantTwin(event.user), roles: ["User"] },
+        "idswitch-probe:write:whoami-write",
+        {},
+      ),
     { access: { roles: ["Admin"] } },
   );
 });
@@ -314,27 +424,110 @@ describe("ctx.resolveActiveMembership — gated like a SYSTEM queryAs/writeAs", 
   });
 });
 
-describe("ctx.queryAs(nonSystemUser, ...) — never gated by this feature", () => {
-  test("delegates to the target's own access check: denied when the target user lacks the role", async () => {
+describe("ctx.queryAs/writeAs to a non-SYSTEM identity (fw#2876)", () => {
+  test("switching to the caller itself is free", async () => {
+    const result = await stack.http.queryOk<{ roles: readonly string[]; tenantId: string }>(
+      "idswitch-probe:query:query-as-self",
+      {},
+      multiRoleUser,
+    );
+    expect(result.roles).toEqual(["User", "Editor"]);
+    expect(result.tenantId).toBe(multiRoleUser.tenantId);
+  });
+
+  test("a subset of the caller's roles is free", async () => {
+    const result = await stack.http.queryOk<{ roles: readonly string[] }>(
+      "idswitch-probe:query:query-as-self",
+      { roles: ["User"] },
+      multiRoleUser,
+    );
+    expect(result.roles).toEqual(["User"]);
+  });
+
+  test("an additional role without escapeHatch is denied", async () => {
     const err = await stack.http.queryErr(
-      "idswitch-probe:query:query-as-normal-user",
+      "idswitch-probe:query:query-as-self",
+      { roles: ["User", "Admin"] },
+      multiRoleUser,
+    );
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("identity_switch_denied");
+  });
+
+  test("a foreign user id without escapeHatch is denied, even when that user could read the target", async () => {
+    const err = await stack.http.queryErr("idswitch-probe:query:query-as-normal-user", {}, user);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("identity_switch_denied");
+  });
+
+  test("writeAs with a foreign tenantId without escapeHatch answers 403 access_denied", async () => {
+    const err = await stack.http.writeErr("idswitch-probe:write:write-as-foreign-tenant", {}, user);
+    expect(err.httpStatus).toBe(403);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("identity_switch_denied");
+    expect(JSON.stringify(err)).not.toContain(TestUsers.otherTenant.tenantId);
+  });
+
+  test("writeAs with a foreign tenantId WITH escapeHatch runs in that tenant", async () => {
+    const result = await stack.http.writeOk<{ tenantId: string }>(
+      "idswitch-probe:write:write-as-foreign-tenant-with-hatch",
+      {},
+      user,
+    );
+    expect(result.tenantId).toBe(TestUsers.otherTenant.tenantId);
+  });
+
+  test("WITH escapeHatch the target's own access check still applies: denied when the target user lacks the role", async () => {
+    const err = await stack.http.queryErr(
+      "idswitch-probe:query:query-as-normal-user-with-hatch",
       { granted: false },
       user,
     );
     expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).not.toBe("identity_switch_denied");
   });
 
-  test("delegates to the target's own access check: allowed when the target user has the role", async () => {
+  test("WITH escapeHatch: allowed when the target user has the role", async () => {
     const result = await stack.http.queryOk<{ ok: boolean }>(
-      "idswitch-probe:query:query-as-normal-user",
+      "idswitch-probe:query:query-as-normal-user-with-hatch",
       { granted: true },
       user,
     );
     expect(result.ok).toBe(true);
   });
+
+  test("no transitive grant: outer-with-hatch -> colleague -> inner-no-hatch cross-tenant writeAs is denied", async () => {
+    const err = await stack.http.writeErr(
+      "idswitch-probe:write:outer-as-colleague-with-hatch",
+      {},
+      user,
+    );
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("identity_switch_denied");
+  });
+
+  test("hook without escapeHatch does not inherit the handler's grant for a cross-tenant writeAs", async () => {
+    hookForeignNoEscapeHatchOutcomes.length = 0;
+    const err = await stack.http.writeErr(
+      "idswitch-probe:write:hook-foreign-target-with-hatch",
+      { label: "should-roll-back" },
+      user,
+    );
+    expect(err.code).toBe("access_denied");
+    expect(hookForeignNoEscapeHatchOutcomes).toEqual([{ threw: true }]);
+  });
 });
 
 describe("r.systemScope() feature — no escapeHatch needed", () => {
+  test("writeAs with a foreign tenantId succeeds from a systemScope handler", async () => {
+    const result = await stack.http.writeOk<{ tenantId: string }>(
+      "idswitch-probe-system:write:write-as-foreign-tenant",
+      {},
+      TestUsers.admin,
+    );
+    expect(result.tenantId).toBe(TestUsers.otherTenant.tenantId);
+  });
+
   test("writeAs(SYSTEM) succeeds from a systemScope handler", async () => {
     const result = await stack.http.writeOk<{ roles: readonly string[] }>(
       "idswitch-probe-system:write:write-as-system",

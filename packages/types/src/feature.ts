@@ -488,7 +488,11 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: StreamHandlerFn<z.infer<TSchema>>,
-    options: { access: AccessRule; rateLimit?: RateLimitOption },
+    options: {
+      access: AccessRule;
+      rateLimit?: RateLimitOption;
+      escapeHatch?: EscapeHatchDeclaration;
+    },
   ): HandlerRef;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
@@ -501,7 +505,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   ): void;
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
-  // escapeHatch grants this hook (not the handler) SYSTEM identity-switches — see system-identity-switch.ts.
+  // escapeHatch grants this hook (not the handler) identity-switches beyond its caller — see system-identity-switch.ts.
   hook(
     type: "preSave",
     target: RefOrRefs,

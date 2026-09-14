@@ -145,6 +145,43 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
+  // 2c. escapeHatch reason must be non-empty on a stream handler too — same
+  // contract as write/query: streams can't reach db.global(), but they can
+  // still declare escapeHatch to switch identity to SYSTEM via ctx.queryAs.
+  test("stream handler escapeHatch with an empty reason throws, naming the handler", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.streamHandler(
+        "note:tail",
+        z.object({}),
+        async function* () {
+          yield {};
+        },
+        { access: { roles: ["Admin"] }, escapeHatch: { reason: "" } },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:tail"/);
+  });
+
+  test("stream handler escapeHatch with a non-empty reason boots fine", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.streamHandler(
+        "note:tail",
+        z.object({}),
+        async function* () {
+          yield {};
+        },
+        {
+          access: { roles: ["Admin"] },
+          escapeHatch: { reason: "cross-tenant note tail for auth" },
+        },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
   // 3. openToAll write handler accepting an unbound personal-data field needs personalData.
   test("openToAll write handler accepting a personal-data field without personalData throws", () => {
     const feature = defineFeature("notes", (r) => {

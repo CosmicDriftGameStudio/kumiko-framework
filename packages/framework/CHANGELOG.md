@@ -1,5 +1,48 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.269.0
+
+### Minor Changes
+
+- ec9aaca: Breaking: `ctx.queryAs`/`ctx.writeAs` without a grant only accept the caller itself — same `id`, `tenantId`, `origin` and `claims`, with roles that are a subset of the caller's roles. Any other identity (a different user, a different tenant, extra roles, changed claims) now throws `AccessDeniedError` with `details.reason: "identity_switch_denied"`; SYSTEM targets keep `system_identity_switch_denied`. The grant is unchanged from fw#2859: an `r.systemScope()` feature, `escapeHatch: { reason }` on the write/query/stream handler, or the hook's own `r.hook(..., { escapeHatch })` — non-transitive, never inherited by hooks. `isSystemIdentitySwitchAllowed` is replaced by `isIdentitySwitchAllowed(caller, asUser, hasGrant)` and `createGatedIdentitySwitch` takes the caller as second argument. Jobs, top-level dispatcher calls, `ctx.queryAsMember` and `ctx.resolveActiveMembership` are unchanged. Migration: declare `escapeHatch` on handlers that act as another user or tenant, or move the call into a job / `r.systemScope()` feature (see `changes.json`, fw#2876).
+- 8412e09: `StreamHandlerDef`/`StreamHandlerDefinition` (`@cosmicdrift/kumiko-types/handlers`, `/define-handler`) and the `r.streamHandler` options param now accept `escapeHatch: { reason }`, same contract as `WriteHandlerDef`/`QueryHandlerDef`: a stream handler that switches identity to SYSTEM via `ctx.queryAs` needs its own `escapeHatch` declaration (or its feature must be `r.systemScope()`), same as write and query handlers already require. Stream handlers still cannot reach `db.global()` (`globalWrites` stays write-only) but do get the same SYSTEM-identity-switch and `ctx.db.unsafeRaw(reason)` grant a query handler's `escapeHatch` already unlocks. The boot validator rejects an empty `escapeHatch.reason` on a stream handler the same way it does for write/query handlers.
+
+### Patch Changes
+
+- Updated dependencies [ec9aaca]
+- Updated dependencies [8412e09]
+  - @cosmicdrift/kumiko-types@0.269.0
+
+## 0.268.0
+
+### Minor Changes
+
+- b16457a: `ctx.db.unsafeRaw(reason)` returns the unfiltered runner only for write/query handlers and hooks that declare `escapeHatch: { reason }`. `tenancy: "global"` entities must be `systemStream` and only hold `SYSTEM_TENANT_ID` rows; `declareGlobalTenancy(table)` declares plain stores without `tenant_id` as global. `createTenantDb`'s 7th parameter is now `{ globalWrites?, unsafeRaw? }`. Bundled features no longer use `ctx.db.raw` (`user` and `store_global_feature_state` are global); `scripts/migrate-db-raw.ts` migrates consumer call sites.
+
+### Patch Changes
+
+- Updated dependencies [b16457a]
+  - @cosmicdrift/kumiko-types@0.268.0
+
+## 0.267.0
+
+### Minor Changes
+
+- e87ab51: New `ctx.queryAsMember(userId, qn, payload)` on `HandlerContext`, `JobContext` and (optional) `AppContext` — reads a query handler as a stored member of the current tenant, resolved internally by the framework (`resolveActiveMembershipFn` with a new, stricter `BACKGROUND_READ_POLICY` — no pending-destruction grace window, no unknown-principal pass) → `PrincipalStatusPlugin.resolveProfile` for global roles/timezone/locale → `buildSessionRoles` → `resolveAuthClaims`. The resolved `SessionUser` is never exposed: it carries no `sid`, `origin: "member-resolution"`, and is minted only for the duration of the call. Rejection (not a member, principal blocked, tenant in teardown, or the resolved principal would be SYSTEM) always surfaces the same generic `AccessDeniedError` (`member_resolution_denied`, no rejection reason in `details`) so a caller can't probe another user's membership state. Resolution is cached per handler invocation (its lifecycle hooks share that cache) or job run — repeated calls for the same `userId` resolve once; a nested dispatch gets its own cache. `ctx.queryAsMember` needs the same grant as a SYSTEM `queryAs` — `r.systemScope()` or a declared `escapeHatch` — and, for hooks, is re-gated by the HOOK's own `escapeHatch` rather than inheriting (or failing to inherit) the enclosing handler's grant, so a hook can grant `queryAsMember` even when the handler it fires on has none. Jobs stay ungated, same as `JobContext.queryAs`.
+
+  There is deliberately no `writeAsMember`: a resolved member principal is read-only by construction. `ctx.write`, `writeAs`, `appendEvent`, `unsafeAppendEvent`, `tryAppendEvent`, `fetchForWriting`, `archiveStream`, `restoreStream`, `snapshotAggregate`, `queryAsMember`, `resolveActiveMembership` and `jobRunner` all throw `member_resolution_read_only` on a `HandlerContext` built for such a principal; `scheduleAfterCommit` throws the same error; `dbOutsideTransaction`, `systemDb`, `runPreSave`, `files` and `derivatives` are unset. This is enforced structurally in `buildHandlerContext` and, as defense in depth, again at the shared event-append sink behind `appendEvent`/`unsafeAppendEvent`/`fetchForWriting().appendOne` and in the write/stream dispatch paths (covers a handler that spreads/copies the resolved user into a direct `dispatcher.write`/`batch`/`stream` call). `ctx.db` itself is NOT blocked — a queried handler's raw `ctx.db` writes are exactly as reachable as they'd be if that same handler ran for the member over HTTP; this is a known, documented gap, not something this change closes. `jwt.sign()` now throws if handed a `SessionUser` with `origin` set, so a resolved member principal can never be minted into a session.
+
+  Membership/principal/lifecycle are resolved on the root database connection (outside the caller's transaction, same as `resolveActiveMembershipFn`/`resolveAuthClaims`); the target query itself runs inside the caller's transaction when one is threaded through.
+
+  `PrincipalStatusPlugin.resolveProfile(userId, { db })` is now a REQUIRED method (previously the plugin only needed `resolveStatus`) — it returns `{ globalRoles, timezone?, locale? } | null`, the source `ctx.queryAsMember` uses to mint a resolved principal's roles/timezone/locale. The bundled `user` feature implements it. No new boot check is added for `ctx.queryAsMember` usage itself — it can't be detected statically without breaking apps that mount `tenant` without `user`; a missing `resolveProfile` provider fails closed at first use with an `InternalError` naming the `user` feature. `#2883`'s existing boot check (membershipQuery registered + auth wired ⇒ a `principalStatus` provider is required) is unchanged.
+
+  Also: `setupTestStack`'s job runner now calls `attachDispatcher(...)` after `buildServer()`, mirroring the production entrypoints — previously `JobContext.write`/`writeAs`/`queryAs`/`queryAsMember` always threw "dispatcher attached — call attachDispatcher() first" inside a `setupTestStack`-based job (no existing test happened to exercise that path).
+
+### Patch Changes
+
+- Updated dependencies [e87ab51]
+  - @cosmicdrift/kumiko-types@0.267.0
+
 ## 0.266.0
 
 ### Minor Changes

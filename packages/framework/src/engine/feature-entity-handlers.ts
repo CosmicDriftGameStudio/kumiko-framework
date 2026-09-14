@@ -228,7 +228,11 @@ export function buildEntityHandlerMethods<TName extends string>(
       nameOrDef: string | StreamHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: StreamHandlerFn<z.infer<TSchema>>,
-      options?: { access: AccessRule; rateLimit?: RateLimitOption },
+      options?: {
+        access: AccessRule;
+        rateLimit?: RateLimitOption;
+        escapeHatch?: EscapeHatchDeclaration;
+      },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
@@ -239,6 +243,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           handler: def.handler as StreamHandlerFn, // @cast-boundary engine-bridge
           access: def.access,
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
         };
         return { name: def.name };
       }
@@ -249,6 +254,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         handler: inline.handler as StreamHandlerFn, // @cast-boundary engine-bridge
         access: inline.options.access,
         ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
+        ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
       };
       return { name: nameOrDef };
     },
