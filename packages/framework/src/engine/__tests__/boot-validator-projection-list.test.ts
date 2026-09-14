@@ -449,7 +449,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",
@@ -478,7 +478,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",
@@ -510,7 +510,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",

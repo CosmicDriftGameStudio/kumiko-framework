@@ -41,7 +41,7 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
   test("resolved via a list screen's rowAction navigate target → no throw", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("orphan:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.nav({ id: "home", label: "app.nav.home", screen: "app:screen:orphan-list" });
       r.screen({
@@ -59,7 +59,7 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
   test("resolved via a list screen's toolbarAction navigate target → no throw", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("orphan:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.nav({ id: "home", label: "app.nav.home", screen: "app:screen:orphan-list" });
       r.screen({

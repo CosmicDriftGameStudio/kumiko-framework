@@ -561,13 +561,15 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler(
             "foo:list",
             z.object({ filter: z.unknown().optional() }),
             async () => ({ rows: [], nextCursor: null }),
-            { access: { openToAll: true } },
+            {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            },
           );
           r.screen({
             id: "x",
@@ -588,19 +590,17 @@ describe("r.screen() — registration", () => {
           });
         }),
       ];
-      expect(() => validateBoot(features)).toThrow(
-        /declares both parentFilter and parentParam/,
-      );
+      expect(() => validateBoot(features)).toThrow(/declares both parentFilter and parentParam/);
     });
 
     test("rejects parentFilter when the bound query's schema has no filter parameter", () => {
       const features = [
         defineFeature("app", (r) => {
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
           r.screen({
             id: "x",
@@ -633,7 +633,11 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.entity("order", orderEntity);
-          r.queryHandler(defineEntityListHandler("order", orderEntity, { access: { openToAll: true } }));
+          r.queryHandler(
+            defineEntityListHandler("order", orderEntity, {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            }),
+          );
           r.screen({
             id: "x",
             type: "projectionDetail",
@@ -651,7 +655,7 @@ describe("r.screen() — registration", () => {
             },
           });
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
         }),
       ];
@@ -671,7 +675,11 @@ describe("r.screen() — registration", () => {
       const features = [
         defineFeature("app", (r) => {
           r.entity("order", orderEntity);
-          r.queryHandler(defineEntityListHandler("order", orderEntity, { access: { openToAll: true } }));
+          r.queryHandler(
+            defineEntityListHandler("order", orderEntity, {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            }),
+          );
           r.screen({
             id: "x",
             type: "projectionDetail",
@@ -689,7 +697,7 @@ describe("r.screen() — registration", () => {
             },
           });
           r.queryHandler("foo:detail", z.object({}), async () => ({}), {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
         }),
       ];

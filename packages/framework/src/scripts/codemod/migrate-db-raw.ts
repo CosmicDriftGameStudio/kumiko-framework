@@ -109,6 +109,15 @@ interface PendingRewrite {
   readonly line: number;
 }
 
+// The caller checks `args.length` immediately before every use — the index
+// is always in bounds; this replaces a non-null assertion with an explicit
+// invariant instead of silencing the compiler.
+function nthArg(args: Node[], index: number): Node {
+  const arg = args[index];
+  if (!arg) throw new Error(`planRewrite: expected an argument at index ${index}`);
+  return arg;
+}
+
 function planRewrite(
   callExpr: Node,
   globalTables: ReadonlySet<string>,
@@ -118,14 +127,14 @@ function planRewrite(
   if (!Node.isIdentifier(calleeExpr)) return undefined;
   const fnName = calleeExpr.getText();
   const args = callExpr.getArguments();
-  if (args.length === 0 || !isRawOnCtxDb(args[0]!)) return undefined;
+  if (args.length === 0 || !isRawOnCtxDb(nthArg(args, 0))) return undefined;
 
   const typeArgs = callExpr.getTypeArguments();
   const typeArgsText =
     typeArgs.length > 0 ? `<${typeArgs.map((t) => t.getText()).join(", ")}>` : "";
 
   if (GLOBAL_TABLE_FN_NAMES.has(fnName) && args.length >= 2) {
-    const tableArg = args[1]!;
+    const tableArg = nthArg(args, 1);
     if (Node.isIdentifier(tableArg) && globalTables.has(tableArg.getText())) {
       const rest = args.slice(2).map((a) => a.getText());
       const after = `ctx.db.global(${tableArg.getText()}).${fnName}${typeArgsText}(${rest.join(", ")})`;
@@ -140,9 +149,9 @@ function planRewrite(
   }
 
   if (OWN_TENANT_FN_NAMES.has(fnName) && args.length >= 3) {
-    const objArg = args[2]!;
+    const objArg = nthArg(args, 2);
     if (objectHasValidOwnTenantId(objArg)) {
-      const rest = [args[1]!, objArg, ...args.slice(3)].map((a) => a.getText());
+      const rest = [nthArg(args, 1), objArg, ...args.slice(3)].map((a) => a.getText());
       const after = `ctx.db.${fnName}${typeArgsText}(${rest.join(", ")})`;
       return {
         callExpr,
@@ -174,7 +183,10 @@ function isTenantDbRawAccess(pae: Node): boolean {
 function enclosingName(node: Node): string {
   let current: Node | undefined = node.getParent();
   while (current) {
-    if (Node.isFunctionDeclaration(current) && current.getName()) return current.getName()!;
+    if (Node.isFunctionDeclaration(current)) {
+      const name = current.getName();
+      if (name) return name;
+    }
     if (Node.isMethodDeclaration(current)) return current.getName();
     if (Node.isPropertyAssignment(current)) return current.getName();
     if (Node.isVariableDeclaration(current)) return current.getName();
@@ -283,7 +295,8 @@ function parseArgs(argv: string[]): CliOptions {
   const paths: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
+    const arg = argv[i];
+    if (!arg) break;
     if (arg === "--dry-run") {
       dryRun = true;
       continue;

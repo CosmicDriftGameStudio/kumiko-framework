@@ -148,7 +148,7 @@ const testFeature = defineFeature("test", (r) => {
     "retry-event-trigger",
     z.object({ n: z.number() }),
     async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   // Event-triggered job with retries — proves handleEvent passes
   // retries/backoff to the queue the same way dispatch() does (fw

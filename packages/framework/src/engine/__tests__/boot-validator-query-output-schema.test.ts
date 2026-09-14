@@ -145,7 +145,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("relatedList toolbarAction visible.field not in the projectionDetail's own outputSchema throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1", status: "active" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), status: z.string() }),
       });
       r.queryHandler(
@@ -153,7 +153,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         z.object({}),
         async () => ({ rows: [], nextCursor: null }),
         {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({
             rows: z.array(z.object({ id: z.string() })),
             nextCursor: z.string().nullable(),
@@ -193,7 +193,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("relatedList toolbarAction navigate params source field not in the projectionDetail's own outputSchema throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string() }),
       });
       r.queryHandler(
@@ -201,7 +201,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         z.object({}),
         async () => ({ rows: [], nextCursor: null }),
         {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({
             rows: z.array(z.object({ id: z.string() })),
             nextCursor: z.string().nullable(),
@@ -241,7 +241,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("relatedList toolbarAction visible/params present in the projectionDetail's own outputSchema does not throw", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1", status: "active" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), status: z.string() }),
       });
       r.queryHandler(
@@ -249,7 +249,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         z.object({}),
         async () => ({ rows: [], nextCursor: null }),
         {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({
             rows: z.array(z.object({ id: z.string() })),
             nextCursor: z.string().nullable(),
