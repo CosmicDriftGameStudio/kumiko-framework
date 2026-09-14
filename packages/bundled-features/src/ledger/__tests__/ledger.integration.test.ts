@@ -11,6 +11,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -18,6 +19,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants";
 import { accountEntity, scheduleEntity, transactionEntity } from "../entity";
 import { createLedgerFeature } from "../feature";
@@ -541,6 +543,61 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     const rows = await listTransactions();
     expect(rows[0]?.["subjectType"]).toBeNull();
     expect(rows[0]?.["subjectId"]).toBeNull();
+  });
+});
+
+describe("ledger integration — createSchedule with a caller-chosen id (idempotent job creates)", () => {
+  // An event-triggered job derives the schedule id deterministically from
+  // its own contract line instead of matching on description text. It acts
+  // as createSystemUser(tenantId, extraRoles) — extraRoles clears the
+  // handler's normal TenantAdmin/TenantMember access gate while roles still
+  // carrying "system" is what lets the create handler honor the id at all.
+  const jobUser = createSystemUser(admin.tenantId, ["TenantAdmin"]);
+
+  test("the chosen id is honored; redelivering the same event is recognized, not duplicated", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = generateDeterministicId(`ledger:schedule:${admin.tenantId}`, "contract-42");
+    const payload = {
+      description: "Miete WE1",
+      startDate: "2026-01-01",
+      interval: "monthly",
+      amount: 50000,
+      debitAccountId: bank,
+      creditAccountId: rent,
+      id: scheduleId,
+    };
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createSchedule,
+      payload,
+      jobUser,
+    );
+    expect(created.id).toBe(scheduleId);
+
+    const redelivered = await stack.http.writeErr(LedgerHandlers.createSchedule, payload, jobUser);
+    expect(redelivered.code).toBe("version_conflict");
+  });
+
+  test("an ordinary tenant user's chosen id is ignored — create still succeeds with a fresh id", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const chosenId = generateDeterministicId(`ledger:schedule:${admin.tenantId}`, "contract-99");
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createSchedule,
+      {
+        description: "Miete WE2",
+        startDate: "2026-01-01",
+        interval: "monthly",
+        amount: 30000,
+        debitAccountId: bank,
+        creditAccountId: rent,
+        id: chosenId,
+      },
+      admin,
+    );
+    expect(created.id).not.toBe(chosenId);
   });
 });
 

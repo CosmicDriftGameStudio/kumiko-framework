@@ -1,4 +1,4 @@
-import { v7 } from "uuid";
+import { v5, v7 } from "uuid";
 
 // Non-secret identifiers for DB rows, event streams, correlation/request
 // IDs, SSE connections, distributed locks. UUIDv7: first 48 bits are a
@@ -14,4 +14,17 @@ import { v7 } from "uuid";
 // @wrapper-known semantic-alias
 export function generateId(): string {
   return v7();
+}
+
+// RFC 4122 §4.3: our own namespace UUID, derived from a DNS name under the
+// standard DNS namespace rather than a hand-picked constant — deterministic
+// and reproducible, no external id-generation tool needed.
+const DETERMINISTIC_ID_NAMESPACE = v5("kumiko.rocks", v5.DNS);
+
+// UUIDv5 (content-addressed, not v7): the same (namespace, key) always
+// yields the same id, so a redelivered event lands on the same row instead
+// of a duplicate. This id space is per entity table, not per tenant — fold
+// the tenant id into `key` or a redelivery from a different tenant collides.
+export function generateDeterministicId(namespace: string, key: string): string {
+  return v5(`${namespace}:${key}`, DETERMINISTIC_ID_NAMESPACE);
 }
