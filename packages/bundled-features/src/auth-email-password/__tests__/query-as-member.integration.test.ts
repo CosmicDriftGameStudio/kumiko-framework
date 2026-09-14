@@ -103,6 +103,8 @@ const TRIES_DB_WRITE_QN = "queryasmemberprobe:query:tries-db-write";
 const TRIES_UNSAFE_RAW_WRITE_QN = "queryasmemberprobe:query:tries-unsafe-raw-write";
 const TRIES_READ_WRITE_RESET_QN = "queryasmemberprobe:query:tries-read-write-reset";
 const NESTED_DB_WRITE_QN = "queryasmemberprobe:query:nested-db-write";
+const TRIES_SELECT_FOR_UPDATE_QN = "queryasmemberprobe:query:tries-select-for-update";
+const TRIES_QUERY_AS_QN = "queryasmemberprobe:query:tries-query-as";
 const READ_AS_MEMBER_QUERY_QN = "queryasmemberprobe:query:read-as-member-query";
 const SYSTEM_SCOPE_READ_AS_MEMBER_QN = "queryasmembersystemscope:write:read-as-member";
 
@@ -223,6 +225,29 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     z.object({}),
     async (_query, ctx) => ctx.query(TRIES_DB_WRITE_QN, {}),
     { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "tries-select-for-update",
+    z.object({}),
+    async (_query, ctx) => {
+      const rows = await asRawClient(ctx.db.unsafeRaw("test: select-for-update probe")).unsafe(
+        "SELECT id FROM qam_notes FOR UPDATE",
+      );
+      return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
+    },
+    {
+      access: { roles: ["Admin", "User"] },
+      escapeHatch: { reason: "test: select-for-update probe" },
+    },
+  );
+  r.queryHandler(
+    "tries-query-as",
+    z.object({}),
+    async (query, ctx) => ctx.queryAs({ ...query.user, origin: undefined }, WHOAMI_QN, {}),
+    {
+      access: { roles: ["Admin", "User"] },
+      escapeHatch: { reason: "test: query-as identity switch probe" },
+    },
   );
   r.queryHandler(
     "read-as-member-query",
@@ -503,12 +528,12 @@ async function createNote(ownerId: string, body: string): Promise<void> {
   await stack.http.writeOk("queryasmemberprobe:write:note:create", { ownerId, body }, admin);
 }
 
-async function readAsMemberViaQuery(
+async function readAsMemberViaQuery<T = unknown>(
   userId: string,
   targetQn: string,
   payload: Record<string, unknown> = {},
-) {
-  return stack.http.queryOk<unknown>(READ_AS_MEMBER_QUERY_QN, { userId, targetQn, payload }, admin);
+): Promise<T> {
+  return stack.http.queryOk<T>(READ_AS_MEMBER_QUERY_QN, { userId, targetQn, payload }, admin);
 }
 
 async function readAsMemberViaQueryErr(
@@ -829,6 +854,16 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
   });
 
+  test("target query handler calling ctx.queryAs → denied with member_resolution_read_only", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("triesQueryAs@example.com", "pw-long-enough-33");
+    await addMembership(userId, TENANT_A);
+
+    const err = await readAsMemberErr(userId, TRIES_QUERY_AS_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
   test("stack.dispatcher.write called directly with a resolved-like user (origin set) → denied", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("directdispatch@example.com", "pw-long-enough-21");
@@ -916,7 +951,9 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     await addMembership(userId, TENANT_A);
     await createNote(userId, "note-1");
 
-    await readAsMemberErr(userId, TRIES_READ_WRITE_RESET_QN);
+    // SQLSTATE 25001, not 25006 — surfaces as internal_error rather than member_resolution_read_only.
+    const err = await readAsMemberErr(userId, TRIES_READ_WRITE_RESET_QN);
+    expect(err.code).toBe("internal_error");
     expect(await readNoteBodies()).toEqual(["note-1"]);
   });
 
@@ -926,7 +963,8 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     await addMembership(userId, TENANT_A);
     await createNote(userId, "note-1");
 
-    await readAsMemberViaQueryErr(userId, TRIES_READ_WRITE_RESET_QN);
+    const err = await readAsMemberViaQueryErr(userId, TRIES_READ_WRITE_RESET_QN);
+    expect(err.code).toBe("internal_error");
     expect(await readNoteBodies()).toEqual(["note-1"]);
   });
 
@@ -942,6 +980,18 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(await readNoteBodies()).toEqual(["note-1"]);
   });
 
+  test("e2) nested-db-write via a query-caller (pool path) → denied with member_resolution_read_only, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("nesteddbwritequery@example.com", "pw-long-enough-34");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberViaQueryErr(userId, NESTED_DB_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
   test("f) note:list via a query-caller (pool path) returns only the resolved member's own rows", async () => {
     await createTenant(TENANT_A);
     const userA = await createUser("dblist-a@example.com", "pw-long-enough-29");
@@ -951,9 +1001,10 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     await createNote(userA, "a-note-1");
     await createNote(userB, "b-note-1");
 
-    const result = (await readAsMemberViaQuery(userA, NOTE_LIST_QN)) as {
-      rows: Array<{ ownerId: string }>;
-    };
+    const result = await readAsMemberViaQuery<{ rows: Array<{ ownerId: string }> }>(
+      userA,
+      NOTE_LIST_QN,
+    );
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]?.ownerId).toBe(userA);
   });
@@ -983,5 +1034,17 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     );
     expect(result.ok).toBe(true);
     expect(await readNoteBodies()).toEqual(["after-read", "existing-note"]);
+  });
+
+  test("i) tries-select-for-update via a query-caller (pool path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("selectforupdate-query@example.com", "pw-long-enough-35");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberViaQueryErr(userId, TRIES_SELECT_FOR_UPDATE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
   });
 });

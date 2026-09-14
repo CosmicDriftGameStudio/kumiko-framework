@@ -80,9 +80,7 @@ async function executeQueryInner(
     parsed.data !== null &&
     (parsed.data as Record<string, unknown>)["includeDeleted"] === true; // @cast-boundary validated-payload
 
-  // A resolved member principal (ctx.queryAsMember) runs in a Postgres READ
-  // ONLY transaction so ctx.db writes fail in Postgres, not just in the
-  // handler-context surface applyMemberResolutionReadOnly blocks.
+  // A resolved member (ctx.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
   return user.origin === "member-resolution"
     ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
         runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, readOnlyTx),

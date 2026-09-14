@@ -239,11 +239,12 @@ function denyingJobRunnerProxy(): JobRunnerRef {
 function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
-    // `db` itself stays open — executeQuery runs the whole handler inside a
-    // Postgres READ ONLY transaction, so a ctx.db write fails in Postgres.
+    // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY transaction.
     dbOutsideTransaction: undefined,
     write: denyMemberResolutionWrite,
     writeAs: denyMemberResolutionWrite,
+    // A resolved member cannot switch identity either — the target would get a normal, writable context.
+    queryAs: denyMemberResolutionWrite,
     appendEvent: denyMemberResolutionWrite as AppendEventFn, // @cast-boundary engine-bridge
     unsafeAppendEvent: denyMemberResolutionWrite,
     tryAppendEvent: denyMemberResolutionWrite,

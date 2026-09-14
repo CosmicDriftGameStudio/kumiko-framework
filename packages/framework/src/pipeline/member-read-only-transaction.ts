@@ -1,7 +1,7 @@
 import type { DbTx } from "../db/connection";
 import { extractPgError } from "../db/pg-error";
-import { asRawClient, runInSavepoint } from "../db/query";
-import { InternalError } from "../errors";
+import { asRawClient, runInSavepoint, transaction } from "../db/query";
+import { AccessDeniedError, InternalError } from "../errors";
 import {
   type DispatchContext,
   memberResolutionReadOnlyDenied,
@@ -31,6 +31,7 @@ async function runInDiscardedReadOnlySavepoint<T>(
   const settled: { outcome?: { readonly value: T } } = {};
   try {
     await runInSavepoint(tx, async (sp) => {
+      // kumiko-lint-ignore raw-sql transaction characteristic, no query helper
       await asRawClient(sp).unsafe("SET TRANSACTION READ ONLY");
       // @cast-boundary driver savepoint handle — structurally a DbTx, same shape runInSavepoint's caller relies on
       settled.outcome = { value: await fn(sp as DbTx) };
@@ -61,14 +62,13 @@ export async function runInMemberReadOnlyTransaction<T>(
         message: "ctx.queryAsMember requires a database connection — none is configured.",
       });
     }
-    // Savepoint even on the pool path: SET TRANSACTION READ WRITE can reset a
-    // top-level tx before its first snapshot, but Postgres rejects that reset
-    // (SQLSTATE 25001) inside a subtransaction — so nesting closes the bypass.
-    return await asRawClient(pool).begin((outer) =>
+    // Savepoint even on the pool path: Postgres rejects a READ WRITE reset (SQLSTATE 25001) inside a subtransaction.
+    return await transaction(pool, (outer) =>
       // @cast-boundary driver begin() handle — structurally a DbTx, same shape runInSavepoint's caller relies on
       runInDiscardedReadOnlySavepoint(outer as DbTx, fn),
     );
   } catch (e) {
+    if (e instanceof AccessDeniedError) throw e;
     if (isReadOnlyTransactionViolation(e)) throw memberResolutionReadOnlyDenied(e);
     throw e;
   }
