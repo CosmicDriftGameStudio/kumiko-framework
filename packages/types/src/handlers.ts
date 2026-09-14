@@ -690,14 +690,10 @@ export type JobContext = SharedContextFields & {
   readonly systemUser: SessionUser;
   readonly log: Logger;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
-  // Only present for jobs whose owning feature declares r.systemScope(),
-  // mirroring HandlerContext.systemDb (dispatch-shared.ts buildHandlerContext).
-  // assertTenantMatch()/acknowledgeCrossTenant() return a TenantDb, not the
-  // raw DbConnection above — job code that needs a DbRunner for a helper
-  // like reindexEntity() reaches through `.raw` on that TenantDb. `.raw`
-  // bypasses tenant filtering entirely, so it's only safe to hand to a
-  // helper that filters by tenantId itself (as reindexEntity does) — never
-  // pass it to code that trusts the connection to already be scoped.
+  // Only present for jobs whose owning feature declares r.systemScope().
+  // assertTenantMatch()/acknowledgeCrossTenant() return a TenantDb; a raw,
+  // tenant-unfiltered DbRunner instead comes from ctx.systemDb.unsafeRaw(reason)
+  // — only safe for a helper that filters by tenantId itself (e.g. reindexEntity).
   readonly systemDb?: UncheckedSystemDb;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;

@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import type { DbRunner } from "../../db/connection";
 import { table, text, uuid } from "../../db/dialect";
+import { createTenantDb } from "../../db/tenant-db";
+import { testTenantId } from "../../stack";
 import { getStep } from "../define-step";
 import { buildReadFindManyStep } from "../steps/read-find-many";
 import { buildReadFindOneStep } from "../steps/read-find-one";
@@ -11,14 +14,14 @@ const testTable = table("test_read", {
   label: text("label"),
 });
 
-// bun-db path: read-find-many/one call selectMany(ctx.db.raw, table, where, opts)
-// which goes through asRawClient(ctx.db.raw).unsafe(sqlText, params).
+// bun-db path: read-find-many/one call selectMany(tenantDbRunner(ctx.db), table, where, opts)
+// which goes through asRawClient(runner).unsafe(sqlText, params).
 // Mock the .unsafe() return value to feed back rows.
 const unsafeMock = mock(
   async (_sqlText: string, _params: unknown[]): Promise<Record<string, unknown>[]> => [],
 );
-const rawDb = { unsafe: unsafeMock, begin: mock() };
-const ctxDb = { raw: rawDb };
+const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
+const ctxDb = createTenantDb(rawDb, testTenantId(1));
 
 const mockCtx = {
   db: ctxDb,

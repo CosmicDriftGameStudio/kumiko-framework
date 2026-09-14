@@ -126,14 +126,17 @@ export async function applyUserRolesUpdate(
   const willBeSystemAdmin = newRoles.includes("SystemAdmin");
 
   if (wasActiveSystemAdmin && !willBeSystemAdmin) {
-    // Lock before count+update so two concurrent demotions cannot both
-    // observe otherActiveSystemAdmins >= 1 and leave zero active SystemAdmins.
-    await acquireNamespacedAdvisoryLock(db, LAST_SYSTEM_ADMIN_LOCK_NAMESPACE, "global");
-    // user is r.systemScope() — the count spans every tenant's SystemAdmins,
-    // so it needs the raw runner, not the (still tenant-shaped) `db` above.
+    // user is r.systemScope() — the lock + count span every tenant's SystemAdmins,
+    // so both need the raw runner, not the tenant-shaped `db` above.
     if (!ctx.systemDb) {
       throw new InternalError({ message: "user:update-roles requires ctx.systemDb" });
     }
+    const lockRunner = ctx.systemDb.unsafeRaw(
+      "advisory lock serializing concurrent last-SystemAdmin demotions",
+    );
+    // Lock before count+update so two concurrent demotions cannot both
+    // observe otherActiveSystemAdmins >= 1 and leave zero active SystemAdmins.
+    await acquireNamespacedAdvisoryLock(lockRunner, LAST_SYSTEM_ADMIN_LOCK_NAMESPACE, "global");
     const otherActiveSystemAdmins = await countOtherActiveSystemAdmins(
       ctx.systemDb.unsafeRaw(
         "jsonb @> prefilter over the global users table to count remaining active SystemAdmins",

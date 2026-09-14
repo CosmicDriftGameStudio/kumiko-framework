@@ -24,6 +24,7 @@ import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { AccessDeniedError, InternalError } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
+import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner";
 
 type Table = SchemaTable;
 
@@ -103,7 +104,7 @@ export function createUncheckedSystemDb(
       if (reason.trim().length === 0) {
         throw new Error("unsafeRaw requires a non-empty reason");
       }
-      return db.raw;
+      return tenantDbRunner(db);
     },
 
     outsideTransaction: {
@@ -352,7 +353,6 @@ export function createTenantDb(
   const tenantDb: TenantDb = {
     tenantId,
     mode,
-    raw: db,
     global: globalTable,
 
     unsafeRaw(reason: string): DbRunner {
@@ -439,6 +439,7 @@ export function createTenantDb(
   unsafeRawRebinders.set(tenantDb, (grant) =>
     createTenantDb(db, tenantId, mode, tracer, meter, signal, { ...grants, unsafeRaw: grant }),
   );
+  bindTenantDbRunner(tenantDb, db);
   return tenantDb;
 }
 

@@ -30,7 +30,21 @@ describe("validateGlobalTenancyEntities", () => {
     expect(() => validateGlobalTenancyEntities([feature])).toThrow(/systemStream/);
   });
 
-  test("a tenancy: 'global' entity WITH systemStream: true passes", () => {
+  test("a tenancy: 'global' entity WITH systemStream: true but WITHOUT r.systemScope() throws", () => {
+    const entity = createEntity({
+      table: "read_fw2860_global_no_scope",
+      tenancy: "global",
+      systemStream: true,
+      fields: { name: textField() },
+    });
+    const feature = defineFeature("fw2860-global-no-scope", (r) => {
+      r.entity("fw2860GlobalNoScope", entity);
+    });
+
+    expect(() => validateGlobalTenancyEntities([feature])).toThrow(/systemScope/);
+  });
+
+  test("a tenancy: 'global' entity WITH systemStream: true AND r.systemScope() passes", () => {
     const entity = createEntity({
       table: "read_fw2858_global_with_stream",
       tenancy: "global",
@@ -38,6 +52,7 @@ describe("validateGlobalTenancyEntities", () => {
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2858-global-with-stream", (r) => {
+      r.systemScope();
       r.entity("fw2858GlobalWithStream", entity);
     });
 

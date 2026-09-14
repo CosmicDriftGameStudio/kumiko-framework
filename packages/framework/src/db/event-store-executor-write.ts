@@ -30,6 +30,7 @@ import {
   tryMapUniqueViolation,
 } from "./event-store-executor-context";
 import { runInSavepointIfSupported } from "./query";
+import { tenantDbRunner } from "./tenant-db-runner";
 
 // Art. 17 erasure runs as the framework operator, not as a row owner; a
 // per-role ownership map can never cover it, and a silent deny means the
@@ -117,6 +118,7 @@ export function createWriteVerbs(
 
   return {
     async create(payload, user, db, options) {
+      const runner = tenantDbRunner(db);
       if (isForeignTenantOnGlobalEntity(entity, payload["tenantId"])) {
         throw new AccessDeniedError({
           message:
@@ -215,9 +217,9 @@ export function createWriteVerbs(
         // of the version_conflict this catch classifies. runInSavepointIfSupported
         // confines the failed INSERT to a nested scope that rolls back on
         // its own (same pattern as ctx.tryAppendEvent), and falls back to a
-        // plain call when db.raw is a bare pool connection with no active
+        // plain call when the runner is a bare pool connection with no active
         // transaction to poison (seeds/tests calling the executor directly).
-        event = await runInSavepointIfSupported(db.raw, async (sp) =>
+        event = await runInSavepointIfSupported(runner, async (sp) =>
           append(sp, {
             aggregateId,
             aggregateType: entityName,
@@ -232,7 +234,7 @@ export function createWriteVerbs(
         if (e instanceof EventStoreVersionConflict) {
           let currentVersion = -1;
           try {
-            currentVersion = await getStreamVersion(db.raw, aggregateId, streamTenantFor(user));
+            currentVersion = await getStreamVersion(runner, aggregateId, streamTenantFor(user));
           } catch {
             // Lookup failure — keep the sentinel.
           }
@@ -268,7 +270,7 @@ export function createWriteVerbs(
       // failed INSERT back; the error still propagates and stays catchable.
       let result: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
-        result = await runInSavepointIfSupported(db.raw, async (sp) =>
+        result = await runInSavepointIfSupported(runner, async (sp) =>
           applyEntityEvent(event, table, entity, sp),
         );
       } catch (e) {
@@ -308,6 +310,7 @@ export function createWriteVerbs(
     },
 
     async update(payload, user, db, updateOptions) {
+      const runner = tenantDbRunner(db);
       if (isForeignTenantOnGlobalEntity(entity, payload.changes["tenantId"])) {
         throw new AccessDeniedError({
           message:
@@ -397,7 +400,7 @@ export function createWriteVerbs(
       // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
       // with version_conflict.
       const currentVersion = await getStreamVersion(
-        db.raw,
+        runner,
         String(payload.id),
         streamTenantFor(user),
       );
@@ -452,7 +455,7 @@ export function createWriteVerbs(
         // Savepoint-scoped — see the create() append() above for why:
         // confines a losing writer's unique-violation to a nested scope
         // instead of poisoning the whole outer transaction.
-        const event = await runInSavepointIfSupported(db.raw, (sp) =>
+        const event = await runInSavepointIfSupported(runner, (sp) =>
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
@@ -480,7 +483,7 @@ export function createWriteVerbs(
         // failed nested one throws 500 instead of failing cleanly.
         let result: Awaited<ReturnType<typeof applyEntityEvent>>;
         try {
-          result = await runInSavepointIfSupported(db.raw, async (sp) =>
+          result = await runInSavepointIfSupported(runner, async (sp) =>
             applyEntityEvent(event, table, entity, sp),
           );
         } catch (e) {
@@ -539,6 +542,7 @@ export function createWriteVerbs(
     },
 
     async delete(payload, user, db) {
+      const runner = tenantDbRunner(db);
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
 
@@ -565,7 +569,7 @@ export function createWriteVerbs(
 
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(
-        db.raw,
+        runner,
         String(payload.id),
         streamTenantFor(user),
       );
@@ -578,7 +582,7 @@ export function createWriteVerbs(
       // land in the immutable log.
       let event: Awaited<ReturnType<typeof append>>;
       try {
-        event = await runInSavepointIfSupported(db.raw, async (sp) =>
+        event = await runInSavepointIfSupported(runner, async (sp) =>
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
@@ -606,7 +610,7 @@ export function createWriteVerbs(
       }
 
       // Live==Rebuild via applyEntityEvent. Savepoint like create/update.
-      const deleteResult = await runInSavepointIfSupported(db.raw, async (sp) =>
+      const deleteResult = await runInSavepointIfSupported(runner, async (sp) =>
         applyEntityEvent(event, table, entity, sp),
       );
       if (deleteResult.kind !== "applied") {
@@ -636,6 +640,7 @@ export function createWriteVerbs(
     // the erasure replays on rebuild (created → forgotten → row gone). Loads
     // without the isDeleted filter so trashed (soft-deleted) rows are erased too.
     async forget(payload, user, db) {
+      const runner = tenantDbRunner(db);
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
       const existing = await decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
@@ -660,14 +665,14 @@ export function createWriteVerbs(
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user));
       const currentVersion = await getStreamVersion(
-        db.raw,
+        runner,
         String(payload.id),
         streamTenantFor(user),
       );
 
       let event: Awaited<ReturnType<typeof append>>;
       try {
-        event = await runInSavepointIfSupported(db.raw, async (sp) =>
+        event = await runInSavepointIfSupported(runner, async (sp) =>
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
@@ -696,7 +701,7 @@ export function createWriteVerbs(
         throw e;
       }
 
-      const forgetResult = await runInSavepointIfSupported(db.raw, async (sp) =>
+      const forgetResult = await runInSavepointIfSupported(runner, async (sp) =>
         applyEntityEvent(event, table, entity, sp),
       );
       if (forgetResult.kind !== "applied") {
@@ -722,6 +727,7 @@ export function createWriteVerbs(
     },
 
     async restore(payload, user, db) {
+      const runner = tenantDbRunner(db);
       if (!softDelete) {
         return writeFailure(
           new UnprocessableError("soft_delete_not_enabled", {
@@ -731,7 +737,7 @@ export function createWriteVerbs(
       }
 
       // Tenant boundary: db.fetchOne applies TenantDb's tenant predicate,
-      // selectMany(db.raw, ...) did not — any caller could un-delete a foreign
+      // selectMany(runner, ...) did not — any caller could un-delete a foreign
       // tenant's row by id. "system"-mode dbs (r.systemScope() / crossTenant
       // handlers) still read unfiltered. No isDeleted filter here: restore
       // targets exactly the soft-deleted row.
@@ -766,7 +772,7 @@ export function createWriteVerbs(
 
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(
-        db.raw,
+        runner,
         String(payload.id),
         streamTenantFor(user),
       );
@@ -777,7 +783,7 @@ export function createWriteVerbs(
       // already ciphertext, no re-encrypt needed.
       let event: Awaited<ReturnType<typeof append>>;
       try {
-        event = await runInSavepointIfSupported(db.raw, (sp) =>
+        event = await runInSavepointIfSupported(runner, (sp) =>
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
@@ -807,7 +813,7 @@ export function createWriteVerbs(
       // Live==Rebuild via applyEntityEvent. Restore only writes isDeleted=false
       // plus the version bump, so there is no sensitive-field drift and no
       // payload override is needed.
-      const restoreResult = await runInSavepointIfSupported(db.raw, async (sp) =>
+      const restoreResult = await runInSavepointIfSupported(runner, async (sp) =>
         applyEntityEvent(event, table, entity, sp),
       );
       if (restoreResult.kind !== "applied" || restoreResult.row === null) {

@@ -114,6 +114,31 @@ feature. A feature that declares `r.systemScope()` instead loses the
 automatic tenant filter entirely; [`ctx.systemDb`](../guides/handler-context-and-embedded-fields.md)
 is that pattern's equivalent self-check requirement.
 
+## Decision 5 — one declaration per cross-tenant path
+
+`TenantDb.raw` existed as a silent, unfiltered escape hatch off `ctx.db` until
+fw#2860 removed it. Every cross-tenant read/write now goes through
+exactly one of the declarations below; framework infrastructure (the
+event-store executor, engine steps, jobs, MSP `apply`) gets its connection
+injected by the dispatcher, or resolves it through a framework-private
+binding that feature code cannot import.
+
+| Declaration | Scope | What it unlocks | Reason required? | When to use |
+|---|---|---|---|---|
+| `r.systemScope()` + `ctx.systemDb.assertTenantMatch` / `assertRowsTenant` | Feature | A self-check that the acting user's own tenant matches a row/id — no cross-tenant read, just a fail-closed guard | No (a self-check has nothing to justify) | A `r.systemScope()` handler that still needs to prove it isn't drifting outside the acting tenant |
+| `ctx.systemDb.acknowledgeCrossTenant(reason)` | Handler/Hook, only inside an `r.systemScope()` feature | A system-mode `TenantDb` — unfiltered reads/writes via the usual `ctx.db`-shaped methods | Yes | A `r.systemScope()` handler/hook that needs the typed `TenantDb` surface (`selectMany`/`insertOne`/…) across tenants |
+| `ctx.systemDb.unsafeRaw(reason)` | Handler/Hook, only inside an `r.systemScope()` feature | A raw `DbRunner` — bypasses the `TenantDb` wrapper entirely | Yes | A `r.systemScope()` handler/hook that needs a raw-SQL helper (`countWhere`, `transaction`, …), which no longer accepts a `TenantDb` |
+| `escapeHatch: { reason }` on the handler/hook → `ctx.db.unsafeRaw(reason)` | Handler/Hook, tenant-scoped feature | A raw `DbRunner` for that one declared call site | Yes | A tenant-scoped handler/hook with one specific cross-tenant read/write, without lifting the whole feature to `r.systemScope()` |
+| `db.global(table)` writes | Write handler only, gated by the same `escapeHatch: { reason }` | Writes to a `tenancy: "global"` table with the tenant filter lifted | Yes | Writing a `tenancy: "global"` table's rows (reads through `db.global(table)` need no escape hatch) |
+| Identity-switch `queryAs` / `writeAs` | Call | Runs the call as a different, resolved `SessionUser` — cross-tenant only if that user's own roles allow it | No (gated by the target user's own access, not a reason) | Acting on behalf of a specific other user rather than lifting the tenant filter itself |
+| `crossTenant: true` option on the entity-convention handlers | Handler | One handler, a system-mode `TenantDb`, the event stream rewritten onto the row's own tenant — access is gated by `access` alone | No | An operator (e.g. `SystemAdmin`) write/read on one entity-convention handler that must reach rows in any tenant |
+| `ctx.queryProjection(qn, { unsafeAllTenants: true })` | Call | Lifts the `tenant_id` filter on that one projection query | No — today ungated beyond the caller's own access (tracked as a follow-up issue) | A query handler that must aggregate a projection across every tenant |
+| Jobs, extension hooks, MSP `apply` | Framework-provided | A `DbRunner`/`TenantDb` handed in by construction — there is no `ctx.db.raw` to reach for | N/A | Framework-internal call sites only; feature code never resolves this itself |
+
+## Postgres RLS
+
+Decision: no row-level security policy today — the TypeScript boundary (`TenantDb` without `raw`, the declared escape hatches in Decision 5, the boot-time guards, and the audit trail) is the primary isolation line. A GUC-based policy (`app.tenant_id` via `set_config`) only catches a forgotten application-level filter; any code that can already run raw SQL can set that same GUC or a bypass role itself, so it does not stop the actual bypass class this document defends against. It also has real costs: projection rebuild's safety checks would silently lose effect without a dedicated bypass connection, shadow-swap drops and recreates the live table without carrying its policies over, and pool-safe request handling would need a transaction (not just a pooled connection) scoped per query and per event-stream operation to keep the GUC accurate. Revisit this decision if a compliance requirement mandates database-level isolation, if a real cross-tenant incident occurs despite the TypeScript boundary, or if a consumer needs direct SQL access (a BI/reporting role) — in that last case RLS would apply to that separate, narrowly-scoped read role rather than to the application's own connection pool. See the [RLS evaluation](https://github.com/CosmicDriftGameStudio/kumiko-platform/blob/main/docs/plans/rls-evaluation.md) (kumiko-platform#641, private repo) for the full analysis.
+
 ## Enforcement
 
 `infra/guards/guard-tenant-escalation.ts` (scans all Kumiko repos):

@@ -10,6 +10,16 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.271.0
+
+### framework-core
+
+**`TenantDb.raw` is removed — framework infrastructure gets the connection injected (fw#2860).**
+
+`TenantDb.raw` (`@cosmicdrift/kumiko-types/tenant-db-types`) no longer exists. Framework infrastructure that used to read it — the event-store executor's CRUD verbs, `read.findMany`/`read.findOne`/`unsafeProjectionDelete`/`unsafeProjectionUpsert` engine steps, the entity-convention `crossTenant` handlers, `UncheckedSystemDb.unsafeRaw`, the MSP consumer's per-event `apply()` in `api/server.ts`, and `db/assert-exists-in.ts`'s TenantDb duck-type — now resolves the bound `DbRunner` through a new framework-private module `db/tenant-db-runner.ts` (`bindTenantDbRunner`/`tenantDbRunner`, a `WeakMap<TenantDb, DbRunner>` keyed by the exact object `createTenantDb` built; not re-exported from `db/index.ts` or any package-exports entry, so feature code cannot import it). `asRawClient` (`bun-db/query.ts`) no longer unwraps a `.raw`-shaped TenantDb; it throws when handed one, same as the raw-SQL helpers built on it (`countWhere`, `transaction`, `runInSavepoint`/`runInSavepointIfSupported`, `executeRawQuery`/`executeRawQueryRead`, `upsertOnConflict`, `incrementCounter`, `insertMany`, `deleteManyBatched`) — they no longer accept a `TenantDb` at all. `tenantDbDelegate`'s TenantDb duck-type check no longer looks for `.raw`. `pipeline/projections-runner.ts`'s `runProjections(result, registry, runner)` takes an explicitly-resolved `DbRunner | undefined` (the dispatcher's `resolveDbSource(ctx, tx)`, threaded through `runLifecycle`) instead of reaching into `ctx.db.raw` / `ctx.systemDb.acknowledgeCrossTenant(...).raw` itself; it throws `InternalError` if `result.event` is set but no runner was resolved. `bundled-features/tenant/seeding.ts`'s `fireEntityPostSave`'s optional 4th argument changed from a bare `tenantId` to `{ tenantId, db }` — the caller (already holding a legitimately-declared runner) hands it in instead of the helper trying to pull one out of `context.db`. The boot validator now also rejects a `tenancy: "global"` entity whose owning feature does not declare `r.systemScope()` — a convention write on such an entity would otherwise still dispatch in tenant-mode. `packages/bundled-features/src/jobs/handlers/list.query.ts` switched from `ctx.systemDb.acknowledgeCrossTenant(reason)` to `ctx.systemDb.unsafeRaw(reason)` since it calls `countWhere` directly.
+
+**Migration:** `ctx.db.raw` → `ctx.db.global(table)` for `tenancy: "global"` tables, otherwise `ctx.db.unsafeRaw(reason)` with `escapeHatch: { reason }` on the handler/hook; r.systemScope() features `ctx.systemDb.unsafeRaw(reason)`. Raw SQL helpers (countWhere, transaction, runInSavepoint*, executeRawQuery*, upsert*, incrementCounter, insertMany, deleteManyBatched) no longer accept a TenantDb. Hand-built TenantDb objects passed to the EventStoreExecutor must be created via createTenantDb. `tenancy: "global"` entities must live in an r.systemScope() feature. Custom callers of fireEntityPostSave pass `{ tenantId, db }` as 4th argument.
+
 ## 0.270.0
 
 ### framework-core

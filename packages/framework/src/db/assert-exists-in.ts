@@ -5,7 +5,7 @@ import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";
 
 function isTenantDb(db: DbConnection | TenantDb): db is TenantDb {
-  return typeof (db as TenantDb).fetchOne === "function" && "raw" in db;
+  return "tenantId" in db && "fetchOne" in db && typeof db.fetchOne === "function";
 }
 
 /**

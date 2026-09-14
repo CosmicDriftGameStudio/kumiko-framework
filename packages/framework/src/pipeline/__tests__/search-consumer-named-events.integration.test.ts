@@ -69,13 +69,16 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       // executor-built table is write-locked to the executor) so the row
       // ends up with a value distinct from the event payload above. Proves
       // the search consumer reads the row, not the payload.
-      await asRawClient(ctx.db).unsafe(
+      await asRawClient(ctx.db.unsafeRaw("test: raw row update bypassing the executor")).unsafe(
         `UPDATE read_named_search_notes SET label = $1 WHERE id = $2`,
         [ROW_LABEL, event.payload.id],
       );
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
+    {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "test: raw row update bypassing the executor" },
+    },
   );
 
   r.writeHandler(
