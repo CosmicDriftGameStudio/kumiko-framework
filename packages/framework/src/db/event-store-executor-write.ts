@@ -738,7 +738,7 @@ export function createWriteVerbs(
 
       // Tenant boundary: db.fetchOne applies TenantDb's tenant predicate,
       // selectMany(runner, ...) did not — any caller could un-delete a foreign
-      // tenant's row by id. "system"-mode dbs (r.systemScope() / crossTenant
+      // tenant's row by id. "system"-mode dbs (r.systemScope() / escapeHatch
       // handlers) still read unfiltered. No isDeleted filter here: restore
       // targets exactly the soft-deleted row.
       const row = await db.fetchOne(table, { id: payload.id });

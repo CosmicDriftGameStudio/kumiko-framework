@@ -66,8 +66,6 @@ import {
 import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write";
 import { CAP_COUNTER_I18N } from "./i18n";
 
-const sysadminAccess = { access: { roles: access.systemAdmin }, crossTenant: true } as const;
-
 export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   r.describe(
     "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
@@ -100,7 +98,11 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   // über aggregate-id).
   r.queryHandler(
     defineEntityListHandler("cap-counter", capCounterEntity, {
-      ...sysadminAccess,
+      access: { roles: access.systemAdmin },
+      escapeHatch: {
+        reason:
+          "SystemAdmin quota operator view lists usage counters of every tenant to see who consumes which cap",
+      },
       description:
         "Lists usage-counter rows across all tenants with cap name, current value, period start and soft-warn timestamp; use it as the operator view of who is consuming which quota.",
     }),

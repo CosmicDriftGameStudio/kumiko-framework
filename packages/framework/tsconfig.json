@@ -8,7 +8,8 @@
   "include": ["./src"],
   "exclude": [
     "./src/__tests__/fixtures/migrate-db-raw",
-    "./src/__tests__/fixtures/migrate-open-to-all"
+    "./src/__tests__/fixtures/migrate-open-to-all",
+    "./src/__tests__/fixtures/migrate-cross-tenant"
   ],
   "references": [{ "path": "../types" }]
 }

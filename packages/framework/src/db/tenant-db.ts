@@ -190,6 +190,24 @@ export function withUnsafeRawGrant(
   return rebind ? rebind(grant) : tenantDb;
 }
 
+const crossTenantRebinders = new WeakMap<TenantDb, (reason: string) => TenantDb>();
+
+// Framework-private (not re-exported from db/index.ts): lifting the tenant filter needs a registered declaration.
+export function acknowledgeConventionCrossTenant(tenantDb: TenantDb, reason: string): TenantDb {
+  if (reason.trim().length === 0) {
+    throw new Error("acknowledgeConventionCrossTenant requires a non-empty reason");
+  }
+  const rebind = crossTenantRebinders.get(tenantDb);
+  if (!rebind) {
+    throw new InternalError({
+      message:
+        "acknowledgeConventionCrossTenant received a TenantDb not built by createTenantDb — " +
+        "no cross-tenant rebinder bound.",
+    });
+  }
+  return rebind(reason);
+}
+
 export function createTenantDb(
   db: DbRunner,
   tenantId: TenantId,
@@ -458,6 +476,10 @@ export function createTenantDb(
   unsafeRawRebinders.set(tenantDb, (grant) =>
     createTenantDb(db, tenantId, mode, tracer, meter, signal, { ...grants, unsafeRaw: grant }),
   );
+  crossTenantRebinders.set(tenantDb, (reason) => {
+    report("acknowledge-cross-tenant", reason);
+    return createTenantDb(db, tenantId, "system", tracer, meter, signal, grants);
+  });
   bindTenantDbRunner(tenantDb, db);
   return tenantDb;
 }
