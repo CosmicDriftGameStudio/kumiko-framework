@@ -51,4 +51,6 @@ pathIgnorePatterns = [
   # kumiko-screen.test.tsx into its own file so only these 4 tests move to
   # the isolated runner, not the whole 2600+ line parent file (#2495).
   "**/renderer-web/src/__tests__/kumiko-screen-singleton-entity-edit.test.tsx",
+  # Same #457 singleton create->update pattern, split out of return-to.test.tsx.
+  "**/renderer-web/src/__tests__/return-to-singleton.test.tsx",
 ]

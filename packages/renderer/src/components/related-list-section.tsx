@@ -20,6 +20,7 @@ import {
 } from "../app/list-facets";
 import { useNav } from "../app/nav";
 import { ReferenceFacetBridges, type ReferenceFacetOption } from "../app/reference-facet-bridge";
+import { useReturnHost } from "../app/return-to";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
@@ -93,6 +94,7 @@ export function RelatedListSection({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
+  const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
@@ -233,7 +235,7 @@ export function RelatedListSection({
           nav.navigate({ entity: rowClick.entity, id });
         }
       : rowClickAction !== undefined
-        ? (row: ListRowViewModel) => runProjectionRowNavigate(nav, rowClickAction, row)
+        ? (row: ListRowViewModel) => runProjectionRowNavigate(nav, rowClickAction, row, host)
         : undefined;
 
   // Same execution path as projectionList's rowActions (kumiko-screen.tsx) —
@@ -250,6 +252,7 @@ export function RelatedListSection({
         refetch: rowsQuery.refetch,
         openDrawer: onOpenDrawer,
         defaultEditRowAction,
+        host,
       }),
     [
       section.rowActions,
@@ -259,6 +262,7 @@ export function RelatedListSection({
       rowsQuery.refetch,
       onOpenDrawer,
       defaultEditRowAction,
+      host,
     ],
   );
 
@@ -277,6 +281,7 @@ export function RelatedListSection({
             ? { [section.parentFilter.field]: parentId }
             : { [section.parentParam ?? "id"]: parentId },
         record,
+        host,
         ...(onOpenDrawer !== undefined && {
           openDrawer: (action) => onOpenDrawer(action, undefined),
         }),
@@ -290,6 +295,7 @@ export function RelatedListSection({
       effectiveTranslate,
       dispatcher,
       nav,
+      host,
       rowsQuery.refetch,
       onOpenDrawer,
     ],
