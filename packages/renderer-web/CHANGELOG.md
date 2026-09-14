@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.269.1
+
+### Patch Changes
+
+- 5342133: Fix `Drawer` with `variant="flush" belowHeader` on `side="left"|"right"`: the panel used `h-full` (100% viewport height) together with the header-offset `top`, pushing its bottom edge (and any footer slot) past the viewport. It now switches to `h-auto` so the panel's height follows the top/bottom insets instead, keeping the bottom edge on-screen.
+  - @cosmicdrift/kumiko-dispatcher-live@0.269.1
+  - @cosmicdrift/kumiko-headless@0.269.1
+  - @cosmicdrift/kumiko-renderer@0.269.1
+
 ## 0.269.0
 
 ### Patch Changes
