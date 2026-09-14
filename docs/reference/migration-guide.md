@@ -10,6 +10,16 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.272.0
+
+### framework-core
+
+**ctx.queryAsMember runs the queried handler inside a Postgres READ ONLY transaction — ctx.db and ctx.db.unsafeRaw writes fail (fw#2902).**
+
+`executeQuery` (`pipeline/dispatch-query.ts`) runs every query whose SessionUser has `origin: "member-resolution"` through `runInMemberReadOnlyTransaction` (`pipeline/member-read-only-transaction.ts`): the handler context, the handler, its postQuery hooks and the field-read filter execute inside a savepoint whose first statement is `SET TRANSACTION READ ONLY`. The savepoint is always rolled back — a released one would leave the caller's transaction read-only. With a caller transaction (write handler, in-transaction hook) the savepoint nests into it; without one (query handler, job, `dispatcher.createMemberReader`) the framework opens a pool transaction around the savepoint, holding one connection for the handler's runtime — nested queries' feature/trial gates and rate limits still use their own resolvers, so many concurrent member reads need pool headroom. Inside the subtransaction Postgres rejects switching back via `SET TRANSACTION READ WRITE` (SQLSTATE 25001). Nested `ctx.query` calls inherit the read-only handle; `ctx.queryAs` is now denied for a resolved member principal like the other identity switches (`member_resolution_read_only`), so it cannot reach a context with a writable `dbOutsideTransaction`. Every write — `ctx.db.insertOne`/`updateMany`/`deleteMany`, `ctx.db.unsafeRaw(...)` SQL, `SELECT ... FOR UPDATE/SHARE`, `nextval()`, temp tables — fails with SQLSTATE 25006, surfaced as `AccessDeniedError` (`details.reason` `member_resolution_read_only`, the PG error as `cause`). Feature gate, rate limit, access check and payload validation still run before the transaction opens; membership, principal and auth-claims resolution keep running on the root connection outside it. Handler code that deliberately issues transaction control (`COMMIT`, `RELEASE SAVEPOINT`, `SET SESSION CHARACTERISTICS`) through `unsafeRaw` is not covered — `unsafeRaw` already requires an `escapeHatch` declaration. Top-level `dispatcher.query` and HTTP queries of ordinary users are unchanged.
+
+**Migration:** Find query handlers reached via `ctx.queryAsMember(userId, qn, ...)` (including handlers they call with `ctx.query`) and check them for database side effects: `ctx.db` inserts/updates/deletes, write SQL through `ctx.db.unsafeRaw`, row locks, sequences, temp tables, `ctx.queryAs` calls, or catching a failed statement and continuing (a failed statement now aborts the enclosing transaction). Move such side effects into a write handler called by the original caller, or read the data without writing. Code branching on the raw Postgres error from such a write must branch on `details.reason === "member_resolution_read_only"` instead. Audit at release: bundled-features 0 sites, solon 0, offlot-app 0, money-horse 0, kumiko-enterprise 0 (no consumer calls ctx.queryAsMember yet).
+
 ## 0.271.0
 
 ### framework-core
