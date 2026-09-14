@@ -1,5 +1,0 @@
----
-"@cosmicdrift/kumiko-framework": minor
----
-
-Breaking: a query handler running under `ctx.queryAsMember` now executes inside a Postgres `READ ONLY` transaction, so database writes through any path — `ctx.db.insertOne`/`updateMany`/`deleteMany`, `ctx.db.unsafeRaw(...)`, nested `ctx.query` — fail in the database and surface as `AccessDeniedError` with `details.reason: "member_resolution_read_only"`; the data stays unchanged. Previously only the framework write surfaces (`ctx.write`, `appendEvent`, `fetchForWriting`, ...) were blocked; `ctx.queryAs` is now blocked for a resolved member as well. Called from a caller transaction (write handler, in-transaction hook) the read runs in a savepoint that is always rolled back, so the caller's own transaction stays writable; without a caller transaction (query handler, job) it holds one pool connection for the handler's runtime. Query handlers reached via `ctx.queryAsMember` that write, lock (`SELECT ... FOR UPDATE`), call `nextval()`, create temp tables or catch a failed statement and keep querying now fail. Migration: move such side effects out of the queried handler (see `changes.json`).

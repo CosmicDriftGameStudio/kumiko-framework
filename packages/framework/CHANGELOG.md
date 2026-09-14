@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.272.0
+
+### Minor Changes
+
+- 147fb82: Entity create handlers accept an optional, UUID-validated `id` in the payload, honored only for a system-identity caller (`createSystemUser(tenantId, extraRoles)`) — an event-triggered job or hook can now derive a deterministic id (new `generateDeterministicId(namespace, key)` in `utils`) and create idempotently instead of matching on description text. An HTTP-authenticated end user's `id` is silently ignored, exactly as before this field existed.
+- 6c55fa2: Entity-convention handlers (`defineEntity*Handler`, `defineEntityWriteHandler`/`defineEntityQueryHandler`, `registerEntityCrud` write/read) now accept `escapeHatch: { reason }` for one-handler cross-tenant access, reported as an `acknowledge-cross-tenant` audit event the same way the hand-written-handler escape hatches already are. `crossTenant: true` is deprecated: it keeps working, but boot now logs a `deprecation:entity-handler-cross-tenant` warning per handler and its use is audited too; it is planned for removal in a later breaking release. Run `scripts/codemod/migrate-cross-tenant.ts` to migrate — it rewrites `crossTenant: true` to `escapeHatch: { reason }` wherever the handler name and verb can be derived from the call, and lists every other site (shared/spread access objects, `registerEntityCrud` write/read blocks, non-literal values, sites that already declare `escapeHatch`) for manual review. Bundled features migrated: `download-attempt:list`, `export-job:list`, `export-job:detail`, `cap-counter:list`.
+- 94812d3: Breaking: a query handler running under `ctx.queryAsMember` now executes inside a Postgres `READ ONLY` transaction, so database writes through any path — `ctx.db.insertOne`/`updateMany`/`deleteMany`, `ctx.db.unsafeRaw(...)`, nested `ctx.query` — fail in the database and surface as `AccessDeniedError` with `details.reason: "member_resolution_read_only"`; the data stays unchanged. Previously only the framework write surfaces (`ctx.write`, `appendEvent`, `fetchForWriting`, ...) were blocked; `ctx.queryAs` is now blocked for a resolved member as well. Called from a caller transaction (write handler, in-transaction hook) the read runs in a savepoint that is always rolled back, so the caller's own transaction stays writable; without a caller transaction (query handler, job) it holds one pool connection for the handler's runtime. Query handlers reached via `ctx.queryAsMember` that write, lock (`SELECT ... FOR UPDATE`), call `nextval()`, create temp tables or catch a failed statement and keep querying now fail. Migration: move such side effects out of the queried handler (see `changes.json`).
+
+### Patch Changes
+
+- 7bf4309: Fix: projection and MSP rebuild now abort instead of silently dropping row level security from the live table. The shadow swap rebuilds the table from `EntityTableMeta`, which carries no RLS/policy information, so a live table with RLS enabled/forced or any policy would previously lose all of it on cutover. Both rebuild paths now reject up-front (and again right before the swap) with the table name and policy count; `replayMigrationsDir` also recognizes `FORCE`/`NO FORCE ROW LEVEL SECURITY` as shape-neutral DDL instead of failing loud.
+- Updated dependencies [6c55fa2]
+  - @cosmicdrift/kumiko-types@0.272.0
+
 ## 0.271.0
 
 ### Minor Changes
