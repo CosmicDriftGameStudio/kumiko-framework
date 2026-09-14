@@ -5,13 +5,16 @@
 // safe, and reports every remaining ctx.db.raw-ish access for manual review.
 //
 // Usage:
-//   bun scripts/migrate-db-raw.ts [--dry-run] [--global-tables a,b] <path...>
+//   bun scripts/codemod/migrate-db-raw.ts [--dry-run] [--global-tables a,b] <path...>
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Node, Project, SyntaxKind, VariableDeclarationKind } from "ts-morph";
 
-const DEFAULT_GLOBAL_TABLES: ReadonlySet<string> = new Set(["userTable", "globalFeatureStateTable"]);
+const DEFAULT_GLOBAL_TABLES: ReadonlySet<string> = new Set([
+  "userTable",
+  "globalFeatureStateTable",
+]);
 const PRUNABLE_FN_NAMES: ReadonlySet<string> = new Set(["selectMany", "fetchOne", "insertOne"]);
 const OWN_TENANT_FN_NAMES: ReadonlySet<string> = new Set(["selectMany", "fetchOne", "insertOne"]);
 const GLOBAL_TABLE_FN_NAMES: ReadonlySet<string> = new Set(["selectMany", "fetchOne"]);
@@ -20,7 +23,12 @@ const TENANT_ID_SOURCES: ReadonlySet<string> = new Set([
   "query.user.tenantId",
   "ctx.user.tenantId",
 ]);
-const RAW_RECEIVER_IDENTIFIERS: ReadonlySet<string> = new Set(["db", "tdb", "scopedDb", "outsideTx"]);
+const RAW_RECEIVER_IDENTIFIERS: ReadonlySet<string> = new Set([
+  "db",
+  "tdb",
+  "scopedDb",
+  "outsideTx",
+]);
 const MANUAL_TEXT_LIMIT = 100;
 
 export type RewriteRule = "global-table" | "own-tenant";
@@ -66,7 +74,8 @@ function isConstTenantIdBinding(scope: Node, varName: string): boolean {
   return scope.getDescendantsOfKind(SyntaxKind.VariableDeclaration).some((decl) => {
     if (decl.getName() !== varName) return false;
     const statement = decl.getVariableStatement();
-    if (!statement || statement.getDeclarationKind() !== VariableDeclarationKind.Const) return false;
+    if (!statement || statement.getDeclarationKind() !== VariableDeclarationKind.Const)
+      return false;
     const initializer = decl.getInitializer();
     return initializer !== undefined && TENANT_ID_SOURCES.has(initializer.getText());
   });
@@ -100,7 +109,10 @@ interface PendingRewrite {
   readonly line: number;
 }
 
-function planRewrite(callExpr: Node, globalTables: ReadonlySet<string>): PendingRewrite | undefined {
+function planRewrite(
+  callExpr: Node,
+  globalTables: ReadonlySet<string>,
+): PendingRewrite | undefined {
   if (!Node.isCallExpression(callExpr)) return undefined;
   const calleeExpr = callExpr.getExpression();
   if (!Node.isIdentifier(calleeExpr)) return undefined;
@@ -109,14 +121,21 @@ function planRewrite(callExpr: Node, globalTables: ReadonlySet<string>): Pending
   if (args.length === 0 || !isRawOnCtxDb(args[0]!)) return undefined;
 
   const typeArgs = callExpr.getTypeArguments();
-  const typeArgsText = typeArgs.length > 0 ? `<${typeArgs.map((t) => t.getText()).join(", ")}>` : "";
+  const typeArgsText =
+    typeArgs.length > 0 ? `<${typeArgs.map((t) => t.getText()).join(", ")}>` : "";
 
   if (GLOBAL_TABLE_FN_NAMES.has(fnName) && args.length >= 2) {
     const tableArg = args[1]!;
     if (Node.isIdentifier(tableArg) && globalTables.has(tableArg.getText())) {
       const rest = args.slice(2).map((a) => a.getText());
       const after = `ctx.db.global(${tableArg.getText()}).${fnName}${typeArgsText}(${rest.join(", ")})`;
-      return { callExpr, rule: "global-table", before: callExpr.getText(), after, line: callExpr.getStartLineNumber() };
+      return {
+        callExpr,
+        rule: "global-table",
+        before: callExpr.getText(),
+        after,
+        line: callExpr.getStartLineNumber(),
+      };
     }
   }
 
@@ -125,7 +144,13 @@ function planRewrite(callExpr: Node, globalTables: ReadonlySet<string>): Pending
     if (objectHasValidOwnTenantId(objArg)) {
       const rest = [args[1]!, objArg, ...args.slice(3)].map((a) => a.getText());
       const after = `ctx.db.${fnName}${typeArgsText}(${rest.join(", ")})`;
-      return { callExpr, rule: "own-tenant", before: callExpr.getText(), after, line: callExpr.getStartLineNumber() };
+      return {
+        callExpr,
+        rule: "own-tenant",
+        before: callExpr.getText(),
+        after,
+        line: callExpr.getStartLineNumber(),
+      };
     }
   }
 
@@ -138,7 +163,11 @@ function isTenantDbRawAccess(pae: Node): boolean {
   const receiver = pae.getExpression();
   if (receiver.getText().endsWith(".db")) return true;
   if (Node.isIdentifier(receiver) && RAW_RECEIVER_IDENTIFIERS.has(receiver.getText())) return true;
-  if (Node.isCallExpression(receiver) && receiver.getExpression().getText().startsWith("ctx.systemDb.")) return true;
+  if (
+    Node.isCallExpression(receiver) &&
+    receiver.getExpression().getText().startsWith("ctx.systemDb.")
+  )
+    return true;
   return false;
 }
 
@@ -222,7 +251,13 @@ export function migrateDbRawSource(
   for (const plan of pending) {
     if (plan.callExpr.wasForgotten()) continue;
     plan.callExpr.replaceWithText(plan.after);
-    rewrites.push({ file: fileName, line: plan.line, rule: plan.rule, before: plan.before, after: plan.after });
+    rewrites.push({
+      file: fileName,
+      line: plan.line,
+      rule: plan.rule,
+      before: plan.before,
+      after: plan.after,
+    });
   }
 
   pruneUnusedDbImports(sourceFile);
