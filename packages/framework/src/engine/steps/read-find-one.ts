@@ -1,13 +1,12 @@
 // r.step.read.findOne — load a single row from a projection table.
 //
 // Thin wrapper on selectMany(db, table, where, { limit: 1 }) (bun-db).
-// Resolves to the first row or null. Tenant-isolation: the caller's
-// `where` clause is responsible for any tenantId filter — read.findOne
-// does NOT auto-inject one (different from ctx.queryProjection which
-// does). That's deliberate: most read-step uses are aggregate-lookups
-// where the where-clause already pins a uuid that's globally unique;
-// auto-tenant-filtering would be redundant and would surprise users
-// who pass an explicit tenantId.
+// Resolves to the first row or null. Tenant-filtered like ctx.db
+// method-form reads (own tenant + SYSTEM_TENANT_ID reference rows); a
+// foreign `where.tenantId` is narrowed to the caller's own scope.
+// Cross-tenant reads require `unsafeAllTenants: { reason }` here AND
+// `escapeHatch: { reason }` on the handler — reported as an "unsafe-raw"
+// escape-hatch audit event.
 //
 // Use when a subsequent step needs a row from the read-side. For
 // cross-feature reads, prefer `r.step.callFeature(...)` (M.2) so the
@@ -21,15 +20,16 @@
 // runtime check; reviewer responsibility.
 
 import { selectMany, type WhereObject } from "../../db/query";
-import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { readSourceFor } from "./_read-source";
 import { resolveRequired } from "./_resolver-utils";
 
 type ReadFindOneArgs = {
   readonly name: string;
   readonly table: unknown;
   readonly where: StepResolver<WhereObject | undefined>;
+  readonly unsafeAllTenants?: { readonly reason: string };
 };
 
 defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
@@ -38,7 +38,8 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
-    const rows = await selectMany(tenantDbRunner(ctx.db), args.table, where, { limit: 1 });
+    const source = readSourceFor(ctx, args.unsafeAllTenants);
+    const rows = await selectMany(source, args.table, where, { limit: 1 });
     return (rows[0] as Record<string, unknown> | undefined) ?? null;
   },
 });
@@ -48,6 +49,7 @@ export function buildReadFindOneStep(
   opts: {
     readonly table: unknown;
     readonly where: StepResolver<WhereObject | undefined>;
+    readonly unsafeAllTenants?: { readonly reason: string };
   },
 ): StepInstance {
   return {
