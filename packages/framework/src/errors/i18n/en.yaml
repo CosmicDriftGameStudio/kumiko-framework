@@ -94,6 +94,40 @@ system_identity_switch_denied:
     (or on the `r.hook(...)` call, if the switch happens inside a hook), or
     move the logic into an `r.systemScope()` feature or a job.
 
+identity_switch_denied:
+  endUser: |
+    This action isn't allowed.
+    Please contact an administrator if you believe this is a mistake.
+  developer: |
+    `AccessDeniedError`: a handler or hook called `ctx.queryAs`/`ctx.writeAs`
+    with an identity other than its own caller — a different user id, tenant,
+    claims or origin, or roles the caller does not have — without being an
+    `r.systemScope()` handler, a job, or declaring `escapeHatch: { reason }`.
+    Switching to the caller itself or to a subset of its roles stays free.
+
+    Declare `escapeHatch: { reason: "..." }` on the write or query handler
+    (or on the `r.hook(...)` call, if the switch happens inside a hook), or
+    move the logic into an `r.systemScope()` feature or a job.
+
+member_resolution_denied:
+  endUser: |
+    This action isn't allowed.
+    Please contact an administrator if you believe this is a mistake.
+  developer: |
+    `AccessDeniedError`: `ctx.queryAsMember(userId, ...)` could not resolve an
+    active membership for `userId` in the caller's tenant (not a member,
+    principal blocked, or the tenant is in teardown). Deliberately generic —
+    `details` never says which check failed.
+
+member_resolution_read_only:
+  endUser: |
+    This action isn't allowed.
+    Please contact an administrator if you believe this is a mistake.
+  developer: |
+    `AccessDeniedError`: a query handler reached via `ctx.queryAsMember` tried
+    to write (`ctx.write`/`writeAs`/`appendEvent`/`jobRunner`/...). Resolved
+    member principals are read-only — there is no `writeAsMember`.
+
 agent.tool_not_allowed:
   endUser: |
     This tool is not available in the current mode.

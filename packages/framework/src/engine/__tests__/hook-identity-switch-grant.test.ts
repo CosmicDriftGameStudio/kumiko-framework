@@ -34,6 +34,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     // escapeHatch or is systemScope) — the hook must not inherit this.
     const handlerCtx = createGatedIdentitySwitch(
       'handler "test:write:thing:create"',
+      undefined,
       true,
       ungated,
     );
@@ -70,6 +71,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     };
     const handlerCtx = createGatedIdentitySwitch(
       'handler "test:write:thing:create"',
+      undefined,
       false,
       ungated,
     );
@@ -114,7 +116,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     };
     const ungatedResolveActiveMembership = mock(async () => activeResult);
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "test:write:thing:create"', true, {
+      ...createGatedIdentitySwitch('handler "test:write:thing:create"', undefined, true, {
         queryAs: mock(async () => "ok") as QueryAsFn,
         writeAs: async () => ({ isSuccess: true as const, data: null }),
       }),
@@ -155,7 +157,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     };
     const ungatedResolveActiveMembership = mock(async () => activeResult);
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "test:write:thing:create"', false, {
+      ...createGatedIdentitySwitch('handler "test:write:thing:create"', undefined, false, {
         queryAs: mock(async () => "ok") as QueryAsFn,
         writeAs: async () => ({ isSuccess: true as const, data: null }),
       }),

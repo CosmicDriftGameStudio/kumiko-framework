@@ -58,6 +58,7 @@ export type {
   AccessRule,
   OpenToAllAccessRule,
   OpenToAllDeclaration,
+  OpenToAllPersonalData,
 } from "../engine/types/handlers";
 export { isOpenToAllGranted } from "../engine/types/handlers";
 export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav";

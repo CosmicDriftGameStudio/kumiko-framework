@@ -39,6 +39,12 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     },
     // Stream API added with r.streamHandler (#1446) — stub unused in these routes.
     async *stream(): AsyncGenerator<unknown> {},
+    // Not exercised by these routes.
+    createMemberReader() {
+      return async () => {
+        throw new Error("createMemberReader not available in this stub");
+      };
+    },
   };
   return { ...base, ...overrides };
 }

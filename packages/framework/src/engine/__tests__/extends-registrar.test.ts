@@ -242,6 +242,7 @@ describe("extendsRegistrar", () => {
     // systemScope) — the extension hook must not inherit this.
     const handlerCtx = createGatedIdentitySwitch(
       'handler "fleet:write:vehicle:create"',
+      undefined,
       true,
       ungated,
     );

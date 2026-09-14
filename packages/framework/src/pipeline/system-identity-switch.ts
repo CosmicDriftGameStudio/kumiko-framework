@@ -1,8 +1,10 @@
+import { type TenantDb, withUnsafeRawGrant } from "../db/tenant-db";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
   LifecycleHookFn,
+  MemberReader,
   SessionUser,
   WriteResult,
 } from "../engine/types";
@@ -21,11 +23,38 @@ export function isSystemIdentity(user: SessionUser): boolean {
   return user.id === SYSTEM_USER_ID || user.roles.includes(SYSTEM_ROLE);
 }
 
-export function isSystemIdentitySwitchAllowed(
+function hasSameClaims(caller: SessionUser, asUser: SessionUser): boolean {
+  if (caller.claims === asUser.claims) return true;
+  const callerClaims = caller.claims ?? {};
+  const asUserClaims = asUser.claims ?? {};
+  const keys = Object.keys(callerClaims);
+  if (keys.length !== Object.keys(asUserClaims).length) return false;
+  return keys.every(
+    (key) =>
+      Object.hasOwn(asUserClaims, key) &&
+      JSON.stringify(callerClaims[key]) === JSON.stringify(asUserClaims[key]),
+  );
+}
+
+// claims drive ownership row filters and origin makes a ctx read-only, so both must match exactly.
+export function isSelfDelegation(caller: SessionUser, asUser: SessionUser): boolean {
+  return (
+    asUser.id === caller.id &&
+    asUser.tenantId === caller.tenantId &&
+    asUser.origin === caller.origin &&
+    asUser.roles.every((role) => caller.roles.includes(role)) &&
+    hasSameClaims(caller, asUser)
+  );
+}
+
+export function isIdentitySwitchAllowed(
+  caller: SessionUser | undefined,
   asUser: SessionUser,
-  allowSystemIdentity: boolean,
+  hasGrant: boolean,
 ): boolean {
-  return !isSystemIdentity(asUser) || allowSystemIdentity;
+  if (hasGrant) return true;
+  if (isSystemIdentity(asUser) || caller === undefined) return false;
+  return isSelfDelegation(caller, asUser);
 }
 
 export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedError {
@@ -37,39 +66,82 @@ export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedErr
   });
 }
 
-// Reverse-lookup so withHookIdentitySwitchGrant can re-gate the SAME ungated pair under a narrower grant.
-const ungatedByGated = new WeakMap<QueryAsFn | WriteAsFn, IdentitySwitch>();
+export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): AccessDeniedError {
+  if (isSystemIdentity(asUser)) return systemIdentitySwitchDenied(callerLabel);
+  return new AccessDeniedError({
+    message:
+      `${callerLabel} may only switch identity to its own caller (same user, tenant, claims and ` +
+      "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason } on it",
+    details: { reason: FrameworkReasons.identitySwitchDenied },
+  });
+}
+
+type GatedIdentitySwitchSource = {
+  readonly ungated: IdentitySwitch;
+  readonly caller: SessionUser | undefined;
+};
+
+// Reverse-lookup so withHookEscapeHatchGrant can re-gate the SAME ungated pair (and caller) under a narrower grant.
+const sourceByGated = new WeakMap<QueryAsFn | WriteAsFn, GatedIdentitySwitchSource>();
+// Same idea, for ctx.queryAsMember — a single function rather than a pair.
+const ungatedMemberReaderByGated = new WeakMap<MemberReader, MemberReader>();
 
 export function createGatedIdentitySwitch(
   callerLabel: string,
-  allowSystemIdentity: boolean,
+  caller: SessionUser | undefined,
+  hasGrant: boolean,
   ungated: IdentitySwitch,
 ): IdentitySwitch {
   const queryAs: QueryAsFn = async (asUser, qn, payload) => {
-    if (!isSystemIdentitySwitchAllowed(asUser, allowSystemIdentity)) {
-      throw systemIdentitySwitchDenied(callerLabel);
+    if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
+      throw identitySwitchDenied(callerLabel, asUser);
     }
     return ungated.queryAs(asUser, qn, payload);
   };
   const writeAs: WriteAsFn = async (asUser, qn, payload) => {
-    if (!isSystemIdentitySwitchAllowed(asUser, allowSystemIdentity)) {
-      throw systemIdentitySwitchDenied(callerLabel);
+    if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
+      throw identitySwitchDenied(callerLabel, asUser);
     }
     return ungated.writeAs(asUser, qn, payload);
   };
   const gated: IdentitySwitch = { queryAs, writeAs };
-  ungatedByGated.set(queryAs, ungated);
-  ungatedByGated.set(writeAs, ungated);
+  const source: GatedIdentitySwitchSource = { ungated, caller };
+  sourceByGated.set(queryAs, source);
+  sourceByGated.set(writeAs, source);
   return gated;
 }
 
-function readIdentitySwitchFn<TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn>(
+// ctx.queryAsMember's gate: the caller never names the target identity up
+// front (it's resolved internally), so this is a flat allow/deny.
+export function createGatedMemberReader(
+  callerLabel: string,
+  allowSystemIdentity: boolean,
+  ungated: MemberReader,
+): MemberReader {
+  const gated: MemberReader = async (userId, qn, payload) => {
+    if (!allowSystemIdentity) throw systemIdentitySwitchDenied(callerLabel);
+    return ungated(userId, qn, payload);
+  };
+  ungatedMemberReaderByGated.set(gated, ungated);
+  return gated;
+}
+
+function readIdentitySwitchFn<
+  TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn | MemberReader,
+>(
   context: object,
-  key: "queryAs" | "writeAs" | "resolveActiveMembership",
+  key: "queryAs" | "writeAs" | "resolveActiveMembership" | "queryAsMember",
 ): TFn | undefined {
   if (!(key in context)) return undefined;
   const value = (context as Record<string, unknown>)[key];
   return typeof value === "function" ? (value as TFn) : undefined; // @cast-boundary engine-bridge — checked via typeof above
+}
+
+// context's own keys only — never touch a property of the resolved value, which may be a Proxy that throws on any get.
+function readDbLikeValue(context: object, key: "db" | "dbOutsideTransaction"): object | undefined {
+  if (!(key in context)) return undefined;
+  const value = (context as Record<string, unknown>)[key];
+  return typeof value === "object" && value !== null ? value : undefined;
 }
 
 function unavailableIdentitySwitchFn(callerLabel: string, kind: "queryAs" | "writeAs") {
@@ -98,7 +170,18 @@ function fallbackUngatedIdentitySwitch(
   };
 }
 
-// Reuses the ORIGINAL ungated pair when known, so this grant doesn't compose with the caller's.
+// Only a dispatcher-registered gate names the caller; ctx.user is never trusted, and two
+// gates for different callers (a hand-mixed ctx) yield none, so only a grant passes.
+function resolveDispatcherCaller(
+  querySource: GatedIdentitySwitchSource | undefined,
+  writeSource: GatedIdentitySwitchSource | undefined,
+): SessionUser | undefined {
+  if (querySource && writeSource && querySource.caller !== writeSource.caller) return undefined;
+  return (querySource ?? writeSource)?.caller;
+}
+
+// Resolved per function: a shared ungated pair would revive a member-resolution
+// ctx's deny-stubbed writeAs through its still-registered queryAs.
 function gatedIdentitySwitchFields(
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
@@ -106,18 +189,34 @@ function gatedIdentitySwitchFields(
   ctxWriteAs: WriteAsFn | undefined,
 ): Partial<IdentitySwitch> {
   if (!ctxQueryAs && !ctxWriteAs) return {};
-  const ungated: IdentitySwitch =
-    (ctxQueryAs && ungatedByGated.get(ctxQueryAs)) ??
-    (ctxWriteAs && ungatedByGated.get(ctxWriteAs)) ??
-    fallbackUngatedIdentitySwitch(callerLabel, ctxQueryAs, ctxWriteAs);
-  const gated = createGatedIdentitySwitch(callerLabel, escapeHatch !== undefined, ungated);
+  const querySource = ctxQueryAs && sourceByGated.get(ctxQueryAs);
+  const writeSource = ctxWriteAs && sourceByGated.get(ctxWriteAs);
+  const ungatedQueryAs = ctxQueryAs && (querySource?.ungated.queryAs ?? ctxQueryAs);
+  const ungatedWriteAs = ctxWriteAs && (writeSource?.ungated.writeAs ?? ctxWriteAs);
+  const ungated = fallbackUngatedIdentitySwitch(callerLabel, ungatedQueryAs, ungatedWriteAs);
+  const caller = resolveDispatcherCaller(querySource, writeSource);
+  const gated = createGatedIdentitySwitch(callerLabel, caller, escapeHatch !== undefined, ungated);
   return {
     ...(ctxQueryAs && { queryAs: gated.queryAs }),
     ...(ctxWriteAs && { writeAs: gated.writeAs }),
   };
 }
 
-export function withHookIdentitySwitchGrant<TContext extends object>(
+// Unlike ctx.resolveActiveMembership (deny-only), a hook's own escapeHatch
+// can grant queryAsMember even when the enclosing handler has none.
+function gatedMemberReaderField(
+  callerLabel: string,
+  escapeHatch: EscapeHatchDeclaration | undefined,
+  ctxQueryAsMember: MemberReader | undefined,
+): { queryAsMember?: MemberReader } {
+  if (!ctxQueryAsMember) return {};
+  const ungated = ungatedMemberReaderByGated.get(ctxQueryAsMember) ?? ctxQueryAsMember;
+  return {
+    queryAsMember: createGatedMemberReader(callerLabel, escapeHatch !== undefined, ungated),
+  };
+}
+
+export function withHookEscapeHatchGrant<TContext extends object>(
   context: TContext,
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
@@ -128,7 +227,19 @@ export function withHookIdentitySwitchGrant<TContext extends object>(
     context,
     "resolveActiveMembership",
   );
-  if (!ctxQueryAs && !ctxWriteAs && !ctxResolveActiveMembership) return context;
+  const ctxQueryAsMember = readIdentitySwitchFn<MemberReader>(context, "queryAsMember");
+  const ctxDb = readDbLikeValue(context, "db");
+  const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
+  if (
+    !ctxQueryAs &&
+    !ctxWriteAs &&
+    !ctxResolveActiveMembership &&
+    !ctxQueryAsMember &&
+    !ctxDb &&
+    !ctxDbOutsideTransaction
+  ) {
+    return context;
+  }
 
   return {
     ...context,
@@ -137,11 +248,17 @@ export function withHookIdentitySwitchGrant<TContext extends object>(
       escapeHatch === undefined && {
         resolveActiveMembership: deniedResolveActiveMembership(callerLabel),
       }),
+    ...gatedMemberReaderField(callerLabel, escapeHatch, ctxQueryAsMember),
+    // @cast-boundary engine-bridge — withUnsafeRawGrant passes non-TenantDb values (e.g. a guard Proxy) through unchanged.
+    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, escapeHatch) }),
+    ...(ctxDbOutsideTransaction && {
+      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction as TenantDb, escapeHatch),
+    }),
   };
 }
 
-// Re-gates a hook's own ctx.queryAs/ctx.writeAs instead of inheriting the handler's grant.
-export function bindHookIdentitySwitchGrant(
+// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.db/ctx.dbOutsideTransaction instead of inheriting the handler's grant.
+export function bindHookEscapeHatchGrant(
   fn: LifecycleHookFn,
   label: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
@@ -149,6 +266,6 @@ export function bindHookIdentitySwitchGrant(
   return ((payload: unknown, context: object) =>
     (fn as (payload: unknown, context: object) => unknown)(
       payload,
-      withHookIdentitySwitchGrant(context, label, escapeHatch),
+      withHookEscapeHatchGrant(context, label, escapeHatch),
     )) as LifecycleHookFn; // @cast-boundary engine-bridge — LifecycleHookFn union, same (payload, context) shape at runtime
 }

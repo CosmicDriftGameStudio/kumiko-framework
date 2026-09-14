@@ -1,38 +1,89 @@
-import type { AccessRule, FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types";
+import type {
+  AccessRule,
+  FeatureDefinition,
+  OwnershipMap,
+  OwnershipRule,
+  QueryHandlerDef,
+  StreamHandlerDef,
+  WriteHandlerDef,
+} from "../types";
 import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
-import { getZodObjectShape } from "./zod-shape";
+import { collectZodObjectKeys } from "./zod-shape";
 
 type HandlerKind = "write" | "query" | "stream";
 
 // Personal-data annotation check mirrors pii-retention.ts's hasAnonymizableSubjectField,
 // minus tenantOwned: a tenant-scoped field isn't an individual's personal data in the
-// sense openToAll+publicIntake is guarding against.
+// sense the openToAll personal-data check is guarding against.
 function isPersonalDataField(field: unknown): boolean {
   const annot = field as ResolvedPiiFlags; // @cast-boundary schema-walk — see pii-retention.ts
   return Boolean(annot.pii || annot.userOwned || annot.recordOwned);
 }
 
-function personalFieldNames(entity: EntityDefinition): ReadonlySet<string> {
+function isCallerIdRuleOn(rule: OwnershipRule, column: string): boolean {
+  if (rule === "all" || rule.kind !== "from") return false;
+  return rule.refKind === "user" && rule.refPath === "id" && rule.column === column;
+}
+
+// The executor checks access.write against every created/updated row; one "all" role
+// or an empty map (= public) lets a caller write rows owned by someone else.
+function writeMapBindsRowsToCaller(
+  writeMap: OwnershipMap | undefined,
+  ownerColumn: string,
+): boolean {
+  const rules = Object.values(writeMap ?? {});
+  return rules.length > 0 && rules.every((rule) => isCallerIdRuleOn(rule, ownerColumn));
+}
+
+const ROW_ID_COLUMN = "id";
+
+// A self/record-owned field's subject is the row itself, so only from("user:id", "id")
+// makes that row the caller — on any other entity "self" names a third party.
+function callerBindingColumn(annot: ResolvedPiiFlags): string | undefined {
+  if (annot.userOwned) return annot.userOwned.ownerField;
+  if (annot.pii || annot.recordOwned) return ROW_ID_COLUMN;
+  return undefined;
+}
+
+function isOwnerBoundField(field: unknown, entity: EntityDefinition): boolean {
+  const column = callerBindingColumn(field as ResolvedPiiFlags); // @cast-boundary schema-walk — see pii-retention.ts
+  return column !== undefined && writeMapBindsRowsToCaller(entity.access?.write, column);
+}
+
+function personalFieldNames(
+  entity: EntityDefinition,
+  honorOwnerBinding: boolean,
+): ReadonlySet<string> {
   const names = new Set<string>();
   for (const [fieldName, field] of Object.entries(entity.fields)) {
-    if (isPersonalDataField(field)) names.add(fieldName);
+    const exempt = honorOwnerBinding && isOwnerBoundField(field, entity);
+    if (isPersonalDataField(field) && !exempt) names.add(fieldName);
   }
   return names;
 }
 
+// escapeHatch and r.systemScope() can write around the entity's write map
+// (db.global(), systemDb, SYSTEM identity), so the map no longer vouches for the row.
+function canWriteAroundExecutor(feature: FeatureDefinition, handler: WriteHandlerDef): boolean {
+  return handler.escapeHatch !== undefined || feature.systemScope;
+}
+
+// Owner binding counts only for a handler mapped to one entity.
 function candidatePersonalFieldNames(
   feature: FeatureDefinition,
   handlerName: string,
+  handler: WriteHandlerDef,
 ): ReadonlySet<string> {
   const mappedEntityName = feature.handlerEntityMappings?.[handlerName];
   const entities = feature.entities ?? {};
   if (mappedEntityName) {
     const entity = entities[mappedEntityName];
-    return entity ? personalFieldNames(entity) : new Set();
+    const honorOwnerBinding = !canWriteAroundExecutor(feature, handler);
+    return entity ? personalFieldNames(entity, honorOwnerBinding) : new Set();
   }
   const names = new Set<string>();
   for (const entity of Object.values(entities)) {
-    for (const name of personalFieldNames(entity)) names.add(name);
+    for (const name of personalFieldNames(entity, false)) names.add(name);
   }
   return names;
 }
@@ -52,8 +103,16 @@ function hasOpenToAll(access: AccessRule): boolean {
   return "openToAll" in access;
 }
 
-function hasPublicIntake(access: AccessRule): boolean {
-  return "publicIntake" in access && access.publicIntake === true;
+// Read via `unknown`: access can come from untyped sources (pattern JSON, Designer).
+function declaredPersonalData(access: AccessRule): unknown {
+  if (!("openToAll" in access)) return undefined;
+  const openToAll: unknown = access.openToAll;
+  if (typeof openToAll !== "object" || openToAll === null) return undefined;
+  return "personalData" in openToAll ? openToAll.personalData : undefined;
+}
+
+function declaresTenantMembersPersonalData(access: AccessRule): boolean {
+  return declaredPersonalData(access) === "tenant-members";
 }
 
 function validateOpenToAllReason(
@@ -75,7 +134,10 @@ function validateEscapeHatchReason(
   feature: FeatureDefinition,
   kind: HandlerKind,
   handlerName: string,
-  escapeHatch: WriteHandlerDef["escapeHatch"] | QueryHandlerDef["escapeHatch"],
+  escapeHatch:
+    | WriteHandlerDef["escapeHatch"]
+    | QueryHandlerDef["escapeHatch"]
+    | StreamHandlerDef["escapeHatch"],
 ): void {
   // skip: no escapeHatch declared, or its reason is already non-empty
   if (!escapeHatch || escapeHatch.reason.trim().length > 0) return;
@@ -86,19 +148,32 @@ function validateEscapeHatchReason(
   );
 }
 
-function validatePublicIntakeOnlyOnWrite(
+function validatePersonalDataOnlyOnWrite(
   feature: FeatureDefinition,
   kind: HandlerKind,
   handlerName: string,
   access: AccessRule,
 ): void {
-  // skip: write handlers may declare publicIntake, or it wasn't declared here
-  if (kind === "write" || !hasPublicIntake(access)) return;
+  // skip: write handlers may declare personalData, or it wasn't declared here
+  if (kind === "write" || declaredPersonalData(access) === undefined) return;
   throw new Error(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
-      "{ publicIntake: true } — publicIntake is only meaningful on a write handler " +
-      "(it silences the personal-data + openToAll boot check for the fields a write " +
-      "handler's input accepts).",
+      "openToAll.personalData — it only applies to write handlers, whose input is " +
+      "checked for personal-data fields.",
+  );
+}
+
+function validatePersonalDataValue(
+  feature: FeatureDefinition,
+  handlerName: string,
+  access: AccessRule,
+): void {
+  const declared = declaredPersonalData(access);
+  // skip: nothing declared, or the one supported value
+  if (declared === undefined || declared === "tenant-members") return;
+  throw new Error(
+    `[Feature ${feature.name}] write handler "${handlerName}" declares an unknown ` +
+      `openToAll.personalData ${JSON.stringify(declared)} — the only supported value is "tenant-members".`,
   );
 }
 
@@ -108,20 +183,22 @@ function validateOpenToAllPersonalData(
   handler: WriteHandlerDef,
 ): void {
   const access = handler.access;
-  // skip: no openToAll declared, or publicIntake already covers personal data
-  if (!hasOpenToAll(access) || hasPublicIntake(access)) return;
-  const shape = getZodObjectShape(handler.schema);
-  // skip: handler schema isn't a zod object — nothing to inspect
-  if (!shape) return;
-  const personalNames = candidatePersonalFieldNames(feature, handlerName);
-  const offending = Object.keys(shape).filter((key) => personalNames.has(key));
+  // skip: no openToAll declared, or the handler declares tenant members may write personal data
+  if (!hasOpenToAll(access) || declaresTenantMembersPersonalData(access)) return;
+  const inputKeys = collectZodObjectKeys(handler.schema);
+  const personalNames = candidatePersonalFieldNames(feature, handlerName, handler);
+  const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input
   if (offending.length === 0) return;
   throw new Error(
     `[Feature ${feature.name}] write handler "${handlerName}" declares openToAll and ` +
-      `accepts personal-data field(s) ${offending.map((f) => `"${f}"`).join(", ")} without ` +
-      "{ publicIntake: true }. Restrict access to roles, or declare " +
-      "{ publicIntake: true } if any authenticated user may submit this personal data.",
+      `accepts personal-data field(s) ${offending.map((f) => `"${f}"`).join(", ")} that are ` +
+      "not bound to the caller. Choose one: (1) bind rows to the caller — every role in the " +
+      'entity\'s access.write is from("user:id", "<ownerField>") for a personal: { of: "<ownerField>" } ' +
+      'field, or from("user:id", "id") for a personal: "self" field, with no escapeHatch on the ' +
+      "handler and no r.systemScope() on its feature; (2) restrict access to roles; (3) declare " +
+      '{ openToAll: { reason: "<why any signed-in tenant member may write this personal data>", ' +
+      'personalData: "tenant-members" } }.',
   );
 }
 
@@ -129,15 +206,17 @@ export function validateAccessDeclarations(feature: FeatureDefinition): void {
   for (const [handlerName, handler] of Object.entries(feature.writeHandlers)) {
     validateOpenToAllReason(feature, "write", handlerName, handler.access);
     validateEscapeHatchReason(feature, "write", handlerName, handler.escapeHatch);
+    validatePersonalDataValue(feature, handlerName, handler.access);
     validateOpenToAllPersonalData(feature, handlerName, handler);
   }
   for (const [handlerName, handler] of Object.entries(feature.queryHandlers)) {
     validateOpenToAllReason(feature, "query", handlerName, handler.access);
     validateEscapeHatchReason(feature, "query", handlerName, handler.escapeHatch);
-    validatePublicIntakeOnlyOnWrite(feature, "query", handlerName, handler.access);
+    validatePersonalDataOnlyOnWrite(feature, "query", handlerName, handler.access);
   }
   for (const [handlerName, handler] of Object.entries(feature.streamHandlers)) {
     validateOpenToAllReason(feature, "stream", handlerName, handler.access);
-    validatePublicIntakeOnlyOnWrite(feature, "stream", handlerName, handler.access);
+    validateEscapeHatchReason(feature, "stream", handlerName, handler.escapeHatch);
+    validatePersonalDataOnlyOnWrite(feature, "stream", handlerName, handler.access);
   }
 }

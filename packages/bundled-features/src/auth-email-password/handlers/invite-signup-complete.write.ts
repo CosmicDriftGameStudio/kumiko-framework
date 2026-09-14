@@ -77,6 +77,13 @@ const invitationExecutor = createEventStoreExecutor(
   { entityName: "tenant-invitation" },
 );
 
+const INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists.";
+const READ_PENDING_INVITATION_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant";
+const CREATE_USER_AND_MEMBERSHIP_INVITATION_TENANT_REASON =
+  "creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists";
+
 export function createInviteSignupCompleteHandler() {
   return defineWriteHandler<
     "invite-signup-complete",
@@ -87,6 +94,9 @@ export function createInviteSignupCompleteHandler() {
     schema: InviteSignupCompleteSchema,
     access: { roles: ["all"] },
     agent: { expose: false },
+    escapeHatch: {
+      reason: INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON,
+    },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(
@@ -110,9 +120,11 @@ export function createInviteSignupCompleteHandler() {
 
       let committed = false;
       try {
-        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
-          id: invitationId,
-        });
+        const invitation = await fetchOne<InvitationRow>(
+          ctx.db.unsafeRaw(READ_PENDING_INVITATION_REASON),
+          tenantInvitationsTable,
+          { id: invitationId },
+        );
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
@@ -131,7 +143,7 @@ export function createInviteSignupCompleteHandler() {
         // Password zu setzen für denselben User.
         // Email uniqueness is partial on live rows (framework#2593) — without
         // this filter the lookup can resolve a soft-deleted row.
-        const existingUser = await fetchOne(ctx.db.raw, userTable, {
+        const existingUser = await ctx.db.global(userTable).fetchOne({
           email: invitationEmail,
           isDeleted: false,
         });
@@ -139,9 +151,11 @@ export function createInviteSignupCompleteHandler() {
 
         // User anlegen via seedUserWithPassword (gleiches Pattern wie
         // signup-confirm), emailVerified=true wegen Magic-Link.
-        // @cast-boundary db-runner — TenantDb.raw is DbRunner; seed-helpers
-        // operate on plain drizzle-API which both shapes expose identically.
-        const dbConn = ctx.db.raw as DbConnection;
+        // @cast-boundary db-runner — helpers use only the query API that
+        // DbConnection and DbTx share.
+        const dbConn = ctx.db.unsafeRaw(
+          CREATE_USER_AND_MEMBERSHIP_INVITATION_TENANT_REASON,
+        ) as DbConnection;
         const { id: userId } = await seedUserWithPassword(dbConn, {
           email: invitationEmail,
           password: event.payload.password,

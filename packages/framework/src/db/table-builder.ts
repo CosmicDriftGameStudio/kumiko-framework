@@ -29,6 +29,7 @@ import {
   moneyAmount,
   table as pgTable,
   plainDate,
+  type SchemaTable,
   SQL_EXPR_BRAND,
   type SqlExpression,
   serial,
@@ -503,6 +504,32 @@ function stampGlobalTenancyMeta<E extends EntityDefinition>(
     ...meta,
     tenancy: "global",
   };
+}
+
+/**
+ * Stamps `tenancy: "global"` onto a `table()`/SchemaTable's meta in place.
+ * Throws if the table has a `tenant_id` column or no EntityTableMeta to stamp.
+ */
+export function declareGlobalTenancy<T extends SchemaTable>(table: T): T & TenancyBrand<"global"> {
+  const meta = (table as unknown as Record<symbol, EntityTableMeta | undefined>)[
+    KUMIKO_META_SYMBOL
+  ];
+  if (!meta) {
+    throw new Error("declareGlobalTenancy(): table has no EntityTableMeta to stamp.");
+  }
+  if (meta.columns.some((c) => c.name === "tenant_id")) {
+    throw new Error(
+      `declareGlobalTenancy("${meta.tableName}"): tables with a "tenant_id" column cannot be ` +
+        'declared tenancy: "global" — a global table\'s rows carry the system tenant, not a ' +
+        "per-row tenant identity.",
+    );
+  }
+  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
+    ...meta,
+    tenancy: "global",
+  };
+  // @cast-boundary type-brand — TenancyBrand<"global"> is a phantom marker with no runtime representation.
+  return table as T & TenancyBrand<"global">;
 }
 
 export function buildEntityTable<E extends EntityDefinition>(

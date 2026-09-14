@@ -20,7 +20,7 @@
 // SystemAdmin-only: Aufrufer ist der Watch/Sync-Supervisor bzw. der
 // Poll-Cron mit programmatic SystemUser — nie ein Tenant-Request.
 
-import { countWhere, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { countWhere } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
@@ -106,11 +106,16 @@ const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
 // — 'inbm' as ASCII, keeps it disjoint from the framework's other fixed
 // single-int advisory-lock keys (schema bootstrap, es-ops boot).
 const THREAD_ROLLUP_LOCK_NAMESPACE = 0x696e626d;
+const THREAD_ROLLUP_ADVISORY_LOCK_REASON =
+  "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API";
 export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
   access: { roles: ["SystemAdmin"] },
   agent: { expose: false },
+  escapeHatch: {
+    reason: THREAD_ROLLUP_ADVISORY_LOCK_REASON,
+  },
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as IngestMessagePayload;
@@ -125,7 +130,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    Check ist billig und macht den Handler rebuild-robust falls
     //    store_mail_seen_messages je getruncated wird).
     // ---------------------------------------------------------------
-    const seenRows = await selectMany(ctx.db.raw, seenMessageTable, {
+    const seenRows = await ctx.db.selectMany(seenMessageTable, {
       accountId: payload.accountId,
       providerMessageId: payload.providerMessageId,
     });
@@ -138,7 +143,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
     const existingEvents = await ctx.loadAggregate(messageAggId);
     if (existingEvents.length > 0) {
       // Stream existiert, Anchor fehlte → Anchor nachziehen, dann raus.
-      await insertOne(ctx.db.raw, seenMessageTable, {
+      await ctx.db.insertOne(seenMessageTable, {
         tenantId,
         accountId: payload.accountId,
         providerMessageId: payload.providerMessageId,
@@ -267,7 +272,12 @@ export const ingestMessageHandler: WriteHandlerDef = {
         )
       : threadPlainPii;
 
-    await acquireNamespacedAdvisoryLock(ctx.db.raw, THREAD_ROLLUP_LOCK_NAMESPACE, threadAggId);
+    const threadRollupRunner = ctx.db.unsafeRaw(THREAD_ROLLUP_ADVISORY_LOCK_REASON);
+    await acquireNamespacedAdvisoryLock(
+      threadRollupRunner,
+      THREAD_ROLLUP_LOCK_NAMESPACE,
+      threadAggId,
+    );
 
     let threadAppendOk = false;
     for (let attempt = 1; attempt <= THREAD_ROLLUP_MAX_ATTEMPTS && !threadAppendOk; attempt++) {
@@ -278,7 +288,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
       const previousLastAt = previousThread?.lastMessageAtIso ?? "";
       const newLastAt =
         payload.receivedAtIso > previousLastAt ? payload.receivedAtIso : previousLastAt;
-      const messageCount = await countWhere(ctx.db.raw, inboundMessagesProjectionTable, {
+      const messageCount = await countWhere(threadRollupRunner, inboundMessagesProjectionTable, {
         tenantId,
         threadKey,
       });
@@ -308,7 +318,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
     // 6. Dedup-Anchor. Läuft in derselben TX wie die appends — stirbt
     //    der Handler, rollt alles zusammen zurück.
     // ---------------------------------------------------------------
-    await insertOne(ctx.db.raw, seenMessageTable, {
+    await ctx.db.insertOne(seenMessageTable, {
       tenantId,
       accountId: payload.accountId,
       providerMessageId: payload.providerMessageId,

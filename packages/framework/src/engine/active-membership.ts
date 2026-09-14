@@ -10,12 +10,26 @@ import type { TenantId } from "./types/identifiers";
 // with a since-deleted row should not silently treat it as active.
 export type PrincipalStatus = "active" | "blocked" | "unknown";
 
+// Global-roles/timezone/locale snapshot ctx.queryAsMember needs to mint a
+// resolved principal's SessionUser, without exposing its own table.
+export type PrincipalProfile = {
+  readonly globalRoles: readonly string[];
+  readonly timezone?: string;
+  readonly locale?: string;
+};
+
 // Registered via r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin).
 export type PrincipalStatusPlugin = {
   readonly resolveStatus: (
     userId: string,
     deps: { readonly db: DbConnection },
   ) => Promise<PrincipalStatus>;
+  // Required so a missing provider fails closed (InternalError) instead of
+  // silently minting empty global roles for ctx.queryAsMember.
+  readonly resolveProfile: (
+    userId: string,
+    deps: { readonly db: DbConnection },
+  ) => Promise<PrincipalProfile | null>;
 };
 
 // `null` means the tenant has no lifecycle row (never entered teardown).
@@ -38,7 +52,7 @@ function hasResolveStatusFn(v: unknown): v is { readonly resolveStatus: unknown 
 }
 
 export function isPrincipalStatusPlugin(v: unknown): v is PrincipalStatusPlugin {
-  return hasResolveStatusFn(v);
+  return hasResolveStatusFn(v) && "resolveProfile" in v && typeof v.resolveProfile === "function";
 }
 
 export function isTenantLifecycleStatusPlugin(v: unknown): v is TenantLifecycleStatusPlugin {

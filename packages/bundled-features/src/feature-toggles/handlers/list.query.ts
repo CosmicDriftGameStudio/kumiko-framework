@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants";
@@ -32,7 +31,7 @@ export const listQuery = defineQueryHandler({
       updatedAt: Temporal.Instant;
       updatedBy: string;
     };
-    const rows = await selectMany<Row>(db.raw, globalFeatureStateTable);
+    const rows = await db.global(globalFeatureStateTable).selectMany<Row>();
     return {
       items: rows.map((r) => ({
         featureName: r.featureName,

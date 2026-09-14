@@ -1,4 +1,3 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { createSystemUser, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -32,11 +31,9 @@ export async function startDeletionGracePeriod(
   userId: string,
   complianceTenantId: string,
 ): Promise<StartGracePeriodResult> {
-  const userRow = await fetchOne<{ status: string; email: string; locale: string | null }>(
-    ctx.db.raw,
-    userTable,
-    { id: userId },
-  );
+  const userRow = await ctx.db
+    .global(userTable)
+    .fetchOne<{ status: string; email: string; locale: string | null }>({ id: userId });
   if (!userRow) {
     return {
       ok: false,
@@ -66,10 +63,14 @@ export async function startDeletionGracePeriod(
   const T = getTemporal();
   const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
 
-  await updateUserLifecycle(ctx.db.raw, userId, {
-    status: USER_STATUS.DeletionRequested,
-    gracePeriodEnd,
-  });
+  await updateUserLifecycle(
+    ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+    userId,
+    {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd,
+    },
+  );
 
   return {
     ok: true,

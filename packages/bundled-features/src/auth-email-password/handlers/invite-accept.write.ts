@@ -67,6 +67,13 @@ const invitationExecutor = createEventStoreExecutor(
   { entityName: "tenant-invitation" },
 );
 
+const INVITE_ACCEPT_ESCAPE_HATCH_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant.";
+const READ_PENDING_INVITATION_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant";
+const ADD_MEMBERSHIP_INVITATION_TENANT_REASON =
+  "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant";
+
 export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
     name: "invite-accept",
@@ -76,6 +83,9 @@ export function createInviteAcceptHandler() {
     // dispatched wird.
     access: { openToAll: true },
     agent: { expose: false },
+    escapeHatch: {
+      reason: INVITE_ACCEPT_ESCAPE_HATCH_REASON,
+    },
     // kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
     handler: async (event, ctx) => {
       if (!ctx.redis) {
@@ -101,9 +111,11 @@ export function createInviteAcceptHandler() {
 
       let committed = false;
       try {
-        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
-          id: invitationId,
-        });
+        const invitation = await fetchOne<InvitationRow>(
+          ctx.db.unsafeRaw(READ_PENDING_INVITATION_REASON),
+          tenantInvitationsTable,
+          { id: invitationId },
+        );
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
@@ -119,7 +131,7 @@ export function createInviteAcceptHandler() {
         // Email-Match: User muss mit der eingeladenen Email matchen.
         // Sonst kann ein Angreifer mit Zugriff zur invitee-Mail seinen
         // eigenen Account dem Tenant zuschlagen.
-        const userRow = await fetchOne<UserEmailRow>(ctx.db.raw, userTable, {
+        const userRow = await ctx.db.global(userTable).fetchOne<UserEmailRow>({
           id: event.user.id,
         });
         const userEmail = userRow?.email
@@ -134,13 +146,14 @@ export function createInviteAcceptHandler() {
         // ein Re-Invite in einen (vorübergehend) disabled Tenant würde dort
         // alreadyMember=false sehen und am Unique-Constraint scheitern.
         // Idempotenz: schon Member → no-op + 200 mit alreadyMember=true.
-        const membershipRow = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
+        const invitationTenantRunner = ctx.db.unsafeRaw(ADD_MEMBERSHIP_INVITATION_TENANT_REASON);
+        const membershipRow = await fetchOne(invitationTenantRunner, tenantMembershipsTable, {
           userId: event.user.id,
           tenantId: invitationTenantId,
         });
         const alreadyMember = membershipRow !== undefined;
 
-        const dbConn = ctx.db.raw;
+        const dbConn = invitationTenantRunner;
 
         if (!alreadyMember) {
           // Membership-Add via seedTenantMembership-helper (event-store-

@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type {
   AccessRule,
   WriteHandlerDef,
@@ -68,14 +67,14 @@ export function createConfirmSchedulePeriodHandler(
       // ponytail: read-then-write, so two confirms racing the same period could
       // double-book; add a unique index on (tenantId, reference) when concurrent
       // confirms become real.
-      const candidates = await selectMany(ctx.db.raw, transactionTable, {
+      const candidates = await ctx.db.selectMany(transactionTable, {
         tenantId: event.user.tenantId,
         reference,
       });
       const candidateIds = candidates.map((r) => String(r["id"]));
       const stornos =
         candidateIds.length > 0
-          ? await selectMany(ctx.db.raw, transactionTable, {
+          ? await ctx.db.selectMany(transactionTable, {
               tenantId: event.user.tenantId,
               reference: { in: candidateIds },
             })

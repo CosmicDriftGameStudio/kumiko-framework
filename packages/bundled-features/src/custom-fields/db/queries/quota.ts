@@ -5,7 +5,9 @@ export async function countTenantFieldDefinitions(db: TenantDb, tenantId: string
   // Active definitions only — delete soft-deletes (the deterministic stream is
   // kept so a re-define can restore it), so isDeleted rows must not consume quota.
   const rowsResult = await unsafeReadRetrying(
-    db.raw,
+    db.unsafeRaw(
+      "counts custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry",
+    ),
     "SELECT COUNT(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1 AND is_deleted = FALSE",
     [tenantId],
   );

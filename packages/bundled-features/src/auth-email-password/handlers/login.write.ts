@@ -287,7 +287,9 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       reason:
         "Unauthenticated login has no caller identity yet — it looks up the user row by " +
         "email via ctx.queryAs(SYSTEM, ...) and resolves tenant membership via " +
-        "ctx.resolveActiveMembership before a session exists.",
+        "ctx.resolveActiveMembership before a session exists. It also reads the MFA " +
+        "enrollment of the tenant named in the signed login/setup token, not the guest " +
+        "dispatch tenant, via the mfaStatusChecker callback.",
     },
     description:
       "Signs a user in with email and password, running the lockout, email-verification, account-status, tenant-membership and MFA gates, and answering with a session or with an MFA challenge or setup requirement.",

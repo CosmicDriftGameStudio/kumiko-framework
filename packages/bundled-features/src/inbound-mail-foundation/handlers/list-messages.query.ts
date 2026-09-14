@@ -8,7 +8,6 @@
 // das Inbox-Cockpit lädt begrenzte Zeiträume; ein `limit`-Feld ist
 // vorwärtskompatibel ergänzbar ohne den QN zu brechen.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
@@ -42,7 +41,7 @@ export const listMessagesQuery: QueryHandlerDef = {
     if (payload.threadKey) filter["threadKey"] = payload.threadKey;
     if (payload.scope) filter["scope"] = payload.scope;
 
-    const allRows = await selectMany(ctx.db.raw, inboundMessagesProjectionTable, filter);
+    const allRows = await ctx.db.selectMany(inboundMessagesProjectionTable, filter);
     // Scope-Sichtbarkeit (Plan Entscheidung 2): Messages persönlicher
     // Postfächer nur für Owner + TenantAdmin/SystemAdmin.
     const rows = allRows.filter((row) => isVisibleToCaller(row, ctx.user));

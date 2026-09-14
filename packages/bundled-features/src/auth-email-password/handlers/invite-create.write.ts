@@ -18,7 +18,6 @@
 // invite-create.
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
@@ -132,7 +131,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
       // max. eine Row. Status egal (cancelled/accepted/expired/pending);
       // wir setzen sie auf pending zurück und vergeben einen frischen
       // Token wenn der bisherige nicht mehr lebt.
-      const existing = await fetchOne(ctx.db.raw, tenantInvitationsTable, { tenantId, email });
+      const existing = await ctx.db.fetchOne(tenantInvitationsTable, { tenantId, email });
 
       let invitationId: string;
       let token: string;

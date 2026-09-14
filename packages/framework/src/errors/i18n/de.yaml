@@ -97,6 +97,42 @@ system_identity_switch_denied:
     (oder am `r.hook(...)`-Aufruf, wenn der Wechsel in einem Hook passiert),
     oder verlagere die Logik in ein `r.systemScope()`-Feature oder einen Job.
 
+identity_switch_denied:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: ein Handler oder Hook hat `ctx.queryAs`/`ctx.writeAs`
+    mit einer anderen Identität als dem eigenen Caller aufgerufen — andere
+    User-ID, anderer Tenant, andere Claims oder Origin, oder Rollen, die der
+    Caller nicht hat — ohne `r.systemScope()`-Handler, Job zu sein oder
+    `escapeHatch: { reason }` zu deklarieren. Der Wechsel auf den Caller selbst
+    oder eine Teilmenge seiner Rollen bleibt frei.
+
+    Deklariere `escapeHatch: { reason: "..." }` am Write- oder Query-Handler
+    (oder am `r.hook(...)`-Aufruf, wenn der Wechsel in einem Hook passiert),
+    oder verlagere die Logik in ein `r.systemScope()`-Feature oder einen Job.
+
+member_resolution_denied:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: `ctx.queryAsMember(userId, ...)` konnte für `userId`
+    keine aktive Mitgliedschaft im Tenant des Aufrufers auflösen (kein
+    Mitglied, Principal gesperrt, oder der Tenant befindet sich im Teardown).
+    Bewusst generisch — `details` verrät nie, welche Prüfung fehlgeschlagen ist.
+
+member_resolution_read_only:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: ein über `ctx.queryAsMember` erreichter Query-Handler
+    hat versucht zu schreiben (`ctx.write`/`writeAs`/`appendEvent`/
+    `jobRunner`/...). Aufgelöste Member-Principals sind nur lesend — es gibt
+    kein `writeAsMember`.
+
 agent.tool_not_allowed:
   endUser: |
     Dieses Tool ist im aktuellen Modus nicht verfügbar.
