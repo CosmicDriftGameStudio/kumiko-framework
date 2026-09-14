@@ -54,15 +54,6 @@ export type TenantDb = {
   readonly tenantId: TenantId;
   readonly mode: TenantDbMode;
   /**
-   * Underlying DbRunner. Framework-internal use (event-store, migrations) —
-   * bypasses tenant-filter. Feature code uses the typed helpers above so the
-   * automatic scoping stays intact.
-   * @deprecated Use `ctx.db.unsafeRaw(reason)` / `db.global(table)` (method-
-   * form) instead — both make the cross-tenant intent an explicit, named
-   * declaration instead of a silent unfiltered escape hatch. Removal fw#2860.
-   */
-  readonly raw: DbRunner;
-  /**
    * Unfiltered DbRunner escape hatch for handlers/hooks that declare `escapeHatch: { reason }`.
    * Throws `AccessDeniedError` when ungranted, or `Error` when `reason` is empty.
    */

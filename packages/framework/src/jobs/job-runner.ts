@@ -28,6 +28,7 @@ import {
   type Tracer,
 } from "../observability";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
+import { createEscapeHatchReporter } from "../pipeline/escape-hatch-report";
 import { RedisKeys } from "../pipeline/redis-keys";
 import { bridgeStub } from "../testing/handler-context";
 
@@ -293,12 +294,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     return async () => {
       const systemUser = createSystemUser(SYSTEM_TENANT_ID);
       const systemModeDb = createTenantDb(db, SYSTEM_TENANT_ID, "system");
+      const reportEscapeHatch = createEscapeHatchReporter({
+        handler: ACTIVE_TENANT_IDS_QUERY_NAME,
+        tenantId: SYSTEM_TENANT_ID,
+        actor: systemUser.id,
+        sink: context._escapeHatchAuditSink,
+        log: context.log,
+      });
       const result = await handler.handler(
         { type: ACTIVE_TENANT_IDS_QUERY_NAME, payload: {}, user: systemUser },
         {
           db: systemModeDb,
           dbOutsideTransaction: systemModeDb,
-          systemDb: createUncheckedSystemDb(systemModeDb),
+          systemDb: createUncheckedSystemDb(systemModeDb, undefined, reportEscapeHatch),
           registry,
           ...bridgeStub(),
         },
@@ -544,7 +552,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const tenantScopedDb = configDb ? createTenantDb(configDb, tenantId, "system") : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
     const systemDb =
-      isSystemJob && tenantScopedDb ? createUncheckedSystemDb(tenantScopedDb) : undefined;
+      isSystemJob && tenantScopedDb
+        ? createUncheckedSystemDb(
+            tenantScopedDb,
+            undefined,
+            createEscapeHatchReporter({
+              handler: jobName,
+              tenantId,
+              actor: jobSystemUser.id,
+              sink: context._escapeHatchAuditSink,
+              log: context.log,
+            }),
+          )
+        : undefined;
     const config =
       context._configAccessorFactory && tenantScopedDb
         ? context._configAccessorFactory({

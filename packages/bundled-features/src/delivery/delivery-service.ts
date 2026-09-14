@@ -1,9 +1,16 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb, createUncheckedSystemDb } from "@cosmicdrift/kumiko-framework/db";
-import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EscapeHatchAuditSink,
+  NotifyPriority,
+  Registry,
+  TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
@@ -43,6 +50,10 @@ export type DeliveryServiceOptions = {
   // the delivery.render → delivery.send jobs. When absent, queued channels fall
   // back to synchronous inline delivery (job-less setups, unit tests).
   readonly jobRunner?: JobRunner;
+  // Attributed escape-hatch audit for resolveUserIdsForTenant's ctx.systemDb —
+  // absent means an unattributed warn log (see fallbackEscapeHatchReporter).
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly log?: Logger;
 };
 
 // Build channel list from registry extension usages
@@ -82,6 +93,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     isChannelKilled,
     idempotencyRedis,
     jobRunner,
+    escapeHatchAuditSink,
+    log,
   } = options;
   const idemRedis = idempotencyRedis ?? rateLimit?.redis;
 
@@ -157,7 +170,16 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       throw new Error(`Tenant broadcast query "${tenantUserIdsQuery}" not found in registry`);
     }
     const systemUser = createSystemUser(tenantId);
-    const tenantDb = createTenantDb(db, tenantId, "system");
+    const report = createEscapeHatchReporter({
+      handler: tenantUserIdsQuery,
+      tenantId,
+      actor: systemUser.id,
+      sink: escapeHatchAuditSink,
+      log,
+    });
+    const tenantDb = createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
+      report,
+    });
     // Hand-built context, not routed through the dispatcher — tenantUserIdsQuery is
     // typically an r.systemScope() handler, fail-closed on ctx.db, so this needs both.
     // @cast-boundary engine-payload — generic query-handler return for typed convention
@@ -166,7 +188,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       {
         db: tenantDb,
         dbOutsideTransaction: tenantDb,
-        systemDb: createUncheckedSystemDb(tenantDb),
+        systemDb: createUncheckedSystemDb(tenantDb, undefined, report),
         registry,
         ...bridgeStub(),
       },

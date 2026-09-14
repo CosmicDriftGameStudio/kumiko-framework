@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { EscapeHatchReporter, EscapeHatchTarget } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { createEntity, createTextField } from "../../engine";
 import { AccessDeniedError } from "../../errors";
@@ -68,6 +69,19 @@ const explicitGlobalLiteralTable = buildEntityTable("globalGuardExplicitGlobal",
 });
 
 const own = testTenantId(1);
+
+function recordingReporter(): {
+  readonly report: EscapeHatchReporter;
+  readonly calls: Array<{ kind: string; reason: string; target: EscapeHatchTarget | undefined }>;
+} {
+  const calls: Array<{ kind: string; reason: string; target: EscapeHatchTarget | undefined }> = [];
+  return {
+    report: (kind, reason, target) => {
+      calls.push({ kind, reason, target });
+    },
+    calls,
+  };
+}
 
 // Type-only assertions — never invoked, checked by `tsc --build` only.
 function typeAssertions(tdb: TenantDb): void {
@@ -157,6 +171,41 @@ describe("TenantDb.global()", () => {
     expect(captured).toHaveLength(1);
   });
 
+  test("write with an escapeHatch reports global-write once with the grant's reason", async () => {
+    const db: DbRunner = {
+      unsafe: async () => [{ id: "x" }],
+      begin: async () => {
+        throw new Error("begin not used in this test");
+      },
+    } as DbRunner;
+    const { report, calls } = recordingReporter();
+    const tdb = createTenantDb(db, own, "tenant", undefined, undefined, undefined, {
+      globalWrites: { reason: "cross-tenant backfill job" },
+      report,
+    });
+    await tdb.global(globalUnmanagedTable).insertOne({ name: "x" });
+    expect(calls).toEqual([
+      { kind: "global-write", reason: "cross-tenant backfill job", target: undefined },
+    ]);
+  });
+
+  test("denied global write (no grant) reports nothing", async () => {
+    const { report, calls } = recordingReporter();
+    const tdb = createTenantDb(
+      unreachableRunner(),
+      own,
+      "tenant",
+      undefined,
+      undefined,
+      undefined,
+      {
+        report,
+      },
+    );
+    await expect(tdb.global(globalUnmanagedTable).insertOne({ name: "x" })).rejects.toThrow();
+    expect(calls).toEqual([]);
+  });
+
   test("write with an explicit non-SYSTEM tenantId rejects even with a valid escapeHatch", async () => {
     const tdb = createTenantDb(
       unreachableRunner(),
@@ -214,6 +263,41 @@ describe("TenantDb.unsafeRaw()", () => {
     });
     expect(tdb.unsafeRaw("some reason")).toBe(rawDb);
   });
+
+  test("with a valid grant reports unsafe-raw once with the reason", () => {
+    const { report, calls } = recordingReporter();
+    const tdb = createTenantDb(
+      unreachableRunner(),
+      own,
+      "tenant",
+      undefined,
+      undefined,
+      undefined,
+      {
+        unsafeRaw: { reason: "granted" },
+        report,
+      },
+    );
+    tdb.unsafeRaw("cleanup read");
+    expect(calls).toEqual([{ kind: "unsafe-raw", reason: "cleanup read", target: undefined }]);
+  });
+
+  test("without a grant reports nothing", () => {
+    const { report, calls } = recordingReporter();
+    const tdb = createTenantDb(
+      unreachableRunner(),
+      own,
+      "tenant",
+      undefined,
+      undefined,
+      undefined,
+      {
+        report,
+      },
+    );
+    expect(() => tdb.unsafeRaw("some reason")).toThrow(AccessDeniedError);
+    expect(calls).toEqual([]);
+  });
 });
 
 describe("withUnsafeRawGrant", () => {
@@ -256,5 +340,13 @@ describe("UncheckedSystemDb.unsafeRaw", () => {
     const tdb = createTenantDb(rawDb, own);
     const sysDb = createUncheckedSystemDb(tdb);
     expect(sysDb.unsafeRaw("cleanup job")).toBe(rawDb);
+  });
+
+  test("reports unsafe-raw once with the reason", () => {
+    const tdb = createTenantDb(unreachableRunner(), own);
+    const { report, calls } = recordingReporter();
+    const sysDb = createUncheckedSystemDb(tdb, undefined, report);
+    sysDb.unsafeRaw("cleanup job");
+    expect(calls).toEqual([{ kind: "unsafe-raw", reason: "cleanup job", target: undefined }]);
   });
 });

@@ -9,6 +9,7 @@
 // `limit` explicitly when the row-count could grow without bound.
 
 import { selectMany, type WhereObject } from "../../db/query";
+import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveOptional } from "./_resolver-utils";
@@ -27,7 +28,7 @@ defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveOptional(args.where, ctx);
     const rows = await selectMany(
-      ctx.db.raw,
+      tenantDbRunner(ctx.db),
       args.table,
       where,
       args.limit !== undefined ? { limit: args.limit } : undefined,

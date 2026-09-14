@@ -365,6 +365,23 @@ ALTER TABLE "widgets" OWNER TO app_user;`,
     }
   });
 
+  test("FORCE / NO FORCE ROW LEVEL SECURITY is shape-neutral (fw#2907)", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid PRIMARY KEY, "title" text);
+ALTER TABLE "widgets" FORCE ROW LEVEL SECURITY;
+ALTER TABLE widgets NO FORCE ROW LEVEL SECURITY;`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual(["id", "title"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("unexpected table: migrations create a table the snapshot doesn't know about", () => {
     const dir = tmpMigrationsDir();
     try {

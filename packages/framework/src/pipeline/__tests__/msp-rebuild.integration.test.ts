@@ -364,4 +364,32 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
     expect(state?.status).toBe("dead");
     expect(state?.lastError).toMatch(/appendEvent/);
   });
+
+  test("aborts when the live table has RLS enabled — data survives (fw#2907)", async () => {
+    const erin = "00000000-0000-4000-8000-000000000e05";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    await stack.http.writeOk("mspreb:write:invoice:bill", { customer: erin, cents: 20_00 }, admin);
+    await runFullDispatcher();
+
+    await asRawClient(stack.db).unsafe(
+      `ALTER TABLE "read_mspreb_balance" ENABLE ROW LEVEL SECURITY`,
+    );
+    try {
+      await expect(
+        rebuildMultiStreamProjection(BALANCE_MSP, { db: stack.db, registry: stack.registry }),
+      ).rejects.toThrow(/row level security/);
+
+      const [row] = await selectMany(stack.db, balanceTable, { customer: erin });
+      expect(row).toMatchObject({ invoicesCents: 20_00 });
+    } finally {
+      await asRawClient(stack.db).unsafe(
+        `ALTER TABLE "read_mspreb_balance" DISABLE ROW LEVEL SECURITY`,
+      );
+    }
+  });
 });

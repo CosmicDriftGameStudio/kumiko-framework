@@ -1,10 +1,11 @@
-import type { DbRow, DbTx } from "../db/connection";
+import type { DbRow, DbRunner, DbTx } from "../db/connection";
 import { selectRowForUpdateById } from "../db/queries/entity-read";
 import { asEntityTableMeta, selectMany } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
+import { tenantDbRunner } from "../db/tenant-db-runner";
 import { hasAccess } from "../engine/access";
 import { ConfigScopes } from "../engine/constants";
-import { checkWriteFieldRoles } from "../engine/field-access";
+import { checkWriteFieldOwnership, checkWriteFieldRoles } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { HandlerContext, SessionUser, WriteResult } from "../engine/types";
 import { HookPhases } from "../engine/types";
@@ -28,6 +29,7 @@ import {
   checkFeatureEnabled,
   enforceRateLimit,
   memberResolutionReadOnlyDenied,
+  resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
 } from "./dispatch-shared";
@@ -127,6 +129,7 @@ async function runLifecycle(
   handlerContext: HandlerContext,
   user: SessionUser,
   afterCommitHooks: AfterCommitHook[],
+  runner: DbRunner | undefined,
 ): Promise<void> {
   const { lifecycle } = ctx;
   if (!lifecycle) {
@@ -143,7 +146,7 @@ async function runLifecycle(
   // hooks. If a projection apply() throws, the whole tx rolls back — the
   // event and the auto-projection row go with it. Running before the hooks
   // keeps projection state consistent with what the hooks observe.
-  await runProjections(result, handlerContext);
+  await runProjections(result, handlerContext.registry, runner);
 
   if (result.kind === "save") {
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
@@ -194,6 +197,14 @@ export async function executeWrite(
   return runHandlerInstrumented(ctx, type, "write", user, () =>
     executeWriteInner(ctx, type, payload, user, tx, afterCommitHooks),
   );
+}
+
+function isForeignTenantParentRow(
+  parentRow: Readonly<Record<string, unknown>>,
+  user: SessionUser,
+): boolean {
+  const rowTenantId = parentRow["tenantId"];
+  return typeof rowTenantId === "string" && rowTenantId !== user.tenantId;
 }
 
 // Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
@@ -286,6 +297,36 @@ export async function executeNestedWrite(
     );
   }
 
+  // A custom create handler may return an existing foreign row; verify it before attaching children.
+  if (!registry.isHandlerSystemScoped(type) && isForeignTenantParentRow(parentRow, user)) {
+    return writeFailure(
+      new AccessDeniedError({
+        message: `nested-write: parent row belongs to another tenant — refusing to attach children to "${type}"`,
+        details: { reason: FrameworkReasons.fieldAccessDenied, handler: type },
+      }),
+    );
+  }
+  const parentEntityName = registry.getHandlerEntity(type);
+  if (parentEntityName) {
+    const parentEntity = registry.getEntity(parentEntityName);
+    if (parentEntity) {
+      const deniedField = checkWriteFieldOwnership(parentEntity, parentRow, user);
+      if (deniedField) {
+        return writeFailure(
+          new AccessDeniedError({
+            message: `nested-write: parent row ownership check failed on field "${deniedField}" of "${type}" — refusing to attach children to a parent row the caller does not own`,
+            i18nKey: "errors.access.fieldDenied",
+            details: {
+              reason: FrameworkReasons.fieldAccessDenied,
+              field: deniedField,
+              handler: type,
+            },
+          }),
+        );
+      }
+    }
+  }
+
   for (const spec of nested.specs) {
     const subRows: Record<string, unknown>[] = [];
     for (let i = 0; i < spec.items.length; i++) {
@@ -341,15 +382,21 @@ async function executeWriteInner(
 
   // Rate-limit gate before access (same reasoning as in executeQueryInner).
   // Throws RateLimitError; the outer wrapper turns it into a 429
-  // WriteFailure via toWriteErrorInfo. Inline-skip when no opt-in —
-  // hot path stays zero-cost.
-  if (handler.rateLimit !== undefined) {
-    try {
-      await enforceRateLimit(ctx, handler.rateLimit, type, user);
-    } catch (e) {
-      if (isKumikoError(e)) return writeFailure(e);
-      throw e;
-    }
+  // WriteFailure via toWriteErrorInfo. Apps that don't use L3 pay zero cost
+  // for non-systemScope handlers with no rateLimit declared; systemScope
+  // handlers pay one isHandlerSystemScoped lookup to check whether the
+  // default per-tenant limit applies.
+  try {
+    await enforceRateLimit(
+      ctx,
+      handler.rateLimit,
+      type,
+      user,
+      registry.isHandlerSystemScoped(type),
+    );
+  } catch (e) {
+    if (isKumikoError(e)) return writeFailure(e);
+    throw e;
   }
 
   // Default-deny: missing access rule is treated as "no one has access".
@@ -447,7 +494,7 @@ async function executeWriteInner(
         // active (tests without a DB connection).
         const tableName = asEntityTableMeta(table)?.tableName ?? "";
         const rows = tx
-          ? await selectRowForUpdateById(transitionGuardDb, tableName, id)
+          ? await selectRowForUpdateById(tenantDbRunner(transitionGuardDb), tableName, id)
           : await selectMany(transitionGuardDb, table, { id });
         const row = rows[0];
 
@@ -504,7 +551,8 @@ async function executeWriteInner(
 
   if (result.isSuccess) {
     try {
-      await runLifecycle(ctx, type, result.data, handlerContext, user, afterCommitHooks);
+      const runner = resolveDbSource(ctx, tx);
+      await runLifecycle(ctx, type, result.data, handlerContext, user, afterCommitHooks, runner);
     } catch (e) {
       return writeFailure(wrapToKumiko(e));
     }

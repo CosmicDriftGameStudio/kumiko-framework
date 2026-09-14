@@ -38,6 +38,7 @@ import type { EventStoreExecutorOptions } from "./event-store-executor";
 import { constraintOf, isUniqueViolation } from "./pg-error";
 import { toSnakeCase } from "./table-builder";
 import type { TenantDb } from "./tenant-db";
+import { tenantDbRunner } from "./tenant-db-runner";
 
 // Shared context-building for the event-store-executor CRUD verbs (create/
 // update/delete/forget/restore/list/detail — see event-store-executor-write.ts
@@ -358,7 +359,7 @@ export function buildExecutorContext(
     id: EntityId,
     tenantId: TenantId,
   ): Promise<void> {
-    if (await isStreamArchived(db.raw, tenantId, String(id))) {
+    if (await isStreamArchived(tenantDbRunner(db), tenantId, String(id))) {
       throw new ArchivedStreamError(tenantId, String(id));
     }
   }
@@ -401,7 +402,9 @@ export function buildExecutorContext(
     whereParts.push(shifted.sqlText);
     for (const p of shifted.params) params.push(p);
     const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    return [...(await executeRawQueryRead<Record<string, unknown>>(db.raw, sqlText, params))];
+    return [
+      ...(await executeRawQueryRead<Record<string, unknown>>(tenantDbRunner(db), sqlText, params)),
+    ];
   }
 
   return {

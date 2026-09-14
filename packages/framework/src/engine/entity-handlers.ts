@@ -9,6 +9,7 @@ import {
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable, type EntityTable } from "../db/table-builder";
 import { createTenantDb, type TenantDb } from "../db/tenant-db";
+import { tenantDbRunner } from "../db/tenant-db-runner";
 import { isSystemIdentity } from "../pipeline/system-identity-switch";
 import { assertUnreachable } from "../utils";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
@@ -206,7 +207,7 @@ export function defineEntityWriteHandler(
         `entity convention handler for r.systemScope() feature (${name})`,
       );
     }
-    return crossTenant ? createTenantDb(ctx.db.raw, ctx.db.tenantId, "system") : ctx.db;
+    return crossTenant ? createTenantDb(tenantDbRunner(ctx.db), ctx.db.tenantId, "system") : ctx.db;
   };
 
   // The event stream is keyed by the acting user's tenantId (streamTenantFor in
@@ -370,7 +371,9 @@ export function defineEntityQueryHandler(
         `entity convention handler for r.systemScope() feature (${entityName}:${verb})`,
       );
     }
-    return options?.crossTenant ? createTenantDb(ctx.db.raw, ctx.db.tenantId, "system") : ctx.db;
+    return options?.crossTenant
+      ? createTenantDb(tenantDbRunner(ctx.db), ctx.db.tenantId, "system")
+      : ctx.db;
   };
 
   switch (verb) {

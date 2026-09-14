@@ -1293,6 +1293,40 @@ describe("flow 15: idempotency requires Redis", () => {
   });
 });
 
+// --- Flow 15b: escape-hatch audit attribution for tenant-broadcast resolveUserIdsForTenant ---
+
+describe("flow 15b: escape-hatch audit for tenant broadcast", () => {
+  test("recording sink receives an acknowledge-cross-tenant event attributed to tenantUserIdsQuery", async () => {
+    const recorded: import("@cosmicdrift/kumiko-framework/engine").EscapeHatchUseEvent[] = [];
+    const auditedService = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: TenantQueries.resolveUserIds,
+      escapeHatchAuditSink: async (event) => {
+        recorded.push(event);
+      },
+    });
+
+    // Distinct tenantId (not used by any earlier test in this file) — the
+    // module-level escape-hatch dedup window suppresses a repeat report for
+    // an identical (handler, kind, reason, tenantId, actor) tuple within 60s,
+    // which would otherwise make this assertion flaky depending on test order.
+    const auditTenantId = testTenantId(915501);
+
+    await auditedService.notify(
+      "app:notify:tenant-alert",
+      { to: { tenant: auditTenantId }, data: { title: "X", body: "X" } },
+      admin,
+      admin.tenantId,
+    );
+
+    const event = recorded.find((e) => e.kind === "acknowledge-cross-tenant");
+    expect(event?.handler).toBe(TenantQueries.resolveUserIds);
+    expect(event?.tenantId).toBe(auditTenantId);
+  });
+});
+
 // --- Flow 16: Unsubscribe race — ON CONFLICT makes repeated clicks safe ---
 
 describe("flow 16: repeated unsubscribe clicks are idempotent", () => {

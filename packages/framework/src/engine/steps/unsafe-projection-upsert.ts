@@ -14,6 +14,7 @@
 import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { extractTableName } from "../../db";
 import { executeRawQuery } from "../../db/queries/raw-sql";
+import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";
@@ -78,7 +79,7 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
       `INSERT INTO ${quoteIdent(tableName)} (${colNames.join(", ")}) VALUES (${placeholders.join(", ")}) ` +
       `ON CONFLICT (${conflictCols}) DO UPDATE SET ${setClauses.join(", ")}`;
 
-    await executeRawQuery(ctx.db.raw, sqlText, params);
+    await executeRawQuery(tenantDbRunner(ctx.db), sqlText, params);
   },
 });
 

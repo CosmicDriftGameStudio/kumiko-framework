@@ -138,6 +138,12 @@ export const readinessQuery = defineQueryHandler({
         "candidate keys through hasConfigAccess so only keys the caller's roles may read are reported",
     },
   },
+  rateLimit: {
+    disabled: true,
+    reason:
+      "self-scoped read of the caller's own tenant's config readiness, hit on every page load; " +
+      "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
+  },
   handler: async (query, ctx) => {
     const db = requireSystemDb(ctx, "config:query:readiness", query.user.tenantId);
     const missing = await collectMissingRequiredConfig(

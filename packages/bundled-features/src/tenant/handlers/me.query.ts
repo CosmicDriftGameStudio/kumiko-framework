@@ -16,6 +16,12 @@ export const meQuery = defineQueryHandler({
         "to the caller's own tenantId",
     },
   },
+  rateLimit: {
+    disabled: true,
+    reason:
+      "self-scoped read of the caller's own active tenant, hit on every page load; per-tenant " +
+      "bucket would throttle the whole tenant, L1 IP limit still applies",
+  },
   description:
     "Returns the record of the tenant the caller is currently signed in to, or null if it is gone; use it whenever the active tenant's own name, key or settings are needed.",
   handler: async (query, ctx) => {

@@ -1,6 +1,11 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EscapeHatchAuditSink,
+  Registry,
+  TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Redis } from "ioredis";
 import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service";
 import { collectChannels, createDeliveryService } from "./delivery-service";
@@ -10,6 +15,8 @@ export type CreateDeliveryTestContextOptions = {
   readonly tenantUserIdsQuery?: string;
   readonly rateLimit?: RateLimitConfig;
   readonly isChannelKilled?: KillSwitchResolver;
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly log?: Logger;
 };
 
 /**

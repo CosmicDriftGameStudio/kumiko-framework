@@ -18,6 +18,12 @@ export const meQuery = defineQueryHandler({
         "is by the caller's own id",
     },
   },
+  rateLimit: {
+    disabled: true,
+    reason:
+      "self-scoped read of the caller's own user record, hit on every page load; per-tenant " +
+      "bucket would throttle the whole tenant, L1 IP limit still applies",
+  },
   description:
     "Returns the signed-in caller's own identity record, with the password hash stripped by field-level read access; use it whenever the current user's own profile data is needed.",
   handler: async (query, ctx) => {

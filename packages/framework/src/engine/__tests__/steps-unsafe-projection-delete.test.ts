@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import type { DbRunner } from "../../db/connection";
 import { table, text, uuid } from "../../db/dialect";
+import { createTenantDb } from "../../db/tenant-db";
+import { testTenantId } from "../../stack";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionDeleteStep } from "../steps/unsafe-projection-delete";
 import type { PipelineCtx } from "../types/step";
@@ -10,11 +13,11 @@ const testTable = table("test_projection", {
   label: text("label"),
 });
 
-// bun-db path: step calls deleteMany(ctx.db.raw, table, where) which lands on
-// asRawClient(ctx.db.raw).unsafe(sqlText, params).
+// bun-db path: step calls deleteMany(tenantDbRunner(ctx.db), table, where) which
+// lands on asRawClient(runner).unsafe(sqlText, params).
 const unsafeMock = mock(async (_sqlText: string, _params: unknown[]): Promise<unknown[]> => []);
-const rawDb = { unsafe: unsafeMock, begin: mock() };
-const ctxDb = { raw: rawDb };
+const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
+const ctxDb = createTenantDb(rawDb, testTenantId(1));
 
 const mockCtx = {
   db: ctxDb,

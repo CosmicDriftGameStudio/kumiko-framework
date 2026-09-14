@@ -38,6 +38,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   type ChunkedMigrationStopReason,
@@ -107,6 +108,16 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     ? Date.now() + payload.maxDurationMs
     : Number.POSITIVE_INFINITY;
 
+  function reportEscapeHatchFor(tenantId: TenantId) {
+    return createEscapeHatchReporter({
+      handler: "config:job:reencrypt",
+      tenantId,
+      actor: "system",
+      sink: ctx._escapeHatchAuditSink,
+      log: ctx.log,
+    });
+  }
+
   const tdbCache = new Map<TenantId, TenantDb>();
   function tdbFor(tenantId: TenantId): TenantDb {
     let existing = tdbCache.get(tenantId);
@@ -121,7 +132,11 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   function sdbFor(tenantId: TenantId): UncheckedSystemDb {
     let existing = sdbCache.get(tenantId);
     if (!existing) {
-      existing = createUncheckedSystemDb(tdbFor(tenantId));
+      existing = createUncheckedSystemDb(
+        tdbFor(tenantId),
+        undefined,
+        reportEscapeHatchFor(tenantId),
+      );
       sdbCache.set(tenantId, existing);
     }
     return existing;
@@ -131,7 +146,11 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
   // to acknowledge the cross-tenant scan below, never bound to a real
   // tenant's writes — sharing it with sdbFor(SYSTEM_TENANT_ID) would make a
   // write-path cache entry double as the scan's ack gate.
-  const scanDb = createUncheckedSystemDb(createTenantDb(db, SYSTEM_TENANT_ID, "system"));
+  const scanDb = createUncheckedSystemDb(
+    createTenantDb(db, SYSTEM_TENANT_ID, "system"),
+    undefined,
+    reportEscapeHatchFor(SYSTEM_TENANT_ID),
+  );
 
   type ConfigRow = {
     id: string;

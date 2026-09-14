@@ -1,5 +1,6 @@
 import type { DbRunner } from "../db";
-import type { HandlerContext, LifecycleResult, Registry } from "../engine/types";
+import type { LifecycleResult, Registry } from "../engine/types";
+import { InternalError } from "../errors";
 import type { StoredEvent } from "../event-store";
 
 // Run custom projections for a save or delete result. Lives INSIDE the
@@ -18,23 +19,24 @@ import type { StoredEvent } from "../event-store";
 //   - Projections receive the exact StoredEvent from the executor. If you
 //     hand-craft a SaveContext (tests, non-executor writes), just don't set
 //     `event` and the runner no-ops.
-//   - `tx`-scoped DbRunner is passed via the registered apply() — we reuse
-//     `ctx.db.raw`, which the dispatcher already scoped to the active tx.
+//   - `runner` is the caller's already-resolved DbRunner — projections-runner
+//     has no TenantDb access of its own to derive one from.
 //   - Apply-function throws bubble up unchanged. The dispatcher wraps the
 //     whole lifecycle in a try/catch that rolls the tx back; the event is
 //     gone from the events table just like a rolled-back state change.
-export async function runProjections(result: LifecycleResult, ctx: HandlerContext): Promise<void> {
+export async function runProjections(
+  result: LifecycleResult,
+  registry: Registry,
+  runner: DbRunner | undefined,
+): Promise<void> {
   // skip: hand-crafted result with no event — nothing to project
   if (!result.event) return;
-  // r.systemScope() handlers: ctx.db is fail-closed — custom projections are
-  // framework-wired, not per-handler opt-in, so this reaches for systemDb
-  // itself rather than pushing the concern onto every r.projection() author.
-  const tx = ctx.systemDb
-    ? ctx.systemDb.acknowledgeCrossTenant(
-        `inline projection apply for r.systemScope() write (${result.event.aggregateType})`,
-      ).raw
-    : ctx.db.raw;
-  await runProjectionsForEvent(result.event, ctx.registry, tx);
+  if (!runner) {
+    throw new InternalError({
+      message: `runProjections("${result.event.aggregateType}") requires a database connection — none is configured.`,
+    });
+  }
+  await runProjectionsForEvent(result.event, registry, runner);
 }
 
 // Fire every projection whose source matches the event's aggregate type AND

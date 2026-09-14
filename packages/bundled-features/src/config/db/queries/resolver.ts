@@ -1,6 +1,7 @@
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { configValuesTable } from "../../table";
 
 export type ConfigRow = {
   readonly id: string;
@@ -10,21 +11,21 @@ export type ConfigRow = {
   readonly userId: string | null;
 };
 
+// Method-form so a tenant-mode TenantDb stays filtered.
 export async function selectConfigRowsForScope(
   db: DbRunner | TenantDb,
   systemTenantId: TenantId,
   tenantId: TenantId,
   userId: string,
 ): Promise<readonly ConfigRow[]> {
-  return unsafeReadRetrying<ConfigRow>(
-    db,
-    `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
-     FROM read_config_values
-     WHERE (tenant_id = $1 AND user_id IS NULL)
-        OR (tenant_id = $2 AND user_id IS NULL)
-        OR (tenant_id = $2 AND user_id = $3)`,
-    [systemTenantId, tenantId, userId],
-  );
+  const [scopeRows, userRows] = await Promise.all([
+    selectMany<ConfigRow>(db, configValuesTable, {
+      tenantId: [systemTenantId, tenantId],
+      userId: null,
+    }),
+    selectMany<ConfigRow>(db, configValuesTable, { tenantId, userId }),
+  ]);
+  return [...scopeRows, ...userRows];
 }
 
 export async function selectConfigRowsForKeys(
@@ -34,16 +35,15 @@ export async function selectConfigRowsForKeys(
   tenantId: TenantId,
   userId: string,
 ): Promise<readonly ConfigRow[]> {
-  return unsafeReadRetrying<ConfigRow>(
-    db,
-    `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
-     FROM read_config_values
-     WHERE key = ANY($1)
-       AND (
-         (tenant_id = $2 AND user_id IS NULL)
-         OR (tenant_id = $3 AND user_id IS NULL)
-         OR (tenant_id = $3 AND user_id = $4)
-       )`,
-    [[...keys], systemTenantId, tenantId, userId],
-  );
+  if (keys.length === 0) return [];
+  const keyFilter = { in: [...keys] };
+  const [scopeRows, userRows] = await Promise.all([
+    selectMany<ConfigRow>(db, configValuesTable, {
+      key: keyFilter,
+      tenantId: [systemTenantId, tenantId],
+      userId: null,
+    }),
+    selectMany<ConfigRow>(db, configValuesTable, { key: keyFilter, tenantId, userId }),
+  ]);
+  return [...scopeRows, ...userRows];
 }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -136,5 +137,27 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       masterKey: override,
     });
     expect(ctx["secrets"]).toBeDefined();
+  });
+
+  test("audit feature mounted → _escapeHatchAuditSink wired", () => {
+    const ctx = buildBootExtraContext({
+      db: fakeDb,
+      features: [createAuditFeature()],
+      envSource: {},
+      registry,
+      hasAuth: false,
+    });
+    expect(typeof ctx["_escapeHatchAuditSink"]).toBe("function");
+  });
+
+  test("no audit feature → _escapeHatchAuditSink not wired", () => {
+    const ctx = buildBootExtraContext({
+      db: fakeDb,
+      features: [otherFeature],
+      envSource: {},
+      registry,
+      hasAuth: false,
+    });
+    expect(ctx["_escapeHatchAuditSink"]).toBeUndefined();
   });
 });

@@ -43,7 +43,9 @@ export const listQuery = defineQueryHandler({
         message: "jobs:query:list requires ctx.systemDb (feature must declare r.systemScope())",
       });
     }
-    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
+    const db = ctx.systemDb.unsafeRaw(
+      "cross-tenant job monitoring: SystemAdmin lists job runs of every tenant",
+    );
     const where: WhereObject = {};
     if (query.payload.jobName) where["jobName"] = query.payload.jobName;
     const statusFilter = query.payload.filters?.find((filter) => filter.field === "status");
