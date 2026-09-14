@@ -10,6 +10,7 @@ import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-s
 import { buildEntityTable, type EntityTable } from "../db/table-builder";
 import { createTenantDb, type TenantDb } from "../db/tenant-db";
 import { tenantDbRunner } from "../db/tenant-db-runner";
+import { isSystemIdentity } from "../pipeline/system-identity-switch";
 import { assertUnreachable } from "../utils";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
@@ -236,7 +237,14 @@ export function defineEntityWriteHandler(
       schema = buildInsertSchema(entity);
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
-        return executor.create(event.payload as DbRow, event.user, dbFor(ctx), {
+        // A caller-chosen id (deterministic-id idempotent creates) is only
+        // honored for a system-identity caller (jobs/hooks via
+        // createSystemUser) — an HTTP-authenticated end user can never
+        // present that identity, so their payload.id is dropped exactly as
+        // before this field became part of the schema.
+        const { id: _callerId, ...payloadWithoutId } = event.payload as DbRow;
+        const payload = isSystemIdentity(event.user) ? (event.payload as DbRow) : payloadWithoutId;
+        return executor.create(payload, event.user, dbFor(ctx), {
           preSave:
             runPreSave &&
             ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),

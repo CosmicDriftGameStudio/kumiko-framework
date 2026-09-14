@@ -1,4 +1,4 @@
-// kumiko-screen-akte-bedienkonzept: Ctrl/Cmd+Enter submits a textarea
+// Ctrl/Cmd+Enter submits a textarea
 // (InputProps.onSubmitShortcut) instead of inserting a newline. Plain Enter
 // keeps inserting a newline — asserted here via the keydown event's
 // defaultPrevented state, since fireEvent.keyDown does not itself simulate
