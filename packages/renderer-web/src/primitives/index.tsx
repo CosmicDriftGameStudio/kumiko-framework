@@ -190,6 +190,7 @@ function DefaultButton({
   ref,
   icon,
   iconEnd,
+  dataAttributes,
 }: ButtonProps): ReactNode {
   // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner), nicht als
   // gepolsterte Fläche; width="full" streckt CTA-Buttons in Karten/Panels.
@@ -217,6 +218,7 @@ function DefaultButton({
       type={type}
       onClick={onClick}
       disabled={disabled === true || loading === true}
+      {...dataAttributes}
       data-testid={testId}
       data-loading={loading === true ? "true" : undefined}
       variant={BUTTON_VARIANT[variant]}
@@ -567,10 +569,12 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="text"
           {...common}
+          {...props.dataAttributes}
           data-testid={props.testId}
           readOnly={props.readOnly}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
+          onKeyDown={props.onKeyDown}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
           className={cn(fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined)}
@@ -815,9 +819,11 @@ function DefaultInput(props: InputProps): ReactNode {
     case "textarea": {
       const rows = normalizedTextareaRows(props.rows);
       const onSubmitShortcut = props.onSubmitShortcut;
+      const onKeyDown = props.onKeyDown;
       return (
         <Textarea
           {...common}
+          {...props.dataAttributes}
           readOnly={props.readOnly}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
@@ -825,10 +831,14 @@ function DefaultInput(props: InputProps): ReactNode {
           className="resize-y"
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(rows !== undefined && { style: textareaMinHeight(rows) })}
-          {...(onSubmitShortcut !== undefined && {
-            "aria-keyshortcuts": "Control+Enter Meta+Enter",
+          {...((onSubmitShortcut !== undefined || onKeyDown !== undefined) && {
+            ...(onSubmitShortcut !== undefined && {
+              "aria-keyshortcuts": "Control+Enter Meta+Enter",
+            }),
             onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => {
-              if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+              onKeyDown?.(e);
+              if (onSubmitShortcut === undefined || e.key !== "Enter" || !(e.metaKey || e.ctrlKey))
+                return;
               e.preventDefault();
               onSubmitShortcut();
             },
@@ -2782,6 +2792,7 @@ function DefaultLink({
   className,
   children,
   testId,
+  dataAttributes,
 }: LinkProps): ReactNode {
   const variantClass =
     variant === "button"
@@ -2794,6 +2805,7 @@ function DefaultLink({
       href={isSafeHref(href) ? href : "#"}
       target={target}
       rel={target === "_blank" ? "noreferrer" : undefined}
+      {...dataAttributes}
       data-testid={testId}
       className={cn(variantClass, className)}
     >
@@ -2859,7 +2871,14 @@ import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/con
 
 // Generische Card-Chrome (rounded-xl wie die Entity-Card) — slot- + options-
 // basiert, damit der Contract additiv wächst und Consumer nie migriert werden.
-export function DefaultCard({ slots, options, className, testId, children }: CardProps): ReactNode {
+export function DefaultCard({
+  slots,
+  options,
+  className,
+  testId,
+  dataAttributes,
+  children,
+}: CardProps): ReactNode {
   const padded = options?.padded ?? true;
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
@@ -2883,6 +2902,7 @@ export function DefaultCard({ slots, options, className, testId, children }: Car
   return (
     <div
       data-slot="card"
+      {...dataAttributes}
       data-testid={testId}
       className={cn(cardSurface({ radius }), "overflow-hidden", className)}
     >

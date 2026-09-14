@@ -1860,6 +1860,15 @@ describe("Card", () => {
     );
     expect(screen.getByTestId("c").innerHTML).not.toContain("grow");
   });
+
+  test("dataAttributes forwards data-* attributes to the root node", () => {
+    render(
+      <Card testId="c" dataAttributes={{ "data-path": "widgets/entity-card.tsx" }}>
+        body
+      </Card>,
+    );
+    expect(screen.getByTestId("c").getAttribute("data-path")).toBe("widgets/entity-card.tsx");
+  });
 });
 
 describe("Section", () => {
