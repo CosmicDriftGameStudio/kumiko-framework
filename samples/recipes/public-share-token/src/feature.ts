@@ -23,6 +23,9 @@ import { z } from "zod";
 
 const TOKEN_PREFIX = "sh_";
 
+const SHARE_BY_TOKEN_REASON =
+  "resolves the share link by token hash for callers whose dispatch tenant is not the link owner's";
+
 export const shareLinkEntity = createEntity({
   table: "read_public_share_links",
   idType: "uuid",
@@ -138,18 +141,13 @@ export const shareByTokenQuery = defineQueryHandler({
   access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   escapeHatch: {
-    reason:
-      "resolves the share link by token hash for callers whose dispatch tenant is not the link owner's",
+    reason: SHARE_BY_TOKEN_REASON,
   },
   handler: async (query, ctx) => {
     const hash = await hashToken(query.payload.token);
-    const row = await fetchOne<ShareLinkRow>(
-      ctx.db.unsafeRaw(
-        "resolves the share link by token hash for callers whose dispatch tenant is not the link owner's",
-      ),
-      table,
-      { tokenHash: hash },
-    );
+    const row = await fetchOne<ShareLinkRow>(ctx.db.unsafeRaw(SHARE_BY_TOKEN_REASON), table, {
+      tokenHash: hash,
+    });
 
     if (!row) {
       throw new NotFoundError("share-link");

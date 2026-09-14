@@ -5,6 +5,13 @@ import { USER_STATUS, userTable } from "../../user";
 import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
+const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
+  "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.";
+const CHECK_TARGET_MEMBERSHIP_REASON =
+  "checks the target user's membership in the admin's tenant via the DbRunner helper";
+const APPEND_LIFECYCLE_EVENT_REASON =
+  "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream";
+
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
 //
 // Operator-only. A Restricted user's own session is unconditionally
@@ -32,16 +39,13 @@ export const liftRestrictionWrite = defineWriteHandler({
   description:
     "Lifts a GDPR Art. 18 processing restriction on the named user and returns the account to active; operator-only, because a restricted user's own session is rejected and cannot reach this endpoint.",
   escapeHatch: {
-    reason:
-      "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.",
+    reason: LIFT_RESTRICTION_ESCAPE_HATCH_REASON,
   },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 
     const outside = await denyIfTargetOutsideAdminTenant(
-      ctx.db.unsafeRaw(
-        "checks the target user's membership in the admin's tenant via the DbRunner helper",
-      ),
+      ctx.db.unsafeRaw(CHECK_TARGET_MEMBERSHIP_REASON),
       event.user,
       targetUserId,
     );
@@ -68,11 +72,9 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(
-      ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
-      targetUserId,
-      { status: USER_STATUS.Active },
-    );
+    await updateUserLifecycle(ctx.db.unsafeRaw(APPEND_LIFECYCLE_EVENT_REASON), targetUserId, {
+      status: USER_STATUS.Active,
+    });
 
     return {
       isSuccess: true as const,

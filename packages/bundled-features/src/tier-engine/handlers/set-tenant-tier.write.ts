@@ -38,6 +38,8 @@ const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEnt
   entityName: "tier-assignment",
 });
 
+const SET_TENANT_TIER_REASON = "SystemAdmin assigns the tier of the tenant named in the payload";
+
 export type SetTenantTierOptions = {
   /** Nach erfolgreichem Write aufgerufen, damit feature.ts den Resolver-
    *  Cache aktualisieren kann (der Executor-Write feuert den postSave-Hook
@@ -66,13 +68,11 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
     }),
     access: { roles: ["SystemAdmin"] },
     escapeHatch: {
-      reason: "SystemAdmin assigns the tier of the tenant named in the payload",
+      reason: SET_TENANT_TIER_REASON,
     },
     handler: async (event, ctx) => {
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-      const rawDb = ctx.db.unsafeRaw(
-        "SystemAdmin assigns the tier of the tenant named in the payload",
-      );
+      const rawDb = ctx.db.unsafeRaw(SET_TENANT_TIER_REASON);
       const tdb = createTenantDb(rawDb, tenantId, "system");
       const systemUser = { ...event.user, tenantId };
       const tier = event.payload.tier;

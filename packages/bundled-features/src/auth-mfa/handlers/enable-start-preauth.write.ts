@@ -11,6 +11,9 @@ import { buildOtpauthUri } from "../otpauth-uri";
 import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes";
 import { generateTotpSecret } from "../totp";
 
+const ENABLE_START_PREAUTH_TENANT_REASON =
+  "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant";
+
 export type EnableStartPreauthOptions = {
   // Verifies the incoming preauthSetupToken — must match login.write.ts's
   // mfaStatusChecker (challengeTokenSecret), NOT setupTokenSecret.
@@ -40,8 +43,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
     // Same secret-bearing result as enable-start.
     agent: { expose: false },
     escapeHatch: {
-      reason:
-        "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",
+      reason: ENABLE_START_PREAUTH_TENANT_REASON,
     },
     handler: async (event, ctx) => {
       const verified = verifyMfaPreauthSetupToken(
@@ -58,9 +60,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       // meaningless here — the preauthSetupToken is the source of truth
       // for which tenant's row to read, mirroring verify.write.ts.
       const scopedDb = createTenantDb(
-        ctx.db.unsafeRaw(
-          "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",
-        ),
+        ctx.db.unsafeRaw(ENABLE_START_PREAUTH_TENANT_REASON),
         tenantId,
         "system",
       );

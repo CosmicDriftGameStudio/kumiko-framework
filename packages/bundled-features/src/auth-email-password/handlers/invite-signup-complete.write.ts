@@ -77,6 +77,13 @@ const invitationExecutor = createEventStoreExecutor(
   { entityName: "tenant-invitation" },
 );
 
+const INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists.";
+const READ_PENDING_INVITATION_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant";
+const CREATE_USER_AND_MEMBERSHIP_INVITATION_TENANT_REASON =
+  "creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists";
+
 export function createInviteSignupCompleteHandler() {
   return defineWriteHandler<
     "invite-signup-complete",
@@ -88,8 +95,7 @@ export function createInviteSignupCompleteHandler() {
     access: { roles: ["all"] },
     agent: { expose: false },
     escapeHatch: {
-      reason:
-        "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists.",
+      reason: INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON,
     },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
@@ -115,9 +121,7 @@ export function createInviteSignupCompleteHandler() {
       let committed = false;
       try {
         const invitation = await fetchOne<InvitationRow>(
-          ctx.db.unsafeRaw(
-            "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant",
-          ),
+          ctx.db.unsafeRaw(READ_PENDING_INVITATION_REASON),
           tenantInvitationsTable,
           { id: invitationId },
         );
@@ -150,7 +154,7 @@ export function createInviteSignupCompleteHandler() {
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
         const dbConn = ctx.db.unsafeRaw(
-          "creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists",
+          CREATE_USER_AND_MEMBERSHIP_INVITATION_TENANT_REASON,
         ) as DbConnection;
         const { id: userId } = await seedUserWithPassword(dbConn, {
           email: invitationEmail,

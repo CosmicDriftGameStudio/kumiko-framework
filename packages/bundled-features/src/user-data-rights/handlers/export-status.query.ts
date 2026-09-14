@@ -19,6 +19,9 @@ import { exportJobsTable } from "../schema/export-job";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
+const EXPORT_STATUS_REASON =
+  "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant";
+
 type ExportJobRow = {
   readonly id: string;
   readonly status: string;
@@ -36,14 +39,11 @@ export const exportStatusQuery = defineQueryHandler({
   description:
     "Returns the calling user's own most recent data-export job with its status, expiry and error, or hasJob false, for polling after a request-export while the job is still running.",
   escapeHatch: {
-    reason:
-      "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant",
+    reason: EXPORT_STATUS_REASON,
   },
   handler: async (query, ctx) => {
     const rows = await selectMany<ExportJobRow>(
-      ctx.db.unsafeRaw(
-        "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant",
-      ),
+      ctx.db.unsafeRaw(EXPORT_STATUS_REASON),
       exportJobsTable,
       { userId: query.user.id },
       { limit: 1, orderBy: { col: "requestedAt", direction: "desc" } },

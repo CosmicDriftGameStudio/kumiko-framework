@@ -106,14 +106,15 @@ const THREAD_ROLLUP_MAX_ATTEMPTS = 5;
 // — 'inbm' as ASCII, keeps it disjoint from the framework's other fixed
 // single-int advisory-lock keys (schema bootstrap, es-ops boot).
 const THREAD_ROLLUP_LOCK_NAMESPACE = 0x696e626d;
+const THREAD_ROLLUP_ADVISORY_LOCK_REASON =
+  "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API";
 export const ingestMessageHandler: WriteHandlerDef = {
   name: "ingest-message",
   schema: ingestMessageSchema,
   access: { roles: ["SystemAdmin"] },
   agent: { expose: false },
   escapeHatch: {
-    reason:
-      "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API",
+    reason: THREAD_ROLLUP_ADVISORY_LOCK_REASON,
   },
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
@@ -271,9 +272,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         )
       : threadPlainPii;
 
-    const threadRollupRunner = ctx.db.unsafeRaw(
-      "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API",
-    );
+    const threadRollupRunner = ctx.db.unsafeRaw(THREAD_ROLLUP_ADVISORY_LOCK_REASON);
     await acquireNamespacedAdvisoryLock(
       threadRollupRunner,
       THREAD_ROLLUP_LOCK_NAMESPACE,

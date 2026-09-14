@@ -40,6 +40,9 @@ import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 min — matched download-by-token
 
+const DOWNLOAD_BY_JOB_REASON =
+  "export jobs, their download tokens and audit rows are keyed by job id / userId across the user's tenant memberships, not the caller's current tenant";
+
 interface TokenRow {
   readonly id: string;
   readonly version: number;
@@ -64,8 +67,7 @@ export const downloadByJobQuery = defineQueryHandler({
   description:
     "Returns a short-lived signed download URL for the calling user's own finished data-export job named by job id, backing the download button in the privacy center once export-status reports the job done.",
   escapeHatch: {
-    reason:
-      "export jobs, their download tokens and audit rows are keyed by job id / userId across the user's tenant memberships, not the caller's current tenant",
+    reason: DOWNLOAD_BY_JOB_REASON,
   },
   handler: async (query, ctx) => {
     const T = getTemporal();
@@ -78,9 +80,7 @@ export const downloadByJobQuery = defineQueryHandler({
     // Wert (603/2).
     const auditIp = requestContext.get()?.ip ?? null;
     const auditUa = requestContext.get()?.userAgent ?? null;
-    const runner = ctx.db.unsafeRaw(
-      "export jobs, their download tokens and audit rows are keyed by job id / userId across the user's tenant memberships, not the caller's current tenant",
-    );
+    const runner = ctx.db.unsafeRaw(DOWNLOAD_BY_JOB_REASON);
 
     // Step 1-2: job-lookup + cross-user-isolation
     const jobRow = await fetchOne<JobRow>(runner, exportJobsTable, { id: jobId });

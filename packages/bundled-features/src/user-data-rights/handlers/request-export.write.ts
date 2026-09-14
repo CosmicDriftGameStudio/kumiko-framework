@@ -37,6 +37,9 @@ const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
 
+const REQUEST_EXPORT_REASON =
+  "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant";
+
 /**
  * Race-Loss-Detection: createEventStoreExecutor.create catched 23505
  * intern + returnt `WriteFailure(UniqueViolationError)`, **kein throw**.
@@ -61,16 +64,13 @@ export const requestExportWrite = defineWriteHandler({
   description:
     "Queues a GDPR Art. 15 and 20 data export for the calling user and returns its job id, handing back the running job with isExisting true instead of a second one when an export is already pending.",
   escapeHatch: {
-    reason:
-      "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant",
+    reason: REQUEST_EXPORT_REASON,
   },
   handler: async (event, ctx) => {
     const userId = event.user.id;
     const T = getTemporal();
     const now = T.Now.instant();
-    const exportJobRunner = ctx.db.unsafeRaw(
-      "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant",
-    );
+    const exportJobRunner = ctx.db.unsafeRaw(REQUEST_EXPORT_REASON);
 
     // Pre-Check: exportJobRunner bypasses the TenantDb-Filter — the
     // TenantDb-Wrapper would hide cross-tenant jobs.

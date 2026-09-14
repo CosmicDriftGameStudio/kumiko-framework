@@ -11,6 +11,8 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
+const GET_TENANT_TIER_REASON = "SystemAdmin reads the tier of the tenant named in the payload";
+
 export const getTenantTierQuery = defineQueryHandler({
   name: "get-tenant-tier",
   description:
@@ -18,15 +20,11 @@ export const getTenantTierQuery = defineQueryHandler({
   schema: z.object({ tenantId: z.string().min(1) }),
   access: { roles: ["SystemAdmin"] },
   escapeHatch: {
-    reason: "SystemAdmin reads the tier of the tenant named in the payload",
+    reason: GET_TENANT_TIER_REASON,
   },
   handler: async (query, ctx) => {
     const tenantId = query.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-    const tdb = createTenantDb(
-      ctx.db.unsafeRaw("SystemAdmin reads the tier of the tenant named in the payload"),
-      tenantId,
-      "system",
-    );
+    const tdb = createTenantDb(ctx.db.unsafeRaw(GET_TENANT_TIER_REASON), tenantId, "system");
     const row = await fetchOne<TierAssignmentRow>(tdb, tierAssignmentTable, { tenantId });
     return row ?? null;
   },

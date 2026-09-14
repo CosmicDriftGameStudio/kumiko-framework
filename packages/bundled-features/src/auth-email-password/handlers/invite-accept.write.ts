@@ -67,6 +67,13 @@ const invitationExecutor = createEventStoreExecutor(
   { entityName: "tenant-invitation" },
 );
 
+const INVITE_ACCEPT_ESCAPE_HATCH_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant.";
+const READ_PENDING_INVITATION_REASON =
+  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant";
+const ADD_MEMBERSHIP_INVITATION_TENANT_REASON =
+  "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant";
+
 export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
     name: "invite-accept",
@@ -77,8 +84,7 @@ export function createInviteAcceptHandler() {
     access: { openToAll: true },
     agent: { expose: false },
     escapeHatch: {
-      reason:
-        "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant.",
+      reason: INVITE_ACCEPT_ESCAPE_HATCH_REASON,
     },
     // kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler
     handler: async (event, ctx) => {
@@ -106,9 +112,7 @@ export function createInviteAcceptHandler() {
       let committed = false;
       try {
         const invitation = await fetchOne<InvitationRow>(
-          ctx.db.unsafeRaw(
-            "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant",
-          ),
+          ctx.db.unsafeRaw(READ_PENDING_INVITATION_REASON),
           tenantInvitationsTable,
           { id: invitationId },
         );
@@ -142,9 +146,7 @@ export function createInviteAcceptHandler() {
         // ein Re-Invite in einen (vorübergehend) disabled Tenant würde dort
         // alreadyMember=false sehen und am Unique-Constraint scheitern.
         // Idempotenz: schon Member → no-op + 200 mit alreadyMember=true.
-        const invitationTenantRunner = ctx.db.unsafeRaw(
-          "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant",
-        );
+        const invitationTenantRunner = ctx.db.unsafeRaw(ADD_MEMBERSHIP_INVITATION_TENANT_REASON);
         const membershipRow = await fetchOne(invitationTenantRunner, tenantMembershipsTable, {
           userId: event.user.id,
           tenantId: invitationTenantId,

@@ -60,6 +60,9 @@ export type SignupConfirmData = {
   readonly tenantKey: string;
 };
 
+const SIGNUP_CONFIRM_PROVISION_REASON =
+  "provisions a new tenant, its first user and membership before any tenant context exists";
+
 export function createSignupConfirmHandler() {
   return defineWriteHandler<"signup-confirm", typeof SignupConfirmSchema, SignupConfirmData>({
     name: "signup-confirm",
@@ -67,8 +70,7 @@ export function createSignupConfirmHandler() {
     access: { roles: ["all"] },
     agent: { expose: false },
     escapeHatch: {
-      reason:
-        "provisions a new tenant, its first user and membership before any tenant context exists",
+      reason: SIGNUP_CONFIRM_PROVISION_REASON,
     },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
@@ -96,9 +98,7 @@ export function createSignupConfirmHandler() {
         // Fallback bei Kollision (siehe generateUniqueName).
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
-        const dbConn = ctx.db.unsafeRaw(
-          "provisions a new tenant, its first user and membership before any tenant context exists",
-        ) as DbConnection;
+        const dbConn = ctx.db.unsafeRaw(SIGNUP_CONFIRM_PROVISION_REASON) as DbConnection;
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {

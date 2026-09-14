@@ -16,6 +16,9 @@ export const clearCustomFieldPayloadSchema = z.object({
 });
 export type ClearCustomFieldPayload = z.infer<typeof clearCustomFieldPayloadSchema>;
 
+const CLEAR_CUSTOM_FIELD_REASON =
+  "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
+
 // clear-custom-field — entfernt einen Custom-Field-Wert von einer host-
 // entity. Emittiert customField.cleared-Event; MSP entfernt key aus
 // jsonb-column (key-removal, nicht null-set).
@@ -30,8 +33,7 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
   description:
     "Removes the stored value of one custom field from a single host entity row after re-checking that field's per-field write roles; use it to blank a field the user emptied instead of writing a null value.",
   escapeHatch: {
-    reason:
-      "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry",
+    reason: CLEAR_CUSTOM_FIELD_REASON,
   },
   handler: async (event, ctx) => {
     const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload

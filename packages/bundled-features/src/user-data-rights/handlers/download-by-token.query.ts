@@ -45,6 +45,9 @@ type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 min — kurz genug fuer Replay-Schutz, lang genug fuer slow connections
 
+const DOWNLOAD_BY_TOKEN_REASON =
+  "the download token, its job and audit rows are keyed by token hash / job id, not the caller's tenant — the anonymous magic-link path has no tenant context at all";
+
 interface TokenRow {
   readonly id: string;
   readonly version: number;
@@ -83,15 +86,12 @@ export const downloadByTokenQuery = defineQueryHandler({
   // Memory `feedback_security_default_on`.
   rateLimit: { per: "ip", limit: 30, windowSeconds: 60 },
   escapeHatch: {
-    reason:
-      "the download token, its job and audit rows are keyed by token hash / job id, not the caller's tenant — the anonymous magic-link path has no tenant context at all",
+    reason: DOWNLOAD_BY_TOKEN_REASON,
   },
   handler: async (query, ctx) => {
     const T = getTemporal();
     const now = T.Now.instant();
-    const runner = ctx.db.unsafeRaw(
-      "the download token, its job and audit rows are keyed by token hash / job id, not the caller's tenant — the anonymous magic-link path has no tenant context at all",
-    );
+    const runner = ctx.db.unsafeRaw(DOWNLOAD_BY_TOKEN_REASON);
 
     // Step 1: hash + lookup
     const hash = await hashDownloadToken(query.payload.token);

@@ -40,6 +40,9 @@ export type RequestDeletionByEmailOptions = {
 // logs, unlike `?token=`). Same convention as the export-download link
 // (feature.ts, issue #1271). Preserves any existing query params on `base`
 // (`?lang=de` stays a query param; only the token is a fragment).
+const APPEND_LIFECYCLE_EVENT_REASON =
+  "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream";
+
 export function buildDeletionVerifyUrl(base: string, token: string): string {
   const url = new URL(base);
   url.hash = `token=${encodeURIComponent(token)}`;
@@ -66,7 +69,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     // Defense-in-depth gegen Email-Probing auf dem anonymen Endpoint.
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     escapeHatch: {
-      reason: "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream",
+      reason: APPEND_LIFECYCLE_EVENT_REASON,
     },
     handler: async (event, ctx) => {
       const success = { isSuccess: true as const, data: { kind: "requested" as const } };
@@ -88,11 +91,9 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       // user-Row landet und in die Token-HMAC-Purpose gefaltet wird. cancel
       // nullt sie → ein nach Cancel nachgespieltes Token verifiziert nicht mehr.
       const requestId = crypto.randomUUID();
-      await updateUserLifecycle(
-        ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
-        userRow["id"],
-        { pendingDeletionRequestId: requestId },
-      );
+      await updateUserLifecycle(ctx.db.unsafeRaw(APPEND_LIFECYCLE_EVENT_REASON), userRow["id"], {
+        pendingDeletionRequestId: requestId,
+      });
 
       const { token, expiresAt } = signDeletionToken(
         userRow["id"],

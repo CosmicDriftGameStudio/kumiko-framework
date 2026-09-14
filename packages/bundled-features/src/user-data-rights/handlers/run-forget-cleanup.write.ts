@@ -23,6 +23,9 @@ export type RunForgetCleanupOptions = {
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
 };
 
+const RUN_FORGET_CLEANUP_REASON =
+  "operator forget cleanup iterates users across tenants in per-user sub-transactions";
+
 export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}) {
   return defineWriteHandler({
     name: "run-forget-cleanup",
@@ -30,7 +33,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
     access: { roles: access.privileged },
     agent: { expose: false },
     escapeHatch: {
-      reason: "operator forget cleanup iterates users across tenants in per-user sub-transactions",
+      reason: RUN_FORGET_CLEANUP_REASON,
     },
     handler: async (_event, ctx) => {
       if (!ctx.registry) {
@@ -42,9 +45,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
       }
 
       const T = getTemporal();
-      const runner = ctx.db.unsafeRaw(
-        "operator forget cleanup iterates users across tenants in per-user sub-transactions",
-      );
+      const runner = ctx.db.unsafeRaw(RUN_FORGET_CLEANUP_REASON);
       // Operator-triggered forget must also erase binaries, not just rows —
       // it flips users to Deleted, after which the cron never re-processes
       // them, so a row-only delete here would permanently leak the binaries.
