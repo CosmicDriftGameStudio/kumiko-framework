@@ -277,7 +277,7 @@ export async function buildHandlerContext(
   // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write or query escapeHatch.
   const writeEscapeHatch = registry.getWriteHandler(type)?.escapeHatch;
   const handlerEscapeHatch = writeEscapeHatch ?? registry.getQueryHandler(type)?.escapeHatch;
-  const allowSystemIdentity = isSystem || handlerEscapeHatch !== undefined;
+  const hasIdentitySwitchGrant = isSystem || handlerEscapeHatch !== undefined;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -380,18 +380,23 @@ export async function buildHandlerContext(
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
-  const identitySwitch = createGatedIdentitySwitch(`handler "${type}"`, user, allowSystemIdentity, {
-    queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-      executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
-    writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-      executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
-  });
+  const identitySwitch = createGatedIdentitySwitch(
+    `handler "${type}"`,
+    user,
+    hasIdentitySwitchGrant,
+    {
+      queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+        executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+      writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+        executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
+    },
+  );
   // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
   // on first actual use, not on every HandlerContext build.
   let ungatedMemberReader: MemberReader | undefined;
   const queryAsMember = createGatedMemberReader(
     `handler "${type}"`,
-    allowSystemIdentity,
+    hasIdentitySwitchGrant,
     (userId, qn, payload) => {
       ungatedMemberReader ??= createMemberReaderFn(ctx, user.tenantId, tx);
       return ungatedMemberReader(userId, qn, payload);
@@ -671,7 +676,7 @@ export async function buildHandlerContext(
     // Internally queries memberships as SYSTEM, so it needs the same grant
     // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
     resolveActiveMembership: (userId: string, tenantId: TenantId) => {
-      if (!allowSystemIdentity) throw systemIdentitySwitchDenied(`handler "${type}"`);
+      if (!hasIdentitySwitchGrant) throw systemIdentitySwitchDenied(`handler "${type}"`);
       return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
     },
 
