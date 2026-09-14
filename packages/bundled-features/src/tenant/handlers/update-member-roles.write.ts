@@ -122,7 +122,16 @@ export const updateMemberRolesWrite = defineWriteHandler({
     const willBeTenantAdmin = event.payload.roles.includes("TenantAdmin");
 
     if (targetIsTenantAdmin && !willBeTenantAdmin) {
-      const lastAdmin = await assertNotLastTenantAdmin(db, targetTenantId, event.payload.userId);
+      // assertNotLastTenantAdmin issues raw SQL, so it needs the raw runner, not
+      // `db` — the count is already filtered by the explicit targetTenantId.
+      const lockRunner = ctx.systemDb.unsafeRaw(
+        "tenant:write:updateMemberRoles last-TenantAdmin advisory lock + membership count",
+      );
+      const lastAdmin = await assertNotLastTenantAdmin(
+        lockRunner,
+        targetTenantId,
+        event.payload.userId,
+      );
       if (lastAdmin !== undefined) return lastAdmin;
     }
 

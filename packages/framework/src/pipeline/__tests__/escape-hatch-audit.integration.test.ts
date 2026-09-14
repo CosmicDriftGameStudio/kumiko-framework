@@ -98,8 +98,7 @@ const systemScopeProbeFeature = defineFeature("escape-hatch-audit-probe-system",
     async (_query, ctx) => {
       if (!ctx.systemDb) throw new Error("expected ctx.systemDb on a systemScope() handler");
       const db = ctx.systemDb.acknowledgeCrossTenant(ACKNOWLEDGE_REASON);
-      const rows = await executeRawQuery<{ one: number }>(db.raw, "SELECT 1 AS one");
-      return { one: rows[0]?.one };
+      return { tenantId: db.tenantId };
     },
     { access: { roles: ["User"] } },
   );

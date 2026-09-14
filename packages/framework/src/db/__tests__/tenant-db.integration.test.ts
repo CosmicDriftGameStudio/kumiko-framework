@@ -110,7 +110,9 @@ describe("scoped mode (default)", () => {
 
       await tdb.insertOne(table, { name: "ColSelect" });
 
-      const rows = await asRawClient(tdb).unsafe<Record<string, unknown>>(
+      // This probes a custom column projection, not tenant-scoping, so it goes
+      // straight at the underlying runner tdb was built from.
+      const rows = await asRawClient(testDb.db).unsafe<Record<string, unknown>>(
         `SELECT id, name FROM "tenant_db_items" WHERE name = $1 LIMIT 10`,
         ["ColSelect"],
       );

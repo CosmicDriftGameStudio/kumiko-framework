@@ -21,6 +21,7 @@
 // runtime check; reviewer responsibility.
 
 import { selectMany, type WhereObject } from "../../db/query";
+import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";
@@ -37,7 +38,7 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
-    const rows = await selectMany(ctx.db.raw, args.table, where, { limit: 1 });
+    const rows = await selectMany(tenantDbRunner(ctx.db), args.table, where, { limit: 1 });
     return (rows[0] as Record<string, unknown> | undefined) ?? null;
   },
 });

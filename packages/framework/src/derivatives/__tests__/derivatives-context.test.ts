@@ -47,7 +47,6 @@ function fakeDbWithFileRef(row: { storageKey: string; mimeType: string }): unkno
     isDeleted: false,
   };
   return {
-    raw: { unsafe: () => {} },
     tenantId: TENANT_ID,
     selectMany: async (_table: unknown, where?: Record<string, unknown>) => {
       const matches = Object.entries(where ?? {}).every(([key, value]) => canned[key] === value);

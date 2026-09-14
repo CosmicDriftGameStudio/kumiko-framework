@@ -89,7 +89,7 @@ export async function applyEntityEvent(
   switch (verb) {
     case "created": {
       // tenantId-Resolution explizit, nicht via Spread-Reihenfolge:
-      // Live-Pfad nutzt tx=db.raw (kein TenantDb-Wrapper-Auto-Inject),
+      // Live-Pfad nutzt tx=tenantDbRunner(db) (kein TenantDb-Wrapper-Auto-Inject),
       // beim Replay erst recht keiner. Default = event.tenantId; payload
       // gewinnt NUR wenn gültig string mit length > 0 (seedTenantMembership-
       // Pfad: Operator schreibt im Ziel-Tenant, Event im Operator-Tenant).

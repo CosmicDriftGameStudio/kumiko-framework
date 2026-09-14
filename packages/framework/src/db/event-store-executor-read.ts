@@ -22,6 +22,7 @@ import { buildFilterWhere, type ExecutorContext, type Table } from "./event-stor
 import { buildParentRefClause } from "./parent-ref-clause";
 import { buildEntityTable, physicalColumnName } from "./table-builder";
 import type { TenantDb, TenantDbMode } from "./tenant-db";
+import { tenantDbRunner } from "./tenant-db-runner";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
 // of event-store-executor.ts (#1005, Welle 2) — behavior-preserving
@@ -332,7 +333,7 @@ async function resolveReferenceMatches(
   const sql =
     `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause} ` +
     `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
-  const rows = await executeRawQueryRead<{ id: string }>(db.raw, sql, subParams);
+  const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, subParams);
   if (rows.length === 0 || rows.length > MAX_REFERENCE_SEARCH_IDS) {
     // skip: no match, or over the cap — drop the clause rather than
     // truncate to an arbitrary slice of matching targets
@@ -423,6 +424,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     // list + detail are unchanged from crud-executor — projections are the
     // read-model and serve these queries directly.
     async list(payload, user, db, runtimeOptions) {
+      const runner = tenantDbRunner(db);
       const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
       const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
@@ -674,7 +676,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           : "*";
       const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
-      const rawRows = await executeRawQueryRead<Record<string, unknown>>(db.raw, listSql, params);
+      const rawRows = await executeRawQueryRead<Record<string, unknown>>(runner, listSql, params);
       const lastSortLabel = rawRows[rawRows.length - 1]?.[SORT_LABEL_ALIAS];
       if (referenceSortExpr !== undefined) {
         // The alias is a sort artifact, not a column of this entity — strip it
@@ -735,7 +737,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         } else {
           const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
           const countRows = await executeRawQueryRead<{ count: number }>(
-            db.raw,
+            runner,
             countSql,
             whereParams,
           );
@@ -779,7 +781,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         row: Record<string, unknown>,
       ): Promise<Record<string, unknown>> => {
         const streamVersion = await getStreamVersion(
-          db.raw,
+          tenantDbRunner(db),
           String(payload.id),
           streamTenantFor(user),
         );

@@ -1,7 +1,8 @@
-import type { DbRow, DbTx } from "../db/connection";
+import type { DbRow, DbRunner, DbTx } from "../db/connection";
 import { selectRowForUpdateById } from "../db/queries/entity-read";
 import { asEntityTableMeta, selectMany } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
+import { tenantDbRunner } from "../db/tenant-db-runner";
 import { hasAccess } from "../engine/access";
 import { ConfigScopes } from "../engine/constants";
 import { checkWriteFieldOwnership, checkWriteFieldRoles } from "../engine/field-access";
@@ -28,6 +29,7 @@ import {
   checkFeatureEnabled,
   enforceRateLimit,
   memberResolutionReadOnlyDenied,
+  resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
 } from "./dispatch-shared";
@@ -127,6 +129,7 @@ async function runLifecycle(
   handlerContext: HandlerContext,
   user: SessionUser,
   afterCommitHooks: AfterCommitHook[],
+  runner: DbRunner | undefined,
 ): Promise<void> {
   const { lifecycle } = ctx;
   if (!lifecycle) {
@@ -143,7 +146,7 @@ async function runLifecycle(
   // hooks. If a projection apply() throws, the whole tx rolls back — the
   // event and the auto-projection row go with it. Running before the hooks
   // keeps projection state consistent with what the hooks observe.
-  await runProjections(result, handlerContext);
+  await runProjections(result, handlerContext.registry, runner);
 
   if (result.kind === "save") {
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
@@ -491,7 +494,7 @@ async function executeWriteInner(
         // active (tests without a DB connection).
         const tableName = asEntityTableMeta(table)?.tableName ?? "";
         const rows = tx
-          ? await selectRowForUpdateById(transitionGuardDb, tableName, id)
+          ? await selectRowForUpdateById(tenantDbRunner(transitionGuardDb), tableName, id)
           : await selectMany(transitionGuardDb, table, { id });
         const row = rows[0];
 
@@ -548,7 +551,8 @@ async function executeWriteInner(
 
   if (result.isSuccess) {
     try {
-      await runLifecycle(ctx, type, result.data, handlerContext, user, afterCommitHooks);
+      const runner = resolveDbSource(ctx, tx);
+      await runLifecycle(ctx, type, result.data, handlerContext, user, afterCommitHooks, runner);
     } catch (e) {
       return writeFailure(wrapToKumiko(e));
     }

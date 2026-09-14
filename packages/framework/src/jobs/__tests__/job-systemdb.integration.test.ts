@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { createRegistry, defineFeature, type Registry } from "../../engine";
 import { createTestRedis, type TestRedis, testTenantId } from "../../stack";
 import { waitFor } from "../../testing";
@@ -12,9 +13,9 @@ import { createJobRunner, type JobRunner } from "../job-runner";
 type JobRunResult = {
   readonly name: "system" | "tenant" | "system-per-tenant";
   readonly present: boolean;
-  // assertTenantMatch() must return a TenantDb whose `.raw` is the SAME
-  // underlying DbConnection ctx.db carries — proves systemDb is bound to
-  // the job's own tenant-scoped db, not a separate instance.
+  // assertTenantMatch() must return a TenantDb bound (via tenantDbRunner) to
+  // the SAME underlying DbConnection ctx.db carries — proves systemDb is
+  // bound to the job's own tenant-scoped db, not a separate instance.
   readonly boundToRawDb: boolean | undefined;
   // A foreign tenantId must throw fail-closed (AccessDeniedError), same as
   // the HandlerContext.systemDb self-check.
@@ -48,7 +49,7 @@ const systemScopedFeature = defineFeature("jobsystemdb-system", (r) => {
     results.push({
       name: "system",
       present: true,
-      boundToRawDb: checked.raw === ctx.db,
+      boundToRawDb: tenantDbRunner(checked) === ctx.db,
       foreignTenantThrew,
     });
   });

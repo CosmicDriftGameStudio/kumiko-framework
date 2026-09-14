@@ -807,7 +807,7 @@ describe("event-store-executor — pii subject encryption", () => {
       0,
     );
     if (!storedEvent) throw new Error("no persisted event for the aggregate");
-    const applied = await applyEntityEvent(storedEvent, piiTable, piiEntity, tdb.raw);
+    const applied = await applyEntityEvent(storedEvent, piiTable, piiEntity, testDb.db);
     expect(applied.kind).toBe("applied");
 
     const rawRows = (await asRawClient(testDb.db).unsafe(
