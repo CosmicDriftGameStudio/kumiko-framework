@@ -9,7 +9,7 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { Node, Project, SyntaxKind, VariableDeclarationKind } from "ts-morph";
+import { Node, Project, type SourceFile, SyntaxKind, VariableDeclarationKind } from "ts-morph";
 
 const DEFAULT_GLOBAL_TABLES: ReadonlySet<string> = new Set([
   "userTable",
@@ -211,8 +211,7 @@ function isPropertyAccessName(id: Node): boolean {
   return Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id;
 }
 
-function pruneUnusedDbImports(sourceFile: Node): void {
-  if (!Node.isSourceFile(sourceFile)) return;
+function pruneUnusedDbImports(sourceFile: SourceFile): void {
   for (const importDecl of sourceFile.getImportDeclarations()) {
     for (const spec of [...importDecl.getNamedImports()]) {
       if (!PRUNABLE_FN_NAMES.has(spec.getName())) continue;
