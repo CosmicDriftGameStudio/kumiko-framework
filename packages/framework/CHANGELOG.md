@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.274.0
+
+### Minor Changes
+
+- 47070b6: Entity-list filters (`payload.filter`/`payload.filters`, screen-declared `filter`, facets) accept two new comparison operators, `lte` and `gte`, alongside the existing `eq`/`ne`/`lt`/`gt`/`in` — for a "valid as of today or earlier" style filter that previously required paging through every row in memory to apply after the fact. Allowed on the same comparable field types as `lt`/`gt` (number/money/decimal/date/timestamp/locatedTimestamp); the boot validator rejects them on text/boolean/select/multiSelect fields the same way it already rejects `lt`/`gt` there.
+- 282072a: A `searchable: true` reference field can now match a text search term against a target row's `labelField` even when that field is encrypted or PII — the match runs through the target entity's own search-adapter index (the same derived-plaintext index `personal` + `find: "fuzzy"` fields already build for their own list's search, #1610) instead of the ILIKE lookup used for a plain-text labelField, which can never match ciphertext. Candidate ids from the index are re-checked against the target entity's own row-level read access for the acting user before they can surface a row — the index itself carries no ownership awareness.
+
+  **Breaking:** the boot validator now rejects a `searchable: true` reference field whose target `labelField` is encrypted or PII but not itself `searchable: true` (with `find: "fuzzy"` when it also carries a `personal` annotation) — there would be no plaintext anywhere, ILIKE or index, to ever match a search term against, so the field was a silent, permanent non-match at runtime before this change.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.274.0
+
 ## 0.273.0
 
 ### Minor Changes
