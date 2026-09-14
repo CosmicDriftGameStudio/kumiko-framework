@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-cli",
-  "version": "0.3.31",
+  "version": "0.4.0",
   "description": "CLI for Kumiko apps. `bunx @cosmicdrift/kumiko-cli new app <name>` scaffolds a runnable workspace; `add feature <name>` mounts a feature; `agent lint`, `project` and `consumer` operate on an existing app.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -28,12 +28,17 @@
     "./commands": {
       "types": "./src/commands/index.ts",
       "default": "./src/commands/index.ts"
+    },
+    "./repo-manifest": {
+      "types": "./src/repo-manifest.ts",
+      "default": "./src/repo-manifest.ts"
     }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.4.0
+
+### Minor Changes
+
+- 4a8dca4: Adds a `@cosmicdrift/kumiko-cli/repo-manifest` subpath exporting `repoManifestSchema`, `loadRepoManifest`, and `RepoManifestError` for reading a repo's `kumiko.json` layout manifest (fw#2856).
+
+## 0.3.32
+
+### Patch Changes
+
+- Updated dependencies [dba0a60]
+  - @cosmicdrift/kumiko-framework@0.270.0
+  - @cosmicdrift/kumiko-bundled-features@0.270.0
+  - @cosmicdrift/kumiko-dev-server@0.270.0
+
 ## 0.3.31
 
 ### Patch Changes
