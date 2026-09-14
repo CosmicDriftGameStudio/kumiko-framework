@@ -115,10 +115,15 @@ describe("extendsRegistrar", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       );
-      r.writeHandler("create", z.object({ name: z.string() }), async () => ({
-        isSuccess: true as const,
-        data: { id: "c1" },
-      }));
+      r.writeHandler(
+        "create",
+        z.object({ name: z.string() }),
+        async () => ({
+          isSuccess: true as const,
+          data: { id: "c1" },
+        }),
+        { access: { openToAll: true } },
+      );
       r.useExtension("audited", "credit");
     });
 
@@ -149,14 +154,24 @@ describe("extendsRegistrar", () => {
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
-      r.writeHandler("vehicle:create", z.object({ name: z.string() }), async () => ({
-        isSuccess: true as const,
-        data: { id: "v1" },
-      }));
-      r.writeHandler("vehicle:update", z.object({ id: z.string() }), async () => ({
-        isSuccess: true as const,
-        data: { id: "v1" },
-      }));
+      r.writeHandler(
+        "vehicle:create",
+        z.object({ name: z.string() }),
+        async () => ({
+          isSuccess: true as const,
+          data: { id: "v1" },
+        }),
+        { access: { openToAll: true } },
+      );
+      r.writeHandler(
+        "vehicle:update",
+        z.object({ id: z.string() }),
+        async () => ({
+          isSuccess: true as const,
+          data: { id: "v1" },
+        }),
+        { access: { openToAll: true } },
+      );
       r.useExtension("audited", "vehicle");
     });
 

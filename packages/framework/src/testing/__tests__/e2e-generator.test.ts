@@ -34,7 +34,7 @@ function createTasksFeature() {
   return defineFeature("tasks", (r) => {
     r.systemScope();
     r.entity("task", taskEntity);
-    r.writeHandler(defineEntityCreateHandler("task", taskEntity));
+    r.writeHandler(defineEntityCreateHandler("task", taskEntity, { access: { openToAll: true } }));
     r.screen({
       id: "task-list",
       type: "entityList",
@@ -105,7 +105,7 @@ describe("generateE2ESpec", () => {
     const feature = defineFeature("events", (r) => {
       r.systemScope();
       r.entity("event", entity);
-      r.writeHandler(defineEntityCreateHandler("event", entity));
+      r.writeHandler(defineEntityCreateHandler("event", entity, { access: { openToAll: true } }));
       r.screen({
         id: "event-edit",
         type: "entityEdit",
@@ -164,7 +164,9 @@ describe("generateE2ESpec", () => {
     const editOnly = defineFeature("edit-only", (r) => {
       r.systemScope();
       r.entity("task", taskEntity);
-      r.writeHandler(defineEntityCreateHandler("task", taskEntity));
+      r.writeHandler(
+        defineEntityCreateHandler("task", taskEntity, { access: { openToAll: true } }),
+      );
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -198,7 +200,9 @@ describe("generateE2ESpec", () => {
     const feature = defineFeature("contacts", (r) => {
       r.systemScope();
       r.entity("contact", contactEntity);
-      r.writeHandler(defineEntityCreateHandler("contact", contactEntity));
+      r.writeHandler(
+        defineEntityCreateHandler("contact", contactEntity, { access: { openToAll: true } }),
+      );
       r.screen({
         id: "list",
         type: "entityList",
@@ -220,7 +224,9 @@ describe("generateE2ESpec", () => {
     const mixed = defineFeature("mixed", (r) => {
       r.systemScope();
       r.entity("task", taskEntity);
-      r.writeHandler(defineEntityCreateHandler("task", taskEntity));
+      r.writeHandler(
+        defineEntityCreateHandler("task", taskEntity, { access: { openToAll: true } }),
+      );
       r.screen({ id: "list", type: "entityList", entity: "task", columns: ["title"] });
       r.screen({
         id: "edit",

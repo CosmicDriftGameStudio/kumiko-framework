@@ -122,6 +122,10 @@
       "types": "./src/executor-brand.ts",
       "default": "./src/executor-brand.ts"
     },
+    "./tenancy-brand": {
+      "types": "./src/tenancy-brand.ts",
+      "default": "./src/tenancy-brand.ts"
+    },
     "./where-clause-types": {
       "types": "./src/where-clause-types.ts",
       "default": "./src/where-clause-types.ts"

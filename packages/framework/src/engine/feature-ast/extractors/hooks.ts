@@ -42,8 +42,12 @@ export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
     return { roles: value["roles"] as readonly string[] };
   }
+  const publicIntake = value["publicIntake"] === true ? { publicIntake: true as const } : {};
   if (value["openToAll"] === true) {
-    return { openToAll: true };
+    return { openToAll: true, ...publicIntake };
+  }
+  if (isPlainObject(value["openToAll"]) && typeof value["openToAll"]["reason"] === "string") {
+    return { openToAll: { reason: value["openToAll"]["reason"] }, ...publicIntake };
   }
   return undefined;
 }

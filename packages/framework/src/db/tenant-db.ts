@@ -1,5 +1,9 @@
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import { KUMIKO_NAME_SYMBOL, type SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import {
+  type GlobalTableDb,
   SYSTEM_SCOPE_CHECK_BRAND,
   type TenantDb,
   type TenantDbMode,
@@ -95,6 +99,13 @@ export function createUncheckedSystemDb(
       return db;
     },
 
+    unsafeRaw(reason) {
+      if (reason.trim().length === 0) {
+        throw new Error("unsafeRaw requires a non-empty reason");
+      }
+      return db.raw;
+    },
+
     outsideTransaction: {
       assertTenantMatch(tenantId) {
         if (tenantId !== db.tenantId) {
@@ -120,9 +131,10 @@ export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): rea
   return rows as unknown as readonly T[];
 }
 
-function tableNameOf(table: Table): string {
-  const sym = table[KUMIKO_NAME_SYMBOL];
-  return typeof sym === "string" ? sym : "<unknown>";
+function tableNameOf(table: Table | EntityTableMeta): string {
+  const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+  if (typeof sym === "string") return sym;
+  return asEntityTableMeta(table)?.tableName ?? "<unknown>";
 }
 
 // Checks the canonical EntityTableMeta (branded EntityTable's KUMIKO_META_SYMBOL
@@ -143,12 +155,14 @@ export function createTenantDb(
   tracer?: Tracer,
   meter?: Meter,
   signal?: AbortSignal,
+  // Gates db.global(table)'s write methods; write-path-only (see dispatch-shared.ts buildHandlerContext).
+  escapeHatch?: EscapeHatchDeclaration,
 ): TenantDb {
   if (meter) registerStandardMetrics(meter);
 
   function withDbSpan<T>(
     operation: "select" | "insert" | "update" | "delete",
-    table: Table,
+    table: Table | EntityTableMeta,
     runner: () => Promise<T>,
   ): Promise<T> {
     signal?.throwIfAborted();
@@ -227,10 +241,78 @@ export function createTenantDb(
     return { ...data, tenantId };
   }
 
+  function missingEscapeHatch(table: Table | EntityTableMeta): AccessDeniedError | undefined {
+    if (escapeHatch && escapeHatch.reason.trim().length > 0) return undefined;
+    return new AccessDeniedError({
+      message:
+        `db.global(${tableNameOf(table)}): write rejected — declare ` +
+        `\`escapeHatch: { reason: "..." }\` on the write handler to allow ` +
+        "writes through db.global().",
+    });
+  }
+
+  function globalTable<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
+    table: TTable,
+  ): GlobalTableDb<TTable> {
+    const meta = asEntityTableMeta(table);
+    if (meta?.tenancy !== "global") {
+      throw new AccessDeniedError({
+        message: `db.global(${tableNameOf(table)}): table is not declared \`tenancy: "global"\`.`,
+      });
+    }
+    return {
+      selectMany<T = Record<string, unknown>>(
+        where?: WhereObject,
+        options?: SelectOptions,
+      ): Promise<readonly T[]> {
+        return withDbSpan("select", table, async () => bunSelectMany<T>(db, table, where, options));
+      },
+      fetchOne<T = Record<string, unknown>>(where: WhereObject): Promise<T | undefined> {
+        return withDbSpan("select", table, async () => bunFetchOne<T>(db, table, where));
+      },
+      insertOne<T = Record<string, unknown>>(
+        values: Record<string, unknown>,
+      ): Promise<T | undefined> {
+        const denied = missingEscapeHatch(table);
+        if (denied) return Promise.reject(denied);
+        return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, values));
+      },
+      updateMany<T = Record<string, unknown>>(
+        set: Record<string, unknown>,
+        where: WhereObject,
+      ): Promise<readonly T[]> {
+        const denied = missingEscapeHatch(table);
+        if (denied) return Promise.reject(denied);
+        if (!where || Object.keys(where).length === 0) {
+          return Promise.reject(
+            new Error(
+              "db.global().updateMany without where would mass-update every tenant's rows. Pass at least one where condition.",
+            ),
+          );
+        }
+        return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, where));
+      },
+      deleteMany(where: WhereObject): Promise<void> {
+        const denied = missingEscapeHatch(table);
+        if (denied) return Promise.reject(denied);
+        if (!where || Object.keys(where).length === 0) {
+          return Promise.reject(
+            new Error(
+              "db.global().deleteMany without where would mass-delete every tenant's rows. Pass at least one where condition.",
+            ),
+          );
+        }
+        return withDbSpan("delete", table, async () => bunDeleteMany(db, table, where));
+      },
+      // @cast-boundary type-brand — GlobalWrites is only present in the type when TTable is not ExecutorOnly; the object above always carries the methods.
+    } as GlobalTableDb<TTable>;
+  }
+
   return {
     tenantId,
     mode,
     raw: db,
+    global: globalTable,
 
     selectMany<T = Record<string, unknown>>(
       table: Table,

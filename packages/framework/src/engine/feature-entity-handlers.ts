@@ -19,6 +19,7 @@ import type {
   AgentHandlerHints,
   EntityDefinition,
   EntityRef,
+  EscapeHatchDeclaration,
   HandlerRef,
   NameOrRef,
   QueryHandlerFn,
@@ -67,6 +68,18 @@ function agentSlots(source: {
   };
 }
 
+function requireInlineHandlerArgs<TSchema, THandler, TOptions extends object>(
+  kind: string,
+  schema: TSchema | undefined,
+  handler: THandler | undefined,
+  options: TOptions | undefined,
+): { schema: TSchema; handler: THandler; options: TOptions } {
+  if (!schema || !handler || !options) {
+    throw new Error(`${kind} inline form requires schema + handler + options.access`);
+  }
+  return { schema, handler, options };
+}
+
 // Builds entity/relation/writeHandler/queryHandler — the registrar
 // methods that create or reference entities.
 export function buildEntityHandlerMethods<TName extends string>(
@@ -110,10 +123,11 @@ export function buildEntityHandlerMethods<TName extends string>(
       schema?: TSchema,
       handler?: WriteHandlerFn<z.infer<TSchema>>,
       options?: {
-        access?: AccessRule;
+        access: AccessRule;
         rateLimit?: RateLimitOption;
         description?: string;
         agent?: AgentHandlerHints;
+        escapeHatch?: EscapeHatchDeclaration;
       },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
@@ -130,10 +144,11 @@ export function buildEntityHandlerMethods<TName extends string>(
           // `satisfies` does not work here (it asserts assignability, which
           // is what fails). Explicit cast is the right tool.
           handler: def.handler as WriteHandlerFn,
-          ...(def.access && { access: def.access }),
+          access: def.access,
           ...agentSlots(def),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
           // Forward the pipeline-build closure so boot-validators and
           // Designer/AI tooling can inspect the step list. Absent on
           // free-form handlers — defineWriteHandler only sets `perform`
@@ -147,15 +162,15 @@ export function buildEntityHandlerMethods<TName extends string>(
         tryMapEntity(state, name, def.name);
         return { name: def.name };
       }
-      if (!schema || !handler)
-        throw new Error("writeHandler inline form requires schema + handler");
+      const inline = requireInlineHandlerArgs("writeHandler", schema, handler, options);
       state.writeHandlers[nameOrDef] = {
         name: nameOrDef,
-        schema,
-        handler: handler as WriteHandlerFn, // @cast-boundary engine-bridge
-        ...(options?.access && { access: options.access }),
-        ...agentSlots(options ?? {}),
-        ...(options?.rateLimit && { rateLimit: options.rateLimit }),
+        schema: inline.schema,
+        handler: inline.handler as WriteHandlerFn, // @cast-boundary engine-bridge
+        access: inline.options.access,
+        ...agentSlots(inline.options),
+        ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
+        ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
       };
       tryMapEntity(state, name, nameOrDef);
       return { name: nameOrDef };
@@ -165,7 +180,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       schema?: TSchema,
       handler?: QueryHandlerFn<z.infer<TSchema>>,
       options?: {
-        access?: AccessRule;
+        access: AccessRule;
         rateLimit?: RateLimitOption;
         outputSchema?: ZodType;
         description?: string;
@@ -179,7 +194,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           schema: def.schema,
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
-          ...(def.access && { access: def.access }),
+          access: def.access,
           ...agentSlots(def),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.outputSchema && { outputSchema: def.outputSchema }),
@@ -193,16 +208,15 @@ export function buildEntityHandlerMethods<TName extends string>(
         tryMapEntity(state, name, def.name);
         return { name: def.name };
       }
-      if (!schema || !handler)
-        throw new Error("queryHandler inline form requires schema + handler");
+      const inline = requireInlineHandlerArgs("queryHandler", schema, handler, options);
       state.queryHandlers[nameOrDef] = {
         name: nameOrDef,
-        schema,
-        handler: handler as QueryHandlerFn, // @cast-boundary engine-bridge
-        ...(options?.access && { access: options.access }),
-        ...agentSlots(options ?? {}),
-        ...(options?.rateLimit && { rateLimit: options.rateLimit }),
-        ...(options?.outputSchema && { outputSchema: options.outputSchema }),
+        schema: inline.schema,
+        handler: inline.handler as QueryHandlerFn, // @cast-boundary engine-bridge
+        access: inline.options.access,
+        ...agentSlots(inline.options),
+        ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
+        ...(inline.options.outputSchema && { outputSchema: inline.options.outputSchema }),
       };
       tryMapEntity(state, name, nameOrDef);
       return { name: nameOrDef };
@@ -211,7 +225,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       nameOrDef: string | StreamHandlerDefinition<TName, TSchema>,
       schema?: TSchema,
       handler?: StreamHandlerFn<z.infer<TSchema>>,
-      options?: { access?: AccessRule; rateLimit?: RateLimitOption },
+      options?: { access: AccessRule; rateLimit?: RateLimitOption },
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
@@ -220,19 +234,18 @@ export function buildEntityHandlerMethods<TName extends string>(
           schema: def.schema,
           // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
           handler: def.handler as StreamHandlerFn, // @cast-boundary engine-bridge
-          ...(def.access && { access: def.access }),
+          access: def.access,
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
         };
         return { name: def.name };
       }
-      if (!schema || !handler)
-        throw new Error("streamHandler inline form requires schema + handler");
+      const inline = requireInlineHandlerArgs("streamHandler", schema, handler, options);
       state.streamHandlers[nameOrDef] = {
         name: nameOrDef,
-        schema,
-        handler: handler as StreamHandlerFn, // @cast-boundary engine-bridge
-        ...(options?.access && { access: options.access }),
-        ...(options?.rateLimit && { rateLimit: options.rateLimit }),
+        schema: inline.schema,
+        handler: inline.handler as StreamHandlerFn, // @cast-boundary engine-bridge
+        access: inline.options.access,
+        ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
       };
       return { name: nameOrDef };
     },
