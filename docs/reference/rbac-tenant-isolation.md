@@ -131,9 +131,17 @@ binding that feature code cannot import.
 | `escapeHatch: { reason }` on the handler/hook → `ctx.db.unsafeRaw(reason)` | Handler/Hook, tenant-scoped feature | A raw `DbRunner` for that one declared call site | Yes | A tenant-scoped handler/hook with one specific cross-tenant read/write, without lifting the whole feature to `r.systemScope()` |
 | `db.global(table)` writes | Write handler only, gated by the same `escapeHatch: { reason }` | Writes to a `tenancy: "global"` table with the tenant filter lifted | Yes | Writing a `tenancy: "global"` table's rows (reads through `db.global(table)` need no escape hatch) |
 | Identity-switch `queryAs` / `writeAs` | Call | Runs the call as a different, resolved `SessionUser` — cross-tenant only if that user's own roles allow it | No (gated by the target user's own access, not a reason) | Acting on behalf of a specific other user rather than lifting the tenant filter itself |
-| `crossTenant: true` option on the entity-convention handlers | Handler | One handler, a system-mode `TenantDb`, the event stream rewritten onto the row's own tenant — access is gated by `access` alone | No | An operator (e.g. `SystemAdmin`) write/read on one entity-convention handler that must reach rows in any tenant |
+| `escapeHatch: { reason }` on the entity-convention handlers (`defineEntity*Handler` / `registerEntityCrud` write/read) | Handler | One convention handler gets a system-mode `TenantDb`; write verbs address the target row's own tenant stream; does NOT grant `unsafeRaw` / `db.global` writes / identity switch | Yes — reported as `acknowledge-cross-tenant` | An operator (e.g. `SystemAdmin`) write/read on one entity-convention handler that must reach rows in any tenant |
 | `ctx.queryProjection(qn, { unsafeAllTenants: true })` | Call | Lifts the `tenant_id` filter on that one projection query | No — today ungated beyond the caller's own access (tracked as a follow-up issue) | A query handler that must aggregate a projection across every tenant |
 | Jobs, extension hooks, MSP `apply` | Framework-provided | A `DbRunner`/`TenantDb` handed in by construction — there is no `ctx.db.raw` to reach for | N/A | Framework-internal call sites only; feature code never resolves this itself |
+
+`crossTenant: true` on the entity-convention handlers is deprecated: it still
+works, but boot now logs a `deprecation:entity-handler-cross-tenant` warning
+per handler, and its use is audited the same way as `escapeHatch` (also
+`acknowledge-cross-tenant`). It is scheduled for removal in a later breaking
+release. Migrate with `scripts/codemod/migrate-cross-tenant.ts`, which
+rewrites the call shapes it can derive a handler name and verb from and lists
+the rest for manual review.
 
 ## Postgres RLS
 

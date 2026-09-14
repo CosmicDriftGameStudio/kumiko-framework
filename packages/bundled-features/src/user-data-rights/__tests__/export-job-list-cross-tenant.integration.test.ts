@@ -2,7 +2,7 @@
 //
 // Regression: the changeset describes these as "a platform-operator
 // inspector over the GDPR read-models" (i.e. cross-tenant), but the handlers
-// registered no crossTenant/systemScope override — a SystemAdmin acting in
+// registered no escapeHatch/systemScope override — a SystemAdmin acting in
 // tenant A saw only tenant A's export jobs, never tenant B's.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
