@@ -126,6 +126,10 @@ export type StreamHandlerDefinition<
   readonly schema: TSchema;
   readonly access: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  // Stream handlers can't reach db.global() (that gate is write-only), but
+  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // in, same contract as WriteHandlerDefinition.escapeHatch.
+  readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,

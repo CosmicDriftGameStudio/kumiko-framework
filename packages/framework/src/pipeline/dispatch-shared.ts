@@ -274,9 +274,12 @@ export async function buildHandlerContext(
   // but at this point we're the root of the pipeline — cast is safe.
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
-  // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write or query escapeHatch.
+  // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write, query or stream escapeHatch.
   const writeEscapeHatch = registry.getWriteHandler(type)?.escapeHatch;
-  const handlerEscapeHatch = writeEscapeHatch ?? registry.getQueryHandler(type)?.escapeHatch;
+  const handlerEscapeHatch =
+    writeEscapeHatch ??
+    registry.getQueryHandler(type)?.escapeHatch ??
+    registry.getStreamHandler(type)?.escapeHatch;
   const hasIdentitySwitchGrant = isSystem || handlerEscapeHatch !== undefined;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
