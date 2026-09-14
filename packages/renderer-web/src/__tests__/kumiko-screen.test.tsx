@@ -16,8 +16,10 @@ import {
   kumikoDefaultTranslations,
   NavProvider,
   UserRolesProvider,
+  useNavigateWithInitialValues,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
+import { type ReactNode, useState } from "react";
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils";
 
 const taskEntity = {
@@ -2610,6 +2612,7 @@ describe("KumikoScreen", () => {
       layout: {
         sections: [{ title: "x", fields: ["title", "priority", "isDone"] }],
       },
+      urlPrefillFields: ["title", "priority", "isDone"],
     };
 
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
@@ -2647,6 +2650,7 @@ describe("KumikoScreen", () => {
       handler: "tasks:write:task:approve",
       fields: { priority: { type: "number", default: 7 } },
       layout: { sections: [{ title: "x", fields: ["priority"] }] },
+      urlPrefillFields: ["priority"],
     };
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
     render(
@@ -2660,6 +2664,121 @@ describe("KumikoScreen", () => {
       .getByTestId("field-priority")
       .querySelector("input") as HTMLInputElement;
     expect(priorityInput.value).toBe("7"); // Fallback auf default
+  });
+
+  const payoutScreen: ActionFormScreenDefinition = {
+    id: "payout",
+    type: "actionForm",
+    handler: "tasks:write:task:payout",
+    fields: {
+      title: { type: "text", default: "default-title" },
+      iban: { type: "text", default: "own-iban" },
+      secret: { type: "text", sensitive: true },
+    },
+    layout: { sections: [{ title: "x", fields: ["title", "iban", "secret"] }] },
+    urlPrefillFields: ["title", "secret"],
+  };
+
+  function inputValue(fieldName: string): string {
+    const input = screen.getByTestId(`field-${fieldName}`).querySelector("input");
+    if (input === null) throw new Error(`expected an <input> inside field-${fieldName}`);
+    return input.value;
+  }
+
+  test("actionForm: a crafted link prefills only urlPrefillFields, never a sensitive one", async () => {
+    const memoryNav = {
+      route: { screenId: "payout" },
+      navigate: () => undefined,
+      replace: () => undefined,
+      hrefFor: () => "/x",
+      searchParams: { title: "declared", iban: "attacker-iban", secret: "leak" },
+      setSearchParams: () => undefined,
+    };
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <KumikoScreen schema={{ ...schema, screens: [payoutScreen] }} qn="tasks:screen:payout" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    expect(inputValue("title")).toBe("declared");
+    expect(inputValue("iban")).toBe("own-iban");
+    expect(inputValue("secret")).toBe("");
+  });
+
+  test("actionForm: useNavigateWithInitialValues hands values over without touching the query string", async () => {
+    const searchParamWrites: unknown[] = [];
+    function Harness(): ReactNode {
+      const [route, setRoute] = useState<{ screenId: string }>({ screenId: "home" });
+      const nav = {
+        route,
+        navigate: (target: NavTarget) => {
+          if ("screenId" in target) setRoute({ screenId: target.screenId });
+        },
+        replace: () => undefined,
+        hrefFor: () => "/x",
+        searchParams: {},
+        setSearchParams: (u: Record<string, string | null>) => searchParamWrites.push(u),
+      };
+      return (
+        <NavProvider value={nav}>
+          {route.screenId === "payout" ? (
+            <KumikoScreen
+              schema={{ ...schema, screens: [payoutScreen] }}
+              qn="tasks:screen:payout"
+            />
+          ) : (
+            <OpenPayout />
+          )}
+        </NavProvider>
+      );
+    }
+    function OpenPayout(): ReactNode {
+      const navigateWithInitialValues = useNavigateWithInitialValues();
+      return (
+        <button
+          type="button"
+          data-testid="open-payout"
+          onClick={() =>
+            navigateWithInitialValues(
+              { screenId: "payout" },
+              { iban: "DE-from-agent", secret: "leak" },
+            )
+          }
+        />
+      );
+    }
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <Harness />
+      </DispatcherProvider>,
+    );
+    fireEvent.click(screen.getByTestId("open-payout"));
+    await waitFor(() => expect(screen.getByTestId("field-iban")).toBeTruthy());
+    expect(inputValue("iban")).toBe("DE-from-agent");
+    expect(inputValue("secret")).toBe("");
+    expect(searchParamWrites).toEqual([]);
+  });
+
+  test("actionForm: the same values as URL params do not prefill fields outside urlPrefillFields", async () => {
+    const memoryNav = {
+      route: { screenId: "payout" },
+      navigate: () => undefined,
+      replace: () => undefined,
+      hrefFor: () => "/x",
+      searchParams: { iban: "DE-from-agent", agentPrefill: "1" },
+      setSearchParams: () => undefined,
+    };
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <KumikoScreen schema={{ ...schema, screens: [payoutScreen] }} qn="tasks:screen:payout" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    expect(inputValue("iban")).toBe("own-iban");
   });
 
   test("actionForm submitLabel: i18n-Key landet auf dem Submit-Button (übersteuert default)", () => {
@@ -2960,6 +3079,7 @@ describe("KumikoScreen: actionForm extension-section", () => {
           { title: "Update", fields: ["incidentId", "body"] },
         ],
       },
+      urlPrefillFields: ["incidentId"],
     };
     const UpdateTimeline = ({
       initialValues,

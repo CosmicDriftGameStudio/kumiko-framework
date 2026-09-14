@@ -69,7 +69,7 @@ import {
   type ResolvedFacetSpec,
   resolveProjectionFacetSpecs,
 } from "./list-facets";
-import { type NavApi, useNav } from "./nav";
+import { type NavApi, useInitialValuesHandoff, useNav } from "./nav";
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
@@ -526,87 +526,116 @@ function coerceEmbeddedListRows(
   return rows;
 }
 
+type PrefillFieldShape = {
+  readonly type?: string;
+  readonly sensitive?: boolean;
+  readonly format?: string;
+  readonly options?: readonly (string | { readonly value: string })[];
+  readonly multiple?: boolean;
+  readonly schema?: Readonly<Record<string, EmbeddedCellShape>>;
+  readonly maxItems?: number;
+};
+
+export type InitialValueSources = {
+  readonly searchParams: Readonly<Record<string, string>>;
+  // Only these URL query keys may prefill — the target screen's
+  // `urlPrefillFields` from buildAppSchema. Absent means none: a crafted link
+  // must not seed fields no declared navigate `params` names.
+  readonly urlPrefillFields: readonly string[] | undefined;
+  readonly renderableFields?: ReadonlySet<string>;
+  readonly defaultCurrency?: string;
+  // Drawer-kind row actions (fw#2710) prefill from the clicked row's
+  // already-typed values; wins over every other source.
+  readonly drawerOverrides?: Readonly<Record<string, unknown>>;
+  // useNavigateWithInitialValues — in-app only, never in the URL, so it
+  // bypasses urlPrefillFields; string values get the URL coercion.
+  readonly handoffValues?: Readonly<Record<string, unknown>>;
+};
+
+function coercePrefillString(
+  raw: string,
+  name: string,
+  shape: PrefillFieldShape,
+  fallback: unknown,
+  defaultCurrency: string | undefined,
+): unknown {
+  if (shape.type === "number") {
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  }
+  if (shape.type === "money") {
+    const coerced = coerceMoneyValue(raw, name, defaultCurrency);
+    return coerced === undefined ? fallback : coerced;
+  }
+  if (shape.type === "boolean") return raw === "true";
+  if (shape.type === "multiSelect") {
+    // Row-action navigate stringifies arrays via String(arr) → "a,b" (or
+    // JSON when the navigate helper JSON.stringifies). Try JSON first
+    // (even without a "[" prefix), then comma-split; filter against
+    // field.options when present so unknown values never reach the form.
+    const optionValues = multiSelectOptionValues(shape);
+    const splitComma = (): string[] =>
+      raw === ""
+        ? []
+        : raw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+    let values: string[];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        values = parsed.map((v) => String(v));
+      } else if (typeof parsed === "string") {
+        values = [parsed];
+      } else {
+        values = splitComma();
+      }
+    } catch {
+      values = splitComma();
+    }
+    return optionValues !== undefined ? values.filter((v) => optionValues.has(v)) : values;
+  }
+  if (shape.type === "embedded" && shape.multiple === true) {
+    return coerceEmbeddedListRows(raw, name, shape.schema ?? {}, shape.maxItems) ?? fallback;
+  }
+  return raw;
+}
+
 export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
-  searchParams: Readonly<Record<string, string>>,
-  renderableFields?: ReadonlySet<string>,
-  defaultCurrency?: string,
-  // Drawer-kind row actions (fw#2710) prefill directly from the clicked
-  // row's already-typed values — no URL round-trip, so no string coercion.
-  // Goes through the same renderableFields/sensitive gates as searchParams
-  // (a `params` extractor could still name a hidden or sensitive field) and
-  // wins over searchParams for a name present in both.
-  overrides?: Readonly<Record<string, unknown>>,
+  sources: InitialValueSources,
 ): Record<string, unknown> {
+  const { searchParams, renderableFields, defaultCurrency, drawerOverrides, handoffValues } =
+    sources;
+  const urlPrefillFields = new Set(sources.urlPrefillFields ?? []);
   const defaults = buildInitialValues(fields, defaultCurrency) as Record<string, unknown>;
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
     if (renderableFields !== undefined && !renderableFields.has(name)) continue;
-    const shape = fieldDef as {
-      type?: string;
-      sensitive?: boolean;
-      format?: string;
-      options?: readonly (string | { readonly value: string })[];
-      multiple?: boolean;
-      schema?: Readonly<Record<string, EmbeddedCellShape>>;
-      maxItems?: number;
-    };
+    const shape = fieldDef as PrefillFieldShape;
+    // Neither gate is lifted by an allowlist entry or a handoff.
     if (shape.sensitive === true) continue;
-    // A password field must never be prefilled from the URL, same as sensitive.
     if (shape.format === "password") continue;
-    if (overrides !== undefined && name in overrides) {
-      merged[name] = overrides[name];
+    if (drawerOverrides !== undefined && name in drawerOverrides) {
+      merged[name] = drawerOverrides[name];
       continue;
     }
+    const handedOff =
+      handoffValues !== undefined && Object.hasOwn(handoffValues, name)
+        ? handoffValues[name]
+        : undefined;
+    if (handedOff !== undefined) {
+      merged[name] =
+        typeof handedOff === "string"
+          ? coercePrefillString(handedOff, name, shape, defaults[name], defaultCurrency)
+          : handedOff;
+      continue;
+    }
+    if (!urlPrefillFields.has(name)) continue;
     const raw = searchParams[name];
     if (raw === undefined) continue;
-    if (shape.type === "number") {
-      const parsed = Number(raw);
-      merged[name] = Number.isNaN(parsed) ? defaults[name] : parsed;
-    } else if (shape.type === "money") {
-      const coerced = coerceMoneyValue(raw, name, defaultCurrency);
-      merged[name] = coerced === undefined ? defaults[name] : coerced;
-    } else if (shape.type === "boolean") {
-      merged[name] = raw === "true";
-    } else if (shape.type === "multiSelect") {
-      // Row-action navigate stringifies arrays via String(arr) → "a,b" (or
-      // JSON when the navigate helper JSON.stringifies). Try JSON first
-      // (even without a "[" prefix), then comma-split; filter against
-      // field.options when present so unknown values never reach the form.
-      const optionValues = multiSelectOptionValues(shape);
-      let values: string[];
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          values = parsed.map((v) => String(v));
-        } else if (typeof parsed === "string") {
-          values = [parsed];
-        } else {
-          values =
-            raw === ""
-              ? []
-              : raw
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-        }
-      } catch {
-        values =
-          raw === ""
-            ? []
-            : raw
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean);
-      }
-      merged[name] =
-        optionValues !== undefined ? values.filter((v) => optionValues.has(v)) : values;
-    } else if (shape.type === "embedded" && shape.multiple === true) {
-      const rows = coerceEmbeddedListRows(raw, name, shape.schema ?? {}, shape.maxItems);
-      merged[name] = rows ?? defaults[name];
-    } else {
-      merged[name] = raw;
-    }
+    merged[name] = coercePrefillString(raw, name, shape, defaults[name], defaultCurrency);
   }
   return merged;
 }
@@ -691,16 +720,18 @@ function EntityEditCreateBody({
   readonly onSaved?: () => void;
 }): ReactNode {
   const nav = useNav();
+  const handoffValues = useInitialValuesHandoff(screen.id);
   const appFeatures = useAppFeatures();
   const initial = useMemo(
     () =>
-      mergeSearchParamsIntoInitial(
-        entity.fields,
-        nav.searchParams,
-        layoutFieldNames(screen),
-        entity.defaultCurrency ?? "EUR",
-      ) as FormValues,
-    [entity.fields, nav.searchParams, screen, entity.defaultCurrency],
+      mergeSearchParamsIntoInitial(entity.fields, {
+        searchParams: nav.searchParams,
+        urlPrefillFields: screen.urlPrefillFields,
+        renderableFields: layoutFieldNames(screen),
+        defaultCurrency: entity.defaultCurrency ?? "EUR",
+        ...(handoffValues !== undefined && { handoffValues }),
+      }) as FormValues,
+    [entity.fields, nav.searchParams, screen, entity.defaultCurrency, handoffValues],
   );
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
@@ -3038,16 +3069,26 @@ function ActionFormBody({
   const appFeatures = useAppFeatures();
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
+  const pendingHandoff = useInitialValuesHandoff(screen.id);
+  // A drawer-hosted form is not a navigation target, so it never takes a handoff.
+  const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
   const initial = useMemo(
     () =>
-      mergeSearchParamsIntoInitial(
-        screen.fields,
-        nav.searchParams,
-        layoutFieldNames(synthScreen),
-        undefined,
-        initialOverrides,
-      ) as FormValues,
-    [screen.fields, nav.searchParams, synthScreen, initialOverrides],
+      mergeSearchParamsIntoInitial(screen.fields, {
+        searchParams: nav.searchParams,
+        urlPrefillFields: screen.urlPrefillFields,
+        renderableFields: layoutFieldNames(synthScreen),
+        ...(initialOverrides !== undefined && { drawerOverrides: initialOverrides }),
+        ...(handoffValues !== undefined && { handoffValues }),
+      }) as FormValues,
+    [
+      screen.fields,
+      screen.urlPrefillFields,
+      nav.searchParams,
+      synthScreen,
+      initialOverrides,
+      handoffValues,
+    ],
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {

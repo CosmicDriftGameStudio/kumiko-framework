@@ -60,6 +60,8 @@ function buildParentRedirectSchema(): FeatureSchema {
     entity: "product",
     layout: { sections: [{ fields: ["name", "parentId"] }] },
     redirect: { screen: "parent-detail", idFrom: "parentId" },
+    // Hand-built schema; production derives urlPrefillFields from declared navigate params.
+    urlPrefillFields: ["parentId"],
   };
   const parentDetailScreen: ScreenDefinition = {
     id: "parent-detail",

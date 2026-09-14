@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.263.0",
+    "type": "breaking",
+    "title": "Forms are prefilled from URL query parameters only for fields a declarative `navigate` action declares as `params` (fw#2852).",
+    "detail": "`buildAppSchema` now derives `urlPrefillFields` per actionForm/secretMint/entityEdit-create screen from every navigate `params` that targets it — entityList/projectionList rowActions, projectionDetail/entityEdit actions, relatedList rowActions, and projectionDetail metrics; a form nothing targets takes nothing from the URL. Previously any query parameter matching a field name was taken, so a crafted link could seed e.g. an IBAN or e-mail field. Declared params keep working. `sensitive` and `format: \"password\"` fields are still never prefilled — not from the URL, an allowlist, or a handoff.",
+    "migration": "Code that prefills a form via `nav.navigate` + `nav.setSearchParams` without a declared `params` (known: publicstatus `custom-field-list`, phronexsis `driver-map-node-panel`, kumiko-enterprise ai-agent `openForm` client tool / `agentPrefill=1`) must switch to a declared `navigate` action with `params`, or — for programmatic prefill — to `useNavigateWithInitialValues()` from `@cosmicdrift/kumiko-renderer`. No codemod."
+  },
+  {
+    "version": "0.263.0",
+    "type": "improvement",
+    "title": "New `useNavigateWithInitialValues()` hands a form screen initial values in memory instead of the query string (fw#2852).",
+    "detail": "`useNavigateWithInitialValues()`, exported from `@cosmicdrift/kumiko-renderer`, returns `(target: ScreenTarget, initialValues: Readonly<Record<string, unknown>>) => void`, which navigates to a form screen and carries the initial values in memory rather than as URL search params — for programmatic prefill outside a declared `navigate` `params` action. `sensitive` and `format: \"password\"` fields are still never prefilled, same as URL and allowlist prefill."
+  },
+  {
+    "version": "0.263.0",
+    "type": "fix",
+    "title": "`projectField`/`projectEntity` now forward field metadata the client schema previously dropped (fw#2852).",
+    "detail": "`projectField`/`projectEntity` (`packages/framework/src/engine/build-app-schema.ts`) now forward number `unit`, entity `defaultCurrency`, text `format`, timestamp `locatedBy`, file/image `accept`/`maxSize`/`variants`, decimal `scale` (incl. embedded sub-fields), and `sensitive` into the client schema; previously they were lost on the way, so the unit suffix did not render, money fields fell back to \"EUR\", password masking and the never-prefill-sensitive rule were inactive client-side."
+  },
+  {
     "version": "0.262.0",
     "type": "improvement",
     "title": "Boot validator warns when NODE_ENV=production boots without the security baseline (fw#2857).",

@@ -36,11 +36,13 @@ import type {
   ScreenDefinition,
   WorkspaceSchema,
 } from "../ui-types";
+import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema";
+import { qualifyEntityName } from "./qualified-name";
 import type { Registry } from "./types/feature";
 import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields";
 
@@ -57,6 +59,9 @@ export type BuildAppSchemaOptions = {
 
 export function buildAppSchema(registry: Registry, options: BuildAppSchemaOptions = {}): AppSchema {
   const features: FeatureSchema[] = [];
+  const urlPrefillFieldsByScreenQn = collectUrlPrefillFieldsByScreenQn([
+    ...registry.features.values(),
+  ]);
   for (const [featureName, feature] of registry.features) {
     const navs = Object.values(feature.navs);
     // The nav entry alone doesn't say which kind a collection lists, so the
@@ -71,7 +76,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),
-      screens: projectScreens(feature.screens, registry),
+      screens: projectScreens(featureName, feature.screens, registry, urlPrefillFieldsByScreenQn),
       ...(navs.length > 0 && { navs }),
       ...(contentCollections.length > 0 && { contentCollections }),
       // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
@@ -308,12 +313,25 @@ export function findNonJsonSafePath(value: unknown, path: string): string | null
 // default (screen.searchable ?? derived); the boot-validator (3a) rejects
 // one that contradicts the schema.
 function projectScreens(
+  featureName: string,
   screens: Readonly<Record<string, ScreenDefinition>>,
   registry: Registry,
+  urlPrefillFieldsByScreenQn: ReadonlyMap<string, ReadonlySet<string>>,
 ): ScreenDefinition[] {
-  return Object.values(screens).map((screen) =>
-    screen.type === "projectionList" ? projectProjectionListScreen(screen, registry) : screen,
-  );
+  return Object.entries(screens).map(([shortId, screen]) => {
+    if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
+    if (
+      screen.type === "actionForm" ||
+      screen.type === "secretMint" ||
+      screen.type === "entityEdit"
+    ) {
+      const declared = urlPrefillFieldsByScreenQn.get(
+        qualifyEntityName(featureName, "screen", shortId),
+      );
+      return { ...screen, urlPrefillFields: declared === undefined ? [] : [...declared].sort() };
+    }
+    return screen;
+  });
 }
 
 function projectProjectionListScreen(
@@ -390,6 +408,9 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
       derivedFields: derivedOut as unknown as Record<string, DerivedFieldDef>,
     }),
     ...(typeof entity.table === "string" && { table: entity.table }),
+    ...(typeof entity.defaultCurrency === "string" && {
+      defaultCurrency: entity.defaultCurrency,
+    }),
   };
 }
 
@@ -457,6 +478,25 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["locale"] === "string") out["locale"] = def["locale"];
   // image: which camera a mobile capture opens (fw#2497).
   if (typeof def["capture"] === "string") out["capture"] = def["capture"];
+  // number: display-only suffix, static or read from a sibling field of the row.
+  const unit = def["unit"];
+  if (typeof unit === "string" || (isPlainObject(unit) && typeof unit["field"] === "string"))
+    out["unit"] = unit;
+  // text: "password" masks the input and blocks URL prefill in the renderer.
+  if (typeof def["format"] === "string") out["format"] = def["format"];
+  // Write-response redaction stays server-side; the renderer needs the flag to
+  // refuse any prefill (URL or handoff) into the field.
+  if (def["sensitive"] === true) out["sensitive"] = true;
+  // timestamp: the edit view-model derives its wall-clock input mode from this.
+  if (typeof def["locatedBy"] === "string") out["locatedBy"] = def["locatedBy"];
+  // file/image/images: upload picker constraints; the first variant key picks
+  // the preview variant.
+  if (Array.isArray(def["accept"]) && isJsonSafeValue(def["accept"])) out["accept"] = def["accept"];
+  if (typeof def["maxSize"] === "string") out["maxSize"] = def["maxSize"];
+  if (isPlainObject(def["variants"]) && isJsonSafeValue(def["variants"]))
+    out["variants"] = def["variants"];
+  // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
+  if (typeof def["scale"] === "number") out["scale"] = def["scale"];
   // embedded lists: row-count bounds, computed cells, totals row, and the
   // sibling-money-field totals check (fw#2497).
   if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];
