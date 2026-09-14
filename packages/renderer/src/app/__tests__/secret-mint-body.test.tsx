@@ -337,6 +337,16 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     },
   };
 
+  // The confirm form mounts from an async post-mint update, so its form-store subscription can
+  // still be pending when the change fires — clicking before that subscription re-renders hits a disabled submit.
+  async function enterConfirmCodeAndSubmit(code: string): Promise<void> {
+    fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: code } });
+    await waitFor(() =>
+      expect(rtlScreen.getByTestId<HTMLButtonElement>("render-edit-submit").disabled).toBe(false),
+    );
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+  }
+
   test("renders the confirm form instead of the acknowledge button, and submits the confirm form's own values merged with the carried mint-payload field", async () => {
     const { dispatcher, writeCalls } = stubMultiWriteDispatcher({
       "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
@@ -351,8 +361,7 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     // No bare acknowledge button — the confirm form takes its place.
     expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-confirm")).toBeNull();
 
-    fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: "123456" } });
-    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await enterConfirmCodeAndSubmit("123456");
 
     await waitFor(() =>
       expect(writeCalls.some((c) => c.command === "shop:write:token:confirm")).toBe(true),
@@ -385,8 +394,7 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
 
-    fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: "123456" } });
-    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await enterConfirmCodeAndSubmit("123456");
 
     await waitFor(() =>
       expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).not.toBeNull(),
