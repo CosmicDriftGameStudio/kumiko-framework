@@ -43,7 +43,8 @@ export const updateWrite = defineWriteHandler({
   access: {
     openToAll: {
       reason:
-        "any signed-in user edits their own profile; privileged actors edit any user — the self-or-privileged check is in the handler body, not in userEntity.access.write",
+        "Any signed-in user edits their own profile and privileged actors edit any user; " +
+        "the self-or-privileged check lives in the handler body, not in userEntity.access.write.",
       personalData: "tenant-members",
     },
   },
