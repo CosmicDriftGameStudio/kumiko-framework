@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.268.0
+
+### Minor Changes
+
+- b16457a: `ctx.db.unsafeRaw(reason)` returns the unfiltered runner only for write/query handlers and hooks that declare `escapeHatch: { reason }`. `tenancy: "global"` entities must be `systemStream` and only hold `SYSTEM_TENANT_ID` rows; `declareGlobalTenancy(table)` declares plain stores without `tenant_id` as global. `createTenantDb`'s 7th parameter is now `{ globalWrites?, unsafeRaw? }`. Bundled features no longer use `ctx.db.raw` (`user` and `store_global_feature_state` are global); `scripts/migrate-db-raw.ts` migrates consumer call sites.
+
+### Patch Changes
+
+- Updated dependencies [b16457a]
+  - @cosmicdrift/kumiko-types@0.268.0
+  - @cosmicdrift/kumiko-framework@0.268.0
+  - @cosmicdrift/kumiko-headless@0.268.0
+  - @cosmicdrift/kumiko-renderer@0.268.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.268.0
+  - @cosmicdrift/kumiko-renderer-web@0.268.0
+
 ## 0.267.0
 
 ### Minor Changes
