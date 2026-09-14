@@ -64,7 +64,7 @@ function makeCtx(
   log: JobContext["log"] = noopLogger,
 ): JobContext {
   return {
-    db: stack.db,
+    db: createTenantDb(stack.db, tenantA.tenantId, "tenant"),
     registry: stack.registry,
     systemUser: tenantA,
     log,
@@ -151,6 +151,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     await sweepOrphanedDerivativesJob(
       {},
       makeCtx(async () => provider),
+      stack.db,
     );
 
     expect(await provider.exists(orphan)).toBe(false);
@@ -167,6 +168,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     await sweepOrphanedDerivativesJob(
       {},
       makeCtx(async () => provider),
+      stack.db,
     );
 
     expect(await provider.exists(derivative)).toBe(true);
@@ -197,6 +199,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     await sweepOrphanedDerivativesJob(
       {},
       makeCtx(async () => provider),
+      stack.db,
     );
 
     // A trashed (soft-deleted) row still legitimately backs its derivatives —
@@ -214,6 +217,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     await sweepOrphanedDerivativesJob(
       { dryRun: true },
       makeCtx(async () => provider, log),
+      stack.db,
     );
 
     // Existence alone can't distinguish "correctly found and would delete the
@@ -240,6 +244,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     await sweepOrphanedDerivativesJob(
       {},
       makeCtx(async () => provider),
+      stack.db,
     );
 
     expect(await provider.exists(orphanA)).toBe(false);
@@ -253,7 +258,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     const orphan = derivativeOf(original);
     await provider.write(orphan, new Uint8Array([1]));
 
-    await expect(sweepOrphanedDerivativesJob({}, makeCtx())).resolves.toBeUndefined();
+    await expect(sweepOrphanedDerivativesJob({}, makeCtx(), stack.db)).resolves.toBeUndefined();
 
     expect(await provider.exists(orphan)).toBe(true);
   });
@@ -268,6 +273,7 @@ describe("sweepOrphanedDerivativesJob", () => {
     await sweepOrphanedDerivativesJob(
       {},
       makeCtx(async () => provider),
+      stack.db,
     );
 
     expect(await provider.exists(original)).toBe(true);

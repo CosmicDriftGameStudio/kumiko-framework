@@ -24,7 +24,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createTenantDb,
+  createUncheckedSystemDb,
+  insertOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   type AwaitedEventType,
   createSystemUser,
@@ -199,7 +204,8 @@ async function runResumeDueRunsJob(tenantId: string): Promise<void> {
 
   const systemUser = createSystemUser(tenantId);
   const ctx: JobContext = {
-    db: stack.db,
+    db: createTenantDb(stack.db, tenantId),
+    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, tenantId, "system")),
     registry: stack.registry,
     systemUser,
     log: noopLogger,

@@ -19,6 +19,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -311,7 +312,13 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     await seedMembership(CRON_USER, TENANT_A);
 
     const { log } = capturingJobLog();
-    const jobCtx = { db: stack.db, registry: stack.registry, log };
+    const jobCtx = {
+      db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      }),
+      registry: stack.registry,
+      log,
+    };
     await job?.handler({}, jobCtx as unknown as JobContext);
 
     const row = await fetchUser(CRON_USER);
@@ -348,7 +355,9 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     const { log, warns } = capturingJobLog();
     try {
       await job?.handler({}, {
-        db: stack.db,
+        db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        }),
         registry: stack.registry,
         log,
       } as unknown as JobContext);

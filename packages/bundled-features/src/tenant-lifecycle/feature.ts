@@ -113,25 +113,28 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.writeHandler(requestDestructionWrite);
     r.writeHandler(cancelDestructionWrite);
 
-    r.job(
-      "run-tenant-destruction",
-      { trigger: { cron: "0 * * * * *" }, concurrency: "skip" },
-      async (_payload, ctx) => {
-        if (!ctx.db || !ctx.registry) {
-          throw new Error(
-            "run-tenant-destruction: ctx.db + ctx.registry required (JobContext incomplete)",
-          );
+    const RUN_TENANT_DESTRUCTION_REASON = "sweeps tenant destruction across every tenant";
+    r.job({
+      name: "run-tenant-destruction",
+      trigger: { cron: "0 * * * * *" },
+      concurrency: "skip",
+      escapeHatch: { reason: RUN_TENANT_DESTRUCTION_REASON },
+      handler: async (_payload, ctx) => {
+        if (!ctx.registry) {
+          throw new Error("run-tenant-destruction: ctx.registry required (JobContext incomplete)");
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         await runTenantDestructionSweep({
-          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection,
+          db: ctx.db.unsafeRaw(
+            RUN_TENANT_DESTRUCTION_REASON,
+          ) as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
           registry: ctx.registry,
           now: T.Now.instant(),
           log: (message) => ctx.log?.warn(message),
           fileProviderResolver: ctx._fileProviderResolver,
         });
       },
-    );
+    });
 
     r.exposesApi("tenantLifecycle.runDestroySweep");
   });

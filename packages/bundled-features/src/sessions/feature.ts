@@ -3,7 +3,7 @@ import {
   type SessionStore,
   type SessionStoreProvider,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { cleanupJob } from "./handlers/cleanup.job";
 import { detailQuery } from "./handlers/detail.query";
@@ -166,7 +166,17 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // Retention: chunked DELETE of expired/revoked rows. Manual trigger
       // only so dev environments don't churn. Ops wires a cron in the app's
       // dispatcher config when running a long-lived deployment.
-      r.job("cleanup", { trigger: { manual: true } }, cleanupJob);
+      r.job({
+        name: "cleanup",
+        trigger: { manual: true },
+        escapeHatch: { reason: "deletes expired session rows of every tenant" },
+        handler: (payload, ctx) =>
+          cleanupJob(
+            payload,
+            ctx,
+            ctx.db.unsafeRaw("deletes expired session rows of every tenant") as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ),
+      });
 
       // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is
       // the supported cross-feature path: entity-keyed, not prefixed by the

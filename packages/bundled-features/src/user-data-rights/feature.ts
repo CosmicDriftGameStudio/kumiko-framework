@@ -529,21 +529,24 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     });
 
     // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert.
-    r.job(
-      "run-export-jobs",
-      { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
-      async (_payload, ctx) => {
-        if (!ctx.db || !ctx.registry) {
-          throw new Error(
-            "run-export-jobs: ctx.db + ctx.registry required (JobContext incomplete)",
-          );
+    const RUN_EXPORT_JOBS_REASON = "processes pending export jobs across every tenant";
+    r.job({
+      name: "run-export-jobs",
+      trigger: { cron: "0 3 * * *" },
+      concurrency: "skip",
+      escapeHatch: { reason: RUN_EXPORT_JOBS_REASON },
+      handler: async (_payload, ctx) => {
+        if (!ctx.registry) {
+          throw new Error("run-export-jobs: ctx.registry required (JobContext incomplete)");
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         // SYSTEM_USER_ID ist die framework-weite Konvention. Der job-
         // Discriminator wird via handlerName="user-data-rights:run-export-
         // jobs" im Secret-Read-Audit erfasst.
         const exportUserId = ctx._userId ?? SYSTEM_USER_ID;
-        const exportDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const exportDb = ctx.db.unsafeRaw(
+          RUN_EXPORT_JOBS_REASON,
+        ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const exportRegistry = ctx.registry;
 
         // C6 — ohne eigene send*Email-Opts aber mit gemountetem mail-transport
@@ -609,25 +612,28 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
         });
       },
-    );
+    });
 
     // Autonomer Art.17-Forget-Cron. Spiegelt run-export-jobs: nach Ablauf der
     // Grace-Period laeuft runForgetCleanup unbeaufsichtigt (der manuelle
     // userDataRights.runForget-API bleibt fuer Operator-Runs). Ohne diesen
     // Cron bleibt jeder Loesch-Antrag fuer immer in DeletionRequested haengen
     // — Art.17 wuerde nie ausgefuehrt.
-    r.job(
-      "run-forget-cleanup",
-      { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
-      async (_payload, ctx) => {
-        if (!ctx.db || !ctx.registry) {
-          throw new Error(
-            "run-forget-cleanup: ctx.db + ctx.registry required (JobContext incomplete)",
-          );
+    const RUN_FORGET_CLEANUP_REASON = "executes overdue Art.17 forget requests across every tenant";
+    r.job({
+      name: "run-forget-cleanup",
+      trigger: { cron: "0 3 * * *" },
+      concurrency: "skip",
+      escapeHatch: { reason: RUN_FORGET_CLEANUP_REASON },
+      handler: async (_payload, ctx) => {
+        if (!ctx.registry) {
+          throw new Error("run-forget-cleanup: ctx.registry required (JobContext incomplete)");
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         const forgetUserId = ctx._userId ?? SYSTEM_USER_ID;
-        const forgetDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const forgetDb = ctx.db.unsafeRaw(
+          RUN_FORGET_CLEANUP_REASON,
+        ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const forgetRegistry = ctx.registry;
         const tenantModel = await resolveAppTenantModel({
           registry: forgetRegistry,
@@ -686,7 +692,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           );
         }
       },
-    );
+    });
   });
 }
 

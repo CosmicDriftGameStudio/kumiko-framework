@@ -36,7 +36,7 @@ import {
   type DbConnection,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -70,7 +70,11 @@ export type MfaReencryptJobResult = {
   readonly stoppedReason: ChunkedMigrationStopReason;
 };
 
-export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
+export async function mfaReencryptJob(
+  rawPayload: Record<string, unknown>,
+  ctx: JobContext,
+  db: DbConnection,
+): Promise<void> {
   const payload = rawPayload as MfaReencryptJobPayload; // @cast-boundary engine-payload
   const maybeCipher = configuredEntityFieldEncryption();
   if (!maybeCipher) {
@@ -91,12 +95,6 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
     });
   }
   const provider = ctx.masterKeyProvider;
-  if (!ctx.db) {
-    throw new InternalError({
-      message: "[auth-mfa:reencrypt] ctx.db missing — job context requires a database connection.",
-    });
-  }
-  const db = ctx.db as DbConnection; // @cast-boundary db-operator
   // Undefined = per-subject crypto-shredding isn't configured for this app —
   // both fields are then plain envelope strings, no PII layer to peel.
   const piiKms = configuredPiiSubjectKms();
@@ -222,4 +220,4 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
     stoppedReason: outcome.stoppedReason,
   };
   ctx.log?.info?.(`[auth-mfa:reencrypt] complete: ${JSON.stringify(result)}`);
-};
+}

@@ -114,7 +114,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     });
     expect(await countSessions()).toBe(2);
 
-    await cleanupJob({}, jobCtx());
+    await cleanupJob({}, jobCtx(), stack.db);
 
     expect(await countSessions()).toBe(1);
     const [remaining] = await selectMany(stack.db, userSessionTable);
@@ -130,7 +130,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     });
     expect(await countSessions()).toBe(1);
 
-    await cleanupJob({}, jobCtx());
+    await cleanupJob({}, jobCtx(), stack.db);
 
     expect(await countSessions()).toBe(0);
   });
@@ -144,7 +144,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     });
 
     // Default 30d window: 10d-old revoked row stays
-    await cleanupJob({}, jobCtx());
+    await cleanupJob({}, jobCtx(), stack.db);
 
     expect(await countSessions()).toBe(1);
   });
@@ -158,7 +158,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     });
 
     // Tight 3d window: the 5d row goes
-    await cleanupJob({ olderThanDays: 3 }, jobCtx());
+    await cleanupJob({ olderThanDays: 3 }, jobCtx(), stack.db);
 
     expect(await countSessions()).toBe(0);
   });
@@ -174,7 +174,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     }
     expect(await countSessions()).toBe(7);
 
-    await cleanupJob({ olderThanDays: 30, batchSize: 2 }, jobCtx());
+    await cleanupJob({ olderThanDays: 30, batchSize: 2 }, jobCtx(), stack.db);
 
     expect(await countSessions()).toBe(0);
   });

@@ -17,7 +17,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  createUncheckedSystemDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemConfig,
@@ -152,7 +156,8 @@ function racyJobCtx(
     },
   };
   return {
-    db: stack.db,
+    db: createTenantDb(stack.db, SYSTEM_TENANT_ID),
+    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, SYSTEM_TENANT_ID, "system")),
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: racyCipher,

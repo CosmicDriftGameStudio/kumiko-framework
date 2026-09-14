@@ -13,6 +13,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -278,7 +279,9 @@ describe("runRetentionCleanup :: real postgres", () => {
     if (!job) return;
 
     const ctx: JobContext = {
-      db: stack.db,
+      db: createTenantDb(stack.db, T1, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "per-tenant fan-out cleanup using raw helpers" },
+      }),
       registry: stack.registry,
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },
       log: noopLogger,

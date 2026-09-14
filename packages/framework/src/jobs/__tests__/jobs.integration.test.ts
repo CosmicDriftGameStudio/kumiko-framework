@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
+import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { createRegistry, defineFeature } from "../../engine";
 import type {
   AppContext,
@@ -910,7 +911,7 @@ describe("perTenant across multiple runner instances", () => {
         async (_payload, ctx) => {
           log.push({
             tenantId: String(ctx.systemUser.tenantId),
-            runnerTag: ctx.db as unknown as string, // @cast-boundary test fixture
+            runnerTag: tenantDbRunner(ctx.db) as unknown as string, // @cast-boundary test fixture — runner context db is a tag string
           });
         },
       );
@@ -1012,7 +1013,7 @@ describe("perTenant across multiple runner instances", () => {
         await sleep(80);
         log.push({
           tenantId: String(ctx.systemUser.tenantId),
-          runnerTag: ctx.db as unknown as string, // @cast-boundary test fixture
+          runnerTag: tenantDbRunner(ctx.db) as unknown as string, // @cast-boundary test fixture — runner context db is a tag string
         });
       });
     });

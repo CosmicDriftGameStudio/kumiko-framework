@@ -17,12 +17,11 @@ import {
   type ConfigKeyDefinition,
   createSystemConfig,
   createSystemUser,
-  type JobHandlerFn,
+  type JobContext,
   SYSTEM_TENANT_ID,
   SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   isDraftStillStale,
@@ -150,14 +149,11 @@ async function deleteStaleDraftsBatch(
   return deletedRows;
 }
 
-export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
-  if (!ctx.db) {
-    throw new InternalError({
-      message: "[form-draft:cleanup] ctx.db required (JobContext incomplete)",
-    });
-  }
-  const db = ctx.db as DbConnection;
-
+export async function cleanupDraftsJob(
+  _payload: Record<string, unknown>,
+  ctx: JobContext,
+  db: DbConnection,
+): Promise<void> {
   const resolved = ctx.configResolver
     ? await ctx.configResolver.get(
         FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY,
@@ -201,4 +197,4 @@ export const cleanupDraftsJob: JobHandlerFn = async (_payload, ctx) => {
     if (deletedRows.length === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
   }
   ctx.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
-};
+}

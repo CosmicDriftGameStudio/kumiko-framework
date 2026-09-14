@@ -707,11 +707,14 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
 //
 // The passed identity also decides the target tenant — `writeAs` hands
 // `user.tenantId` straight to the dispatcher with nothing cross-checking it
-// against the job's own tenant, exactly as `queryAs` and the raw `db` above
-// already do. Building an identity from job payload data is therefore a
-// cross-tenant write path; derive it from a trusted lookup instead.
+// against the job's own tenant, exactly as `queryAs` does. Building an
+// identity from job payload data is therefore a cross-tenant write path;
+// derive it from a trusted lookup instead.
 export type JobContext = SharedContextFields & {
-  readonly db: DbConnection;
+  // Tenant-filtered to the job's own tenant. Cross-tenant raw access needs
+  // `escapeHatch` on the job (`ctx.db.unsafeRaw(reason)`) or `r.systemScope()`
+  // (`ctx.systemDb`).
+  readonly db: TenantDb;
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;

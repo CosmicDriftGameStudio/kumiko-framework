@@ -3,7 +3,7 @@ import type { ConcurrencyMode } from "./concurrency-mode";
 import type { ConfigScope } from "./config-scope";
 import type { DbConnection } from "./db-connection";
 import type { FieldDefinition } from "./fields";
-import type { JobContext } from "./handlers";
+import type { EscapeHatchDeclaration, JobContext } from "./handlers";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -392,6 +392,8 @@ export type JobDefinition = {
   // don't justify a separate worker container — long/CPU-heavy jobs on the
   // API lane will starve request handlers.
   readonly runIn?: JobRunIn | undefined;
+  // Grants `ctx.db.unsafeRaw(reason)` for this job, audited as `unsafe-raw`.
+  readonly escapeHatch?: EscapeHatchDeclaration | undefined;
 };
 
 // --- Notifications ---

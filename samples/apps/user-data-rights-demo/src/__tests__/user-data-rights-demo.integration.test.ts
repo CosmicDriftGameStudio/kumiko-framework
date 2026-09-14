@@ -40,9 +40,9 @@ import {
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
-import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import { EXT_USER_DATA, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
@@ -228,7 +228,10 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       [PAST().toString(), cronUser.id],
     );
     await forgetCron?.handler({}, {
-      db: stack.db,
+      // Mirrors the job runner: tenant-filtered db carrying the job's own escapeHatch grant.
+      db: createTenantDb(stack.db, SYSTEM_TENANT_ID, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: forgetCron?.escapeHatch,
+      }),
       registry: stack.registry,
     } as unknown as JobContext);
     const cronRow = (await asRawClient(stack.db).unsafe(

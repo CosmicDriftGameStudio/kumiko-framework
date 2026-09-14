@@ -12,12 +12,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  createUncheckedSystemDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemUser,
   createTenantConfig,
   defineFeature,
+  SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ESCAPE_HATCH_USED_SIGNAL } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -111,7 +116,8 @@ function capturingLog(captured: CapturedLog): TestJobLog {
 
 function jobCtx(captured: CapturedLog): Parameters<typeof reencryptJob>[1] {
   return {
-    db: stack.db,
+    db: createTenantDb(stack.db, SYSTEM_TENANT_ID),
+    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, SYSTEM_TENANT_ID, "system")),
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: cipher,

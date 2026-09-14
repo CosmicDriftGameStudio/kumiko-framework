@@ -24,7 +24,7 @@ import {
   type DbConnection,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   decodeStoredEnvelope,
@@ -55,7 +55,11 @@ export type RotateJobResult = {
   readonly stoppedReason: ChunkedMigrationStopReason;
 };
 
-export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
+export async function rotateJob(
+  rawPayload: Record<string, unknown>,
+  ctx: JobContext,
+  db: DbConnection,
+): Promise<void> {
   const payload = rawPayload as RotateJobPayload; // @cast-boundary engine-payload
   if (!ctx.masterKeyProvider) {
     throw new InternalError({
@@ -64,12 +68,6 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
     });
   }
   const provider = ctx.masterKeyProvider;
-  if (!ctx.db) {
-    throw new InternalError({
-      message: "[secrets:rotate] ctx.db missing — job context requires a database connection.",
-    });
-  }
-  const db = ctx.db as DbConnection; // @cast-boundary db-operator
   const batchSize = payload.batchSize ?? DEFAULT_BATCH_SIZE;
   const maxFailures = payload.maxFailures ?? DEFAULT_MAX_FAILURES;
   const deadline = payload.maxDurationMs
@@ -165,4 +163,4 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
     stoppedReason: outcome.stoppedReason,
   };
   ctx.log?.info?.(`[secrets:rotate] complete: ${JSON.stringify(result)}`);
-};
+}

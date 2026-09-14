@@ -10,6 +10,32 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.275.0
+
+### files-tenant-data
+
+**sweepOrphanedDerivativesJob takes the raw DbConnection as a third argument; the job declares escapeHatch (fw#2914).**
+
+JobContext.db is now a tenant-filtered TenantDb. The sweep checks fileRef owners of every tenant, so its registration declares `escapeHatch` and passes `ctx.db.unsafeRaw(reason)` to `sweepOrphanedDerivativesJob(payload, ctx, db)`. Without the raw runner, the foreign-tenant owner lookup would be narrowed away and every derivative would look orphaned.
+
+**Migration:** Direct callers of the exported `sweepOrphanedDerivativesJob` pass the raw `DbConnection` as the third argument. Apps that only mount the feature need no change.
+
+### framework-core
+
+**JobContext.db is a tenant-filtered TenantDb; unfiltered job access needs r.job({ escapeHatch }) or r.systemScope() (fw#2914).**
+
+Job handlers no longer receive the unfiltered boot `DbConnection` as `ctx.db`. `JobContext.db` is now a `TenantDb` in "tenant" mode, bound to the job's resolved tenant (`_tenantId`, `payload.tenantId`, or `SYSTEM_TENANT_ID` for tenant-less cron jobs). Reads see that tenant plus `SYSTEM_TENANT_ID` reference rows, and writes are scoped to it. `JobDefinition` gains `escapeHatch?: { reason }`: it grants `ctx.db.unsafeRaw(reason)` for that job and reports an `"unsafe-raw"` escape-hatch audit event through `_escapeHatchAuditSink` (deduplicated like handler grants). Without it, `ctx.db.unsafeRaw` throws `AccessDeniedError`. `r.systemScope()` features keep `ctx.systemDb` unchanged. `r.job` throws at registration for an `escapeHatch` with an empty reason. Framework `soft-delete` cleanup jobs run on the tenant-filtered `TenantDb` without a grant. Bundled cross-tenant jobs now declare `escapeHatch`: auth-mfa reencrypt, sessions cleanup, form-draft cleanup, secrets rotate, files-tenant-data sweep-orphaned-derivatives, data-retention retention-cleanup, inbound-mail-retention, tenant-lifecycle run-tenant-destruction, and user-data-rights run-export-jobs/run-forget-cleanup. The systemScope features config, jobs and workflow-runner use `ctx.systemDb.unsafeRaw`. The exported `rotateJob` (secrets) and `sweepOrphanedDerivativesJob` (files-tenant-data) take the raw `DbConnection` as a third argument.
+
+**Migration:** Jobs that only read and write their own tenant through `ctx.db` method calls or `selectMany/fetchOne/insertOne/updateMany/deleteMany(ctx.db, ...)` need no change. A job that treated `ctx.db` as a `DbConnection` (casts, `asRawClient`, `countWhere`, `upsert*`, `incrementCounter`, `createTenantDb(ctx.db, ...)`, `runProjectionsForEvent(..., ctx.db)`, or `"raw" in db ? db.raw : db`) must declare the grant and fetch the runner explicitly. Use `r.job({ name, trigger, escapeHatch: { reason: "<why>" }, handler: async (payload, ctx) => work(ctx.db.unsafeRaw("<why>")) })`; keep the `unsafeRaw` call inside the inline `handler` next to `escapeHatch` so `guard-escape-hatch-declared` recognizes the declaration. `r.systemScope()` features use `ctx.systemDb.unsafeRaw(reason)` instead. WARNING: a job that is not migrated but passes a foreign `where.tenantId` through `ctx.db` does not fail; the filter silently narrows it to the job's own tenant (`SYSTEM_TENANT_ID` for tenant-less cron jobs), so cross-tenant sweeps silently read nothing. Audit every cross-tenant job. Hand-built `JobContext` objects in tests need `db: createTenantDb(conn, tenantId)` (plus `systemDb` for systemScope jobs). Direct callers of `rotateJob`/`sweepOrphanedDerivativesJob` pass the raw connection as the third argument.
+
+### secrets
+
+**rotateJob takes the raw DbConnection as a third argument; the rotate job declares escapeHatch (fw#2914).**
+
+JobContext.db is now a tenant-filtered TenantDb. Rotation re-encrypts every tenant's secrets, so the `rotate` registration declares `escapeHatch` and passes `ctx.db.unsafeRaw(reason)` to `rotateJob(payload, ctx, db)`.
+
+**Migration:** Direct callers of the exported `rotateJob` pass the raw `DbConnection` as the third argument. Apps that only mount the feature need no change.
+
 ## 0.274.0
 
 ### framework-core

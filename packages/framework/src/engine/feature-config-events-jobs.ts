@@ -181,9 +181,18 @@ export function buildConfigEventsJobsMethods<TName extends string>(
               handler as JobHandlerFn,
             ]
           : (() => {
-              const { name, handler: h, ...rest } = jobNameOrDefinition;
-              return [name, rest, h] as const;
+              const { name: definedJobName, handler: h, ...rest } = jobNameOrDefinition;
+              return [definedJobName, rest, h] as const;
             })();
+      if (
+        jobOptions.escapeHatch !== undefined &&
+        jobOptions.escapeHatch.reason.trim().length === 0
+      ) {
+        throw new Error(
+          `[Feature ${name}] r.job("${jobName}") declares { escapeHatch: { reason: "" } } — ` +
+            "the reason must be a non-empty string explaining why this job needs unfiltered database access.",
+        );
+      }
       // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array
       // wird zu Array von resolved strings, Single bleibt single string —
       // job-runner unterscheidet anhand Array.isArray.

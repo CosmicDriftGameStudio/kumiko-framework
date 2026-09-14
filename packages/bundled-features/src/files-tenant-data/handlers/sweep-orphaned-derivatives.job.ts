@@ -19,9 +19,9 @@
 // handling still applies per-key.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { parseDerivativeKey } from "@cosmicdrift/kumiko-framework/derivatives";
-import type { JobHandlerFn, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   assertSafeStorageKey,
   type FileProviderResolver,
@@ -50,17 +50,12 @@ type DerivativeCandidate = {
   readonly provider: FileStorageProvider;
 };
 
-export const sweepOrphanedDerivativesJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
+export async function sweepOrphanedDerivativesJob(
+  rawPayload: Record<string, unknown>,
+  ctx: JobContext,
+  db: DbConnection,
+): Promise<void> {
   const payload = sweepOrphanedDerivativesPayloadSchema.parse(rawPayload ?? {});
-  if (!ctx.db) {
-    throw new InternalError({
-      message:
-        "[files-tenant-data:sweep] ctx.db missing — job context requires a database connection.",
-    });
-  }
-  const db = ctx.db;
-  // Re-bound to a definitely-assigned const: TS control-flow narrowing from
-  // the guard above doesn't cross into fillQueue's nested closure below.
   const maybeResolver = ctx._fileProviderResolver;
   if (!maybeResolver) {
     ctx.log?.warn(
@@ -170,4 +165,4 @@ export const sweepOrphanedDerivativesJob: JobHandlerFn = async (rawPayload, ctx)
   ctx.log?.info?.(
     `[files-tenant-data:sweep] complete dryRun=${dryRun} deleted=${outcome.migrated} wouldDelete=${dryRunWouldDelete} skipped=${outcome.skipped} failed=${outcome.failed} batches=${outcome.batchesProcessed} stoppedReason=${outcome.stoppedReason}`,
   );
-};
+}
