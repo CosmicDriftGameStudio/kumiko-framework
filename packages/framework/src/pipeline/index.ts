@@ -2,7 +2,7 @@ export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver";
 export { resolveAuthClaims } from "./auth-claims-resolver";
 export { createCascadeDeleteHook } from "./cascade-handler";
 export type { Dispatcher } from "./dispatcher";
-export { createDispatcher } from "./dispatcher";
+export { createDispatcher, dispatcherToWriteRef } from "./dispatcher";
 export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";
 export type { EntityCache, EntityCacheOptions } from "./entity-cache";

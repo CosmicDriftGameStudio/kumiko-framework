@@ -13,7 +13,12 @@ import { createJobRunner, type JobRunner, type JobRunnerOptions } from "../jobs"
 import type { Lifecycle } from "../lifecycle";
 import { createNoopProvider, type ObservabilityProvider } from "../observability";
 import type { Dispatcher, EventDispatcher } from "../pipeline";
-import { createEntityCache, createEventDedup, createIdempotencyGuard } from "../pipeline";
+import {
+  createEntityCache,
+  createEventDedup,
+  createIdempotencyGuard,
+  dispatcherToWriteRef,
+} from "../pipeline";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createTestDb } from "./db";
@@ -445,6 +450,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         return resolvedAnon ? { anonymousAccess: resolvedAnon } : {};
       })()),
     });
+
+    // Mirrors the prod entrypoints — without this, JobContext.write/writeAs/
+    // queryAs/queryAsMember throw on first use inside a test-stack job.
+    if (jobRunner) jobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
 
     const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;
 

@@ -2,6 +2,7 @@ import * as jose from "jose";
 import type { DbRow } from "../db/connection";
 import type { SessionUser, TenantId } from "../engine/types";
 import { parseTenantId } from "../engine/types";
+import { InternalError } from "../errors";
 
 export type JwtPayload = {
   // JWT `sub` is a string per RFC 7519. Matches SessionUser.id — a UUID-string
@@ -108,6 +109,13 @@ export function createJwtHelper(
 
   return {
     async sign(user) {
+      // A resolved member principal (origin set) carries no `sid` and must
+      // never be minted into a session — only interactive sign-in may sign.
+      if (user.origin !== undefined) {
+        throw new InternalError({
+          message: `jwt.sign: refusing to sign a SessionUser with origin "${user.origin}" — only interactively-authenticated sessions may be minted.`,
+        });
+      }
       const body: Omit<JwtPayload, "sub" | "jti"> = {
         tenantId: user.tenantId,
         roles: [...user.roles],

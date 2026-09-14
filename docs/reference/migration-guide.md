@@ -10,7 +10,7 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
-## 0.266.0
+## 0.267.0
 
 ### framework-core
 
@@ -19,6 +19,10 @@ Use `kumiko upgrade` to check what's new since your current version.
 `TenantDb.unsafeRaw(reason)` returns the unfiltered `DbRunner` only when the calling write or query handler declares `escapeHatch: { reason }` (lifecycle hooks: `r.hook(..., { escapeHatch })`; a hook no longer inherits the handler's grant, same as the #2859 SYSTEM identity-switch gate). Without a declaration it throws `AccessDeniedError`; an empty reason throws `Error`. `r.systemScope()` features keep using `ctx.systemDb.unsafeRaw(reason)`. `TenantDb.raw` stays deprecated until fw#2860. `createTenantDb`'s 7th parameter changed from an `EscapeHatchDeclaration` to `TenantDbGrants` `{ globalWrites?, unsafeRaw? }`; `withUnsafeRawGrant(tenantDb, grant)` rebinds the unsafeRaw grant. `bindHookIdentitySwitchGrant`/`withHookIdentitySwitchGrant` are renamed to `bindHookEscapeHatchGrant`/`withHookEscapeHatchGrant`. Global tenancy: a `tenancy: "global"` entity must declare `systemStream: true` (boot validator + executor) and its create/update payloads may not carry a non-SYSTEM `tenantId`; tenant-mode `insertOne` into a global table with a `tenant_id` column and `db.global(table)` writes with a non-SYSTEM `tenantId` are rejected; `defineUnmanagedTable({ tenancy: "global" })` rejects a `tenant_id` column; new `declareGlobalTenancy(table)` declares a plain `table()` store without `tenant_id` as global. Bundled features: `userEntity` is `tenancy: "global"`, `store_global_feature_state` is declared global, and every bundled `ctx.db.raw` call site now uses `ctx.db.global(table)`, a filtered `ctx.db` method, or `ctx.db.unsafeRaw(reason)` with an `escapeHatch` on the handler. Handlers that call the auth-mfa `mfaStatusChecker`/MFA code verifier callbacks, handlers wrapped by cap-counter `withStockCap` (declares it automatically) and callers of the custom-fields quota/field-access query helpers now need that declaration.
 
 **Migration:** Replace each `ctx.db.raw` use: reads of a `tenancy: "global"` table → `ctx.db.global(table).selectMany/fetchOne(...)`; reads/inserts whose where/values only use the caller's own tenantId → `ctx.db.selectMany/fetchOne/insertOne(table, ...)` (method form); everything else → `ctx.db.unsafeRaw("<what is read/written and why the tenant filter cannot apply>")` plus `escapeHatch: { reason }` on the write/query handler definition or in the `r.hook` options. Generic reasons (todo, legacy, migration) fail infra#788. `bun scripts/migrate-db-raw.ts --dry-run <paths>` rewrites the global-table and own-tenant cases and lists the remaining sites; drop `--dry-run` to apply. Custom handlers calling `mfaStatusChecker`/the MFA code verifier or the custom-fields query helpers must declare `escapeHatch`. Direct `createTenantDb(..., escapeHatch)` calls pass `{ globalWrites: escapeHatch }` (and `unsafeRaw` if needed). Rename imports of `bindHookIdentitySwitchGrant`/`withHookIdentitySwitchGrant`. `defineUnmanagedTable({ tenancy: "global" })` definitions must drop their `tenant_id` column; `tenancy: "global"` entities must add `systemStream: true`.
+
+## 0.266.0
+
+### framework-core
 
 **`publicIntake` is removed; an openToAll write handler declares unbound personal data with `openToAll: { reason, personalData: "tenant-members" }`.**
 

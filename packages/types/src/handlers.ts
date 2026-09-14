@@ -52,6 +52,10 @@ export function isOpenToAllGranted(rule: AccessRule): boolean {
 
 // --- Pipeline User ---
 
+// Set only on a SessionUser the framework resolved internally for a
+// background read (ctx.queryAsMember) — such a principal never carries `sid`.
+export type SessionUserOrigin = "member-resolution";
+
 export type SessionUser = {
   // UUID-string so user.id threads through the event-store (aggregate-id) and
   // the projection tables (uuid PK) without casts. Auth middleware reads the
@@ -92,6 +96,7 @@ export type SessionUser = {
     readonly scopes: readonly string[];
     readonly allowedQns: readonly string[];
   };
+  readonly origin?: SessionUserOrigin;
 };
 
 // --- Claim Keys (r.claimKey declarations) ---
@@ -231,6 +236,9 @@ import type { Registry } from "./feature";
 import type { TenantId } from "./identifiers";
 import type { UncheckedSystemDb } from "./tenant-db-types";
 
+// The framework resolves the member internally, so no hand-built SessionUser reaches app code.
+export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
+
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
 export type JobRunnerRef = {
   handleEvent(
@@ -249,6 +257,9 @@ export type JobRunnerRef = {
 export type DispatchWriteRef = {
   readonly write: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  // Builds a tenant-scoped MemberReader — one per JobContext.queryAsMember
+  // caller (job-runner.ts lazily creates one per job run).
+  readonly createMemberReader: (tenantId: TenantId) => MemberReader;
 };
 
 // Priority levels for notifications
@@ -355,6 +366,9 @@ type SharedContextFields = {
   // hooks synchronously (kumiko-framework#1566). Absent outside a write
   // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
   readonly scheduleAfterCommit?: (hook: () => Promise<void>) => void;
+  // Present on HandlerContext/JobContext; hooks receive HandlerContext as
+  // AppContext, so it's optional here. See HandlerContext.queryAsMember.
+  readonly queryAsMember?: MemberReader;
 };
 
 // All optional — used at pipeline/system boundaries.
@@ -640,6 +654,10 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     userId: string,
     tenantId: TenantId,
   ) => Promise<ActiveMembershipResult>;
+
+  // Read-only principal without `sid`; needs the same grant as a SYSTEM queryAs
+  // (membership is resolved as SYSTEM), cached per handler invocation or job run.
+  readonly queryAsMember: MemberReader;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
@@ -686,6 +704,9 @@ export type JobContext = SharedContextFields & {
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  // Tenant = the job's resolved tenant (may originate from payload.tenantId
+  // for tenant-less triggers, see _tenantId below). Ungated, like queryAs.
+  readonly queryAsMember: MemberReader;
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;

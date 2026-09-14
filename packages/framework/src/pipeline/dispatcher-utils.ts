@@ -49,6 +49,7 @@ export function dispatcherSpanAttributes(
     "kumiko.tenant_id": user.tenantId,
   };
   if (feature) attrs["kumiko.feature"] = feature;
+  if (user.origin) attrs["kumiko.user_origin"] = user.origin;
   return attrs;
 }
 
