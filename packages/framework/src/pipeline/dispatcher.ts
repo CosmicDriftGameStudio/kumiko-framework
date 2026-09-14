@@ -1,5 +1,9 @@
 import type { SseBroker } from "../api/sse-broker";
 import type { buildEntityTable } from "../db/table-builder";
+import {
+  DEPRECATED_CROSS_TENANT_SIGNAL,
+  isDeprecatedCrossTenantHandler,
+} from "../engine/entity-handlers";
 import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -137,6 +141,19 @@ export function createDispatcher(
   // Ensure standard metrics exist on whatever meter we ended up with.
   // Idempotent: buildServer may have registered them already.
   registerStandardMetrics(dispatcherMeter);
+
+  for (const def of [
+    ...registry.getAllWriteHandlers().values(),
+    ...registry.getAllQueryHandlers().values(),
+  ]) {
+    if (isDeprecatedCrossTenantHandler(def.handler)) {
+      context.log?.warn(DEPRECATED_CROSS_TENANT_SIGNAL, {
+        handler: def.name,
+        migration:
+          'replace crossTenant: true with escapeHatch: { reason: "<why this operator handler reads/writes every tenant>" } (bun scripts/codemod/migrate-cross-tenant.ts)',
+      });
+    }
+  }
 
   const ctx: DispatchContext = {
     registry,

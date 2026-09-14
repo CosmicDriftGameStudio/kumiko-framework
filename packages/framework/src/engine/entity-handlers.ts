@@ -8,8 +8,7 @@ import {
 } from "../db/eagerload";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable, type EntityTable } from "../db/table-builder";
-import { createTenantDb, type TenantDb } from "../db/tenant-db";
-import { tenantDbRunner } from "../db/tenant-db-runner";
+import { acknowledgeConventionCrossTenant, type TenantDb } from "../db/tenant-db";
 import { isSystemIdentity } from "../pipeline/system-identity-switch";
 import { assertUnreachable } from "../utils";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
@@ -109,6 +108,33 @@ type ListPayload = {
 
 const idSchema = z.object({ id: z.uuid() });
 
+// Keyed by handler function: the registrar rebuilds the def object but keeps the function reference.
+const deprecatedCrossTenantHandlers = new WeakSet<object>();
+
+export function isDeprecatedCrossTenantHandler(handler: object): boolean {
+  return deprecatedCrossTenantHandlers.has(handler);
+}
+
+export const DEPRECATED_CROSS_TENANT_SIGNAL = "deprecation:entity-handler-cross-tenant";
+
+function resolveCrossTenantReason(name: string, options: EntityHandlerOptions): string | undefined {
+  if (options.escapeHatch !== undefined && options.crossTenant === true) {
+    throw new Error(
+      `"${name}": declare either escapeHatch or the deprecated crossTenant, not both.`,
+    );
+  }
+  if (options.escapeHatch !== undefined) {
+    if (options.escapeHatch.reason.trim().length === 0) {
+      throw new Error(`"${name}": escapeHatch requires a non-empty reason.`);
+    }
+    return options.escapeHatch.reason;
+  }
+  if (options.crossTenant === true) {
+    return `deprecated crossTenant: true on entity convention handler ${name}`;
+  }
+  return undefined;
+}
+
 // Upper bound on entity-list `limit`: unbounded/fractional values ran
 // straight into the raw `LIMIT ${limit}` SQL string (event-store-executor-
 // read.ts), letting a client demand a full-table materialisation or trip a
@@ -196,10 +222,10 @@ export function defineEntityWriteHandler(
   // behavior-preserving: ctx.db was already an unfiltered "system"-mode
   // TenantDb for these handlers before the ctx.db cutover.
   //
-  // options.crossTenant mirrors the query-handler branch below: this ONE
-  // write handler reads/writes across every tenant without making the
-  // whole feature r.systemScope().
-  const crossTenant = options?.crossTenant === true;
+  // crossTenantReason (escapeHatch or the deprecated crossTenant) mirrors the
+  // query-handler branch below: this ONE write handler reads/writes across
+  // every tenant without making the whole feature r.systemScope().
+  const crossTenantReason = resolveCrossTenantReason(name, options);
 
   const dbFor = (ctx: HandlerContext): TenantDb => {
     if (ctx.systemDb) {
@@ -207,7 +233,9 @@ export function defineEntityWriteHandler(
         `entity convention handler for r.systemScope() feature (${name})`,
       );
     }
-    return crossTenant ? createTenantDb(tenantDbRunner(ctx.db), ctx.db.tenantId, "system") : ctx.db;
+    return crossTenantReason !== undefined
+      ? acknowledgeConventionCrossTenant(ctx.db, crossTenantReason)
+      : ctx.db;
   };
 
   // The event stream is keyed by the acting user's tenantId (streamTenantFor in
@@ -221,7 +249,7 @@ export function defineEntityWriteHandler(
     id: unknown,
     db: TenantDb,
   ): Promise<SessionUser> => {
-    if (!crossTenant || entity.systemStream) return user;
+    if (crossTenantReason === undefined || entity.systemStream) return user;
     const row = await db.fetchOne<Record<string, unknown>>(table, { id });
     const rowTenantId = row?.["tenantId"];
     if (typeof rowTenantId !== "string" || rowTenantId === user.tenantId) return user;
@@ -297,6 +325,9 @@ export function defineEntityWriteHandler(
       assertUnreachable(verb, "write verb");
   }
 
+  if (options.crossTenant === true) deprecatedCrossTenantHandlers.add(handler);
+
+  // escapeHatch stays off the def: WriteHandlerDef.escapeHatch also grants unsafeRaw, global writes, identity switches.
   return {
     name,
     schema,
@@ -349,21 +380,22 @@ export function defineEntityQueryHandler(
   // useReferenceLookup stays as a fallback (for apps that write custom
   // handlers by hand without this wrapper).
   const hasRefFields = collectReferenceFields(entity).length > 0;
+  const crossTenantReason = resolveCrossTenantReason(name, options);
 
   // Preference order:
   //  1. ctx.systemDb — the feature declared r.systemScope() (whole-feature
   //     cutover, dispatch-shared.ts), so ctx.db is fail-closed. This is
   //     behavior-preserving: ctx.db was already an unfiltered "system"-mode
   //     TenantDb for these handlers before that cutover.
-  //  2. options.crossTenant — this ONE handler reads across every tenant
-  //     (e.g. a SystemAdmin-only operator inspector) without making the
-  //     whole feature r.systemScope() — that would drop tenant isolation
-  //     from every OTHER handler the feature registers too. The executor's
-  //     list()/detail() only add a tenant filter when db.mode === "tenant"
-  //     (see event-store-executor.ts), so handing them a "system"-mode
-  //     TenantDb built from the same raw connection is enough to skip it —
-  //     access-control (who may call this handler at all) is unaffected,
-  //     still gated by `options.access`.
+  //  2. crossTenantReason (escapeHatch or the deprecated crossTenant) — this
+  //     ONE handler reads across every tenant (e.g. a SystemAdmin-only
+  //     operator inspector) without making the whole feature r.systemScope()
+  //     — that would drop tenant isolation from every OTHER handler the
+  //     feature registers too. The executor's list()/detail() only add a
+  //     tenant filter when db.mode === "tenant" (see event-store-executor.ts),
+  //     so handing them a "system"-mode TenantDb built from the same raw
+  //     connection is enough to skip it — access-control (who may call this
+  //     handler at all) is unaffected, still gated by `options.access`.
   //  3. plain ctx.db — the common case, tenant-filtered.
   const dbFor = (ctx: HandlerContext): TenantDb => {
     if (ctx.systemDb) {
@@ -371,8 +403,8 @@ export function defineEntityQueryHandler(
         `entity convention handler for r.systemScope() feature (${entityName}:${verb})`,
       );
     }
-    return options?.crossTenant
-      ? createTenantDb(tenantDbRunner(ctx.db), ctx.db.tenantId, "system")
+    return crossTenantReason !== undefined
+      ? acknowledgeConventionCrossTenant(ctx.db, crossTenantReason)
       : ctx.db;
   };
 
@@ -429,6 +461,9 @@ export function defineEntityQueryHandler(
       assertUnreachable(verb, "query verb");
   }
 
+  if (options.crossTenant === true) deprecatedCrossTenantHandlers.add(handler);
+
+  // escapeHatch stays off the def: QueryHandlerDef.escapeHatch also grants unsafeRaw and identity switches.
   return {
     name,
     schema,
