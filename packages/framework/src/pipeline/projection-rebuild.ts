@@ -8,6 +8,7 @@ import {
 } from "../db/queries/projection-rebuild";
 import {
   assertLiveColumnsMatchMeta,
+  assertLiveTableHasNoRowLevelSecurity,
   assertNoUnreachableLiveRows,
   buildShadowTable,
   type ColumnDriftResult,
@@ -292,6 +293,7 @@ export async function rebuildProjection(
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
+      await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, projectionName);
       await buildShadowTable(tx, meta);
       deps.__test_onBuildShadowTable?.();
 
