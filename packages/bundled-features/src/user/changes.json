@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.219.0",
+    "version": "0.271.0",
     "type": "improvement",
     "title": "systemScope handlers get a default per-tenant+handler rate limit; user:me opts out (fw#2861).",
     "detail": "`user` mounts under `r.systemScope()`, so its write/query handlers without their own `rateLimit` now default to `{ per: \"tenant+handler\", limit: 600, windowSeconds: 60 }` once an app has a `RateLimitResolver` configured (framework change, see kumiko-framework changes.json 0.271.0). `user:query:user:me` (`user:me.query.ts`) declares `rateLimit: { disabled: true, reason: \"...\" }` — it is a self-scoped read of the caller's own identity record, hit on every page load, and a per-tenant bucket would throttle the whole tenant's page loads instead of just that one handler's traffic."

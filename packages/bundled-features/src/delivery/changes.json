@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.209.0",
+    "version": "0.271.0",
     "type": "improvement",
     "title": "systemScope handlers get a default per-tenant+handler rate limit; delivery:preferences opts out (fw#2861).",
     "detail": "`delivery` mounts under `r.systemScope()`, so `delivery:write:set-preference`/`delivery:query:log` without their own `rateLimit` now default to `{ per: \"tenant+handler\", limit: 600, windowSeconds: 60 }` once an app has a `RateLimitResolver` configured (framework change, see kumiko-framework changes.json 0.271.0). `delivery:query:preferences` declares `rateLimit: { disabled: true, reason: \"...\" }` — it is a self-scoped read of the caller's own notification preference rows, hit on every page load, and a per-tenant bucket would throttle the whole tenant's page loads instead of just that one handler's traffic."
