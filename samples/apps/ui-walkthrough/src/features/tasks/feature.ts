@@ -4,11 +4,13 @@ import { editScreen, listScreen, taskEntity } from "./schema";
 
 export { taskEntity };
 
+const TASKS_MANAGE_OPEN_REASON =
+  "demo app: any signed-in user manages every task; there is no per-user ownership in this sample";
+
 const open = {
   access: {
     openToAll: {
-      reason:
-        "demo app: any signed-in user manages every task; there is no per-user ownership in this sample",
+      reason: TASKS_MANAGE_OPEN_REASON,
     },
   },
 } as const;

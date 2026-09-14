@@ -6,6 +6,11 @@ import {
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "./constants";
 import type { PatScopeConfig } from "./scopes";
 
+const PAT_LIST_OPEN_REASON =
+  "each signed-in user views only their own personal access tokens, mirroring the list handler";
+const PAT_MINT_OPEN_REASON =
+  "each signed-in user mints a token for their own account only, mirroring the create handler";
+
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
@@ -49,8 +54,7 @@ export const patListScreen: ProjectionListScreenDefinition = {
   ],
   access: {
     openToAll: {
-      reason:
-        "each signed-in user views only their own personal access tokens, mirroring the list handler",
+      reason: PAT_LIST_OPEN_REASON,
     },
   },
 };
@@ -109,8 +113,7 @@ export function createPatMintScreen(scopes: PatScopeConfig): SecretMintScreenDef
     cancelTarget: PAT_SCREEN_ID,
     access: {
       openToAll: {
-        reason:
-          "each signed-in user mints a token for their own account only, mirroring the create handler",
+        reason: PAT_MINT_OPEN_REASON,
       },
     },
   };

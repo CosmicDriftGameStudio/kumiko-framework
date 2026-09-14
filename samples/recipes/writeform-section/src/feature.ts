@@ -31,11 +31,13 @@ const noteEntity = createEntity({
   },
 });
 
+const NOTES_MANAGE_OPEN_REASON =
+  "demo recipe: any signed-in user manages every note; there is no per-user ownership in this sample";
+
 const open = {
   access: {
     openToAll: {
-      reason:
-        "demo recipe: any signed-in user manages every note; there is no per-user ownership in this sample",
+      reason: NOTES_MANAGE_OPEN_REASON,
     },
   },
 } as const;

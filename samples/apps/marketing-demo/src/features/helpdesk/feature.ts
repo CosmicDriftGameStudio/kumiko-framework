@@ -5,11 +5,13 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { helpdeskTranslations } from "./i18n";
 import { ticketEditScreen, ticketEntity, ticketListScreen } from "./schema";
 
+const HELPDESK_MANAGE_OPEN_REASON =
+  "demo app: any signed-in user manages every helpdesk ticket; there is no per-user ownership in this sample";
+
 const open = {
   access: {
     openToAll: {
-      reason:
-        "demo app: any signed-in user manages every helpdesk ticket; there is no per-user ownership in this sample",
+      reason: HELPDESK_MANAGE_OPEN_REASON,
     },
   },
 } as const;

@@ -10,6 +10,13 @@ import {
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
 } from "./constants";
 
+const MFA_ENABLE_OPEN_REASON =
+  "each signed-in user may enroll their own account in MFA, mirroring the enable-start handler";
+const MFA_DISABLE_OPEN_REASON =
+  "each signed-in user may turn off their own MFA, mirroring the disable handler";
+const MFA_REGENERATE_RECOVERY_OPEN_REASON =
+  "each signed-in user may regenerate their own recovery codes, mirroring the regenerate-recovery handler";
+
 // Declarative TOTP-enrollment screen: mint (no input) -> reveal QR/secret/
 // recovery-codes -> confirm with a 6-digit code. `setupToken` is carried
 // from the mint payload into the confirm payload but never listed in
@@ -23,8 +30,7 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   submitLabel: i18nKey("mfa.enable.start"),
   access: {
     openToAll: {
-      reason:
-        "each signed-in user may enroll their own account in MFA, mirroring the enable-start handler",
+      reason: MFA_ENABLE_OPEN_REASON,
     },
   },
   description:
@@ -80,7 +86,7 @@ export const mfaDisableScreen: ActionFormScreenDefinition = {
   cancelTarget: false,
   access: {
     openToAll: {
-      reason: "each signed-in user may turn off their own MFA, mirroring the disable handler",
+      reason: MFA_DISABLE_OPEN_REASON,
     },
   },
   description:
@@ -97,8 +103,7 @@ export const mfaRegenerateRecoveryScreen: SecretMintScreenDefinition = {
   cancelTarget: false,
   access: {
     openToAll: {
-      reason:
-        "each signed-in user may regenerate their own recovery codes, mirroring the regenerate-recovery handler",
+      reason: MFA_REGENERATE_RECOVERY_OPEN_REASON,
     },
   },
   description:

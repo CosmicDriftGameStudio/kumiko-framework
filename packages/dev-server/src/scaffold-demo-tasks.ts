@@ -52,11 +52,13 @@ const editScreen: EntityEditScreenDefinition = {
   },
 };
 
+const TASKS_OPEN_REASON =
+  "scaffolded demo handler: every signed-in user of the demo tenant manages their tasks";
+
 const open = {
   access: {
     openToAll: {
-      reason:
-        "scaffolded demo handler: every signed-in user of the demo tenant manages their tasks",
+      reason: TASKS_OPEN_REASON,
     },
   },
 } as const;

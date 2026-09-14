@@ -18,11 +18,13 @@ import {
   itemQuickAddScreen,
 } from "./schema";
 
+const ITEMS_MANAGE_OPEN_REASON =
+  "demo app: any signed-in user manages every showcase item; there is no per-user ownership in this sample";
+
 const open = {
   access: {
     openToAll: {
-      reason:
-        "demo app: any signed-in user manages every showcase item; there is no per-user ownership in this sample",
+      reason: ITEMS_MANAGE_OPEN_REASON,
     },
   },
 } as const;

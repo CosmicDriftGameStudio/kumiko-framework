@@ -63,6 +63,11 @@ export const taskTable = buildEntityTable("task", taskEntity, {
   relations: taskRelations,
 });
 
+const TASK_CREATE_OPEN_REASON =
+  "any signed-in tenant user may create a task; assigneeId defaults to the caller when omitted";
+const TASK_LIST_OPEN_REASON =
+  "any signed-in tenant user may list tasks; there is no per-user filter in this recipe";
+
 export const accessControlFeature = defineFeature("access-control", (r) => {
   r.entity("project", projectEntity);
   r.entity("task", taskEntity);
@@ -99,8 +104,7 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
     {
       access: {
         openToAll: {
-          reason:
-            "any signed-in tenant user may create a task; assigneeId defaults to the caller when omitted",
+          reason: TASK_CREATE_OPEN_REASON,
         },
       },
     },
@@ -136,8 +140,7 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
     defineEntityListHandler("task", taskEntity, {
       access: {
         openToAll: {
-          reason:
-            "any signed-in tenant user may list tasks; there is no per-user filter in this recipe",
+          reason: TASK_LIST_OPEN_REASON,
         },
       },
     }),

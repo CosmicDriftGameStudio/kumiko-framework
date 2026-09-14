@@ -14,11 +14,12 @@ import { listingEntity } from "./entities/listing";
 export { listingEntity } from "./entities/listing";
 
 const editorWrite = { access: { roles: ["Admin", "User"] } } as const;
+const LISTINGS_LIST_VIEW_OPEN_REASON =
+  "any signed-in user may list and view listings; writes are still gated by editorWrite";
 const openRead = {
   access: {
     openToAll: {
-      reason:
-        "any signed-in user may list and view listings; writes are still gated by editorWrite",
+      reason: LISTINGS_LIST_VIEW_OPEN_REASON,
     },
   },
 } as const;
