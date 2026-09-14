@@ -1,5 +1,8 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
-import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
+import type {
+  EscapeHatchDeclaration,
+  EscapeHatchReporter,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { KUMIKO_NAME_SYMBOL, type SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import {
@@ -23,6 +26,7 @@ import {
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { AccessDeniedError, InternalError } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
+import { fallbackEscapeHatchReporter } from "../pipeline/escape-hatch-report";
 import type { DbRunner } from "./connection";
 
 type Table = SchemaTable;
@@ -45,6 +49,7 @@ export {
 export function createUncheckedSystemDb(
   db: TenantDb,
   dbOutsideTransaction?: TenantDb,
+  report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
 ): UncheckedSystemDb {
   const allowedTenantIds: readonly TenantId[] = [db.tenantId, SYSTEM_TENANT_ID];
 
@@ -96,6 +101,7 @@ export function createUncheckedSystemDb(
       if (reason.trim().length === 0) {
         throw new Error("acknowledgeCrossTenant requires a non-empty reason");
       }
+      report("acknowledge-cross-tenant", reason);
       return db;
     },
 
@@ -103,6 +109,7 @@ export function createUncheckedSystemDb(
       if (reason.trim().length === 0) {
         throw new Error("unsafeRaw requires a non-empty reason");
       }
+      report("unsafe-raw", reason);
       return db.raw;
     },
 
@@ -120,7 +127,9 @@ export function createUncheckedSystemDb(
         if (reason.trim().length === 0) {
           throw new Error("acknowledgeCrossTenant requires a non-empty reason");
         }
-        return requireOutsideTransactionDb();
+        const result = requireOutsideTransactionDb();
+        report("acknowledge-cross-tenant", reason);
+        return result;
       },
     },
   };
@@ -162,6 +171,7 @@ function hasTenantColumn(table: Table | EntityTableMeta): boolean {
 export type TenantDbGrants = {
   readonly globalWrites?: EscapeHatchDeclaration;
   readonly unsafeRaw?: EscapeHatchDeclaration;
+  readonly report?: EscapeHatchReporter;
 };
 
 const unsafeRawRebinders = new WeakMap<
@@ -189,6 +199,7 @@ export function createTenantDb(
   grants?: TenantDbGrants,
 ): TenantDb {
   if (meter) registerStandardMetrics(meter);
+  const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
 
   function withDbSpan<T>(
     operation: "select" | "insert" | "update" | "delete",
@@ -281,6 +292,10 @@ export function createTenantDb(
     });
   }
 
+  function globalWriteReason(): string {
+    return grants?.globalWrites?.reason ?? "";
+  }
+
   function foreignTenantOnGlobalWrite(
     table: Table | EntityTableMeta,
     tenantIdValue: unknown,
@@ -315,6 +330,7 @@ export function createTenantDb(
         const denied =
           missingEscapeHatch(table) ?? foreignTenantOnGlobalWrite(table, values["tenantId"]);
         if (denied) return Promise.reject(denied);
+        report("global-write", globalWriteReason());
         return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, values));
       },
       updateMany<T = Record<string, unknown>>(
@@ -331,6 +347,7 @@ export function createTenantDb(
             ),
           );
         }
+        report("global-write", globalWriteReason());
         return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, where));
       },
       deleteMany(where: WhereObject): Promise<void> {
@@ -343,6 +360,7 @@ export function createTenantDb(
             ),
           );
         }
+        report("global-write", globalWriteReason());
         return withDbSpan("delete", table, async () => bunDeleteMany(db, table, where));
       },
       // @cast-boundary type-brand — GlobalWrites is only present in the type when TTable is not ExecutorOnly; the object above always carries the methods.
@@ -366,6 +384,7 @@ export function createTenantDb(
             "the handler or hook to allow unsafeRaw.",
         });
       }
+      report("unsafe-raw", reason);
       return db;
     },
 

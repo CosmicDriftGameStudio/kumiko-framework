@@ -10,6 +10,16 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.271.0
+
+### framework-core
+
+**systemScope handlers default to a per-tenant+handler rate limit; nested-write refuses a foreign-tenant/foreign-owner parent row (fw#2861).**
+
+`r.systemScope()` write/query/stream handlers that declare no `rateLimit` now default to `{ per: "tenant+handler", limit: 600, windowSeconds: 60 }` — only when `context.rateLimit` is already configured, and never for a SYSTEM-identity caller. `per: "tenant+handler"` (not `"tenant"`) so one hot handler cannot starve every other systemScope handler's shared tenant quota. `RateLimitDeclaration` (`RateLimitOption | RateLimitDisabled`) replaces `RateLimitOption` on `WriteHandlerDef`/`QueryHandlerDef`/`StreamHandlerDef` (and their `*Definition`/inline-options counterparts): `rateLimit: { disabled: true, reason: "..." }` opts a handler out of both the explicit and default limit; the boot validator rejects an empty reason. `enforceRateLimit` (`pipeline/dispatch-shared.ts`) takes a new `isSystemScope: boolean` 5th param; the three dispatch call sites now call it unconditionally. `computeHasRateLimitedHandler`/`wantsL3` stay limited to explicit, non-`disabled` `rateLimit` declarations on purpose. 40 bundled systemScope handlers newly get the default; 7 self-scoped read handlers hit on every page load (traffic scales with signed-in users, not tenant ops) declare `rateLimit: { disabled: true, reason }` instead — `user:query:user:me`, `tenant:query:me`, `config:query:{cascade,values,schema,readiness}`, `delivery:query:preferences` (full per-feature list in the systemscope-rate-limit-nested-ownership changeset). None of the 47 was anonymous-accessible, so no opt-out was required for that reason. Separately, `executeNestedWrite` now refuses to attach nested children to a parent row a custom (non-executor) `:create` handler returned without independently verifying ownership: a new `isForeignTenantParentRow` check refuses a returned row from another tenant (skipped for `r.systemScope()` handlers), and `checkWriteFieldOwnership(parentEntity, parentRow, user)` refuses a same-tenant row whose ownership-bound field does not resolve to the caller — both roll back the whole nested write.
+
+**Migration:** If your app configures a RateLimitResolver (the rate-limiting feature, an explicit `context.rateLimit`, or L1/L2 middleware options that auto-wire one), every `r.systemScope()` write/query/stream handler without its own `rateLimit` is now limited to 600 calls per tenant per handler per 60s for non-SYSTEM callers. Declare an explicit `rateLimit: { per, limit, windowSeconds }` on a handler that legitimately needs more, or `rateLimit: { disabled: true, reason: "..." }` for a per-user self-scoped read whose traffic scales with signed-in users rather than tenant operations (L1 IP limits still apply). Separately, a custom `<entity>:create` handler used under a `nestedWrite: true` relation must return the row it just created for the calling user: returning another tenant's row, or a row whose ownership-bound field(s) do not resolve to the caller, now fails the whole nested write with `access_denied` before any child rows are written.
+
 ## 0.269.0
 
 ### framework-core

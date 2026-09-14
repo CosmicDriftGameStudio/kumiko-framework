@@ -1,4 +1,5 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
+import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
 import { parseRefTarget } from "../parse-ref-target";
 import type {
@@ -147,7 +148,24 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
         );
       }
       validateAnonymousRateLimit(feature.name, kind, name, handler.access, handler.rateLimit);
+      validateRateLimitDisabledReason(feature.name, kind, name, handler.rateLimit);
     }
+  }
+}
+
+export function validateRateLimitDisabledReason(
+  featureName: string,
+  kind: "write" | "query" | "stream",
+  handlerName: string,
+  rateLimit: FeatureDefinition["writeHandlers"][string]["rateLimit"],
+): void {
+  if (!isRateLimitDisabled(rateLimit)) return;
+  if (rateLimit.reason.trim().length === 0) {
+    throw new Error(
+      `${kind} handler "${featureName}:${kind}:${handlerName}" declares rateLimit: { disabled: true } ` +
+        `without a reason. Provide { disabled: true, reason: "..." } explaining why this handler must not ` +
+        `be rate-limited.`,
+    );
   }
 }
 
@@ -160,6 +178,8 @@ export function validateAnonymousRateLimit(
 ): void {
   // skip: handler doesn't opt into rate-limit, no user-bucket risk
   if (!rateLimit) return;
+  // skip: disabled declarations carry no `.per` to bucket on
+  if (isRateLimitDisabled(rateLimit)) return;
   // skip: openToAll handlers don't allow anonymous (hasAccess rejects), so
   // the user-bucket footgun doesn't apply
   if (!("roles" in access)) return;

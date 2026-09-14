@@ -45,7 +45,7 @@ import type {
   QualifiedEventName,
   QueryHandlerDef,
   QueryHandlerFn,
-  RateLimitOption,
+  RateLimitDeclaration,
   StreamHandlerDef,
   StreamHandlerFn,
   WriteHandlerDef,
@@ -457,7 +457,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     handler: WriteHandlerFn<z.infer<TSchema>>,
     options: {
       access: AccessRule;
-      rateLimit?: RateLimitOption;
+      rateLimit?: RateLimitDeclaration;
       description?: string;
       agent?: AgentHandlerHints;
       escapeHatch?: EscapeHatchDeclaration;
@@ -473,7 +473,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     handler: QueryHandlerFn<z.infer<TSchema>>,
     options: {
       access: AccessRule;
-      rateLimit?: RateLimitOption;
+      rateLimit?: RateLimitDeclaration;
       outputSchema?: ZodType;
       description?: string;
       agent?: AgentHandlerHints;
@@ -490,7 +490,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     handler: StreamHandlerFn<z.infer<TSchema>>,
     options: {
       access: AccessRule;
-      rateLimit?: RateLimitOption;
+      rateLimit?: RateLimitDeclaration;
       escapeHatch?: EscapeHatchDeclaration;
     },
   ): HandlerRef;

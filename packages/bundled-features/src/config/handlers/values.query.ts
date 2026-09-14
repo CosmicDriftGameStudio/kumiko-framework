@@ -23,6 +23,12 @@ export const valuesQuery = defineQueryHandler({
         "only the config keys the caller's roles may read, before any value is returned",
     },
   },
+  rateLimit: {
+    disabled: true,
+    reason:
+      "self-scoped read of the caller's own readable config values, hit on every page load; " +
+      "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
+  },
   handler: async (query, ctx) => {
     const db = requireSystemDb(ctx, "config:query:values", query.user.tenantId);
     const registry = ctx.registry;

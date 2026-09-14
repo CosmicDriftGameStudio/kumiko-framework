@@ -15,6 +15,12 @@ export const schemaQuery = defineQueryHandler({
         "only the config key definitions the caller's roles may read",
     },
   },
+  rateLimit: {
+    disabled: true,
+    reason:
+      "self-scoped read of the caller's own readable config schema, hit on every page load; " +
+      "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
+  },
   handler: async (query, ctx) => {
     const registry = ctx.registry;
     const allKeys = registry.getAllConfigKeys();

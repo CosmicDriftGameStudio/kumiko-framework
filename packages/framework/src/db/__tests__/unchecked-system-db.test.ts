@@ -1,8 +1,22 @@
 import { describe, expect, test } from "bun:test";
+import type { EscapeHatchReporter, EscapeHatchTarget } from "@cosmicdrift/kumiko-types/handlers";
 import { SYSTEM_TENANT_ID } from "../../engine";
 import { testTenantId } from "../../stack";
 import type { DbRunner } from "../connection";
 import { createTenantDb, createUncheckedSystemDb, SYSTEM_SCOPE_CHECK_BRAND } from "../tenant-db";
+
+function recordingReporter(): {
+  readonly report: EscapeHatchReporter;
+  readonly calls: Array<{ kind: string; reason: string; target: EscapeHatchTarget | undefined }>;
+} {
+  const calls: Array<{ kind: string; reason: string; target: EscapeHatchTarget | undefined }> = [];
+  return {
+    report: (kind, reason, target) => {
+      calls.push({ kind, reason, target });
+    },
+    calls,
+  };
+}
 
 // createUncheckedSystemDb wraps a "system"-mode TenantDb (r.systemScope())
 // so a handler must explicitly clear a self-check before using it — none of
@@ -43,6 +57,16 @@ describe("createUncheckedSystemDb", () => {
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(() => unchecked.assertTenantMatch(foreign)).toThrow(/tenant self-check failed/);
+    });
+
+    test("does not report — it is a tenant-safe check", () => {
+      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const { report, calls } = recordingReporter();
+      const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
+
+      unchecked.assertTenantMatch(own);
+      expect(() => unchecked.assertTenantMatch(foreign)).toThrow();
+      expect(calls).toEqual([]);
     });
   });
 
@@ -88,6 +112,16 @@ describe("createUncheckedSystemDb", () => {
 
       expect(unchecked.assertRowsTenant(rows, "tenantId")).toBe(rows);
     });
+
+    test("does not report — it is a tenant-safe check", () => {
+      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const { report, calls } = recordingReporter();
+      const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
+      const rows = [{ tenantId: own, name: "a" }];
+
+      unchecked.assertRowsTenant(rows, "tenantId");
+      expect(calls).toEqual([]);
+    });
   });
 
   describe("acknowledgeCrossTenant", () => {
@@ -112,6 +146,30 @@ describe("createUncheckedSystemDb", () => {
       const unchecked = createUncheckedSystemDb(systemDb);
 
       expect(() => unchecked.acknowledgeCrossTenant("   ")).toThrow(/non-empty reason/);
+    });
+
+    test("reports acknowledge-cross-tenant once with the reason", () => {
+      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const { report, calls } = recordingReporter();
+      const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
+
+      unchecked.acknowledgeCrossTenant("user feature is cross-tenant by design");
+      expect(calls).toEqual([
+        {
+          kind: "acknowledge-cross-tenant",
+          reason: "user feature is cross-tenant by design",
+          target: undefined,
+        },
+      ]);
+    });
+
+    test("an empty reason throws and does not report", () => {
+      const systemDb = createTenantDb(unusedRunner(), own, "system");
+      const { report, calls } = recordingReporter();
+      const unchecked = createUncheckedSystemDb(systemDb, undefined, report);
+
+      expect(() => unchecked.acknowledgeCrossTenant("")).toThrow();
+      expect(calls).toEqual([]);
     });
   });
 
@@ -177,6 +235,24 @@ describe("createUncheckedSystemDb", () => {
         expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("valid reason")).toThrow(
           /no outside-transaction database source is configured/,
         );
+      });
+
+      test("reports acknowledge-cross-tenant once with the reason", () => {
+        const systemDb = createTenantDb(unusedRunner(), own, "system");
+        const outsideTxDb = createTenantDb(unusedRunner(), own, "system");
+        const { report, calls } = recordingReporter();
+        const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb, report);
+
+        unchecked.outsideTransaction.acknowledgeCrossTenant(
+          "durability write is cross-tenant by design",
+        );
+        expect(calls).toEqual([
+          {
+            kind: "acknowledge-cross-tenant",
+            reason: "durability write is cross-tenant by design",
+            target: undefined,
+          },
+        ]);
       });
     });
   });

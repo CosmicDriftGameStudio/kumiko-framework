@@ -4,7 +4,7 @@ import { asEntityTableMeta, selectMany } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { hasAccess } from "../engine/access";
 import { ConfigScopes } from "../engine/constants";
-import { checkWriteFieldRoles } from "../engine/field-access";
+import { checkWriteFieldOwnership, checkWriteFieldRoles } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { HandlerContext, SessionUser, WriteResult } from "../engine/types";
 import { HookPhases } from "../engine/types";
@@ -196,6 +196,14 @@ export async function executeWrite(
   );
 }
 
+function isForeignTenantParentRow(
+  parentRow: Readonly<Record<string, unknown>>,
+  user: SessionUser,
+): boolean {
+  const rowTenantId = parentRow["tenantId"];
+  return typeof rowTenantId === "string" && rowTenantId !== user.tenantId;
+}
+
 // Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
 //
 // When a parent `:create` handler's payload carries values under keys
@@ -286,6 +294,36 @@ export async function executeNestedWrite(
     );
   }
 
+  // A custom create handler may return an existing foreign row; verify it before attaching children.
+  if (!registry.isHandlerSystemScoped(type) && isForeignTenantParentRow(parentRow, user)) {
+    return writeFailure(
+      new AccessDeniedError({
+        message: `nested-write: parent row belongs to another tenant — refusing to attach children to "${type}"`,
+        details: { reason: FrameworkReasons.fieldAccessDenied, handler: type },
+      }),
+    );
+  }
+  const parentEntityName = registry.getHandlerEntity(type);
+  if (parentEntityName) {
+    const parentEntity = registry.getEntity(parentEntityName);
+    if (parentEntity) {
+      const deniedField = checkWriteFieldOwnership(parentEntity, parentRow, user);
+      if (deniedField) {
+        return writeFailure(
+          new AccessDeniedError({
+            message: `nested-write: parent row ownership check failed on field "${deniedField}" of "${type}" — refusing to attach children to a parent row the caller does not own`,
+            i18nKey: "errors.access.fieldDenied",
+            details: {
+              reason: FrameworkReasons.fieldAccessDenied,
+              field: deniedField,
+              handler: type,
+            },
+          }),
+        );
+      }
+    }
+  }
+
   for (const spec of nested.specs) {
     const subRows: Record<string, unknown>[] = [];
     for (let i = 0; i < spec.items.length; i++) {
@@ -341,15 +379,21 @@ async function executeWriteInner(
 
   // Rate-limit gate before access (same reasoning as in executeQueryInner).
   // Throws RateLimitError; the outer wrapper turns it into a 429
-  // WriteFailure via toWriteErrorInfo. Inline-skip when no opt-in —
-  // hot path stays zero-cost.
-  if (handler.rateLimit !== undefined) {
-    try {
-      await enforceRateLimit(ctx, handler.rateLimit, type, user);
-    } catch (e) {
-      if (isKumikoError(e)) return writeFailure(e);
-      throw e;
-    }
+  // WriteFailure via toWriteErrorInfo. Apps that don't use L3 pay zero cost
+  // for non-systemScope handlers with no rateLimit declared; systemScope
+  // handlers pay one isHandlerSystemScoped lookup to check whether the
+  // default per-tenant limit applies.
+  try {
+    await enforceRateLimit(
+      ctx,
+      handler.rateLimit,
+      type,
+      user,
+      registry.isHandlerSystemScoped(type),
+    );
+  } catch (e) {
+    if (isKumikoError(e)) return writeFailure(e);
+    throw e;
   }
 
   // Default-deny: missing access rule is treated as "no one has access".

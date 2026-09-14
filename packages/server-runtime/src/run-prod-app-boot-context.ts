@@ -1,3 +1,7 @@
+import {
+  AUDIT_FEATURE,
+  createEscapeHatchAuditSink,
+} from "@cosmicdrift/kumiko-bundled-features/audit";
 import { makeAuthPaths } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { resolveSessionStore } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
@@ -30,6 +34,7 @@ import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigResolver,
+  EscapeHatchAuditSink,
   FeatureDefinition,
   NotifyFactory,
   Registry,
@@ -85,12 +90,14 @@ function buildDeliveryNotifyFactory(opts: {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly sseBroker?: SseBroker;
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
 }): NotifyFactory {
   const deliveryService = createDeliveryService({
     db: opts.db,
     registry: opts.registry,
     channels: collectChannels(opts.registry),
     ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+    ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
   });
   return (user, tenantId) => (notificationType, options) =>
     deliveryService.notify(notificationType, options, user, tenantId);
@@ -114,14 +121,20 @@ export function buildBootExtraContext(opts: {
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
   const wireSecrets = hasSecretsFeature && crypto.masterKeyProvider !== undefined;
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
+  const hasAuditFeature = opts.features.some((f) => f.name === AUDIT_FEATURE);
+  const escapeHatchAuditSink = hasAuditFeature
+    ? createEscapeHatchAuditSink({ db: opts.db })
+    : undefined;
   return {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),
+    ...(escapeHatchAuditSink && { _escapeHatchAuditSink: escapeHatchAuditSink }),
     ...(hasDeliveryFeature && {
       _notifyFactory: buildDeliveryNotifyFactory({
         db: opts.db,
         registry: opts.registry,
         ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+        ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
       }),
     }),
     // Top-level provider so feature jobs (secrets rotate, config reencrypt)

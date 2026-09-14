@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.270.0",
+    "type": "improvement",
+    "title": "New escape-hatch-used audit sink: createEscapeHatchAuditSink records security:escape-hatch-used as audit:event:escape-hatch-used (fw#2861).",
+    "detail": "New `createEscapeHatchAuditSink({ db })` (`@cosmicdrift/kumiko-bundled-features/audit`) implements the framework's `EscapeHatchAuditSink` — it parses each escape-hatch-use event against the new `escapeHatchUsedSchema` and appends it as an `audit:event:escape-hatch-used` event (`r.defineEvent(\"escape-hatch-used\", ...)`, `piiFields: \"none\"`) on the unbound pool, so the entry survives a rollback of the handler that triggered it. `server-runtime`'s `buildBootExtraContext` wires it as `AppContext._escapeHatchAuditSink` automatically whenever the `audit` feature is mounted; without the feature, escape-hatch uses fall back to a structured warn log. Events show up in the existing `audit:query:list`/`audit-log` screen like any other event."
+  },
+  {
     "version": "0.241.0",
     "type": "breaking",
     "title": "AuditLogScreen and AuditLogDetailScreen removed; audit-log/audit-log-detail are now declarative screens (fw#2312).",

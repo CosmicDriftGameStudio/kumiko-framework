@@ -6,7 +6,7 @@ import type {
   EscapeHatchDeclaration,
   HandlerContext,
   QueryEvent,
-  RateLimitOption,
+  RateLimitDeclaration,
   WriteEvent,
   WriteResult,
 } from "./handlers";
@@ -39,7 +39,7 @@ export type WriteHandlerDefinition<
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
@@ -67,7 +67,7 @@ export type WriteHandlerInput<
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
 } & (
   | {
@@ -96,7 +96,7 @@ export type QueryHandlerDefinition<
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
@@ -125,7 +125,7 @@ export type StreamHandlerDefinition<
   readonly name: TName;
   readonly schema: TSchema;
   readonly access: AccessRule;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   // Stream handlers can't reach db.global() (that gate is write-only), but
   // they can still switch identity to SYSTEM via ctx.queryAs — this opts
   // in, same contract as WriteHandlerDefinition.escapeHatch.

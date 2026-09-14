@@ -287,6 +287,28 @@ export type NotifyFn = (notificationType: string, options: NotifyOptions) => Pro
 // Concrete implementation in bundled-features/delivery (cross-package boundary)
 export type NotifyFactory = (user: SessionUser, tenantId: TenantId) => NotifyFn;
 
+export type EscapeHatchKind =
+  | "unsafe-raw"
+  | "acknowledge-cross-tenant"
+  | "global-write"
+  | "identity-switch";
+export type EscapeHatchTarget = { readonly id: string; readonly tenantId: TenantId };
+export type EscapeHatchUseEvent = {
+  readonly handler: string;
+  readonly kind: EscapeHatchKind;
+  readonly reason: string;
+  readonly tenantId: TenantId;
+  readonly actor: string;
+  readonly target?: EscapeHatchTarget;
+};
+export type EscapeHatchAuditSink = (event: EscapeHatchUseEvent) => Promise<void>;
+// Bound to handler/tenant/actor of one invocation; called once per actual escape-hatch use.
+export type EscapeHatchReporter = (
+  kind: EscapeHatchKind,
+  reason: string,
+  target?: EscapeHatchTarget,
+) => void;
+
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
   readonly redis?: Redis;
@@ -323,6 +345,8 @@ type SharedContextFields = {
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
+  // Wired at boot when the `audit` feature is mounted; absent → structured warn log.
+  readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
   // Tenant-scoped secrets accessor. Present when the app wired a
   // MasterKeyProvider at boot. Feature code reads ctx.secrets.get(...)
   // to pull a plaintext secret; Secret<string> carries the brand that
@@ -1053,6 +1077,13 @@ export type RateLimitOption = {
   readonly cost?: number;
 };
 
+export type RateLimitDisabled = { readonly disabled: true; readonly reason: string };
+export type RateLimitDeclaration = RateLimitOption | RateLimitDisabled;
+
+export function isRateLimitDisabled(v: RateLimitDeclaration | undefined): v is RateLimitDisabled {
+  return v !== undefined && "disabled" in v && v.disabled === true;
+}
+
 export type AgentRisk = "low" | "mid" | "high";
 
 /** Per-handler hints for the AI-agent manifest. `expose` overrides the
@@ -1075,7 +1106,7 @@ export type WriteHandlerDef = {
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
@@ -1104,7 +1135,7 @@ export type QueryHandlerDef = {
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   /** Zod schema of the handler's actual return value — the paged envelope
    *  `{ rows, nextCursor, total? }` for a `definePagedQueryHandler`, or the
    *  flat record (optionally `.nullable()`) for a plain query handler.
@@ -1125,7 +1156,7 @@ export type StreamHandlerDef = {
   readonly schema: ZodType;
   readonly handler: StreamHandlerFn;
   readonly access: AccessRule;
-  readonly rateLimit?: RateLimitOption;
+  readonly rateLimit?: RateLimitDeclaration;
   // Stream handlers can't reach db.global() (that gate is write-only), but
   // they can still switch identity to SYSTEM via ctx.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.

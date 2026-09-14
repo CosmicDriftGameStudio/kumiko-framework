@@ -17,10 +17,13 @@ import type {
   HandlerContext,
   JobRunnerRef,
   MemberReader,
+  RateLimitDeclaration,
+  RateLimitOption,
   Registry,
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import { isRateLimitDisabled } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 import {
   AccessDeniedError,
@@ -77,12 +80,14 @@ import {
   dispatcherSpanAttributes,
   isFailedWriteResult,
 } from "./dispatcher-utils";
+import { createEscapeHatchReporter, type EscapeHatchReportWindow } from "./escape-hatch-report";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { createMemberReaderFn } from "./member-reader";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
+  isSystemIdentity,
   systemIdentitySwitchDenied,
 } from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
@@ -130,6 +135,7 @@ export type DispatchContext = {
   tableCache: Map<string, ReturnType<typeof buildEntityTable>>;
   transitionCache: Map<string, ReturnType<typeof defineTransitions>>;
   tenantTimezoneCache: TenantTimezoneCache;
+  escapeHatchReportWindow: EscapeHatchReportWindow;
   tracer: ReturnType<typeof getFallbackTracer>;
   meter: ReturnType<typeof getFallbackMeter>;
   // Qualified name of the membership-list query handler consulted by
@@ -281,6 +287,18 @@ export async function buildHandlerContext(
     registry.getQueryHandler(type)?.escapeHatch ??
     registry.getStreamHandler(type)?.escapeHatch;
   const hasIdentitySwitchGrant = isSystem || handlerEscapeHatch !== undefined;
+  const featureName = registry.getHandlerFeature(type);
+  const reportEscapeHatch = createEscapeHatchReporter({
+    handler: type,
+    tenantId: user.tenantId,
+    actor: user.id,
+    sink: context._escapeHatchAuditSink,
+    log: context.log,
+    window: ctx.escapeHatchReportWindow,
+  });
+  const identitySwitchGrantReason =
+    handlerEscapeHatch?.reason ??
+    (isSystem ? `r.systemScope() feature "${featureName ?? "unknown"}"` : undefined);
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -289,7 +307,7 @@ export async function buildHandlerContext(
       context.tracer,
       context.meter,
       signal,
-      { globalWrites: writeEscapeHatch, unsafeRaw: handlerEscapeHatch },
+      { globalWrites: writeEscapeHatch, unsafeRaw: handlerEscapeHatch, report: reportEscapeHatch },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip
@@ -306,7 +324,9 @@ export async function buildHandlerContext(
     ? buildTenantScopedDb(outsideTxSource, undefined)
     : undefined;
   const systemDb =
-    isSystem && db ? createUncheckedSystemDb(db, rawDbOutsideTransaction) : undefined;
+    isSystem && db
+      ? createUncheckedSystemDb(db, rawDbOutsideTransaction, reportEscapeHatch)
+      : undefined;
   // Exposed as ctx.db below — the internal `db` above stays the real,
   // working TenantDb for this function's own use (config/derivatives
   // accessors, systemDb construction).
@@ -366,7 +386,6 @@ export async function buildHandlerContext(
   // so legacy internal handlers don't crash.
   const tracer = context.tracer ?? getFallbackTracer();
   const meter = context.meter;
-  const featureName = registry.getHandlerFeature(type);
   const metrics =
     meter && featureName ? createMetricsHandle(meter, featureName) : createNoopMetricsHandle();
   // ctx.metricsFor(featureName) — shared/library code binds to a feature
@@ -383,6 +402,7 @@ export async function buildHandlerContext(
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
+  const identitySwitchAudit = { reason: identitySwitchGrantReason, report: reportEscapeHatch };
   const identitySwitch = createGatedIdentitySwitch(
     `handler "${type}"`,
     user,
@@ -393,6 +413,7 @@ export async function buildHandlerContext(
       writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
         executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
     },
+    identitySwitchAudit,
   );
   // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
   // on first actual use, not on every HandlerContext build.
@@ -404,6 +425,7 @@ export async function buildHandlerContext(
       ungatedMemberReader ??= createMemberReaderFn(ctx, user.tenantId, tx);
       return ungatedMemberReader(userId, qn, payload);
     },
+    { ...identitySwitchAudit, tenantId: user.tenantId },
   );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
@@ -1009,28 +1031,58 @@ export async function ensureFeatureEnabled(
   if (err) throw err;
 }
 
+// systemScope handlers get a default per-tenant limit unless the app declared its own or
+// opted out — but ONLY when a resolver is actually configured (an app without the
+// rate-limiting feature must not start throwing InternalError on every systemScope call
+// just because it never opted into L3), and never for a SYSTEM-identity caller (jobs,
+// replay, internal queryAs(SYSTEM,...) — those are not the tenant-facing traffic this
+// default protects against).
+// per: "tenant+handler" (not "tenant") — a per-handler bucket so one hot systemScope
+// handler cannot starve every other systemScope handler's shared tenant quota.
+const DEFAULT_SYSTEM_SCOPE_RATE_LIMIT: RateLimitOption = {
+  per: "tenant+handler",
+  limit: 600,
+  windowSeconds: 60,
+};
+
+function resolveEffectiveRateLimit(
+  rateLimit: RateLimitOption | undefined,
+  isSystemScope: boolean,
+  user: SessionUser,
+  resolver: AppContext["rateLimit"],
+): RateLimitOption | undefined {
+  if (rateLimit) return rateLimit;
+  if (!isSystemScope) return undefined;
+  if (!resolver) return undefined;
+  if (isSystemIdentity(user)) return undefined;
+  return DEFAULT_SYSTEM_SCOPE_RATE_LIMIT;
+}
+
 // L3 rate limit gate. Called by both query and write paths before
 // access-check. Reasoning:
-//   - handler without rateLimit → no-op
+//   - handler without rateLimit and not systemScope → no-op
+//   - systemScope handler without rateLimit → DEFAULT_SYSTEM_SCOPE_RATE_LIMIT
+//     applies, unless no resolver is configured or the caller is SYSTEM
 //   - app booted without rateLimit resolver → InternalError so the
-//     misconfig surfaces immediately, not on first 429
+//     misconfig surfaces immediately, not on first 429 (only reachable once
+//     an effective rate limit was actually resolved above)
 //   - bucket builder returns "skip" (e.g. ip-based but no client IP):
 //     pass through. ip-modes are commonly used at L1/L2 middleware
 //     where the IP comes from Hono directly; falling back to "skip"
 //     here keeps non-HTTP entry-points (jobs, MSPs) functional.
 export async function enforceRateLimit(
   ctx: DispatchContext,
-  rateLimit: import("../engine/types").RateLimitOption | undefined,
+  rateLimit: RateLimitDeclaration | undefined,
   handlerName: string,
   user: SessionUser,
+  isSystemScope: boolean,
 ): Promise<void> {
   const { appContext: context } = ctx;
-  // skip: defence-in-depth — both call-sites already gate on
-  //       handler.rateLimit !== undefined, so this branch only fires
-  //       if a future caller forgets the inline check.
-  if (!rateLimit) return;
+  if (isRateLimitDisabled(rateLimit)) return;
+  const effective = resolveEffectiveRateLimit(rateLimit, isSystemScope, user, context.rateLimit);
+  if (!effective) return;
   const reqCtx = requestContext.get();
-  const bucket = buildBucketKey(rateLimit, {
+  const bucket = buildBucketKey(effective, {
     handlerName,
     user,
     ip: reqCtx?.ip,
@@ -1044,9 +1096,9 @@ export async function enforceRateLimit(
     });
   }
   await context.rateLimit.enforce(bucket.key, {
-    limit: rateLimit.limit,
-    windowSeconds: rateLimit.windowSeconds,
-    cost: rateLimit.cost,
+    limit: effective.limit,
+    windowSeconds: effective.windowSeconds,
+    cost: effective.cost,
   });
 }
 
@@ -1063,7 +1115,24 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
       message: "dispatcher.resolveAuthClaims requires a database connection — none is configured.",
     });
   }
-  const db = createTenantDb(dbSource, user.tenantId, "tenant", context.tracer, context.meter);
+  const db = createTenantDb(
+    dbSource,
+    user.tenantId,
+    "tenant",
+    context.tracer,
+    context.meter,
+    undefined,
+    {
+      report: createEscapeHatchReporter({
+        handler: "r.authClaims hook",
+        tenantId: user.tenantId,
+        actor: user.id,
+        sink: context._escapeHatchAuditSink,
+        log: context.log,
+        window: ctx.escapeHatchReportWindow,
+      }),
+    },
+  );
   const configAccessor = context._configAccessorFactory
     ? context._configAccessorFactory({
         user: { id: user.id, tenantId: user.tenantId },
