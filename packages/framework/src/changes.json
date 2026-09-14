@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.261.0",
+    "version": "0.262.0",
     "type": "improvement",
     "title": "Boot validator warns when NODE_ENV=production boots without the security baseline (fw#2857).",
     "detail": "`SECURITY_BASELINE_FEATURE_NAMES` (`@cosmicdrift/kumiko-framework/engine`) names the four security-relevant feature names the boot validator expects in a production app: `sessions`, `crypto-shredding`, `rate-limiting`, `audit`. `validateBoot` now calls `warnOnMissingSecurityBaseline(features)` (`engine/boot-validator/security-baseline.ts`) after every other check; when `process.env.NODE_ENV === \"production\"` and one or more of those feature names is absent from the mounted feature list (matched by exact `FeatureDefinition.name`, not by require-chain inference), it logs one `console.warn` naming the missing feature(s) and pointing at `securityBaselineFeatures()`. It never throws and is a no-op for any other `NODE_ENV` value (including `undefined`). Mount `securityBaselineFeatures()` from `@cosmicdrift/kumiko-bundled-features/presets` to silence it.",

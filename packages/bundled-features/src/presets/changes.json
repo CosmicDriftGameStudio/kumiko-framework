@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.261.0",
+    "version": "0.262.0",
     "type": "improvement",
     "title": "securityBaselineFeatures() preset: sessions, crypto-shredding, rate-limiting, audit (fw#2857).",
     "detail": "`securityBaselineFeatures(opts?: { includeSessions?: boolean })` (`@cosmicdrift/kumiko-bundled-features/presets`) returns `[createSessionsFeature(), createCryptoShreddingFeature(), createRateLimitingFeature(), createAuditFeature()]` in that order — fresh instances per call, mirroring `dsgvoSelfServiceFeatures()`. `includeSessions: false` drops `createSessionsFeature()` from the returned array for apps that already mount `sessions` via `dsgvoSelfServiceFeatures()` (mounting the same feature name twice throws at boot). The host app still needs to mount `user`, `tenant`, and `auth-foundation` itself — `sessions` requires `user`/`auth-foundation`, `audit` requires `tenant`. Pairs with the new boot-validator warning that fires at `NODE_ENV=production` when any of the four feature names (`SECURITY_BASELINE_FEATURE_NAMES`, `@cosmicdrift/kumiko-framework/engine`) is missing from the mounted feature list."
