@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.270.0",
+    "type": "breaking",
+    "title": "Boot validator requires every screen to be reachable from the app's nav tree.",
+    "detail": "`validateScreens` now rejects a screen that has no own `nav`, no standalone `r.nav()` pointed at it anywhere in the composed feature set, and no resolvable parent list (`listScreenId`, or a rowAction/toolbarAction/drawer navigate target from an `entityList`/`projectionList`, or — for `entityEdit` — a same-entity `entityList`) — unless it declares `dormant: true`. `dormant` (previously only on `CustomScreenDefinition`) is now on every screen type. The resolution logic is the same `resolveNavParentScreen` the renderer's breadcrumb/NavTree already used, moved into `@cosmicdrift/kumiko-framework/engine/screen-helpers.ts` (re-exported through `ui-types`) instead of a second copy, and widened to also recognize toolbarActions and drawer-kind targets, not just entityList rowActions. The check is skipped when the composed feature set registers no nav entries anywhere at all (an isolated feature/recipe/test boot has no nav tree to be orphaned from).",
+    "migration": "A screen that boots inside an app with at least one nav entry somewhere, but isn't itself reachable, now fails boot with \"has no nav entry and no resolvable list\". Fix by declaring `listScreenId` (or a rowAction/toolbarAction navigate target from a list screen pointed at it), adding a standalone `r.nav()` for it, or setting `dormant: true` if it's intentionally reachable only via a direct link/redirect or a consuming app's own `r.nav()` (the established pattern for app-placed settings-area screens like `tenant-list`/`user-list`/`tier-admin`/personal-access-tokens' list/`profile`, now applied consistently across bundled-features)."
+  },
+  {
+    "version": "0.270.0",
+    "type": "improvement",
+    "title": "projectionDetail tabs mode (\"Akte\") gets a more consistent layout — visible changes, no API break.",
+    "detail": "A `projectionDetail` screen's tabs layout now renders header actions on the right of the title row instead of trailing after the metrics band, centers the status badge vertically next to the title, and no longer doubles the screen's `description` as a subtitle under the tabs (it still renders as the form subtitle outside tabs mode). A `relatedList` section in tabs mode keeps the same table frame, search box and facet toolbar a plain list screen has instead of dropping its card chrome. A `fields`-kind section inside a tabs layout now renders as its own titled card instead of a bare, title-less grid. The bundled `notesHistory` client's `NotesSection` renders as two cards (\"New note\" and \"History\") instead of individually bordered entries.",
+    "migration": "No action required — every change here is visual, with no schema or API break. Apps with e2e assertions pinned to `render-edit-form-subtitle` in tabs mode, or to the previous Stammdaten testId structure, must update those assertions to the new testIds."
+  },
+  {
+    "version": "0.270.0",
+    "type": "improvement",
+    "title": "A relatedList tab section can reuse the generic <entity>:list query via parentFilter instead of a bespoke child-rows handler.",
+    "detail": "`EditRelatedListSection` gains `parentFilter?: { field: string }` — an alternative to `parentParam` that sends the parent record's id as `payload.filter: { field, op: \"eq\", value: parentId }` instead of a bespoke top-level payload key, so a tab section can bind directly to the generic `<entity>:list` query and get its search (including the search index and reference-label search), facets and paging for free. `parentFilter` and `parentParam` are mutually exclusive. It composes with `toolbarActions` (including `visible`/`params` evaluated against the parent record), reference facets, `EditFieldsSection.groups`, and `ActionFormScreenDefinition.fieldLabels` — all from the same release.",
+    "migration": "Not required for existing screens — `parentFilter` is opt-in and `parentParam` keeps working unchanged. To migrate a bespoke tab query, replace its handler with the entity's own `<entity>:list` query and set `parentFilter: { field: \"<fk>\" }` on the section; move any \"add row for this tab\" action from a header action into the section's own `toolbarActions`. Before: `{ kind: \"relatedList\", query: \"leases:query:lease-items:list\", parentParam: \"leaseId\" }` backed by a custom `lease-items:list` handler that filters by `leaseId` itself. After: `{ kind: \"relatedList\", query: \"leases:query:item:list\", parentFilter: { field: \"leaseId\" } }` backed by `r.queryHandler(defineEntityListHandler(\"item\", itemEntity, { access }))` — search/filters/paging now run in the DB through the same query a plain list screen uses."
+  },
+  {
     "version": "0.269.0",
     "type": "breaking",
     "title": "`openToAll: true` is removed — every openToAll grant now requires { reason } (fw#2858).",

@@ -81,6 +81,9 @@ export function createBrandingSettingsScreen(opts: {
       ],
     },
     access: { roles: ADMIN_ROLES },
+    // See file header: nav placement is app-specific, so this opts out of
+    // the boot-validator's nav-area check.
+    dormant: true,
   };
   if (!opts.allowCustomCss) return base;
   return {

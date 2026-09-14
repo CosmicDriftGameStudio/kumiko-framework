@@ -48,7 +48,7 @@ export function NotesSection({
   readonly entityName: string;
   readonly entityId: string | null;
 }): ReactNode {
-  const { Banner, Button, Text, Input } = usePrimitives();
+  const { Banner, Button, Card, Grid, Text, Input } = usePrimitives();
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
@@ -118,57 +118,67 @@ export function NotesSection({
   };
 
   return (
-    <div data-testid="notes-section" className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2">
-        <Input
-          kind="textarea"
-          id="notes-section-draft"
-          name="draft"
-          value={draft}
-          onChange={setDraft}
-          onSubmitShortcut={() => {
-            if (!busy && draft.trim() !== "") addNote();
-          }}
-        />
-        <div>
-          <Button
-            variant="primary"
-            disabled={busy || draft.trim() === ""}
-            onClick={() => addNote()}
-            testId="notes-section-add"
-          >
-            {busy ? t("notesHistory.section.working") : t("notesHistory.section.add")}
-          </Button>
-        </div>
-      </div>
-
-      {rows.length === 0 ? (
-        <Text variant="small">{t("notesHistory.section.empty")}</Text>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {rows.map((n) => (
-            <div
-              key={n.id}
-              data-testid={`notes-section-row-${n.id}`}
-              className="flex flex-col gap-1 rounded-md border p-2"
+    <Grid columns={1} testId="notes-section">
+      <Card slots={{ title: t("notesHistory.section.newNoteTitle") }} testId="notes-section-new">
+        <Grid columns={1}>
+          <Input
+            kind="textarea"
+            id="notes-section-draft"
+            name="draft"
+            value={draft}
+            onChange={setDraft}
+            onSubmitShortcut={() => {
+              if (!busy && draft.trim() !== "") addNote();
+            }}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <Text variant="small">{t("notesHistory.section.shortcutHint")}</Text>
+            <Button
+              variant="primary"
+              disabled={busy || draft.trim() === ""}
+              onClick={() => addNote()}
+              testId="notes-section-add"
             >
-              <Text testId={`notes-section-body-${n.id}`}>{n.body}</Text>
-              <Text variant="small" testId={`notes-section-meta-${n.id}`}>
-                {t("notesHistory.section.meta", {
-                  author: displayAuthorName(n.authorName, t("notesHistory.section.authorUnknown")),
-                  date: formatWhen(n.insertedAt),
-                })}
-              </Text>
-            </div>
-          ))}
-        </div>
-      )}
+              {busy ? t("notesHistory.section.working") : t("notesHistory.section.add")}
+            </Button>
+          </div>
+          {errorKey !== null && (
+            <Banner variant="error" testId="notes-section-action-error">
+              <Text>{t(errorKey)}</Text>
+            </Banner>
+          )}
+        </Grid>
+      </Card>
 
-      {errorKey !== null && (
-        <Banner variant="error" testId="notes-section-action-error">
-          <Text>{t(errorKey)}</Text>
-        </Banner>
-      )}
-    </div>
+      <Card
+        slots={{ title: t("notesHistory.section.historyTitle") }}
+        testId="notes-section-history"
+      >
+        {rows.length === 0 ? (
+          <Text variant="small">{t("notesHistory.section.empty")}</Text>
+        ) : (
+          <div className="flex flex-col divide-y">
+            {rows.map((n) => (
+              <div
+                key={n.id}
+                data-testid={`notes-section-row-${n.id}`}
+                className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0"
+              >
+                <Text testId={`notes-section-body-${n.id}`}>{n.body}</Text>
+                <Text variant="small" testId={`notes-section-meta-${n.id}`}>
+                  {t("notesHistory.section.meta", {
+                    author: displayAuthorName(
+                      n.authorName,
+                      t("notesHistory.section.authorUnknown"),
+                    ),
+                    date: formatWhen(n.insertedAt),
+                  })}
+                </Text>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </Grid>
   );
 }

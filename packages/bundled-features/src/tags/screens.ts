@@ -40,6 +40,9 @@ export function createTagListScreen(
       },
     ],
     access,
+    // App navs via r.nav("tags:screen:tag-list") — no nav area to resolve
+    // in isolation.
+    dormant: true,
   };
 }
 

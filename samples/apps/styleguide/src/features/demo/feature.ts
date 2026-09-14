@@ -207,8 +207,7 @@ export const demoFeature = defineFeature("styleguide", (r) => {
   // All 8 fields as columns so the table overflows its container even at
   // desktop widths (item-list's 5 narrow columns never do) — needed to
   // prove the sticky actions column stays pinned to the right edge on
-  // scroll at md+ (table-overflow-mobile.spec.ts). Not in nav: reached
-  // directly by URL from the e2e test.
+  // scroll at md+ (table-overflow-mobile.spec.ts).
   r.screen({
     id: "item-list-wide",
     type: "entityList",
@@ -260,5 +259,13 @@ export const demoFeature = defineFeature("styleguide", (r) => {
     screen: "styleguide:screen:item-edit",
     icon: "file",
     order: 20,
+  });
+  r.nav({
+    id: "item-list-wide",
+    label: "styleguide:nav.itemListWide",
+    parent: "styleguide:nav:catalog",
+    screen: "styleguide:screen:item-list-wide",
+    icon: "table",
+    order: 30,
   });
 });

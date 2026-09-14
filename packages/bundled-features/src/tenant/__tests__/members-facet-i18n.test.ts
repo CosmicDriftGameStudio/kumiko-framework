@@ -16,11 +16,11 @@ function membersFacetLabelKeys(): readonly string[] {
   if (screen?.type !== "projectionList") {
     throw new Error("expected members screen to be projectionList");
   }
-  return (screen.facets ?? []).flatMap((facet) =>
-    facet.type === "select"
-      ? [facet.label, ...facet.options.map((option) => option.label)]
-      : [facet.label, facet.trueLabel, facet.falseLabel],
-  );
+  return (screen.facets ?? []).flatMap((facet) => {
+    if (facet.type === "select") return [facet.label, ...facet.options.map((o) => o.label)];
+    if (facet.type === "boolean") return [facet.label, facet.trueLabel, facet.falseLabel];
+    return [facet.label];
+  });
 }
 
 // Column labels of the members screen itself — deliberately scoped to this

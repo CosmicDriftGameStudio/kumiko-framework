@@ -325,11 +325,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
 
     // Self-service screen (Art. 15/17/18/20): export, restriction, deletion
     // in one projectionDetail screen bound to the user's own `me` row. No
-    // r.nav — the app places it in its logged-in area (createKumikoApp's
-    // missing-client-plugin boot diagnostic (#2025/#2034) only scans
-    // type: "custom" screens, so a non-navved projectionDetail never
-    // triggers it — no `dormant` flag needed, that field doesn't exist on
-    // this screen type). access is openToAll because no app role name is
+    // r.nav — the app places it in its logged-in area; `dormant: true` opts
+    // it out of the nav-area boot check. access is openToAll because no app role name is
     // portable; the per-user handlers enforce auth server-side.
     //
     // Restriction/Deletion are declarative fields + actions; Export stays a
@@ -352,6 +349,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             "operate on the caller's own userId, and no app role name is portable enough to gate this",
         },
       },
+      dormant: true,
       description:
         "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
       fieldLabels: {

@@ -71,4 +71,7 @@ export const downloadAttemptListScreen: EntityListScreenDefinition = {
   columns: ["attemptedAt", "result", "via", "ip", "attemptedByUserId", "jobId"],
   searchable: false,
   access: { roles: access.systemAdmin },
+  // Inert until an app navs it (see file header) — no nav area to resolve
+  // in isolation.
+  dormant: true,
 };

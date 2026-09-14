@@ -401,6 +401,101 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
   });
 });
 
+describe("KumikoScreen / projectionDetail — header actions sit in the title row", () => {
+  const headerActionsScreen: ProjectionDetailScreenDefinition = {
+    ...baseScreen,
+    header: { title: "tenantName", subtitle: "address", status: "state" },
+    metrics: ["balance"],
+    actions: [
+      {
+        kind: "navigate",
+        id: "open-tenant",
+        label: "actions.openTenant",
+        entity: "tenant",
+        entityId: "tenantId",
+      },
+    ],
+  };
+
+  function nearestCommonAncestor(a: Element, b: Element): Element {
+    const ancestorsOfA = new Set<Element>();
+    for (let el: Element | null = a; el !== null; el = el.parentElement) ancestorsOfA.add(el);
+    for (let el: Element | null = b; el !== null; el = el.parentElement) {
+      if (ancestorsOfA.has(el)) return el;
+    }
+    throw new Error("title and action share no common ancestor");
+  }
+
+  test("title and action buttons share a header container that excludes the metrics band", async () => {
+    const dispatcher = dispatcherReturning({ ...rowData, tenantId: "tenant-9" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerActionsScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const title = screen.getByTestId("kumiko-screen-projection-detail-title");
+    const actionButton = screen.getByTestId("render-edit-action-open-tenant");
+    const metricsBand = screen.getByTestId("kumiko-screen-projection-detail-metrics");
+
+    const headerContainer = nearestCommonAncestor(title, actionButton);
+    expect(headerContainer.contains(metricsBand)).toBe(false);
+  });
+
+  test("the metrics band follows the subtitle and the header row in DOM order", async () => {
+    const dispatcher = dispatcherReturning({ ...rowData, tenantId: "tenant-9" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerActionsScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const title = screen.getByTestId("kumiko-screen-projection-detail-title");
+    const actionButton = screen.getByTestId("render-edit-action-open-tenant");
+    const subtitle = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+    const metricsBand = screen.getByTestId("kumiko-screen-projection-detail-metrics");
+    const headerContainer = nearestCommonAncestor(title, actionButton);
+
+    expect(
+      (subtitle.compareDocumentPosition(metricsBand) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    ).toBe(true);
+    expect(
+      (headerContainer.compareDocumentPosition(metricsBand) & Node.DOCUMENT_POSITION_FOLLOWING) !==
+        0,
+    ).toBe(true);
+  });
+
+  test("the title + status-badge container is vertically centered", async () => {
+    const dispatcher = dispatcherReturning({ ...rowData, tenantId: "tenant-9" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerActionsScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const title = screen.getByTestId("kumiko-screen-projection-detail-title");
+    expect(title.parentElement?.className).toContain("items-center");
+  });
+});
+
 describe("KumikoScreen / projectionDetail — metric tiles render through the Metric primitive", () => {
   const metricsScreen: ProjectionDetailScreenDefinition = {
     ...baseScreen,
