@@ -8,6 +8,13 @@
     "codemod": "scripts/codemod/migrate-db-raw.ts"
   },
   {
+    "version": "0.271.0",
+    "type": "fix",
+    "title": "Projection/MSP rebuild aborts instead of silently dropping row level security from the live table (fw#2907).",
+    "detail": "New `assertLiveTableHasNoRowLevelSecurity(tx, tableName, projectionName?)` in `db/queries/shadow-swap.ts` checks `pg_class.relrowsecurity`/`relforcerowsecurity` and `pg_policy` (public schema) for the live table before the shadow swap. `rebuildProjection` and `rebuildMultiStreamProjection` now call it before `buildShadowTable`, alongside the existing `assertLiveColumnsMatchMeta` fence, and `swapShadowIntoLive` re-checks it again right before the cutover under the fence. Previously the shadow, built from `EntityTableMeta` (which carries no RLS/policy information), would swap over a live table with RLS enabled/forced or any policy and silently drop all of it. `replayMigrationsDir`'s shape-neutral ALTER-clause recognizer (`db/replay-migration-sql.ts`) now also accepts `FORCE`/`NO FORCE ROW LEVEL SECURITY` instead of throwing \"unparsed table-DDL statement\".",
+    "migration": "No action for tables without RLS. A table with RLS enabled/forced or any policy can no longer be rebuilt online — rebuild fails with the table name; drop the RLS/policies or keep the table out of rebuild (see kumiko-platform docs/plans/rls-evaluation.md)."
+  },
+  {
     "version": "0.270.0",
     "type": "breaking",
     "title": "Boot validator requires every screen to be reachable from the app's nav tree.",

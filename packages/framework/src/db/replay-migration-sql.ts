@@ -84,7 +84,7 @@ const SHAPE_NEUTRAL_ALTER_CLAUSE_RE = new RegExp(
     `ALTER COLUMN\\s+${IDENT}\\s+(SET|DROP)\\s+NOT NULL\\b`,
     `ALTER COLUMN\\s+${IDENT}\\s+(SET DEFAULT\\b|DROP DEFAULT\\b)`,
     `(ADD|DROP)\\s+CONSTRAINT\\s+${IDENT}`,
-    `\\b(ENABLE|DISABLE)\\s+ROW LEVEL SECURITY\\b`,
+    `\\b(ENABLE|DISABLE|(NO\\s+)?FORCE)\\s+ROW LEVEL SECURITY\\b`,
     `^OWNER TO\\b`,
   ].join("|"),
   "gi",
@@ -149,9 +149,9 @@ function applyStatement(
       else table.columns.delete(name);
     }
     // Shape-neutral clauses (ALTER COLUMN TYPE, SET/DROP NOT NULL, SET/DROP
-    // DEFAULT, ADD/DROP CONSTRAINT, ENABLE/DISABLE ROW LEVEL SECURITY, OWNER
-    // TO) — none add/remove/rename a column, so this replay (which only
-    // tracks column presence) correctly has nothing to do for them.
+    // DEFAULT, ADD/DROP CONSTRAINT, ENABLE/DISABLE/[NO] FORCE ROW LEVEL
+    // SECURITY, OWNER TO) — none add/remove/rename a column, so this replay
+    // (which only tracks column presence) correctly has nothing to do for them.
     if (alterBody.match(SHAPE_NEUTRAL_ALTER_CLAUSE_RE)) matchedAClause = true;
     // An ALTER TABLE that matched the outer "ALTER TABLE <name> <body>" shape
     // but whose body contains no recognized clause (e.g. RENAME TO/RENAME
@@ -177,7 +177,7 @@ function applyStatement(
         `starts with CREATE/ALTER/DROP TABLE but matched none of the replay's ` +
         `recognized patterns (CREATE TABLE, DROP TABLE, ALTER TABLE ADD/DROP ` +
         `COLUMN, ALTER COLUMN ... TYPE, SET/DROP NOT NULL, SET/DROP DEFAULT, ` +
-        `ADD/DROP CONSTRAINT, ENABLE/DISABLE ROW LEVEL SECURITY, OWNER TO — ` +
+        `ADD/DROP CONSTRAINT, ENABLE/DISABLE/[NO] FORCE ROW LEVEL SECURITY, OWNER TO — ` +
         `optionally-quoted identifiers). Likely RENAME TO/RENAME COLUMN (real ` +
         `identity change, not trackable here) or genuinely unparsed hand-written ` +
         `DDL. Statement: ${prefix}${statement.length > 200 ? "…" : ""}`,

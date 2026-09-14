@@ -7,6 +7,7 @@ import {
 } from "../db/queries/event-consumer";
 import {
   assertLiveColumnsMatchMeta,
+  assertLiveTableHasNoRowLevelSecurity,
   buildShadowTable,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
@@ -149,6 +150,7 @@ export async function rebuildMultiStreamProjection(
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
       await assertLiveColumnsMatchMeta(tx, meta, mspName);
+      await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, mspName);
       await buildShadowTable(tx, meta);
 
       const subscribedTypes = Object.keys(msp.apply);
