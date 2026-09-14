@@ -142,6 +142,149 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
     );
   });
 
+  test("relatedList toolbarAction visible.field not in the projectionDetail's own outputSchema throws", () => {
+    const feature = defineFeature("app", (r) => {
+      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1", status: "active" }), {
+        access: { openToAll: true },
+        outputSchema: z.object({ id: z.string(), status: z.string() }),
+      });
+      r.queryHandler(
+        "lease:positions",
+        z.object({}),
+        async () => ({ rows: [], nextCursor: null }),
+        {
+          access: { openToAll: true },
+          outputSchema: z.object({
+            rows: z.array(z.object({ id: z.string() })),
+            nextCursor: z.string().nullable(),
+          }),
+        },
+      );
+      r.screen({
+        id: "lease-detail",
+        type: "projectionDetail",
+        query: "app:query:lease:detail",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Positions",
+              query: "app:query:lease:positions",
+              columns: ["id"],
+              toolbarActions: [
+                {
+                  kind: "navigate",
+                  id: "create",
+                  label: "Add position",
+                  screen: "position-create",
+                  visible: { field: "ghost-status", eq: "active" },
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /toolbarAction "create" visible\.field references unknown field "ghost-status"/,
+    );
+  });
+
+  test("relatedList toolbarAction navigate params source field not in the projectionDetail's own outputSchema throws", () => {
+    const feature = defineFeature("app", (r) => {
+      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1" }), {
+        access: { openToAll: true },
+        outputSchema: z.object({ id: z.string() }),
+      });
+      r.queryHandler(
+        "lease:positions",
+        z.object({}),
+        async () => ({ rows: [], nextCursor: null }),
+        {
+          access: { openToAll: true },
+          outputSchema: z.object({
+            rows: z.array(z.object({ id: z.string() })),
+            nextCursor: z.string().nullable(),
+          }),
+        },
+      );
+      r.screen({
+        id: "lease-detail",
+        type: "projectionDetail",
+        query: "app:query:lease:detail",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Positions",
+              query: "app:query:lease:positions",
+              columns: ["id"],
+              toolbarActions: [
+                {
+                  kind: "navigate",
+                  id: "create",
+                  label: "Add position",
+                  screen: "position-create",
+                  params: { map: { leaseId: "ghost-id" } },
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /toolbarAction "create" params references unknown field "ghost-id"/,
+    );
+  });
+
+  test("relatedList toolbarAction visible/params present in the projectionDetail's own outputSchema does not throw", () => {
+    const feature = defineFeature("app", (r) => {
+      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1", status: "active" }), {
+        access: { openToAll: true },
+        outputSchema: z.object({ id: z.string(), status: z.string() }),
+      });
+      r.queryHandler(
+        "lease:positions",
+        z.object({}),
+        async () => ({ rows: [], nextCursor: null }),
+        {
+          access: { openToAll: true },
+          outputSchema: z.object({
+            rows: z.array(z.object({ id: z.string() })),
+            nextCursor: z.string().nullable(),
+          }),
+        },
+      );
+      r.screen({
+        id: "lease-detail",
+        type: "projectionDetail",
+        query: "app:query:lease:detail",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Positions",
+              query: "app:query:lease:positions",
+              columns: ["id"],
+              toolbarActions: [
+                {
+                  kind: "navigate",
+                  id: "create",
+                  label: "Add position",
+                  screen: "position-create",
+                  visible: { field: "status", eq: "active" },
+                  params: { map: { leaseId: "id" } },
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("projectionDetail header.title referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {

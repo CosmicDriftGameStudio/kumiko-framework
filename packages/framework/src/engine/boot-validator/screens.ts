@@ -33,6 +33,7 @@ import type {
   FieldCondition,
   ListColumnSpec,
   ListFacetSpec,
+  RelatedListToolbarAction,
   RowAction,
   RowActionNavigateBase,
   RowFieldExtractor,
@@ -272,13 +273,16 @@ function validateWizardLayout(
 // Felder pinnen — ein Tippfehler in pick/map-Quellfeldern oder
 // visible.field erzeugte sonst still `undefined` im Payload bzw. dauerhaft
 // falsche Sichtbarkeit (gleiche "Typo fällt erst beim Klick"-Klasse wie
-// navigate/handler).
-function validateActionFieldRefs(
+// navigate/handler). Exported for query-output-columns.ts, which reuses it
+// against a projectionDetail's outputSchema-derived record shape instead of
+// an entity's field map (relatedList toolbarActions' visible/params —
+// fw akte-bedienkonzept-2).
+export function validateActionFieldRefs(
   featureName: string,
   screenId: string,
   actionKind: "rowAction" | "toolbarAction",
   actionId: string,
-  action: RowAction | ToolbarAction,
+  action: RowAction | ToolbarAction | RelatedListToolbarAction,
   fieldNames: ReadonlySet<string>,
   rowMeta: ReadonlySet<string>,
 ): void {

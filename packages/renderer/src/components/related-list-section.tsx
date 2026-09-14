@@ -66,6 +66,7 @@ function synthesizeRelatedListEntity(
 export function RelatedListSection({
   section,
   parentId,
+  record,
   featureName,
   translate,
   hideTitle,
@@ -73,6 +74,10 @@ export function RelatedListSection({
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
+  /** The enclosing projectionDetail's own record (the "Akte") — evaluates
+   *  toolbarActions' `visible`/`params` (RelatedListToolbarAction), the same
+   *  record header actions already use. */
+  readonly record: Readonly<Record<string, unknown>>;
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
@@ -260,6 +265,7 @@ export function RelatedListSection({
         nav,
         refetch: rowsQuery.refetch,
         navigatePrefill: { [section.parentParam ?? "id"]: parentId },
+        record,
         ...(onOpenDrawer !== undefined && {
           openDrawer: (action) => onOpenDrawer(action, undefined),
         }),
@@ -268,6 +274,7 @@ export function RelatedListSection({
       section.toolbarActions,
       section.parentParam,
       parentId,
+      record,
       effectiveTranslate,
       dispatcher,
       nav,

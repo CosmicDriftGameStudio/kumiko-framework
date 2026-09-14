@@ -8,9 +8,9 @@ import type {
   ListFacetSpec,
   ListSortSpec,
   PlatformComponent,
+  RelatedListToolbarAction,
   RowAction,
   ScreenSlots,
-  ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Runtime-only renderer — function form allowed here because the renderer
@@ -307,7 +307,7 @@ export type EditRelatedListSectionViewModel = {
   readonly facets?: readonly ListFacetSpec[];
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
   readonly rowActions?: readonly RowAction[];
-  readonly toolbarActions?: readonly ToolbarAction[];
+  readonly toolbarActions?: readonly RelatedListToolbarAction[];
 };
 
 // Mirrors EditWriteFormSection, except `fields` is already resolved through

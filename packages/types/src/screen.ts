@@ -377,6 +377,32 @@ export type ToolbarAction =
       readonly style?: "primary" | "secondary" | "danger";
     };
 
+// relatedList-only extension of ToolbarAction (fw akte-bedienkonzept-2):
+// a relatedList section's toolbar renders inside a projectionDetail, which
+// has a record to evaluate against — a plain entityList/projectionList
+// toolbar does not, so `visible`/`params` live here instead of on the base
+// union. `visible` uses the same FieldCondition as header actions/
+// RowAction; `params` reuses RowActionNavigate's RowFieldExtractor, applied
+// to the enclosing record instead of a clicked row. Every field is optional,
+// so a plain ToolbarAction is already a valid RelatedListToolbarAction —
+// callers pass either type without a cast.
+export type RelatedListToolbarAction =
+  | (Extract<ToolbarAction, { readonly kind: "navigate" }> & {
+      /** Conditional visibility, evaluated against the relatedList's parent
+       *  record (the "Akte"). */
+      readonly visible?: FieldCondition;
+      /** Declarative URL search params extracted from the parent record,
+       *  prefilling the target screen. Replaces the implicit
+       *  `{ [parentParam]: parentId }` default when set. */
+      readonly params?: RowFieldExtractor;
+    })
+  | (Extract<ToolbarAction, { readonly kind: "writeHandler" }> & {
+      readonly visible?: FieldCondition;
+    })
+  | (Extract<ToolbarAction, { readonly kind: "drawer" }> & {
+      readonly visible?: FieldCondition;
+    });
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -955,8 +981,10 @@ export type EditRelatedListSection = {
    *  projectionList row action re-running its list query. */
   readonly rowActions?: readonly RowAction[];
   /** Toolbar actions above the table — same type and dispatch semantics as
-   *  `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.). */
-  readonly toolbarActions?: readonly ToolbarAction[];
+   *  `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.),
+   *  plus `visible`/`params` evaluated against the parent record (see
+   *  RelatedListToolbarAction). */
+  readonly toolbarActions?: readonly RelatedListToolbarAction[];
   /** Record field rendered as a count badge in the tab label when the
    *  enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
    *  Ignored outside tabs mode or when the field's value is not a finite

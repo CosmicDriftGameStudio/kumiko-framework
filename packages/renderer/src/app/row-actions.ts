@@ -1,6 +1,7 @@
 import type {
   EntityEditScreenDefinition,
   IconKey,
+  RelatedListToolbarAction,
   RowAction,
   RowActionDrawer,
   RowActionNavigate,
@@ -323,10 +324,11 @@ export function buildProjectionRowActions(options: {
 type OpenToolbarDrawer = (action: ToolbarAction & { readonly kind: "drawer" }) => void;
 
 function buildNavigateToolbarAction(
-  action: ToolbarAction & { readonly kind: "navigate" },
+  action: RelatedListToolbarAction & { readonly kind: "navigate" },
   translate: Translate,
   nav: NavApi,
   prefill: Readonly<Record<string, unknown>> | undefined,
+  record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
   const actionIcon = resolveActionIcon(action.id);
   const target = action.screen;
@@ -338,8 +340,17 @@ function buildNavigateToolbarAction(
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: () => {
       nav.navigate({ screenId: target });
-      if (prefill !== undefined) {
-        nav.setSearchParams(stringifyNavParams(prefill));
+      // A declared `params` extractor (evaluated against the relatedList's
+      // parent record) replaces the caller's implicit prefill (e.g. a
+      // relatedList's `{ [parentParam]: parentId }`) rather than merging
+      // with it — same "params present → drop the default" rule as
+      // rowActions.
+      const resolvedParams =
+        action.params !== undefined && record !== undefined
+          ? evalRowExtractor(action.params, record)
+          : prefill;
+      if (resolvedParams !== undefined) {
+        nav.setSearchParams(stringifyNavParams(resolvedParams));
       }
     },
   };
@@ -390,7 +401,7 @@ function buildWriteHandlerToolbarAction(
 // Shared by entityList, projectionList, and relatedList toolbars so the
 // three call sites can't drift apart.
 export function buildProjectionToolbarActions(options: {
-  readonly toolbarActions: readonly ToolbarAction[] | undefined;
+  readonly toolbarActions: readonly RelatedListToolbarAction[] | undefined;
   readonly translate: Translate;
   readonly dispatcher: Dispatcher | undefined;
   readonly nav: NavApi;
@@ -401,14 +412,34 @@ export function buildProjectionToolbarActions(options: {
   /** Search params set on the target after a navigate-kind action, e.g. a
    *  relatedList's parent id for create-form prefill. */
   readonly navigatePrefill?: Readonly<Record<string, unknown>>;
+  /** The relatedList's parent record — only a relatedList caller has one.
+   *  Enables `visible`/`params` (RelatedListToolbarAction), evaluated
+   *  against it exactly like header actions/RowAction.visible. Plain
+   *  entityList/projectionList toolbars have no record and omit this. */
+  readonly record?: Readonly<Record<string, unknown>>;
 }): readonly ToolbarActionButton[] | undefined {
-  const { toolbarActions, translate, dispatcher, nav, refetch, openDrawer, navigatePrefill } =
-    options;
+  const {
+    toolbarActions,
+    translate,
+    dispatcher,
+    nav,
+    refetch,
+    openDrawer,
+    navigatePrefill,
+    record,
+  } = options;
   if (toolbarActions === undefined) return undefined;
   const out: ToolbarActionButton[] = [];
   for (const action of toolbarActions) {
+    if (
+      action.visible !== undefined &&
+      record !== undefined &&
+      !evalFieldCondition(action.visible, record)
+    ) {
+      continue;
+    }
     if (action.kind === "navigate") {
-      out.push(buildNavigateToolbarAction(action, translate, nav, navigatePrefill));
+      out.push(buildNavigateToolbarAction(action, translate, nav, navigatePrefill, record));
       continue;
     }
     if (action.kind === "drawer") {

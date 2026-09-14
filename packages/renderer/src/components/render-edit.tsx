@@ -1339,6 +1339,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 key={section.title}
                 section={section}
                 parentId={parentId}
+                // @cast-boundary form-values: TValues ist strukturell ein Record.
+                record={snapshot.values as unknown as Readonly<Record<string, unknown>>}
                 featureName={featureName}
                 translate={translate}
                 hideTitle={hideSectionTitles}
