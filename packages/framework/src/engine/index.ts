@@ -432,6 +432,7 @@ export type {
   OnDeleteStrategy,
   OpenToAllAccessRule,
   OpenToAllDeclaration,
+  OpenToAllPersonalData,
   ParentRefDef,
   PersonalAnnotations,
   PersonalAnnotationsLongText,
