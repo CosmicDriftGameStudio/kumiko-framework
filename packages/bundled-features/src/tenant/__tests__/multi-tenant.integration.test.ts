@@ -29,6 +29,8 @@ import type { Hono } from "hono";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createUserFeature } from "../../user/feature";
+import { userEntity } from "../../user/schema/user";
 import { TenantHandlers, TenantQueries } from "../constants";
 import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
@@ -65,12 +67,14 @@ beforeAll(async () => {
   db = testDb.db;
 
   await unsafeCreateEntityTable(db, tenantEntity);
+  await unsafeCreateEntityTable(db, userEntity);
   await unsafePushTables(db, { tenantMembershipsTable, configValuesTable });
   await createEventsTable(db);
 
   const configFeature = createConfigFeature();
+  const userFeature = createUserFeature();
   const tenantFeature = createTenantFeature();
-  const registry = createRegistry([configFeature, tenantFeature, billingFeature]);
+  const registry = createRegistry([configFeature, userFeature, tenantFeature, billingFeature]);
   const resolver = createConfigResolver();
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;

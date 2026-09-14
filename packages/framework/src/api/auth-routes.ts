@@ -6,9 +6,16 @@ import type Redis from "ioredis";
 import { z } from "zod";
 import { buildSessionRoles } from "../engine/membership-roles";
 import { createSystemUser } from "../engine/system-user";
-import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
+import {
+  type ActiveMembershipRejection,
+  type ActiveMembershipResult,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "../engine/types";
 import { NotFoundError } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
+import { assertUnreachable } from "../utils";
 import { parseRoles } from "../utils/serialization";
 import { Routes } from "./api-constants";
 import {
@@ -165,6 +172,19 @@ function isUnknownHandlerError(e: unknown): boolean {
   // @cast-boundary error-details — KumikoError.details shape is per-error
   const details = e.details as { entity?: string } | undefined;
   return details?.entity === "handler";
+}
+
+function switchTenantRejectionResponse(c: Context, reason: ActiveMembershipRejection): Response {
+  switch (reason) {
+    case "not_a_member":
+      return c.json({ error: "not_a_member" }, 403);
+    case "principal_blocked":
+      return c.json({ error: "principal_blocked" }, 403);
+    case "tenant_teardown":
+      return c.json({ error: "tenant_unavailable" }, 410);
+    default:
+      return assertUnreachable(reason, "ActiveMembershipRejection");
+  }
 }
 
 type MembershipRow = {
@@ -1324,17 +1344,11 @@ export function createAuthRoutes(
       return c.json({ error: "already_in_tenant" }, 400);
     }
 
-    // Check membership — uses the system identity because membershipQuery is
-    // locked to the system role. The auth-route is trusted server code; it
-    // asks the question on the user's behalf, not as the user.
-    let memberships: MembershipRow[];
+    // Membership + principal-blocked + tenant-teardown in one building
+    // block — trusted server code asking on the user's behalf, same trust boundary as before.
+    let activeMembership: ActiveMembershipResult;
     try {
-      // @cast-boundary engine-payload — generic dispatcher.query result
-      memberships = (await dispatcher.query(
-        config.membershipQuery,
-        { userId: user.id },
-        createSystemUser(user.tenantId),
-      )) as MembershipRow[];
+      activeMembership = await dispatcher.resolveActiveMembership(user.id, targetTenantId);
     } catch (e) {
       // No membershipQuery wired → switching tenants is just not offered in
       // this deployment. Any other error propagates so a broken query handler
@@ -1343,10 +1357,10 @@ export function createAuthRoutes(
       return c.json({ error: "tenant_switch_not_available" }, 400);
     }
 
-    const membership = memberships.find((m) => m.tenantId === targetTenantId);
-    if (!membership) {
-      return c.json({ error: "not_a_member" }, 403);
+    if (activeMembership.kind === "rejected") {
+      return switchTenantRejectionResponse(c, activeMembership.reason);
     }
+    const membership = activeMembership.membership;
 
     // Globale Rollen aus user-feature lesen wenn userQuery wired —
     // tenant-unabhängige Rollen (SystemAdmin etc.) überleben so den

@@ -25,12 +25,28 @@
    bleiben: das Paket shippt `src`, also löst sie in jedem Install-Layout
    auf — Workspace UND Standalone-Consumer (node_modules). Ein monorepo-
    relativer Pfad fand im Standalone-Build die eigenen Shell-Klassen
-   nicht → unstyled prod, 15KB statt 48KB (#359). Die restlichen Zeilen
-   sind Monorepo-Build-Quellen (renderer hat keine eigenen Klassen,
-   samples nur für den In-Monorepo-Sample-Build) — im Consumer matchen
-   sie nichts und sind dort ein harmloser No-op. */
+   nicht → unstyled prod, 15KB statt 48KB (#359).
+
+   The sibling-package lines below (renderer, bundled-features — neither
+   ships its own compiled CSS) each need two variants, because Tailwind
+   v4 resolves relative @source paths against the REALPATH of the
+   imported CSS file (fs.realpath, follows symlinks), not the path it
+   was imported through — verified by probing both a symlinked and a
+   real (non-symlinked) node_modules layout:
+   - Workspace (bun symlinks node_modules/@cosmicdrift/kumiko-X to
+     packages/X): the realpath lands in packages/renderer-web/src, so
+     `../../X/src` matches (unscoped package dir name, as in the repo).
+   - Standalone consumer (real copy under node_modules/@cosmicdrift/,
+     no symlink): realpath == the node_modules path itself, so only
+     `../../kumiko-X/src` matches (scoped registry name incl. prefix).
+   A path that doesn't exist in a given layout is simply not matched —
+   no error — so each pair is a harmless no-op in the other layout.
+   samples is monorepo-only (in-repo sample build), a no-op elsewhere. */
 @source "./**/*.{ts,tsx}";
 @source "../../renderer/src/**/*.{ts,tsx}";
+@source "../../kumiko-renderer/src/**/*.{ts,tsx}";
+@source "../../bundled-features/src/**/*.{ts,tsx}";
+@source "../../kumiko-bundled-features/src/**/*.{ts,tsx}";
 @source "../../../samples/**/src/**/*.{ts,tsx}";
 
 /* Dark-Mode via class-selector (nicht media). Erlaubt JS-Toggle

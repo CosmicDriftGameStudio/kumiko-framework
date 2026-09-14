@@ -64,6 +64,7 @@ import {
 } from "../observability";
 import { buildBucketKey } from "../rate-limit";
 import { createTzContext, isValidIanaTimeZone } from "../time";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
 import { appendDomainEventCore } from "./append-event-core";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
 import { executeQuery } from "./dispatch-query";
@@ -75,7 +76,7 @@ import {
 } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { createGatedIdentitySwitch } from "./system-identity-switch";
+import { createGatedIdentitySwitch, systemIdentitySwitchDenied } from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
@@ -123,6 +124,9 @@ export type DispatchContext = {
   tenantTimezoneCache: TenantTimezoneCache;
   tracer: ReturnType<typeof getFallbackTracer>;
   meter: ReturnType<typeof getFallbackMeter>;
+  // Qualified name of the membership-list query handler consulted by
+  // resolveActiveMembershipFn — defaults to TENANT_MEMBERSHIPS_QUERY, overridable via DispatcherOptions.
+  membershipQuery: string;
 };
 
 // Narrowing-helper: AppContext.db ist DbConnection|TenantDb|undefined. Die
@@ -587,6 +591,15 @@ export async function buildHandlerContext(
     // handler via ctx.resolveAuthClaims, switch-tenant route via
     // dispatcher.resolveAuthClaims) cannot drift.
     resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser), // @wrapper-known semantic-alias
+
+    // Thin pass-through, same reasoning as resolveAuthClaims above — one
+    // resolve impl lives on the dispatcher so callers can't drift apart.
+    // Internally queries memberships as SYSTEM, so it needs the same grant
+    // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
+    resolveActiveMembership: (userId: string, tenantId: TenantId) => {
+      if (!allowSystemIdentity) throw systemIdentitySwitchDenied(`handler "${type}"`);
+      return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
+    },
 
     // Feature-effective check for in-handler opt-in logic. Scope:
     // **current user's tenant** — for cross-tenant lookups (rare,

@@ -1,5 +1,6 @@
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
+import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership";
 import { createAnonymousUser } from "../engine/system-user";
 import type { SessionUser, TenantId } from "../engine/types";
 import { parseTenantId } from "../engine/types/identifiers";
@@ -592,12 +593,6 @@ type RejectArgs = {
   details?: Record<string, unknown>;
 };
 
-const TENANT_LIFECYCLE_BLOCKED = new Set([
-  "destroyRequested",
-  "destroying",
-  "destroyFailed",
-  "destroyed",
-]);
 const TENANT_LIFECYCLE_CANCEL_QN = "tenant-lifecycle:write:cancel-destruction";
 
 async function requestsCancelDestruction(c: Context): Promise<boolean> {
@@ -634,7 +629,7 @@ async function rejectIfTenantTeardown(
 ): Promise<Response | undefined> {
   if (!resolveTenantLifecycleStatus) return undefined;
   const lifecycle = await resolveTenantLifecycleStatus(tenantId);
-  if (!lifecycle || !TENANT_LIFECYCLE_BLOCKED.has(lifecycle.status)) return undefined;
+  if (!lifecycle || !TENANT_TEARDOWN_STATUSES.has(lifecycle.status)) return undefined;
   if (lifecycle.status === "destroyRequested" && (await requestsCancelDestruction(c))) {
     return undefined;
   }

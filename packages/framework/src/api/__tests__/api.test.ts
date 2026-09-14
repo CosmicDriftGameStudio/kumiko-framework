@@ -636,6 +636,10 @@ describe("POST /api/stream pre-pull race", () => {
       async resolveAuthClaims(): Promise<Record<string, unknown>> {
         return {};
       },
+      // Not exercised by this route — always "not_a_member" is fine.
+      async resolveActiveMembership() {
+        return { kind: "rejected", reason: "not_a_member" };
+      },
     };
   }
 

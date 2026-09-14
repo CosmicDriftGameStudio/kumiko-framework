@@ -1,15 +1,21 @@
 import { type TenantDb, withUnsafeRawGrant } from "../db/tenant-db";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type {
+  ActiveMembershipResult,
   EscapeHatchDeclaration,
   LifecycleHookFn,
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import type { TenantId } from "../engine/types/identifiers";
 import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors";
 
 export type QueryAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
 export type WriteAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+export type ResolveActiveMembershipFn = (
+  userId: string,
+  tenantId: TenantId,
+) => Promise<ActiveMembershipResult>;
 export type IdentitySwitch = { readonly queryAs: QueryAsFn; readonly writeAs: WriteAsFn };
 
 export function isSystemIdentity(user: SessionUser): boolean {
@@ -23,7 +29,7 @@ export function isSystemIdentitySwitchAllowed(
   return !isSystemIdentity(asUser) || allowSystemIdentity;
 }
 
-function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedError {
+export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedError {
   return new AccessDeniedError({
     message:
       `${callerLabel} may not switch identity to SYSTEM — declare r.systemScope() or ` +
@@ -58,9 +64,9 @@ export function createGatedIdentitySwitch(
   return gated;
 }
 
-function readIdentitySwitchFn<TFn extends QueryAsFn | WriteAsFn>(
+function readIdentitySwitchFn<TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn>(
   context: object,
-  key: "queryAs" | "writeAs",
+  key: "queryAs" | "writeAs" | "resolveActiveMembership",
 ): TFn | undefined {
   if (!(key in context)) return undefined;
   const value = (context as Record<string, unknown>)[key];
@@ -82,6 +88,12 @@ function unavailableIdentitySwitchFn(callerLabel: string, kind: "queryAs" | "wri
   };
 }
 
+function deniedResolveActiveMembership(callerLabel: string): ResolveActiveMembershipFn {
+  return async () => {
+    throw systemIdentitySwitchDenied(callerLabel);
+  };
+}
+
 // Fail-closed fallback for a ctx not built by the dispatcher bridge (unit-test stub, duplicated module instance).
 function fallbackUngatedIdentitySwitch(
   callerLabel: string,
@@ -94,6 +106,25 @@ function fallbackUngatedIdentitySwitch(
   };
 }
 
+// Reuses the ORIGINAL ungated pair when known, so this grant doesn't compose with the caller's.
+function gatedIdentitySwitchFields(
+  callerLabel: string,
+  escapeHatch: EscapeHatchDeclaration | undefined,
+  ctxQueryAs: QueryAsFn | undefined,
+  ctxWriteAs: WriteAsFn | undefined,
+): Partial<IdentitySwitch> {
+  if (!ctxQueryAs && !ctxWriteAs) return {};
+  const ungated: IdentitySwitch =
+    (ctxQueryAs && ungatedByGated.get(ctxQueryAs)) ??
+    (ctxWriteAs && ungatedByGated.get(ctxWriteAs)) ??
+    fallbackUngatedIdentitySwitch(callerLabel, ctxQueryAs, ctxWriteAs);
+  const gated = createGatedIdentitySwitch(callerLabel, escapeHatch !== undefined, ungated);
+  return {
+    ...(ctxQueryAs && { queryAs: gated.queryAs }),
+    ...(ctxWriteAs && { writeAs: gated.writeAs }),
+  };
+}
+
 export function withHookEscapeHatchGrant<TContext extends object>(
   context: TContext,
   callerLabel: string,
@@ -101,21 +132,29 @@ export function withHookEscapeHatchGrant<TContext extends object>(
 ): TContext {
   const ctxQueryAs = readIdentitySwitchFn<QueryAsFn>(context, "queryAs");
   const ctxWriteAs = readIdentitySwitchFn<WriteAsFn>(context, "writeAs");
+  const ctxResolveActiveMembership = readIdentitySwitchFn<ResolveActiveMembershipFn>(
+    context,
+    "resolveActiveMembership",
+  );
   const ctxDb = readDbLikeValue(context, "db");
   const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
-  if (!ctxQueryAs && !ctxWriteAs && !ctxDb && !ctxDbOutsideTransaction) return context;
+  if (
+    !ctxQueryAs &&
+    !ctxWriteAs &&
+    !ctxResolveActiveMembership &&
+    !ctxDb &&
+    !ctxDbOutsideTransaction
+  ) {
+    return context;
+  }
 
-  // Reuse the ORIGINAL ungated pair when known, so this grant doesn't compose with the caller's.
-  const ungated: IdentitySwitch =
-    (ctxQueryAs && ungatedByGated.get(ctxQueryAs)) ??
-    (ctxWriteAs && ungatedByGated.get(ctxWriteAs)) ??
-    fallbackUngatedIdentitySwitch(callerLabel, ctxQueryAs, ctxWriteAs);
-
-  const gated = createGatedIdentitySwitch(callerLabel, escapeHatch !== undefined, ungated);
   return {
     ...context,
-    ...(ctxQueryAs && { queryAs: gated.queryAs }),
-    ...(ctxWriteAs && { writeAs: gated.writeAs }),
+    ...gatedIdentitySwitchFields(callerLabel, escapeHatch, ctxQueryAs, ctxWriteAs),
+    ...(ctxResolveActiveMembership &&
+      escapeHatch === undefined && {
+        resolveActiveMembership: deniedResolveActiveMembership(callerLabel),
+      }),
     // @cast-boundary engine-bridge — withUnsafeRawGrant passes non-TenantDb values (e.g. a guard Proxy) through unchanged.
     ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, escapeHatch) }),
     ...(ctxDbOutsideTransaction && {

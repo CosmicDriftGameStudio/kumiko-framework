@@ -4,6 +4,7 @@ import {
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
+  TENANT_MEMBERSHIPS_QUERY,
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -178,7 +179,9 @@ export async function gateResolveMembership(
   systemUser: SessionUser,
   found: AuthUserRow,
 ): Promise<GateOutcome<{ readonly chosen: Membership; readonly mergedRoles: readonly string[] }>> {
-  const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
+  // Still needed for candidate ORDER (preferred tenant first) — the actual
+  // active/blocked/teardown decision comes from ctx.resolveActiveMembership below.
+  const memberships = (await ctx.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
     userId: found.id,
   })) as Array<Membership>; // @cast-boundary db-runner
 
@@ -190,17 +193,34 @@ export async function gateResolveMembership(
     found.lastActiveTenantId !== null && found.lastActiveTenantId !== undefined
       ? memberships.find((m) => m.tenantId === found.lastActiveTenantId)
       : undefined;
-  const chosen = preferred ?? memberships[0];
-  if (!chosen) {
-    return reject(noMembership());
-  }
+  const candidates = preferred
+    ? [preferred, ...memberships.filter((m) => m !== preferred)]
+    : memberships;
 
   const globalRoles = parseRoles(found.roles ?? null);
-  // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
-  // roles only (globalRoles keeps SystemAdmin) — read-time backstop against a
-  // rebuild-resurrected role.
-  const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
-  return ok({ chosen, mergedRoles });
+
+  for (const candidate of candidates) {
+    const active = await ctx.resolveActiveMembership(found.id, candidate.tenantId);
+    if (active.kind === "rejected") {
+      // A blocked principal is blocked for every tenant, so stop here;
+      // not_a_member/tenant_teardown are per-tenant — try the next candidate.
+      if (active.reason === "principal_blocked") {
+        return reject(invalidCredentials());
+      }
+      continue;
+    }
+    const chosen: Membership = {
+      tenantId: active.membership.tenantId,
+      roles: active.membership.roles,
+    };
+    // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
+    // roles only (globalRoles keeps SystemAdmin) — read-time backstop against a
+    // rebuild-resurrected role.
+    const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
+    return ok({ chosen, mergedRoles });
+  }
+
+  return reject(noMembership());
 }
 
 // MFA challenge / setup-required / proceed. Excludes "auth-session" (this
@@ -266,9 +286,10 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
     escapeHatch: {
       reason:
         "Unauthenticated login has no caller identity yet — it looks up the user row by " +
-        "email and resolves tenant memberships via ctx.queryAs(SYSTEM, ...) before a " +
-        "session exists. It also reads the MFA enrollment of the tenant named in the signed " +
-        "login/setup token, not the guest dispatch tenant, via the mfaStatusChecker callback.",
+        "email via ctx.queryAs(SYSTEM, ...) and resolves tenant membership via " +
+        "ctx.resolveActiveMembership before a session exists. It also reads the MFA " +
+        "enrollment of the tenant named in the signed login/setup token, not the guest " +
+        "dispatch tenant, via the mfaStatusChecker callback.",
     },
     description:
       "Signs a user in with email and password, running the lockout, email-verification, account-status, tenant-membership and MFA gates, and answering with a session or with an MFA challenge or setup requirement.",
