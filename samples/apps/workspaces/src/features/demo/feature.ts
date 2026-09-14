@@ -4,7 +4,15 @@ import { orderEditScreen, orderEntity, orderListScreen } from "./schema";
 
 export { orderEntity };
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "demo app: any signed-in user manages every order across all workspaces; " +
+        "workspace visibility itself is still role-gated below",
+    },
+  },
+} as const;
 
 // r.translations() wants key-first shape ({key: {de, en}}); demoTranslations
 // (nav/workspace labels) is locale-first (client TranslationsByLocale shape)

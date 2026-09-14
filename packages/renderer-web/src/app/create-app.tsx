@@ -1,5 +1,6 @@
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import type { TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
+import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Dispatcher,
   ListRowViewModel,
@@ -236,7 +237,7 @@ export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | 
   for (const feature of features) {
     const openScreen = feature.screens.find(
       (s) =>
-        (s.access === undefined || "openToAll" in s.access) &&
+        (s.access === undefined || isOpenToAllGranted(s.access)) &&
         navScreenQns.has(qualifyScreenId(feature.featureName, s.id)),
     );
     if (openScreen !== undefined) return qualifyScreenId(feature.featureName, openScreen.id);

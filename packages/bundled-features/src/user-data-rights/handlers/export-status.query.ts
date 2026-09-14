@@ -35,7 +35,13 @@ type ExportJobRow = {
 export const exportStatusQuery = defineQueryHandler({
   name: "export-status",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user reads only their own most recent export job; the query " +
+        "filters exportJobsTable by the caller's own userId",
+    },
+  },
   description:
     "Returns the calling user's own most recent data-export job with its status, expiry and error, or hasJob false, for polling after a request-export while the job is still running.",
   escapeHatch: {

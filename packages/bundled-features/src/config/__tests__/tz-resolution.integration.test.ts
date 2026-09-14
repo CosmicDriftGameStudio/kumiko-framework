@@ -38,7 +38,7 @@ const probeFeature = defineFeature("probe", (r) => {
       isSuccess: true,
       data: { tenant: ctx.tz.tenant, user: ctx.tz.user },
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

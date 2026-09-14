@@ -65,7 +65,15 @@ export const deliveryEntity = createEntity({
   },
 });
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "demo app: any signed-in user edits the shipping, profile and delivery example " +
+        "forms; there is no per-user ownership in this sample",
+    },
+  },
+} as const;
 const editFormOnly = {
   write: open,
   read: open,

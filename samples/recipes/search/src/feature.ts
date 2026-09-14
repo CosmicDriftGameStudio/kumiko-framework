@@ -54,6 +54,14 @@ export const productFeature = defineFeature("shop", (r) => {
       });
       return crud.list(query.payload, query.user, ctx.db);
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "any signed-in user may search and list products in this recipe; creating " +
+            "a product still requires the Admin role above",
+        },
+      },
+    },
   );
 });

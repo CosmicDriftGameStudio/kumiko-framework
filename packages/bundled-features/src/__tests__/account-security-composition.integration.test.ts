@@ -114,7 +114,10 @@ describe("account-security dashboard on a real stack", () => {
       "auth-mfa:screen:auth-mfa-disable",
       "sessions:screen:my-sessions",
     ]);
-    for (const qn of targets) expect(embeddedScreen(qn).access).toEqual({ openToAll: true });
+    for (const qn of targets)
+      expect(embeddedScreen(qn).access).toEqual({
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      });
   });
 
   test("a plain User gets the flat visibleWhen record and their own sessions over HTTP", async () => {

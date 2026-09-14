@@ -9,9 +9,15 @@ async function noopWriteHandler() {
 
 function undocumentedHandlersFeature() {
   return defineFeature("doc-gap-demo", (r) => {
-    r.writeHandler("do-a", z.object({}), noopWriteHandler, { access: { openToAll: true } });
-    r.writeHandler("do-b", z.object({}), noopWriteHandler, { access: { openToAll: true } });
-    r.writeHandler("do-c", z.object({}), noopWriteHandler, { access: { openToAll: true } });
+    r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
+    r.writeHandler("do-b", z.object({}), noopWriteHandler, {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
+    r.writeHandler("do-c", z.object({}), noopWriteHandler, {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
   });
 }
 
@@ -41,7 +47,7 @@ describe("createAgentToolsFeature", () => {
   test("boot check stays silent for a fully-described registry", () => {
     const describedFeature = defineFeature("doc-clean-demo", (r) => {
       r.writeHandler("do-a", z.object({}), noopWriteHandler, {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         description: "Does A.",
       });
     });

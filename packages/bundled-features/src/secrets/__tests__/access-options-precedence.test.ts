@@ -7,12 +7,19 @@ describe("createSecretsFeature access/roles precedence", () => {
   });
 
   test("access-only is accepted", () => {
-    expect(() => createSecretsFeature({ access: { openToAll: true } })).not.toThrow();
+    expect(() =>
+      createSecretsFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+    ).not.toThrow();
   });
 
   test("access + roles together fail fast", () => {
-    expect(() => createSecretsFeature({ access: { openToAll: true }, roles: ["Admin"] })).toThrow(
-      /either `access` or `roles`/,
-    );
+    expect(() =>
+      createSecretsFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        roles: ["Admin"],
+      }),
+    ).toThrow(/either `access` or `roles`/);
   });
 });

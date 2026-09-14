@@ -37,7 +37,7 @@ bun run api                 # terminal 1 — HTTP + enqueue
 bun run worker              # terminal 2 — consumes jobs, applies projections
 ```
 
-Prove the topology. `orders:write:order:create` is `openToAll: true`, which
+Prove the topology. `orders:write:order:create` declares `openToAll`, which
 still requires a valid JWT (any authenticated user, no specific role) — grab
 one the same way `src/__tests__/feature.integration.test.ts` does, via
 `api.jwt.sign(adminUser)` on the entrypoint returned by

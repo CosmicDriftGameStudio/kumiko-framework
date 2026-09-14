@@ -81,7 +81,14 @@ export function createInviteAcceptHandler() {
     // openToAll: any authenticated user (Branch 1). Branch 2+3 (anon)
     // nutzen `roles: ["all"]` weil dort GUEST_USER mit ["all"]-role
     // dispatched wird.
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may accept an invitation; the token identifies the pending " +
+          "invitation and its tenant, and the handler verifies the caller's own email matches " +
+          "the invitation before adding membership",
+      },
+    },
     agent: { expose: false },
     escapeHatch: {
       reason: INVITE_ACCEPT_ESCAPE_HATCH_REASON,

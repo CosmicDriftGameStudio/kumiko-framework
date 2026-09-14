@@ -14,7 +14,14 @@ import { listingEntity } from "./entities/listing";
 export { listingEntity } from "./entities/listing";
 
 const editorWrite = { access: { roles: ["Admin", "User"] } } as const;
-const openRead = { access: { openToAll: true } } as const;
+const openRead = {
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may list and view listings; writes are still gated by editorWrite",
+    },
+  },
+} as const;
 
 export const listingsFeature = defineFeature("listings", (r) => {
   r.crud("listing", listingEntity, { write: editorWrite, read: openRead });

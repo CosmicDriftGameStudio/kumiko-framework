@@ -7,7 +7,7 @@ describe("validateBoot — projectionList screens", () => {
   test("rejects hand-written searchable:true when the query schema has no search param (3a)", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "schedule-list",
@@ -29,7 +29,7 @@ describe("validateBoot — projectionList screens", () => {
         "schedule:list",
         z.object({ search: z.string().optional() }),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",
@@ -50,7 +50,7 @@ describe("validateBoot — projectionList screens", () => {
         "schedule:list",
         z.object({ sort: z.string().optional() }),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",
@@ -71,7 +71,7 @@ describe("validateBoot — projectionList screens", () => {
         "schedule:list",
         z.object({ search: z.string().optional(), sort: z.string().optional() }),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",
@@ -91,7 +91,7 @@ describe("validateBoot — projectionList screens", () => {
   test("passes when the schema offers neither search nor sort and no defaultSort is set", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "schedule-list",
@@ -112,7 +112,7 @@ describe("validateBoot — projectionList screens", () => {
         "schedule:list",
         z.object({ search: z.string().optional() }),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",
@@ -135,7 +135,7 @@ describe("validateBoot — projectionList screens", () => {
         "schedule:list",
         z.object({ search: z.string().optional() }),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "download-attempt-list",
@@ -154,7 +154,7 @@ describe("validateBoot — projectionList screens", () => {
   test("rejects hand-authored sortable on a projectionList screen (fw#2165 review)", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "schedule-list",
@@ -173,7 +173,7 @@ describe("validateBoot — projectionList screens", () => {
   test("rejects hand-authored paginated on a projectionList screen (fw#2165 review)", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "schedule-list",
@@ -202,7 +202,7 @@ describe("validateBoot — projectionList screens", () => {
           z.object({}),
           async () => ({ rows: [], nextCursor: null }),
           {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           },
         );
         r.screen({ id: "schedule-detail", type: "custom", renderer: { react: "stub" } });
@@ -251,7 +251,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filter: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",
@@ -274,7 +274,7 @@ describe("validateBoot — projectionList screens", () => {
           z.object({}),
           async () => ({ rows: [], nextCursor: null }),
           {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           },
         );
         r.screen({
@@ -297,7 +297,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",
@@ -326,7 +326,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",
@@ -363,7 +363,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",
@@ -386,7 +386,7 @@ describe("validateBoot — projectionList screens", () => {
           z.object({}),
           async () => ({ rows: [], nextCursor: null }),
           {
-            access: { openToAll: true },
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           },
         );
         r.screen({
@@ -417,7 +417,7 @@ describe("validateBoot — projectionList screens", () => {
           "schedule:list",
           z.object({ filter: z.unknown().optional(), filters: z.unknown().optional() }),
           async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: true } },
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
         );
         r.screen({
           id: "schedule-list",

@@ -47,7 +47,9 @@ describe("account-security composed from bundled screens (fw#2841)", () => {
       mfa?.screens[MFA_REGENERATE_RECOVERY_SCREEN_ID],
     ];
     for (const screen of screens) {
-      expect(screen?.access).toEqual({ openToAll: true });
+      expect(screen?.access).toEqual({
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      });
     }
   });
 

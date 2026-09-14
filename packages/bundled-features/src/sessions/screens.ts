@@ -140,5 +140,10 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
       confirm: i18nKey("sessions.mine.revokeAllOthers.confirm"),
     },
   ],
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user views and revokes only their own sessions, mirroring the mine/revoke handlers",
+    },
+  },
 };

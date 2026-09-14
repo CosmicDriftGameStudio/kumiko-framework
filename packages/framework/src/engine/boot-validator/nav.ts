@@ -4,6 +4,7 @@
 
 import { qualifyEntityName } from "../qualified-name";
 import type { AccessRule, FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
+import { isOpenToAllGranted } from "../types";
 
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
@@ -135,10 +136,14 @@ export function validateNavCycles(
   }
 }
 
-// undefined access or `{ openToAll: true }` both mean "visible to everyone"
-// — neither has a role-set an inversion check could compare against.
+// undefined access or a granted openToAll rule both mean "visible to
+// everyone" — neither has a role-set an inversion check could compare
+// against. A malformed/denied openToAll (including the deprecated `true`
+// form) returns `[]` — same "visible to nobody" signal as an explicit
+// `roles: []`, which the caller below already treats as its own problem.
 function navViewerRoles(access: AccessRule | undefined): readonly string[] | undefined {
-  if (access === undefined || "openToAll" in access) return undefined;
+  if (access === undefined) return undefined;
+  if ("openToAll" in access) return isOpenToAllGranted(access) ? undefined : [];
   return access.roles;
 }
 

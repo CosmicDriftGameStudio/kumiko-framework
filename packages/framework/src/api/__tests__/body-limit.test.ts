@@ -18,7 +18,7 @@ const testFeature = defineFeature("blob", (r) => {
     "note:create",
     z.object({ body: z.string() }),
     async (event) => ({ isSuccess: true, data: { body: event.payload.body } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

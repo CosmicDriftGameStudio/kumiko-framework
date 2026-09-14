@@ -33,7 +33,7 @@ const productFeature = defineFeature("product", (r) => {
       ctx.metrics.inc("tracked_total", { kind: event.payload.kind });
       return { isSuccess: true, data: { ok: true } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 
@@ -44,7 +44,7 @@ const errorFeature = defineFeature("err", (r) => {
     async () => {
       throw new Error("boom from handler");
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 
@@ -90,7 +90,7 @@ const todoFeature = defineFeature("todo", (r) => {
         },
       };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.hook("postSave", "create", async (_save: SaveContext) => {
@@ -288,7 +288,7 @@ describe("Observability (integration) — Redis wrapper", () => {
         await ctx.redis.get("session:abc123:token");
         return { isSuccess: true, data: { ok: true } };
       },
-      { access: { openToAll: true } },
+      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     );
   });
 
@@ -352,7 +352,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
         ctx.log?.info(event.payload.msg, { custom: "field" });
         return { isSuccess: true, data: { ok: true } };
       },
-      { access: { openToAll: true } },
+      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     );
   });
 
@@ -581,7 +581,7 @@ const consumerAFeature = defineFeature("consumer-a", (r) => {
       recordSharedCall(ctx);
       return { isSuccess: true, data: { ok: true } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 
@@ -594,7 +594,7 @@ const consumerBFeature = defineFeature("consumer-b", (r) => {
       ctx.metricsFor("unregistered-lib").inc("never_total");
       return { isSuccess: true, data: { ok: true } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

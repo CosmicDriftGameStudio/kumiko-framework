@@ -46,7 +46,7 @@ const variantTestFeature = defineFeature("derivativessharptest", (r) => {
       const meta = await imageMetadata(bytes);
       return { isSuccess: true as const, data: { ...result, ...meta } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

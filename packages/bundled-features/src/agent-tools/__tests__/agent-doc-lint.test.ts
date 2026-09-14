@@ -7,7 +7,9 @@ import {
 import { z } from "zod";
 import { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "../agent-doc-lint";
 
-const OPEN_ACCESS = { openToAll: true } as const;
+const OPEN_ACCESS = {
+  openToAll: { reason: "test handler callable by any signed-in test user" },
+} as const;
 
 async function noopWriteHandler() {
   return { isSuccess: true as const, data: {} };

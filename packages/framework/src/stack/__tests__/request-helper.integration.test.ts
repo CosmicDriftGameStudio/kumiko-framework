@@ -20,7 +20,7 @@ const pingFeature = defineFeature("reqhelp", (r) => {
       isSuccess: true as const,
       data: { note: event.payload.note, userId: event.user.id },
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -28,7 +28,7 @@ const pingFeature = defineFeature("reqhelp", (r) => {
     z.object({}),
     async () =>
       writeFailure(new UnprocessableError("reqhelp-boom", { i18nKey: "errors.unprocessable" })),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.queryHandler(
@@ -40,7 +40,7 @@ const pingFeature = defineFeature("reqhelp", (r) => {
       }
       return { id: query.payload.id, ok: true };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

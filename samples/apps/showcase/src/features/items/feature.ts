@@ -18,7 +18,14 @@ import {
   itemQuickAddScreen,
 } from "./schema";
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "demo app: any signed-in user manages every showcase item; there is no per-user ownership in this sample",
+    },
+  },
+} as const;
 
 // The boot validator checks server-registered keys, while the client bundle is
 // locale-first — flip it rather than maintaining the same strings twice.

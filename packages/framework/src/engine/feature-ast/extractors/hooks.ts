@@ -1,7 +1,7 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { LifecycleHookType } from "../../constants";
-import type { AccessRule, RateLimitOption } from "../../types/handlers";
+import type { AccessRule, EscapeHatchDeclaration, RateLimitOption } from "../../types/handlers";
 import type { HookPhase } from "../../types/hooks";
 import type { AuthClaimsPattern, HookPattern } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
@@ -37,13 +37,14 @@ export function readOptionalPhase(node: Node | undefined): HookPhase | undefined
   return undefined;
 }
 
+// `openToAll: true` (the deprecated pre-#2855 form) is deliberately not
+// recognised here: isOpenToAllGranted never grants it, so extracting it as a
+// valid AccessRule would round-trip a rule that looks configured but denies
+// everyone. Treated the same as any other unrecognised shape — not extracted.
 export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (!isPlainObject(value)) return undefined;
   if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
     return { roles: value["roles"] as readonly string[] };
-  }
-  if (value["openToAll"] === true) {
-    return { openToAll: true };
   }
   const openToAll = value["openToAll"];
   if (isPlainObject(openToAll) && typeof openToAll["reason"] === "string") {
@@ -62,6 +63,31 @@ export function readOptionalRateLimit(value: unknown): RateLimitOption | undefin
   if (typeof value["limit"] !== "number") return undefined;
   if (typeof value["windowSeconds"] !== "number") return undefined;
   return value as unknown as RateLimitOption;
+}
+
+export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration | undefined {
+  if (!isPlainObject(value)) return undefined;
+  if (typeof value["reason"] !== "string") return undefined;
+  return { reason: value["reason"] };
+}
+
+// r.hook's escapeHatch option lives on the same raw options node (the whole
+// object-form call, or the positional 4th-argument bag) — unlike
+// readOptionalPhase, this extracts the `escapeHatch` sub-property node FIRST
+// and only converts that to data: the object-form call also carries the
+// `handler` closure, and readDataLiteralNode's ObjectLiteralExpression case
+// returns undefined for the whole object when any property (the function)
+// isn't representable as plain data.
+export function readOptionalHookEscapeHatch(
+  node: Node | undefined,
+): EscapeHatchDeclaration | undefined {
+  const obj = node?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj) return undefined;
+  const init = obj
+    .getProperty("escapeHatch")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  return init ? readOptionalEscapeHatch(readDataLiteralNode(init)) : undefined;
 }
 
 // r.hook's target: a NameOrRef, a list of them, or an entity-wide
@@ -154,6 +180,7 @@ export function extractHook(
       );
     }
     const phase = readOptionalPhase(obj);
+    const escapeHatch = readOptionalHookEscapeHatch(obj);
     return ok({
       kind: "hook",
       source: sourceLocationFromNode(call, sourceFile),
@@ -161,6 +188,7 @@ export function extractHook(
       target,
       fnBody: sourceLocationFromNode(fn, sourceFile),
       ...(phase !== undefined && { phase }),
+      ...(escapeHatch !== undefined && { escapeHatch }),
     });
   }
 
@@ -212,6 +240,7 @@ export function extractHook(
     );
   }
   const phase = readOptionalPhase(args[3]);
+  const escapeHatch = readOptionalHookEscapeHatch(args[3]);
   return ok({
     kind: "hook",
     source: sourceLocationFromNode(call, sourceFile),
@@ -219,6 +248,7 @@ export function extractHook(
     target,
     fnBody: sourceLocationFromNode(fn, sourceFile),
     ...(phase !== undefined && { phase }),
+    ...(escapeHatch !== undefined && { escapeHatch }),
   });
 }
 

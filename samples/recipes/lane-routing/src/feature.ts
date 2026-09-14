@@ -58,7 +58,14 @@ export function createLaneRoutingFeature(): FeatureDefinition {
           amount: event.payload.amount,
         },
       }),
-      { access: { openToAll: true } },
+      {
+        access: {
+          openToAll: {
+            reason:
+              "demo recipe: any signed-in user may place an order; the handler is a stub with no persistence",
+          },
+        },
+      },
     );
 
     // Receipt-rendering: heavy CPU work. Pinned to `worker` so the

@@ -66,7 +66,7 @@ const shopFeature = defineFeature("anonshop", (r) => {
       const rows = await selectMany(ctx.db, productTable);
       return rows;
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   // Anonymous can place a guest order.

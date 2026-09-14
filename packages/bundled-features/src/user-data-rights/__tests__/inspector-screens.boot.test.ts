@@ -94,7 +94,9 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
     expect(screen?.type).toBe("projectionDetail");
     if (screen?.type === "projectionDetail") {
       expect(screen.query).toBe("user:query:user:me");
-      expect(screen.access).toEqual({ openToAll: true });
+      expect(screen.access).toEqual({
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      });
     }
   });
 

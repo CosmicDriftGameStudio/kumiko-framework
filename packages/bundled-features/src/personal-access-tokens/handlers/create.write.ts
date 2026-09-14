@@ -57,7 +57,13 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       currentPassword: z.string().min(1),
       mfaCode: z.string().optional(),
     }),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user may mint a personal access token for their own account " +
+          "only, after re-verifying their own password (and MFA code, if enrolled)",
+      },
+    },
     escapeHatch: {
       reason:
         "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, " +

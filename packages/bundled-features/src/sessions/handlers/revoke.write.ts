@@ -28,7 +28,13 @@ export const revokeWrite = defineWriteHandler({
   schema: z.object({
     id: z.uuid(),
   }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user revokes only their own session by id; the update is " +
+        "scoped to the caller's own userId",
+    },
+  },
   description:
     "Irreversibly signs one of the caller's own sessions out by id; use it when a user wants to drop a single device, and note that revoking their current session logs them out.",
   agent: { risk: "high" },

@@ -50,7 +50,7 @@ function stubListHandler(r: any, entityName: string): void {
     name: `${entityName}:list`,
     schema: z.object({}),
     handler: async () => ({ rows: [], nextCursor: null }) as never,
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 }
 

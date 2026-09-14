@@ -5,7 +5,14 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { helpdeskTranslations } from "./i18n";
 import { ticketEditScreen, ticketEntity, ticketListScreen } from "./schema";
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "demo app: any signed-in user manages every helpdesk ticket; there is no per-user ownership in this sample",
+    },
+  },
+} as const;
 
 // r.translations() wants key-first shape ({key: {de, en}}); helpdeskTranslations
 // is locale-first (client TranslationsByLocale shape) — invert here (bracket

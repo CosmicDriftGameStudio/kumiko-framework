@@ -70,7 +70,13 @@ const createSchema = z.object({
 export const shareLinkCreateWrite = defineWriteHandler({
   name: "share-link:create",
   schema: createSchema,
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may create a share link for their own tenant; the link " +
+        "itself is only reachable via its unguessable token",
+    },
+  },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   handler: async (event, ctx) => {
     const { plain, hash } = await mintToken();
@@ -102,7 +108,14 @@ export const shareLinkCreateWrite = defineWriteHandler({
 export const shareLinkRevokeWrite = defineWriteHandler({
   name: "share-link:revoke",
   schema: z.object({ id: z.uuid() }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may attempt to revoke a share link, but only the link's " +
+        "own creator succeeds; the handler checks ownerId against the caller and " +
+        "returns not-found otherwise",
+    },
+  },
   handler: async (event, ctx) => {
     const rows = await ctx.db.selectMany(
       table,

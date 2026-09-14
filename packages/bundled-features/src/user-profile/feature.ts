@@ -77,7 +77,14 @@ export function createUserProfileFeature(): FeatureDefinition {
       type: "projectionDetail",
       query: UserProfileQueries.me,
       singleton: true,
-      access: { openToAll: true },
+      access: {
+        openToAll: {
+          reason:
+            "each signed-in user manages only their own profile: change-email/password " +
+            "re-authenticate the caller, and deletion request/cancel act on the caller's " +
+            "own userId; no app role name is portable enough to gate this",
+        },
+      },
       description:
         "Self-service account page: change password, change email (with re-auth and " +
         "a verification-mail follow-up), and request or cancel account deletion " +

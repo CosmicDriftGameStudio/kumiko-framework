@@ -4,12 +4,13 @@ import type {
   AccessRule,
   AgentHandlerHints,
   AgentRisk,
+  EscapeHatchDeclaration,
   RateLimitOption,
 } from "../../types/handlers";
 import type { QueryHandlerPattern, StreamHandlerPattern, WriteHandlerPattern } from "../patterns";
 import type { SourceLocation } from "../source-location";
 import { sourceLocationFromNode } from "../source-location";
-import { readOptionalAccessRule, readOptionalRateLimit } from "./hooks";
+import { readOptionalAccessRule, readOptionalEscapeHatch, readOptionalRateLimit } from "./hooks";
 import {
   type ExtractOutput,
   fail,
@@ -32,6 +33,7 @@ export type ParsedHandlerCall = {
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 const AGENT_RISK_VALUES: readonly AgentRisk[] = ["low", "mid", "high"];
@@ -85,18 +87,20 @@ function readDescriptionAndAgent(
  */
 function readOptionsFields(
   options: unknown,
-): Pick<ParsedHandlerCall, "access" | "rateLimit" | "description" | "agent"> {
+): Pick<ParsedHandlerCall, "access" | "rateLimit" | "description" | "agent" | "escapeHatch"> {
   if (!isPlainObject(options)) return {};
   const access = readOptionalAccessRule(options["access"]);
   const rateLimit = readOptionalRateLimit(options["rateLimit"]);
   const description =
     typeof options["description"] === "string" ? options["description"] : undefined;
   const agent = readOptionalAgentHints(options["agent"]);
+  const escapeHatch = readOptionalEscapeHatch(options["escapeHatch"]);
   return {
     ...(access !== undefined && { access }),
     ...(description !== undefined && { description }),
     ...(agent !== undefined && { agent }),
     ...(rateLimit !== undefined && { rateLimit }),
+    ...(escapeHatch !== undefined && { escapeHatch }),
   };
 }
 
@@ -188,6 +192,13 @@ export function parseHandlerCall(
       : undefined;
     const { description, agent } = readDescriptionAndAgent(obj);
     const skip = readBooleanProperty(obj, "unsafeSkipTransitionGuard");
+    const escapeHatchInit = obj
+      .getProperty("escapeHatch")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    const escapeHatch = escapeHatchInit
+      ? readOptionalEscapeHatch(readDataLiteralNode(escapeHatchInit))
+      : undefined;
     return ok({
       source: sourceLocationFromNode(call, sourceFile),
       handlerName: nameLiteral.getLiteralValue(),
@@ -198,6 +209,7 @@ export function parseHandlerCall(
       ...(agent !== undefined && { agent }),
       ...(rateLimit !== undefined && { rateLimit }),
       ...(skip === true && { unsafeSkipTransitionGuard: true }),
+      ...(escapeHatch !== undefined && { escapeHatch }),
     });
   }
 
@@ -271,6 +283,7 @@ export function extractWriteHandler(
     ...(parsed.pattern.agent !== undefined && { agent: parsed.pattern.agent }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
     ...(parsed.pattern.unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
+    ...(parsed.pattern.escapeHatch !== undefined && { escapeHatch: parsed.pattern.escapeHatch }),
   });
 }
 
@@ -296,6 +309,7 @@ export function extractQueryHandler(
     ...readHandlerFields(parsed),
     ...(parsed.pattern.description !== undefined && { description: parsed.pattern.description }),
     ...(parsed.pattern.agent !== undefined && { agent: parsed.pattern.agent }),
+    ...(parsed.pattern.escapeHatch !== undefined && { escapeHatch: parsed.pattern.escapeHatch }),
   });
 }
 

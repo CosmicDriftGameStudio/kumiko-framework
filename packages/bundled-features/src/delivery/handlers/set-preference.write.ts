@@ -11,7 +11,13 @@ export const setPreferenceWrite = defineWriteHandler({
     enabled: z.boolean(),
   }),
   // Every user manages their own preferences; tenant+user scoping is on the WHERE.
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user changes only their own notification preferences; the " +
+        "write is scoped to the caller's own tenantId and userId via assertTenantMatch",
+    },
+  },
   description:
     "Enables or disables one notification type and channel combination for the calling user, where either side may be the wildcard * as a catch-all; use it when a user changes their own notification settings.",
   handler: async (event, ctx) => {

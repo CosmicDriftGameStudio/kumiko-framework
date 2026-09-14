@@ -13,7 +13,7 @@ const propertyEntity = createEntity({
 const propertyFeature = defineFeature("crud-verb-access", (r) => {
   r.crud("property", propertyEntity, {
     write: { access: { roles: ["User"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     verbAccess: {
       delete: { roles: ["Admin"] },
       restore: { roles: ["Admin"] },

@@ -131,14 +131,14 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
       name: "task:list",
       schemaSource: "z.object({})",
       handlerSource: "async (q, ctx) => []",
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     const result = parseSourceFile(sf);
     const pattern = result.patterns[0];
     expect(pattern).toMatchObject({
       kind: "queryHandler",
       handlerName: "task:list",
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
   });
 
@@ -441,7 +441,7 @@ defineFeature("tasks", (r) => {
       name: "task:list",
       schemaSource: "z.object({})",
       handlerSource: "async (q, ctx) => []",
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     p.addStreamHandler({
       name: "task:stream",

@@ -21,7 +21,12 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   fields: {},
   layout: { sections: [] },
   submitLabel: i18nKey("mfa.enable.start"),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user may enroll their own account in MFA, mirroring the enable-start handler",
+    },
+  },
   description:
     "Self-service screen where a signed-in user enrolls in TOTP two-factor authentication: it shows the QR code and manual secret, reveals the recovery codes once, and confirms enrollment with a code from their authenticator app.",
   reveal: {
@@ -73,7 +78,11 @@ export const mfaDisableScreen: ActionFormScreenDefinition = {
   submitLabel: i18nKey("mfa.disable.submit"),
   submitStyle: "danger",
   cancelTarget: false,
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason: "each signed-in user may turn off their own MFA, mirroring the disable handler",
+    },
+  },
   description:
     "Self-service screen where a signed-in user turns two-factor authentication off by entering a code from their authenticator app or a recovery code; their other sessions and access tokens are signed out.",
 };
@@ -86,7 +95,12 @@ export const mfaRegenerateRecoveryScreen: SecretMintScreenDefinition = {
   layout: { sections: [{ fields: ["code"] }] },
   submitLabel: i18nKey("mfa.regenerate.submit"),
   cancelTarget: false,
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user may regenerate their own recovery codes, mirroring the regenerate-recovery handler",
+    },
+  },
   description:
     "Self-service screen where a signed-in user with two-factor authentication replaces all recovery codes after confirming with a current code; the new codes are shown once.",
   reveal: {

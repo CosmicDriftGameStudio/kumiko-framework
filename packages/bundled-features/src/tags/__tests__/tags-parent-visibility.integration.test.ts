@@ -93,7 +93,12 @@ let tagId: string;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createTagsFeature({ access: { openToAll: true } }), hostFixturesFeature],
+    features: [
+      createTagsFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+      hostFixturesFeature,
+    ],
   });
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);

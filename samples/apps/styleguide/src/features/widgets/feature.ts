@@ -137,19 +137,43 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       deltaDirection: "up",
       deltaTone: "positive",
     }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:net-worth-assets",
     z.object({ region: z.string().optional() }),
     async () => ({ value: "120.000 €" }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:net-worth-debts",
     z.object({ region: z.string().optional() }),
     async () => ({ value: "65.370 €" }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:response-times",
@@ -159,7 +183,15 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       windowStartMs: 0,
       windowEndMs: 24 * 60 * 60 * 1000,
     }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:latest-items",
@@ -171,7 +203,15 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       ],
       nextCursor: null,
     }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:inbox-messages",
@@ -196,7 +236,15 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       const nextCursor = start + pageSize < filtered.length ? String(start + pageSize) : null;
       return { rows, nextCursor };
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:upcoming-events",
@@ -207,7 +255,15 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         { primary: "Bausparvertrag zuteilungsreif", trailing: "Okt 2026" },
       ],
     }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
   r.queryHandler(
     "metrics:goal-progress",
@@ -218,7 +274,15 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         { label: "Autokredit", value: "3.200 € offen", fraction: 0.92 },
       ],
     }),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
   );
 
   r.translations({ keys: WIDGETS_I18N });

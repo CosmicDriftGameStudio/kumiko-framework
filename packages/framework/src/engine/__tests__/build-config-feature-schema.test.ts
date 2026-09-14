@@ -8,6 +8,7 @@ import {
 } from "../config-helpers";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
+import { isOpenToAllGranted } from "../types/handlers";
 import type { NavDefinition } from "../types/nav";
 import type { ConfigEditScreenDefinition, ScreenDefinition } from "../types/screen";
 
@@ -265,7 +266,15 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
       roles: ["TenantAdmin", "Admin", "SystemAdmin"],
     });
     // digest is createUserConfig → write access.all (["all"]) → openToAll
-    expect(configScreen("notify-user").access).toEqual({ openToAll: true });
+    const notifyUserAccess = configScreen("notify-user").access;
+    expect(notifyUserAccess).toEqual({
+      openToAll: {
+        reason:
+          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
+      },
+    });
+    // The synthesized reason must actually grant access, not just look configured.
+    expect(notifyUserAccess !== undefined && isOpenToAllGranted(notifyUserAccess)).toBe(true);
   });
 
   test("a screen mixing an openToAll key with role-restricted keys collapses to openToAll", () => {
@@ -283,8 +292,18 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
     const screen = out.screens.find((s) => s.id === "mixedwrite-tenant");
     if (screen?.type !== "configEdit")
       throw new Error('expected configEdit screen "mixedwrite-tenant"');
-    expect(screen.access).toEqual({ openToAll: true });
-    expect(out.navs.find((n) => n.id === "audience-tenant")?.access).toEqual({ openToAll: true });
+    expect(screen.access).toEqual({
+      openToAll: {
+        reason:
+          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
+      },
+    });
+    expect(out.navs.find((n) => n.id === "audience-tenant")?.access).toEqual({
+      openToAll: {
+        reason:
+          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
+      },
+    });
   });
 
   test("openToAll collapse holds regardless of key declaration order (516/2)", () => {
@@ -305,7 +324,12 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
     const screen = out.screens.find((s) => s.id === "mixedwritereversed-tenant");
     if (screen?.type !== "configEdit")
       throw new Error('expected configEdit screen "mixedwritereversed-tenant"');
-    expect(screen.access).toEqual({ openToAll: true });
+    expect(screen.access).toEqual({
+      openToAll: {
+        reason:
+          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
+      },
+    });
   });
 
   test("returns empty (no workspace) when no key opts into the hub via mask", () => {
@@ -343,7 +367,12 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
   test("workspace access is the union of write roles across all hub keys", () => {
     // billing/notify tenant keys → admin write; notify-user digest → write all.
     // Any `all`-writable key collapses the whole switcher entry to openToAll.
-    expect(schema.workspace?.definition.access).toEqual({ openToAll: true });
+    expect(schema.workspace?.definition.access).toEqual({
+      openToAll: {
+        reason:
+          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
+      },
+    });
   });
 
   test("workspace access stays role-gated when no hub key is world-writable", () => {

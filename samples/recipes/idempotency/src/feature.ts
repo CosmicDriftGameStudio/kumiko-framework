@@ -39,6 +39,13 @@ export const orderFeature = defineFeature("orders", (r) => {
     "order:list",
     z.object({ limit: z.number().optional() }),
     async (query, ctx) => orderExecutor.list(query.payload, query.user, ctx.db),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "any signed-in user may list orders in this recipe; placing an order still requires a role above",
+        },
+      },
+    },
   );
 });

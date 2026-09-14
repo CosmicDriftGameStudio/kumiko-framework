@@ -344,7 +344,14 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       type: "projectionDetail",
       query: USER_ME_QUERY,
       singleton: true,
-      access: { openToAll: true },
+      access: {
+        openToAll: {
+          reason:
+            "each signed-in user manages GDPR self-service actions (export, restriction, " +
+            "deletion) for only their own account; the bound query and every action handler " +
+            "operate on the caller's own userId, and no app role name is portable enough to gate this",
+        },
+      },
       description:
         "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
       fieldLabels: {

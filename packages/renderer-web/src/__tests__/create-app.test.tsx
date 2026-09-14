@@ -183,7 +183,12 @@ describe("createKumikoApp", () => {
     const openFeature: FeatureSchema = {
       featureName: "tasks",
       entities: { task: taskEntity },
-      screens: [{ ...listScreen, access: { openToAll: true } }],
+      screens: [
+        {
+          ...listScreen,
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        },
+      ],
       navs: [{ id: "task-list", label: "tasks:nav.task-list", screen: "tasks:screen:task-list" }],
     };
     const schema: AppSchema = { features: [restrictedFeature, openFeature] };
@@ -282,7 +287,7 @@ describe("createKumikoApp", () => {
           id: "privacy-center",
           type: "custom",
           renderer: { react: { __component: "PrivacyCenterScreen" } },
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           dormant: true,
         },
       ],

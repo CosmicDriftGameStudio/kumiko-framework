@@ -4,7 +4,14 @@ import { editScreen, listScreen, taskEntity } from "./schema";
 
 export { taskEntity };
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "demo app: any signed-in user manages every task; there is no per-user ownership in this sample",
+    },
+  },
+} as const;
 
 // r.translations() wants key-first shape ({key: {de, en}}); tasksTranslations
 // is locale-first (client TranslationsByLocale shape) — invert here (bracket

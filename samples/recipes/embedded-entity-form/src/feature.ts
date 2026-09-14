@@ -25,7 +25,15 @@ export { prospectEntity } from "./entities/prospect";
 export { suggestionEntity } from "./entities/suggestion";
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
-const openRead = { access: { openToAll: true } } as const;
+const openRead = {
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may read suggestions and prospects in this recipe; writes " +
+        "are still gated by adminWrite",
+    },
+  },
+} as const;
 
 const acceptChangesSchema = z.object({
   name: z.string().min(1).optional(),

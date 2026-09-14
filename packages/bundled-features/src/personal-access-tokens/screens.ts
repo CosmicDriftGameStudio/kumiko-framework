@@ -47,7 +47,12 @@ export const patListScreen: ProjectionListScreenDefinition = {
       style: "primary",
     },
   ],
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user views only their own personal access tokens, mirroring the list handler",
+    },
+  },
 };
 
 // Grant-string vocabulary for a scope config's multiSelect field — a
@@ -102,6 +107,11 @@ export function createPatMintScreen(scopes: PatScopeConfig): SecretMintScreenDef
     },
     redirect: PAT_SCREEN_ID,
     cancelTarget: PAT_SCREEN_ID,
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user mints a token for their own account only, mirroring the create handler",
+      },
+    },
   };
 }

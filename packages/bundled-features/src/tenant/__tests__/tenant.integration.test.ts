@@ -401,7 +401,7 @@ describe("scenario 7: access rules on handlers", () => {
       "SystemAdmin",
     ]);
     expect(stack.registry.getQueryHandler(TenantQueries.me)?.access).toEqual({
-      openToAll: true,
+      openToAll: { reason: "test handler callable by any signed-in test user" },
     });
   });
 });

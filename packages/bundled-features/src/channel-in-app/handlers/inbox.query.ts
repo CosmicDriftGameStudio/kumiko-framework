@@ -9,7 +9,13 @@ export const inboxQuery = defineQueryHandler({
     limit: z.number().min(1).max(100).default(50),
     unreadOnly: z.boolean().default(false),
   }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user reads only their own in-app inbox; the query filters " +
+        "inAppMessagesTable by the caller's own id",
+    },
+  },
   description:
     "Lists the calling user's own in-app notification messages newest-first, optionally only the unread ones; use it to show or inspect a user's notification inbox.",
   handler: async (query, ctx) => {
