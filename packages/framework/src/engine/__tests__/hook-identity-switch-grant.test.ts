@@ -1,8 +1,12 @@
 import { describe, expect, mock, test } from "bun:test";
-import { AccessDeniedError } from "../../errors";
-import { createGatedIdentitySwitch, type QueryAsFn } from "../../pipeline/system-identity-switch";
+import { AccessDeniedError, FrameworkReasons } from "../../errors";
+import {
+  createGatedIdentitySwitch,
+  type QueryAsFn,
+  type ResolveActiveMembershipFn,
+} from "../../pipeline/system-identity-switch";
 import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index";
-import type { AppContext, PostSaveHookFn, SaveContext } from "../types";
+import type { ActiveMembershipResult, AppContext, PostSaveHookFn, SaveContext } from "../types";
 import type { TenantId } from "../types/identifiers";
 
 // fw#2859: r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.
@@ -101,5 +105,82 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
         });
       });
     }).toThrow(/non-empty string/);
+  });
+
+  test("entity-wide hook WITHOUT escapeHatch does not inherit the handler's resolveActiveMembership grant", async () => {
+    const activeResult: ActiveMembershipResult = {
+      kind: "active",
+      membership: { tenantId: TENANT, roles: [] },
+    };
+    const ungatedResolveActiveMembership = mock(async () => activeResult);
+    const handlerCtx = {
+      ...createGatedIdentitySwitch('handler "test:write:thing:create"', true, {
+        queryAs: mock(async () => "ok") as QueryAsFn,
+        writeAs: async () => ({ isSuccess: true as const, data: null }),
+      }),
+      resolveActiveMembership: ungatedResolveActiveMembership as ResolveActiveMembershipFn,
+    };
+
+    let caught: unknown;
+    const feature = defineFeature("test", (r) => {
+      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const hookFn: PostSaveHookFn = async (_result, ctx) => {
+        const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
+        try {
+          await asContext.resolveActiveMembership("user-1", TENANT);
+        } catch (err) {
+          caught = err;
+        }
+      };
+      r.hook("postSave", { allOf: thing }, hookFn);
+    });
+
+    const registry = createRegistry([feature]);
+    const hooks = registry.getEntityPostSaveHooks("thing");
+    expect(hooks).toHaveLength(1);
+
+    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+
+    expect(caught).toBeInstanceOf(AccessDeniedError);
+    expect((caught as AccessDeniedError).details).toEqual({
+      reason: FrameworkReasons.systemIdentitySwitchDenied,
+    });
+    expect(ungatedResolveActiveMembership).not.toHaveBeenCalled();
+  });
+
+  test("entity-wide hook WITH escapeHatch reaches the original resolveActiveMembership even when the handler's own grant was false", async () => {
+    const activeResult: ActiveMembershipResult = {
+      kind: "active",
+      membership: { tenantId: TENANT, roles: ["User"] },
+    };
+    const ungatedResolveActiveMembership = mock(async () => activeResult);
+    const handlerCtx = {
+      ...createGatedIdentitySwitch('handler "test:write:thing:create"', false, {
+        queryAs: mock(async () => "ok") as QueryAsFn,
+        writeAs: async () => ({ isSuccess: true as const, data: null }),
+      }),
+      resolveActiveMembership: ungatedResolveActiveMembership as ResolveActiveMembershipFn,
+    };
+
+    let resolveResult: unknown;
+    const feature = defineFeature("test", (r) => {
+      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const hookFn: PostSaveHookFn = async (_result, ctx) => {
+        const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
+        resolveResult = await asContext.resolveActiveMembership("user-1", TENANT);
+      };
+      r.hook("postSave", { allOf: thing }, hookFn, {
+        escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
+      });
+    });
+
+    const registry = createRegistry([feature]);
+    const hooks = registry.getEntityPostSaveHooks("thing");
+    expect(hooks).toHaveLength(1);
+
+    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+
+    expect(resolveResult).toEqual(activeResult);
+    expect(ungatedResolveActiveMembership).toHaveBeenCalledWith("user-1", TENANT);
   });
 });

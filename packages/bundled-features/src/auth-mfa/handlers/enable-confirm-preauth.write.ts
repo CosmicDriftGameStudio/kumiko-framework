@@ -66,8 +66,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
     access: { roles: ["all"] },
     escapeHatch: {
       reason:
-        "Pre-auth MFA enrollment step has no session yet — re-checks status and membership via " +
-        "ctx.queryAs(SYSTEM, user:findForAuth / tenant:query:memberships) for the setup token's user.",
+        "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.queryAs(SYSTEM, " +
+        "user:findForAuth) and membership via ctx.resolveActiveMembership for the setup token's user.",
     },
     description:
       "Completes the enrollment that unblocks a sign-in forced into two-factor setup: verifies the code against the pre-auth setup token, stores the factor and derives the session the blocked login never got.",
@@ -165,11 +165,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
 
       const globalRoles = parseRoles(userRow?.roles ?? null);
 
-      const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
-        userId,
-      })) as ReadonlyArray<{ tenantId: string; roles: readonly string[] }>; // @cast-boundary engine-payload
-      const membership = memberships.find((m) => m.tenantId === tenantId);
-      if (!membership) return invalidSetupToken();
+      const active = await ctx.resolveActiveMembership(userId, tenantId);
+      if (active.kind === "rejected") return invalidSetupToken();
 
       const result = await executor.create(
         {
@@ -195,7 +192,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // roles from the membership portion (globalRoles keeps SystemAdmin) —
       // read-time backstop against a rebuild-resurrected role, same as
       // verify.write.ts.
-      const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
+      const mergedRoles = buildSessionRoles(globalRoles, active.membership.roles);
 
       const baseSession: SessionUser = {
         id: userId,

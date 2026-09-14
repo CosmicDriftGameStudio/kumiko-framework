@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
-import { EXT_FILE_PROVIDER } from "../engine/extension-names";
+import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names";
 import { runsInLane } from "../engine/run-in";
 import { createAnonymousUser } from "../engine/system-user";
 import {
@@ -443,6 +443,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...options.dispatcherOptions,
     lifecycle,
     sseBroker,
+    ...(options.auth ? { membershipQuery: options.auth.membershipQuery } : {}),
   });
 
   // Async event-dispatcher — the replacement for the old transactional
@@ -756,6 +757,18 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Public auth routes (login) need to be registered BEFORE the generic
   // api routes so Hono matches them first.
   if (options.auth) {
+    // A membershipQuery handler is registered but nothing fulfils
+    // principalStatus — surface that misconfig at boot instead of an InternalError on first login/switch-tenant.
+    if (
+      options.registry.getQueryHandler(options.auth.membershipQuery) &&
+      options.registry.getExtensionUsages(EXT_PRINCIPAL_STATUS).length === 0
+    ) {
+      throw new Error(
+        `[kumiko] auth membershipQuery "${options.auth.membershipQuery}" is registered but no feature ` +
+          'provides the "principalStatus" contract — mount the user feature (tenant switch and sign-in ' +
+          "need it to reject blocked principals).",
+      );
+    }
     app.route("/api", createAuthRoutes(dispatcher, jwt, options.auth));
   }
   app.route(

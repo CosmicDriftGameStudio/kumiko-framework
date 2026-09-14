@@ -2502,7 +2502,12 @@
       "usesApis": [
         "compliance.forTenant"
       ],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantLifecycleStatus",
+          "entityName": "tenant-lifecycle"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
@@ -2627,7 +2632,12 @@
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "principalStatus",
+          "entityName": "user"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [

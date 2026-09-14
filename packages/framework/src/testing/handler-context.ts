@@ -57,6 +57,7 @@ export function bridgeStub(opts?: {
   | "loadAggregateWithSnapshot"
   | "queryProjection"
   | "resolveAuthClaims"
+  | "resolveActiveMembership"
   | "hasFeature"
   | "metrics"
   | "metricsFor"
@@ -118,6 +119,9 @@ export function bridgeStub(opts?: {
     resolveAuthClaims: notAvailable(
       "resolveAuthClaims",
     ) as unknown as HandlerContext["resolveAuthClaims"],
+    resolveActiveMembership: notAvailable(
+      "resolveActiveMembership",
+    ) as unknown as HandlerContext["resolveActiveMembership"],
     // Stub defaults to always-enabled — matches the dispatcher's behaviour
     // when no effectiveFeatures resolver is wired (tests without toggles).
     hasFeature: async () => true,
