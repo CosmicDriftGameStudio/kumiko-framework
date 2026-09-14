@@ -72,8 +72,8 @@ async function resolveMember(
   return Object.keys(claims).length > 0 ? { ...base, claims } : base;
 }
 
-// One reader per context instance (handler invocation / hook invocation /
-// job run) — a nested dispatch builds its own reader with its own cache.
+// One reader per handler invocation (shared with its hooks) or job run; a
+// nested dispatch builds its own reader with its own cache.
 export function createMemberReaderFn(
   ctx: DispatchContext,
   tenantId: TenantId,
