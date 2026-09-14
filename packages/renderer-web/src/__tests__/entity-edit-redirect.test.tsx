@@ -58,7 +58,7 @@ function buildParentRedirectSchema(): FeatureSchema {
     id: "product-edit",
     type: "entityEdit",
     entity: "product",
-    layout: { sections: [{ fields: ["name"] }] },
+    layout: { sections: [{ fields: ["name", "parentId"] }] },
     redirect: { screen: "parent-detail", idFrom: "parentId" },
   };
   const parentDetailScreen: ScreenDefinition = {
@@ -462,6 +462,74 @@ describe("entityEdit redirect (#1942)", () => {
 
     await waitFor(() =>
       expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "parent-1" }]),
+    );
+  });
+
+  // Create's write-handler success payload nests the new record under `data`
+  // (`{ kind, id, data, … }`) rather than exposing fields like a parent FK
+  // flatly — the object-form redirect falls back to the values submitted to
+  // the write handler, matching entityEdit's update-path fallback.
+  test("create: redirect object form with idFrom falls back to the submitted form values when the write payload lacks the field", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { kind: "created", id: "new-1", data: { id: "new-1", parentId: "parent-1" } },
+      })) as unknown as Dispatcher["write"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: { parentId: "parent-1" },
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen schema={buildParentRedirectSchema()} qn="shop:screen:product-edit" />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "parent-1" }]),
+    );
+  });
+
+  test("create: redirect object form with idFrom prefers the write handler's payload over the submitted form values", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "new-1", parentId: "payload-parent" },
+      })) as unknown as Dispatcher["write"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: { parentId: "form-parent" },
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen schema={buildParentRedirectSchema()} qn="shop:screen:product-edit" />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "payload-parent" }]),
     );
   });
 });

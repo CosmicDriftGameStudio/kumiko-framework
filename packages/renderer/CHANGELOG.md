@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.262.0
+
+### Patch Changes
+
+- 352d623: An `entityEdit` create screen's object-form `redirect` now falls back to the values submitted to the write handler when resolving `idFrom`, matching the update path's fallback to the loaded record. Previously a create's success payload nests the new record under `data` rather than exposing a parent FK flatly, so redirecting to a parent detail screen after creating a child record navigated there without an id.
+- Updated dependencies [6fbede9]
+  - @cosmicdrift/kumiko-framework@0.262.0
+  - @cosmicdrift/kumiko-headless@0.262.0
+
+## 0.261.0
+
+### Patch Changes
+
+- Updated dependencies [5139a3f]
+  - @cosmicdrift/kumiko-framework@0.261.0
+  - @cosmicdrift/kumiko-headless@0.261.0
+
 ## 0.260.0
 
 ### Minor Changes

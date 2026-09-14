@@ -38,7 +38,7 @@ const EXPECTED_HELD_BACK = new Set([
   "files-provider-s3", // utility (createS3Provider helpers), kein defineFeature
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
-  "presets", // feature-bundle helpers (dsgvoSelfServiceFeatures), kein defineFeature
+  "presets", // feature-bundle helpers (dsgvoSelfServiceFeatures, securityBaselineFeatures), kein defineFeature
   "auth-foundation", // scaffold-only (#1368): bootCheck wirft ohne gemountete auth-provider-*, die es noch nicht gibt
 ]);
 
