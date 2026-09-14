@@ -1,0 +1,10 @@
+{
+  "kind": "framework",
+  "sourceRoots": ["packages/*/src"],
+  "testGlobs": ["packages/*/src/**/*.{test,integration}.{ts,tsx}"],
+  "uiRoots": [
+    "packages/bundled-features/src/**/web",
+    "samples/apps/*/src/**/web"
+  ],
+  "excludes": ["**/node_modules/**", "**/dist/**"]
+}
