@@ -48,6 +48,7 @@ export function Widgets(): ReactNode {
   const locale = useLocale().locale();
   const [mode, setMode] = useState<"annuity" | "fixed">("annuity");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [belowHeaderDrawerOpen, setBelowHeaderDrawerOpen] = useState(false);
   const { Button } = usePrimitives();
 
   const uptime = useMemo(
@@ -202,6 +203,41 @@ export function Widgets(): ReactNode {
         testId="drawer-demo"
       >
         <p className="text-sm">Hi team, just a reminder about our meeting tomorrow at 10 AM.</p>
+      </Drawer>
+
+      <SectionCard
+        title="Drawer (below header)"
+        action={<Button onClick={() => setBelowHeaderDrawerOpen(true)}>Open below header</Button>}
+      >
+        <DetailList
+          rows={[
+            {
+              label: t("widgets:catalog:status"),
+              value: belowHeaderDrawerOpen
+                ? t("widgets:catalog:open-status")
+                : t("widgets:catalog:closed-status"),
+            },
+          ]}
+        />
+      </SectionCard>
+      <Drawer
+        open={belowHeaderDrawerOpen}
+        onOpenChange={setBelowHeaderDrawerOpen}
+        variant="flush"
+        belowHeader
+        title="Docked below the header"
+        footer={
+          <Button onClick={() => setBelowHeaderDrawerOpen(false)}>
+            {t("widgets:catalog:cancel")}
+          </Button>
+        }
+        showCloseButton={false}
+        testId="drawer-below-header-demo"
+      >
+        <p className="text-sm">
+          Panel top sits at the header's bottom edge, panel bottom sits at the viewport's bottom
+          edge — this footer button must stay visible.
+        </p>
       </Drawer>
 
       <InboxDemo />

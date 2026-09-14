@@ -37,6 +37,26 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await drawer.getByRole("button", { name: "Cancel" }).click();
   await expect(drawer).toBeHidden();
 
+  // Drawer belowHeader (fw drawer-below-header-height): the flush panel's
+  // top must sit at the ShellHeader's bottom edge and its bottom edge must
+  // stay within the viewport, so the footer button is visible — not the
+  // pre-fix `h-full` layout, which pushed the bottom edge past the viewport.
+  await page.getByRole("button", { name: "Open below header" }).click();
+  const belowHeaderDrawer = page.getByTestId("drawer-below-header-demo");
+  await expect(belowHeaderDrawer).toBeVisible();
+  const header = page.locator('[data-kumiko-layout="shell-header"]');
+  const headerBox = await header.boundingBox();
+  const panelBox = await belowHeaderDrawer.boundingBox();
+  const viewport = page.viewportSize();
+  if (headerBox === null || panelBox === null || viewport === null) {
+    throw new Error("expected header, panel and viewport to have a bounding box");
+  }
+  expect(Math.abs(panelBox.y - (headerBox.y + headerBox.height))).toBeLessThan(2);
+  expect(Math.abs(panelBox.y + panelBox.height - viewport.height)).toBeLessThan(2);
+  await expect(belowHeaderDrawer.getByRole("button", { name: "Cancel" })).toBeInViewport();
+  await belowHeaderDrawer.getByRole("button", { name: "Cancel" }).click();
+  await expect(belowHeaderDrawer).toBeHidden();
+
   // InfinityList: first page loads, unread filter refetches to a subset.
   const inbox = page.getByTestId("inbox-demo");
   await expect(inbox.getByText("William Smith · Meeting Tomorrow").first()).toBeVisible();
