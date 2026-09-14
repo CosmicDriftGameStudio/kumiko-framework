@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.269.0",
+    "type": "improvement",
+    "title": "escapeHatch is now also accepted on stream handlers, gating a SYSTEM identity switch via ctx.queryAs the same way it does for write/query handlers.",
+    "detail": "StreamHandlerDef/StreamHandlerDefinition and the r.streamHandler options param accept escapeHatch: { reason }, same contract as WriteHandlerDef/QueryHandlerDef: a stream handler that switches identity to SYSTEM via ctx.queryAs now needs its own escapeHatch declaration (or its feature must be r.systemScope()), same as ctx.writeAs/queryAs already require for write and query handlers. Stream handlers still cannot reach db.global() (globalWrites stays write-only) but do get the same SYSTEM-identity-switch and ctx.db.unsafeRaw(reason) grant a query-handler escapeHatch already unlocks. The boot validator rejects an empty reason on a stream handler's escapeHatch the same way it does for write/query handlers."
+  },
+  {
     "version": "0.267.0",
     "type": "breaking",
     "title": "ctx.db.unsafeRaw(reason) gated by escapeHatch, tenancy: \"global\" invariants, bundled features migrated off ctx.db.raw (fw#2858).",

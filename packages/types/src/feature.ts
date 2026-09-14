@@ -488,7 +488,11 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     name: string,
     schema: TSchema,
     handler: StreamHandlerFn<z.infer<TSchema>>,
-    options: { access: AccessRule; rateLimit?: RateLimitOption },
+    options: {
+      access: AccessRule;
+      rateLimit?: RateLimitOption;
+      escapeHatch?: EscapeHatchDeclaration;
+    },
   ): HandlerRef;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;

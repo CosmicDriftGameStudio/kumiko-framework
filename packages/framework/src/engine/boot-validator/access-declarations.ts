@@ -4,6 +4,7 @@ import type {
   OwnershipMap,
   OwnershipRule,
   QueryHandlerDef,
+  StreamHandlerDef,
   WriteHandlerDef,
 } from "../types";
 import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
@@ -133,7 +134,10 @@ function validateEscapeHatchReason(
   feature: FeatureDefinition,
   kind: HandlerKind,
   handlerName: string,
-  escapeHatch: WriteHandlerDef["escapeHatch"] | QueryHandlerDef["escapeHatch"],
+  escapeHatch:
+    | WriteHandlerDef["escapeHatch"]
+    | QueryHandlerDef["escapeHatch"]
+    | StreamHandlerDef["escapeHatch"],
 ): void {
   // skip: no escapeHatch declared, or its reason is already non-empty
   if (!escapeHatch || escapeHatch.reason.trim().length > 0) return;
@@ -212,6 +216,7 @@ export function validateAccessDeclarations(feature: FeatureDefinition): void {
   }
   for (const [handlerName, handler] of Object.entries(feature.streamHandlers)) {
     validateOpenToAllReason(feature, "stream", handlerName, handler.access);
+    validateEscapeHatchReason(feature, "stream", handlerName, handler.escapeHatch);
     validatePersonalDataOnlyOnWrite(feature, "stream", handlerName, handler.access);
   }
 }
