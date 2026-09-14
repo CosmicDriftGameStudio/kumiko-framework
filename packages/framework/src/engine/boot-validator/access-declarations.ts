@@ -1,4 +1,11 @@
-import type { AccessRule, FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types";
+import type {
+  AccessRule,
+  FeatureDefinition,
+  OwnershipMap,
+  OwnershipRule,
+  QueryHandlerDef,
+  WriteHandlerDef,
+} from "../types";
 import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
 import { collectZodObjectKeys } from "./zod-shape";
 
@@ -12,27 +19,55 @@ function isPersonalDataField(field: unknown): boolean {
   return Boolean(annot.pii || annot.userOwned || annot.recordOwned);
 }
 
-function personalFieldNames(entity: EntityDefinition): ReadonlySet<string> {
+function isCallerIdRuleOn(rule: OwnershipRule, column: string): boolean {
+  if (rule === "all" || rule.kind !== "from") return false;
+  return rule.refKind === "user" && rule.refPath === "id" && rule.column === column;
+}
+
+// The executor checks access.write against every created/updated row; one "all" role
+// or an empty map (= public) lets a caller write rows owned by someone else.
+function writeMapBindsRowsToCaller(
+  writeMap: OwnershipMap | undefined,
+  ownerColumn: string,
+): boolean {
+  const rules = Object.values(writeMap ?? {});
+  return rules.length > 0 && rules.every((rule) => isCallerIdRuleOn(rule, ownerColumn));
+}
+
+// pii ("self") and recordOwned name no caller-owned column, so they never bind.
+function isOwnerBoundField(field: unknown, entity: EntityDefinition): boolean {
+  const ownerField = (field as ResolvedPiiFlags).userOwned?.ownerField; // @cast-boundary schema-walk — see pii-retention.ts
+  return ownerField !== undefined && writeMapBindsRowsToCaller(entity.access?.write, ownerField);
+}
+
+function personalFieldNames(
+  entity: EntityDefinition,
+  honorOwnerBinding: boolean,
+): ReadonlySet<string> {
   const names = new Set<string>();
   for (const [fieldName, field] of Object.entries(entity.fields)) {
-    if (isPersonalDataField(field)) names.add(fieldName);
+    const exempt = honorOwnerBinding && isOwnerBoundField(field, entity);
+    if (isPersonalDataField(field) && !exempt) names.add(fieldName);
   }
   return names;
 }
 
+// Owner binding counts only for a handler mapped to one entity and without escapeHatch,
+// which can write around the entity's write map via db.global() or a SYSTEM identity.
 function candidatePersonalFieldNames(
   feature: FeatureDefinition,
   handlerName: string,
+  handler: WriteHandlerDef,
 ): ReadonlySet<string> {
   const mappedEntityName = feature.handlerEntityMappings?.[handlerName];
   const entities = feature.entities ?? {};
   if (mappedEntityName) {
     const entity = entities[mappedEntityName];
-    return entity ? personalFieldNames(entity) : new Set();
+    return entity ? personalFieldNames(entity, handler.escapeHatch === undefined) : new Set();
   }
   const names = new Set<string>();
   for (const entity of Object.values(entities)) {
-    for (const name of personalFieldNames(entity)) names.add(name);
+    for (const name of personalFieldNames(entity, false)) names.add(name);
   }
   return names;
 }
@@ -111,7 +146,7 @@ function validateOpenToAllPersonalData(
   // skip: no openToAll declared, or publicIntake already covers personal data
   if (!hasOpenToAll(access) || hasPublicIntake(access)) return;
   const inputKeys = collectZodObjectKeys(handler.schema);
-  const personalNames = candidatePersonalFieldNames(feature, handlerName);
+  const personalNames = candidatePersonalFieldNames(feature, handlerName, handler);
   const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input
   if (offending.length === 0) return;
@@ -119,7 +154,10 @@ function validateOpenToAllPersonalData(
     `[Feature ${feature.name}] write handler "${handlerName}" declares openToAll and ` +
       `accepts personal-data field(s) ${offending.map((f) => `"${f}"`).join(", ")} without ` +
       "{ publicIntake: true }. Restrict access to roles, or declare " +
-      "{ publicIntake: true } if any authenticated user may submit this personal data.",
+      "{ publicIntake: true } if any authenticated user may submit this personal data. " +
+      'A `personal: { of: "<ownerField>" }` field is exempt when every role in the ' +
+      'entity\'s access.write is from("user:id", "<ownerField>") and the handler ' +
+      "declares no escapeHatch.",
   );
 }
 

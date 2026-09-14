@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { defineFeature } from "../../define-feature";
 import { createEntity, createTextField } from "../../factories";
-import { buildUpdateSchema } from "../../schema-builder";
-import type { AccessRule, EntityDefinition, WriteHandlerDef } from "../../types";
+import { from } from "../../ownership";
+import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder";
+import type { AccessRule, EntityDefinition, OwnershipMap, WriteHandlerDef } from "../../types";
 import { validateAccessDeclarations } from "../access-declarations";
 
 const noteEntity = createEntity({
@@ -324,5 +325,111 @@ describe("validateAccessDeclarations — personal-data fields beyond a top-level
       const feature = featureWithWriteHandler(schema, { access: openToAll }, "note:update", credit);
       expect(() => validateAccessDeclarations(feature)).toThrow(/"name"/);
     }
+  });
+});
+
+describe("validateAccessDeclarations — owner-bound personal-data fields", () => {
+  function ownedNoteEntity(write: OwnershipMap | undefined) {
+    return createEntity({
+      table: "fw_access_pii_owned_notes",
+      fields: {
+        name: createTextField({ personal: { of: "ownerUserId" }, find: "none" }),
+        ownerUserId: createTextField({ required: false, personal: "ref" }),
+        assigneeId: createTextField({ required: false, personal: "ref" }),
+      },
+      ...(write && { access: { read: write, write } }),
+    });
+  }
+
+  const ownerBound: OwnershipMap = { Member: from("user:id", "ownerUserId") };
+  const createSchema = z.object({ name: z.string() });
+  const updateSchema = z.object({
+    id: z.string(),
+    version: z.number(),
+    changes: z.object({ name: z.string() }).partial(),
+  });
+
+  test.each([
+    ["create", createSchema],
+    ["update", updateSchema],
+  ])(
+    "%s on an entity whose every write role is bound to the field's owner boots fine",
+    (_l, schema) => {
+      const multiRole: OwnershipMap = { ...ownerBound, Viewer: from("user:id", "ownerUserId") };
+      for (const map of [ownerBound, multiRole]) {
+        const feature = featureWithWriteHandler(
+          schema,
+          { access: openToAll },
+          "note:update",
+          ownedNoteEntity(map),
+        );
+        expect(() => validateAccessDeclarations(feature)).not.toThrow();
+      }
+    },
+  );
+
+  test.each<[string, OwnershipMap | undefined]>([
+    ["no access.write", undefined],
+    ["empty access.write", {}],
+    ['an "all" rule', { Member: "all" }],
+    ['an owner rule plus an "all" role', { ...ownerBound, TenantAdmin: "all" }],
+    ["an owner rule on a different column", { Member: from("user:id", "assigneeId") }],
+    ["a user:tenantId rule on the owner column", { Member: from("user:tenantId", "ownerUserId") }],
+    ["a claim rule on the owner column", { Member: from("claim:crm:ownerUserId", "ownerUserId") }],
+    ["a where rule", { Member: { kind: "where", where: () => ({ sqlText: "TRUE", params: [] }) } }],
+  ])("owner-annotated field on an entity with %s still throws", (_label, map) => {
+    const feature = featureWithWriteHandler(
+      createSchema,
+      { access: openToAll },
+      "note:update",
+      ownedNoteEntity(map),
+    );
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"name"/);
+  });
+
+  test.each([
+    ["self", createTextField({ personal: "self", find: "none" })],
+    ["record-owned", createTextField({ personal: { of: "id" }, find: "none" })],
+  ])("a %s field is not exempted by an owner-bound write map", (_label, field) => {
+    const entity = createEntity({
+      table: "fw_access_pii_mixed_notes",
+      fields: {
+        email: field,
+        ownerUserId: createTextField({ required: false, personal: "ref" }),
+      },
+      access: { write: ownerBound },
+    });
+    const schema = z.object({ email: z.string() });
+    const feature = featureWithWriteHandler(schema, { access: openToAll }, "note:update", entity);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"email"/);
+  });
+
+  test("a handler with escapeHatch is not exempted — it can write around the executor", () => {
+    const feature = featureWithWriteHandler(
+      createSchema,
+      { access: openToAll, escapeHatch: { reason: "bulk import" } },
+      "note:update",
+      ownedNoteEntity(ownerBound),
+    );
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"name"/);
+  });
+
+  test("a handler not mapped to a single entity is not exempted (fail-closed)", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", ownedNoteEntity(ownerBound));
+      r.entity("memo", noteEntity);
+      r.writeHandler("submit", createSchema, async () => ({ isSuccess: true as const, data: {} }), {
+        access: openToAll,
+      });
+    });
+    expect(feature.handlerEntityMappings["submit"]).toBeUndefined();
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"name"/);
+  });
+
+  test("an insert schema built from the owner-bound entity boots fine", () => {
+    const entity = ownedNoteEntity(ownerBound);
+    const schema = buildInsertSchema(entity).omit({ ownerUserId: true, assigneeId: true });
+    const feature = featureWithWriteHandler(schema, { access: openToAll }, "note:create", entity);
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 });
