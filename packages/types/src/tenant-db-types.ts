@@ -57,11 +57,16 @@ export type TenantDb = {
    * Underlying DbRunner. Framework-internal use (event-store, migrations) —
    * bypasses tenant-filter. Feature code uses the typed helpers above so the
    * automatic scoping stays intact.
-   * @deprecated Use `ctx.systemDb.unsafeRaw(reason)` or `db.global(table)`
-   * instead — both make the cross-tenant intent an explicit, named
+   * @deprecated Use `ctx.db.unsafeRaw(reason)` / `db.global(table)` (method-
+   * form) instead — both make the cross-tenant intent an explicit, named
    * declaration instead of a silent unfiltered escape hatch. Removal fw#2860.
    */
   readonly raw: DbRunner;
+  /**
+   * Unfiltered DbRunner escape hatch for handlers/hooks that declare `escapeHatch: { reason }`.
+   * Throws `AccessDeniedError` when ungranted, or `Error` when `reason` is empty.
+   */
+  unsafeRaw(reason: string): DbRunner;
   /**
    * Reach a "global" table with the tenant filter lifted — reads always work; writes
    * reject unless the write handler declared `escapeHatch: { reason }`. "tenant"-tenancy is a compile error here.
@@ -70,12 +75,12 @@ export type TenantDb = {
     table: TTable,
   ): GlobalTableDb<TTable>;
   selectMany<T = Record<string, unknown>>(
-    table: SchemaTable,
+    table: SchemaTable | EntityTableMeta,
     where?: WhereObject,
     options?: SelectOptions,
   ): Promise<readonly T[]>;
   fetchOne<T = Record<string, unknown>>(
-    table: SchemaTable,
+    table: SchemaTable | EntityTableMeta,
     where: WhereObject,
   ): Promise<T | undefined>;
   insertOne<T = Record<string, unknown>>(

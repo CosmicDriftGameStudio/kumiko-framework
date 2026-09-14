@@ -274,13 +274,10 @@ export async function buildHandlerContext(
   // but at this point we're the root of the pipeline — cast is safe.
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
-  // db.global()'s write-gate — undefined for query/stream handlers, which can't declare escapeHatch.
-  const escapeHatch = registry.getWriteHandler(type)?.escapeHatch;
-  // Broader than `escapeHatch` above — a query handler can't reach db.global() but can still opt in here.
-  const allowSystemIdentity =
-    isSystem ||
-    (registry.getWriteHandler(type)?.escapeHatch ?? registry.getQueryHandler(type)?.escapeHatch) !==
-      undefined;
+  // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write or query escapeHatch.
+  const writeEscapeHatch = registry.getWriteHandler(type)?.escapeHatch;
+  const handlerEscapeHatch = writeEscapeHatch ?? registry.getQueryHandler(type)?.escapeHatch;
+  const allowSystemIdentity = isSystem || handlerEscapeHatch !== undefined;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -289,7 +286,7 @@ export async function buildHandlerContext(
       context.tracer,
       context.meter,
       signal,
-      escapeHatch,
+      { globalWrites: writeEscapeHatch, unsafeRaw: handlerEscapeHatch },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip

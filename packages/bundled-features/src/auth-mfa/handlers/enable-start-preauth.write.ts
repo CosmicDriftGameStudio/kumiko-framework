@@ -11,6 +11,9 @@ import { buildOtpauthUri } from "../otpauth-uri";
 import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes";
 import { generateTotpSecret } from "../totp";
 
+const ENABLE_START_PREAUTH_TENANT_REASON =
+  "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant";
+
 export type EnableStartPreauthOptions = {
   // Verifies the incoming preauthSetupToken — must match login.write.ts's
   // mfaStatusChecker (challengeTokenSecret), NOT setupTokenSecret.
@@ -39,6 +42,9 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       "Begins TOTP enrollment for a user whose sign-in was blocked because the tenant requires two-factor authentication, taking identity from the pre-auth token login issued instead of from a session.",
     // Same secret-bearing result as enable-start.
     agent: { expose: false },
+    escapeHatch: {
+      reason: ENABLE_START_PREAUTH_TENANT_REASON,
+    },
     handler: async (event, ctx) => {
       const verified = verifyMfaPreauthSetupToken(
         event.payload.preauthSetupToken,
@@ -53,7 +59,11 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       // "system" mode: the guest dispatch identity's own tenantId is
       // meaningless here — the preauthSetupToken is the source of truth
       // for which tenant's row to read, mirroring verify.write.ts.
-      const scopedDb = createTenantDb(ctx.db.raw, tenantId, "system");
+      const scopedDb = createTenantDb(
+        ctx.db.unsafeRaw(ENABLE_START_PREAUTH_TENANT_REASON),
+        tenantId,
+        "system",
+      );
       const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
       const existing = await findUserMfaRow(scopedDb, scopedUser);
       if (existing) return mfaAlreadyEnabled();

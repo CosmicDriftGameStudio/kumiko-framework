@@ -51,16 +51,17 @@ function requireTenantScopedDeps(
 ): { db: DbConnection; registry: Registry } {
   const registry = ctx.registry;
   if (!registry) throw new Error("delivery job: missing registry in job context");
-  // delivery is r.systemScope()'d (feature.ts), so JobContext.systemDb is
-  // guaranteed here. assertTenantMatch(tenantId).raw hands appendAttemptEvent/
-  // buildChannelContext the underlying DbConnection — safe because both
-  // filter by the same tenantId themselves (see JobContext.systemDb doc).
+  // delivery is r.systemScope()'d, so JobContext.systemDb is guaranteed; unsafeRaw
+  // hands the underlying DbConnection to both — safe since they filter by tenantId themselves.
   if (!ctx.systemDb) {
     throw new InternalError({
       message: "delivery job: ctx.systemDb missing on a system-scoped job",
     });
   }
-  const db = ctx.systemDb.assertTenantMatch(tenantId).raw as DbConnection; // @cast-boundary db-operator — TenantDb.raw is DbRunner, jobs never run inside a DbTx
+  ctx.systemDb.assertTenantMatch(tenantId);
+  const db = ctx.systemDb.unsafeRaw(
+    "delivery attempt append and channel context filter by this job's tenantId themselves",
+  ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
   return { db, registry };
 }
 

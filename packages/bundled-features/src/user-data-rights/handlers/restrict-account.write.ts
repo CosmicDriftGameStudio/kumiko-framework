@@ -1,4 +1,3 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -27,12 +26,8 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 // sessionChecker and they can no longer call this (or any) endpoint
 // themselves; only an operator path reaches it at that point.
 //
-// Tenant scope: `isAdminActor` accepts access.admin, which includes
-// TenantAdmin — tenant-scoped, even though the User-entity lookup below
-// uses `ctx.db.raw` (bypasses the auto-tenant-filter, same as
-// lift-restriction.write.ts — User status is intentionally global, see
-// user-data-rights.md "Cross-Tenant-Semantik"). Without a membership
-// check, a TenantAdmin from tenant A could restrict/unrestrict a user who
+// Tenant scope: `isAdminActor` accepts access.admin, which includes TenantAdmin
+// (tenant-scoped) even though the User-entity is global — see user-data-rights.md "Cross-Tenant-Semantik". Without a membership check, a TenantAdmin from tenant A could restrict/unrestrict a user who
 // has never been a member of tenant A. Only SystemAdmin (platform-wide)
 // skips the check; the target must have a membership row in the acting
 // admin's `event.user.tenantId` (row existence only — no active-status field).
@@ -50,7 +45,9 @@ export const restrictAccountWrite = defineWriteHandler({
     reason:
       "Revokes all live sessions of the (possibly self-)restricted user via ctx.writeAs(SYSTEM, " +
       "sessions:write:user-session:revoke-all-for-user) — that handler's own access gate needs " +
-      "privileged roles the acting caller doesn't necessarily have.",
+      "privileged roles the acting caller doesn't necessarily have. It also checks the target " +
+      "user's membership in the admin's tenant and appends the user lifecycle status change on " +
+      "the SYSTEM_TENANT_ID user stream, both via DbRunner helpers.",
   },
   description:
     "Freezes an account under GDPR Art. 18 by flipping it to restricted and revoking all of its live sessions, locking the user out until an admin calls lift-restriction; targets the caller by default, an admin may name another userId.",
@@ -65,13 +62,17 @@ export const restrictAccountWrite = defineWriteHandler({
           }),
         );
       }
-      const outside = await denyIfTargetOutsideAdminTenant(ctx.db.raw, event.user, targetUserId);
+      const outside = await denyIfTargetOutsideAdminTenant(
+        ctx.db.unsafeRaw(
+          "checks the target user's membership in the admin's tenant via the DbRunner helper",
+        ),
+        event.user,
+        targetUserId,
+      );
       if (outside) return outside;
     }
 
-    // ctx.db.raw weil User-Entity tenant-agnostisch ist (analog
-    // request-deletion.write.ts Cross-Tenant-Section).
-    const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
+    const userRow = await ctx.db.global(userTable).fetchOne<{ status: string }>({
       id: targetUserId,
     });
 
@@ -99,7 +100,11 @@ export const restrictAccountWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.raw, targetUserId, { status: USER_STATUS.Restricted });
+    await updateUserLifecycle(
+      ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+      targetUserId,
+      { status: USER_STATUS.Restricted },
+    );
 
     // Cross-Feature: alle live sessions revoken — sonst koennte der User
     // mit existierendem JWT bis zur Token-Expiry weiter schreiben.

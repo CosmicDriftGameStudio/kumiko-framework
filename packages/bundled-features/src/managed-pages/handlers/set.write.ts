@@ -23,6 +23,9 @@ const langSchema = z
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
 
+const SET_PAGE_TENANT_OVERRIDE_REASON =
+  "SystemAdmin tenantIdOverride re-scopes the page write to the target tenant";
+
 // Upsert einer Page — eine Operation pro (tenantId, slug, lang). Tenant-
 // Scope default aus event.user; SystemAdmin kann via `tenantIdOverride`
 // für einen anderen Tenant schreiben (typisch SYSTEM_TENANT_ID für app-
@@ -45,6 +48,9 @@ export const setWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
     "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
+  escapeHatch: {
+    reason: SET_PAGE_TENANT_OVERRIDE_REASON,
+  },
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;
@@ -63,7 +69,13 @@ export const setWrite = defineWriteHandler({
     // on both the existing-check and the executor's stream reads; re-scope to the target.
     // Safe: the override branch is SystemAdmin-gated above.
     const scopedDb =
-      override !== undefined ? createTenantDb(db.raw, override as TenantId, "tenant") : db; // @cast-boundary engine-bridge
+      override !== undefined
+        ? createTenantDb(
+            db.unsafeRaw(SET_PAGE_TENANT_OVERRIDE_REASON),
+            override as TenantId, // @cast-boundary engine-bridge
+            "tenant",
+          )
+        : db;
     const existing = await fetchOne<PageRow>(scopedDb, pagesTable, {
       tenantId,
       slug: event.payload.slug,

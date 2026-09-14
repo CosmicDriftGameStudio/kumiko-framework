@@ -3,7 +3,6 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -39,6 +38,8 @@ const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEnt
   entityName: "tier-assignment",
 });
 
+const SET_TENANT_TIER_REASON = "SystemAdmin assigns the tier of the tenant named in the payload";
+
 export type SetTenantTierOptions = {
   /** Nach erfolgreichem Write aufgerufen, damit feature.ts den Resolver-
    *  Cache aktualisieren kann (der Executor-Write feuert den postSave-Hook
@@ -66,9 +67,12 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         .refine((t) => !opts.validTiers || opts.validTiers.has(t), { message: "unknown tier" }),
     }),
     access: { roles: ["SystemAdmin"] },
+    escapeHatch: {
+      reason: SET_TENANT_TIER_REASON,
+    },
     handler: async (event, ctx) => {
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-      const rawDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
+      const rawDb = ctx.db.unsafeRaw(SET_TENANT_TIER_REASON);
       const tdb = createTenantDb(rawDb, tenantId, "system");
       const systemUser = { ...event.user, tenantId };
       const tier = event.payload.tier;

@@ -459,6 +459,13 @@ export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
   input: UnmanagedTableInput & { readonly tenancy?: T },
 ): EntityTableMeta & TenancyBrand<T> {
   assertUnmanagedTableName(input.tableName, "defineUnmanagedTable");
+  if (input.tenancy === "global" && input.columns.some((c) => c.name === "tenant_id")) {
+    throw new Error(
+      `defineUnmanagedTable("${input.tableName}"): tenancy: "global" unmanaged tables must not ` +
+        "have a tenant_id column — a global table's rows carry the system tenant, not a per-row " +
+        "tenant identity.",
+    );
+  }
   return {
     tableName: input.tableName,
     columns: input.columns,

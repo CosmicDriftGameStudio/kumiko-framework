@@ -45,10 +45,8 @@ const EXPORT_JOB_STATUS_OPTIONS = [
   EXPORT_JOB_STATUS.Failed,
 ] as const;
 
-// **Tenant-agnostisch** wie userTable — 1 Job pro {userId} ueber alle
-// Memberships. Die Framework-Auto-`tenant_id`-Spalte ist da, wird aber
-// in der Domain ignoriert (Cross-Tenant-Iteration laeuft im Worker via
-// ctx.db.raw, gleiches Pattern wie runForgetCleanup).
+// **Tenant-agnostic** like userTable — one job per userId across all
+// memberships; the worker iterates cross-tenant via ctx.db.unsafeRaw (same pattern as runForgetCleanup).
 //
 // **Idempotency:** Partial-UNIQUE-Index auf `(userId)` WHERE
 // `status IN ('pending', 'running')`. User mit pending-Job kann keinen

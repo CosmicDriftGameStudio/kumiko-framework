@@ -1,5 +1,5 @@
 import type { EntityTableMeta } from "../db/entity-table-meta";
-import { bindHookIdentitySwitchGrant } from "../pipeline/system-identity-switch";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
 import { LifecycleHookTypes } from "./constants";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { resolveName } from "./handler-helpers";
@@ -143,7 +143,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       const wrapped: LifecycleHookFn | ValidationHookFn =
         type === "validation"
           ? fn
-          : bindHookIdentitySwitchGrant(fn as LifecycleHookFn, hookLabel, options?.escapeHatch); // @cast-boundary engine-bridge
+          : bindHookEscapeHatchGrant(fn as LifecycleHookFn, hookLabel, options?.escapeHatch); // @cast-boundary engine-bridge
 
       // Entity-wide target ("all write/query handlers of this entity") —
       // replaces the old r.entityHook(type, entity, fn).

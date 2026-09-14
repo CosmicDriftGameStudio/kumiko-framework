@@ -36,6 +36,7 @@ import {
 } from "./entity-handler";
 import { validateEntityListScreens } from "./entity-list-screens";
 import { validateGdprStoragePersistence } from "./gdpr-storage";
+import { validateGlobalTenancyEntities } from "./global-tenancy";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
 import {
   collectKnownRoles,
@@ -238,6 +239,7 @@ export function validateBoot(
   validateRelatedListSectionQueries(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
+  validateGlobalTenancyEntities(features);
   validateFeatureBootChecks(features);
 
   if (hasEncryptedFields) {

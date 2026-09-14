@@ -55,10 +55,15 @@ export function createStockCapGuard<TCaps>(
   }
 
   function withStockCap(handler: WriteHandlerDef, spec: StockCapSpec<TCaps>): WriteHandlerDef {
+    const capReason =
+      "counts the caller tenant's rows and resolves its tier caps through the raw-runner cap API";
     return {
       ...handler,
+      escapeHatch: handler.escapeHatch
+        ? { reason: `${handler.escapeHatch.reason} ${capReason}` }
+        : { reason: capReason },
       handler: async (event, ctx) => {
-        const failure = await checkStockCap(ctx.db.raw, event.user.tenantId, spec);
+        const failure = await checkStockCap(ctx.db.unsafeRaw(capReason), event.user.tenantId, spec);
         return failure ?? handler.handler(event, ctx);
       },
     };
