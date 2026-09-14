@@ -51,11 +51,11 @@ export type Table = TableColumns<any>;
 
 // Screen-Filter (Tier 2.7c) — Op-Mapping als Where-Operator. Boot-
 // Validator pinst field-Existenz + filterable + op-vs-Type-Compat.
-// `op` ist auf {eq,ne,lt,gt,in} normalisiert; "in" mit empty-array ist
-// explizit no-match.
+// `op` ist auf {eq,ne,lt,gt,lte,gte,in} normalisiert; "in" mit
+// empty-array ist explizit no-match.
 export function buildFilterWhere(
   field: string,
-  op: "eq" | "ne" | "lt" | "gt" | "in",
+  op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in",
   value: unknown,
 ): WhereObject | null {
   switch (op) {
@@ -67,6 +67,10 @@ export function buildFilterWhere(
       return { [field]: { lt: value } };
     case "gt":
       return { [field]: { gt: value } };
+    case "lte":
+      return { [field]: { lte: value } };
+    case "gte":
+      return { [field]: { gte: value } };
     case "in":
       if (Array.isArray(value) && value.length > 0) {
         return { [field]: value };

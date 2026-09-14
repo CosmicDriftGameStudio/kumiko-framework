@@ -283,6 +283,75 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows.map((r) => r["rank"])).toEqual([8, 9]);
   });
 
+  test("filter lte: rank <= 3 → 0,1,2,3 (boundary included)", async () => {
+    await seed(6);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "lte", value: 3 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([0, 1, 2, 3]);
+  });
+
+  test("filter gte: rank >= 7 → 7,8,9 (boundary included)", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "gte", value: 7 },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([7, 8, 9]);
+  });
+
+  test("filter lte on dueDate: boundary date included", async () => {
+    await exec.create({ title: "d-1", dueDate: "2026-01-10" }, admin, tdb);
+    await exec.create({ title: "d-2", dueDate: "2026-02-10" }, admin, tdb);
+    await exec.create({ title: "d-3", dueDate: "2026-03-10" }, admin, tdb);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "dueDate",
+        sortDirection: "asc",
+        filter: { field: "dueDate", op: "lte", value: "2026-02-10" },
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["title"])).toEqual(["d-1", "d-2"]);
+  });
+
+  test("filters[] gte+lte AND, kombiniert mit offset-Paging: zweite Seite korrekt", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 2,
+        offset: 2,
+        sort: "rank",
+        sortDirection: "asc",
+        totalCount: true,
+        filters: [
+          { field: "rank", op: "gte", value: 2 },
+          { field: "rank", op: "lte", value: 7 },
+        ],
+      },
+      admin,
+      tdb,
+    );
+    // range gte:2/lte:7 → [2,3,4,5,6,7] (6 rows), page size 2 offset 2 → [4,5]
+    expect(res.rows.map((r) => r["rank"])).toEqual([4, 5]);
+    expect(res.total).toBe(6);
+  });
+
   test("filter in: rank in [1,3,5]", async () => {
     await seed(10);
     const res = await exec.list(

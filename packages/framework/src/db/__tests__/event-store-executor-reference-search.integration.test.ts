@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
-import { createEntity, createTextField } from "../../engine";
+import { createEntity, createTextField, from } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import { createInMemorySearchAdapter } from "../../search";
@@ -70,6 +70,45 @@ const tenantMetaEntity = createEntity({
 });
 const tenantMetaTable = buildEntityTable("tenant", tenantMetaEntity);
 
+// PII target with a derived search index — ciphertext at rest, plaintext
+// mirrored into the adapter; `ownerId` + `access.read` gives a real row-owned rule.
+const piiCustomerEntity = createEntity({
+  table: "read_ref_search_pii_customers",
+  fields: {
+    ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
+  },
+  access: {
+    read: { Admin: "all", User: from("user:id", "ownerId") },
+  },
+});
+const piiCustomerTable = buildEntityTable("refSearchPiiCustomer", piiCustomerEntity);
+
+const piiOrderEntity = createEntity({
+  table: "read_ref_search_pii_orders",
+  fields: {
+    note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+    customerId: {
+      type: "reference",
+      entity: "refSearchPiiCustomer",
+      labelField: "name",
+      searchable: true,
+    },
+  },
+});
+const piiOrderTable = buildEntityTable("refSearchPiiOrder", piiOrderEntity);
+
+function resolvePiiEntity(name: string): EntityDefinition | undefined {
+  return name === "refSearchPiiCustomer" ? piiCustomerEntity : undefined;
+}
+
+const piiReferenceSearch = {
+  fields: [
+    { fieldName: "customerId", targetEntityName: "refSearchPiiCustomer", labelField: "name" },
+  ],
+  resolveEntity: resolvePiiEntity,
+};
+
 function resolveEntity(name: string): EntityDefinition | undefined {
   return name === "refSearchCustomer" ? customerEntity : undefined;
 }
@@ -104,6 +143,9 @@ const orderExec = createEventStoreExecutor(orderTable, orderEntity, {
 const restrictedOrderExec = createEventStoreExecutor(restrictedOrderTable, restrictedOrderEntity, {
   entityName: "refSearchRestrictedOrder",
 });
+const piiOrderExec = createEventStoreExecutor(piiOrderTable, piiOrderEntity, {
+  entityName: "refSearchPiiOrder",
+});
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
@@ -111,6 +153,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, customerEntity, "refSearchCustomer");
   await unsafeCreateEntityTable(testDb.db, orderEntity, "refSearchOrder");
   await unsafeCreateEntityTable(testDb.db, restrictedOrderEntity, "refSearchRestrictedOrder");
+  await unsafeCreateEntityTable(testDb.db, piiCustomerEntity, "refSearchPiiCustomer");
+  await unsafeCreateEntityTable(testDb.db, piiOrderEntity, "refSearchPiiOrder");
   await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
   await createEventsTable(testDb.db);
   tdbA = createTenantDb(testDb.db, admin.tenantId);
@@ -124,7 +168,8 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
     "TRUNCATE kumiko_events, read_ref_search_customers, read_ref_search_orders, " +
-      "read_ref_search_restricted_orders, read_tenants RESTART IDENTITY CASCADE",
+      "read_ref_search_restricted_orders, read_ref_search_pii_customers, " +
+      "read_ref_search_pii_orders, read_tenants RESTART IDENTITY CASCADE",
   );
 });
 
@@ -377,5 +422,224 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
     } finally {
       await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
     }
+  });
+});
+
+describe("event-store-executor.list — searchable reference to an encrypted/PII labelField via the search index", () => {
+  test('matches via the target\'s derived search index when the labelField is PII (find: "fuzzy")', async () => {
+    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: admin.id,
+        name: "Confidential Contact",
+      },
+    ]);
+    const [order] = await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "totally unrelated",
+        customerId: (contact as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    // One shared per-tenant index across every entity type (real Meilisearch
+    // adapter parity: one index per tenant, `_type` is only a filter
+    // attribute) — `searchableFields` must list every entity's own
+    // searchable field, not just this test's own entity's.
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
+    // Plaintext label lives in the search adapter under the target's own
+    // type — never a raw ILIKE scan of the (encrypted-at-rest) column.
+    await searchAdapter.index(admin.tenantId, {
+      entityType: "refSearchPiiCustomer",
+      entityId: (contact as { id: string }).id,
+      weight: 1,
+      fields: { name: "Confidential Contact" },
+    });
+
+    const res = await piiOrderExec.list({ search: "confidential" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch: piiReferenceSearch,
+    });
+    expect(res.rows.map((r) => r["id"])).toEqual([(order as { id: string }).id]);
+  });
+
+  test("drops the reference clause above 200 search-index matches — native search still applies", async () => {
+    const fooCustomers = Array.from({ length: 201 }, (_, i) => ({
+      id: crypto.randomUUID(),
+      tenantId: admin.tenantId,
+      ownerId: admin.id,
+      name: `Foo Contact ${i}`,
+    }));
+    await seedRows(testDb.db, piiCustomerTable, fooCustomers);
+
+    const [refOnlyOrder, textMatchOrder] = await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "no keyword here",
+        customerId: fooCustomers[5]?.id,
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "foo appears right here",
+        customerId: fooCustomers[10]?.id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
+    for (const c of fooCustomers) {
+      await searchAdapter.index(admin.tenantId, {
+        entityType: "refSearchPiiCustomer",
+        entityId: c.id,
+        weight: 1,
+        fields: { name: c.name },
+      });
+    }
+    for (const o of [refOnlyOrder, textMatchOrder]) {
+      const row = o as { id: string; note: string };
+      await searchAdapter.index(admin.tenantId, {
+        entityType: "refSearchPiiOrder",
+        entityId: row.id,
+        weight: 1,
+        fields: { note: row.note },
+      });
+    }
+
+    const res = await piiOrderExec.list({ search: "foo" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch: piiReferenceSearch,
+    });
+    expect(res.rows.map((r) => r["id"])).toEqual([(textMatchOrder as { id: string }).id]);
+  });
+
+  test("a target label match in a foreign tenant's search index never surfaces a row (mandatory)", async () => {
+    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: otherTenantAdmin.tenantId,
+        ownerId: otherTenantAdmin.id,
+        name: "Foreign Contact",
+      },
+    ]);
+    await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: otherTenantAdmin.tenantId,
+        note: "unrelated",
+        customerId: (contact as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+    // Indexed only under the OTHER tenant's search index — admin's own
+    // search must never see it, regardless of the FK row's actual tenantId.
+    await searchAdapter.index(otherTenantAdmin.tenantId, {
+      entityType: "refSearchPiiCustomer",
+      entityId: (contact as { id: string }).id,
+      weight: 1,
+      fields: { name: "Foreign Contact" },
+    });
+
+    const res = await piiOrderExec.list({ search: "foreign" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch: piiReferenceSearch,
+    });
+    expect(res.rows).toHaveLength(0);
+  });
+
+  test("row-level ownership on the target entity intersects the search-index candidates, same as the target's own list would", async () => {
+    const [ownRow, otherRow] = await seedRows(testDb.db, piiCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: TestUsers.user.id,
+        name: "Shared Label",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: admin.id,
+        name: "Shared Label",
+      },
+    ]);
+    const [ownOrder, otherOrder] = await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "n1",
+        customerId: (ownRow as { id: string }).id,
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "n2",
+        customerId: (otherRow as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
+    for (const row of [ownRow, otherRow]) {
+      const r = row as { id: string; name: string };
+      await searchAdapter.index(admin.tenantId, {
+        entityType: "refSearchPiiCustomer",
+        entityId: r.id,
+        weight: 1,
+        fields: { name: r.name },
+      });
+    }
+
+    // Both customers match "shared" in the index — the search index itself
+    // has no ownership awareness. Only the order pointing at the customer
+    // TestUsers.user (role "User") actually owns via ownerId may surface.
+    const res = await piiOrderExec.list({ search: "shared" }, TestUsers.user, tdbA, {
+      searchAdapter,
+      referenceSearch: piiReferenceSearch,
+    });
+    expect(res.rows.map((r) => r["id"])).toEqual([(ownOrder as { id: string }).id]);
+    expect(res.rows.map((r) => r["id"])).not.toContain((otherOrder as { id: string }).id);
+  });
+
+  test("a role with no read grant on the target entity gets no reference-match hit at all", async () => {
+    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: admin.id,
+        name: "Driver Blind Spot",
+      },
+    ]);
+    await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "unrelated",
+        customerId: (contact as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
+    await searchAdapter.index(admin.tenantId, {
+      entityType: "refSearchPiiCustomer",
+      entityId: (contact as { id: string }).id,
+      weight: 1,
+      fields: { name: "Driver Blind Spot" },
+    });
+
+    // "Driver" has no rule at all on piiCustomerEntity.access.read →
+    // buildOwnershipClause returns "empty" — no reference-match hit, no
+    // matter what the search index found.
+    const res = await piiOrderExec.list({ search: "driver" }, TestUsers.driver, tdbA, {
+      searchAdapter,
+      referenceSearch: piiReferenceSearch,
+    });
+    expect(res.rows).toHaveLength(0);
   });
 });

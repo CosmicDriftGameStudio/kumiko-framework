@@ -39,7 +39,7 @@ export type ToolCallRequest = {
 const SEARCH_RESULT_LIMIT = 10;
 const DEFAULT_LIST_LIMIT = 10;
 const MAX_LIST_LIMIT = 200;
-const FILTER_OPS = ["eq", "ne", "lt", "gt", "in"] as const;
+const FILTER_OPS = ["eq", "ne", "lt", "gt", "lte", "gte", "in"] as const;
 type FilterOp = (typeof FILTER_OPS)[number];
 
 type PayloadResult =

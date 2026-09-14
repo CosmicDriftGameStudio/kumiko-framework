@@ -4,6 +4,7 @@
 // single-key ciphertexts (pre-envelope ENCRYPTION_KEY era) readable via
 // the cipher's legacy fallback until re-encrypted.
 
+import { collectPiiSubjectFields } from "../crypto";
 import type { EntityDefinition, TenantId } from "../engine/types";
 import { createEnvMasterKeyProvider } from "../secrets/env-master-key-provider";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher";
@@ -17,6 +18,23 @@ export function collectEncryptedFieldNames(entity: EntityDefinition): ReadonlySe
     }
   }
   return names;
+}
+
+// A field whose stored value is ciphertext, either always (encrypted) or
+// depending on runtime KMS wiring (PII) — either way it has no plaintext
+// column to compare against directly.
+export function isSensitiveLabelField(entity: EntityDefinition, field: string): boolean {
+  return (
+    collectEncryptedFieldNames(entity).has(field) || collectPiiSubjectFields(entity).includes(field)
+  );
+}
+
+// `searchable: true` on a text field means it is indexed plaintext
+// somewhere findable by term — a plain text field's own column, or (for a
+// personal-data field) the derived search index mirroring it.
+export function hasSearchablePlaintext(entity: EntityDefinition, field: string): boolean {
+  const def = entity.fields[field];
+  return def?.type === "text" && def.searchable === true;
 }
 
 // BYOK hook: thread the row's tenant to the cipher when the row carries one

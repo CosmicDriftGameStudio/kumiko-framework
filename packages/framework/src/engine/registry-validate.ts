@@ -1,4 +1,5 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii";
+import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
 import { resolveName } from "./handler-helpers";
 import type {
@@ -16,6 +17,7 @@ import {
   softDeleteGraceDaysConfig,
 } from "./soft-delete-cleanup";
 import type {
+  EntityDefinition,
   EventPiiFields,
   EventUpcastFn,
   FeatureDefinition,
@@ -206,6 +208,7 @@ function buildSearchableReferenceField(
   entityName: string,
   fieldName: string,
   field: ReferenceFieldDef,
+  entityMap: ReadonlyMap<string, EntityDefinition>,
 ): SearchableReferenceField {
   if (field.labelField === undefined || field.labelField === "id") {
     throw new Error(
@@ -220,9 +223,26 @@ function buildSearchableReferenceField(
         `(array) reference fields — remove "multiple" or "searchable".`,
     );
   }
+  const targetEntityName = parseReferenceTargetEntityName(field.entity);
+  const targetEntity = entityMap.get(targetEntityName);
+  if (targetEntity !== undefined) {
+    if (
+      isSensitiveLabelField(targetEntity, field.labelField) &&
+      !hasSearchablePlaintext(targetEntity, field.labelField)
+    ) {
+      throw new Error(
+        `[Entity ${entityName}] field "${fieldName}": searchable reference targets ` +
+          `"${targetEntityName}.${field.labelField}", which is encrypted/PII and not itself ` +
+          `searchable — there is no plaintext anywhere to match a search term against. Mark ` +
+          `"${targetEntityName}.${field.labelField}" searchable: true (add find: "fuzzy" if it ` +
+          `also carries a personal annotation, so it lands in the derived search index) or ` +
+          `remove searchable from "${fieldName}".`,
+      );
+    }
+  }
   return {
     fieldName,
-    targetEntityName: parseReferenceTargetEntityName(field.entity),
+    targetEntityName,
     labelField: field.labelField,
   };
 }
@@ -273,7 +293,9 @@ export function buildSearchableSortableCaches(state: RegistryState): void {
         }
       }
       if (field.type === "reference" && field.searchable === true) {
-        searchableReferences.push(buildSearchableReferenceField(name, fieldName, field));
+        searchableReferences.push(
+          buildSearchableReferenceField(name, fieldName, field, state.entityMap),
+        );
       }
       if (field.type === "reference" && field.sortable === true) {
         sortableReferences.push(buildSortableReferenceField(name, fieldName, field));

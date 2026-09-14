@@ -17,7 +17,7 @@ import type {
   ToolDispatchDescriptor,
 } from "./types";
 
-const FILTER_OPS = ["eq", "ne", "lt", "gt", "in"] as const;
+const FILTER_OPS = ["eq", "ne", "lt", "gt", "lte", "gte", "in"] as const;
 const MAX_TOOL_NAME_LENGTH = 64;
 
 /** Field types that declare `filterable` (per `packages/framework/src/engine/types/fields.ts`).
