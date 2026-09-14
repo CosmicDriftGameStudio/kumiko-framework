@@ -110,6 +110,22 @@
   --card-radius: var(--radius-xl);
   --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --kumiko-grid-row-h: 2.5rem;
+  /* 0 = no ShellHeader mounted (e.g. a Drawer used outside a shell) — a
+     consumer offsetting by this variable then gets today's edge-to-edge
+     behavior for free. */
+  --shell-header-height: 0px;
+}
+
+/* Mirrors ShellHeader's own h-16/h-12 (icon-rail collapsed) via the same
+   [data-collapsible=icon] state Tailwind's group-has-data variant reads —
+   kept in CSS (not a React state) so a Drawer rendered into a portal
+   (outside ShellHeader's DOM subtree) still resolves the right value from
+   this shared :root ancestor. */
+:root:has([data-kumiko-layout="shell-header"]) {
+  --shell-header-height: 4rem;
+}
+:root:has([data-kumiko-layout="shell-header"]):has([data-collapsible="icon"]) {
+  --shell-header-height: 3rem;
 }
 
 /* Light-Mode-Overrides — aktiv wenn `<html>` KEINE `.dark` Klasse
