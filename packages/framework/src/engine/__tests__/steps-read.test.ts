@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRunner } from "../../db/connection";
 import { table, text, uuid } from "../../db/dialect";
-import { createTenantDb } from "../../db/tenant-db";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db";
+import { AccessDeniedError } from "../../errors";
 import { testTenantId } from "../../stack";
 import { getStep } from "../define-step";
 import { buildReadFindManyStep } from "../steps/read-find-many";
 import { buildReadFindOneStep } from "../steps/read-find-one";
+import { SYSTEM_TENANT_ID } from "../types/identifiers";
 import type { PipelineCtx } from "../types/step";
 
 const testTable = table("test_read", {
@@ -14,17 +17,34 @@ const testTable = table("test_read", {
   label: text("label"),
 });
 
-// bun-db path: read-find-many/one call selectMany(tenantDbRunner(ctx.db), table, where, opts)
-// which goes through asRawClient(runner).unsafe(sqlText, params).
-// Mock the .unsafe() return value to feed back rows.
+// fw#2914: read-find-many/one now call selectMany(ctx.db, table, where, opts) —
+// ctx.db is a TenantDb, so selectMany's tenantDbDelegate branch runs
+// TenantDb.selectMany (applies the tenant filter) instead of raw SQL. Mock
+// .unsafe() to feed back rows once the (tenant-filtered) query reaches it.
 const unsafeMock = mock(
   async (_sqlText: string, _params: unknown[]): Promise<Record<string, unknown>[]> => [],
 );
 const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
-const ctxDb = createTenantDb(rawDb, testTenantId(1));
+const ownTenantId = testTenantId(1);
+const ctxDb = createTenantDb(rawDb, ownTenantId);
 
 const mockCtx = {
   db: ctxDb,
+  event: { type: "test", payload: {} },
+  steps: {},
+  scope: {},
+} as unknown as PipelineCtx;
+
+const reportCalls: Array<{ kind: string; reason: string }> = [];
+const recordingReport: EscapeHatchReporter = (kind, reason) => {
+  reportCalls.push({ kind, reason });
+};
+const grantedDb = createTenantDb(rawDb, ownTenantId, "tenant", undefined, undefined, undefined, {
+  unsafeRaw: { reason: "fw#2914 unit test — declared cross-tenant read" },
+  report: recordingReport,
+});
+const grantedCtx = {
+  db: grantedDb,
   event: { type: "test", payload: {} },
   steps: {},
   scope: {},
@@ -54,6 +74,7 @@ describe("read.findOne run", () => {
   beforeEach(() => {
     mock.clearAllMocks();
     unsafeMock.mockResolvedValue([]);
+    reportCalls.length = 0;
   });
 
   it("returns null when no row is found", async () => {
@@ -81,7 +102,19 @@ describe("read.findOne run", () => {
     expect(result).toEqual(row);
   });
 
-  it("resolves a function where-clause before querying", async () => {
+  it("filters by the caller's own tenant + SYSTEM_TENANT_ID by default", async () => {
+    const stepDef = getStep("read.findOne");
+    unsafeMock.mockResolvedValueOnce([]);
+
+    await stepDef!.run({ name: "lookup", table: testTable, where: { id: "x" } }, mockCtx);
+
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
+    const [sqlText, params] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).toMatch(/"tenant_id" IN \(\$\d, \$\d\)/);
+    expect(params).toEqual(expect.arrayContaining([ownTenantId, SYSTEM_TENANT_ID]));
+  });
+
+  it("narrows a foreign where.tenantId to the caller's own scope", async () => {
     const stepDef = getStep("read.findOne");
     const whereFn = mock(() => ({ tenantId: "dyn-tenant" }));
     unsafeMock.mockResolvedValueOnce([]);
@@ -92,8 +125,42 @@ describe("read.findOne run", () => {
     expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [sqlText, params] = unsafeMock.mock.calls[0]!;
     expect(sqlText).toMatch(/SELECT \* FROM "test_read"/);
-    expect(sqlText).toMatch(/"tenant_id" = \$1/);
-    expect(params).toEqual(["dyn-tenant"]);
+    expect(sqlText).toMatch(/"tenant_id" IN \(\$1, \$2\)/);
+    expect(params).toEqual([ownTenantId, SYSTEM_TENANT_ID]);
+  });
+
+  it("rejects unsafeAllTenants without a grant, without ever calling unsafe()", async () => {
+    const stepDef = getStep("read.findOne");
+
+    await expect(
+      stepDef!.run(
+        {
+          name: "lookup",
+          table: testTable,
+          where: { id: "x" },
+          unsafeAllTenants: { reason: "fw#2914 unit test — no grant" },
+        },
+        mockCtx,
+      ),
+    ).rejects.toThrow(AccessDeniedError);
+
+    expect(unsafeMock).not.toHaveBeenCalled();
+  });
+
+  it("unsafeAllTenants with a grant skips the tenant filter and reports unsafe-raw", async () => {
+    const stepDef = getStep("read.findOne");
+    unsafeMock.mockResolvedValueOnce([]);
+    const reason = "fw#2914 unit test — declared cross-tenant read";
+
+    await stepDef!.run(
+      { name: "lookup", table: testTable, where: { id: "x" }, unsafeAllTenants: { reason } },
+      grantedCtx,
+    );
+
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
+    const [sqlText] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).not.toMatch(/tenant_id/);
+    expect(reportCalls).toEqual([{ kind: "unsafe-raw", reason }]);
   });
 });
 
@@ -108,12 +175,23 @@ describe("buildReadFindManyStep", () => {
     const step = buildReadFindManyStep("myList", { table: testTable, limit: 10 });
     expect((step.args as { limit: number }).limit).toBe(10);
   });
+
+  it("stores unsafeAllTenants on step.args and rejects a boolean at the type level", () => {
+    const reason = "fw#2914 unit test — unsafeAllTenants stored on step.args";
+    const step = buildReadFindManyStep("x", { table: testTable, unsafeAllTenants: { reason } });
+    expect(step.args).toMatchObject({ unsafeAllTenants: { reason } });
+
+    // @ts-expect-error unsafeAllTenants requires { reason: string }, not a boolean
+    const rejected = buildReadFindManyStep("x", { table: testTable, unsafeAllTenants: true });
+    expect(rejected.args).toMatchObject({ unsafeAllTenants: true });
+  });
 });
 
 describe("read.findMany run", () => {
   beforeEach(() => {
     mock.clearAllMocks();
     unsafeMock.mockResolvedValue([]);
+    reportCalls.length = 0;
   });
 
   it("returns an empty array when no rows exist", async () => {
@@ -135,5 +213,120 @@ describe("read.findMany run", () => {
     expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [sqlText] = unsafeMock.mock.calls[0]!;
     expect(sqlText).toMatch(/LIMIT 2/);
+  });
+
+  it("filters by the caller's own tenant + SYSTEM_TENANT_ID by default", async () => {
+    const stepDef = getStep("read.findMany");
+    unsafeMock.mockResolvedValueOnce([]);
+
+    await stepDef!.run({ name: "list", table: testTable }, mockCtx);
+
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
+    const [sqlText, params] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).toMatch(/"tenant_id" IN \(\$1, \$2\)/);
+    expect(params).toEqual([ownTenantId, SYSTEM_TENANT_ID]);
+  });
+
+  it("rejects unsafeAllTenants without a grant, without ever calling unsafe()", async () => {
+    const stepDef = getStep("read.findMany");
+
+    await expect(
+      stepDef!.run(
+        {
+          name: "list",
+          table: testTable,
+          unsafeAllTenants: { reason: "fw#2914 unit test — no grant" },
+        },
+        mockCtx,
+      ),
+    ).rejects.toThrow(AccessDeniedError);
+
+    expect(unsafeMock).not.toHaveBeenCalled();
+  });
+
+  it("unsafeAllTenants with a grant skips the tenant filter and reports unsafe-raw", async () => {
+    const stepDef = getStep("read.findMany");
+    unsafeMock.mockResolvedValueOnce([]);
+    const reason = "fw#2914 unit test — declared cross-tenant read";
+
+    await stepDef!.run(
+      { name: "list", table: testTable, unsafeAllTenants: { reason } },
+      grantedCtx,
+    );
+
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
+    const [sqlText] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).not.toMatch(/tenant_id/);
+    expect(reportCalls).toEqual([{ kind: "unsafe-raw", reason }]);
+  });
+});
+
+describe("read steps in a systemScope handler", () => {
+  const systemScopeReportCalls: Array<{ kind: string; reason: string }> = [];
+  const systemScopeReporter: EscapeHatchReporter = (kind, reason) => {
+    systemScopeReportCalls.push({ kind, reason });
+  };
+  // Mirrors createSystemScopedDbGuard (pipeline/dispatch-shared.ts) — a
+  // systemScope() handler's ctx.db is a Proxy that throws on first touch.
+  const throwingDb = new Proxy({} as TenantDb, {
+    get(_target, prop) {
+      throw new Error(`ctx.db is unavailable in a systemScope() handler (read "${String(prop)}")`);
+    },
+  });
+  const systemScopeCtx = {
+    db: throwingDb,
+    systemDb: createUncheckedSystemDb(
+      createTenantDb(rawDb, testTenantId(1), "system"),
+      undefined,
+      systemScopeReporter,
+    ),
+    event: { type: "test", payload: {} },
+    steps: {},
+    scope: {},
+  } as unknown as PipelineCtx;
+
+  beforeEach(() => {
+    mock.clearAllMocks();
+    unsafeMock.mockResolvedValue([]);
+    systemScopeReportCalls.length = 0;
+  });
+
+  it("findMany with unsafeAllTenants reads through ctx.systemDb, skips the tenant filter, and reports unsafe-raw", async () => {
+    const stepDef = getStep("read.findMany");
+    unsafeMock.mockResolvedValueOnce([]);
+    const reason = "fw#2914 unit test — system-wide read step";
+
+    await stepDef!.run(
+      { name: "list", table: testTable, unsafeAllTenants: { reason } },
+      systemScopeCtx,
+    );
+
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
+    const [sqlText] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).not.toMatch(/tenant_id/);
+    expect(systemScopeReportCalls).toEqual([{ kind: "unsafe-raw", reason }]);
+  });
+
+  it("findMany without unsafeAllTenants falls through to the throwing ctx.db proxy", async () => {
+    const stepDef = getStep("read.findMany");
+
+    await expect(
+      stepDef!.run({ name: "list", table: testTable }, systemScopeCtx),
+    ).rejects.toThrow();
+
+    expect(unsafeMock).not.toHaveBeenCalled();
+  });
+
+  it("findMany with a whitespace-only reason is rejected by systemDb.unsafeRaw before any query runs", async () => {
+    const stepDef = getStep("read.findMany");
+
+    await expect(
+      stepDef!.run(
+        { name: "list", table: testTable, unsafeAllTenants: { reason: "  " } },
+        systemScopeCtx,
+      ),
+    ).rejects.toThrow("non-empty reason");
+
+    expect(unsafeMock).not.toHaveBeenCalled();
   });
 });

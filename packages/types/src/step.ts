@@ -262,13 +262,14 @@ export type StepNamespace = {
     readonly where: StepResolver<WhereObject>;
   }) => StepInstance;
   // Read sub-namespace — thin wrapper on selectMany/fetchOne (bun-db).
-  // Caller-owned tenant-filter (does NOT auto-inject like ctx.queryProjection does).
+  // Tenant-filtered like ctx.db; unsafeAllTenants needs escapeHatch on the handler (or systemScope).
   readonly read: {
     readonly findOne: (
       name: string,
       opts: {
         readonly table: unknown;
         readonly where: StepResolver<WhereObject | undefined>;
+        readonly unsafeAllTenants?: { readonly reason: string };
       },
     ) => StepInstance;
     readonly findMany: (
@@ -277,6 +278,7 @@ export type StepNamespace = {
         readonly table: unknown;
         readonly where?: StepResolver<WhereObject | undefined>;
         readonly limit?: number;
+        readonly unsafeAllTenants?: { readonly reason: string };
       },
     ) => StepInstance;
   };

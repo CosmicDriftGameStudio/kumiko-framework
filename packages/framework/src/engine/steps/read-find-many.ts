@@ -1,6 +1,8 @@
 // r.step.read.findMany — load multiple rows from a projection table.
 //
-// Sibling to read.findOne — same tenant-filter caveat (caller-owned).
+// Sibling to read.findOne — same tenant-filtering: own tenant +
+// SYSTEM_TENANT_ID reference rows by default, `unsafeAllTenants: { reason }`
+// plus `escapeHatch: { reason }` on the handler to read across tenants.
 // Resolves to a row-array (possibly empty), landed under steps.<name>.
 //
 // Optional `limit` — defaults to no-limit (caller-chosen, NOT a
@@ -9,9 +11,9 @@
 // `limit` explicitly when the row-count could grow without bound.
 
 import { selectMany, type WhereObject } from "../../db/query";
-import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
+import { readSourceFor } from "./_read-source";
 import { resolveOptional } from "./_resolver-utils";
 
 type ReadFindManyArgs = {
@@ -19,6 +21,7 @@ type ReadFindManyArgs = {
   readonly table: unknown;
   readonly where?: StepResolver<WhereObject | undefined>;
   readonly limit?: number;
+  readonly unsafeAllTenants?: { readonly reason: string };
 };
 
 defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
@@ -27,8 +30,9 @@ defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveOptional(args.where, ctx);
+    const source = readSourceFor(ctx, args.unsafeAllTenants);
     const rows = await selectMany(
-      tenantDbRunner(ctx.db),
+      source,
       args.table,
       where,
       args.limit !== undefined ? { limit: args.limit } : undefined,
@@ -43,6 +47,7 @@ export function buildReadFindManyStep(
     readonly table: unknown;
     readonly where?: StepResolver<WhereObject | undefined>;
     readonly limit?: number;
+    readonly unsafeAllTenants?: { readonly reason: string };
   },
 ): StepInstance {
   return {
