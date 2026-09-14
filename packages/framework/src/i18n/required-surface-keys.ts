@@ -196,7 +196,9 @@ export function requiredKeysFromScreen(
       const form = screen as ActionFormScreenDefinition;
       pushKey(out, form.submitLabel);
       for (const fieldName of Object.keys(form.fields)) {
-        out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+        const override = form.fieldLabels?.[fieldName];
+        if (override !== undefined) pushKey(out, override);
+        else out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
       }
       for (const section of form.layout.sections) {
         if (isExtensionEditSection(section)) {
@@ -207,7 +209,9 @@ export function requiredKeysFromScreen(
         pushKey(out, section.title);
         for (const f of section.fields) {
           const fieldName = editFieldName(f);
-          out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+          const override = form.fieldLabels?.[fieldName];
+          if (override !== undefined) pushKey(out, override);
+          else out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
         }
       }
       break;

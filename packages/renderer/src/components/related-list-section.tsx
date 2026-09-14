@@ -15,12 +15,15 @@ import { useAppFeatures } from "../app/app-features-context";
 import {
   buildFilterFacets,
   buildFilterPayload,
+  mergeReferenceFacetOptions,
   resolveProjectionFacetSpecs,
 } from "../app/list-facets";
 import { useNav } from "../app/nav";
+import { ReferenceFacetBridges, type ReferenceFacetOption } from "../app/reference-facet-bridge";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
+  buildProjectionToolbarActions,
   runProjectionRowNavigate,
 } from "../app/row-actions";
 import { findEditScreenFor } from "../app/screen-access";
@@ -63,6 +66,7 @@ function synthesizeRelatedListEntity(
 export function RelatedListSection({
   section,
   parentId,
+  record,
   featureName,
   translate,
   hideTitle,
@@ -70,6 +74,10 @@ export function RelatedListSection({
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
+  /** The enclosing projectionDetail's own record (the "Akte") — evaluates
+   *  toolbarActions' `visible`/`params` (RelatedListToolbarAction), the same
+   *  record header actions already use. */
+  readonly record: Readonly<Record<string, unknown>>;
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
@@ -120,19 +128,46 @@ export function RelatedListSection({
   const [filters, setFilters] = useState<Readonly<Record<string, readonly string[]>>>({});
 
   const facetSpecs = useMemo(
-    () => resolveProjectionFacetSpecs(section.facets, effectiveTranslate),
-    [section.facets, effectiveTranslate],
+    () => resolveProjectionFacetSpecs(section.facets, effectiveTranslate, featureName),
+    [section.facets, effectiveTranslate, featureName],
+  );
+  const [referenceFacetOptions, setReferenceFacetOptions] = useState<
+    Record<string, readonly ReferenceFacetOption[]>
+  >({});
+  const handleFacetOptions = useCallback(
+    (field: string, options: readonly ReferenceFacetOption[]) =>
+      setReferenceFacetOptions((prev) =>
+        prev[field] === options ? prev : { ...prev, [field]: options },
+      ),
+    [],
+  );
+  const resolvedFacetSpecs = useMemo(
+    () => mergeReferenceFacetOptions(facetSpecs, referenceFacetOptions),
+    [facetSpecs, referenceFacetOptions],
   );
   const filterPayload = useMemo(
     () =>
-      buildFilterPayload(filters, (field) => facetSpecs.find((spec) => spec.field === field)?.type),
-    [filters, facetSpecs],
+      buildFilterPayload(
+        filters,
+        (field) => resolvedFacetSpecs.find((spec) => spec.field === field)?.type,
+      ),
+    [filters, resolvedFacetSpecs],
   );
-  const filterFacets = useMemo<DataTableFacet[]>(() => buildFilterFacets(facetSpecs), [facetSpecs]);
+  const filterFacets = useMemo<DataTableFacet[]>(
+    () => buildFilterFacets(resolvedFacetSpecs),
+    [resolvedFacetSpecs],
+  );
 
   const payload = useMemo(
     () => ({
-      [section.parentParam ?? "id"]: parentId,
+      // `parentFilter` sends the parent id as a server-side `filter` clause
+      // instead of a bespoke top-level key — the generic `<entity>:list`
+      // query understands `filter`, not an arbitrary `parentParam` key. Kept
+      // separate from `filterPayload` (user facets) below so a facet
+      // selection can never clear or overwrite it.
+      ...(section.parentFilter !== undefined
+        ? { filter: { field: section.parentFilter.field, op: "eq" as const, value: parentId } }
+        : { [section.parentParam ?? "id"]: parentId }),
       ...(section.pageSize !== undefined && { limit: section.pageSize }),
       // Gated on the declared capability, not just on state carrying a value —
       // same rule as ProjectionListBody: a param the bound query's Zod schema
@@ -141,6 +176,7 @@ export function RelatedListSection({
       ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
     }),
     [
+      section.parentFilter,
       section.parentParam,
       section.pageSize,
       section.searchable,
@@ -226,6 +262,39 @@ export function RelatedListSection({
     ],
   );
 
+  // Toolbar actions (e.g. "+ Create" above the tab table) — same schema
+  // and dispatch semantics as entityList/projectionList.
+  const toolbarActionButtons = useMemo(
+    () =>
+      buildProjectionToolbarActions({
+        toolbarActions: section.toolbarActions,
+        translate: effectiveTranslate,
+        dispatcher,
+        nav,
+        refetch: rowsQuery.refetch,
+        navigatePrefill:
+          section.parentFilter !== undefined
+            ? { [section.parentFilter.field]: parentId }
+            : { [section.parentParam ?? "id"]: parentId },
+        record,
+        ...(onOpenDrawer !== undefined && {
+          openDrawer: (action) => onOpenDrawer(action, undefined),
+        }),
+      }),
+    [
+      section.toolbarActions,
+      section.parentParam,
+      section.parentFilter,
+      parentId,
+      record,
+      effectiveTranslate,
+      dispatcher,
+      nav,
+      rowsQuery.refetch,
+      onOpenDrawer,
+    ],
+  );
+
   // A truncated fetch means `sortedRows` is a sort of a partial set, not of
   // the full related-row set — the client-side sort above (or even plain
   // unsorted display) would silently claim "these are the top N" when they
@@ -273,18 +342,15 @@ export function RelatedListSection({
           })}
           {...(onRowClick !== undefined && { onRowClick })}
           {...(rowActions !== undefined && { rowActions })}
-          {...(hideTitle === true && { chromeless: true, scrollBody: true })}
+          {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
+          {...(hideTitle === true && { scrollBody: true })}
         />
       </>
     );
 
   // hideTitle (tabs mode) → the tab panel is already the boundary: no
-  // Section card wrapper here, `chromeless` above drops the table's own
-  // card frame too, and `scrollBody` caps this wrapper at the panel's
-  // available height so a long Akte tab scrolls internally instead of
-  // stretching the page, while a short one still sizes to its content
-  // instead of stretching to the bottom (fw#2722, fw#2778) — the list sits
-  // directly in the tab. `FillContainer` is this section's
+  // Section card wrapper here — the table keeps its own frame to match the
+  // list-screen look; `scrollBody` caps it to the panel height. `FillContainer` is this section's
   // link in RenderEdit's `fillHeight` chain (see render-edit.tsx): it is
   // always this section's own root whenever hideTitle is set, since tabs
   // mode narrows RenderEdit to exactly this one active section. A platform
@@ -294,13 +360,23 @@ export function RelatedListSection({
   // Stacked (non-tabs) sections keep the card frame and document-flow
   // height since they render a visible title and aren't confined to a tab
   // panel.
+  const bridges = <ReferenceFacetBridges specs={facetSpecs} onOptions={handleFacetOptions} />;
+
   if (hideTitle) {
-    return FillContainer !== undefined ? <FillContainer>{content}</FillContainer> : content;
+    return (
+      <>
+        {bridges}
+        {FillContainer !== undefined ? <FillContainer>{content}</FillContainer> : content}
+      </>
+    );
   }
 
   return (
-    <Section title={section.title} testId={`related-list-${section.title}`}>
-      {content}
-    </Section>
+    <>
+      {bridges}
+      <Section title={section.title} testId={`related-list-${section.title}`}>
+        {content}
+      </Section>
+    </>
   );
 }

@@ -204,10 +204,9 @@ describe("RenderEdit", () => {
 
   // Fall 2: tabs layout sets hideSectionTitles (kumiko-screen.tsx's
   // ProjectionDetailBody, the only real caller) to blank out each section's
-  // OWN title — the active tab already names it. That gate used to also
-  // swallow the screen-level subtitle (screen.description), which has
-  // nothing to do with section titles and must survive tabs mode.
-  test("tabs layout (hideSectionTitles) keeps the section title hidden but still shows the screen's own subtitle", () => {
+  // OWN title — the active tab already names it. The head card also carries
+  // screen.description as its subtitle, so it must not render again here.
+  test("tabs layout (hideSectionTitles) keeps the section title hidden and drops the screen's own subtitle", () => {
     const entity = {
       fields: { email: { type: "text", required: true } },
     } as unknown as EntityDefinition;
@@ -236,9 +235,93 @@ describe("RenderEdit", () => {
 
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
     expect(screen.queryByTestId("section-Contact-title")).toBeNull();
-    expect(screen.getByTestId("render-edit-form-subtitle").textContent).toBe(
-      "Everything about this order in one place.",
+    expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
+  });
+
+  // S2: a fields-kind section's `groups` splits it into its own titled cards
+  // (tabs mode only — the branch that renders `groups` at all lives behind
+  // `hideSectionTitles`) instead of one flat grid.
+  test("a section with two groups renders two titled cards in tabs mode, each with its own fields", () => {
+    const entity = {
+      fields: {
+        email: { type: "text", required: true },
+        plan: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-detail",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [
+          {
+            id: "overview",
+            title: "Overview",
+            fields: [],
+            groups: [
+              { title: "Contact", fields: [{ field: "email" }] },
+              { title: "Billing", fields: [{ field: "plan" }] },
+            ],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "", plan: "" } as never}
+          writeCommand="order:create"
+          hideSectionTitles
+        />
+      </DispatcherProvider>,
     );
+
+    const contactCard = screen.getByTestId("section-Overview-group-0");
+    const billingCard = screen.getByTestId("section-Overview-group-1");
+    expect(contactCard.querySelector("h3")?.textContent).toBe("Contact");
+    expect(billingCard.querySelector("h3")?.textContent).toBe("Billing");
+    expect(within(contactCard).getByTestId("field-email")).toBeTruthy();
+    expect(within(billingCard).getByTestId("field-plan")).toBeTruthy();
+    expect(within(contactCard).queryByTestId("field-plan")).toBeNull();
+
+    // Default columns per group is 2 (--grid-cols CSS var), unless overridden.
+    const contactGrid = contactCard.querySelector(".grid") as HTMLElement | null;
+    expect(contactGrid?.style.getPropertyValue("--grid-cols")).toBe("repeat(2, minmax(0, 1fr))");
+  });
+
+  test("a tabs-mode section without groups renders a single card", () => {
+    const entity = {
+      fields: { email: { type: "text", required: true } },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-detail",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [{ id: "overview", title: "Overview", fields: [{ field: "email" }] }],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "" } as never}
+          writeCommand="order:create"
+          hideSectionTitles
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("section-Overview")).toBeTruthy();
+    expect(screen.queryByTestId("section-Overview-group-0")).toBeNull();
+    expect(within(screen.getByTestId("section-Overview")).getByTestId("field-email")).toBeTruthy();
   });
 
   // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch

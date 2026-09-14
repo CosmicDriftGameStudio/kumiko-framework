@@ -377,6 +377,32 @@ export type ToolbarAction =
       readonly style?: "primary" | "secondary" | "danger";
     };
 
+// relatedList-only extension of ToolbarAction (fw akte-bedienkonzept-2):
+// a relatedList section's toolbar renders inside a projectionDetail, which
+// has a record to evaluate against — a plain entityList/projectionList
+// toolbar does not, so `visible`/`params` live here instead of on the base
+// union. `visible` uses the same FieldCondition as header actions/
+// RowAction; `params` reuses RowActionNavigate's RowFieldExtractor, applied
+// to the enclosing record instead of a clicked row. Every field is optional,
+// so a plain ToolbarAction is already a valid RelatedListToolbarAction —
+// callers pass either type without a cast.
+export type RelatedListToolbarAction =
+  | (Extract<ToolbarAction, { readonly kind: "navigate" }> & {
+      /** Conditional visibility, evaluated against the relatedList's parent
+       *  record (the "Akte"). */
+      readonly visible?: FieldCondition;
+      /** Declarative URL search params extracted from the parent record,
+       *  prefilling the target screen. Replaces the implicit
+       *  `{ [parentParam]: parentId }` default when set. */
+      readonly params?: RowFieldExtractor;
+    })
+  | (Extract<ToolbarAction, { readonly kind: "writeHandler" }> & {
+      readonly visible?: FieldCondition;
+    })
+  | (Extract<ToolbarAction, { readonly kind: "drawer" }> & {
+      readonly visible?: FieldCondition;
+    });
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -384,6 +410,9 @@ export type EntityListScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   readonly entity: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
@@ -455,6 +484,17 @@ export type ListFacetSpec =
       readonly label: string;
       readonly trueLabel: string;
       readonly falseLabel: string;
+    }
+  | {
+      readonly field: string;
+      readonly type: "reference";
+      readonly label: string;
+      /** Entity name (same feature) or `feature:entity` (cross-feature), same
+       *  convention as `ListColumnSpec.refEntity`. Options load at render time. */
+      readonly entity: string;
+      /** Row field on the referenced entity shown as the option label
+       *  (default "id"). */
+      readonly labelField?: string;
     };
 
 export type ProjectionListScreenDefinition = {
@@ -464,6 +504,9 @@ export type ProjectionListScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -558,6 +601,9 @@ export type ProjectionDetailScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
@@ -763,6 +809,9 @@ export type DashboardScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
@@ -835,7 +884,17 @@ export type EditFieldsSection = {
    *  (subtitle-only section). */
   readonly description?: string;
   readonly columns?: number;
+  /** Mutually exclusive with `groups` — pass `[]` when using `groups`; the
+   *  boot-validator rejects both non-empty or both empty. */
   readonly fields: readonly EditFieldSpec[];
+  /** Splits the section into multiple titled cards instead of one flat grid.
+   *  Mutually exclusive with `fields`; fields named here still need to exist. */
+  readonly groups?: readonly {
+    readonly title: string;
+    readonly fields: readonly EditFieldSpec[];
+    /** Default 2. */
+    readonly columns?: number;
+  }[];
   /** Rendered left of the section title, `text-muted-foreground` — closed
    *  IconKey vocabulary into the ICONS registry (renderer-web), analogous
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives
@@ -889,6 +948,15 @@ export type EditRelatedListSection = {
   readonly query: string;
   /** Query-payload key the parent record's id is passed under. Default "id". */
   readonly parentParam?: string;
+  /** Server-side WHERE clause pinning this section to the parent record —
+   *  sent as `payload.filter: { field, op: "eq", value: parentId }`, kept
+   *  out of the user-facet `filters` array so it can't be cleared by facet
+   *  interaction. Lets a tab reuse the generic `<entity>:list` query instead
+   *  of a bespoke child-rows handler. Mutually exclusive with `parentParam`
+   *  (the boot-validator rejects both). `field` must be a real field on the
+   *  entity behind `query`, and that query's Zod schema must accept
+   *  `filter` (same requirement `filter`/`facets` already have). */
+  readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
   readonly pageSize?: number;
   /** Initial sort on mount, applied client-side over the already-loaded rows
@@ -921,6 +989,11 @@ export type EditRelatedListSection = {
    *  writeHandler action re-runs this section's own query, same as a
    *  projectionList row action re-running its list query. */
   readonly rowActions?: readonly RowAction[];
+  /** Toolbar actions above the table — same type and dispatch semantics as
+   *  `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.),
+   *  plus `visible`/`params` evaluated against the parent record (see
+   *  RelatedListToolbarAction). */
+  readonly toolbarActions?: readonly RelatedListToolbarAction[];
   /** Record field rendered as a count badge in the tab label when the
    *  enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
    *  Ignored outside tabs mode or when the field's value is not a finite
@@ -995,6 +1068,9 @@ export type EntityEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   /** Derived by buildAppSchema from the navigate `params` targeting this
    *  screen — the only URL query keys the create form prefills. An authored
    *  value is overwritten. */
@@ -1092,6 +1168,9 @@ export type ActionFormScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
@@ -1104,6 +1183,9 @@ export type ActionFormScreenDefinition = {
   /** Layout analog zu EntityEditScreen: sections mit fields aus dem
    *  fields-Map oben. */
   readonly layout: EditLayout;
+  /** Per-field label i18n key override, same type/semantics as
+   *  `EntityEditScreenDefinition.fieldLabels`. Falls back to the convention when absent. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
@@ -1223,6 +1305,9 @@ export type SecretMintScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Write-handler QN dispatched on submit. */
@@ -1276,7 +1361,8 @@ export type CustomScreenDefinition = {
    *  positive (kumiko-framework#2034). Only set this on screens the
    *  feature itself never navs — a screen the feature DOES nav still needs
    *  its client plugin mounted by every consumer, and should keep
-   *  triggering the diagnostic if it's missing. */
+   *  triggering the diagnostic if it's missing. Also gates the
+   *  boot-validator's nav-area check, same as `dormant` on other screens. */
   readonly dormant?: boolean;
 };
 
@@ -1320,6 +1406,9 @@ export type ConfigEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -1364,6 +1453,9 @@ export type SecretsEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Screen has no nav entry by design (opened via link or navved by the
+   *  app); exempts it from the nav-area boot check. */
+  readonly dormant?: boolean;
   /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
   readonly secretKeys: Readonly<Record<string, string>>;
   /** field id -> i18n key for the label. */

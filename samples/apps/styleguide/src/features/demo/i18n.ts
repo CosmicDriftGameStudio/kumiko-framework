@@ -20,6 +20,7 @@ export const DEMO_I18N: Readonly<Record<string, LocalizedString>> = {
   "styleguide:nav.catalog": { de: "Katalog", en: "Catalog" },
   "styleguide:nav.itemList": { de: "Alle Artikel", en: "All items" },
   "styleguide:nav.itemNew": { de: "Neuer Artikel", en: "New item" },
+  "styleguide:nav.itemListWide": { de: "Alle Spalten", en: "All columns" },
   "styleguide:entity:item:field:name": { de: "Name", en: "Name" },
   "styleguide:entity:item:field:description": { de: "Beschreibung", en: "Description" },
   "styleguide:entity:item:field:quantity": { de: "Menge", en: "Quantity" },

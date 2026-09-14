@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
+import { createEntity, createTextField } from "../factories";
 
 describe("validateBoot — projectionList screens", () => {
   test("rejects hand-written searchable:true when the query schema has no search param (3a)", () => {
@@ -437,6 +438,96 @@ describe("validateBoot — projectionList screens", () => {
         });
         r.translations({
           keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("a reference facet targeting an unknown entity is rejected", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["tenant"],
+          facets: [{ field: "tenant", type: "reference", label: "Tenant", entity: "tenant" }],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/does not resolve to a registered entity/);
+    });
+
+    test("a reference facet targeting a known entity passes boot", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.entity(
+          "tenant",
+          createEntity({
+            table: "Tenants",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["tenant"],
+          facets: [{ field: "tenant", type: "reference", label: "Tenant", entity: "tenant" }],
+        });
+        r.translations({
+          keys: {
+            "screen:schedule-list.title": { de: "Liste", en: "List" },
+            "ledger:entity:tenant:field:name": { de: "Name", en: "Name" },
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("a reference facet filtering by an id field with no same-named column boots (displays a different label column)", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.entity(
+          "property",
+          createEntity({
+            table: "Properties",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          // Filters by propertyId, displays propertyLabel — no "propertyId"
+          // column exists, and none should be required for a reference facet.
+          columns: ["propertyLabel"],
+          facets: [
+            { field: "propertyId", type: "reference", label: "Property", entity: "property" },
+          ],
+        });
+        r.translations({
+          keys: {
+            "screen:schedule-list.title": { de: "Liste", en: "List" },
+            "ledger:entity:property:field:name": { de: "Name", en: "Name" },
+          },
         });
       });
       expect(() => validateBoot([feature])).not.toThrow();

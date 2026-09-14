@@ -2289,9 +2289,8 @@ function FormSections({
 }
 
 // Title/subtitle block shared by DefaultForm's card and chromeless layouts —
-// the caller-supplied subtitle (screen.description) is independent of
-// hideSectionTitles (which only blanks per-section titles, see RenderEdit)
-// and must keep rendering in tabs/chromeless mode, just without card chrome.
+// RenderEdit already withholds screen.description from `subtitle` in tabs
+// mode (chromeless), so whatever arrives here still renders, just without card chrome.
 function FormTitleBlock({
   title,
   subtitle,
@@ -2694,7 +2693,7 @@ function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNo
   // maxRows/scrolling don't apply — the row just wraps.
   if (columns === "auto") {
     return (
-      <div data-testid={testId} className="flex flex-wrap gap-4">
+      <div data-testid={testId} className="flex flex-wrap items-center gap-4">
         {children}
       </div>
     );

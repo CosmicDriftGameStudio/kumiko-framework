@@ -633,7 +633,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(screen.queryByTestId("field-userId")).toBeNull();
   });
 
-  test("layout.mode: 'tabs' with a header — exactly one card renders, the head (bedienkonzept A1)", async () => {
+  test("layout.mode: 'tabs' with a header — the head card plus one card for the active tab's fields", async () => {
     const tabsHeaderScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       header: { title: "userId" },
@@ -679,10 +679,9 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     );
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
-    // Bedienkonzept A1: on a tabbed Akte there is exactly one card, the head
-    // — tab content sits on the page background. Checked via the card's
-    // structural marker, not a Tailwind class string.
-    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
+    // Head card plus one titled card for the fields tab — checked via the
+    // card's structural marker, not a Tailwind class string.
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
   });
 
   test("layout.mode: 'tabs' with countField — tab label carries the record's count, sections without it stay unchanged", async () => {

@@ -146,4 +146,7 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
         "each signed-in user views and revokes only their own sessions, mirroring the mine/revoke handlers",
     },
   },
+  // Self-service settings-area screen, placed by the consuming app's own
+  // r.nav() — no nav area to resolve in isolation.
+  dormant: true,
 };
