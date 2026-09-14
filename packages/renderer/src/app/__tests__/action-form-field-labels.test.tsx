@@ -60,7 +60,7 @@ function renderActionFormCapturingFieldLabels(screen: ActionFormScreenDefinition
   return { labels };
 }
 
-describe("RenderEdit — ActionFormScreenDefinition.fieldLabels (fw akte-bedienkonzept-2 F1)", () => {
+describe("RenderEdit — ActionFormScreenDefinition.fieldLabels", () => {
   test("a field named in fieldLabels renders the screen's own label", () => {
     const screen: ActionFormScreenDefinition = {
       id: "reschedule",

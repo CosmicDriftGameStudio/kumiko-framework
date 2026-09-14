@@ -102,13 +102,17 @@ function StatefulNav({ children }: { readonly children: ReactNode }): ReactNode 
   return <NavProvider value={value}>{children}</NavProvider>;
 }
 
-function renderScreen(schema: FeatureSchema, qn: string): void {
+function renderScreen(
+  schema: FeatureSchema,
+  qn: string,
+  dispatcher: Dispatcher = stubDispatcher(),
+): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "de-DE" })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
-      <DispatcherProvider dispatcher={stubDispatcher()}>
+      <DispatcherProvider dispatcher={dispatcher}>
         <StatefulNav>
           <PrimitivesProvider value={testPrimitives}>
             <KumikoScreen schema={schema} qn={qn} />
@@ -117,6 +121,27 @@ function renderScreen(schema: FeatureSchema, qn: string): void {
       </DispatcherProvider>
     </LocaleProvider>,
   );
+}
+
+function stubDispatcherByType(
+  responses: Readonly<Record<string, { rows: readonly Record<string, unknown>[] }>>,
+): Dispatcher {
+  return {
+    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+    query: (async (type: string, payload: unknown) => {
+      queryCalls.push({ type, payload });
+      const rows = responses[type]?.rows ?? [];
+      return { isSuccess: true, data: { rows, nextCursor: null } };
+    }) as unknown as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
 }
 
 describe("entityList facets — unchanged after the shared buildFilterFacets/buildFilterPayload extraction (fw#2224)", () => {
@@ -336,5 +361,68 @@ describe("projectionList filter + facets (fw#2224)", () => {
     const cancel = de?.["kumiko.actions.cancel"] ?? en["kumiko.actions.cancel"];
     expect(facet?.label).toBe(save);
     expect(facet?.options?.[0]?.label).toBe(cancel);
+  });
+
+  test("a reference facet loads its options from the referenced entity's list query, and selecting one sends an id filter", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const dispatcher = stubDispatcherByType({
+      "ledger:query:member:list": { rows: [] },
+      "ledger:query:tenant:list": {
+        rows: [
+          { id: "t1", name: "Acme" },
+          { id: "t2", name: "Globex" },
+        ],
+      },
+    });
+    const screen: ProjectionListScreenDefinition = {
+      id: "member-list",
+      type: "projectionList",
+      query: "ledger:query:member:list",
+      columns: ["tenantId"],
+      facets: [
+        {
+          field: "tenantId",
+          type: "reference",
+          label: "Tenant",
+          entity: "tenant",
+          labelField: "name",
+        },
+      ],
+    };
+    const schema: FeatureSchema = {
+      featureName: "ledger",
+      entities: {},
+      screens: [screen],
+    } as FeatureSchema;
+
+    renderScreen(schema, "ledger:screen:member-list", dispatcher);
+
+    await waitFor(() =>
+      expect(queryCalls.some((c) => c.type === "ledger:query:tenant:list")).toBe(true),
+    );
+    await waitFor(() => expect(getCapturedProps()?.filterFacets?.[0]?.options).toHaveLength(2));
+    const props = getCapturedProps();
+    if (props === undefined) throw new Error("DataTable was not rendered");
+    expect(props.filterFacets).toEqual([
+      {
+        field: "tenantId",
+        label: "Tenant",
+        options: [
+          { value: "t1", label: "Acme" },
+          { value: "t2", label: "Globex" },
+        ],
+      },
+    ]);
+
+    const countBeforeSelect = queryCalls.length;
+    await act(async () => {
+      props.onFilterChange?.("tenantId", ["t1"]);
+    });
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(countBeforeSelect));
+    const lastPayload = queryCalls[queryCalls.length - 1]?.payload;
+    expect(lastPayload).toMatchObject({
+      filters: [{ field: "tenantId", op: "in", value: ["t1"] }],
+    });
   });
 });

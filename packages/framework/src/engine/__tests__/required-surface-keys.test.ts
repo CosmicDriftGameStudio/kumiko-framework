@@ -44,7 +44,7 @@ describe("requiredKeysFromScreen", () => {
     expect(keys).toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "title"));
   });
 
-  test("actionForm honors a fieldLabels override, falls back to ACTION_FORM_ENTITY otherwise (fw akte-bedienkonzept-2 F1)", () => {
+  test("actionForm honors a fieldLabels override, falls back to ACTION_FORM_ENTITY otherwise", () => {
     const keys = requiredKeysFromScreen("publicstatus", {
       id: "reschedule-form",
       type: "actionForm",

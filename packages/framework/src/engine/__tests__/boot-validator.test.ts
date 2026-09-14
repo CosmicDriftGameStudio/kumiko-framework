@@ -2403,6 +2403,10 @@ describe("boot-validator", () => {
       readonly sections?: ReadonlyArray<{
         readonly title: string;
         readonly fields: readonly string[];
+        readonly groups?: ReadonlyArray<{
+          readonly title: string;
+          readonly fields: readonly string[];
+        }>;
       }>;
       readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
       readonly cancelTarget?: string | false;
@@ -2499,6 +2503,53 @@ describe("boot-validator", () => {
       expect(() =>
         validateBoot([makeFeature({ sections: [{ title: "x", fields: ["ghost"] }] })]),
       ).toThrow(/layout references unknown field "ghost"/);
+    });
+
+    test("section mit fields UND groups → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            sections: [
+              {
+                title: "Approval",
+                fields: ["note"],
+                groups: [{ title: "Priority", fields: ["priority"] }],
+              },
+            ],
+          }),
+        ]),
+      ).toThrow(/declares both fields and groups/);
+    });
+
+    test("group referenziert unknown field → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            sections: [
+              { title: "Approval", fields: [], groups: [{ title: "Priority", fields: ["ghost"] }] },
+            ],
+          }),
+        ]),
+      ).toThrow(/layout references unknown field "ghost"/);
+    });
+
+    test("valide groups → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            sections: [
+              {
+                title: "Approval",
+                fields: [],
+                groups: [
+                  { title: "Basics", fields: ["note"] },
+                  { title: "Priority", fields: ["priority"] },
+                ],
+              },
+            ],
+          }),
+        ]),
+      ).not.toThrow();
     });
 
     test("redirect → existing screen-id im selben feature → kein Throw", () => {

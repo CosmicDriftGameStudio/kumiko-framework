@@ -127,7 +127,7 @@ function renderSection(): ReturnType<typeof render> {
   return render(<NotesSection entityName="contact" entityId="contact-1" />, { wrapper });
 }
 
-describe("NotesSection — two-card layout (fw akte-bedienkonzept-2 N1)", () => {
+describe("NotesSection — two-card layout", () => {
   test("renders a 'new note' card and a 'history' card as two separate cards", async () => {
     const view = renderSection();
     await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());

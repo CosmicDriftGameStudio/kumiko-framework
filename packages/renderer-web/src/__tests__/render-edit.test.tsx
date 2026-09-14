@@ -238,6 +238,92 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
   });
 
+  // S2: a fields-kind section's `groups` splits it into its own titled cards
+  // (tabs mode only — the branch that renders `groups` at all lives behind
+  // `hideSectionTitles`) instead of one flat grid.
+  test("a section with two groups renders two titled cards in tabs mode, each with its own fields", () => {
+    const entity = {
+      fields: {
+        email: { type: "text", required: true },
+        plan: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-detail",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [
+          {
+            id: "overview",
+            title: "Overview",
+            fields: [],
+            groups: [
+              { title: "Contact", fields: [{ field: "email" }] },
+              { title: "Billing", fields: [{ field: "plan" }] },
+            ],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "", plan: "" } as never}
+          writeCommand="order:create"
+          hideSectionTitles
+        />
+      </DispatcherProvider>,
+    );
+
+    const contactCard = screen.getByTestId("section-Overview-group-0");
+    const billingCard = screen.getByTestId("section-Overview-group-1");
+    expect(contactCard.querySelector("h3")?.textContent).toBe("Contact");
+    expect(billingCard.querySelector("h3")?.textContent).toBe("Billing");
+    expect(within(contactCard).getByTestId("field-email")).toBeTruthy();
+    expect(within(billingCard).getByTestId("field-plan")).toBeTruthy();
+    expect(within(contactCard).queryByTestId("field-plan")).toBeNull();
+
+    // Default columns per group is 2 (--grid-cols CSS var), unless overridden.
+    const contactGrid = contactCard.querySelector(".grid") as HTMLElement | null;
+    expect(contactGrid?.style.getPropertyValue("--grid-cols")).toBe("repeat(2, minmax(0, 1fr))");
+  });
+
+  test("a tabs-mode section without groups renders a single card", () => {
+    const entity = {
+      fields: { email: { type: "text", required: true } },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-detail",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [{ id: "overview", title: "Overview", fields: [{ field: "email" }] }],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={{ email: "" } as never}
+          writeCommand="order:create"
+          hideSectionTitles
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("section-Overview")).toBeTruthy();
+    expect(screen.queryByTestId("section-Overview-group-0")).toBeNull();
+    expect(within(screen.getByTestId("section-Overview")).getByTestId("field-email")).toBeTruthy();
+  });
+
   // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch
   // computeEditViewModel → render-field → DefaultInput auf den Located-Picker
   // laufen (Datum + Uhrzeit + Zone), NICHT auf den Klartext-Fallthrough. Vor

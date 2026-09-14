@@ -633,7 +633,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(screen.queryByTestId("field-userId")).toBeNull();
   });
 
-  test("layout.mode: 'tabs' with a header — the head card plus one card for the active tab's fields (bedienkonzept A1, fw akte-bedienkonzept-2 S1)", async () => {
+  test("layout.mode: 'tabs' with a header — the head card plus one card for the active tab's fields", async () => {
     const tabsHeaderScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       header: { title: "userId" },

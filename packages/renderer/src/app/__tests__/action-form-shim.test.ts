@@ -70,7 +70,7 @@ describe("synthesizeActionFormScreen", () => {
     expect("slots" in withoutSlots).toBe(false);
   });
 
-  test("carries fieldLabels through so RenderEdit resolves the screen's own label override (fw akte-bedienkonzept-2 F1)", () => {
+  test("carries fieldLabels through so RenderEdit resolves the screen's own label override", () => {
     const withFieldLabels = synthesizeActionFormScreen({
       id: "reschedule",
       type: "actionForm",

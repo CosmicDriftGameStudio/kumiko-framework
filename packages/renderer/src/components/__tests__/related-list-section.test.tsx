@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
-import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context";
 import type { FeatureSchema } from "../../app/feature-schema";
@@ -183,7 +183,7 @@ function renderRelatedList(
   );
 }
 
-describe("RelatedListSection — tabs-mode card chrome (fw#2722, fw akte-bedienkonzept-2 L1)", () => {
+describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
   test("hideTitle (tabs mode) renders the list without a Section wrapper, keeps the table frame, and marks scrollBody", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
@@ -254,7 +254,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722, fw akte-bedienk
   });
 });
 
-describe("RelatedListSection — list-screen toolbar in tabs mode (fw akte-bedienkonzept-2 L2/L3/L4)", () => {
+describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
   test("hideTitle (tabs mode) still surfaces search, facets and a toolbarActions button", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedFilterFacets: DataTableProps["filterFacets"];
@@ -379,6 +379,84 @@ describe("RelatedListSection — list-screen toolbar in tabs mode (fw akte-bedie
     await waitFor(() => expect(navigations).toHaveLength(1));
     expect(navigations[0]).toEqual({ screenId: "position-create" });
     expect(searchParams).toEqual([{ leaseId: "lease-9" }]);
+  });
+
+  test("a reference facet loads its options from the referenced entity's list query, and selecting one sends an id filter", async () => {
+    const calls: Array<{ type: string; payload: unknown }> = [];
+    const dispatcher: Dispatcher = {
+      write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
+      query: (async (type: string, payload: unknown) => {
+        calls.push({ type, payload });
+        if (type === "orders:query:tenant:list") {
+          return {
+            isSuccess: true,
+            data: {
+              rows: [{ id: "t1", name: "Acme" }],
+              nextCursor: null,
+            },
+          };
+        }
+        return { isSuccess: true, data: { rows: [{ id: "r1", name: "Alice" }], nextCursor: null } };
+      }) as Dispatcher["query"],
+      batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
+      statusStore: {
+        getState: () => "online",
+        subscribe: () => () => {},
+      } as unknown as Dispatcher["statusStore"],
+      async *stream() {},
+      pendingWrites: () => [],
+      pendingFiles: () => [],
+    };
+    let capturedFilterFacets: DataTableProps["filterFacets"];
+    let capturedOnFilterChange: DataTableProps["onFilterChange"];
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedFilterFacets = props.filterFacets;
+      capturedOnFilterChange = props.onFilterChange;
+      return testDataTable(props);
+    };
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      facets: [
+        { field: "name", type: "reference", label: "Tenant", entity: "tenant", labelField: "name" },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={section}
+                parentId="order-1"
+                featureName="orders"
+                hideTitle
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => expect(capturedFilterFacets?.[0]?.options).toHaveLength(1));
+    expect(capturedFilterFacets).toEqual([
+      { field: "name", label: "Tenant", options: [{ value: "t1", label: "Acme" }] },
+    ]);
+
+    const countBeforeSelect = calls.length;
+    await act(async () => {
+      capturedOnFilterChange?.("name", ["t1"]);
+    });
+    await waitFor(() => expect(calls.length).toBeGreaterThan(countBeforeSelect));
+    const lastListCall = [...calls]
+      .reverse()
+      .find((c) => c.type === "orders:query:notifications:list");
+    expect(lastListCall?.payload).toMatchObject({
+      filters: [{ field: "name", op: "in", value: ["t1"] }],
+    });
   });
 });
 
