@@ -948,7 +948,8 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
     // params werden zu Strings serialisiert (URL-Layer kennt nur Strings).
-    expect(searchParamUpdates).toEqual([{ taskId: "r1" }]);
+    // returnTo: "task-list" — this KumikoScreen has no outer host, so it becomes its own.
+    expect(searchParamUpdates).toEqual([{ taskId: "r1", returnTo: "task-list" }]);
     // Reihenfolge-Pin: erst navigate, dann setSearchParams.
     expect(calls.map((c) => c.kind)).toEqual(["navigate", "setSearchParams"]);
   });
@@ -1072,7 +1073,9 @@ describe("KumikoScreen", () => {
     await user.click(screen.getByTestId("row-r1-action-edit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "r1" });
-    expect(searchParamUpdates).toEqual([]);
+    // No declared params, but returnTo still attaches — the id itself never
+    // leaks into search params (that's the point above).
+    expect(searchParamUpdates).toEqual([{ returnTo: "task-list" }]);
   });
 
   // JSON-Schema-Fall (window.__KUMIKO_SCHEMA__): Declarative entityId: "id"
@@ -1195,7 +1198,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-approve" });
   });
 
-  test("entityList rowActions kind=navigate ohne params: setSearchParams wird NICHT gerufen", async () => {
+  test("entityList rowActions kind=navigate ohne eigene params: setSearchParams trägt nur returnTo", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
@@ -1241,7 +1244,8 @@ describe("KumikoScreen", () => {
 
     await user.click(screen.getByTestId("row-r1-action-view"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    expect(searchParamUpdates).toEqual([]);
+    // No declared params, but returnTo still attaches.
+    expect(searchParamUpdates).toEqual([{ returnTo: "task-list" }]);
   });
 
   // toolbarActions: Schema-Form (kind: navigate | writeHandler) →

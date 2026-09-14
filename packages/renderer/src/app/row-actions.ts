@@ -13,8 +13,9 @@ import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
 import type { ToolbarActionButton } from "../components/render-list";
 import type { DataTableRowAction } from "../primitives";
-import type { NavApi } from "./nav";
+import type { NavApi, ScreenTarget } from "./nav";
 import { lastSegment } from "./qn";
+import { navigateWithReturnTo, type ReturnHost } from "./return-to";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
 // entityId is explicit: the edit screen may live in another feature than
@@ -140,35 +141,40 @@ export function runProjectionRowNavigate(
   nav: NavApi,
   action: RowActionNavigate,
   row: ListRowViewModel,
+  host: ReturnHost | undefined,
 ): void {
   if (action.entity !== undefined) {
     const id = action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : "";
     // skip: no entityId column on this row — nothing to navigate to.
     if (id === "") return;
     nav.navigate({ entity: action.entity, id });
+    const params =
+      action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
+    if (params !== undefined) {
+      nav.setSearchParams(stringifyNavParams(params));
+    }
   } else if (action.screen !== undefined) {
     const entityId =
       action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
-    nav.navigate({
+    const target: ScreenTarget = {
       screenId: action.screen,
       ...(entityId !== undefined && entityId !== "" && { entityId }),
-    });
-  } else {
-    // skip: neither entity nor screen set — the boot-validator rejects this
-    // shape (resolveRowActionNavigateTarget), so this only guards types.
-    return;
+    };
+    const params =
+      action.params !== undefined
+        ? stringifyNavParams(evalRowExtractor(action.params, row.values))
+        : undefined;
+    navigateWithReturnTo(nav, target, host, params);
   }
-  const params =
-    action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
-  if (params !== undefined) {
-    nav.setSearchParams(stringifyNavParams(params));
-  }
+  // skip: neither entity nor screen set — the boot-validator rejects this
+  // shape (resolveRowActionNavigateTarget), so this only guards types.
 }
 
 function buildNavigateRowAction(
   action: RowActionNavigate,
   translate: Translate,
   nav: NavApi,
+  host: ReturnHost | undefined,
 ): DataTableRowAction {
   const { visible } = action;
   const actionIcon = resolveActionIcon(action.id, action.icon);
@@ -178,7 +184,7 @@ function buildNavigateRowAction(
     ...(action.style !== undefined && { style: action.style }),
     confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
-    onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row),
+    onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row, host),
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
     }),
@@ -294,15 +300,24 @@ export function buildProjectionRowActions(options: {
   readonly openDrawer?: OpenDrawer;
   /** Prepended unless a declared action already has id "edit" — declared wins. */
   readonly defaultEditRowAction?: RowActionNavigate;
+  readonly host: ReturnHost | undefined;
 }): readonly DataTableRowAction[] | undefined {
-  const { rowActions, translate, dispatcher, nav, refetch, openDrawer, defaultEditRowAction } =
-    options;
+  const {
+    rowActions,
+    translate,
+    dispatcher,
+    nav,
+    refetch,
+    openDrawer,
+    defaultEditRowAction,
+    host,
+  } = options;
   const effectiveActions = mergeDefaultEditAction(rowActions, defaultEditRowAction);
   if (effectiveActions.length === 0) return undefined;
   const out: DataTableRowAction[] = [];
   for (const action of effectiveActions) {
     if (action.kind === "navigate") {
-      out.push(buildNavigateRowAction(action, translate, nav));
+      out.push(buildNavigateRowAction(action, translate, nav, host));
       continue;
     }
     if (action.kind === "drawer") {
@@ -327,11 +342,12 @@ function buildNavigateToolbarAction(
   action: RelatedListToolbarAction & { readonly kind: "navigate" },
   translate: Translate,
   nav: NavApi,
+  host: ReturnHost | undefined,
   prefill: Readonly<Record<string, unknown>> | undefined,
   record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
   const actionIcon = resolveActionIcon(action.id);
-  const target = action.screen;
+  const target: ScreenTarget = { screenId: action.screen };
   return {
     id: action.id,
     label: translate(action.label),
@@ -339,7 +355,6 @@ function buildNavigateToolbarAction(
     confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: () => {
-      nav.navigate({ screenId: target });
       // A declared `params` extractor (evaluated against the relatedList's
       // parent record) replaces the caller's implicit prefill (e.g. a
       // relatedList's `{ [parentParam]: parentId }` or, with `parentFilter`
@@ -350,9 +365,8 @@ function buildNavigateToolbarAction(
         action.params !== undefined && record !== undefined
           ? evalRowExtractor(action.params, record)
           : prefill;
-      if (resolvedParams !== undefined) {
-        nav.setSearchParams(stringifyNavParams(resolvedParams));
-      }
+      const params = resolvedParams !== undefined ? stringifyNavParams(resolvedParams) : undefined;
+      navigateWithReturnTo(nav, target, host, params);
     },
   };
 }
@@ -418,6 +432,7 @@ export function buildProjectionToolbarActions(options: {
    *  against it exactly like header actions/RowAction.visible. Plain
    *  entityList/projectionList toolbars have no record and omit this. */
   readonly record?: Readonly<Record<string, unknown>>;
+  readonly host: ReturnHost | undefined;
 }): readonly ToolbarActionButton[] | undefined {
   const {
     toolbarActions,
@@ -428,6 +443,7 @@ export function buildProjectionToolbarActions(options: {
     openDrawer,
     navigatePrefill,
     record,
+    host,
   } = options;
   if (toolbarActions === undefined) return undefined;
   const out: ToolbarActionButton[] = [];
@@ -440,7 +456,7 @@ export function buildProjectionToolbarActions(options: {
       continue;
     }
     if (action.kind === "navigate") {
-      out.push(buildNavigateToolbarAction(action, translate, nav, navigatePrefill, record));
+      out.push(buildNavigateToolbarAction(action, translate, nav, host, navigatePrefill, record));
       continue;
     }
     if (action.kind === "drawer") {

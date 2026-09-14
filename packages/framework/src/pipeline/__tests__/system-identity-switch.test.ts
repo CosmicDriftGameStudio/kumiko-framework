@@ -13,9 +13,11 @@ import { AccessDeniedError, FrameworkReasons } from "../../errors";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
+  createGatedProjectionReader,
   type IdentitySwitch,
   isIdentitySwitchAllowed,
   isSystemIdentity,
+  type ProjectionReader,
   type WriteAsFn,
   withHookEscapeHatchGrant,
 } from "../system-identity-switch";
@@ -243,6 +245,69 @@ describe("createGatedIdentitySwitch", () => {
   });
 });
 
+function makeUngatedProjectionReader(): {
+  readonly ungated: ProjectionReader;
+  readonly mockFn: ReturnType<typeof mock>;
+} {
+  const mockFn = mock(async (_qn: string, _options?: { readonly unsafeAllTenants?: boolean }) => [
+    { ok: true },
+  ]);
+  return { ungated: mockFn as unknown as ProjectionReader, mockFn };
+}
+
+describe("createGatedProjectionReader", () => {
+  test("without a grant, unsafeAllTenants: true throws AccessDeniedError and never calls ungated", async () => {
+    const { ungated, mockFn } = makeUngatedProjectionReader();
+    const gated = createGatedProjectionReader('handler "x"', false, ungated);
+
+    let caught: unknown;
+    try {
+      await gated("qp:projection:widgets", { unsafeAllTenants: true });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(AccessDeniedError);
+    const error = caught as AccessDeniedError;
+    expect(error.details).toEqual({ reason: FrameworkReasons.unsafeAllTenantsDenied });
+    expect(mockFn).not.toHaveBeenCalled();
+  });
+
+  test("without the unsafeAllTenants option, calls ungated directly with no report", async () => {
+    const { ungated, mockFn } = makeUngatedProjectionReader();
+    const { report, calls } = recordingReporter();
+    const gated = createGatedProjectionReader('handler "x"', false, ungated, {
+      reason: "escapeHatch reason",
+      report,
+    });
+
+    await gated("qp:projection:widgets");
+
+    expect(mockFn).toHaveBeenCalledWith("qp:projection:widgets", undefined);
+    expect(calls).toEqual([]);
+  });
+
+  test("with a grant, unsafeAllTenants: true calls ungated and reports exactly once", async () => {
+    const { ungated, mockFn } = makeUngatedProjectionReader();
+    const { report, calls } = recordingReporter();
+    const gated = createGatedProjectionReader('handler "x"', true, ungated, {
+      reason: 'r.systemScope() feature "widgets"',
+      report,
+    });
+
+    await gated("qp:projection:widgets", { unsafeAllTenants: true });
+
+    expect(mockFn).toHaveBeenCalledWith("qp:projection:widgets", { unsafeAllTenants: true });
+    expect(calls).toEqual([
+      {
+        kind: "unsafe-all-tenants",
+        reason: 'r.systemScope() feature "widgets"',
+        target: undefined,
+      },
+    ]);
+  });
+});
+
 describe("withHookEscapeHatchGrant", () => {
   test("hook without escapeHatch does NOT inherit the handler's SYSTEM grant", async () => {
     const { ungated } = makeUngated();
@@ -421,6 +486,44 @@ describe("withHookEscapeHatchGrant", () => {
       reason: "hook's own grant",
     }) as { db: TenantDb };
     expect(hookCtxWithEscapeHatch.db.unsafeRaw("test reason")).toBe(rawDb);
+  });
+
+  test("handler-granted queryProjection reader: hook without escapeHatch loses the grant for unsafeAllTenants", async () => {
+    const { ungated, mockFn } = makeUngatedProjectionReader();
+    const handlerCtx = {
+      queryProjection: createGatedProjectionReader('handler "outer"', true, ungated),
+    };
+
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", undefined) as {
+      queryProjection: ProjectionReader;
+    };
+
+    await expect(
+      hookCtx.queryProjection("qp:projection:widgets", { unsafeAllTenants: true }),
+    ).rejects.toBeInstanceOf(AccessDeniedError);
+    expect(mockFn).not.toHaveBeenCalled();
+  });
+
+  test("hook's own escapeHatch grants queryProjection's unsafeAllTenants and reports with the hook's reason", async () => {
+    const { ungated, mockFn } = makeUngatedProjectionReader();
+    const { report, calls } = recordingReporter();
+    const handlerCtx = {
+      queryProjection: createGatedProjectionReader('handler "outer"', false, ungated, {
+        reason: undefined,
+        report,
+      }),
+    };
+
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
+      reason: "hook's own grant",
+    }) as { queryProjection: ProjectionReader };
+
+    await hookCtx.queryProjection("qp:projection:widgets", { unsafeAllTenants: true });
+
+    expect(mockFn).toHaveBeenCalledWith("qp:projection:widgets", { unsafeAllTenants: true });
+    expect(calls).toEqual([
+      { kind: "unsafe-all-tenants", reason: "hook's own grant", target: undefined },
+    ]);
   });
 });
 

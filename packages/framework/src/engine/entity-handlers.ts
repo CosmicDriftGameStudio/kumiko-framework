@@ -17,6 +17,7 @@ import type {
   AccessRule,
   DeriveContext,
   EntityDefinition,
+  EscapeHatchDeclaration,
   HandlerContext,
   QueryHandlerDef,
   SessionUser,
@@ -589,7 +590,11 @@ export function createEntityExecutor(
 export function defineProjectionQueryHandler(
   name: string,
   projectionQualifiedName: string,
-  options: { access: AccessRule; unsafeAllTenants?: boolean },
+  options: {
+    access: AccessRule;
+    unsafeAllTenants?: boolean;
+    escapeHatch?: EscapeHatchDeclaration;
+  },
 ): QueryHandlerDef {
   return {
     name,
@@ -604,6 +609,7 @@ export function defineProjectionQueryHandler(
         options.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
       ), // @wrapper-known semantic-alias
     access: options.access,
+    ...(options.escapeHatch && { escapeHatch: options.escapeHatch }),
   };
 }
 

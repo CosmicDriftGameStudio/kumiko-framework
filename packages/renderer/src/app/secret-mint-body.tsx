@@ -14,6 +14,7 @@ import { buildInitialValues, mergeSearchParamsIntoInitial } from "./kumiko-scree
 import { layoutFieldNames } from "./layout-fields";
 import { useInitialValuesHandoff, useNav } from "./nav";
 import { lastSegment } from "./qn";
+import { useReturnTarget } from "./return-to";
 
 export type SecretMintBodyProps = {
   readonly schema: FeatureSchema;
@@ -57,6 +58,7 @@ function isBlank(value: unknown): boolean {
 // that gets rendered, never in the confirm form's own values.
 export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProps): ReactNode {
   const nav = useNav();
+  const returnTarget = useReturnTarget(screen.id);
   const { Card, Heading, Banner, Button, Text, Grid, GridCell, SecretReveal } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -112,8 +114,8 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const handleCancel = useMemo<(() => void) | undefined>(() => {
     const target = screen.cancelTarget ?? screen.redirect;
     if (target === undefined || target === false) return undefined;
-    return () => nav.navigate({ screenId: lastSegment(target) });
-  }, [nav, screen.redirect, screen.cancelTarget]);
+    return () => nav.navigate(returnTarget ?? { screenId: lastSegment(target) });
+  }, [nav, screen.redirect, screen.cancelTarget, returnTarget]);
 
   // Ends the reveal phase for both paths (the bare acknowledge button, and a
   // successful confirm submit): clears the secret and the carried values, then
@@ -124,11 +126,11 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     setRevealed(null);
     carriedRef.current = {};
     if (screen.redirect !== undefined) {
-      nav.navigate({ screenId: lastSegment(screen.redirect) });
+      nav.navigate(returnTarget ?? { screenId: lastSegment(screen.redirect) });
     } else {
       setDone(true);
     }
-  }, [nav, screen.redirect]);
+  }, [nav, screen.redirect, returnTarget]);
 
   const handleConfirmSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {

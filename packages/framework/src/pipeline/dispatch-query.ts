@@ -1,7 +1,7 @@
 import type { DbRow, DbTx } from "../db/connection";
 import { hasAccess } from "../engine/access";
 import { filterReadFields } from "../engine/field-access";
-import type { SessionUser } from "../engine/types";
+import type { QueryHandlerDef, SessionUser } from "../engine/types";
 import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors";
 import { assertNoSecretLeak } from "../secrets";
 import type { DispatchContext } from "./dispatch-shared";
@@ -11,6 +11,7 @@ import {
   ensureFeatureEnabled,
   runHandlerInstrumented,
 } from "./dispatch-shared";
+import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction";
 
 // Standalone query execution — used by the public dispatcher.query() and
 // by ctx.query/ctx.queryAs inside handlers. Runs the handler, applies
@@ -78,8 +79,27 @@ async function executeQueryInner(
     typeof parsed.data === "object" &&
     parsed.data !== null &&
     (parsed.data as Record<string, unknown>)["includeDeleted"] === true; // @cast-boundary validated-payload
+
+  // A resolved member (ctx.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
+  return user.origin === "member-resolution"
+    ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
+        runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, readOnlyTx),
+      )
+    : runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, tx);
+}
+
+async function runQueryHandler(
+  ctx: DispatchContext,
+  type: string,
+  handler: QueryHandlerDef,
+  payload: unknown,
+  includeDeleted: boolean,
+  user: SessionUser,
+  tx: DbTx | undefined,
+): Promise<unknown> {
+  const { registry } = ctx;
   const handlerContext = await buildHandlerContext(ctx, type, user, tx, undefined, includeDeleted);
-  let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+  let result = await handler.handler({ type, payload, user }, handlerContext);
 
   // postQuery-Hooks: fire BEFORE field-access-filter so hooks see raw data
   // and can merge custom-fields/computed-counts/tags/etc. Each hook is

@@ -4,6 +4,7 @@ import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
   EscapeHatchReporter,
+  HandlerContext,
   LifecycleHookFn,
   MemberReader,
   SessionUser,
@@ -18,6 +19,7 @@ export type ResolveActiveMembershipFn = (
   userId: string,
   tenantId: TenantId,
 ) => Promise<ActiveMembershipResult>;
+export type ProjectionReader = HandlerContext["queryProjection"];
 export type IdentitySwitch = { readonly queryAs: QueryAsFn; readonly writeAs: WriteAsFn };
 export type IdentitySwitchAudit = {
   readonly reason: string | undefined;
@@ -78,6 +80,15 @@ export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): 
       `${callerLabel} may only switch identity to its own caller (same user, tenant, claims and ` +
       "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason } on it",
     details: { reason: FrameworkReasons.identitySwitchDenied },
+  });
+}
+
+export function unsafeAllTenantsDenied(callerLabel: string): AccessDeniedError {
+  return new AccessDeniedError({
+    message:
+      `${callerLabel} may not call ctx.queryProjection(..., { unsafeAllTenants: true }) — declare ` +
+      "r.systemScope() or escapeHatch: { reason } on it",
+    details: { reason: FrameworkReasons.unsafeAllTenantsDenied },
   });
 }
 
@@ -159,11 +170,43 @@ export function createGatedMemberReader(
   return gated;
 }
 
+type GatedProjectionReaderSource = {
+  readonly ungated: ProjectionReader;
+  readonly report?: EscapeHatchReporter;
+};
+
+// Same idea, for ctx.queryProjection — a single function rather than a pair.
+const ungatedProjectionReaderByGated = new WeakMap<ProjectionReader, GatedProjectionReaderSource>();
+
+// ctx.queryProjection's gate: only { unsafeAllTenants: true } is grant-checked —
+// a plain call always passes through, tenant-scoped by the projection's own table.
+export function createGatedProjectionReader(
+  callerLabel: string,
+  hasGrant: boolean,
+  ungated: ProjectionReader,
+  audit?: IdentitySwitchAudit,
+): ProjectionReader {
+  const gated = async <T = Record<string, unknown>>(
+    qualifiedName: string,
+    options?: { readonly unsafeAllTenants?: boolean },
+  ): Promise<readonly T[]> => {
+    if (options?.unsafeAllTenants === true) {
+      if (!hasGrant) throw unsafeAllTenantsDenied(callerLabel);
+      if (audit?.reason !== undefined) {
+        audit.report("unsafe-all-tenants", audit.reason);
+      }
+    }
+    return ungated<T>(qualifiedName, options);
+  };
+  ungatedProjectionReaderByGated.set(gated, { ungated, report: audit?.report });
+  return gated;
+}
+
 function readIdentitySwitchFn<
-  TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn | MemberReader,
+  TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn | MemberReader | ProjectionReader,
 >(
   context: object,
-  key: "queryAs" | "writeAs" | "resolveActiveMembership" | "queryAsMember",
+  key: "queryAs" | "writeAs" | "resolveActiveMembership" | "queryAsMember" | "queryProjection",
 ): TFn | undefined {
   if (!(key in context)) return undefined;
   const value = (context as Record<string, unknown>)[key];
@@ -261,6 +304,27 @@ function gatedMemberReaderField(
   };
 }
 
+// Re-gates ctx.queryProjection under the hook's own escapeHatch, same
+// re-gating rule as the other fields below — see withHookEscapeHatchGrant.
+function gatedProjectionReaderField(
+  callerLabel: string,
+  escapeHatch: EscapeHatchDeclaration | undefined,
+  ctxQueryProjection: ProjectionReader | undefined,
+): { queryProjection?: ProjectionReader } {
+  if (!ctxQueryProjection) return {};
+  const source = ungatedProjectionReaderByGated.get(ctxQueryProjection);
+  const ungated = source?.ungated ?? ctxQueryProjection;
+  const audit = source?.report ? { reason: escapeHatch?.reason, report: source.report } : undefined;
+  return {
+    queryProjection: createGatedProjectionReader(
+      callerLabel,
+      escapeHatch !== undefined,
+      ungated,
+      audit,
+    ),
+  };
+}
+
 export function withHookEscapeHatchGrant<TContext extends object>(
   context: TContext,
   callerLabel: string,
@@ -273,6 +337,7 @@ export function withHookEscapeHatchGrant<TContext extends object>(
     "resolveActiveMembership",
   );
   const ctxQueryAsMember = readIdentitySwitchFn<MemberReader>(context, "queryAsMember");
+  const ctxQueryProjection = readIdentitySwitchFn<ProjectionReader>(context, "queryProjection");
   const ctxDb = readDbLikeValue(context, "db");
   const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
   if (
@@ -280,6 +345,7 @@ export function withHookEscapeHatchGrant<TContext extends object>(
     !ctxWriteAs &&
     !ctxResolveActiveMembership &&
     !ctxQueryAsMember &&
+    !ctxQueryProjection &&
     !ctxDb &&
     !ctxDbOutsideTransaction
   ) {
@@ -294,6 +360,7 @@ export function withHookEscapeHatchGrant<TContext extends object>(
         resolveActiveMembership: deniedResolveActiveMembership(callerLabel),
       }),
     ...gatedMemberReaderField(callerLabel, escapeHatch, ctxQueryAsMember),
+    ...gatedProjectionReaderField(callerLabel, escapeHatch, ctxQueryProjection),
     // @cast-boundary engine-bridge — withUnsafeRawGrant passes non-TenantDb values (e.g. a guard Proxy) through unchanged.
     ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, escapeHatch) }),
     ...(ctxDbOutsideTransaction && {
@@ -302,7 +369,7 @@ export function withHookEscapeHatchGrant<TContext extends object>(
   };
 }
 
-// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.db/ctx.dbOutsideTransaction instead of inheriting the handler's grant.
+// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.queryProjection/ctx.db/ctx.dbOutsideTransaction instead of inheriting the handler's grant.
 export function bindHookEscapeHatchGrant(
   fn: LifecycleHookFn,
   label: string,

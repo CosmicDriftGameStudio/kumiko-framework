@@ -291,7 +291,8 @@ export type EscapeHatchKind =
   | "unsafe-raw"
   | "acknowledge-cross-tenant"
   | "global-write"
-  | "identity-switch";
+  | "identity-switch"
+  | "unsafe-all-tenants";
 export type EscapeHatchTarget = { readonly id: string; readonly tenantId: TenantId };
 export type EscapeHatchUseEvent = {
   readonly handler: string;
@@ -619,8 +620,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // name without the feature having to import the drizzle-table directly.
   //
   // Auto-applies tenant_id filter when the projection table has a tenant_id
-  // column (or opt out with { unsafeAllTenants: true } for system-scoped reads
-  // like cross-tenant analytics). Unknown projection name throws.
+  // column. { unsafeAllTenants: true } opts out but requires a grant —
+  // r.systemScope() or a declared escapeHatch on the handler (or hook).
+  // Unknown projection name throws.
   readonly queryProjection: <T = Record<string, unknown>>(
     qualifiedName: string,
     options?: { readonly unsafeAllTenants?: boolean },

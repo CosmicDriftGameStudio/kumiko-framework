@@ -3,7 +3,12 @@ import type { SseBroker } from "../api/sse-broker";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { runInSavepoint, selectMany } from "../db/query";
 import type { buildEntityTable } from "../db/table-builder";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db";
+import {
+  createTenantDb,
+  createUncheckedSystemDb,
+  hasTenantColumn,
+  type TenantDb,
+} from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -87,7 +92,9 @@ import { createMemberReaderFn } from "./member-reader";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
+  createGatedProjectionReader,
   isSystemIdentity,
+  type ProjectionReader,
   systemIdentitySwitchDenied,
 } from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
@@ -212,10 +219,11 @@ function createSystemScopedDbGuard(
   });
 }
 
-export function memberResolutionReadOnlyDenied(): AccessDeniedError {
+export function memberResolutionReadOnlyDenied(cause?: unknown): AccessDeniedError {
   return new AccessDeniedError({
     message: "a resolved member principal (ctx.queryAsMember) cannot write — read-only",
     details: { reason: FrameworkReasons.memberResolutionReadOnly },
+    ...(cause instanceof Error && { cause }),
   });
 }
 
@@ -238,11 +246,12 @@ function denyingJobRunnerProxy(): JobRunnerRef {
 function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
-    // `db` itself stays open — same access the member's own HTTP request has;
-    // raw ctx.db writes inside a queried handler are not blocked by this.
+    // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY transaction.
     dbOutsideTransaction: undefined,
     write: denyMemberResolutionWrite,
     writeAs: denyMemberResolutionWrite,
+    // A resolved member cannot switch identity either — the target would get a normal, writable context.
+    queryAs: denyMemberResolutionWrite,
     appendEvent: denyMemberResolutionWrite as AppendEventFn, // @cast-boundary engine-bridge
     unsafeAppendEvent: denyMemberResolutionWrite,
     tryAppendEvent: denyMemberResolutionWrite,
@@ -426,6 +435,47 @@ export async function buildHandlerContext(
       return ungatedMemberReader(userId, qn, payload);
     },
     { ...identitySwitchAudit, tenantId: user.tenantId },
+  );
+  const ungatedQueryProjection: ProjectionReader = async <T = Record<string, unknown>>(
+    qualifiedName: string,
+    queryOptions?: { readonly unsafeAllTenants?: boolean },
+  ): Promise<readonly T[]> => {
+    // queryProjection works against both single-stream and multi-stream
+    // projections. MSPs without a table cannot be queried — those are
+    // side-effect-only consumers (no state to read back).
+    const singleProj = registry.getAllProjections().get(qualifiedName);
+    const mspProj = registry.getAllMultiStreamProjections().get(qualifiedName);
+    const projTable = singleProj?.table ?? mspProj?.table;
+    if (!projTable) {
+      const singleNames = [...registry.getAllProjections().keys()];
+      const mspNames = [...registry.getAllMultiStreamProjections().keys()].filter(
+        (n) => registry.getAllMultiStreamProjections().get(n)?.table,
+      );
+      const all = [...singleNames, ...mspNames];
+      throw new InternalError({
+        message:
+          `ctx.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
+          `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
+      });
+    }
+    const dbSource = resolveDbSource(ctx, tx);
+    if (!dbSource) {
+      throw new InternalError({
+        message: `ctx.queryProjection("${qualifiedName}") requires a database connection — none is configured.`,
+      });
+    }
+    const where =
+      hasTenantColumn(projTable) && queryOptions?.unsafeAllTenants !== true
+        ? { tenantId: user.tenantId }
+        : undefined;
+    const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
+    return rows as readonly T[]; // @cast-boundary engine-payload
+  };
+  const queryProjection = createGatedProjectionReader(
+    `handler "${type}"`,
+    hasIdentitySwitchGrant,
+    ungatedQueryProjection,
+    identitySwitchAudit,
   );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
@@ -652,44 +702,7 @@ export async function buildHandlerContext(
         },
       );
     },
-    queryProjection: async <T = Record<string, unknown>>(
-      qualifiedName: string,
-      queryOptions?: { readonly unsafeAllTenants?: boolean },
-    ): Promise<readonly T[]> => {
-      // queryProjection works against both single-stream and multi-stream
-      // projections. MSPs without a table cannot be queried — those are
-      // side-effect-only consumers (no state to read back).
-      const singleProj = registry.getAllProjections().get(qualifiedName);
-      const mspProj = registry.getAllMultiStreamProjections().get(qualifiedName);
-      const projTable = singleProj?.table ?? mspProj?.table;
-      if (!projTable) {
-        const singleNames = [...registry.getAllProjections().keys()];
-        const mspNames = [...registry.getAllMultiStreamProjections().keys()].filter(
-          (n) => registry.getAllMultiStreamProjections().get(n)?.table,
-        );
-        const all = [...singleNames, ...mspNames];
-        throw new InternalError({
-          message:
-            `ctx.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
-            `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
-        });
-      }
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.queryProjection("${qualifiedName}") requires a database connection — none is configured.`,
-        });
-      }
-      // Introspect for a tenant_id column on the projection table. Auto-
-      // filter keeps cross-tenant leaks out unless the handler explicitly
-      // opts in. Works with any drizzle-table whose tenant column is named
-      // tenantId on the JS side.
-      const tenantCol = (projTable as Record<string, unknown>)["tenantId"];
-      const where =
-        tenantCol && !queryOptions?.unsafeAllTenants ? { tenantId: user.tenantId } : undefined;
-      const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
-      return rows as readonly T[]; // @cast-boundary engine-payload
-    },
+    queryProjection,
     // Thin pass-through: one resolve impl lives on the dispatcher, the
     // handler surface just forwards the call so both entry points (login
     // handler via ctx.resolveAuthClaims, switch-tenant route via
