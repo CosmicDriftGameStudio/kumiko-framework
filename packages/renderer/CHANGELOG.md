@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.263.0
+
+### Minor Changes
+
+- db13c00: Three additive primitive gaps closed, surfaced while wiring an AI-agent panel and the Designer's file links:
+
+  - `ShellHeader` now exposes its rendered height as the `--shell-header-height` CSS variable (`0` when no `ShellHeader` is mounted). `Drawer` gets an optional `belowHeader?: boolean` (`variant="flush"` only) that docks the panel below the app header instead of covering it — default `false` keeps today's edge-to-edge behavior.
+  - `Card`, `Link`, `Button` and `Input` (`kind="text"`/`"textarea"`) get an optional `dataAttributes?: Readonly<Record<\`data-${string}\`, string>>`prop, forwarded to the rendered DOM node in the web renderer — an escape hatch for E2E selectors that don't warrant a dedicated typed prop, without dropping to a raw`<a>`/`<div>`.
+  - `Input` (`kind="text"`/`"textarea"`) gets an optional `onKeyDown` handler, forwarded in the web renderer, so a caller can build "Enter sends, Shift+Enter inserts a newline" at the field itself instead of the surrounding `Form`. Composes with the existing `onSubmitShortcut` (`kind="textarea"`) — both fire on the same keystroke when both are set.
+
+- f6732fa: Security: URL query parameters only prefill form fields that a declared navigate `params` targets.
+
+  **BREAKING** — previously an actionForm, secretMint or entityEdit-create screen took _any_ query parameter whose name matched a field, so a crafted link could seed e.g. an IBAN or e-mail field. `buildAppSchema` now derives `urlPrefillFields` per form screen from every navigate `params` (entityList/projectionList rowActions, projectionDetail/entityEdit actions, relatedList rowActions, projectionDetail metrics) that targets it, and the renderer ignores every other query parameter. A form no navigate `params` targets takes nothing from the URL. Declared rowAction/action `params` keep working unchanged.
+
+  Custom code that prefilled a form via `nav.navigate` + `nav.setSearchParams` (without a declared `params`) must switch to the new `useNavigateWithInitialValues()` hook from `@cosmicdrift/kumiko-renderer`, which hands initial values to the target form in memory instead of the query string. This includes the ai-agent `openForm` client tool (`agentPrefill=1`), which ships in the matching kumiko-enterprise release.
+
+  `sensitive` is now projected into the client schema, so the existing "never prefill a sensitive field" rule also applies to entityEdit-create (it was silently inactive there). Sensitive and `format: "password"` fields are never prefilled — not from the URL, not from an allowlist entry, not from a handoff.
+
+### Patch Changes
+
+- Updated dependencies [cd255ca]
+- Updated dependencies [f6732fa]
+  - @cosmicdrift/kumiko-framework@0.263.0
+  - @cosmicdrift/kumiko-headless@0.263.0
+
 ## 0.262.0
 
 ### Patch Changes
