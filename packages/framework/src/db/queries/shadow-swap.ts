@@ -334,7 +334,7 @@ export async function countColumnDrift(
 // object depends on the live table the swap fails loud and the whole rebuild
 // rolls back, leaving the old table untouched.
 export async function swapShadowIntoLive(tx: AnyDb, tableName: string): Promise<void> {
-  // Re-checked here under the fence: RLS could have been enabled after the early check.
+  // Re-checked right before DROP: RLS could have been enabled after the early check.
   await assertLiveTableHasNoRowLevelSecurity(tx, tableName);
   const raw = asRawClient(tx);
   const ident = quoteTableIdent(tableName);
