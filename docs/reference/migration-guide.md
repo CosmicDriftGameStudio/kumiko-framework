@@ -10,7 +10,7 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
-## 0.261.0
+## 0.263.0
 
 ### framework-core
 
@@ -19,6 +19,10 @@ Use `kumiko upgrade` to check what's new since your current version.
 Switching identity to SYSTEM (a SessionUser whose id is SYSTEM_USER_ID or whose roles contain SYSTEM_ROLE, e.g. `createSystemUser(...)`) through `HandlerContext.queryAs`/`writeAs` now throws `AccessDeniedError` (code `access_denied`, `details.reason` `system_identity_switch_denied`) unless the calling handler belongs to an `r.systemScope()` feature or declares `escapeHatch: { reason }`. The grant is looked up per handler type in the registry and never propagates: a handler reached through another handler's `writeAs(SYSTEM)` needs its own declaration for its own SYSTEM switches. `queryAs`/`writeAs` with a non-system user stays ungated and runs under that user's access. `JobContext.queryAs`/`writeAs` and top-level `dispatcher.write`/`query` (es-ops `systemWriteAs`, extraRoutes) stay ungated. Lifecycle hooks no longer inherit the grant of the handler they fire on: `r.hook(type, target, fn, { escapeHatch })` is the per-hook declaration; hooks contributed through `r.extendsRegistrar` are always denied; `r.authClaims` hooks' `queryAs` denies SYSTEM. `escapeHatch` is now also accepted on query handlers (`QueryHandlerDef`/`QueryHandlerDefinition`/`r.queryHandler` options); the boot validator rejects an empty reason there too, and `r.hook` throws at registration on an empty reason. Static boot-time detection of SYSTEM switches is not possible (handlers are closures), so enforcement is at runtime.
 
 **Migration:** Find every `ctx.queryAs(...)`/`ctx.writeAs(...)` whose user is `createSystemUser(...)` or otherwise carries `SYSTEM_ROLE` (also indirectly through helpers that receive `ctx`). For each, add `escapeHatch: { reason: "<which SYSTEM lookup/write and why the caller's own identity cannot do it>" }` to the write or query handler definition that ends up calling it (`r.writeHandler`/`r.queryHandler` options, `defineWriteHandler`/`defineQueryHandler`), or move the logic into an `r.systemScope()` feature or a job when that is the correct owner. Handlers of `r.systemScope()` features need nothing. A lifecycle hook doing a SYSTEM switch through its runtime HandlerContext passes `{ escapeHatch: { reason } }` as `r.hook`'s options (postSave/postDelete: next to `phase`). `escapeHatch` on a write handler also permits `ctx.db.global()` writes. Consumer call sites to audit at release: solon 15, offlot-app 14, kumiko-enterprise 5 `queryAs`/`writeAs` sites.
+
+## 0.261.0
+
+### framework-core
 
 **access is required on handler definitions; openToAll accepts { reason } (+ publicIntake) (fw#2855).**
 
