@@ -1,12 +1,15 @@
-import { QnTypes, qualifyEntityName } from "../qualified-name";
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import { parseQn, QnTypes, qualifyEntityName } from "../qualified-name";
 import { isEditLayoutScreen } from "../screen-helpers";
 import type {
   EditRelatedListSection,
+  EntityDefinition,
   FeatureDefinition,
   ProjectionListScreenDefinition,
   QueryHandlerDef,
 } from "../types";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens";
+import { findEntity } from "./parent-ref";
 import { getZodObjectShape } from "./zod-shape";
 
 // Sibling to entity-list-screens.ts rather than an extension of it:
@@ -154,6 +157,65 @@ function validateRelatedListFacets(
   );
 }
 
+// parentFilter (fw akte-bedienkonzept-2) resolves an entity field map to
+// check `field` against ONLY when the query is one of the entity-convention
+// factories (defineEntityListHandler et al., branded by
+// ENTITY_CONVENTION_QUERY_BRAND) — a hand-written handler carries no entity,
+// same "capability absent, no throw" policy as schemaAccepts above. The
+// entity name comes from the handler's own `<entityName>:list` naming
+// convention (parseHandlerName in entity-handlers.ts), recovered here from
+// the query's fully qualified name.
+function resolveEntityBehindQuery(
+  queryQn: string,
+  handler: QueryHandlerDef | undefined,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): EntityDefinition | undefined {
+  if (handler === undefined || handler[ENTITY_CONVENTION_QUERY_BRAND] !== true) return undefined;
+  let entityName: string;
+  try {
+    entityName = parseQn(queryQn).name.split(":")[0] ?? "";
+  } catch {
+    return undefined;
+  }
+  return entityName === "" ? undefined : findEntity(featureMap, entityName);
+}
+
+// parentFilter (fw akte-bedienkonzept-2) lets a relatedList reuse the
+// generic `<entity>:list` query instead of a bespoke child-rows handler —
+// same 422 footgun as facets/filter above, plus its own mutual-exclusivity
+// and field-existence checks.
+function validateRelatedListParentFilter(
+  prefix: string,
+  section: EditRelatedListSection,
+  schema: QueryHandlerDef["schema"] | undefined,
+  handler: QueryHandlerDef | undefined,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  // skip: no parentFilter declared — nothing to reject.
+  if (section.parentFilter === undefined) return;
+  if (section.parentParam !== undefined) {
+    throw new Error(
+      `${prefix}: declares both parentFilter and parentParam — parentFilter replaces the implicit ` +
+        `{ [parentParam]: parentId } payload key with a server-side "filter" clause, so the two can't ` +
+        `be combined. Remove parentParam or drop parentFilter.`,
+    );
+  }
+  if (!schemaAccepts(schema, "filter")) {
+    throw new Error(
+      `${prefix}: declares parentFilter but query "${section.query}" has no "filter" parameter in its ` +
+        `Zod schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","in"]), ` +
+        `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
+    );
+  }
+  const entity = resolveEntityBehindQuery(section.query, handler, featureMap);
+  if (entity !== undefined && entity.fields[section.parentFilter.field] === undefined) {
+    throw new Error(
+      `${prefix}: parentFilter.field "${section.parentFilter.field}" is not a declared field on the ` +
+        `entity behind query "${section.query}". Known fields: ${Object.keys(entity.fields).sort().join(", ")}.`,
+    );
+  }
+}
+
 // relatedList sections declare search/facets the same way a projectionList
 // screen does, and hit the same 422 footgun: definePagedQueryHandler doesn't
 // auto-merge params into the handler's own Zod schema (fw#2165/#2224), so an
@@ -163,15 +225,18 @@ function validateRelatedListFacets(
 // doesn't quietly skip these checks.
 export function validateRelatedListSectionQueries(features: readonly FeatureDefinition[]): void {
   const queryHandlers = buildQueryHandlerMap(features);
+  const featureMap = new Map(features.map((f) => [f.name, f] as const));
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {
       if (!isEditLayoutScreen(screen)) continue;
       for (const section of screen.layout.sections) {
         if (section.kind !== "relatedList") continue;
         const prefix = `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`;
-        const schema = queryHandlers.get(section.query)?.schema;
+        const handler = queryHandlers.get(section.query);
+        const schema = handler?.schema;
         validateRelatedListSearchable(prefix, section, schema);
         validateRelatedListFacets(prefix, section, schema);
+        validateRelatedListParentFilter(prefix, section, schema, handler, featureMap);
       }
     }
   }

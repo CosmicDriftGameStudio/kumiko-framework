@@ -300,6 +300,7 @@ export type EditRelatedListSectionViewModel = {
   readonly title: string;
   readonly query: string;
   readonly parentParam?: string;
+  readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
   readonly pageSize?: number;
   readonly defaultSort?: ListSortSpec;

@@ -160,7 +160,14 @@ export function RelatedListSection({
 
   const payload = useMemo(
     () => ({
-      [section.parentParam ?? "id"]: parentId,
+      // `parentFilter` sends the parent id as a server-side `filter` clause
+      // instead of a bespoke top-level key — the generic `<entity>:list`
+      // query understands `filter`, not an arbitrary `parentParam` key. Kept
+      // separate from `filterPayload` (user facets) below so a facet
+      // selection can never clear or overwrite it.
+      ...(section.parentFilter !== undefined
+        ? { filter: { field: section.parentFilter.field, op: "eq" as const, value: parentId } }
+        : { [section.parentParam ?? "id"]: parentId }),
       ...(section.pageSize !== undefined && { limit: section.pageSize }),
       // Gated on the declared capability, not just on state carrying a value —
       // same rule as ProjectionListBody: a param the bound query's Zod schema
@@ -169,6 +176,7 @@ export function RelatedListSection({
       ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
     }),
     [
+      section.parentFilter,
       section.parentParam,
       section.pageSize,
       section.searchable,
@@ -264,7 +272,10 @@ export function RelatedListSection({
         dispatcher,
         nav,
         refetch: rowsQuery.refetch,
-        navigatePrefill: { [section.parentParam ?? "id"]: parentId },
+        navigatePrefill:
+          section.parentFilter !== undefined
+            ? { [section.parentFilter.field]: parentId }
+            : { [section.parentParam ?? "id"]: parentId },
         record,
         ...(onOpenDrawer !== undefined && {
           openDrawer: (action) => onOpenDrawer(action, undefined),
@@ -273,6 +284,7 @@ export function RelatedListSection({
     [
       section.toolbarActions,
       section.parentParam,
+      section.parentFilter,
       parentId,
       record,
       effectiveTranslate,

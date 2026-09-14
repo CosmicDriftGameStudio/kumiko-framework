@@ -123,6 +123,7 @@ function computeRelatedListSectionViewModel(
     title: translate(sectionSpec.title),
     query: sectionSpec.query,
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
+    ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     columns: sectionSpec.columns,
     ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
     ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),

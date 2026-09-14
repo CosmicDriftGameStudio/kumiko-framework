@@ -948,6 +948,15 @@ export type EditRelatedListSection = {
   readonly query: string;
   /** Query-payload key the parent record's id is passed under. Default "id". */
   readonly parentParam?: string;
+  /** Server-side WHERE clause pinning this section to the parent record —
+   *  sent as `payload.filter: { field, op: "eq", value: parentId }`, kept
+   *  out of the user-facet `filters` array so it can't be cleared by facet
+   *  interaction. Lets a tab reuse the generic `<entity>:list` query instead
+   *  of a bespoke child-rows handler. Mutually exclusive with `parentParam`
+   *  (the boot-validator rejects both). `field` must be a real field on the
+   *  entity behind `query`, and that query's Zod schema must accept
+   *  `filter` (same requirement `filter`/`facets` already have). */
+  readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
   readonly pageSize?: number;
   /** Initial sort on mount, applied client-side over the already-loaded rows

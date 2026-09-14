@@ -1353,6 +1353,191 @@ describe("RelatedListSection — search + facets (fw#2740)", () => {
   });
 });
 
+// A dispatcher stub that filters a fixed row set by `payload.filter` (single
+// eq clause), `payload.search` (substring on `name`) and `payload.filters`
+// (facet membership) together — proves parentFilter composes with search
+// and facets instead of being clobbered by either (fw akte-bedienkonzept-2).
+function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
+  dispatcher: Dispatcher;
+  payloads: Record<string, unknown>[];
+} {
+  const payloads: Record<string, unknown>[] = [];
+  const dispatcher: Dispatcher = {
+    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
+    query: (async (_type: string, payload: unknown) => {
+      const p = payload as {
+        filter?: { field: string; op: "eq"; value: unknown };
+        search?: string;
+        filters?: readonly { field: string; op: "in"; value: readonly unknown[] }[];
+      };
+      payloads.push(p);
+      let result = rows;
+      if (p.filter !== undefined) {
+        const { field, value } = p.filter;
+        result = result.filter((r) => r[field] === value);
+      }
+      if (p.search !== undefined && p.search !== "") {
+        const term = p.search.toLowerCase();
+        result = result.filter((r) =>
+          String(r["name"] ?? "")
+            .toLowerCase()
+            .includes(term),
+        );
+      }
+      for (const f of p.filters ?? []) {
+        result = result.filter((r) => f.value.includes(r[f.field]));
+      }
+      return { isSuccess: true, data: { rows: result, nextCursor: null } };
+    }) as Dispatcher["query"],
+    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
+    statusStore: {
+      getState: () => "online",
+      subscribe: () => () => {},
+    } as unknown as Dispatcher["statusStore"],
+    async *stream() {},
+    pendingWrites: () => [],
+    pendingFiles: () => [],
+  };
+  return { dispatcher, payloads };
+}
+
+describe("RelatedListSection — parentFilter (fw akte-bedienkonzept-2)", () => {
+  const rows = [
+    { id: "r1", parentId: "order-1", name: "Alice", status: "active" },
+    { id: "r2", parentId: "order-1", name: "Bob", status: "ended" },
+    { id: "r3", parentId: "order-2", name: "Carol", status: "active" },
+  ];
+  const section: EditRelatedListSectionViewModel = {
+    kind: "relatedList",
+    title: "Positions",
+    query: "orders:query:items:list",
+    columns: [{ field: "name" }, { field: "status" }],
+    parentFilter: { field: "parentId" },
+    pageSize: 25,
+    searchable: true,
+    facets: [
+      {
+        field: "status",
+        type: "select",
+        label: "Status",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "ended", label: "Ended" },
+        ],
+      },
+    ],
+  };
+
+  test("sends payload.filter eq parentId (no top-level parentParam key), combined with limit/search/facets, and only the parent's rows render", async () => {
+    const { dispatcher, payloads } = parentFilterDispatcher(rows);
+    renderWithDataTable(dispatcher, section, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
+    expect(rtlScreen.queryByTestId("row-r3")).toBeNull();
+
+    const firstPayload = payloads[0];
+    expect(firstPayload).toEqual({
+      filter: { field: "parentId", op: "eq", value: "order-1" },
+      limit: 25,
+    });
+    expect(firstPayload?.["id"]).toBeUndefined();
+    expect(firstPayload?.["parentId"]).toBeUndefined();
+  });
+
+  test("typing a search term keeps payload.filter and narrows via payload.search together", async () => {
+    const { dispatcher, payloads } = parentFilterDispatcher(rows);
+    renderWithDataTable(dispatcher, section, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
+      target: { value: "ali" },
+    });
+
+    await waitFor(
+      () => {
+        const last = payloads[payloads.length - 1];
+        expect(last?.["search"]).toBe("ali");
+      },
+      { timeout: 2000 },
+    );
+    const last = payloads[payloads.length - 1];
+    expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+  });
+
+  test("selecting a facet leaves payload.filter unchanged and adds payload.filters", async () => {
+    const { dispatcher, payloads } = parentFilterDispatcher(rows);
+    renderWithDataTable(dispatcher, section, searchFacetDataTable);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    fireEvent.click(rtlScreen.getByTestId("facet-status-active"));
+
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
+    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
+    const last = payloads[payloads.length - 1];
+    expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
+    expect(last?.["filters"]).toEqual([{ field: "status", op: "in", value: ["active"] }]);
+  });
+
+  test("a toolbarAction without params prefills the parent id under parentFilter.field, not parentParam/id", async () => {
+    const { dispatcher } = parentFilterDispatcher(rows);
+    const { nav, navigations, searchParams } = stubNav();
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={nav}>
+              <RelatedListSection
+                section={{
+                  ...section,
+                  toolbarActions: [
+                    { kind: "navigate", id: "create", label: "Add position", screen: "item-create" },
+                  ],
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    rtlScreen.getByTestId("render-list-toolbar-action-create").click();
+
+    await waitFor(() => expect(navigations).toHaveLength(1));
+    expect(searchParams).toEqual([{ parentId: "order-1" }]);
+  });
+});
+
 // Same findEditScreenFor/buildDefaultEditRowAction resolution as
 // entityList/projectionList, driven by rowClick.entity and rowClick.idColumn.
 describe("RelatedListSection — default edit row action", () => {

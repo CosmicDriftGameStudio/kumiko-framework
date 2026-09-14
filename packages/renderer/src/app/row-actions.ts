@@ -342,7 +342,8 @@ function buildNavigateToolbarAction(
       nav.navigate({ screenId: target });
       // A declared `params` extractor (evaluated against the relatedList's
       // parent record) replaces the caller's implicit prefill (e.g. a
-      // relatedList's `{ [parentParam]: parentId }`) rather than merging
+      // relatedList's `{ [parentParam]: parentId }` or, with `parentFilter`
+      // set, `{ [parentFilter.field]: parentId }`) rather than merging
       // with it — same "params present → drop the default" rule as
       // rowActions.
       const resolvedParams =
