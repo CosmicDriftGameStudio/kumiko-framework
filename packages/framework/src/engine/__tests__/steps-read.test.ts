@@ -176,9 +176,14 @@ describe("buildReadFindManyStep", () => {
     expect((step.args as { limit: number }).limit).toBe(10);
   });
 
-  it("rejects a boolean unsafeAllTenants at the type level", () => {
+  it("stores unsafeAllTenants on step.args and rejects a boolean at the type level", () => {
+    const reason = "fw#2914 unit test — unsafeAllTenants stored on step.args";
+    const step = buildReadFindManyStep("x", { table: testTable, unsafeAllTenants: { reason } });
+    expect(step.args).toMatchObject({ unsafeAllTenants: { reason } });
+
     // @ts-expect-error unsafeAllTenants requires { reason: string }, not a boolean
-    buildReadFindManyStep("x", { table: testTable, unsafeAllTenants: true });
+    const rejected = buildReadFindManyStep("x", { table: testTable, unsafeAllTenants: true });
+    expect(rejected.args).toMatchObject({ unsafeAllTenants: true });
   });
 });
 

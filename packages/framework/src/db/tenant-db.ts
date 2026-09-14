@@ -39,6 +39,30 @@ export {
   type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
 
+const declaredUnsafeRawRunners = new WeakMap<
+  TenantDb | UncheckedSystemDb,
+  (reason: string) => DbRunner
+>();
+
+// Framework-private (not re-exported from db/index.ts): same grant check + audit as unsafeRaw, for engine forwarding.
+export function unsafeRawForDeclaredStep(
+  holder: TenantDb | UncheckedSystemDb,
+  reason: string,
+): DbRunner {
+  if (reason.trim().length === 0) {
+    throw new Error("unsafeRawForDeclaredStep requires a non-empty reason");
+  }
+  const runner = declaredUnsafeRawRunners.get(holder);
+  if (!runner) {
+    throw new InternalError({
+      message:
+        "unsafeRawForDeclaredStep received a holder not built by createTenantDb or " +
+        "createUncheckedSystemDb — no declared unsafeRaw runner bound.",
+    });
+  }
+  return runner(reason);
+}
+
 // buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
 // mode from the caller's own tenantId, never a foreign one.
 //
@@ -71,7 +95,15 @@ export function createUncheckedSystemDb(
     return dbOutsideTransaction;
   }
 
-  return {
+  function grantedUnsafeRawRunner(reason: string): DbRunner {
+    if (reason.trim().length === 0) {
+      throw new Error("unsafeRaw requires a non-empty reason");
+    }
+    report("unsafe-raw", reason);
+    return tenantDbRunner(db);
+  }
+
+  const uncheckedSystemDb: UncheckedSystemDb = {
     [SYSTEM_SCOPE_CHECK_BRAND]: true,
 
     assertTenantMatch(tenantId) {
@@ -106,13 +138,7 @@ export function createUncheckedSystemDb(
       return db;
     },
 
-    unsafeRaw(reason) {
-      if (reason.trim().length === 0) {
-        throw new Error("unsafeRaw requires a non-empty reason");
-      }
-      report("unsafe-raw", reason);
-      return tenantDbRunner(db);
-    },
+    unsafeRaw: grantedUnsafeRawRunner,
 
     outsideTransaction: {
       assertTenantMatch(tenantId) {
@@ -134,6 +160,8 @@ export function createUncheckedSystemDb(
       },
     },
   };
+  declaredUnsafeRawRunners.set(uncheckedSystemDb, grantedUnsafeRawRunner);
+  return uncheckedSystemDb;
 }
 
 // @cast-boundary tenant-db-row
@@ -386,25 +414,27 @@ export function createTenantDb(
     } as GlobalTableDb<TTable>;
   }
 
+  function grantedUnsafeRawRunner(reason: string): DbRunner {
+    if (reason.trim().length === 0) {
+      throw new Error("unsafeRaw requires a non-empty reason");
+    }
+    if (!hasGrant(grants?.unsafeRaw)) {
+      throw new AccessDeniedError({
+        message:
+          'ctx.db.unsafeRaw(reason): rejected — declare `escapeHatch: { reason: "..." }` on ' +
+          "the handler or hook to allow unsafeRaw.",
+      });
+    }
+    report("unsafe-raw", reason);
+    return db;
+  }
+
   const tenantDb: TenantDb = {
     tenantId,
     mode,
     global: globalTable,
 
-    unsafeRaw(reason: string): DbRunner {
-      if (reason.trim().length === 0) {
-        throw new Error("unsafeRaw requires a non-empty reason");
-      }
-      if (!hasGrant(grants?.unsafeRaw)) {
-        throw new AccessDeniedError({
-          message:
-            'ctx.db.unsafeRaw(reason): rejected — declare `escapeHatch: { reason: "..." }` on ' +
-            "the handler or hook to allow unsafeRaw.",
-        });
-      }
-      report("unsafe-raw", reason);
-      return db;
-    },
+    unsafeRaw: grantedUnsafeRawRunner,
 
     selectMany<T = Record<string, unknown>>(
       table: Table | EntityTableMeta,
@@ -473,6 +503,7 @@ export function createTenantDb(
     },
   };
 
+  declaredUnsafeRawRunners.set(tenantDb, grantedUnsafeRawRunner);
   unsafeRawRebinders.set(tenantDb, (grant) =>
     createTenantDb(db, tenantId, mode, tracer, meter, signal, { ...grants, unsafeRaw: grant }),
   );
