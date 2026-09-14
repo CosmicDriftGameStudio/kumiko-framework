@@ -556,7 +556,7 @@ describe("r.screen() — registration", () => {
     });
   });
 
-  describe("relatedList parentFilter (fw akte-bedienkonzept-2)", () => {
+  describe("relatedList parentFilter", () => {
     test("rejects parentFilter combined with parentParam on the same section", () => {
       const features = [
         defineFeature("app", (r) => {
