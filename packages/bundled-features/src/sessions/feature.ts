@@ -83,141 +83,145 @@ export function bindAutoRevokeFromFeature(
 // Not system-scoped: sessions live per tenant, and the handlers should only
 // see rows in the caller's active tenant.
 export function createSessionsFeature(options?: SessionsFeatureOptions): FeatureDefinition {
-  return defineFeature("sessions", (r) => {
-    r.describe(
-      "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
-    );
-    r.uiHints({
-      displayLabel: "Sessions · Server-side Logout",
-      category: "identity",
-      recommended: false,
-    });
-    // sessionChecker reads read_users on every authenticated request (status
-    // gate for locked accounts) — make that a boot-time dependency so a
-    // sessions-without-user wiring fails validateBoot instead of 500ing live.
-    // auth-foundation owns EXT_SESSION_STORE, which the useExtension below
-    // registers against.
-    r.requires("user", "auth-foundation");
-    // store_user_sessions is a hot-path direct-write store: sessionCreator
-    // inserts and the revoke handlers update rows WITHOUT emitting lifecycle
-    // events (the row columns ARE the audit trail). Registering it as
-    // r.entity would make it a rebuildable implicit projection whose replay
-    // finds zero session events and swaps an empty shadow over the live
-    // table — wiping every active session on the next projection rebuild
-    // (#498/#494). r.storeTable keeps the migration DDL but opts the
-    // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
-    // which are direct-write stores too.
-    r.storeTable(
-      deriveEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }),
-      {
-        reason: "read_side.user_sessions_direct_write",
-        // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
-        piiEncryptedOnWrite: true,
-      },
-    );
+  return defineFeature(
+    "sessions",
+    (r) => {
+      r.describe(
+        "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      );
+      r.uiHints({
+        displayLabel: "Sessions · Server-side Logout",
+        category: "identity",
+        recommended: false,
+      });
+      // sessionChecker reads read_users on every authenticated request (status
+      // gate for locked accounts) — make that a boot-time dependency so a
+      // sessions-without-user wiring fails validateBoot instead of 500ing live.
+      // auth-foundation owns EXT_SESSION_STORE, which the useExtension below
+      // registers against.
+      r.requires("user", "auth-foundation");
+      // store_user_sessions is a hot-path direct-write store: sessionCreator
+      // inserts and the revoke handlers update rows WITHOUT emitting lifecycle
+      // events (the row columns ARE the audit trail). Registering it as
+      // r.entity would make it a rebuildable implicit projection whose replay
+      // finds zero session events and swaps an empty shadow over the live
+      // table — wiping every active session on the next projection rebuild
+      // (#498/#494). r.storeTable keeps the migration DDL but opts the
+      // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
+      // which are direct-write stores too.
+      r.storeTable(
+        deriveEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }),
+        {
+          reason: "read_side.user_sessions_direct_write",
+          // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
+          piiEncryptedOnWrite: true,
+        },
+      );
 
-    // Self-registers as auth-foundation's sessionStore provider (#1371) —
-    // wraps the same createSessionCallbacks() used by the manual
-    // buildServer({ auth: { ... } }) wiring above; a future issue (#1372)
-    // removes that manual wiring once the middleware resolves generically
-    // via resolveSessionStore().
-    r.useExtension(EXT_SESSION_STORE, "default", {
-      build: (deps): SessionStore => {
-        const callbacks = createSessionCallbacks({
-          db: deps.db,
-          ...(options?.expiresInMs !== undefined && { expiresInMs: options.expiresInMs }),
-        });
-        return {
-          creator: callbacks.sessionCreator,
-          revoker: callbacks.sessionRevoker,
-          checker: callbacks.sessionChecker,
-          massRevoker: callbacks.sessionMassRevoker,
-          revokeAllOthers: callbacks.sessionRevokeAllOthers,
-        };
-      },
-    } satisfies SessionStoreProvider);
+      // Self-registers as auth-foundation's sessionStore provider (#1371) —
+      // wraps the same createSessionCallbacks() used by the manual
+      // buildServer({ auth: { ... } }) wiring above; a future issue (#1372)
+      // removes that manual wiring once the middleware resolves generically
+      // via resolveSessionStore().
+      r.useExtension(EXT_SESSION_STORE, "default", {
+        build: (deps): SessionStore => {
+          const callbacks = createSessionCallbacks({
+            db: deps.db,
+            ...(options?.expiresInMs !== undefined && { expiresInMs: options.expiresInMs }),
+          });
+          return {
+            creator: callbacks.sessionCreator,
+            revoker: callbacks.sessionRevoker,
+            checker: callbacks.sessionChecker,
+            massRevoker: callbacks.sessionMassRevoker,
+            revokeAllOthers: callbacks.sessionRevokeAllOthers,
+          };
+        },
+      } satisfies SessionStoreProvider);
 
-    // Custom domain-event for cross-instance access-invalidation (#1559).
-    // r.defineEvent registers the schema so ctx.unsafeAppendEvent (revoke,
-    // revoke-all-others) enforces it at append time. revoke-all-for-user
-    // appends via the low-level append() instead (needs to anchor on
-    // SYSTEM_TENANT_ID — see that handler for why) — append() does NOT
-    // consult the registry, so that callsite parses against
-    // sessionRevokedSchema explicitly, same guarantee via a different path.
-    // No projection: the payload IS the read, consumed directly off the
-    // event-store NOTIFY (#1560).
-    r.defineEvent(SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema, { piiFields: "none" });
+      // Custom domain-event for cross-instance access-invalidation (#1559).
+      // r.defineEvent registers the schema so ctx.unsafeAppendEvent (revoke,
+      // revoke-all-others) enforces it at append time. revoke-all-for-user
+      // appends via the low-level append() instead (needs to anchor on
+      // SYSTEM_TENANT_ID — see that handler for why) — append() does NOT
+      // consult the registry, so that callsite parses against
+      // sessionRevokedSchema explicitly, same guarantee via a different path.
+      // No projection: the payload IS the read, consumed directly off the
+      // event-store NOTIFY (#1560).
+      r.defineEvent(SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema, { piiFields: "none" });
 
-    const handlers = {
-      revoke: r.writeHandler(revokeWrite),
-      revokeAllOthers: r.writeHandler(revokeAllOthersWrite),
-      revokeAllForUser: r.writeHandler(revokeAllForUserWrite),
-    };
-    r.exposesApi("sessions.revokeAllForUser");
+      const handlers = {
+        revoke: r.writeHandler(revokeWrite),
+        revokeAllOthers: r.writeHandler(revokeAllOthersWrite),
+        revokeAllForUser: r.writeHandler(revokeAllForUserWrite),
+      };
+      r.exposesApi("sessions.revokeAllForUser");
 
-    const queries = {
-      mine: r.queryHandler(mineQuery),
-      list: r.queryHandler(listQuery),
-      detail: r.queryHandler(detailQuery),
-    };
+      const queries = {
+        mine: r.queryHandler(mineQuery),
+        list: r.queryHandler(listQuery),
+        detail: r.queryHandler(detailQuery),
+      };
 
-    // Retention: chunked DELETE of expired/revoked rows. Manual trigger
-    // only so dev environments don't churn. Ops wires a cron in the app's
-    // dispatcher config when running a long-lived deployment.
-    r.job("cleanup", { trigger: { manual: true } }, cleanupJob);
+      // Retention: chunked DELETE of expired/revoked rows. Manual trigger
+      // only so dev environments don't churn. Ops wires a cron in the app's
+      // dispatcher config when running a long-lived deployment.
+      r.job("cleanup", { trigger: { manual: true } }, cleanupJob);
 
-    // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is
-    // the supported cross-feature path: entity-keyed, not prefixed by the
-    // registering feature. Fires after every successful write on any
-    // user-entity handler; we only act when one of REVOKE_TRIGGERING_FIELDS
-    // is part of the changes-delta the handler was given.
-    //
-    // Checking `changes[field] !== undefined` is cheaper and more correct
-    // than diffing data vs previous — "undefined in changes" means "the
-    // handler didn't touch this column", which is exactly the signal we
-    // want to skip on. Works for both direct user:update calls and any
-    // other handler that happens to write the column.
-    //
-    // Only `passwordHash` here: `status` changes go through
-    // updateUserLifecycle(), which writes via the event-store executor
-    // directly and never runs this postSave hook. restrict-account.write.ts
-    // already revokes sessions explicitly for that transition, and
-    // sessionChecker blocks a status-locked principal on its next request
-    // regardless.
-    const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
-    let autoRevoke = options?.autoRevokeOnPasswordChange;
-    r.hook("postSave", { allOf: "user" }, async (ctx) => {
-      // skip: nothing bound — stateless-JWT deployments without a runtime
-      // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
-      if (!autoRevoke) return;
-      // skip: brand-new user, no sessions can possibly exist yet. The
-      // initial passwordHash on a user:create would trip the second guard
-      // otherwise — every registration would do a mass-revoke roundtrip
-      // for a user who literally has no rows in user_sessions.
-      if (ctx.isNew) return;
-      // skip: handler didn't touch any revoke-triggering field
-      if (!REVOKE_TRIGGERING_FIELDS.some((field) => ctx.changes[field] !== undefined)) return;
-      await autoRevoke(String(ctx.id));
-    });
+      // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is
+      // the supported cross-feature path: entity-keyed, not prefixed by the
+      // registering feature. Fires after every successful write on any
+      // user-entity handler; we only act when one of REVOKE_TRIGGERING_FIELDS
+      // is part of the changes-delta the handler was given.
+      //
+      // Checking `changes[field] !== undefined` is cheaper and more correct
+      // than diffing data vs previous — "undefined in changes" means "the
+      // handler didn't touch this column", which is exactly the signal we
+      // want to skip on. Works for both direct user:update calls and any
+      // other handler that happens to write the column.
+      //
+      // Only `passwordHash` here: `status` changes go through
+      // updateUserLifecycle(), which writes via the event-store executor
+      // directly and never runs this postSave hook. restrict-account.write.ts
+      // already revokes sessions explicitly for that transition, and
+      // sessionChecker blocks a status-locked principal on its next request
+      // regardless.
+      const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
+      let autoRevoke = options?.autoRevokeOnPasswordChange;
+      r.hook("postSave", { allOf: "user" }, async (ctx) => {
+        // skip: nothing bound — stateless-JWT deployments without a runtime
+        // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
+        if (!autoRevoke) return;
+        // skip: brand-new user, no sessions can possibly exist yet. The
+        // initial passwordHash on a user:create would trip the second guard
+        // otherwise — every registration would do a mass-revoke roundtrip
+        // for a user who literally has no rows in user_sessions.
+        if (ctx.isNew) return;
+        // skip: handler didn't touch any revoke-triggering field
+        if (!REVOKE_TRIGGERING_FIELDS.some((field) => ctx.changes[field] !== undefined)) return;
+        await autoRevoke(String(ctx.id));
+      });
 
-    const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {
-      // explicit constructor option wins over the runtime binding
-      autoRevoke ??= revoker;
-    };
+      const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {
+        // explicit constructor option wins over the runtime binding
+        autoRevoke ??= revoker;
+      };
 
-    r.translations({ keys: SESSIONS_I18N });
+      r.translations({ keys: SESSIONS_I18N });
 
-    r.screen(sessionListScreen);
-    r.screen(sessionDetailScreen);
-    r.screen(sessionMineScreen);
-    r.nav({
-      id: "session-list",
-      label: "sessions:nav.sessionList",
-      icon: "list",
-      screen: "sessions:screen:session-list",
-      order: 10,
-    });
+      r.screen(sessionListScreen);
+      r.screen(sessionDetailScreen);
+      r.screen(sessionMineScreen);
+      r.nav({
+        id: "session-list",
+        label: "sessions:nav.sessionList",
+        icon: "list",
+        screen: "sessions:screen:session-list",
+        order: 10,
+      });
 
-    return { handlers, queries, bindAutoRevokeOnPasswordChange };
-  });
+      return { handlers, queries, bindAutoRevokeOnPasswordChange };
+    },
+    { dedupeOptions: options ?? {} },
+  );
 }

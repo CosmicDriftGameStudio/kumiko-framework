@@ -8,8 +8,7 @@ export type SecurityBaselineOptions = {
   readonly includeSessions?: boolean;
 };
 
-// includeSessions: false when dsgvoSelfServiceFeatures() already mounts sessions (duplicate
-// feature names throw); host app must mount user, tenant, auth-foundation (sessions/audit requires).
+// Host app must mount user, tenant, auth-foundation (sessions/audit requires).
 export function securityBaselineFeatures(opts: SecurityBaselineOptions = {}): FeatureDefinition[] {
   return [
     ...(opts.includeSessions !== false ? [createSessionsFeature()] : []),

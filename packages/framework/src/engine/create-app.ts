@@ -1,4 +1,5 @@
 import { type ValidateBootOptions, validateBoot } from "./boot-validator";
+import { dedupeFeatures } from "./dedupe-features";
 import { createRegistry } from "./registry";
 import type { FeatureDefinition, Registry } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
@@ -20,6 +21,7 @@ export type App = {
 };
 
 export function createApp(config: AppConfig): App {
+  const features = dedupeFeatures(config.features);
   const validRoles = new Set(config.roles);
 
   // "system" is reserved for SYSTEM_USER — cannot be used as an app role
@@ -32,7 +34,7 @@ export function createApp(config: AppConfig): App {
 
   // Validate all roles referenced by features exist in app-defined roles.
   // openToAll access has no role list — nothing to validate there.
-  for (const feature of config.features) {
+  for (const feature of features) {
     for (const handler of Object.values(feature.writeHandlers)) {
       if (handler.access && "roles" in handler.access) {
         for (const role of handler.access.roles) {
@@ -83,7 +85,7 @@ export function createApp(config: AppConfig): App {
   const currencies = [...new Set([...DEFAULT_CURRENCIES, ...(config.currencies ?? [])])];
 
   // Validate defaultCurrency on entities that have money fields
-  for (const feature of config.features) {
+  for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       // A top-level money field isn't the only way an entity can hold money —
       // an embedded-list's sub-schema (e.g. invoice lines) can carry a money
@@ -110,10 +112,10 @@ export function createApp(config: AppConfig): App {
   }
 
   // Run boot-time validation before creating registry
-  validateBoot(config.features, config.validateBootOptions);
+  validateBoot(features, config.validateBootOptions);
 
   return {
-    registry: createRegistry(config.features),
+    registry: createRegistry(features),
     roles: config.roles,
     softDeleteDefault,
     currencies,

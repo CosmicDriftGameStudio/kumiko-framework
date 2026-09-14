@@ -29,9 +29,14 @@ function resolveFeatureNamesArgs(
   return unwrapArrayForm(args, "features");
 }
 
+export type DefineFeatureSettings = {
+  readonly dedupeOptions?: Readonly<Record<string, unknown>>;
+};
+
 export function defineFeature<const TName extends string, TExports = undefined>(
   name: TName,
   setup: (r: FeatureRegistrar<TName>) => TExports,
+  settings?: DefineFeatureSettings,
 ): FeatureDefinition & { readonly exports: TExports } {
   const state = createInitialFeatureBuilderState();
 
@@ -158,5 +163,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     storeTables: state.storeTables,
     ...(state.treeActions !== undefined && { treeActions: state.treeActions }),
     ...(state.envSchema !== undefined && { envSchema: state.envSchema }),
+    ...(settings?.dedupeOptions !== undefined && { dedupeOptions: settings.dedupeOptions }),
   };
 }

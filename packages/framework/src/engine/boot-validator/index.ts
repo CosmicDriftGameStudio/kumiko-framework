@@ -1,4 +1,5 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
+import { dedupeFeatures } from "../dedupe-features";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition } from "../types";
 import { validateAccessDeclarations } from "./access-declarations";
@@ -91,9 +92,10 @@ export type ValidateBootOptions = {
  * Throws on the first error found — fail fast.
  */
 export function validateBoot(
-  features: readonly FeatureDefinition[],
+  rawFeatures: readonly FeatureDefinition[],
   options?: ValidateBootOptions,
 ): void {
+  const features = dedupeFeatures(rawFeatures);
   const featureMap = new Map<string, FeatureDefinition>();
   for (const f of features) {
     featureMap.set(f.name, f);

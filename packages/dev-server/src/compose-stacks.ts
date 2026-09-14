@@ -77,9 +77,8 @@ export type UserDataRightsStackOptions = {
   readonly includeDefaults?: boolean;
 };
 
-// `sessions` may live on composeIdentityStack OR composeGdprStack — never both
-// with sessions:true. composeOpsStack used to accept it too; combining presets
-// that each push "sessions" crashes createRegistry with "duplicate feature".
+// `sessions` may live on composeIdentityStack OR composeGdprStack; both with default
+// options is deduped at boot, differing options throw "Duplicate feature".
 export type OpsStackOptions = {
   readonly delivery?: boolean;
   readonly audit?: boolean;

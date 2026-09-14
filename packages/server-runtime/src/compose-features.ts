@@ -32,7 +32,7 @@ import {
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
-import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { dedupeFeatures, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password
@@ -58,7 +58,7 @@ export function composeFeatures(
   // own createAuthEmailPasswordFeature(...) call, or login silently
   // bypasses MFA. Upgrade if this trips someone: warn here when appFeatures
   // contains AUTH_MFA_FEATURE but includeBundled is false.
-  if (!options.includeBundled) return [...appFeatures];
+  if (!options.includeBundled) return dedupeFeatures(appFeatures);
 
   // Bundled foundation goes first so its instances carry the runDevApp /
   // runProdApp `authOptions` (passwordReset wiring etc.). App-features that
@@ -71,7 +71,8 @@ export function composeFeatures(
   // via APP_FEATURES) — but if it's there, the login handler needs its
   // status-checker wired in at construction time, since createAuthEmail-
   // PasswordFeature is built right here, before the caller ever sees it.
-  const mfaFeature = appFeatures.find((f) => f.name === AUTH_MFA_FEATURE);
+  const dedupedAppFeatures = dedupeFeatures(appFeatures);
+  const mfaFeature = dedupedAppFeatures.find((f) => f.name === AUTH_MFA_FEATURE);
   const authOptions = mfaFeature
     ? { ...options.authOptions, mfaStatusChecker: mfaStatusCheckerFromFeature(mfaFeature) }
     : options.authOptions;
@@ -95,7 +96,7 @@ export function composeFeatures(
   ];
   const bundledNames = new Set(bundled.map((f) => f.name));
   const filteredApp: FeatureDefinition[] = [];
-  for (const f of appFeatures) {
+  for (const f of dedupedAppFeatures) {
     if (bundledNames.has(f.name)) {
       // biome-ignore lint/suspicious/noConsole: boot-time UX warning
       console.warn(
