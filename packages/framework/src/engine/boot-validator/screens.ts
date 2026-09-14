@@ -7,6 +7,7 @@
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 import { rowMetaFieldNames } from "../../db/table-builder";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
+import { parseRefTarget } from "../parse-ref-target";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import {
@@ -14,6 +15,7 @@ import {
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
+  resolveNavParentScreen,
 } from "../screen-helpers";
 import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
 import { metricField } from "../types";
@@ -581,6 +583,40 @@ function validateFormFieldsMap(
 // (an input-less secretMint declares BOTH `fields: {}` and
 // `layout.sections: []`; fields declared with no layout to show them stays
 // an error).
+// `fields`/`groups` are mutually exclusive on a fields-kind section — reused
+// by every screen type that walks EditLayout sections (entityEdit,
+// configEdit, projectionDetail, and validateFormLayoutSections's own
+// actionForm/secretMint callers) so the pair of checks and the flattening
+// they both need can't drift into four hand-rolled copies.
+function validateFieldsXorGroups(
+  errorPrefix: string,
+  section: { readonly title?: string; readonly fields: readonly EditFieldSpec[] } & {
+    readonly groups?: readonly { readonly fields: readonly EditFieldSpec[] }[];
+  },
+): void {
+  if (section.fields.length > 0 && section.groups !== undefined) {
+    throw new Error(
+      `${errorPrefix} section "${section.title}" declares both fields and groups — pass fields: [] ` +
+        `when using groups.`,
+    );
+  }
+  if (section.fields.length === 0 && section.groups === undefined) {
+    throw new Error(
+      `${errorPrefix} has a section "${section.title}" with zero fields — drop the section or add ` +
+        `fields (or groups) to it.`,
+    );
+  }
+}
+
+function flattenFieldsOrGroups(section: {
+  readonly fields: readonly EditFieldSpec[];
+  readonly groups?: readonly { readonly fields: readonly EditFieldSpec[] }[];
+}): readonly EditFieldSpec[] {
+  return section.groups !== undefined
+    ? section.groups.flatMap((group) => group.fields)
+    : section.fields;
+}
+
 function validateFormLayoutSections(
   featureName: string,
   screenId: string,
@@ -620,13 +656,8 @@ function validateFormLayoutSections(
           `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
       );
     }
-    if (section.fields.length === 0) {
-      throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) has a section "${section.title}" ` +
-          `with zero fields — drop the section or add fields to it.`,
-      );
-    }
-    for (const fieldSpec of section.fields) {
+    validateFieldsXorGroups(`[Feature ${featureName}] Screen "${screenId}" (${context})`, section);
+    for (const fieldSpec of flattenFieldsOrGroups(section)) {
       const normalized = normalizeEditField(fieldSpec);
       if (!fieldNames.has(normalized.field)) {
         throw new Error(
@@ -792,6 +823,66 @@ function validateSecretMintConfirm(
   }
 }
 
+// A standalone r.nav() may live in ANY feature (nav.screen is a full QN,
+// cross-feature capable by design — see NavDefinition doc) — unlike a
+// screen's own inline `nav` sugar, it isn't found on the screen object
+// itself, so this scans every feature's registered nav entries for one
+// pointed at `targetQn`. `createAction`/`actions` are real click-through
+// nav paths too (the "+" affordance / hover-actions on a nav node), not
+// just the node's own primary `screen` target.
+function hasStandaloneNavEntry(
+  targetQn: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): boolean {
+  for (const f of featureMap.values()) {
+    for (const nav of Object.values(f.navs)) {
+      if (nav.screen === targetQn) return true;
+      if (nav.createAction?.screen === targetQn) return true;
+      if (nav.actions?.some((a) => a.screen === targetQn)) return true;
+    }
+  }
+  return false;
+}
+
+// Every screen must be reachable from somewhere in the app's nav tree —
+// its own `nav` sugar, a standalone `r.nav()` elsewhere (same convention a
+// consuming app uses to place a bundled settings-area screen), or a
+// resolvable parent list (same heuristic as the renderer's breadcrumb/
+// NavTree, see resolveNavParentScreen) — or it declares `dormant: true`
+// to opt out explicitly instead of silently falling through a hidden
+// allowlist (fw akte-bedienkonzept-2 V1). Skipped when the whole composed
+// set registers no nav entries at all: that's a feature/recipe/test
+// fixture booted without any app shell around it (no nav tree exists to be
+// orphaned from), not an accidental omission the way one unreachable
+// screen among many reachable siblings would be.
+function validateScreenHasNavArea(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ScreenDefinition,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  // skip: the screen already declares its own nav entry.
+  if (screen.nav !== undefined) return;
+  // skip: explicitly opted out via `dormant: true`.
+  if (screen.dormant === true) return;
+  const anyNavRegistered = [...featureMap.values()].some((f) => Object.keys(f.navs).length > 0);
+  // skip: no nav entries exist anywhere in the composed set — a feature/
+  // recipe/test fixture booted without an app shell, not an omission.
+  if (!anyNavRegistered) return;
+  const targetQn = qualifyEntityName(feature.name, "screen", screenId);
+  // skip: a standalone r.nav() elsewhere already points at this screen.
+  if (hasStandaloneNavEntry(targetQn, featureMap)) return;
+  const allScreens = [...featureMap.values()].flatMap((f) => Object.values(f.screens));
+  // skip: resolves to a parent list via listScreenId/rowAction-target/same-entity.
+  if (resolveNavParentScreen(allScreens, screen, (s) => s.id) !== undefined) return;
+  throw new Error(
+    `[Feature ${feature.name}] Screen "${targetQn}" has no nav entry and no resolvable list — ` +
+      `declare listScreenId (or a rowAction/toolbarAction navigate target from a list screen), add ` +
+      `a standalone r.nav() pointing at it, or set dormant: true if it's intentionally reachable ` +
+      `only via a direct link/redirect or a consuming app's own r.nav().`,
+  );
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -816,6 +907,7 @@ export function validateScreens(
   // #1946) — kurze IDs bleiben same-feature wie zuvor.
   const navTargetShortIds = screenShortIdsFrom(allScreenQns);
   for (const [screenId, screen] of Object.entries(feature.screens)) {
+    validateScreenHasNavArea(feature, screenId, screen, featureMap);
     if (screen.type === "custom") {
       if (!screen.renderer.react && !screen.renderer.native) {
         throw new Error(
@@ -863,6 +955,8 @@ export function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionList)`,
           screen.facets,
           screen.columns,
+          feature.name,
+          featureMap,
         );
       }
       if (screen.rowActions !== undefined) {
@@ -1158,7 +1252,26 @@ export function validateScreens(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) relatedList section "${section.title}"`,
               section.facets,
               section.columns,
+              feature.name,
+              featureMap,
             );
+          }
+          // Only drawer-kind is validated here — same pre-existing gap as
+          // entityList/projectionList's toolbarActions above (navigate/
+          // writeHandler have no boot check yet).
+          if (section.toolbarActions !== undefined) {
+            for (const action of section.toolbarActions) {
+              if (action.kind === "drawer") {
+                validateDrawerTargetAction(
+                  feature.name,
+                  screenId,
+                  "projectionDetail",
+                  "toolbarAction",
+                  action,
+                  feature.screens,
+                );
+              }
+            }
           }
           continue;
         }
@@ -1202,12 +1315,10 @@ export function validateScreens(
           }
           continue;
         }
-        if (section.fields.length === 0) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has a section "${section.title}" ` +
-              `with zero fields — drop the section or add fields to it.`,
-          );
-        }
+        validateFieldsXorGroups(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail)`,
+          section,
+        );
       }
       // Header actions reuse RowAction (the displayed record stands in for
       // the row), so the same navigate/writeHandler existence checks as
@@ -1320,13 +1431,11 @@ export function validateScreens(
               `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
           );
         }
-        if (section.fields.length === 0) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) has a section "${section.title}" ` +
-              `with zero fields — drop the section or add fields to it.`,
-          );
-        }
-        for (const fieldSpec of section.fields) {
+        validateFieldsXorGroups(
+          `[Feature ${feature.name}] Screen "${screenId}" (configEdit)`,
+          section,
+        );
+        for (const fieldSpec of flattenFieldsOrGroups(section)) {
           const normalized = normalizeEditField(fieldSpec);
           if (!fieldNames.has(normalized.field)) {
             throw new Error(
@@ -1739,13 +1848,11 @@ export function validateScreens(
               `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
           );
         }
-        if (section.fields.length === 0) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) has a section "${section.title}" ` +
-              `with zero fields — drop the section or add fields to it.`,
-          );
-        }
-        for (const fieldSpec of section.fields) {
+        validateFieldsXorGroups(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityEdit)`,
+          section,
+        );
+        for (const fieldSpec of flattenFieldsOrGroups(section)) {
           const normalized = normalizeEditField(fieldSpec);
           if (!fieldNames.has(normalized.field)) {
             throw new Error(
@@ -2056,6 +2163,8 @@ function validateListFacets(
   prefix: string,
   facets: readonly ListFacetSpec[],
   columns: readonly ListColumnSpec[],
+  currentFeatureName: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   const columnFieldNames = new Set(columns.map((col) => normalizeListColumn(col).field));
   const seenFacetFields = new Set<string>();
@@ -2075,6 +2184,22 @@ function validateListFacets(
         `${prefix} facet "${facet.field}" (type "select") has an empty options list — ` +
           `declare at least one option.`,
       );
+    }
+    if (facet.type === "reference") {
+      const target = parseRefTarget(facet.entity, currentFeatureName);
+      const targetFeature = featureMap.get(target.featureName);
+      if (targetFeature?.entities?.[target.entityName] === undefined) {
+        throw new Error(
+          `${prefix} facet "${facet.field}" (type "reference") targets entity "${facet.entity}", ` +
+            `which does not resolve to a registered entity. Known entities in feature ` +
+            `"${target.featureName}": ` +
+            `${
+              Object.keys(targetFeature?.entities ?? {})
+                .sort()
+                .join(", ") || "(none)"
+            }.`,
+        );
+      }
     }
   }
 }

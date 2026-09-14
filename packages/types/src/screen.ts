@@ -384,6 +384,17 @@ export type EntityListScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   readonly entity: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
@@ -455,6 +466,20 @@ export type ListFacetSpec =
       readonly label: string;
       readonly trueLabel: string;
       readonly falseLabel: string;
+    }
+  | {
+      readonly field: string;
+      readonly type: "reference";
+      readonly label: string;
+      /** Entity name (same feature) or `feature:entity` (cross-feature) —
+       *  same target convention as `ListColumnSpec.refEntity`. Options are
+       *  loaded at render time from that entity's own list query, one
+       *  option per row (value = row id). Boot-validator checks that the
+       *  entity exists. */
+      readonly entity: string;
+      /** Row field on the referenced entity shown as the option label
+       *  (default "id"). */
+      readonly labelField?: string;
     };
 
 export type ProjectionListScreenDefinition = {
@@ -464,6 +489,17 @@ export type ProjectionListScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -558,6 +594,17 @@ export type ProjectionDetailScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   readonly query: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
@@ -763,6 +810,17 @@ export type DashboardScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
@@ -835,7 +893,21 @@ export type EditFieldsSection = {
    *  (subtitle-only section). */
   readonly description?: string;
   readonly columns?: number;
+  /** Mutually exclusive with `groups` — pass `[]` when using `groups`. The
+   *  boot-validator rejects both being non-empty, and rejects both being
+   *  empty/absent. */
   readonly fields: readonly EditFieldSpec[];
+  /** Splits the section into multiple titled cards (e.g. "Stammdaten" /
+   *  "Kontakt"), each with its own field grid — instead of one flat grid
+   *  under the section's own title. Mutually exclusive with `fields` (the
+   *  boot-validator rejects both set); every field named here must still
+   *  exist on the entity, same check as `fields`. */
+  readonly groups?: readonly {
+    readonly title: string;
+    readonly fields: readonly EditFieldSpec[];
+    /** Default 2. */
+    readonly columns?: number;
+  }[];
   /** Rendered left of the section title, `text-muted-foreground` — closed
    *  IconKey vocabulary into the ICONS registry (renderer-web), analogous
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives
@@ -921,6 +993,9 @@ export type EditRelatedListSection = {
    *  writeHandler action re-runs this section's own query, same as a
    *  projectionList row action re-running its list query. */
   readonly rowActions?: readonly RowAction[];
+  /** Toolbar actions above the table — same type and dispatch semantics as
+   *  `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.). */
+  readonly toolbarActions?: readonly ToolbarAction[];
   /** Record field rendered as a count badge in the tab label when the
    *  enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
    *  Ignored outside tabs mode or when the field's value is not a finite
@@ -995,6 +1070,17 @@ export type EntityEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   /** Derived by buildAppSchema from the navigate `params` targeting this
    *  screen — the only URL query keys the create form prefills. An authored
    *  value is overwritten. */
@@ -1092,6 +1178,17 @@ export type ActionFormScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
@@ -1104,6 +1201,12 @@ export type ActionFormScreenDefinition = {
   /** Layout analog zu EntityEditScreen: sections mit fields aus dem
    *  fields-Map oben. */
   readonly layout: EditLayout;
+  /** Optional per-field label i18n key (field name → key), overriding the
+   *  default `<feature>:entity:__action-form__:field:<name>` convention.
+   *  Same type and semantics as `EntityEditScreenDefinition.fieldLabels` —
+   *  e.g. when the same field name should keep its default label in
+   *  another actionForm. Falls back to the convention when absent. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
@@ -1223,6 +1326,17 @@ export type SecretMintScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Write-handler QN dispatched on submit. */
@@ -1276,7 +1390,9 @@ export type CustomScreenDefinition = {
    *  positive (kumiko-framework#2034). Only set this on screens the
    *  feature itself never navs — a screen the feature DOES nav still needs
    *  its client plugin mounted by every consumer, and should keep
-   *  triggering the diagnostic if it's missing. */
+   *  triggering the diagnostic if it's missing. Also read by the boot-
+   *  validator's nav-area check (fw akte-bedienkonzept-2 V1) — see the
+   *  shared `dormant` doc on the other screen types for that contract. */
   readonly dormant?: boolean;
 };
 
@@ -1320,6 +1436,17 @@ export type ConfigEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -1364,6 +1491,17 @@ export type SecretsEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** This screen is registered without a self-owned `r.nav()` entry by
+   *  design — a consuming app opts in by navving it explicitly (e.g. a
+   *  settings-area self-service screen), or it's opened only via a direct
+   *  link/redirect and never appears in nav at all (login, password
+   *  reset, …). The boot-validator's nav-area check (fw
+   *  akte-bedienkonzept-2 V1) otherwise requires every screen to either
+   *  declare `nav`, resolve to a parent list (`listScreenId` / rowAction-
+   *  or toolbarAction-target / same-entity entityList), or have a
+   *  standalone `r.nav()` pointed at it somewhere in the app — set this
+   *  flag explicitly for the remainder instead of a silent allowlist. */
+  readonly dormant?: boolean;
   /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
   readonly secretKeys: Readonly<Record<string, string>>;
   /** field id -> i18n key for the label. */

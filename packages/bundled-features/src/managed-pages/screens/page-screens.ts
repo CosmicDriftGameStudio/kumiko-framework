@@ -52,6 +52,9 @@ export const pageListScreen: EntityListScreenDefinition = {
     },
   ],
   access: { roles: ADMIN_ROLES },
+  // Nav/placement is app-specific (see file header) — no nav area to
+  // resolve in isolation (fw akte-bedienkonzept-2 V1).
+  dormant: true,
 };
 
 export const pageEditScreen: EntityEditScreenDefinition = {

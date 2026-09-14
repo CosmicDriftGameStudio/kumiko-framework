@@ -6,9 +6,11 @@ import type {
   RowActionNavigate,
   RowActionWriteHandler,
   RowFieldExtractor,
+  ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
+import type { ToolbarActionButton } from "../components/render-list";
 import type { DataTableRowAction } from "../primitives";
 import type { NavApi } from "./nav";
 import { lastSegment } from "./qn";
@@ -187,18 +189,23 @@ type OpenDrawer = (
   initialValues: Readonly<Record<string, unknown>> | undefined,
 ) => void;
 
-// buildProjectionRowActions runs inside a useMemo (re-evaluated on every dep
-// change), so this dedupes the "openDrawer not wired" warning per action id
-// instead of firing on every recompute.
-const warnedDrawerRowActionIds = new Set<string>();
+// buildProjectionRowActions/buildProjectionToolbarActions run inside a
+// useMemo (re-evaluated on every dep change), so this dedupes the
+// "openDrawer not wired" warning per action id instead of firing on every
+// recompute.
+const warnedDrawerActionIds = new Set<string>();
 
-function warnDrawerActionDropped(actionId: string): void {
+function warnDrawerActionDropped(
+  actionKind: "rowAction" | "toolbarAction",
+  actionId: string,
+): void {
+  const key = `${actionKind}:${actionId}`;
   // skip: already warned for this id — suppresses the repeat, not the warning itself.
-  if (warnedDrawerRowActionIds.has(actionId)) return;
-  warnedDrawerRowActionIds.add(actionId);
+  if (warnedDrawerActionIds.has(key)) return;
+  warnedDrawerActionIds.add(key);
   // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
   console.warn(
-    `[kumiko] rowAction "${actionId}" is kind:"drawer", but the host did not wire openDrawer (RelatedListSection: pass onOpenDrawer) — it will not render.`,
+    `[kumiko] ${actionKind} "${actionId}" is kind:"drawer", but the host did not wire openDrawer (RelatedListSection: pass onOpenDrawer) — it will not render.`,
   );
 }
 
@@ -301,7 +308,7 @@ export function buildProjectionRowActions(options: {
     }
     if (action.kind === "drawer") {
       if (openDrawer === undefined) {
-        warnDrawerActionDropped(action.id);
+        warnDrawerActionDropped("rowAction", action.id);
         continue;
       }
       out.push(buildDrawerRowAction(action, translate, openDrawer));
@@ -311,6 +318,105 @@ export function buildProjectionRowActions(options: {
     // thrown error (fw prod-bug 2026-06-07), same as every other write path.
     if (dispatcher === undefined) continue;
     out.push(buildWriteHandlerRowAction(action, translate, refetch, dispatcher));
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+type OpenToolbarDrawer = (action: ToolbarAction & { readonly kind: "drawer" }) => void;
+
+function buildNavigateToolbarAction(
+  action: ToolbarAction & { readonly kind: "navigate" },
+  translate: Translate,
+  nav: NavApi,
+): ToolbarActionButton {
+  const actionIcon = resolveActionIcon(action.id);
+  const target = action.screen;
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    confirmRequired: false,
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    onTrigger: () => nav.navigate({ screenId: target }),
+  };
+}
+
+function buildDrawerToolbarAction(
+  action: ToolbarAction & { readonly kind: "drawer" },
+  translate: Translate,
+  openDrawer: OpenToolbarDrawer,
+): ToolbarActionButton {
+  const actionIcon = resolveActionIcon(action.id);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    confirmRequired: false,
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    onTrigger: () => openDrawer(action),
+  };
+}
+
+function buildWriteHandlerToolbarAction(
+  action: ToolbarAction & { readonly kind: "writeHandler" },
+  translate: Translate,
+  refetch: () => Promise<unknown>,
+  dispatcher: Dispatcher,
+): ToolbarActionButton {
+  const actionIcon = resolveActionIcon(action.id);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
+    ...(action.confirmLabel !== undefined && {
+      confirmLabel: translate(action.confirmLabel),
+    }),
+    onTrigger: async () => {
+      const result = await dispatcher.write(action.handler, action.payload ?? {});
+      if (!result.isSuccess) {
+        throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
+      }
+      await refetchAfterWrite(refetch);
+    },
+  };
+}
+
+// Builds the DataTable-toolbar-ready action set for a query-driven list
+// header (entityList, projectionList, and a projectionDetail relatedList
+// section) — single implementation so the three call sites can't drift
+// apart (fw akte-bedienkonzept-2, same reasoning as buildProjectionRowActions).
+export function buildProjectionToolbarActions(options: {
+  readonly toolbarActions: readonly ToolbarAction[] | undefined;
+  readonly translate: Translate;
+  readonly dispatcher: Dispatcher | undefined;
+  readonly nav: NavApi;
+  readonly refetch: () => Promise<unknown>;
+  /** Omitted callers (e.g. RelatedListSection embedded without onOpenDrawer)
+   *  drop drawer-kind toolbar actions and get a dev warning — mirrors the
+   *  rowActions behavior above. */
+  readonly openDrawer?: OpenToolbarDrawer;
+}): readonly ToolbarActionButton[] | undefined {
+  const { toolbarActions, translate, dispatcher, nav, refetch, openDrawer } = options;
+  if (toolbarActions === undefined) return undefined;
+  const out: ToolbarActionButton[] = [];
+  for (const action of toolbarActions) {
+    if (action.kind === "navigate") {
+      out.push(buildNavigateToolbarAction(action, translate, nav));
+      continue;
+    }
+    if (action.kind === "drawer") {
+      if (openDrawer === undefined) {
+        warnDrawerActionDropped("toolbarAction", action.id);
+        continue;
+      }
+      out.push(buildDrawerToolbarAction(action, translate, openDrawer));
+      continue;
+    }
+    // writeHandler — skip without a dispatcher instead of crashing (same as rowActions).
+    if (dispatcher === undefined) continue;
+    out.push(buildWriteHandlerToolbarAction(action, translate, refetch, dispatcher));
   }
   return out.length > 0 ? out : undefined;
 }

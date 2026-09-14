@@ -66,6 +66,9 @@ export function createTenantCapListScreen(
     ],
     defaultSort: { field: "name", dir: "asc" },
     access: { roles: ["SystemAdmin"] },
+    // No nav wiring yet (see feature.ts header) — no nav area to resolve
+    // in isolation (fw akte-bedienkonzept-2 V1).
+    dormant: true,
   };
 }
 
@@ -80,6 +83,9 @@ export const myCapsScreen: ScreenDefinition = {
     },
   ],
   access: { roles: MY_CAPS_ACCESS_ROLES },
+  // No nav wiring yet (see feature.ts header) — no nav area to resolve in
+  // isolation (fw akte-bedienkonzept-2 V1).
+  dormant: true,
 };
 
 export const platformTenantCapsScreen: ScreenDefinition = {

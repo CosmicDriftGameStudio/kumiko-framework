@@ -32,6 +32,9 @@ export const userListScreen: EntityListScreenDefinition = {
   // Apps must boot a user search index on that tenant (offlot: bootWaitlistSearch).
   searchable: true,
   access: { roles: ["SystemAdmin"] },
+  // Inert until an app navs it (see file header) — no nav area to resolve
+  // in isolation (fw akte-bedienkonzept-2 V1).
+  dormant: true,
 };
 
 export const userEditScreen: EntityEditScreenDefinition = {

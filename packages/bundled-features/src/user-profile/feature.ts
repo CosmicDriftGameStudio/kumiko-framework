@@ -78,6 +78,10 @@ export function createUserProfileFeature(): FeatureDefinition {
       query: UserProfileQueries.me,
       singleton: true,
       access: { openToAll: true },
+      // Self-service settings-area screen, placed by the consuming app's own
+      // r.nav() (see samples/apps/use-all-bundled's screens-feature.ts) — no
+      // nav area to resolve in isolation (fw akte-bedienkonzept-2 V1).
+      dormant: true,
       description:
         "Self-service account page: change password, change email (with re-auth and " +
         "a verification-mail follow-up), and request or cancel account deletion " +

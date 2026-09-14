@@ -21,6 +21,7 @@ import {
   evalFieldCondition,
   isWriteFormEditSection,
   metricField,
+  parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
@@ -43,7 +44,7 @@ import {
   RenderEditActionButton,
   RenderEditActionConfirmDialog,
 } from "../components/render-edit-action-button";
-import { RenderList, type ToolbarActionButton } from "../components/render-list";
+import { RenderList } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
 import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
@@ -66,6 +67,7 @@ import { layoutFieldNames } from "./layout-fields";
 import {
   buildFilterFacets,
   buildFilterPayload,
+  mergeReferenceFacetOptions,
   type ResolvedFacetSpec,
   resolveProjectionFacetSpecs,
 } from "./list-facets";
@@ -77,9 +79,11 @@ import {
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
 import { lastSegment, toKebab } from "./qn";
 import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
+import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
+  buildProjectionToolbarActions,
   evalRowExtractor,
   isWriteHandlerRowAction,
   refetchAfterWrite,
@@ -1312,7 +1316,13 @@ function resolveEntityFacetSpecs(
   for (const [field, rawDef] of Object.entries(fields)) {
     // entity.fields ist am Renderer-Layer schwach getypt (Record<string,
     // unknown>, vom Schema deserialisiert) — Boundary-Cast wie buildInitialValues.
-    const def = rawDef as { type?: string; filterable?: boolean; options?: readonly string[] };
+    const def = rawDef as {
+      type?: string;
+      filterable?: boolean;
+      options?: readonly string[];
+      entity?: string;
+      labelField?: string;
+    };
     if (def.filterable !== true) continue;
     const label = translate(fieldLabelKey(featureName, entityName, field));
     if (def.type === "select" && Array.isArray(def.options)) {
@@ -1340,6 +1350,19 @@ function resolveEntityFacetSpecs(
             label: translate(fieldOptionLabelKey(featureName, entityName, field, "false")),
           },
         ],
+      });
+    } else if (def.type === "reference" && def.entity !== undefined) {
+      const target = parseRefTarget(def.entity, featureName);
+      out.push({
+        field,
+        type: "reference",
+        label,
+        options: [],
+        reference: {
+          refEntity: target.entityName,
+          refFeature: target.featureName,
+          labelField: def.labelField ?? "id",
+        },
       });
     }
   }
@@ -1673,15 +1696,28 @@ function EntityListBody({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
-  // Faceted-Filter: ein Dropdown pro filterable select/boolean-Feld.
+  // Faceted-Filter: ein Dropdown pro filterable select/boolean/reference-Feld.
   // Labels + select-Option-Labels über dieselbe i18n-Konvention wie die
-  // Spalten-Header (fieldLabelKey / :option:<value>).
+  // Spalten-Header (fieldLabelKey / :option:<value>); reference-Felder laden
+  // ihre Optionen asynchron über ReferenceFacetBridges (fw akte-bedienkonzept-2 M1).
+  const entityFacetSpecs = useMemo(
+    () => resolveEntityFacetSpecs(entity.fields, featureName, screen.entity, effectiveTranslate),
+    [entity.fields, featureName, screen.entity, effectiveTranslate],
+  );
+  const [entityReferenceFacetOptions, setEntityReferenceFacetOptions] = useState<
+    Record<string, readonly ReferenceFacetOption[]>
+  >({});
+  const handleEntityFacetOptions = useCallback(
+    (field: string, options: readonly ReferenceFacetOption[]) =>
+      setEntityReferenceFacetOptions((prev) =>
+        prev[field] === options ? prev : { ...prev, [field]: options },
+      ),
+    [],
+  );
   const filterFacets = useMemo<DataTableFacet[]>(
     () =>
-      buildFilterFacets(
-        resolveEntityFacetSpecs(entity.fields, featureName, screen.entity, effectiveTranslate),
-      ),
-    [entity.fields, featureName, screen.entity, effectiveTranslate],
+      buildFilterFacets(mergeReferenceFacetOptions(entityFacetSpecs, entityReferenceFacetOptions)),
+    [entityFacetSpecs, entityReferenceFacetOptions],
   );
 
   // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
@@ -1857,73 +1893,20 @@ function EntityListBody({
     openDrawer,
   ]);
 
-  // ToolbarActions: Schema → Resolved-Form (analog rowActions).
-  // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
-  // → dispatcher.write(handler, payload?()). KumikoScreen kennt schon
-  // useNav (aus dem normalen Routing-Stack).
-  const toolbarActions = useMemo(() => {
-    if (screen.toolbarActions === undefined) return undefined;
-    return screen.toolbarActions
-      .map((action: ToolbarAction): ToolbarActionButton | null => {
-        const actionIcon = resolveActionIcon(action.id);
-        if (action.kind === "navigate") {
-          return {
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onTrigger: () => nav.navigate({ screenId: action.screen }),
-          };
-        }
-        if (action.kind === "drawer") {
-          return {
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onTrigger: () => openDrawer(action),
-          };
-        }
-        // writeHandler — braucht Dispatcher. Wenn keiner mounted ist,
-        // skippen wir die Action statt zu crashen (gleiche Logik wie
-        // bei rowActions; einmaliger Warn-Log dort reicht).
-        if (dispatcher === undefined) return null;
-        return {
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          ...(actionIcon !== undefined && { icon: actionIcon }),
-          ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
-          ...(action.confirmLabel !== undefined && {
-            confirmLabel: effectiveTranslate(action.confirmLabel),
-          }),
-          onTrigger: async () => {
-            const payload = action.payload ?? {};
-            const result = await dispatcher.write(action.handler, payload);
-            // Gleicher Surfacing-Zwang wie bei rowActions (Prod-Bug
-            // 2026-06-07): ein verschlucktes Failure-Result sah wie
-            // "nichts passiert" aus.
-            if (!result.isSuccess) {
-              throw new WriteFailedError(
-                result.error,
-                dispatcherErrorText(result.error, effectiveTranslate),
-              );
-            }
-            await refreshRowsAfterWrite();
-          },
-        };
-      })
-      .filter((a: ToolbarActionButton | null): a is ToolbarActionButton => a !== null);
-  }, [
-    screen.toolbarActions,
-    effectiveTranslate,
-    nav,
-    dispatcher,
-    refreshRowsAfterWrite,
-    openDrawer,
-  ]);
+  // ToolbarActions: Schema → Resolved-Form (analog rowActions), shared with
+  // projectionList and relatedList sections via buildProjectionToolbarActions.
+  const toolbarActions = useMemo(
+    () =>
+      buildProjectionToolbarActions({
+        toolbarActions: screen.toolbarActions,
+        translate: effectiveTranslate,
+        dispatcher,
+        nav,
+        refetch: refreshRowsAfterWrite,
+        openDrawer,
+      }),
+    [screen.toolbarActions, effectiveTranslate, nav, dispatcher, refreshRowsAfterWrite, openDrawer],
+  );
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -1988,6 +1971,7 @@ function EntityListBody({
 
   return (
     <>
+      <ReferenceFacetBridges specs={entityFacetSpecs} onOptions={handleEntityFacetOptions} />
       <RenderList
         screen={screen}
         entity={entity}
@@ -2097,8 +2081,22 @@ function ProjectionListBody({
   // entityList adapter produces, so both feed the same
   // buildFilterFacets/buildFilterPayload.
   const facetSpecs = useMemo(
-    () => resolveProjectionFacetSpecs(screen.facets, effectiveTranslate),
-    [screen.facets, effectiveTranslate],
+    () => resolveProjectionFacetSpecs(screen.facets, effectiveTranslate, schema.featureName),
+    [screen.facets, effectiveTranslate, schema.featureName],
+  );
+  const [projectionReferenceFacetOptions, setProjectionReferenceFacetOptions] = useState<
+    Record<string, readonly ReferenceFacetOption[]>
+  >({});
+  const handleProjectionFacetOptions = useCallback(
+    (field: string, options: readonly ReferenceFacetOption[]) =>
+      setProjectionReferenceFacetOptions((prev) =>
+        prev[field] === options ? prev : { ...prev, [field]: options },
+      ),
+    [],
+  );
+  const resolvedFacetSpecs = useMemo(
+    () => mergeReferenceFacetOptions(facetSpecs, projectionReferenceFacetOptions),
+    [facetSpecs, projectionReferenceFacetOptions],
   );
   const filterPayload = useMemo(
     () =>
@@ -2143,7 +2141,10 @@ function ProjectionListBody({
 
   const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
 
-  const filterFacets = useMemo<DataTableFacet[]>(() => buildFilterFacets(facetSpecs), [facetSpecs]);
+  const filterFacets = useMemo<DataTableFacet[]>(
+    () => buildFilterFacets(resolvedFacetSpecs),
+    [resolvedFacetSpecs],
+  );
 
   // Entity-Targets (fw#2228) — see EntityListBody.runNavigate for why the
   // resolution happens in the NavApi impl. Unlike there: NO row["id"]
@@ -2186,63 +2187,18 @@ function ProjectionListBody({
     ],
   );
 
-  const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
-    if (screen.toolbarActions === undefined) return undefined;
-    const out: ToolbarActionButton[] = [];
-    for (const action of screen.toolbarActions) {
-      const actionIcon = resolveActionIcon(action.id);
-      if (action.kind === "navigate") {
-        const target = action.screen;
-        out.push({
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          confirmRequired: false,
-          ...(actionIcon !== undefined && { icon: actionIcon }),
-          onTrigger: () => nav.navigate({ screenId: target }),
-        });
-        continue;
-      }
-      if (action.kind === "drawer") {
-        out.push({
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          confirmRequired: false,
-          ...(actionIcon !== undefined && { icon: actionIcon }),
-          onTrigger: () => openDrawer(action),
-        });
-        continue;
-      }
-      // writeHandler — analog entityList; ohne Dispatcher skippen statt crashen.
-      if (dispatcher === undefined) continue;
-      out.push({
-        id: action.id,
-        label: effectiveTranslate(action.label),
-        ...(action.style !== undefined && { style: action.style }),
-        ...(actionIcon !== undefined && { icon: actionIcon }),
-        ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
-        ...(action.confirmLabel !== undefined && {
-          confirmLabel: effectiveTranslate(action.confirmLabel),
-        }),
-        onTrigger: async () => {
-          const result = await dispatcher.write(action.handler, action.payload ?? {});
-          // Gleicher Surfacing-Zwang wie bei rowActions (Prod-Bug
-          // 2026-06-07): ein verschlucktes Failure-Result sah wie
-          // "nichts passiert" aus.
-          if (!result.isSuccess) {
-            throw new WriteFailedError(
-              result.error,
-              dispatcherErrorText(result.error, effectiveTranslate),
-            );
-          }
-          // Same refetch as rowActions above.
-          await refetchAfterWrite(rowsQuery.refetch);
-        },
-      });
-    }
-    return out.length > 0 ? out : undefined;
-  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer]);
+  const toolbarActions = useMemo(
+    () =>
+      buildProjectionToolbarActions({
+        toolbarActions: screen.toolbarActions,
+        translate: effectiveTranslate,
+        dispatcher,
+        nav,
+        refetch: rowsQuery.refetch,
+        openDrawer,
+      }),
+    [screen.toolbarActions, effectiveTranslate, nav, dispatcher, rowsQuery.refetch, openDrawer],
+  );
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -2294,6 +2250,7 @@ function ProjectionListBody({
 
   return (
     <>
+      <ReferenceFacetBridges specs={facetSpecs} onOptions={handleProjectionFacetOptions} />
       <RenderList
         screen={listScreen}
         entity={entity}
@@ -2532,7 +2489,6 @@ function ProjectionDetailBody({
     Button,
     Dialog,
     Text,
-    Heading,
     Grid,
     GridCell,
     Card,
@@ -2843,50 +2799,56 @@ function ProjectionDetailBody({
   // header polish).
   const header = screen.header;
   const subtitleHref = resolveSubtitleHref(header, record);
+  // Plain Text, not Heading — the Card title slot already renders as its
+  // own heading element (h3); nesting another heading (h1) inside it is
+  // invalid HTML (fw akte-bedienkonzept-2 K2).
+  const headerTitleSlot =
+    header !== undefined ? (
+      header.status !== undefined ? (
+        <Grid columns="auto">
+          <Text testId="kumiko-screen-projection-detail-title">
+            {String(record[header.title] ?? "")}
+          </Text>
+          {StatusBadge !== undefined ? (
+            <StatusBadge
+              value={String(record[header.status] ?? "")}
+              tone={statusToneForValue(String(record[header.status] ?? ""))}
+              testId="kumiko-screen-projection-detail-status"
+            />
+          ) : (
+            <Text testId="kumiko-screen-projection-detail-status">
+              {String(record[header.status] ?? "")}
+            </Text>
+          )}
+        </Grid>
+      ) : (
+        <Text testId="kumiko-screen-projection-detail-title">
+          {String(record[header.title] ?? "")}
+        </Text>
+      )
+    ) : undefined;
+  const headerSubtitleSlot =
+    header?.subtitle !== undefined ? (
+      subtitleHref !== undefined ? (
+        <Link href={subtitleHref} target="_blank" testId="kumiko-screen-projection-detail-subtitle">
+          {String(record[header.subtitle] ?? "")}
+        </Link>
+      ) : (
+        <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+          {String(record[header.subtitle] ?? "")}
+        </Text>
+      )
+    ) : undefined;
   const headerContent = (
     <>
       {hasHeaderCard && (
-        <Card>
-          {header !== undefined && (
-            <>
-              {header.status !== undefined ? (
-                <Grid columns="auto">
-                  <Heading variant="page" testId="kumiko-screen-projection-detail-title">
-                    {String(record[header.title] ?? "")}
-                  </Heading>
-                  {StatusBadge !== undefined ? (
-                    <StatusBadge
-                      value={String(record[header.status] ?? "")}
-                      tone={statusToneForValue(String(record[header.status] ?? ""))}
-                      testId="kumiko-screen-projection-detail-status"
-                    />
-                  ) : (
-                    <Text testId="kumiko-screen-projection-detail-status">
-                      {String(record[header.status] ?? "")}
-                    </Text>
-                  )}
-                </Grid>
-              ) : (
-                <Heading variant="page" testId="kumiko-screen-projection-detail-title">
-                  {String(record[header.title] ?? "")}
-                </Heading>
-              )}
-              {header.subtitle !== undefined &&
-                (subtitleHref !== undefined ? (
-                  <Link
-                    href={subtitleHref}
-                    target="_blank"
-                    testId="kumiko-screen-projection-detail-subtitle"
-                  >
-                    {String(record[header.subtitle] ?? "")}
-                  </Link>
-                ) : (
-                  <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
-                    {String(record[header.subtitle] ?? "")}
-                  </Text>
-                ))}
-            </>
-          )}
+        <Card
+          slots={{
+            ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
+            ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
+            ...(hasHeaderActions && { headerActions: headerActionsContent }),
+          }}
+        >
           {hasMetrics && (
             <Grid
               columns={screen.metrics?.length ?? 1}
@@ -2922,7 +2884,6 @@ function ProjectionDetailBody({
               })}
             </Grid>
           )}
-          {headerActionsContent}
           {actionError !== null && (
             <Banner variant="error" testId="render-edit-action-error">
               {actionError}

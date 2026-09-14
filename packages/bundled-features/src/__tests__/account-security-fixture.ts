@@ -24,6 +24,9 @@ export const accountSecurityFeature = defineFeature("account-security", (r) => {
   r.screen({
     id: ACCOUNT_SECURITY_SCREEN_ID,
     type: "dashboard",
+    // Test fixture demonstrating composition (fw#2841) — a real app would
+    // nav this, but that's out of scope here (fw akte-bedienkonzept-2 V1).
+    dormant: true,
     panels: [
       {
         kind: "screen",

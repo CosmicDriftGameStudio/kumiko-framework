@@ -44,6 +44,9 @@ export const tenantListScreen: EntityListScreenDefinition = {
   defaultSort: { field: "name", dir: "asc" },
   searchable: true,
   access: { roles: ["SystemAdmin"] },
+  // Inert until an app navs it (see file header) — no nav area to resolve
+  // in isolation (fw akte-bedienkonzept-2 V1).
+  dormant: true,
 };
 
 export const tenantEditScreen: EntityEditScreenDefinition = {

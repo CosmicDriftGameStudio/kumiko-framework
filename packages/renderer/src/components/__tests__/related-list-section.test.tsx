@@ -183,8 +183,8 @@ function renderRelatedList(
   );
 }
 
-describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
-  test("hideTitle (tabs mode) renders the list without a Section wrapper and marks the table chromeless + scrollBody", async () => {
+describe("RelatedListSection — tabs-mode card chrome (fw#2722, fw akte-bedienkonzept-2 L1)", () => {
+  test("hideTitle (tabs mode) renders the list without a Section wrapper, keeps the table frame, and marks scrollBody", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
     let capturedScrollBody: boolean | undefined;
@@ -215,7 +215,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.queryByTestId(`related-list-${historySection.title}`)).toBeNull();
-    expect(capturedChromeless).toBe(true);
+    expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBe(true);
   });
 
@@ -251,6 +251,80 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     expect(rtlScreen.getByTestId(`related-list-${historySection.title}`)).toBeTruthy();
     expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBeUndefined();
+  });
+});
+
+describe("RelatedListSection — list-screen toolbar in tabs mode (fw akte-bedienkonzept-2 L2/L3/L4)", () => {
+  test("hideTitle (tabs mode) still surfaces search, facets and a toolbarActions button", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedFilterFacets: DataTableProps["filterFacets"];
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedFilterFacets = props.filterFacets;
+      return (
+        <>
+          {props.toolbarEnd}
+          {testDataTable(props)}
+        </>
+      );
+    };
+    const testButton = ({
+      children,
+      testId,
+      onClick,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly onClick?: () => void;
+    }) => (
+      <button type="button" data-testid={testId} onClick={() => onClick?.()}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      searchable: true,
+      facets: [
+        {
+          field: "name",
+          type: "select",
+          label: "Name",
+          options: [{ value: "Alice", label: "Alice" }],
+        },
+      ],
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "create",
+          label: "New notification",
+          screen: "notification-create",
+        },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: capturingDataTable, Button: testButton }}
+          >
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={section}
+                parentId="order-1"
+                featureName="orders"
+                hideTitle
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(capturedFilterFacets?.length).toBe(1);
+    expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy();
   });
 });
 

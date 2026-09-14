@@ -1,4 +1,5 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { resolveNavParentScreen } from "@cosmicdrift/kumiko-framework/ui-types";
 import { lastSegment } from "@cosmicdrift/kumiko-renderer";
 
 export type BreadcrumbCrumb = {
@@ -10,51 +11,14 @@ export function screenTitleKey(screenShortId: string): string {
   return `screen:${screenShortId}.title`;
 }
 
-// Every screen type carrying `listScreenId` declares it identically — reading
-// it here (instead of at each call site) keeps the switch the only place
-// that has to grow when a new screen type adopts the field.
-function explicitListScreenId(screen: ScreenDefinition): string | undefined {
-  switch (screen.type) {
-    case "custom":
-    case "projectionDetail":
-    case "entityEdit":
-    case "actionForm":
-    case "secretMint":
-      return screen.listScreenId;
-    default:
-      return undefined;
-  }
-}
-
-// Shared by the breadcrumb (this file) and NavTree's active-marker fallback
-// (nav-tree.tsx) — both need "which list screen does this detail belong to",
-// so this is the one place that answers it. An explicit `listScreenId` wins
-// over the heuristics below (rowAction target / same-entity entityList): a
-// screen author who declares it is opting out of the guess.
+// Shared with the boot-validator's nav-area check (fw akte-bedienkonzept-2
+// V1) via resolveNavParentScreen — this file just supplies the
+// feature-qualified-id normalization the client-side schema needs.
 function resolveParentScreen(
   screens: readonly ScreenDefinition[],
   detail: ScreenDefinition,
 ): ScreenDefinition | undefined {
-  const detailScreenId = lastSegment(detail.id);
-
-  const listFromExplicit = ((): ScreenDefinition | undefined => {
-    const explicitId = explicitListScreenId(detail);
-    return explicitId !== undefined
-      ? screens.find((s) => lastSegment(s.id) === explicitId)
-      : undefined;
-  })();
-
-  const listFromRowAction = screens.find((s) => {
-    if (s.type !== "entityList") return false;
-    return (s.rowActions ?? []).some((a) => a.kind === "navigate" && a.screen === detailScreenId);
-  });
-
-  const listFromEntity =
-    detail.type === "entityEdit"
-      ? screens.find((s) => s.type === "entityList" && s.entity === detail.entity)
-      : undefined;
-
-  return listFromExplicit ?? listFromRowAction ?? listFromEntity;
+  return resolveNavParentScreen(screens, detail, (s) => lastSegment(s.id));
 }
 
 /** The short id of {screenId}'s parent list screen, resolved via the same

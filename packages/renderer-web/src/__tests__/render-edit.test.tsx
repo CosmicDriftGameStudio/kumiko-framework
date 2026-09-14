@@ -204,10 +204,11 @@ describe("RenderEdit", () => {
 
   // Fall 2: tabs layout sets hideSectionTitles (kumiko-screen.tsx's
   // ProjectionDetailBody, the only real caller) to blank out each section's
-  // OWN title — the active tab already names it. That gate used to also
-  // swallow the screen-level subtitle (screen.description), which has
-  // nothing to do with section titles and must survive tabs mode.
-  test("tabs layout (hideSectionTitles) keeps the section title hidden but still shows the screen's own subtitle", () => {
+  // OWN title — the active tab already names it. screen.description
+  // (the form's own subtitle) is head-card copy, not tab content — the
+  // head card already carries title/subtitle/status, so it must NOT also
+  // render here in tabs mode (fw akte-bedienkonzept-2 K3).
+  test("tabs layout (hideSectionTitles) keeps the section title hidden and drops the screen's own subtitle", () => {
     const entity = {
       fields: { email: { type: "text", required: true } },
     } as unknown as EntityDefinition;
@@ -236,9 +237,7 @@ describe("RenderEdit", () => {
 
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
     expect(screen.queryByTestId("section-Contact-title")).toBeNull();
-    expect(screen.getByTestId("render-edit-form-subtitle").textContent).toBe(
-      "Everything about this order in one place.",
-    );
+    expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
   });
 
   // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch

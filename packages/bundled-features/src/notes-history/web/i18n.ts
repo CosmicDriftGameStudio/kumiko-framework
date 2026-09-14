@@ -15,5 +15,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "notesHistory.section.add": "Add note",
     "notesHistory.section.meta": "{author} · {date}",
     "notesHistory.section.authorUnknown": "Unknown author",
+    "notesHistory.section.newNoteTitle": "New note",
+    "notesHistory.section.historyTitle": "History",
+    "notesHistory.section.shortcutHint": "Ctrl+Enter saves",
   },
 };

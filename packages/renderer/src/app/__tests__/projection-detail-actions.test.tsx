@@ -26,6 +26,7 @@ import {
   type ActionOverflowMenuProps,
   type BannerProps,
   type ButtonProps,
+  type CardProps,
   type CorePrimitives,
   type DialogProps,
   type FormProps,
@@ -39,6 +40,18 @@ import { NavProvider } from "../nav";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
+
+// Card's title/subtitle/headerActions now arrive as `slots` (fw akte-
+// bedienkonzept-2 K2) instead of raw JSX children — this stub renders them
+// so tests asserting on header-action content still see it.
+const CardWithSlots: ComponentType<CardProps> = ({ slots, children }) => (
+  <>
+    {slots?.title}
+    {slots?.subtitle}
+    {slots?.headerActions}
+    {children}
+  </>
+);
 
 const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) => (
   <button type="button" data-testid={testId} onClick={() => void onClick?.()}>
@@ -130,7 +143,7 @@ const testPrimitives: CorePrimitives = {
   DataTable: noop,
   Form: FormWithActions,
   Section: passChildren,
-  Card: passChildren,
+  Card: CardWithSlots,
   Grid: passChildren,
   GridCell: passChildren,
   Text: passChildren,

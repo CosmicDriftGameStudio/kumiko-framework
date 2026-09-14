@@ -340,6 +340,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const {
     Button,
     Banner,
+    Card,
     Dialog,
     Form,
     Section,
@@ -1177,9 +1178,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return undefined;
   };
   const formTitle = resolveScreenText("title") ?? screen.id;
+  // screen.description is head-card copy, not tab content — in tabs mode
+  // (hideSectionTitles) the head card already carries title/subtitle/status.
   const formSubtitle =
     resolveScreenText("subtitle") ??
-    (screen.description !== undefined ? translate(screen.description) : undefined);
+    (hideSectionTitles !== true && screen.description !== undefined
+      ? translate(screen.description)
+      : undefined);
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
@@ -1359,16 +1364,78 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             );
           }
           if (!section.visible) return null;
+          // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
+          const sectionKey = section.title ?? `section-${sectionIndex}`;
+          const renderFieldGrid = (
+            fields: readonly EditFieldViewModel[],
+            columns: number,
+            gridKey: string,
+          ): ReactNode => (
+            <Grid key={gridKey} columns={columns}>
+              {fields.map((field: EditFieldViewModel) => (
+                <GridCellForField
+                  key={field.field}
+                  field={disabled ? { ...field, readOnly: true } : field}
+                  columns={columns}
+                  issues={snapshot.errors[field.field]}
+                  onChange={(v) => {
+                    (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                  }}
+                  GridCell={GridCell}
+                  featureName={featureName}
+                  {...(labelAppendix !== undefined && {
+                    labelAppendix: labelAppendix(field.field),
+                  })}
+                  {...(fieldAppendix !== undefined && {
+                    fieldAppendix: fieldAppendix(field.field),
+                  })}
+                  allIssues={snapshot.errors}
+                  valueDisplay={valueDisplay}
+                  row={snapshot.values}
+                />
+              ))}
+            </Grid>
+          );
+          // Tabs mode (fw akte-bedienkonzept-2 S1/S2): render as one or more
+          // titled cards — the Tab strip's own label stays short, this card
+          // title is the section's actual (possibly longer) heading, so the
+          // two aren't the same string and don't visually duplicate.
+          if (hideSectionTitles === true) {
+            if (section.groups !== undefined) {
+              const groupsEl = (
+                <Grid key={sectionKey} columns={1}>
+                  {section.groups.map((group, groupIndex) => (
+                    <Card
+                      key={group.title}
+                      slots={{ title: group.title }}
+                      testId={`section-${sectionKey}-group-${groupIndex}`}
+                    >
+                      {renderFieldGrid(
+                        group.fields,
+                        group.columns,
+                        `${sectionKey}-group-${groupIndex}-grid`,
+                      )}
+                    </Card>
+                  ))}
+                </Grid>
+              );
+              return wrapWizardStep(sectionKey, groupsEl);
+            }
+            const cardEl = (
+              <Card
+                key={sectionKey}
+                {...(section.title !== undefined && { slots: { title: section.title } })}
+                testId={`section-${sectionKey}`}
+              >
+                {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
+              </Card>
+            );
+            return wrapWizardStep(sectionKey, cardEl);
+          }
           // Section-Header unterdrücken wenn er den Form-Titel der
           // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
           // ActionForms, deren Section-Label = Screen-Titel ist).
-          const sectionTitle = hideSectionTitles
-            ? undefined
-            : section.title === formTitle
-              ? undefined
-              : section.title;
-          // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
-          const sectionKey = section.title ?? `section-${sectionIndex}`;
+          const sectionTitle = section.title === formTitle ? undefined : section.title;
           const sectionEl = (
             <Section
               key={sectionKey}
@@ -1377,30 +1444,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               {...(section.icon !== undefined && { icon: section.icon })}
               testId={`section-${sectionKey}`}
             >
-              <Grid columns={section.columns}>
-                {section.fields.map((field: EditFieldViewModel) => (
-                  <GridCellForField
-                    key={field.field}
-                    field={disabled ? { ...field, readOnly: true } : field}
-                    columns={section.columns}
-                    issues={snapshot.errors[field.field]}
-                    onChange={(v) => {
-                      (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                    }}
-                    GridCell={GridCell}
-                    featureName={featureName}
-                    {...(labelAppendix !== undefined && {
-                      labelAppendix: labelAppendix(field.field),
-                    })}
-                    {...(fieldAppendix !== undefined && {
-                      fieldAppendix: fieldAppendix(field.field),
-                    })}
-                    allIssues={snapshot.errors}
-                    valueDisplay={valueDisplay}
-                    row={snapshot.values}
-                  />
-                ))}
-              </Grid>
+              {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
             </Section>
           );
           return wrapWizardStep(sectionKey, sectionEl);

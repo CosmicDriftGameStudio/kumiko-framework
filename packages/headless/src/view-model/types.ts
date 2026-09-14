@@ -10,6 +10,7 @@ import type {
   PlatformComponent,
   RowAction,
   ScreenSlots,
+  ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Runtime-only renderer — function form allowed here because the renderer
@@ -270,6 +271,13 @@ export type EditFieldsSectionViewModel = {
   readonly description?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
+  /** From `EditFieldsSection.groups` — each entry's `fields` are the same
+   *  view-model objects as `fields` above, re-grouped (not recomputed). */
+  readonly groups?: readonly {
+    readonly title: string;
+    readonly columns: number;
+    readonly fields: readonly EditFieldViewModel[];
+  }[];
   /** From `EditFieldsSection.icon` — closed IconKey vocabulary, renders
    *  left of the title. No effect without `title`. */
   readonly icon?: IconKey;
@@ -299,6 +307,7 @@ export type EditRelatedListSectionViewModel = {
   readonly facets?: readonly ListFacetSpec[];
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
   readonly rowActions?: readonly RowAction[];
+  readonly toolbarActions?: readonly ToolbarAction[];
 };
 
 // Mirrors EditWriteFormSection, except `fields` is already resolved through

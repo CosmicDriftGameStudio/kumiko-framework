@@ -69,6 +69,27 @@ describe("synthesizeActionFormScreen", () => {
     });
     expect("slots" in withoutSlots).toBe(false);
   });
+
+  test("carries fieldLabels through so RenderEdit resolves the screen's own label override (fw akte-bedienkonzept-2 F1)", () => {
+    const withFieldLabels = synthesizeActionFormScreen({
+      id: "reschedule",
+      type: "actionForm",
+      handler: "shop:write:reschedule",
+      layout: { sections: [{ title: "Reschedule", fields: ["dueAt"] }] },
+      fields: { dueAt: { type: "date" } },
+      fieldLabels: { dueAt: "shop:reschedule.dueAt" },
+    });
+    expect(withFieldLabels.fieldLabels).toEqual({ dueAt: "shop:reschedule.dueAt" });
+
+    const withoutFieldLabels = synthesizeActionFormScreen({
+      id: "reschedule",
+      type: "actionForm",
+      handler: "shop:write:reschedule",
+      layout: { sections: [{ title: "Reschedule", fields: ["dueAt"] }] },
+      fields: { dueAt: { type: "date" } },
+    });
+    expect("fieldLabels" in withoutFieldLabels).toBe(false);
+  });
 });
 
 describe("synthesizeSecretMintConfirmScreen (fw#2838)", () => {

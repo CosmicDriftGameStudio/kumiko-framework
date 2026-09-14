@@ -48,6 +48,9 @@ export const patListScreen: ProjectionListScreenDefinition = {
     },
   ],
   access: { openToAll: true },
+  // Self-service settings-area screen, placed by the consuming app's own
+  // r.nav() — no nav area to resolve in isolation (fw akte-bedienkonzept-2 V1).
+  dormant: true,
 };
 
 // Grant-string vocabulary for a scope config's multiSelect field — a
