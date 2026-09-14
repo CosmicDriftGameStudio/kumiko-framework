@@ -57,9 +57,6 @@ export const sessionListScreen: ProjectionListScreenDefinition = {
     },
   ],
   access: listAccess,
-  // Admin view, placed by the consuming app's own r.nav() — no nav area
-  // to resolve in isolation.
-  dormant: true,
 };
 
 export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
