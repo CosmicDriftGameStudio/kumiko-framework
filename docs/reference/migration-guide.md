@@ -10,6 +10,16 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.270.0
+
+### framework-core
+
+**Boot validator requires every screen to be reachable from the app's nav tree.**
+
+`validateScreens` now rejects a screen that has no own `nav`, no standalone `r.nav()` pointed at it anywhere in the composed feature set, and no resolvable parent list (`listScreenId`, or a rowAction/toolbarAction/drawer navigate target from an `entityList`/`projectionList`, or — for `entityEdit` — a same-entity `entityList`) — unless it declares `dormant: true`. `dormant` (previously only on `CustomScreenDefinition`) is now on every screen type. The resolution logic is the same `resolveNavParentScreen` the renderer's breadcrumb/NavTree already used, moved into `@cosmicdrift/kumiko-framework/engine/screen-helpers.ts` (re-exported through `ui-types`) instead of a second copy, and widened to also recognize toolbarActions and drawer-kind targets, not just entityList rowActions. The check is skipped when the composed feature set registers no nav entries anywhere at all (an isolated feature/recipe/test boot has no nav tree to be orphaned from).
+
+**Migration:** A screen that boots inside an app with at least one nav entry somewhere, but isn't itself reachable, now fails boot with "has no nav entry and no resolvable list". Fix by declaring `listScreenId` (or a rowAction/toolbarAction navigate target from a list screen pointed at it), adding a standalone `r.nav()` for it, or setting `dormant: true` if it's intentionally reachable only via a direct link/redirect or a consuming app's own `r.nav()` (the established pattern for app-placed settings-area screens like `tenant-list`/`user-list`/`tier-admin`/personal-access-tokens' list/`profile`, now applied consistently across bundled-features).
+
 ## 0.269.0
 
 ### framework-core

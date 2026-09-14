@@ -205,6 +205,7 @@ export const demoFeature = defineFeature("styleguide", (r) => {
     id: "item-list-wide",
     type: "entityList",
     entity: "item",
+    dormant: true,
     columns: [
       "name",
       "description",

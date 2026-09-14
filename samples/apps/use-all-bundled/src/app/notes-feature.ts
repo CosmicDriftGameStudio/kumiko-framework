@@ -50,6 +50,7 @@ const noteListScreen: EntityListScreenDefinition = {
   id: "note-list",
   type: "entityList",
   entity: "note",
+  dormant: true,
   columns: [
     "title",
     {
