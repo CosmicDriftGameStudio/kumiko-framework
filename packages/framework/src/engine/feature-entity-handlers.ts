@@ -23,7 +23,7 @@ import type {
   HandlerRef,
   NameOrRef,
   QueryHandlerFn,
-  RateLimitOption,
+  RateLimitDeclaration,
   RelationDefinition,
   StreamHandlerFn,
   WriteHandlerFn,
@@ -124,7 +124,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       handler?: WriteHandlerFn<z.infer<TSchema>>,
       options?: {
         access: AccessRule;
-        rateLimit?: RateLimitOption;
+        rateLimit?: RateLimitDeclaration;
         description?: string;
         agent?: AgentHandlerHints;
         escapeHatch?: EscapeHatchDeclaration;
@@ -181,7 +181,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       handler?: QueryHandlerFn<z.infer<TSchema>>,
       options?: {
         access: AccessRule;
-        rateLimit?: RateLimitOption;
+        rateLimit?: RateLimitDeclaration;
         outputSchema?: ZodType;
         description?: string;
         agent?: AgentHandlerHints;
@@ -230,7 +230,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       handler?: StreamHandlerFn<z.infer<TSchema>>,
       options?: {
         access: AccessRule;
-        rateLimit?: RateLimitOption;
+        rateLimit?: RateLimitDeclaration;
         escapeHatch?: EscapeHatchDeclaration;
       },
     ): HandlerRef {

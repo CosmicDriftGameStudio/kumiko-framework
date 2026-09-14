@@ -159,7 +159,12 @@ export type {
   DeclarativeEventMigration,
   DispatchWriteRef,
   EntityRef,
+  EscapeHatchAuditSink,
   EscapeHatchDeclaration,
+  EscapeHatchKind,
+  EscapeHatchReporter,
+  EscapeHatchTarget,
+  EscapeHatchUseEvent,
   EventDef,
   EventMigrationDef,
   EventPiiFields,
@@ -184,6 +189,8 @@ export type {
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
+  RateLimitDeclaration,
+  RateLimitDisabled,
   RateLimitOption,
   RateLimitPer,
   SessionUser,
@@ -198,7 +205,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
-export { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
+export { isOpenToAllGranted, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 export type {
   DeleteContext,
   EntityHookMap,

@@ -44,9 +44,7 @@ async function* executeStreamInner(
 
   await ensureFeatureEnabled(ctx, type, user.tenantId);
 
-  if (handler.rateLimit !== undefined) {
-    await enforceRateLimit(ctx, handler.rateLimit, type, user);
-  }
+  await enforceRateLimit(ctx, handler.rateLimit, type, user, registry.isHandlerSystemScoped(type));
 
   if (!hasAccess(user, handler.access)) {
     throw new AccessDeniedError({

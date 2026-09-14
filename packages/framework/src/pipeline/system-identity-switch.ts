@@ -3,6 +3,7 @@ import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
+  EscapeHatchReporter,
   LifecycleHookFn,
   MemberReader,
   SessionUser,
@@ -18,6 +19,10 @@ export type ResolveActiveMembershipFn = (
   tenantId: TenantId,
 ) => Promise<ActiveMembershipResult>;
 export type IdentitySwitch = { readonly queryAs: QueryAsFn; readonly writeAs: WriteAsFn };
+export type IdentitySwitchAudit = {
+  readonly reason: string | undefined;
+  readonly report: EscapeHatchReporter;
+};
 
 export function isSystemIdentity(user: SessionUser): boolean {
   return user.id === SYSTEM_USER_ID || user.roles.includes(SYSTEM_ROLE);
@@ -79,33 +84,57 @@ export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): 
 type GatedIdentitySwitchSource = {
   readonly ungated: IdentitySwitch;
   readonly caller: SessionUser | undefined;
+  readonly report?: EscapeHatchReporter;
+};
+
+type MemberReaderAudit = IdentitySwitchAudit & { readonly tenantId: TenantId };
+
+type GatedMemberReaderSource = {
+  readonly ungated: MemberReader;
+  readonly audit?: MemberReaderAudit;
 };
 
 // Reverse-lookup so withHookEscapeHatchGrant can re-gate the SAME ungated pair (and caller) under a narrower grant.
 const sourceByGated = new WeakMap<QueryAsFn | WriteAsFn, GatedIdentitySwitchSource>();
 // Same idea, for ctx.queryAsMember — a single function rather than a pair.
-const ungatedMemberReaderByGated = new WeakMap<MemberReader, MemberReader>();
+const ungatedMemberReaderByGated = new WeakMap<MemberReader, GatedMemberReaderSource>();
+
+function reportGrantedSwitch(
+  caller: SessionUser | undefined,
+  asUser: SessionUser,
+  hasGrant: boolean,
+  audit: IdentitySwitchAudit | undefined,
+): void {
+  // skip: no audit wired, switch wasn't grant-gated, or grant carries no reason to report
+  if (!audit || !hasGrant || audit.reason === undefined) return;
+  // skip: caller switching to themselves isn't a privilege escalation worth auditing
+  if (caller !== undefined && isSelfDelegation(caller, asUser)) return;
+  audit.report("identity-switch", audit.reason, { id: asUser.id, tenantId: asUser.tenantId });
+}
 
 export function createGatedIdentitySwitch(
   callerLabel: string,
   caller: SessionUser | undefined,
   hasGrant: boolean,
   ungated: IdentitySwitch,
+  audit?: IdentitySwitchAudit,
 ): IdentitySwitch {
   const queryAs: QueryAsFn = async (asUser, qn, payload) => {
     if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
       throw identitySwitchDenied(callerLabel, asUser);
     }
+    reportGrantedSwitch(caller, asUser, hasGrant, audit);
     return ungated.queryAs(asUser, qn, payload);
   };
   const writeAs: WriteAsFn = async (asUser, qn, payload) => {
     if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
       throw identitySwitchDenied(callerLabel, asUser);
     }
+    reportGrantedSwitch(caller, asUser, hasGrant, audit);
     return ungated.writeAs(asUser, qn, payload);
   };
   const gated: IdentitySwitch = { queryAs, writeAs };
-  const source: GatedIdentitySwitchSource = { ungated, caller };
+  const source: GatedIdentitySwitchSource = { ungated, caller, report: audit?.report };
   sourceByGated.set(queryAs, source);
   sourceByGated.set(writeAs, source);
   return gated;
@@ -117,12 +146,16 @@ export function createGatedMemberReader(
   callerLabel: string,
   allowSystemIdentity: boolean,
   ungated: MemberReader,
+  audit?: MemberReaderAudit,
 ): MemberReader {
   const gated: MemberReader = async (userId, qn, payload) => {
     if (!allowSystemIdentity) throw systemIdentitySwitchDenied(callerLabel);
+    if (audit?.reason !== undefined) {
+      audit.report("identity-switch", audit.reason, { id: userId, tenantId: audit.tenantId });
+    }
     return ungated(userId, qn, payload);
   };
-  ungatedMemberReaderByGated.set(gated, ungated);
+  ungatedMemberReaderByGated.set(gated, { ungated, audit });
   return gated;
 }
 
@@ -195,7 +228,15 @@ function gatedIdentitySwitchFields(
   const ungatedWriteAs = ctxWriteAs && (writeSource?.ungated.writeAs ?? ctxWriteAs);
   const ungated = fallbackUngatedIdentitySwitch(callerLabel, ungatedQueryAs, ungatedWriteAs);
   const caller = resolveDispatcherCaller(querySource, writeSource);
-  const gated = createGatedIdentitySwitch(callerLabel, caller, escapeHatch !== undefined, ungated);
+  const report = (querySource ?? writeSource)?.report;
+  const audit = report ? { reason: escapeHatch?.reason, report } : undefined;
+  const gated = createGatedIdentitySwitch(
+    callerLabel,
+    caller,
+    escapeHatch !== undefined,
+    ungated,
+    audit,
+  );
   return {
     ...(ctxQueryAs && { queryAs: gated.queryAs }),
     ...(ctxWriteAs && { writeAs: gated.writeAs }),
@@ -210,9 +251,13 @@ function gatedMemberReaderField(
   ctxQueryAsMember: MemberReader | undefined,
 ): { queryAsMember?: MemberReader } {
   if (!ctxQueryAsMember) return {};
-  const ungated = ungatedMemberReaderByGated.get(ctxQueryAsMember) ?? ctxQueryAsMember;
+  const source = ungatedMemberReaderByGated.get(ctxQueryAsMember);
+  const ungated = source?.ungated ?? ctxQueryAsMember;
+  const audit = source?.audit
+    ? { reason: escapeHatch?.reason, report: source.audit.report, tenantId: source.audit.tenantId }
+    : undefined;
   return {
-    queryAsMember: createGatedMemberReader(callerLabel, escapeHatch !== undefined, ungated),
+    queryAsMember: createGatedMemberReader(callerLabel, escapeHatch !== undefined, ungated, audit),
   };
 }
 

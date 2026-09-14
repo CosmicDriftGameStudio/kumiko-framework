@@ -25,7 +25,7 @@ import type {
   PreSaveHookFn,
   ReferenceFieldDef,
 } from "./types";
-import { HookPhases } from "./types";
+import { HookPhases, isRateLimitDisabled } from "./types";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
   return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
@@ -721,10 +721,18 @@ export function validateExtensionUsageTargets(state: RegistryState): void {
 export function computeHasRateLimitedHandler(state: RegistryState): void {
   // Pre-compute: any handler with a rateLimit option? Keeps the boot
   // path able to short-circuit the RateLimitResolver wiring (and its
-  // Lua-script registration on Redis) when nobody opted in.
+  // Lua-script registration on Redis) when nobody opted in. Deliberately
+  // stays limited to explicit, non-disabled `rateLimit` declarations —
+  // `{ disabled: true }` must not auto-wire a resolver for an app that only
+  // opted OUT, and fw#2861's systemScope default only fires once a resolver
+  // already exists, so it must not force wantsL3 either.
   state.hasRateLimitedHandlerCached = (() => {
-    for (const h of state.writeHandlerMap.values()) if (h.rateLimit !== undefined) return true;
-    for (const h of state.queryHandlerMap.values()) if (h.rateLimit !== undefined) return true;
+    for (const h of state.writeHandlerMap.values()) {
+      if (h.rateLimit !== undefined && !isRateLimitDisabled(h.rateLimit)) return true;
+    }
+    for (const h of state.queryHandlerMap.values()) {
+      if (h.rateLimit !== undefined && !isRateLimitDisabled(h.rateLimit)) return true;
+    }
     return false;
   })();
 }

@@ -48,12 +48,11 @@ async function executeQueryInner(
   // unauthorized callers must hit the cap too (otherwise the limit
   // would be a free probe-detector for valid credentials). The
   // resolver throws RateLimitError which the dispatcher's outer
-  // wrapper turns into a 429 response. Inline-skip when the handler
-  // didn't opt in — keeps the hot path zero-cost (no await on a
-  // no-op promise).
-  if (handler.rateLimit !== undefined) {
-    await enforceRateLimit(ctx, handler.rateLimit, type, user);
-  }
+  // wrapper turns into a 429 response. Apps that don't use L3 pay zero
+  // cost for non-systemScope handlers with no rateLimit declared;
+  // systemScope handlers pay one isHandlerSystemScoped lookup to check
+  // whether the default per-tenant limit applies.
+  await enforceRateLimit(ctx, handler.rateLimit, type, user, registry.isHandlerSystemScoped(type));
 
   // Default-deny: missing access rule is treated as "no one has access".
   // The registry boot-validator refuses to register handlers without one,

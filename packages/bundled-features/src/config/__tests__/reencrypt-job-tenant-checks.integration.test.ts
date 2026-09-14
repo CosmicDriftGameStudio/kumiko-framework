@@ -19,6 +19,7 @@ import {
   createTenantConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ESCAPE_HATCH_USED_SIGNAL } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvelopeCipher,
   createEnvMasterKeyProvider,
@@ -158,7 +159,7 @@ describe("config KEK-rotation job — multi-tenant scan + write checks (kumiko-f
     // No warn output — an over-restrictive systemDb binding would reject a
     // row via assertRowsTenant, landing it in `failed` with a warn log
     // instead of `migrated`.
-    expect(captured.warn).toEqual([]);
+    expect(captured.warn.filter((msg) => msg !== ESCAPE_HATCH_USED_SIGNAL)).toEqual([]);
 
     const completeLine = captured.info.find((line) =>
       line.includes("[config:reencrypt] complete:"),

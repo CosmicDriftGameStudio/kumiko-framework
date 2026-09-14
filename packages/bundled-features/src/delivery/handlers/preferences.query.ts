@@ -14,6 +14,12 @@ export const preferencesQuery = defineQueryHandler({
         "query filters notificationPreferencesTable by the caller's own tenantId and userId",
     },
   },
+  rateLimit: {
+    disabled: true,
+    reason:
+      "self-scoped read of the caller's own notification preference rows, hit on every page " +
+      "load; per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
+  },
   description:
     "Returns the calling user's notification preference rows for their own tenant; use it to show which notification types and channels that user has enabled or muted.",
   handler: async (query, ctx) => {

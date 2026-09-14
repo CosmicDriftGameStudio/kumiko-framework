@@ -7,6 +7,14 @@ export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";
 export type { EntityCache, EntityCacheOptions } from "./entity-cache";
 export { createEntityCache } from "./entity-cache";
+export type { EscapeHatchReportWindow } from "./escape-hatch-report";
+export {
+  createEscapeHatchReporter,
+  createEscapeHatchReportWindow,
+  ESCAPE_HATCH_USED_SIGNAL,
+  fallbackEscapeHatchReporter,
+  reportEscapeHatchUse,
+} from "./escape-hatch-report";
 export type { ConsumerStatus } from "./event-consumer-state";
 export {
   ConsumerStatuses,

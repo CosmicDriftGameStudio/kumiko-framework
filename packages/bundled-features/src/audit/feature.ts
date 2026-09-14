@@ -5,6 +5,7 @@ import {
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "./constants";
+import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink";
 import { detailsQuery } from "./handlers/details.query";
 import { listQuery } from "./handlers/list.query";
 import { AUDIT_I18N } from "./i18n";
@@ -24,7 +25,7 @@ import { AUDIT_I18N } from "./i18n";
 export function createAuditFeature(): FeatureDefinition {
   return defineFeature("audit", (r) => {
     r.describe(
-      "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection \u2014 the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range.",
+      "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection \u2014 the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).",
     );
     r.uiHints({
       displayLabel: "Audit Log",
@@ -34,6 +35,9 @@ export function createAuditFeature(): FeatureDefinition {
     r.translations({ keys: AUDIT_I18N });
     // Screens resolve actor names via tenant:query:members.
     r.requires("tenant");
+
+    // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
+    r.defineEvent("escape-hatch-used", escapeHatchUsedSchema, { piiFields: "none" });
 
     const queries = {
       list: r.queryHandler(listQuery),

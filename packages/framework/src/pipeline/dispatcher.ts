@@ -23,6 +23,7 @@ import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shar
 import { resolveAuthClaimsFn } from "./dispatch-shared";
 import { executeStream } from "./dispatch-stream";
 import { type HandlerType, resolveType } from "./dispatcher-utils";
+import { createEscapeHatchReportWindow } from "./escape-hatch-report";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { createMemberReaderFn } from "./member-reader";
@@ -129,6 +130,7 @@ export function createDispatcher(
   // One per dispatcher instance (not a module-level singleton) so caches
   // never leak across separately-booted apps or test stacks.
   const tenantTimezoneCache = createTenantTimezoneCache();
+  const escapeHatchReportWindow = createEscapeHatchReportWindow();
 
   const dispatcherTracer = context.tracer ?? getFallbackTracer();
   const dispatcherMeter = context.meter ?? getFallbackMeter();
@@ -147,6 +149,7 @@ export function createDispatcher(
     tableCache,
     transitionCache,
     tenantTimezoneCache,
+    escapeHatchReportWindow,
     tracer: dispatcherTracer,
     meter: dispatcherMeter,
     membershipQuery,

@@ -2,17 +2,36 @@ import { describe, expect, mock, test } from "bun:test";
 import type { DbRunner } from "../../db/connection";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine";
-import type { SessionUser } from "../../engine/types";
+import type {
+  EscapeHatchReporter,
+  EscapeHatchTarget,
+  MemberReader,
+  SessionUser,
+} from "../../engine/types";
 import type { TenantId } from "../../engine/types/identifiers";
 import { AccessDeniedError, FrameworkReasons } from "../../errors";
 import {
   createGatedIdentitySwitch,
+  createGatedMemberReader,
   type IdentitySwitch,
   isIdentitySwitchAllowed,
   isSystemIdentity,
   type WriteAsFn,
   withHookEscapeHatchGrant,
 } from "../system-identity-switch";
+
+function recordingReporter(): {
+  readonly report: EscapeHatchReporter;
+  readonly calls: Array<{ kind: string; reason: string; target: EscapeHatchTarget | undefined }>;
+} {
+  const calls: Array<{ kind: string; reason: string; target: EscapeHatchTarget | undefined }> = [];
+  return {
+    report: (kind, reason, target) => {
+      calls.push({ kind, reason, target });
+    },
+    calls,
+  };
+}
 
 const TENANT = "00000000-0000-4000-8000-00000000ab01" as TenantId;
 
@@ -402,5 +421,122 @@ describe("withHookEscapeHatchGrant", () => {
       reason: "hook's own grant",
     }) as { db: TenantDb };
     expect(hookCtxWithEscapeHatch.db.unsafeRaw("test reason")).toBe(rawDb);
+  });
+});
+
+describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
+  test("granted switch to SYSTEM reports identity-switch once with the target", async () => {
+    const { ungated } = makeUngated();
+    const { report, calls } = recordingReporter();
+    const gated = createGatedIdentitySwitch('handler "x"', normalUser, true, ungated, {
+      reason: 'r.systemScope() feature "widgets"',
+      report,
+    });
+
+    await gated.queryAs(systemUserById, "q", {});
+
+    expect(calls).toEqual([
+      {
+        kind: "identity-switch",
+        reason: 'r.systemScope() feature "widgets"',
+        target: { id: systemUserById.id, tenantId: systemUserById.tenantId },
+      },
+    ]);
+  });
+
+  test("self-delegation with a grant reports nothing", async () => {
+    const { ungated } = makeUngated();
+    const { report, calls } = recordingReporter();
+    const gated = createGatedIdentitySwitch('handler "x"', normalUser, true, ungated, {
+      reason: "escapeHatch reason",
+      report,
+    });
+
+    await gated.queryAs(normalUser, "q", {});
+
+    expect(calls).toEqual([]);
+  });
+
+  test("a denied switch reports nothing", async () => {
+    const { ungated } = makeUngated();
+    const { report, calls } = recordingReporter();
+    const gated = createGatedIdentitySwitch('handler "x"', normalUser, false, ungated, {
+      reason: "escapeHatch reason",
+      report,
+    });
+
+    await expect(gated.queryAs(systemUserById, "q", {})).rejects.toBeInstanceOf(AccessDeniedError);
+
+    expect(calls).toEqual([]);
+  });
+
+  test("hook re-gating via withHookEscapeHatchGrant reports with the HOOK's reason", async () => {
+    const { ungated } = makeUngated();
+    const { report, calls } = recordingReporter();
+    const handlerCtx = {
+      ...createGatedIdentitySwitch('handler "outer"', normalUser, true, ungated, {
+        reason: "handler's own grant",
+        report,
+      }),
+    };
+
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook's own grant" });
+    await hookCtx.queryAs(systemUserById, "q", {});
+
+    expect(calls).toEqual([
+      {
+        kind: "identity-switch",
+        reason: "hook's own grant",
+        target: { id: systemUserById.id, tenantId: systemUserById.tenantId },
+      },
+    ]);
+  });
+
+  test("hook re-gates and reports even when the handler itself has no grant (reason: undefined)", async () => {
+    const { ungated } = makeUngated();
+    const { report, calls } = recordingReporter();
+    // Handler has NO grant (hasGrant=false, reason: undefined) — the report fn
+    // must still be attached so a hook's own escapeHatch can use it.
+    const handlerCtx = {
+      ...createGatedIdentitySwitch('handler "outer"', normalUser, false, ungated, {
+        reason: undefined,
+        report,
+      }),
+    };
+
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook reason" });
+    await hookCtx.queryAs(systemUserById, "q", {});
+
+    expect(calls).toEqual([
+      {
+        kind: "identity-switch",
+        reason: "hook reason",
+        target: { id: systemUserById.id, tenantId: systemUserById.tenantId },
+      },
+    ]);
+  });
+
+  test("queryAsMember hook re-gates and reports even when the handler itself has no grant", async () => {
+    const ungatedReader: MemberReader = mock(async () => ({ ok: true }));
+    const { report, calls } = recordingReporter();
+    const gatedReader = createGatedMemberReader('handler "outer"', false, ungatedReader, {
+      reason: undefined,
+      report,
+      tenantId: TENANT,
+    });
+    const handlerCtx = { queryAsMember: gatedReader };
+
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook reason" }) as {
+      queryAsMember: MemberReader;
+    };
+    await hookCtx.queryAsMember(systemUserById.id, "q", {});
+
+    expect(calls).toEqual([
+      {
+        kind: "identity-switch",
+        reason: "hook reason",
+        target: { id: systemUserById.id, tenantId: TENANT },
+      },
+    ]);
   });
 });
