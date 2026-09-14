@@ -14,6 +14,7 @@ const escapeHatchKinds = [
   "acknowledge-cross-tenant",
   "global-write",
   "identity-switch",
+  "unsafe-all-tenants",
 ] as const satisfies readonly EscapeHatchKind[];
 
 export const escapeHatchUsedSchema = z.object({

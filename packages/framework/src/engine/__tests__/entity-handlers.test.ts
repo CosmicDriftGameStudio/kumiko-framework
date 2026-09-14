@@ -242,6 +242,28 @@ describe("defineProjectionQueryHandler", () => {
       defineProjectionQueryHandler("revenue:list", "showcase:projection:customer-revenue"),
     ).toThrow();
   });
+
+  test("escapeHatch is forwarded to the returned def", () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+      {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        unsafeAllTenants: true,
+        escapeHatch: { reason: "fw#2913 test — cross-tenant revenue analytics" },
+      },
+    );
+    expect(def.escapeHatch).toEqual({ reason: "fw#2913 test — cross-tenant revenue analytics" });
+  });
+
+  test("escapeHatch is omitted from the def when not declared", () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+    );
+    expect(def.escapeHatch).toBeUndefined();
+  });
 });
 
 // Verb-spezifische Wrappers — sind dünne Convenience-Layers über
