@@ -51,6 +51,23 @@ describe("dispatcherSpanAttributes", () => {
       "kumiko.feature": "feat",
     });
   });
+
+  test("includes kumiko.user_origin when the user has one", () => {
+    const user = {
+      id: "u1",
+      tenantId: "tenant-1",
+      roles: [],
+      origin: "member-resolution" as const,
+    };
+    const attrs = dispatcherSpanAttributes("feat:query:task:list", "query", user, "feat");
+    expect(attrs["kumiko.user_origin"]).toBe("member-resolution");
+  });
+
+  test("omits kumiko.user_origin when the user has none", () => {
+    const user = createSystemUser("tenant-1");
+    const attrs = dispatcherSpanAttributes("feat:query:task:list", "query", user, "feat");
+    expect(attrs["kumiko.user_origin"]).toBeUndefined();
+  });
 });
 
 describe("prefixValidationPath", () => {

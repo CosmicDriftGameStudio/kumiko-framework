@@ -118,7 +118,11 @@ function fallbackUngatedIdentitySwitch(
   };
 }
 
-// Reuses the ORIGINAL ungated pair when known, so this grant doesn't compose with the caller's.
+// Reuses the ORIGINAL ungated fn when known, so this grant doesn't compose
+// with the caller's. Resolved independently per function — a context can
+// carry a live queryAs alongside a deny-stubbed writeAs (member-resolution
+// contexts), and reusing one shared ungated pair for both would revive the
+// stub through the still-registered queryAs side.
 function gatedIdentitySwitchFields(
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
@@ -126,10 +130,9 @@ function gatedIdentitySwitchFields(
   ctxWriteAs: WriteAsFn | undefined,
 ): Partial<IdentitySwitch> {
   if (!ctxQueryAs && !ctxWriteAs) return {};
-  const ungated: IdentitySwitch =
-    (ctxQueryAs && ungatedByGated.get(ctxQueryAs)) ??
-    (ctxWriteAs && ungatedByGated.get(ctxWriteAs)) ??
-    fallbackUngatedIdentitySwitch(callerLabel, ctxQueryAs, ctxWriteAs);
+  const ungatedQueryAs = ctxQueryAs && (ungatedByGated.get(ctxQueryAs)?.queryAs ?? ctxQueryAs);
+  const ungatedWriteAs = ctxWriteAs && (ungatedByGated.get(ctxWriteAs)?.writeAs ?? ctxWriteAs);
+  const ungated = fallbackUngatedIdentitySwitch(callerLabel, ungatedQueryAs, ungatedWriteAs);
   const gated = createGatedIdentitySwitch(callerLabel, escapeHatch !== undefined, ungated);
   return {
     ...(ctxQueryAs && { queryAs: gated.queryAs }),

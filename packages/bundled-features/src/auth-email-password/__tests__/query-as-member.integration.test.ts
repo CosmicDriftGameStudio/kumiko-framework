@@ -12,6 +12,7 @@ import {
   defineFeature,
   from,
   HookPhases,
+  SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -75,6 +76,11 @@ const hookNoteBEntity = createEntity({
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
+function errorReason(details: unknown): string | undefined {
+  if (!details || typeof details !== "object" || !("reason" in details)) return undefined;
+  return typeof details.reason === "string" ? details.reason : undefined;
+}
+
 const authClaimsCalls: string[] = [];
 // Set by a test right before the write that triggers the corresponding
 // postSave hook — read back inside the hook body. Tests run serially within
@@ -88,7 +94,9 @@ const WHOAMI_QN = "queryasmemberprobe:query:whoami";
 const NOTE_LIST_QN = "queryasmemberprobe:query:note:list";
 const TRIES_WRITE_QN = "queryasmemberprobe:query:tries-write";
 const TRIES_APPEND_EVENT_QN = "queryasmemberprobe:query:tries-append-event";
+const TRIES_FETCH_FOR_WRITING_QN = "queryasmemberprobe:query:tries-fetch-for-writing";
 const TRIES_JOB_RUNNER_QN = "queryasmemberprobe:query:tries-job-runner";
+const SYSTEM_SCOPE_READ_AS_MEMBER_QN = "queryasmembersystemscope:write:read-as-member";
 
 const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   r.entity("note", noteEntity);
@@ -133,6 +141,19 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
         type: "queryasmemberprobe:event:nope",
         payload: {},
       });
+      return { ok: true };
+    },
+    { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "tries-fetch-for-writing",
+    z.object({}),
+    async (_query, ctx) => {
+      const handle = await ctx.fetchForWriting({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "qam-probe",
+      });
+      await handle.appendOne({ type: "queryasmemberprobe:event:nope", payload: {} });
       return { ok: true };
     },
     { access: { roles: ["Admin", "User"] } },
@@ -197,6 +218,16 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     },
     { access: { roles: ["Admin"] }, escapeHatch: { reason: "test: cache check" } },
   );
+  r.writeHandler(
+    "read-as-member-two-users",
+    z.object({ userIdA: z.string(), userIdB: z.string() }),
+    async (event, ctx) => {
+      await ctx.queryAsMember(event.payload.userIdA, WHOAMI_QN, {});
+      await ctx.queryAsMember(event.payload.userIdB, WHOAMI_QN, {});
+      return { isSuccess: true as const, data: { ok: true } };
+    },
+    { access: { roles: ["Admin"] }, escapeHatch: { reason: "test: two-user cache check" } },
+  );
 
   // authClaims — counter parity with cache + real-login-claims check.
   r.authClaims(async (user) => {
@@ -204,9 +235,9 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     return { marker: user.id };
   });
 
-  // postSave hooks: gated independently of the handler they fire on
-  // (ADDENDUM A — a hook's OWN escapeHatch can grant even without one on
-  // the handler, and does NOT inherit one the handler declares).
+  // postSave hooks: gated independently of the handler they fire on — a
+  // hook's OWN escapeHatch can grant even without one on the handler, and
+  // does NOT inherit one the handler declares.
   r.writeHandler({
     ...defineEntityWriteHandler("hook-note-a:create", hookNoteAEntity, {
       access: { roles: ["Admin"] },
@@ -223,7 +254,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "postSave",
     "hook-note-a:create",
     async (_result, ctx) => {
-      const handlerCtx = ctx as unknown as HandlerContext;
+      const handlerCtx = ctx as unknown as HandlerContext; // @cast-boundary: hook ctx is AppContext at the type level, but the dispatcher hands it a real HandlerContext at runtime
       try {
         await handlerCtx.queryAsMember(hookTargetUserId, WHOAMI_QN, {});
         hookNoHatchOutcomes.push({ threw: false });
@@ -238,7 +269,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "postSave",
     "hook-note-b:create",
     async (_result, ctx) => {
-      const handlerCtx = ctx as unknown as HandlerContext;
+      const handlerCtx = ctx as unknown as HandlerContext; // @cast-boundary: same as the hook-note-a probe above
       const res = await handlerCtx.queryAsMember(hookTargetUserId, WHOAMI_QN, {});
       hookWithHatchResults.push(res);
     },
@@ -254,6 +285,21 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     const result = await ctx.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
     jobQueryAsMemberResults.push(result);
   });
+});
+
+// A whole-feature r.systemScope() grants queryAsMember without an
+// escapeHatch — isSystem alone sets allowSystemIdentity.
+const systemScopeProbeFeature = defineFeature("queryasmembersystemscope", (r) => {
+  r.systemScope();
+  r.writeHandler(
+    "read-as-member",
+    z.object({ userId: z.string() }),
+    async (event, ctx) => {
+      const data = await ctx.queryAsMember(event.payload.userId, WHOAMI_QN, {});
+      return { isSuccess: true as const, data };
+    },
+    { access: { roles: ["Admin"] } },
+  );
 });
 
 let stack: TestStack;
@@ -274,6 +320,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createAuthEmailPasswordFeature(),
       probeFeature,
+      systemScopeProbeFeature,
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -498,6 +545,18 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
     expect(err.message).toBe(GENERIC_MESSAGE);
     expect(err.details).toEqual(GENERIC_DETAILS);
   });
+
+  test("would-be-SYSTEM principal (global SYSTEM_ROLE) — rejected the same generic way", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("wouldbesystem@example.com", "pw-long-enough-16");
+    await addMembership(userId, TENANT_A);
+    await updateRows(stack.db, userTable, { roles: [SYSTEM_ROLE] }, { id: userId });
+
+    const err = await readAsMemberErr(userId, WHOAMI_QN);
+    expect(err.code).toBe("access_denied");
+    expect(err.message).toBe(GENERIC_MESSAGE);
+    expect(err.details).toEqual(GENERIC_DETAILS);
+  });
 });
 
 // ── 4. Cache — repeated calls for the same user resolve once ──────────────
@@ -517,6 +576,23 @@ describe("ctx.queryAsMember — per-context cache", () => {
     expect(result).toBeDefined();
     expect(authClaimsCalls.filter((id) => id === userId)).toHaveLength(1);
   });
+
+  test("two DIFFERENT users in one run resolve independently — authClaims counter +2", async () => {
+    await createTenant(TENANT_A);
+    const userA = await createUser("cacheA@example.com", "pw-long-enough-17");
+    const userB = await createUser("cacheB@example.com", "pw-long-enough-18");
+    await addMembership(userA, TENANT_A);
+    await addMembership(userB, TENANT_A);
+
+    authClaimsCalls.length = 0;
+    const result = await stack.http.writeOk(
+      "queryasmemberprobe:write:read-as-member-two-users",
+      { userIdA: userA, userIdB: userB },
+      admin,
+    );
+    expect(result).toBeDefined();
+    expect(authClaimsCalls.filter((id) => id === userA || id === userB)).toHaveLength(2);
+  });
 });
 
 // ── 5. Grant — the same escapeHatch/systemIdentitySwitch gate as SYSTEM queryAs ──
@@ -533,9 +609,7 @@ describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
       admin,
     );
     expect(err.code).toBe("access_denied");
-    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
-      "system_identity_switch_denied",
-    );
+    expect(errorReason(err.details)).toBe("system_identity_switch_denied");
   });
 
   test("hook WITHOUT its own escapeHatch does not inherit the handler's grant: denied even though the handler has one", async () => {
@@ -550,10 +624,11 @@ describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
       admin,
     );
     expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("system_identity_switch_denied");
     expect(hookNoHatchOutcomes).toEqual([{ threw: true }]);
   });
 
-  test("hook WITH its own escapeHatch works even though the handler has none (ADDENDUM A)", async () => {
+  test("hook WITH its own escapeHatch works even though the handler has none", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("hookwithhatch@example.com", "pw-long-enough-11");
     await addMembership(userId, TENANT_A);
@@ -574,10 +649,8 @@ describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
     const userId = await createUser("jobmember@example.com", "pw-long-enough-12");
     await addMembership(userId, TENANT_A);
 
-    // job-runner.ts resolves the job's tenant from `_tenantId` (meta) or
-    // else payload.tenantId — a manual dispatch with neither would fall
-    // back to SYSTEM_TENANT_ID, and createMemberReaderFn fails closed on
-    // that (see F. in the spec addendum).
+    // The job's tenant falls back to SYSTEM_TENANT_ID without one of
+    // _tenantId/payload.tenantId — createMemberReaderFn fails closed on that.
     await stack.jobRunner?.dispatch("queryasmemberprobe:job:query-as-member-job", {
       userId,
       tenantId: TENANT_A,
@@ -586,10 +659,27 @@ describe("ctx.queryAsMember — gated like a SYSTEM queryAs/writeAs", () => {
     await waitFor(() => {
       expect(jobQueryAsMemberResults).toHaveLength(1);
     });
-    expect((jobQueryAsMemberResults[0] as { id: string; origin: string }).origin).toBe(
-      "member-resolution",
+    const jobResult = jobQueryAsMemberResults[0] as {
+      id: string;
+      origin: string;
+      sid: string | null;
+    };
+    expect(jobResult.origin).toBe("member-resolution");
+    expect(jobResult.id).toBe(userId);
+    expect(jobResult.sid).toBeNull();
+  });
+
+  test("r.systemScope() feature handler: queryAsMember works without an escapeHatch", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("systemscope@example.com", "pw-long-enough-19");
+    await addMembership(userId, TENANT_A);
+
+    const result = await stack.http.writeOk<{ id: string }>(
+      SYSTEM_SCOPE_READ_AS_MEMBER_QN,
+      { userId },
+      admin,
     );
-    expect((jobQueryAsMemberResults[0] as { id: string }).id).toBe(userId);
+    expect(result.id).toBe(userId);
   });
 });
 
@@ -603,9 +693,7 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
 
     const err = await readAsMemberErr(userId, TRIES_WRITE_QN);
     expect(err.code).toBe("access_denied");
-    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
-      "member_resolution_read_only",
-    );
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
   });
 
   test("target query handler calling ctx.unsafeAppendEvent → denied with member_resolution_read_only", async () => {
@@ -615,9 +703,7 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
 
     const err = await readAsMemberErr(userId, TRIES_APPEND_EVENT_QN);
     expect(err.code).toBe("access_denied");
-    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
-      "member_resolution_read_only",
-    );
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
   });
 
   test("target query handler calling ctx.jobRunner → denied with member_resolution_read_only", async () => {
@@ -627,8 +713,39 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
 
     const err = await readAsMemberErr(userId, TRIES_JOB_RUNNER_QN);
     expect(err.code).toBe("access_denied");
-    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
-      "member_resolution_read_only",
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
+  test("target query handler calling ctx.fetchForWriting(...).appendOne → denied with member_resolution_read_only", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("triesFetchForWriting@example.com", "pw-long-enough-20");
+    await addMembership(userId, TENANT_A);
+
+    const err = await readAsMemberErr(userId, TRIES_FETCH_FOR_WRITING_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
+  test("stack.dispatcher.write called directly with a resolved-like user (origin set) → denied", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("directdispatch@example.com", "pw-long-enough-21");
+    await addMembership(userId, TENANT_A);
+    const resolvedLikeUser: SessionUser = {
+      id: userId,
+      tenantId: TENANT_A,
+      roles: ["Admin"],
+      origin: "member-resolution",
+    };
+
+    const result = await stack.dispatcher.write(
+      "queryasmemberprobe:write:note:create",
+      { ownerId: userId, body: "nope" },
+      resolvedLikeUser,
     );
+
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) {
+      expect(errorReason(result.error.details)).toBe("member_resolution_read_only");
+    }
   });
 });

@@ -100,10 +100,8 @@ export type Dispatcher = {
   // Membership check for interactive sign-in paths (login, MFA completion,
   // tenant switch) — single resolve implementation so callers can't independently drift.
   resolveActiveMembership(userId: string, tenantId: TenantId): Promise<ActiveMembershipResult>;
-  // Trusted server surface, ungated (like resolveActiveMembership) — builds
-  // a tenant-scoped MemberReader for JobContext.queryAsMember. Handler/hook
-  // ctx.queryAsMember goes through buildHandlerContext's own gated reader
-  // instead of this method directly.
+  // Trusted server surface, ungated like resolveActiveMembership.
+  // Handler/hook ctx.queryAsMember uses buildHandlerContext's own gated reader instead.
   createMemberReader(tenantId: TenantId): MemberReader;
 };
 

@@ -52,11 +52,7 @@ function hasResolveStatusFn(v: unknown): v is { readonly resolveStatus: unknown 
 }
 
 export function isPrincipalStatusPlugin(v: unknown): v is PrincipalStatusPlugin {
-  return (
-    hasResolveStatusFn(v) &&
-    "resolveProfile" in v &&
-    typeof (v as { readonly resolveProfile: unknown }).resolveProfile === "function"
-  );
+  return hasResolveStatusFn(v) && "resolveProfile" in v && typeof v.resolveProfile === "function";
 }
 
 export function isTenantLifecycleStatusPlugin(v: unknown): v is TenantLifecycleStatusPlugin {

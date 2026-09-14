@@ -657,15 +657,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     tenantId: TenantId,
   ) => Promise<ActiveMembershipResult>;
 
-  // Reads a query handler as a stored member of ctx's tenant — the framework
-  // resolves the member's SessionUser internally (active membership →
-  // buildSessionRoles → resolveAuthClaims) and never exposes it. The
-  // resolved principal carries no `sid` and origin: "member-resolution";
-  // it can only read (ctx.write/writeAs/appendEvent etc. are denied for it).
-  // Needs the same grant as a SYSTEM queryAs (r.systemScope() or
-  // escapeHatch: { reason }). Cached per context instance (handler
-  // invocation / hook invocation / job run) — repeated calls for the same
-  // userId resolve once.
+  // Reads a query handler as a stored tenant member (framework-resolved,
+  // read-only, no `sid`) — needs the same grant as a SYSTEM queryAs, cached
+  // per context instance (handler/hook invocation or job run).
   readonly queryAsMember: MemberReader;
 };
 

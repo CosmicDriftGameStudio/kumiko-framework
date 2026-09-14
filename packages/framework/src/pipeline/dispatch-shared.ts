@@ -159,6 +159,10 @@ async function appendDomainEvent(
   tx: DbTx | undefined,
   callerFeature: string | undefined,
 ): Promise<void> {
+  // Single sink behind appendEvent/unsafeAppendEvent/fetchForWriting().appendOne
+  // — the last of those isn't itself denied on a resolved member principal, so
+  // the write-block must live here too, not only on the gated ctx surfaces.
+  if (user.origin === "member-resolution") throw memberResolutionReadOnlyDenied();
   const { registry } = ctx;
   const dbSource = resolveDbSource(ctx, tx);
   if (!dbSource) {
@@ -204,8 +208,6 @@ function createSystemScopedDbGuard(
   });
 }
 
-// Exported so dispatch-write.ts / dispatch-stream.ts throw the identical
-// error for their own defense-in-depth checks.
 export function memberResolutionReadOnlyDenied(): AccessDeniedError {
   return new AccessDeniedError({
     message: "a resolved member principal (ctx.queryAsMember) cannot write — read-only",
@@ -240,11 +242,22 @@ function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerC
     appendEvent: denyMemberResolutionWrite as AppendEventFn, // @cast-boundary engine-bridge
     unsafeAppendEvent: denyMemberResolutionWrite,
     tryAppendEvent: denyMemberResolutionWrite,
+    fetchForWriting: denyMemberResolutionWrite,
+    archiveStream: denyMemberResolutionWrite,
+    restoreStream: denyMemberResolutionWrite,
+    snapshotAggregate: denyMemberResolutionWrite,
     queryAsMember: denyMemberResolutionWrite,
     resolveActiveMembership: denyMemberResolutionWrite,
     scheduleAfterCommit: () => {
       throw memberResolutionReadOnlyDenied();
     },
+    // A read as a member must not carry SYSTEM-scope DB access, nor run
+    // preSave lifecycle hooks meant for the handler's own write path, nor
+    // touch file storage (both are optional fields, so undefined is valid).
+    runPreSave: undefined,
+    systemDb: undefined,
+    files: undefined,
+    derivatives: undefined,
     ...(handlerContext.jobRunner && { jobRunner: denyingJobRunnerProxy() }),
     ...(handlerContext.notify && { notify: denyMemberResolutionWrite }),
   };
