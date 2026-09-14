@@ -31,6 +31,10 @@ let redisUrl: string;
 // Track which jobs ran and when
 const jobLog: Array<{ name: string; payload: Record<string, unknown>; timestamp: number }> = [];
 
+// Counts eventRetrySucceeds' own attempts — throws once on attempt 1, then
+// succeeds, so a real retry must have happened for the job to ever reach 2.
+let eventRetryAttemptCount = 0;
+
 function clearLog() {
   jobLog.length = 0;
 }
@@ -137,6 +141,25 @@ const testFeature = defineFeature("test", (r) => {
         timestamp: Date.now(),
       });
       await sleep(500);
+    },
+  );
+
+  r.writeHandler(
+    "retry-event-trigger",
+    z.object({ n: z.number() }),
+    async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
+    { access: { openToAll: true } },
+  );
+  // Event-triggered job with retries — proves handleEvent passes
+  // retries/backoff to the queue the same way dispatch() does (fw
+  // job-runner retries regression, solon).
+  r.job(
+    "eventRetrySucceeds",
+    { trigger: { on: "test:write:retry-event-trigger" }, retries: 2 },
+    async (payload) => {
+      eventRetryAttemptCount += 1;
+      jobLog.push({ name: "test:job:event-retry-succeeds", payload, timestamp: Date.now() });
+      if (eventRetryAttemptCount === 1) throw new Error("fails on first attempt");
     },
   );
 
@@ -1194,6 +1217,24 @@ describe("handleEvent maxPerTenant", () => {
         expect(startedNow.length).toBe(2);
       }
     });
+  });
+});
+
+describe("handleEvent retries", () => {
+  test("an event-triggered job with retries retries on failure and eventually succeeds", async () => {
+    clearLog();
+    eventRetryAttemptCount = 0;
+    await withRunner(async (runner) => {
+      const user = { ...TestUsers.admin, tenantId: "retry-tenant-evt" };
+      await runner.handleEvent("test:write:retry-event-trigger", { n: 1 }, user);
+      // Without retries/backoff reaching the queue, the job fails on
+      // attempt 1 and BullMQ never retries — this would time out.
+      await waitFor(() => {
+        const entries = jobLog.filter((e) => e.name === "test:job:event-retry-succeeds");
+        expect(entries.length).toBe(2);
+      });
+    });
+    expect(eventRetryAttemptCount).toBe(2);
   });
 });
 
