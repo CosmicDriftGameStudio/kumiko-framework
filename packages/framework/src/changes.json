@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.265.0",
+    "type": "breaking",
+    "title": "The openToAll personal-data boot check now finds personal-data fields nested anywhere in a write handler's input schema.",
+    "detail": "`validateAccessDeclarations` (`engine/boot-validator/access-declarations.ts`) previously compared only the top-level keys of a `z.object` input schema (unwrapping `.optional()`/`.nullable()`/`.default()`) against the handler entity's personal-data fields (pii / userOwned / recordOwned); any other schema shape was skipped. It now collects object keys at every depth via `collectZodObjectKeys` (`engine/boot-validator/zod-shape.ts`): through `z.intersection`, `z.union`/`z.discriminatedUnion`/`z.xor`, `.transform()`/`z.preprocess()`/`.pipe()`/codecs, `.optional()`/`.nullable()`/`.default()`/`.prefault()`/`.nonoptional()`/`.readonly()`/`.catch()`/`z.lazy()`, nested objects (e.g. the update shape `{ id, version, changes: {...} }`), arrays, tuples and records. An update handler that accepted the same personal-data field as its create handler used to pass boot while the create handler failed. A schema with more than 10000 distinct nodes (typically a `z.lazy()` getter that returns a new schema on every call) throws at boot instead of looping. Which entity's fields are compared is unchanged: the handler's mapped entity, or every entity of the feature for an unmapped handler. Bundled `user:update` now declares `publicIntake: true` for the `displayName`/`email` it accepts in `changes`.",
+    "migration": "A write handler with `openToAll` whose input accepts a personal-data field of its entity inside an intersection, union, pipe/transform, nested object (update `changes`), array or record now fails boot like a top-level field always did. Known: kumiko-enterprise kumiko-credit `update` (intersection) and `bauspar:update` (`changes.name`) under `trustDomain: \"tenant\"` or with an `access` map that grants any role `\"all\"`. For each affected handler, restrict `access` to roles, bind the entity's rows to the caller (see the owner-binding entry in this release), or declare the handler as intentionally accepting that personal data from any authenticated caller."
+  },
+  {
+    "version": "0.265.0",
+    "type": "improvement",
+    "title": "Owner-bound personal-data fields no longer need an exception on openToAll write handlers.",
+    "detail": "A field annotated `personal: { of: \"<ownerField>\" }` (userOwned) is exempt from the openToAll personal-data boot check when the handler maps to exactly one entity, that entity's `access.write` is a non-empty `OwnershipMap` in which every role's rule is `from(\"user:id\", \"<ownerField>\")` on that same column, and the handler declares no `escapeHatch`. The event-store executor enforces such a map on every write: create rejects a row whose owner column is not the caller (`ownership_denied`), update checks the old and the new row, delete/restore the existing row — so the caller can only write rows they own. Not exempt: a missing or empty `access.write`, any `\"all\"` rule (also next to owner rules), an owner rule on a different column, `user:tenantId` or claim refs, `where` rules, `personal: \"self\"` and `personal: { of: \"id\" }` fields, handlers not mapped to a single entity, and handlers with `escapeHatch` (they can write around the executor via `db.global()` or a SYSTEM identity)."
+  },
+  {
     "version": "0.263.0",
     "type": "breaking",
     "title": "ctx.queryAs/ctx.writeAs with a SYSTEM identity only from r.systemScope(), jobs, or a handler/hook declaring escapeHatch (fw#2859).",
