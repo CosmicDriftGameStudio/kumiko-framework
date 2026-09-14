@@ -109,6 +109,7 @@ export function createEscapeHatchReporter(opts: {
       target?.id ?? null,
       target?.tenantId ?? null,
     ]);
+    // skip: same (handler, kind, reason, target) already reported within the window — dedup
     if (!window.shouldReport(key, Date.now())) return;
     reportEscapeHatchUse(
       { handler: opts.handler, kind, reason, tenantId: opts.tenantId, actor: opts.actor, target },

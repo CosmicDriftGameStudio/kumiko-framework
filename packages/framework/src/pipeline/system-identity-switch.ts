@@ -105,7 +105,9 @@ function reportGrantedSwitch(
   hasGrant: boolean,
   audit: IdentitySwitchAudit | undefined,
 ): void {
+  // skip: no audit wired, switch wasn't grant-gated, or grant carries no reason to report
   if (!audit || !hasGrant || audit.reason === undefined) return;
+  // skip: caller switching to themselves isn't a privilege escalation worth auditing
   if (caller !== undefined && isSelfDelegation(caller, asUser)) return;
   audit.report("identity-switch", audit.reason, { id: asUser.id, tenantId: asUser.tenantId });
 }

@@ -159,6 +159,7 @@ export function validateRateLimitDisabledReason(
   handlerName: string,
   rateLimit: FeatureDefinition["writeHandlers"][string]["rateLimit"],
 ): void {
+  // skip: rate limit isn't disabled, so no reason is required
   if (!isRateLimitDisabled(rateLimit)) return;
   if (rateLimit.reason.trim().length === 0) {
     throw new Error(

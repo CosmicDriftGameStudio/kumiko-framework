@@ -103,6 +103,14 @@ function buildDeliveryNotifyFactory(opts: {
     deliveryService.notify(notificationType, options, user, tenantId);
 }
 
+function resolveEscapeHatchAuditSink(
+  features: readonly FeatureDefinition[],
+  db: DbConnection,
+): EscapeHatchAuditSink | undefined {
+  const hasAuditFeature = features.some((f) => f.name === AUDIT_FEATURE);
+  return hasAuditFeature ? createEscapeHatchAuditSink({ db }) : undefined;
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -121,10 +129,7 @@ export function buildBootExtraContext(opts: {
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
   const wireSecrets = hasSecretsFeature && crypto.masterKeyProvider !== undefined;
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
-  const hasAuditFeature = opts.features.some((f) => f.name === AUDIT_FEATURE);
-  const escapeHatchAuditSink = hasAuditFeature
-    ? createEscapeHatchAuditSink({ db: opts.db })
-    : undefined;
+  const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
   return {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),

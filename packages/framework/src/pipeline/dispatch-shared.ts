@@ -1078,8 +1078,10 @@ export async function enforceRateLimit(
   isSystemScope: boolean,
 ): Promise<void> {
   const { appContext: context } = ctx;
+  // skip: handler explicitly opts out via rateLimit: { disabled: true }
   if (isRateLimitDisabled(rateLimit)) return;
   const effective = resolveEffectiveRateLimit(rateLimit, isSystemScope, user, context.rateLimit);
+  // skip: no rateLimit declared and not systemScope (or resolved to no-op) — nothing to enforce
   if (!effective) return;
   const reqCtx = requestContext.get();
   const bucket = buildBucketKey(effective, {
