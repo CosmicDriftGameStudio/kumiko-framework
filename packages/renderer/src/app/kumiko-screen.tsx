@@ -1,5 +1,4 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
-import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -33,6 +32,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kumiko-headless";
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
 import {

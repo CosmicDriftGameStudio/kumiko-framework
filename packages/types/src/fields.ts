@@ -452,6 +452,12 @@ export type DecimalFieldDef = {
  *  currency`) — see kumiko-framework#2933. */
 export type MoneyCurrencySource = { readonly kind: "tenant" };
 
+/** Qualified config key a `{ kind: "tenant" }` MoneyCurrencySource resolves
+ *  against — the tenant-settings bundle's per-tenant currency. Lives here
+ *  (client-safe) rather than framework/engine so renderer code can read it
+ *  without a runtime-only import (kumiko-framework#2937). */
+export const TENANT_CURRENCY_CONFIG_KEY = "tenant-settings:config:currency";
+
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly description?: string;
