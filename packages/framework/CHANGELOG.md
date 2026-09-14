@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.273.0
+
+### Minor Changes
+
+- e9d3944: `ctx.queryProjection(qualifiedName, { unsafeAllTenants: true })` now requires a grant (fw#2913): an `r.systemScope()` feature, or a declared `escapeHatch: { reason }` on the write/query/stream handler (or the `r.hook(...)` call, when the read happens inside a lifecycle hook — a hook never inherits its enclosing handler's grant, not even from an `r.systemScope()` feature, only its own declared `escapeHatch`). Without one, the call throws `AccessDeniedError` with `details.reason: "unsafe_all_tenants_denied"`. A granted call reports exactly one `unsafe-all-tenants` event through the existing escape-hatch audit sink. `defineProjectionQueryHandler` gained an `escapeHatch` option so a projection list-handler can declare the grant.
+
+  Also fixes projection tenant-filtering for plain `EntityTableMeta` tables (`defineUnmanagedTable`/`deriveEntityTableMeta`, no drizzle `SchemaTable` symbols): `ctx.queryProjection` previously read `table.tenantId` directly, which is always `undefined` on such tables, so their rows were never tenant-filtered. It now reuses `hasTenantColumn`, the same canonical-meta check `TenantDb`'s other escape hatches already use — an internal `framework/db/tenant-db` helper, not a public package export.
+
+- 01c9133: `r.step.read.findOne`/`read.findMany` now apply the caller's tenant filter by default (own tenant + `SYSTEM_TENANT_ID` reference rows), the same as `ctx.db`'s method-form reads — a foreign `where.tenantId` is narrowed to the caller's own scope instead of passing through unfiltered. Cross-tenant reads need `unsafeAllTenants: { reason }` on the step plus `escapeHatch: { reason }` on the handler (or, in a `r.systemScope()` feature, are routed through `ctx.systemDb.unsafeRaw`); a declared cross-tenant read reports an `"unsafe-raw"` escape-hatch audit event, same as `ctx.db.unsafeRaw`.
+
+### Patch Changes
+
+- Updated dependencies [e9d3944]
+- Updated dependencies [01c9133]
+  - @cosmicdrift/kumiko-types@0.273.0
+
 ## 0.272.0
 
 ### Minor Changes
