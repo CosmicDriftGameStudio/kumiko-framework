@@ -1517,7 +1517,12 @@ describe("RelatedListSection — parentFilter (fw akte-bedienkonzept-2)", () => 
                 section={{
                   ...section,
                   toolbarActions: [
-                    { kind: "navigate", id: "create", label: "Add position", screen: "item-create" },
+                    {
+                      kind: "navigate",
+                      id: "create",
+                      label: "Add position",
+                      screen: "item-create",
+                    },
                   ],
                 }}
                 parentId="order-1"

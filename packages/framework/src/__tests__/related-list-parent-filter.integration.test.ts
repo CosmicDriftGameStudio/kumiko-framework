@@ -20,7 +20,12 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 const itemEntity = createEntity({
   table: "akte_items",
   fields: {
-    name: createTextField({ personal: false, reason: "test_fixture", required: true, searchable: true }),
+    name: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      searchable: true,
+    }),
     orderId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
