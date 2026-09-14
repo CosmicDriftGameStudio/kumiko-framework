@@ -1,5 +1,6 @@
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import type { FeatureSchema } from "./feature-schema";
+import { lastSegment } from "./qn";
 
 // Navigation-Contract, plattform-neutral. Types + Context + Hook leben
 // hier; die konkrete Implementation (window.history im Web,
@@ -173,8 +174,77 @@ export type NavProviderProps = {
   readonly value: NavApi;
 };
 
+type InitialValuesHandoff = {
+  readonly screenId: string;
+  readonly values: Readonly<Record<string, unknown>>;
+};
+
+// A mutable slot instead of state: offering must not re-render the app, and
+// the target form reads it once on mount.
+type InitialValuesHandoffSlot = { current: InitialValuesHandoff | undefined };
+
+const InitialValuesHandoffContext = createContext<InitialValuesHandoffSlot | undefined>(undefined);
+
 export function NavProvider({ children, value }: NavProviderProps): ReactNode {
-  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
+  const [handoffSlot] = useState<InitialValuesHandoffSlot>(() => ({ current: undefined }));
+  const routeScreenId = value.route?.screenId;
+  // An offer whose form never mounted (e.g. already on that screen) must not
+  // resurface on a later, unrelated visit — drop it once the route moves elsewhere.
+  useEffect(() => {
+    const pending = handoffSlot.current;
+    if (pending === undefined || routeScreenId === undefined) return;
+    if (lastSegment(routeScreenId) !== pending.screenId) handoffSlot.current = undefined;
+  }, [handoffSlot, routeScreenId]);
+  return (
+    <NavContext.Provider value={value}>
+      <InitialValuesHandoffContext.Provider value={handoffSlot}>
+        {children}
+      </InitialValuesHandoffContext.Provider>
+    </NavContext.Provider>
+  );
+}
+
+// Navigates to a form screen (actionForm, secretMint, entityEdit-create) with
+// initial values carried in memory — never in the URL, so a link cannot
+// forge them and they are not limited to the screen's urlPrefillFields.
+// sensitive and password fields are still never prefilled.
+export function useNavigateWithInitialValues(): (
+  target: ScreenTarget,
+  initialValues: Readonly<Record<string, unknown>>,
+) => void {
+  const nav = useNav();
+  const handoffSlot = useContext(InitialValuesHandoffContext);
+  return useCallback(
+    (target, initialValues) => {
+      if (handoffSlot !== undefined) {
+        handoffSlot.current = { screenId: lastSegment(target.screenId), values: initialValues };
+      }
+      nav.navigate(target);
+    },
+    [nav, handoffSlot],
+  );
+}
+
+export function useInitialValuesHandoff(
+  screenId: string,
+): Readonly<Record<string, unknown>> | undefined {
+  const handoffSlot = useContext(InitialValuesHandoffContext);
+  const [values] = useState(() => {
+    const pending = handoffSlot?.current;
+    return pending !== undefined && pending.screenId === lastSegment(screenId)
+      ? pending.values
+      : undefined;
+  });
+  useEffect(() => {
+    if (
+      handoffSlot !== undefined &&
+      values !== undefined &&
+      handoffSlot.current?.values === values
+    ) {
+      handoffSlot.current = undefined;
+    }
+  }, [handoffSlot, values]);
+  return values;
 }
 
 export function useNav(): NavApi {

@@ -24,6 +24,15 @@ describe("DefaultButton className/ref (fw#1831)", () => {
     );
     expect(ref.current).toBe(screen.getByTestId("btn"));
   });
+
+  test("dataAttributes forwards data-* attributes to the <button>", () => {
+    render(
+      <Button dataAttributes={{ "data-action": "save" }} testId="btn">
+        Save
+      </Button>,
+    );
+    expect(screen.getByTestId("btn").getAttribute("data-action")).toBe("save");
+  });
 });
 
 describe("DefaultButton icon (fw-ui-defaults)", () => {

@@ -151,6 +151,87 @@ describe("Drawer", () => {
     });
   });
 
+  describe("belowHeader", () => {
+    test("default (false): variant=flush keeps inset-y-0, no header offset", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" variant="flush" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-y-0");
+      expect(content.style.top).toBe("");
+    });
+
+    test("true + variant=flush + side=right: offsets top by the header var via inline style, sticks to bottom", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          variant="flush"
+          belowHeader
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      // Inline style (not a class) — className keeps `inset-y-0` since
+      // tailwind-merge doesn't dedupe it against `top-*`/`bottom-*`; style
+      // wins over the class regardless, so this is the reliable assertion.
+      expect(content.style.top).toBe("var(--shell-header-height)");
+      expect(content.style.bottom).toBe("0px");
+      expect(content.className).toContain("inset-y-0");
+    });
+
+    test("true + variant=flush + side=top: top offset instead of top-0", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="top"
+          variant="flush"
+          belowHeader
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("top-(--shell-header-height)");
+      expect(content.className).not.toContain("top-0");
+    });
+
+    test("true + variant=flush + side=bottom: unaffected (still bottom-anchored)", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="bottom"
+          variant="flush"
+          belowHeader
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").className).toContain("bottom-0");
+      expect(screen.getByTestId("drawer").className).not.toContain("--shell-header-height");
+    });
+
+    test("true + variant=floating (default variant): ignored, floating classes unchanged", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" belowHeader testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-y-8");
+      expect(content.className).not.toContain("--shell-header-height");
+    });
+  });
+
   describe("width", () => {
     test("width={420}: reflected as inline pixel width", () => {
       render(
@@ -568,6 +649,25 @@ describe("Drawer", () => {
         </Drawer>,
       );
       expect(screen.queryByRole("button", { name: /maximize drawer width/i })).toBeNull();
+    });
+
+    test("narrow with belowHeader: fullscreen branch unaffected (already covers the header)", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          variant="flush"
+          belowHeader
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-0");
+      expect(content.className).not.toContain("--shell-header-height");
     });
 
     test("wide (regression clamp): inline width and handle still present with resize set", () => {

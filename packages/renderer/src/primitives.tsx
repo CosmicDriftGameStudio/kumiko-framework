@@ -51,6 +51,7 @@ import {
   type ComponentType,
   createContext,
   type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
   type Ref,
   useContext,
@@ -59,6 +60,11 @@ import {
 export type { RuntimeRenderer };
 
 // ---- Prop-Types (die Primitive-Contract-Oberfläche) ----
+
+/** Escape hatch for `data-*` test hooks (e.g. an E2E selector) that don't
+ *  warrant a dedicated typed prop. Web merges these onto the rendered
+ *  element; native impls ignore it (precedent: `className`). */
+export type DataAttributes = Readonly<Record<`data-${string}`, string>>;
 
 /** Standard-Button. `loading` zeigt einen Spinner statt der Children
  *  und sollte mit `disabled` kombiniert werden, wenn die Action wirklich
@@ -105,6 +111,7 @@ export type ButtonProps = {
   readonly icon?: NavIconKey;
   /** Icon after the label (e.g. "Continue →"). */
   readonly iconEnd?: NavIconKey;
+  readonly dataAttributes?: DataAttributes;
 };
 
 /** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem
@@ -121,6 +128,7 @@ export type LinkProps = {
   readonly className?: string;
   readonly children: ReactNode;
   readonly testId?: string;
+  readonly dataAttributes?: DataAttributes;
 };
 
 /** Banner für inline-Message ODER Page-State (z.B. "Loading…",
@@ -197,6 +205,11 @@ export type InputProps =
       readonly readOnly?: boolean;
       /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
       readonly icon?: FieldIconKey;
+      readonly dataAttributes?: DataAttributes;
+      /** Raw keydown access (e.g. Enter-to-submit at the field instead of
+       *  the surrounding Form). Web forwards it, native impls ignore it
+       *  (precedent: `ButtonProps.ref`). */
+      readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
     }
   | {
       readonly kind: "email";
@@ -479,6 +492,12 @@ export type InputProps =
       /** Ctrl/Cmd+Enter submits instead of inserting a newline. Plain
        *  Enter still inserts a newline. */
       readonly onSubmitShortcut?: () => void;
+      readonly dataAttributes?: DataAttributes;
+      /** Raw keydown access (e.g. plain-Enter-submits/Shift+Enter-newline at
+       *  the field instead of the surrounding Form). Composes with
+       *  `onSubmitShortcut` — both fire on the same keystroke when set. Web
+       *  forwards it, native impls ignore it (precedent: `ButtonProps.ref`). */
+      readonly onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
     };
 
 // Sort-Wire-Format. `null`-State unterscheidet "User hat noch nichts
@@ -1033,6 +1052,7 @@ export type CardProps = {
   readonly children?: ReactNode;
   readonly className?: string;
   readonly testId?: string;
+  readonly dataAttributes?: DataAttributes;
 };
 
 /** Determinate progress bar (e.g. wizard step progress). `value` is a

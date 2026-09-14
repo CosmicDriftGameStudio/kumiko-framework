@@ -12,34 +12,133 @@ type FieldDef = {
   maxItems?: number;
 };
 
-describe("mergeSearchParamsIntoInitial", () => {
+function mergeWithAllFieldsUrlPrefillable(
+  fields: Record<string, FieldDef>,
+  searchParams: Record<string, string>,
+  renderableFields?: ReadonlySet<string>,
+  defaultCurrency?: string,
+): Record<string, unknown> {
+  return mergeSearchParamsIntoInitial(fields, {
+    searchParams,
+    urlPrefillFields: Object.keys(fields),
+    ...(renderableFields !== undefined && { renderableFields }),
+    ...(defaultCurrency !== undefined && { defaultCurrency }),
+  });
+}
+
+describe("mergeSearchParamsIntoInitial — urlPrefillFields allowlist", () => {
+  const fields: Record<string, FieldDef> = {
+    leaseId: { type: "text" },
+    iban: { type: "text", default: "DE00" },
+  };
+
+  test("a URL param for a declared field prefills it", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: { leaseId: "l-1" },
+      urlPrefillFields: ["leaseId"],
+    });
+    expect(result["leaseId"]).toBe("l-1");
+  });
+
+  test("a crafted link cannot prefill a field no navigate params declares", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: { leaseId: "l-1", iban: "attacker-iban" },
+      urlPrefillFields: ["leaseId"],
+    });
+    expect(result["leaseId"]).toBe("l-1");
+    expect(result["iban"]).toBe("DE00");
+  });
+
+  test("no urlPrefillFields (screen not from buildAppSchema) prefills nothing from the URL", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: { leaseId: "l-1", iban: "attacker-iban" },
+      urlPrefillFields: undefined,
+    });
+    expect(result["leaseId"]).toBe("");
+    expect(result["iban"]).toBe("DE00");
+  });
+
+  test("sensitive and password fields stay blocked even when allowlisted", () => {
+    const gated: Record<string, FieldDef> = {
+      secret: { type: "text", sensitive: true },
+      apiToken: { type: "text", format: "password", default: "unset" },
+    };
+    const result = mergeSearchParamsIntoInitial(gated, {
+      searchParams: { secret: "s", apiToken: "kpat_leak" },
+      urlPrefillFields: ["secret", "apiToken"],
+    });
+    expect(result["secret"]).toBe("");
+    expect(result["apiToken"]).toBe("unset");
+  });
+});
+
+describe("mergeSearchParamsIntoInitial — handoffValues", () => {
+  const fields: Record<string, FieldDef> = {
+    iban: { type: "text" },
+    amount: { type: "number", default: 0 },
+    secret: { type: "text", sensitive: true },
+    apiToken: { type: "text", format: "password" },
+  };
+
+  test("handed-off values prefill fields outside urlPrefillFields, strings coerced by field type", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      handoffValues: { iban: "DE12", amount: "42" },
+    });
+    expect(result["iban"]).toBe("DE12");
+    expect(result["amount"]).toBe(42);
+  });
+
+  test("handed-off values never reach sensitive or password fields", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      handoffValues: { secret: "s", apiToken: "kpat_leak" },
+    });
+    expect(result["secret"]).toBe("");
+    expect(result["apiToken"]).toBe("");
+  });
+
+  test("drawer overrides win over a handoff for the same field", () => {
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      drawerOverrides: { iban: "from-row" },
+      handoffValues: { iban: "from-handoff" },
+    });
+    expect(result["iban"]).toBe("from-row");
+  });
+});
+
+describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable)", () => {
   test("raw string param merges in as-is for a text field", () => {
     const fields: Record<string, FieldDef> = { name: { type: "text" } };
-    const result = mergeSearchParamsIntoInitial(fields, { name: "Alice" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { name: "Alice" });
     expect(result["name"]).toBe("Alice");
   });
 
   test("number-type field coerces a numeric string", () => {
     const fields: Record<string, FieldDef> = { age: { type: "number" } };
-    const result = mergeSearchParamsIntoInitial(fields, { age: "42" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { age: "42" });
     expect(result["age"]).toBe(42);
   });
 
   test("invalid number string falls back to field default", () => {
     const fields: Record<string, FieldDef> = { count: { type: "number", default: 7 } };
-    const result = mergeSearchParamsIntoInitial(fields, { count: "not-a-number" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { count: "not-a-number" });
     expect(result["count"]).toBe(7);
   });
 
   test("boolean field coerces 'true' and 'false'", () => {
     const fields: Record<string, FieldDef> = { active: { type: "boolean" } };
-    expect(mergeSearchParamsIntoInitial(fields, { active: "true" })["active"]).toBe(true);
-    expect(mergeSearchParamsIntoInitial(fields, { active: "false" })["active"]).toBe(false);
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { active: "true" })["active"]).toBe(true);
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { active: "false" })["active"]).toBe(false);
   });
 
   test("sensitive field is skipped even when a matching searchParam exists", () => {
     const fields: Record<string, FieldDef> = { password: { type: "text", sensitive: true } };
-    const result = mergeSearchParamsIntoInitial(fields, { password: "secret" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { password: "secret" });
     expect(result["password"]).toBe("");
   });
 
@@ -47,31 +146,31 @@ describe("mergeSearchParamsIntoInitial", () => {
     const fields: Record<string, FieldDef> = {
       apiToken: { type: "text", format: "password", default: "unset" },
     };
-    const result = mergeSearchParamsIntoInitial(fields, { apiToken: "kpat_leak" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { apiToken: "kpat_leak" });
     expect(result["apiToken"]).toBe("unset");
   });
 
   test("field with no matching searchParam keeps its buildInitialValues default", () => {
     const fields: Record<string, FieldDef> = { total: { type: "number", default: 100 } };
-    const result = mergeSearchParamsIntoInitial(fields, {});
+    const result = mergeWithAllFieldsUrlPrefillable(fields, {});
     expect(result["total"]).toBe(100);
   });
 
   test("money-type field without a defaultCurrency coerces a bare numeric string (legacy callers, e.g. config-edit/action-form)", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" });
     expect(result["price"]).toBe(19.99);
   });
 
   test("money-type field WITH a defaultCurrency merges the entityEdit payload shape (#1923)", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" }, undefined, "USD");
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" }, undefined, "USD");
     expect(result["price"]).toEqual({ amount: 19.99, currency: "USD" });
   });
 
   test("money-type field WITH a defaultCurrency but no matching searchParam still defaults to the object shape", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeSearchParamsIntoInitial(fields, {}, undefined, "USD");
+    const result = mergeWithAllFieldsUrlPrefillable(fields, {}, undefined, "USD");
     expect(result["price"]).toEqual({ amount: 0, currency: "USD" });
   });
 
@@ -80,7 +179,7 @@ describe("mergeSearchParamsIntoInitial", () => {
       status: { type: "text", default: "draft" },
       ownerId: { type: "text" },
     };
-    const result = mergeSearchParamsIntoInitial(
+    const result = mergeWithAllFieldsUrlPrefillable(
       fields,
       { status: "approved", ownerId: "user-123" },
       new Set(["status"]),
@@ -91,16 +190,16 @@ describe("mergeSearchParamsIntoInitial", () => {
 
   test("no renderableFields set given (undefined): behaves as before, all fields eligible", () => {
     const fields: Record<string, FieldDef> = { ownerId: { type: "text" } };
-    const result = mergeSearchParamsIntoInitial(fields, { ownerId: "user-123" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { ownerId: "user-123" });
     expect(result["ownerId"]).toBe("user-123");
   });
 
   test("multiSelect coerces comma-separated searchParam to string[]", () => {
     const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
-    expect(mergeSearchParamsIntoInitial(fields, { roles: "TenantAdmin" })["roles"]).toEqual([
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { roles: "TenantAdmin" })["roles"]).toEqual([
       "TenantAdmin",
     ]);
-    expect(mergeSearchParamsIntoInitial(fields, { roles: "Admin,User" })["roles"]).toEqual([
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { roles: "Admin,User" })["roles"]).toEqual([
       "Admin",
       "User",
     ]);
@@ -109,19 +208,21 @@ describe("mergeSearchParamsIntoInitial", () => {
   test("multiSelect coerces JSON-array searchParam to string[]", () => {
     const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
     expect(
-      mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Editor"]) })["roles"],
+      mergeWithAllFieldsUrlPrefillable(fields, { roles: JSON.stringify(["Admin", "Editor"]) })[
+        "roles"
+      ],
     ).toEqual(["Admin", "Editor"]);
   });
 
   test("multiSelect defaults to [] when unset", () => {
     const fields: Record<string, FieldDef> = { roles: { type: "multiSelect" } };
-    expect(mergeSearchParamsIntoInitial(fields, {})["roles"]).toEqual([]);
+    expect(mergeWithAllFieldsUrlPrefillable(fields, {})["roles"]).toEqual([]);
   });
 
   test("multiSelect prefers JSON parse even without '[' prefix for quoted strings", () => {
     const fields: Record<string, FieldDef> = { tags: { type: "multiSelect" } };
     expect(
-      mergeSearchParamsIntoInitial(fields, { tags: JSON.stringify("Berlin, Germany") })["tags"],
+      mergeWithAllFieldsUrlPrefillable(fields, { tags: JSON.stringify("Berlin, Germany") })["tags"],
     ).toEqual(["Berlin, Germany"]);
   });
 
@@ -130,13 +231,15 @@ describe("mergeSearchParamsIntoInitial", () => {
       roles: { type: "multiSelect", options: ["Admin", "User"] },
     };
     expect(
-      mergeSearchParamsIntoInitial(fields, { roles: JSON.stringify(["Admin", "Hacker"]) })["roles"],
+      mergeWithAllFieldsUrlPrefillable(fields, { roles: JSON.stringify(["Admin", "Hacker"]) })[
+        "roles"
+      ],
     ).toEqual(["Admin"]);
   });
 
   test("money-type field parses a JSON {amount, currency} param without a defaultCurrency (fw#2763)", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeSearchParamsIntoInitial(fields, {
+    const result = mergeWithAllFieldsUrlPrefillable(fields, {
       price: JSON.stringify({ amount: 19.99, currency: "CHF" }),
     });
     expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
@@ -144,7 +247,7 @@ describe("mergeSearchParamsIntoInitial", () => {
 
   test("money-type field: explicit JSON currency wins over defaultCurrency", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeSearchParamsIntoInitial(
+    const result = mergeWithAllFieldsUrlPrefillable(
       fields,
       { price: JSON.stringify({ amount: 19.99, currency: "CHF" }) },
       undefined,
@@ -157,7 +260,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const fields: Record<string, FieldDef> = { price: { type: "money" } };
-      const result = mergeSearchParamsIntoInitial(fields, { price: "19.99" });
+      const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" });
       expect(result["price"]).toBe(19.99);
       expect(warnSpy).toHaveBeenCalled();
       expect(warnSpy.mock.calls[0]?.[0]).toContain("price");
@@ -172,7 +275,9 @@ describe("mergeSearchParamsIntoInitial", () => {
       const fields: Record<string, FieldDef> = {
         price: { type: "money", default: { amount: 0, currency: "EUR" } },
       };
-      const result = mergeSearchParamsIntoInitial(fields, { price: JSON.stringify({ amount: 5 }) });
+      const result = mergeWithAllFieldsUrlPrefillable(fields, {
+        price: JSON.stringify({ amount: 5 }),
+      });
       expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
       expect(warnSpy).toHaveBeenCalled();
     } finally {
@@ -186,7 +291,7 @@ describe("mergeSearchParamsIntoInitial", () => {
       const fields: Record<string, FieldDef> = {
         price: { type: "money", default: { amount: 0, currency: "EUR" } },
       };
-      const result = mergeSearchParamsIntoInitial(fields, {
+      const result = mergeWithAllFieldsUrlPrefillable(fields, {
         price: JSON.stringify({ amount: 5, currency: "<script>" }),
       });
       expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
@@ -202,7 +307,7 @@ describe("mergeSearchParamsIntoInitial", () => {
       const fields: Record<string, FieldDef> = {
         price: { type: "money", default: { amount: 0, currency: "EUR" } },
       };
-      const result = mergeSearchParamsIntoInitial(fields, { price: "1e999" });
+      const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1e999" });
       expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
     } finally {
       warnSpy.mockRestore();
@@ -230,12 +335,14 @@ describe("mergeSearchParamsIntoInitial", () => {
         { accountId: "bank", amount: 1299, qty: 2, posted: true, kind: "debit" },
         { accountId: "cash", amount: -1299, qty: 1, posted: false, kind: "credit" },
       ];
-      const result = mergeSearchParamsIntoInitial(linesField(), { lines: JSON.stringify(rows) });
+      const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
+        lines: JSON.stringify(rows),
+      });
       expect(result["lines"]).toEqual(rows);
     });
 
     test("money cells stay signed minor-unit integers", () => {
-      const result = mergeSearchParamsIntoInitial(linesField(), {
+      const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
         lines: JSON.stringify([{ accountId: "bank", amount: -4200 }]),
       });
       expect(result["lines"]).toEqual([{ accountId: "bank", amount: -4200 }]);
@@ -244,7 +351,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     test("a fractional money cell rejects the whole prefill and warns", () => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        const result = mergeSearchParamsIntoInitial(linesField(), {
+        const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
           lines: JSON.stringify([{ accountId: "bank", amount: 12.99 }]),
         });
         expect(result["lines"]).toEqual([]);
@@ -258,7 +365,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     test("a non-JSON param leaves the field empty and warns", () => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        const result = mergeSearchParamsIntoInitial(linesField(), { lines: "not-json-at-all" });
+        const result = mergeWithAllFieldsUrlPrefillable(linesField(), { lines: "not-json-at-all" });
         expect(result["lines"]).toEqual([]);
         expect(warnSpy).toHaveBeenCalled();
       } finally {
@@ -269,7 +376,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     test("a JSON object instead of an array leaves the field empty and warns", () => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        const result = mergeSearchParamsIntoInitial(linesField(), {
+        const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
           lines: JSON.stringify({ accountId: "bank" }),
         });
         expect(result["lines"]).toEqual([]);
@@ -282,7 +389,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     test("a row that is not an object leaves the field empty and warns", () => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        const result = mergeSearchParamsIntoInitial(linesField(), {
+        const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
           lines: JSON.stringify([1, 2]),
         });
         expect(result["lines"]).toEqual([]);
@@ -295,7 +402,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     test("a select cell outside the declared options rejects the prefill and warns", () => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        const result = mergeSearchParamsIntoInitial(linesField(), {
+        const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
           lines: JSON.stringify([{ accountId: "bank", kind: "sudo" }]),
         });
         expect(result["lines"]).toEqual([]);
@@ -306,14 +413,14 @@ describe("mergeSearchParamsIntoInitial", () => {
     });
 
     test("undeclared row keys are dropped instead of reaching the form", () => {
-      const result = mergeSearchParamsIntoInitial(linesField(), {
+      const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
         lines: JSON.stringify([{ accountId: "bank", secretFlag: "yes" }]),
       });
       expect(result["lines"]).toEqual([{ accountId: "bank" }]);
     });
 
     test("a __proto__ key in a row pollutes nothing", () => {
-      const result = mergeSearchParamsIntoInitial(linesField(), {
+      const result = mergeWithAllFieldsUrlPrefillable(linesField(), {
         lines: '[{"accountId":"bank","__proto__":{"polluted":true}}]',
       });
       expect(result["lines"]).toEqual([{ accountId: "bank" }]);
@@ -324,7 +431,7 @@ describe("mergeSearchParamsIntoInitial", () => {
     test("more rows than maxItems leaves the field empty and warns", () => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        const result = mergeSearchParamsIntoInitial(linesField({ maxItems: 2 }), {
+        const result = mergeWithAllFieldsUrlPrefillable(linesField({ maxItems: 2 }), {
           lines: JSON.stringify([{ accountId: "a" }, { accountId: "b" }, { accountId: "c" }]),
         });
         expect(result["lines"]).toEqual([]);
@@ -335,12 +442,12 @@ describe("mergeSearchParamsIntoInitial", () => {
     });
 
     test("an embedded list without a matching param defaults to an empty array", () => {
-      const result = mergeSearchParamsIntoInitial(linesField(), {});
+      const result = mergeWithAllFieldsUrlPrefillable(linesField(), {});
       expect(result["lines"]).toEqual([]);
     });
 
     test("a sensitive embedded list ignores the param", () => {
-      const result = mergeSearchParamsIntoInitial(linesField({ sensitive: true }), {
+      const result = mergeWithAllFieldsUrlPrefillable(linesField({ sensitive: true }), {
         lines: JSON.stringify([{ accountId: "bank" }]),
       });
       expect(result["lines"]).toEqual([]);

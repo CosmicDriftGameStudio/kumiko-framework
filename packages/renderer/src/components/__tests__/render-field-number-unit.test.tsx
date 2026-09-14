@@ -5,6 +5,11 @@
 // never a value conversion.
 
 import { describe, expect, test } from "bun:test";
+import {
+  buildAppSchema,
+  createRegistry,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -187,5 +192,36 @@ describe("RenderField — editable number unit suffix", () => {
     expect(field.kind).toBe("number");
     if (field.kind !== "number") return;
     expect(field.unit).toBeUndefined();
+  });
+});
+
+describe("RenderField — number unit through the shipped client schema", () => {
+  function projectedVehicleEntity(
+    mileageUnit: string | { readonly field: string },
+  ): EntityDefinition {
+    const feature = defineFeature("fleet", (r) => {
+      r.entity("vehicle", buildEntity(mileageUnit));
+    });
+    const app = buildAppSchema(createRegistry([feature]));
+    const entity = app.features[0]?.entities["vehicle"];
+    if (entity === undefined) throw new Error("expected the projected vehicle entity");
+    // Mirrors the browser-injection pipeline, which ships the schema as JSON.
+    return JSON.parse(JSON.stringify(entity)) as EntityDefinition;
+  }
+
+  test("static unit survives buildAppSchema and reaches Input.unit", () => {
+    const field = renderMileageField(projectedVehicleEntity("mi"), { mileage: 58 });
+    if (field.kind !== "number") throw new Error("expected a number Input");
+    expect(field.unit).toBe("mi");
+  });
+
+  test("sibling-field unit survives buildAppSchema and resolves from the row", () => {
+    const field = renderMileageField(
+      projectedVehicleEntity({ field: "mileageUnit" }),
+      { mileage: 58, mileageUnit: "km" },
+      { mileage: 58, mileageUnit: "km" },
+    );
+    if (field.kind !== "number") throw new Error("expected a number Input");
+    expect(field.unit).toBe("km");
   });
 });
