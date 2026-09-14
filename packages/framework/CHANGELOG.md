@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.269.2
+
+### Patch Changes
+
+- 3d58c23: `kumiko-upgrade --apply` no longer crashes on pending changelog entries whose `codemod` field is a shell command instead of a `scripts/codemod/`-relative path: the 0.267.0 entry's `codemod` pointed at `scripts/migrate-db-raw.ts --dry-run <paths>`, a repo-root script never shipped in the published package. `migrate-db-raw.ts` now ships at `packages/framework/src/scripts/codemod/migrate-db-raw.ts`, resolved the same way as every other codemod.
+  - @cosmicdrift/kumiko-types@0.269.2
+
+## 0.269.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.269.1
+
 ## 0.269.0
 
 ### Minor Changes

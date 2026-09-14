@@ -152,7 +152,7 @@ describe("Drawer", () => {
   });
 
   describe("belowHeader", () => {
-    test("default (false): variant=flush keeps inset-y-0, no header offset", () => {
+    test("default (false): variant=flush keeps inset-y-0 + h-full, no header offset", () => {
       render(
         <Drawer open={true} onOpenChange={() => {}} side="right" variant="flush" testId="drawer">
           <div>Body</div>
@@ -160,10 +160,11 @@ describe("Drawer", () => {
       );
       const content = screen.getByTestId("drawer");
       expect(content.className).toContain("inset-y-0");
+      expect(content.className).toContain("h-full");
       expect(content.style.top).toBe("");
     });
 
-    test("true + variant=flush + side=right: offsets top by the header var via inline style, sticks to bottom", () => {
+    test("true + variant=flush + side=right: offsets top by the header var via inline style, sticks to bottom, swaps h-full for h-auto", () => {
       render(
         <Drawer
           open={true}
@@ -183,6 +184,32 @@ describe("Drawer", () => {
       expect(content.style.top).toBe("var(--shell-header-height)");
       expect(content.style.bottom).toBe("0px");
       expect(content.className).toContain("inset-y-0");
+      // h-full would force 100% viewport height and push the bottom edge
+      // (and the footer slot) past the viewport once top is also shifted
+      // down — h-auto lets bottom-0 (via the inline style above) determine
+      // the height instead, so the panel's bottom edge stays on-screen.
+      expect(content.className).not.toContain("h-full");
+      expect(content.className).toContain("h-auto");
+    });
+
+    test("true + variant=flush + side=left: same h-full-to-h-auto swap as side=right", () => {
+      render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="left"
+          variant="flush"
+          belowHeader
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.style.top).toBe("var(--shell-header-height)");
+      expect(content.style.bottom).toBe("0px");
+      expect(content.className).not.toContain("h-full");
+      expect(content.className).toContain("h-auto");
     });
 
     test("true + variant=flush + side=top: top offset instead of top-0", () => {

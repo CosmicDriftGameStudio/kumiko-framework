@@ -17,7 +17,8 @@
       "!**/.kumiko",
       "!**/feature-manifest.json",
       "!**/sample-index.json",
-      "!**/renderer-web/src/ui"
+      "!**/renderer-web/src/ui",
+      "!**/__tests__/fixtures/migrate-db-raw"
     ]
   },
   "assist": {
