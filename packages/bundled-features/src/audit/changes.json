@@ -2,6 +2,12 @@
   {
     "version": "0.271.0",
     "type": "improvement",
+    "title": "escapeHatchUsedSchema.kind accepts the new unsafe-all-tenants EscapeHatchKind (fw#2913).",
+    "detail": "`escapeHatchUsedSchema.kind` (`audit/escape-hatch-audit-sink.ts`) now also accepts `\"unsafe-all-tenants\"`, keeping the `satisfies readonly EscapeHatchKind[]` tuple in sync with the framework's new `EscapeHatchKind` member for a granted `ctx.queryProjection(qn, { unsafeAllTenants: true })` call — see the framework changelog for fw#2913. No consumer action needed; existing sinks already accept any `EscapeHatchKind`."
+  },
+  {
+    "version": "0.271.0",
+    "type": "improvement",
     "title": "New escape-hatch-used audit sink: createEscapeHatchAuditSink records security:escape-hatch-used as audit:event:escape-hatch-used (fw#2861).",
     "detail": "New `createEscapeHatchAuditSink({ db })` (`@cosmicdrift/kumiko-bundled-features/audit`) implements the framework's `EscapeHatchAuditSink` — it parses each escape-hatch-use event against the new `escapeHatchUsedSchema` and appends it as an `audit:event:escape-hatch-used` event (`r.defineEvent(\"escape-hatch-used\", ...)`, `piiFields: \"none\"`) on the unbound pool, so the entry survives a rollback of the handler that triggered it. `server-runtime`'s `buildBootExtraContext` wires it as `AppContext._escapeHatchAuditSink` automatically whenever the `audit` feature is mounted; without the feature, escape-hatch uses fall back to a structured warn log. Events show up in the existing `audit:query:list`/`audit-log` screen like any other event."
   },

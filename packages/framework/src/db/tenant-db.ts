@@ -161,7 +161,7 @@ function isForeignTenantId(tenantIdValue: unknown): boolean {
 // `table.tenantId` property read — the latter only exists on branded EntityTables
 // and silently returned false (no tenant filter!) for plain EntityTableMeta
 // tables like unmanaged direct-write stores, e.g. userSessionTable.
-function hasTenantColumn(table: Table | EntityTableMeta): boolean {
+export function hasTenantColumn(table: Table | EntityTableMeta): boolean {
   const meta = asEntityTableMeta(table);
   if (meta) return meta.columns.some((c) => c.name === "tenant_id");
   return (table as Record<string, unknown>)["tenantId"] !== undefined;

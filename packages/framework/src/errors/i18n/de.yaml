@@ -113,6 +113,20 @@ identity_switch_denied:
     (oder am `r.hook(...)`-Aufruf, wenn der Wechsel in einem Hook passiert),
     oder verlagere die Logik in ein `r.systemScope()`-Feature oder einen Job.
 
+unsafe_all_tenants_denied:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: ein Handler oder Hook hat
+    `ctx.queryProjection(qualifiedName, { unsafeAllTenants: true })`
+    aufgerufen, ohne `r.systemScope()`-Handler zu sein oder
+    `escapeHatch: { reason }` zu deklarieren.
+
+    Deklariere `escapeHatch: { reason: "..." }` am Write-, Query- oder
+    Stream-Handler (oder am `r.hook(...)`-Aufruf, wenn der Read in einem Hook
+    passiert), oder verlagere die Logik in ein `r.systemScope()`-Feature.
+
 member_resolution_denied:
   endUser: |
     Diese Aktion ist nicht erlaubt.
