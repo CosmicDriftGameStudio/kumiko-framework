@@ -10,15 +10,19 @@ import { rateLimitStatus } from "./handlers/status.query";
 // only use L3 (handler-opt-in) and don't need ops introspection can
 // skip this feature entirely — the resolver still runs.
 export function createRateLimitingFeature() {
-  return defineFeature("rate-limiting", (r) => {
-    r.describe(
-      "Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`. Loading this feature is optional if you only need L3 per-handler rate limits and have no need for ops introspection.",
-    );
-    r.uiHints({
-      displayLabel: "Rate Limiting · Ops Query",
-      category: "operations",
-      recommended: false,
-    });
-    r.queryHandler(rateLimitStatus);
-  });
+  return defineFeature(
+    "rate-limiting",
+    (r) => {
+      r.describe(
+        "Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`. Loading this feature is optional if you only need L3 per-handler rate limits and have no need for ops introspection.",
+      );
+      r.uiHints({
+        displayLabel: "Rate Limiting · Ops Query",
+        category: "operations",
+        recommended: false,
+      });
+      r.queryHandler(rateLimitStatus);
+    },
+    { dedupeOptions: {} },
+  );
 }

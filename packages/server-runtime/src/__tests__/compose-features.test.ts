@@ -8,6 +8,8 @@
 // dispatched ins Leere → 500.
 
 import { describe, expect, spyOn, test } from "bun:test";
+import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "../compose-features";
 
@@ -189,5 +191,16 @@ describe("composeFeatures", () => {
     expect(auth).toBeDefined();
     if (!auth) return;
     expect(Object.keys(auth.writeHandlers)).toContain("login");
+  });
+
+  test("includeBundled=false → sessions mounted via preset + standalone collapses to one entry", () => {
+    const sessionsInstances = securityBaselineFeatures();
+    const standaloneSessions = createSessionsFeature();
+    const features = composeFeatures([...sessionsInstances, standaloneSessions], {
+      includeBundled: false,
+    });
+    const sessionsEntries = features.filter((f) => f.name === "sessions");
+    expect(sessionsEntries).toHaveLength(1);
+    expect(sessionsEntries[0]).toBe(sessionsInstances[0]);
   });
 });

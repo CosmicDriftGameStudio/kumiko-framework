@@ -105,24 +105,22 @@ describe("composeStacks", () => {
     ]);
   });
 
-  test("composeIdentityStack + composeGdprStack(sessions) → duplicate feature rejected at boot", () => {
+  test("composeIdentityStack + composeGdprStack(sessions) → identical sessions deduped at boot", () => {
     const names = stackFeatureNames([
       ...composeIdentityStack(),
       ...composeGdprStack({ sessions: true }),
     ]);
     expect(names.filter((n) => n === "sessions")).toHaveLength(2);
-    expect(() =>
-      validateBoot(
-        composeFeatures(
-          [
-            createPersonalAccessTokensFeature({ scopes: {} }),
-            ...composeIdentityStack(),
-            ...composeGdprStack({ sessions: true }),
-          ],
-          { includeBundled: true },
-        ),
-      ),
-    ).toThrow(/duplicate feature/i);
+    const composed = composeFeatures(
+      [
+        createPersonalAccessTokensFeature({ scopes: {} }),
+        ...composeIdentityStack(),
+        ...composeGdprStack({ sessions: true }),
+      ],
+      { includeBundled: true },
+    );
+    expect(stackFeatureNames(composed).filter((n) => n === "sessions")).toHaveLength(1);
+    expect(() => validateBoot(composed)).not.toThrow();
   });
 });
 

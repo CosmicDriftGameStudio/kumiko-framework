@@ -1,4 +1,5 @@
 import { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler";
+import { dedupeFeatures } from "./dedupe-features";
 import { buildRegistryFacade } from "./registry-facade";
 import {
   populateClaimsAndAuth,
@@ -44,7 +45,8 @@ import type { FeatureDefinition, Registry } from "./types";
 // This is where the magic happens. By "magic" I mean: precomputed maps.
 // I build everything once at boot (hooks, relations, searchable fields, ...)
 // so nothing has to iterate over objects at runtime. O(1) instead of O(n*m).
-export function createRegistry(features: readonly FeatureDefinition[]): Registry {
+export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Registry {
+  const features = dedupeFeatures(rawFeatures);
   const state = createInitialState();
 
   for (const feature of features) {

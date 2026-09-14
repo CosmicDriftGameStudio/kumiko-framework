@@ -382,6 +382,8 @@ export type FeatureDefinition = {
   // rendering. Absence means the feature reads no env-vars (or hasn't
   // been migrated yet — Sprint-9 migration is add-only per phase).
   readonly envSchema?: z.ZodObject<z.ZodRawShape>;
+  // Factory guarantee: two instances with shallow-equal dedupeOptions are interchangeable.
+  readonly dedupeOptions?: Readonly<Record<string, unknown>>;
 };
 
 // --- Feature Registrar (the "r" object in defineFeature) ---

@@ -16,9 +16,11 @@ used to be silent; now the boot validator warns at `NODE_ENV=production`.
   `SECURITY_BASELINE_FEATURE_NAMES` and logs a `console.warn` naming whatever
   is missing. It never throws — the baseline is a strong recommendation, not
   a hard requirement — and it is silent outside production.
-- **`includeSessions: false`** — drop `sessions` from the preset when it is
-  already mounted elsewhere, e.g. via `dsgvoSelfServiceFeatures()` (mounting
-  the same feature name twice throws at boot).
+- **`includeSessions: false`** — an optional opt-out for dropping `sessions`
+  from the preset explicitly. Not required for combining with
+  `dsgvoSelfServiceFeatures()` any more: both mount `createSessionsFeature()`
+  with no-arg options, and the framework's `dedupeFeatures()` collapses the
+  two identical instances at boot instead of throwing.
 
 ## Feature composition
 
@@ -36,8 +38,8 @@ audit             → tenant-scoped audit trail
 ## When to reach for it
 
 Any app that also mounts `dsgvoSelfServiceFeatures()` — that preset already
-mounts `sessions` as part of its own require-chain. Combine both with
-`includeSessions: false` to avoid a duplicate-feature-name boot failure:
+mounts `sessions` as part of its own require-chain. Combine both directly;
+`dedupeFeatures()` collapses the two identical `sessions` instances at boot:
 
 ```ts illustration
 import { dsgvoSelfServiceFeatures, securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
@@ -45,12 +47,26 @@ import { dsgvoSelfServiceFeatures, securityBaselineFeatures } from "@cosmicdrift
 export const APP_FEATURES = [
   // ...config, user, tenant, auth-foundation...
   ...dsgvoSelfServiceFeatures(),
-  ...securityBaselineFeatures({ includeSessions: false }),
+  ...securityBaselineFeatures(),
 ];
 ```
 
 For an app that does not mount `dsgvoSelfServiceFeatures()`, use
 `securityBaselineFeatures()` with its default options, as this recipe does.
+
+A `createSessionsFeature({ ... })` mounted with different options than the
+preset's own no-arg instance still produces a clear boot error — dedupe only
+collapses provably interchangeable instances, never silently picks one:
+
+```ts
+export const APP_FEATURES = [
+  // ...
+  createSessionsFeature({ expiresInMs: 1000 }),
+  ...securityBaselineFeatures(),
+  // throws: Duplicate feature: "sessions" mounted twice with different
+  // options — mount it once or pass identical options
+];
+```
 
 ## Tests
 
