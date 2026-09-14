@@ -45,7 +45,14 @@ const editScreen: EntityEditScreenDefinition = {
   },
 };
 
-const open = { access: { openToAll: true } } as const;
+const open = {
+  access: {
+    openToAll: {
+      reason:
+        "scaffolded demo handler: every signed-in user of the demo tenant manages their tasks",
+    },
+  },
+} as const;
 
 const TASKS_I18N = {
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },

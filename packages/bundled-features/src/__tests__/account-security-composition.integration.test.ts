@@ -114,10 +114,29 @@ describe("account-security dashboard on a real stack", () => {
       "auth-mfa:screen:auth-mfa-disable",
       "sessions:screen:my-sessions",
     ]);
-    for (const qn of targets)
-      expect(embeddedScreen(qn).access).toEqual({
-        openToAll: { reason: "test handler callable by any signed-in test user" },
-      });
+    const expectedReasons: ReadonlyArray<{ readonly qn: string; readonly reason: string }> = [
+      {
+        qn: "auth-mfa:screen:auth-mfa-enable",
+        reason:
+          "each signed-in user may enroll their own account in MFA, mirroring the enable-start handler",
+      },
+      {
+        qn: "auth-mfa:screen:auth-mfa-regenerate-recovery",
+        reason:
+          "each signed-in user may regenerate their own recovery codes, mirroring the regenerate-recovery handler",
+      },
+      {
+        qn: "auth-mfa:screen:auth-mfa-disable",
+        reason: "each signed-in user may turn off their own MFA, mirroring the disable handler",
+      },
+      {
+        qn: "sessions:screen:my-sessions",
+        reason:
+          "each signed-in user views and revokes only their own sessions, mirroring the mine/revoke handlers",
+      },
+    ];
+    for (const { qn, reason } of expectedReasons)
+      expect(embeddedScreen(qn).access).toEqual({ openToAll: { reason } });
   });
 
   test("a plain User gets the flat visibleWhen record and their own sessions over HTTP", async () => {

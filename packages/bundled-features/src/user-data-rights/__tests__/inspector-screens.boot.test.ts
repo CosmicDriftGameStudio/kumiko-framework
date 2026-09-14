@@ -95,7 +95,10 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
     if (screen?.type === "projectionDetail") {
       expect(screen.query).toBe("user:query:user:me");
       expect(screen.access).toEqual({
-        openToAll: { reason: "test handler callable by any signed-in test user" },
+        openToAll: {
+          reason:
+            "each signed-in user manages GDPR self-service actions (export, restriction, deletion) for only their own account; the bound query and every action handler operate on the caller's own userId, and no app role name is portable enough to gate this",
+        },
       });
     }
   });

@@ -2632,7 +2632,12 @@
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "principalStatus",
+          "entityName": "user"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
