@@ -33,8 +33,18 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async resolveAuthClaims(): Promise<Record<string, unknown>> {
       return {};
     },
+    // Not exercised by these routes — always "not_a_member" is fine.
+    async resolveActiveMembership() {
+      return { kind: "rejected", reason: "not_a_member" };
+    },
     // Stream API added with r.streamHandler (#1446) — stub unused in these routes.
     async *stream(): AsyncGenerator<unknown> {},
+    // Not exercised by these routes.
+    createMemberReader() {
+      return async () => {
+        throw new Error("createMemberReader not available in this stub");
+      };
+    },
   };
   return { ...base, ...overrides };
 }

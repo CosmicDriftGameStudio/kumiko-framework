@@ -27,10 +27,10 @@ export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promi
         "[jobs:projection-rebuild] ctx.registry missing — job context requires the registry.",
     });
   }
-  // Global rebuild by design (streams every tenant's events, not just one) —
-  // acknowledgeCrossTenant documents that instead of the previous implicit
-  // ctx.db cast. .raw is the same DbConnection ctx.db carried before.
-  const db = ctx.systemDb.acknowledgeCrossTenant("global projection rebuild").raw as DbConnection; // @cast-boundary db-operator
+  // Global rebuild by design (streams every tenant's events) — acknowledgeCrossTenant
+  // documents that instead of the previous implicit ctx.db cast.
+  ctx.systemDb.acknowledgeCrossTenant("global projection rebuild");
+  const db = ctx.systemDb.unsafeRaw("projection rebuild spans every tenant's rows") as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
   const result = await rebuildProjection(projection, {
     db,
     registry: ctx.registry,

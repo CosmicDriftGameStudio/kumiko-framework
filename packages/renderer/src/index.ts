@@ -79,6 +79,7 @@ export {
   parsePath,
   resolveTarget,
   useNav,
+  useNavigateWithInitialValues,
 } from "./app/nav";
 export { lastSegment } from "./app/qn";
 export type { EmbeddedScreenTarget } from "./app/use-embedded-screen";

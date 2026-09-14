@@ -42,9 +42,12 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
         "[jobs:reindex-entity] ctx.systemDb missing — the owning feature must declare r.systemScope().",
     });
   }
-  // .raw bypasses tenant filtering, safe here only because reindexEntity
+  // unsafeRaw bypasses tenant filtering, safe here only because reindexEntity
   // filters `WHERE tenant_id = $1` itself with this same tenantId.
-  const db = ctx.systemDb.assertTenantMatch(tenantId).raw;
+  ctx.systemDb.assertTenantMatch(tenantId);
+  const db = ctx.systemDb.unsafeRaw(
+    "reindexEntity filters WHERE tenant_id = $1 itself with this job's tenantId",
+  );
   const result = await reindexEntity(db, ctx.registry, ctx.searchAdapter, entity, tenantId);
   ctx.log?.info?.(
     `[jobs:reindex-entity] tenant=${tenantId} reindexed ${entity}: ${result.indexedRows}/${result.scannedRows} rows indexed` +

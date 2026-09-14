@@ -54,6 +54,7 @@ declare const aSecret: Secret<string>;
 defineQueryHandler({
   name: "t:query:leak",
   schema,
+  access: { openToAll: true },
   handler: async () => ({ apiKey: aSecret }),
 });
 
@@ -64,6 +65,7 @@ function genericResponseHandler<K extends string>(kind: K) {
   return defineQueryHandler({
     name: "t:query:generic",
     schema,
+    access: { openToAll: true },
     handler: async () => ({ kind, ok: true }) as { kind: K; ok: boolean },
   });
 }
@@ -81,6 +83,7 @@ declare const leakingUnion: { ok: true } | { apiKey: Secret<string> };
 defineQueryHandler({
   name: "t:query:union-leak",
   schema,
+  access: { openToAll: true },
   handler: async () => leakingUnion,
 });
 
@@ -88,6 +91,7 @@ declare const cleanUnion: { ok: true } | { id: string };
 defineQueryHandler({
   name: "t:query:union-clean",
   schema,
+  access: { openToAll: true },
   handler: async () => cleanUnion,
 });
 
@@ -96,6 +100,7 @@ describe("R6 ContainsSecret", () => {
     const def = defineQueryHandler({
       name: "t:query:clean",
       schema,
+      access: { openToAll: true },
       handler: async () => ({ ok: true, value: createSecret("x").reveal() }),
     });
     expect(def.name).toBe("t:query:clean");

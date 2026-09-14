@@ -1,5 +1,142 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.268.0
+
+### Minor Changes
+
+- b16457a: `ctx.db.unsafeRaw(reason)` returns the unfiltered runner only for write/query handlers and hooks that declare `escapeHatch: { reason }`. `tenancy: "global"` entities must be `systemStream` and only hold `SYSTEM_TENANT_ID` rows; `declareGlobalTenancy(table)` declares plain stores without `tenant_id` as global. `createTenantDb`'s 7th parameter is now `{ globalWrites?, unsafeRaw? }`. Bundled features no longer use `ctx.db.raw` (`user` and `store_global_feature_state` are global); `scripts/migrate-db-raw.ts` migrates consumer call sites.
+
+### Patch Changes
+
+- Updated dependencies [b16457a]
+  - @cosmicdrift/kumiko-types@0.268.0
+  - @cosmicdrift/kumiko-framework@0.268.0
+  - @cosmicdrift/kumiko-headless@0.268.0
+  - @cosmicdrift/kumiko-renderer@0.268.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.268.0
+  - @cosmicdrift/kumiko-renderer-web@0.268.0
+
+## 0.267.0
+
+### Minor Changes
+
+- e87ab51: New `ctx.queryAsMember(userId, qn, payload)` on `HandlerContext`, `JobContext` and (optional) `AppContext` — reads a query handler as a stored member of the current tenant, resolved internally by the framework (`resolveActiveMembershipFn` with a new, stricter `BACKGROUND_READ_POLICY` — no pending-destruction grace window, no unknown-principal pass) → `PrincipalStatusPlugin.resolveProfile` for global roles/timezone/locale → `buildSessionRoles` → `resolveAuthClaims`. The resolved `SessionUser` is never exposed: it carries no `sid`, `origin: "member-resolution"`, and is minted only for the duration of the call. Rejection (not a member, principal blocked, tenant in teardown, or the resolved principal would be SYSTEM) always surfaces the same generic `AccessDeniedError` (`member_resolution_denied`, no rejection reason in `details`) so a caller can't probe another user's membership state. Resolution is cached per handler invocation (its lifecycle hooks share that cache) or job run — repeated calls for the same `userId` resolve once; a nested dispatch gets its own cache. `ctx.queryAsMember` needs the same grant as a SYSTEM `queryAs` — `r.systemScope()` or a declared `escapeHatch` — and, for hooks, is re-gated by the HOOK's own `escapeHatch` rather than inheriting (or failing to inherit) the enclosing handler's grant, so a hook can grant `queryAsMember` even when the handler it fires on has none. Jobs stay ungated, same as `JobContext.queryAs`.
+
+  There is deliberately no `writeAsMember`: a resolved member principal is read-only by construction. `ctx.write`, `writeAs`, `appendEvent`, `unsafeAppendEvent`, `tryAppendEvent`, `fetchForWriting`, `archiveStream`, `restoreStream`, `snapshotAggregate`, `queryAsMember`, `resolveActiveMembership` and `jobRunner` all throw `member_resolution_read_only` on a `HandlerContext` built for such a principal; `scheduleAfterCommit` throws the same error; `dbOutsideTransaction`, `systemDb`, `runPreSave`, `files` and `derivatives` are unset. This is enforced structurally in `buildHandlerContext` and, as defense in depth, again at the shared event-append sink behind `appendEvent`/`unsafeAppendEvent`/`fetchForWriting().appendOne` and in the write/stream dispatch paths (covers a handler that spreads/copies the resolved user into a direct `dispatcher.write`/`batch`/`stream` call). `ctx.db` itself is NOT blocked — a queried handler's raw `ctx.db` writes are exactly as reachable as they'd be if that same handler ran for the member over HTTP; this is a known, documented gap, not something this change closes. `jwt.sign()` now throws if handed a `SessionUser` with `origin` set, so a resolved member principal can never be minted into a session.
+
+  Membership/principal/lifecycle are resolved on the root database connection (outside the caller's transaction, same as `resolveActiveMembershipFn`/`resolveAuthClaims`); the target query itself runs inside the caller's transaction when one is threaded through.
+
+  `PrincipalStatusPlugin.resolveProfile(userId, { db })` is now a REQUIRED method (previously the plugin only needed `resolveStatus`) — it returns `{ globalRoles, timezone?, locale? } | null`, the source `ctx.queryAsMember` uses to mint a resolved principal's roles/timezone/locale. The bundled `user` feature implements it. No new boot check is added for `ctx.queryAsMember` usage itself — it can't be detected statically without breaking apps that mount `tenant` without `user`; a missing `resolveProfile` provider fails closed at first use with an `InternalError` naming the `user` feature. `#2883`'s existing boot check (membershipQuery registered + auth wired ⇒ a `principalStatus` provider is required) is unchanged.
+
+  Also: `setupTestStack`'s job runner now calls `attachDispatcher(...)` after `buildServer()`, mirroring the production entrypoints — previously `JobContext.write`/`writeAs`/`queryAs`/`queryAsMember` always threw "dispatcher attached — call attachDispatcher() first" inside a `setupTestStack`-based job (no existing test happened to exercise that path).
+
+### Patch Changes
+
+- Updated dependencies [e87ab51]
+  - @cosmicdrift/kumiko-framework@0.267.0
+  - @cosmicdrift/kumiko-types@0.267.0
+  - @cosmicdrift/kumiko-headless@0.267.0
+  - @cosmicdrift/kumiko-renderer@0.267.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.267.0
+  - @cosmicdrift/kumiko-renderer-web@0.267.0
+
+## 0.266.0
+
+### Patch Changes
+
+- 4d36b68: The boot check for `openToAll` write handlers that accept personal data now finds personal-data fields anywhere in the input schema — inside `z.intersection`, `z.union`/`z.discriminatedUnion`, `.transform()`/`z.preprocess()`/`.pipe()`, wrappers (`.optional()`, `.nullable()`, `.default()`, `.readonly()`, `.catch()`, `z.lazy()`), nested objects such as an update's `changes`, arrays and records — not only at the top level of a `z.object`. A field bound to the caller needs no declaration: every role in the target entity's `access.write` is `from("user:id", "<ownerField>")` for a `personal: { of: "<ownerField>" }` field, or `from("user:id", "id")` for a `personal: "self"` field, and the handler has no `escapeHatch` and its feature no `r.systemScope()`. The `publicIntake` flag is removed; a handler that lets signed-in tenant members write unbound personal data declares `openToAll: { reason, personalData: "tenant-members" }`. Bundled `user:update` now uses that declaration.
+- Updated dependencies [4d36b68]
+  - @cosmicdrift/kumiko-types@0.266.0
+  - @cosmicdrift/kumiko-framework@0.266.0
+  - @cosmicdrift/kumiko-headless@0.266.0
+  - @cosmicdrift/kumiko-renderer@0.266.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.266.0
+  - @cosmicdrift/kumiko-renderer-web@0.266.0
+
+## 0.265.0
+
+### Minor Changes
+
+- 371a263: New `dispatcher.resolveActiveMembership(userId, tenantId)` / `ctx.resolveActiveMembership` returns an `ActiveMembershipResult` — either `active` with the raw membership roles, or `rejected` with reason `not_a_member` | `principal_blocked` | `tenant_teardown` (membership is checked first, so a non-member can't learn a foreign tenant's lifecycle/blocked state). It composes two new framework contracts, `EXT_PRINCIPAL_STATUS` (fulfilled by the bundled `user` feature) and `EXT_TENANT_LIFECYCLE_STATUS` (fulfilled by `tenant-lifecycle`), plus `TENANT_TEARDOWN_STATUSES` and the default `TENANT_MEMBERSHIPS_QUERY` handler name, and is now used by switch-tenant, login and auth-mfa verify/enable-confirm-preauth instead of each independently composing membership + status checks. `ctx.resolveActiveMembership` requires the same SYSTEM-identity grant as `ctx.queryAs`/`ctx.writeAs` with a system user (`r.systemScope()` or a declared `escapeHatch`), since it queries memberships as SYSTEM internally. Behaviourally: `POST /api/auth/switch-tenant` now answers 403 `principal_blocked` for a blocked principal and 410 `tenant_unavailable` for a target tenant in teardown (a tenant in `destroyRequested` is still allowed so its owner can cancel destruction); login skips a last-active tenant that is in teardown and falls through to the next active membership; MFA verify and enable-confirm-preauth reject a tenant in teardown; `buildServer` now throws at boot when the auth `membershipQuery` handler is registered but no feature provides the `principalStatus` contract (mount the bundled `user` feature); and `isPrincipalBlocked` now lives in `user` (still re-exported from `sessions` for existing importers).
+
+### Patch Changes
+
+- Updated dependencies [371a263]
+  - @cosmicdrift/kumiko-framework@0.265.0
+  - @cosmicdrift/kumiko-types@0.265.0
+  - @cosmicdrift/kumiko-headless@0.265.0
+  - @cosmicdrift/kumiko-renderer@0.265.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.265.0
+  - @cosmicdrift/kumiko-renderer-web@0.265.0
+
+## 0.264.1
+
+### Patch Changes
+
+- Updated dependencies [c42f1b6]
+  - @cosmicdrift/kumiko-renderer-web@0.264.1
+  - @cosmicdrift/kumiko-framework@0.264.1
+  - @cosmicdrift/kumiko-types@0.264.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.264.1
+  - @cosmicdrift/kumiko-headless@0.264.1
+  - @cosmicdrift/kumiko-renderer@0.264.1
+
+## 0.264.0
+
+### Patch Changes
+
+- d0184f7: `ctx.queryAs`/`ctx.writeAs` with a SYSTEM identity now throws `access_denied` unless the calling handler belongs to an `r.systemScope()` feature or declares `escapeHatch: { reason }` (now also accepted on query handlers and as `r.hook(..., { escapeHatch })`); jobs stay ungated, hooks no longer inherit their handler's grant, and grants never propagate to nested handlers. Bundled auth, MFA, user-profile and user-data-rights handlers declare their SYSTEM lookups via `escapeHatch`.
+- Updated dependencies [d0184f7]
+  - @cosmicdrift/kumiko-types@0.264.0
+  - @cosmicdrift/kumiko-framework@0.264.0
+  - @cosmicdrift/kumiko-headless@0.264.0
+  - @cosmicdrift/kumiko-renderer@0.264.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.264.0
+  - @cosmicdrift/kumiko-renderer-web@0.264.0
+
+## 0.263.0
+
+### Patch Changes
+
+- Updated dependencies [db13c00]
+- Updated dependencies [cd255ca]
+- Updated dependencies [f6732fa]
+  - @cosmicdrift/kumiko-renderer@0.263.0
+  - @cosmicdrift/kumiko-renderer-web@0.263.0
+  - @cosmicdrift/kumiko-framework@0.263.0
+  - @cosmicdrift/kumiko-types@0.263.0
+  - @cosmicdrift/kumiko-headless@0.263.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.263.0
+
+## 0.262.0
+
+### Minor Changes
+
+- 6fbede9: `validateBoot` now warns (never throws) when `NODE_ENV=production` and the mounted feature list is missing one of `SECURITY_BASELINE_FEATURE_NAMES` (`sessions`, `crypto-shredding`, `rate-limiting`, `audit`; the list is exported from `@cosmicdrift/kumiko-framework/engine`); a new `securityBaselineFeatures({ includeSessions? })` preset (`@cosmicdrift/kumiko-bundled-features/presets`) mounts all four in one call, with `includeSessions: false` for apps that already pull `sessions` in via `dsgvoSelfServiceFeatures()`.
+
+### Patch Changes
+
+- Updated dependencies [352d623]
+- Updated dependencies [6fbede9]
+  - @cosmicdrift/kumiko-renderer@0.262.0
+  - @cosmicdrift/kumiko-framework@0.262.0
+  - @cosmicdrift/kumiko-renderer-web@0.262.0
+  - @cosmicdrift/kumiko-headless@0.262.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.262.0
+  - @cosmicdrift/kumiko-types@0.262.0
+
+## 0.261.0
+
+### Patch Changes
+
+- Updated dependencies [5139a3f]
+  - @cosmicdrift/kumiko-types@0.261.0
+  - @cosmicdrift/kumiko-framework@0.261.0
+  - @cosmicdrift/kumiko-headless@0.261.0
+  - @cosmicdrift/kumiko-renderer@0.261.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.261.0
+  - @cosmicdrift/kumiko-renderer-web@0.261.0
+
 ## 0.260.0
 
 ### Minor Changes

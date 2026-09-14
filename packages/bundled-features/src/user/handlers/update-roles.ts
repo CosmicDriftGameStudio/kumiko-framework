@@ -2,6 +2,7 @@ import { asEntityTableMeta, asRawClient, fetchOne } from "@cosmicdrift/kumiko-fr
 import {
   acquireNamespacedAdvisoryLock,
   createEventStoreExecutor,
+  type DbRunner,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -52,13 +53,13 @@ function isActiveSystemAdminRow(row: UserRolesRow): boolean {
   return isActiveUserRow(row) && parseRoles(row.roles).includes("SystemAdmin");
 }
 
-async function countOtherActiveSystemAdmins(db: TenantDb, excludeUserId: string): Promise<number> {
+async function countOtherActiveSystemAdmins(db: DbRunner, excludeUserId: string): Promise<number> {
   const tableName = asEntityTableMeta(userTable)?.tableName;
   if (!tableName) {
     throw new InternalError({ message: "user read table meta missing" });
   }
   // kumiko-lint-ignore raw-sql jsonb @> prefilter for SystemAdmin roster under advisory lock
-  const rows = (await asRawClient(db.raw).unsafe(
+  const rows = (await asRawClient(db).unsafe(
     `SELECT id, roles, status, is_deleted AS "isDeleted"
      FROM ${quoteIdent(tableName)}
      WHERE is_deleted = false
@@ -128,7 +129,17 @@ export async function applyUserRolesUpdate(
     // Lock before count+update so two concurrent demotions cannot both
     // observe otherActiveSystemAdmins >= 1 and leave zero active SystemAdmins.
     await acquireNamespacedAdvisoryLock(db, LAST_SYSTEM_ADMIN_LOCK_NAMESPACE, "global");
-    const otherActiveSystemAdmins = await countOtherActiveSystemAdmins(db, event.payload.id);
+    // user is r.systemScope() — the count spans every tenant's SystemAdmins,
+    // so it needs the raw runner, not the (still tenant-shaped) `db` above.
+    if (!ctx.systemDb) {
+      throw new InternalError({ message: "user:update-roles requires ctx.systemDb" });
+    }
+    const otherActiveSystemAdmins = await countOtherActiveSystemAdmins(
+      ctx.systemDb.unsafeRaw(
+        "jsonb @> prefilter over the global users table to count remaining active SystemAdmins",
+      ),
+      event.payload.id,
+    );
     if (otherActiveSystemAdmins === 0) {
       return writeFailure(
         new ConflictError({

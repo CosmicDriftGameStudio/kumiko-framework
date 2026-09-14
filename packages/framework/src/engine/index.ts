@@ -2,7 +2,17 @@
 
 export { hasAccess } from "./access";
 export {
+  isPrincipalStatusPlugin,
+  isTenantLifecycleStatusPlugin,
+  type PrincipalProfile,
+  type PrincipalStatus,
+  type PrincipalStatusPlugin,
+  TENANT_TEARDOWN_STATUSES,
+  type TenantLifecycleStatusPlugin,
+} from "./active-membership";
+export {
   collectWriteHandlerQns,
+  SECURITY_BASELINE_FEATURE_NAMES,
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "./boot-validator";
@@ -89,12 +99,15 @@ export {
   EXT_EXTERNAL_RESOURCE,
   EXT_FILE_PROVIDER,
   EXT_INFRA_RESOURCE,
+  EXT_PRINCIPAL_STATUS,
   EXT_SEARCH_ADAPTER,
   EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
+  EXT_TENANT_LIFECYCLE_STATUS,
   EXT_USER_DATA,
   EXT_USER_DATA_ORDER,
   FILE_PROVIDER_CONFIG_KEY,
+  TENANT_MEMBERSHIPS_QUERY,
 } from "./extension-names";
 export type {
   StorageProviderDestroyTenantHook,
@@ -282,6 +295,9 @@ export {
 export type {
   AccessRule,
   ActionFormScreenDefinition,
+  ActiveMembership,
+  ActiveMembershipRejection,
+  ActiveMembershipResult,
   AgentExposure,
   AgentHandlerHints,
   AgentRisk,
@@ -358,6 +374,7 @@ export type {
   EntityListScreenDefinition,
   EntityRef,
   EntityRelations,
+  EscapeHatchDeclaration,
   EventDef,
   FeatureDefinition,
   FeatureRegistrar,
@@ -394,6 +411,7 @@ export type {
   ListSortSpec,
   LongTextFindability,
   ManyToManyRelation,
+  MemberReader,
   MetricNavigate,
   MetricSpec,
   MspErrorMode,
@@ -414,6 +432,9 @@ export type {
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
+  OpenToAllAccessRule,
+  OpenToAllDeclaration,
+  OpenToAllPersonalData,
   ParentRefDef,
   PersonalAnnotations,
   PersonalAnnotationsLongText,
@@ -459,6 +480,7 @@ export type {
   SecretsEditSection,
   SelectFieldDef,
   SessionUser,
+  SessionUserOrigin,
   StreamHandlerDef,
   StreamHandlerFn,
   Subscribe,
@@ -489,6 +511,7 @@ export {
   DEFAULT_LOCALES,
   HookPhases,
   isAgentVisibleScreen,
+  isOpenToAllGranted,
   resolveAgentExposure,
 } from "./types";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";

@@ -34,6 +34,13 @@ export type DrawerProps = {
    *  only on the edge facing the app content. Ignored in the narrow-viewport
    *  fullscreen layout. */
   readonly variant?: "floating" | "flush";
+  /** `variant="flush"` only: dock the panel below the app's ShellHeader
+   *  (offset top by `--shell-header-height`, height shrunk to match)
+   *  instead of covering it. Default `false` keeps today's edge-to-edge
+   *  behavior. No ShellHeader mounted → the variable is `0`, so this is a
+   *  no-op. Ignored in the narrow-viewport fullscreen layout, which already
+   *  takes over the whole screen including the header. */
+  readonly belowHeader?: boolean;
   /** Panel width for `side="left"|"right"` (ignored for top/bottom and in
    *  the narrow-viewport layout). A number is pixels, a string any CSS
    *  length. Superseded by `resize` when that's set. Default matches the
@@ -96,14 +103,22 @@ function sidePanelClass(
   side: "left" | "right" | "top" | "bottom",
   narrow: boolean,
   variant: "floating" | "flush",
+  belowHeader: boolean,
 ): string {
   if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
   if (variant === "flush") {
     switch (side) {
+      // left/right keep the `inset-y-0` class here even when belowHeader is
+      // set — DrawerSheetContent's own base className already carries
+      // `inset-y-0` for these sides, and tailwind-merge (v3.6, checked
+      // directly) does NOT dedupe `top-*`/`bottom-*` against it (unlike
+      // same-group `top-0` vs `top-(--x)`, which it does). Overriding top
+      // via inline `style` instead (Drawer's `verticalOffsetStyle`) always
+      // wins over both, without depending on that gap.
       case "left":
         return `inset-y-0 left-0 h-full ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
       case "top":
-        return "inset-x-0 top-0 h-auto max-h-[80vh] border-b shadow-2xl overflow-hidden";
+        return `inset-x-0 ${belowHeader ? "top-(--shell-header-height)" : "top-0"} h-auto max-h-[80vh] border-b shadow-2xl overflow-hidden`;
       case "bottom":
         return "inset-x-0 bottom-0 h-auto max-h-[80vh] border-t shadow-2xl overflow-hidden";
       default:
@@ -136,6 +151,7 @@ export function Drawer({
   testId,
   showCloseButton = true,
   variant = "floating",
+  belowHeader = false,
   width,
   resize,
   backdrop,
@@ -166,6 +182,17 @@ export function Drawer({
   };
 
   const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : resizedWidthPx;
+
+  // Overrides the base className's `inset-y-0` (top:0) as inline style —
+  // tailwind-merge doesn't dedupe `top-*`/`bottom-*` against `inset-y-*`
+  // (verified directly against the pinned tailwind-merge), so a class-only
+  // override would leave both `inset-y-0` and the offset in the className,
+  // with the winner then depending on Tailwind's generated CSS order. style
+  // always wins over a class for the same property, no such dependency.
+  const verticalOffsetStyle: React.CSSProperties | undefined =
+    belowHeader && variant === "flush" && !narrow && (side === "left" || side === "right")
+      ? { top: "var(--shell-header-height)", bottom: 0 }
+      : undefined;
 
   const onHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.preventDefault();
@@ -216,10 +243,13 @@ export function Drawer({
         data-testid={testId}
         overlayStyle={overlayStyle}
         showCloseButton={showCloseButton}
-        className={sidePanelClass(side, narrow, variant)}
-        style={
-          canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : customWidthStyle
-        }
+        className={sidePanelClass(side, narrow, variant, belowHeader)}
+        style={{
+          ...(canResize && !narrow
+            ? { width: effectiveWidthPx, maxWidth: "none" }
+            : customWidthStyle),
+          ...verticalOffsetStyle,
+        }}
       >
         {canResize && !narrow && (
           <button

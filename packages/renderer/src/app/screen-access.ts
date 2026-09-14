@@ -3,6 +3,7 @@ import type {
   EntityEditScreenDefinition,
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Minimal role-gate for the screen-render path (#1203 — nav filtering via
 // filterByAccess in workspace-shell.tsx hid role-gated screens from the
@@ -17,7 +18,7 @@ export function screenAccessAllows(
   userRoles: readonly string[] | undefined,
 ): boolean {
   if (!access) return true;
-  if ("openToAll" in access) return access.openToAll;
+  if ("openToAll" in access) return isOpenToAllGranted(access);
   if (userRoles === undefined) return false;
   return access.roles.some((role) => userRoles.includes(role));
 }

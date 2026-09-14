@@ -10,6 +10,7 @@ import {
   type DispatchWriteRef,
   type JobContext,
   type JobRunIn,
+  type MemberReader,
   type Registry,
   type SessionUser,
   SYSTEM_TENANT_ID,
@@ -552,6 +553,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             tenantId,
           })
         : context.derivatives;
+    // Per-job-run reader, created lazily on queryAsMember's first call and
+    // cached for the rest of this run.
+    let memberReader: MemberReader | undefined;
     const jobContext: JobContext = {
       ...context,
       // Same union as configDb above — job runners are always constructed
@@ -596,6 +600,16 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           );
         }
         return dispatchWriteRef.queryAs(user, qn, payload);
+      },
+      queryAsMember: (userId: string, qn: string, payload: unknown) => {
+        if (!dispatchWriteRef) {
+          throw new Error(
+            "JobContext.queryAsMember called before dispatcher attached — call attachDispatcher() first",
+          );
+        }
+        // Lazy per-run reader, mirroring the handler-context reader.
+        memberReader ??= dispatchWriteRef.createMemberReader(tenantId);
+        return memberReader(userId, qn, payload);
       },
     };
 

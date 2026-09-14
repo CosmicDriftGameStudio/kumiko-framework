@@ -45,6 +45,16 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async resolveAuthClaims(): Promise<Record<string, unknown>> {
       return {};
     },
+    // Not exercised by these routes — always "not_a_member" is fine.
+    async resolveActiveMembership() {
+      return { kind: "rejected", reason: "not_a_member" };
+    },
+    // Not exercised by these routes.
+    createMemberReader() {
+      return async () => {
+        throw new Error("createMemberReader not available in this stub");
+      };
+    },
   };
   return { ...base, ...overrides };
 }

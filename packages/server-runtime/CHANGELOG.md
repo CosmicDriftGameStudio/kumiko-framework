@@ -1,5 +1,77 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.268.0
+
+### Patch Changes
+
+- Updated dependencies [b16457a]
+  - @cosmicdrift/kumiko-framework@0.268.0
+  - @cosmicdrift/kumiko-bundled-features@0.268.0
+
+## 0.267.0
+
+### Patch Changes
+
+- Updated dependencies [e87ab51]
+  - @cosmicdrift/kumiko-framework@0.267.0
+  - @cosmicdrift/kumiko-bundled-features@0.267.0
+
+## 0.266.0
+
+### Patch Changes
+
+- Updated dependencies [4d36b68]
+  - @cosmicdrift/kumiko-framework@0.266.0
+  - @cosmicdrift/kumiko-bundled-features@0.266.0
+
+## 0.265.0
+
+### Patch Changes
+
+- Updated dependencies [371a263]
+  - @cosmicdrift/kumiko-framework@0.265.0
+  - @cosmicdrift/kumiko-bundled-features@0.265.0
+
+## 0.264.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.264.1
+- @cosmicdrift/kumiko-framework@0.264.1
+
+## 0.264.0
+
+### Patch Changes
+
+- Updated dependencies [d0184f7]
+  - @cosmicdrift/kumiko-framework@0.264.0
+  - @cosmicdrift/kumiko-bundled-features@0.264.0
+
+## 0.263.0
+
+### Patch Changes
+
+- Updated dependencies [cd255ca]
+- Updated dependencies [f6732fa]
+  - @cosmicdrift/kumiko-framework@0.263.0
+  - @cosmicdrift/kumiko-bundled-features@0.263.0
+
+## 0.262.0
+
+### Patch Changes
+
+- Updated dependencies [6fbede9]
+  - @cosmicdrift/kumiko-framework@0.262.0
+  - @cosmicdrift/kumiko-bundled-features@0.262.0
+
+## 0.261.0
+
+### Patch Changes
+
+- Updated dependencies [5139a3f]
+  - @cosmicdrift/kumiko-framework@0.261.0
+  - @cosmicdrift/kumiko-bundled-features@0.261.0
+
 ## 0.260.0
 
 ### Patch Changes

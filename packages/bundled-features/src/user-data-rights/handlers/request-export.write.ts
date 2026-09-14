@@ -14,10 +14,8 @@
 //      Catch + re-fetch + return existing als isExisting=true. Race-
 //      Window <1ms, in Production extrem selten.
 //
-// **Cross-Tenant-Semantik:** ExportJob ist tenant-agnostisch (1 Job pro
-// userId ueber alle Memberships). Pre-Check nutzt ctx.db.raw (kein
-// TenantDb-Filter) — Alice klickt aus Tenant A, klickt dann aus Tenant
-// B → Pre-Check aus B findet den A-Job, kein 2. Job entsteht.
+// **Cross-Tenant-Semantik:** ExportJob is tenant-agnostic (1 job per userId
+// across all memberships) — the pre-check uses ctx.db.unsafeRaw (no TenantDb filter) so a click from tenant B still finds the job from tenant A.
 // `requestedFromTenantId` persistiert den Initial-Tenant aus dem
 // 1. Klick — Worker liest sein Compliance-Profile aus DIESEM Tenant
 // fuer Job-TTL/Stale/Cleanup.
@@ -38,6 +36,9 @@ import {
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
+
+const REQUEST_EXPORT_REASON =
+  "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant";
 
 /**
  * Race-Loss-Detection: createEventStoreExecutor.create catched 23505
@@ -62,14 +63,18 @@ export const requestExportWrite = defineWriteHandler({
   access: { openToAll: true },
   description:
     "Queues a GDPR Art. 15 and 20 data export for the calling user and returns its job id, handing back the running job with isExisting true instead of a second one when an export is already pending.",
+  escapeHatch: {
+    reason: REQUEST_EXPORT_REASON,
+  },
   handler: async (event, ctx) => {
     const userId = event.user.id;
     const T = getTemporal();
     const now = T.Now.instant();
+    const exportJobRunner = ctx.db.unsafeRaw(REQUEST_EXPORT_REASON);
 
-    // Pre-Check: ctx.db.raw weil ExportJob tenant-agnostisch ist —
-    // der TenantDb-Wrapper wuerde Cross-Tenant-Jobs ausblenden.
-    const existing = await findActiveJob(ctx.db.raw, userId);
+    // Pre-Check: exportJobRunner bypasses the TenantDb-Filter — the
+    // TenantDb-Wrapper would hide cross-tenant jobs.
+    const existing = await findActiveJob(exportJobRunner, userId);
     if (existing) {
       // Snapshot-Status (kann zwischen fetchOne + Response stale werden
       // wenn Worker parallel den State flippt; window minimal). User
@@ -104,7 +109,7 @@ export const requestExportWrite = defineWriteHandler({
       // Constraint. Re-fetch + return existing als isExisting=true.
       // Andere Failures (validation, version-conflict, ...) propagieren.
       if (isActiveJobConflict(result)) {
-        const winner = await findActiveJob(ctx.db.raw, userId);
+        const winner = await findActiveJob(exportJobRunner, userId);
         if (!winner) {
           // Sollte nie passieren — Constraint-Violation ohne existing
           // active Job hiesse der Constraint matcht etwas anderes.

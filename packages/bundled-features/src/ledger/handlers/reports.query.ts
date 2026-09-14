@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { DEFAULT_LEDGER_ACCESS } from "../constants";
@@ -25,8 +24,8 @@ type QueryCtx = Parameters<QueryHandlerDef["handler"]>[1];
 async function loadBooks(
   ctx: QueryCtx,
 ): Promise<{ accounts: LedgerAccount[]; entries: LedgerEntry[] }> {
-  const accountRows = await selectMany(ctx.db.raw, accountTable, { tenantId: ctx.user.tenantId });
-  const txRows = await selectMany(ctx.db.raw, transactionTable, { tenantId: ctx.user.tenantId });
+  const accountRows = await ctx.db.selectMany(accountTable, { tenantId: ctx.user.tenantId });
+  const txRows = await ctx.db.selectMany(transactionTable, { tenantId: ctx.user.tenantId });
   return { accounts: toAccounts(accountRows), entries: toEntries(txRows) };
 }
 

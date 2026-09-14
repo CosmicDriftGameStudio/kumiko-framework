@@ -52,7 +52,13 @@ export type {
   SelectFieldDef,
   TextFieldDef,
 } from "../engine/types/fields";
-export type { AccessRule } from "../engine/types/handlers";
+export type {
+  AccessRule,
+  OpenToAllAccessRule,
+  OpenToAllDeclaration,
+  OpenToAllPersonalData,
+} from "../engine/types/handlers";
+export { isOpenToAllGranted } from "../engine/types/handlers";
 export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav";
 export type {
   ActionFormRedirect,

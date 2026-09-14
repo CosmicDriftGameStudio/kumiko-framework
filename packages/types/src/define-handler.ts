@@ -3,6 +3,7 @@ import type { KumikoEventTypeMap } from "./event-type-map";
 import type {
   AccessRule,
   AgentHandlerHints,
+  EscapeHatchDeclaration,
   HandlerContext,
   QueryEvent,
   RateLimitOption,
@@ -34,11 +35,12 @@ export type WriteHandlerDefinition<
 > = {
   readonly name: TName;
   readonly schema: TSchema;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,
@@ -61,11 +63,12 @@ export type WriteHandlerInput<
 > = {
   readonly name: TName;
   readonly schema: TSchema;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 } & (
   | {
       readonly handler: (
@@ -90,10 +93,11 @@ export type QueryHandlerDefinition<
 > = {
   readonly name: TName;
   readonly schema: TSchema;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,
@@ -120,8 +124,12 @@ export type StreamHandlerDefinition<
 > = {
   readonly name: TName;
   readonly schema: TSchema;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  // Stream handlers can't reach db.global() (that gate is write-only), but
+  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // in, same contract as WriteHandlerDefinition.escapeHatch.
+  readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,

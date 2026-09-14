@@ -1,10 +1,22 @@
 import type { SseBroker } from "../api/sse-broker";
 import type { buildEntityTable } from "../db/table-builder";
+import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
-import type { AppContext, JobRunnerRef, Registry, SessionUser, WriteResult } from "../engine/types";
+import type {
+  ActiveMembershipResult,
+  AppContext,
+  DispatchWriteRef,
+  JobRunnerRef,
+  MemberReader,
+  Registry,
+  SessionUser,
+  WriteResult,
+} from "../engine/types";
+import type { TenantId } from "../engine/types/identifiers";
 import { reraiseAsKumikoError } from "../errors";
 import { getFallbackMeter, getFallbackTracer, registerStandardMetrics } from "../observability";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
 import { runBatch, unwrapSingle } from "./dispatch-batch";
 import { executeQuery } from "./dispatch-query";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared";
@@ -13,6 +25,7 @@ import { executeStream } from "./dispatch-stream";
 import { type HandlerType, resolveType } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { createMemberReaderFn } from "./member-reader";
 import { createTenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
@@ -25,6 +38,9 @@ export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;
   lifecycle?: LifecycleHooks;
   jobRunner?: JobRunnerRef;
+  // Qualified name of the membership-list query handler consulted by
+  // dispatcher.resolveActiveMembership. Defaults to TENANT_MEMBERSHIPS_QUERY.
+  membershipQuery?: string;
   // Resolves the effective-feature set per tenant — the dispatcher uses
   // it to gate calls to handlers of disabled features (403 feature_disabled)
   // and to populate ctx.hasFeature. Absent = all features treated as
@@ -81,7 +97,23 @@ export type Dispatcher = {
   // This is the single resolve implementation — ctx.resolveAuthClaims is a
   // thin pass-through so both entry points can't drift.
   resolveAuthClaims(user: SessionUser): Promise<Record<string, unknown>>;
+  // Membership check for interactive sign-in paths (login, MFA completion,
+  // tenant switch) — single resolve implementation so callers can't independently drift.
+  resolveActiveMembership(userId: string, tenantId: TenantId): Promise<ActiveMembershipResult>;
+  // Trusted server surface, ungated like resolveActiveMembership.
+  // Handler/hook ctx.queryAsMember uses buildHandlerContext's own gated reader instead.
+  createMemberReader(tenantId: TenantId): MemberReader;
 };
+
+// Adapts Dispatcher's (type, payload, user) call shape to DispatchWriteRef's
+// (user, qn, payload) — JobRunner.attachDispatcher needs the latter.
+export function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
+  return {
+    write: (user, qn, payload) => dispatcher.write(qn, payload, user),
+    queryAs: (user, qn, payload) => dispatcher.query(qn, payload, user),
+    createMemberReader: (tenantId) => dispatcher.createMemberReader(tenantId),
+  };
+}
 
 export function createDispatcher(
   registry: Registry,
@@ -89,6 +121,7 @@ export function createDispatcher(
   options: DispatcherOptions = {},
 ): Dispatcher {
   const { idempotency, lifecycle, jobRunner, effectiveFeatures, sseBroker } = options;
+  const membershipQuery = options.membershipQuery ?? TENANT_MEMBERSHIPS_QUERY;
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildEntityTable>>();
@@ -116,6 +149,7 @@ export function createDispatcher(
     tenantTimezoneCache,
     tracer: dispatcherTracer,
     meter: dispatcherMeter,
+    membershipQuery,
   };
 
   return {
@@ -143,5 +177,10 @@ export function createDispatcher(
     },
 
     resolveAuthClaims: (user) => resolveAuthClaimsFn(ctx, user),
+
+    resolveActiveMembership: (userId, tenantId) =>
+      resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY),
+
+    createMemberReader: (tenantId) => createMemberReaderFn(ctx, tenantId),
   };
 }

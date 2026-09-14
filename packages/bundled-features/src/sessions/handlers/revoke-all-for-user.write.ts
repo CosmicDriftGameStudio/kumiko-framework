@@ -13,6 +13,9 @@ import {
   sessionRevokedSchema,
 } from "../session-revoked-event";
 
+const REVOKE_ALL_SESSIONS_REASON =
+  "revokes the target user's sessions in every tenant and appends the audit event on the SYSTEM stream";
+
 // Mass-revoke ALL live sessions for a target user — privileged-only.
 // Used by user-data-rights:restrict-account for account-freeze (DSGVO
 // Art. 18) and potentially other ops flows ("ban user", "compromised
@@ -37,9 +40,13 @@ export const revokeAllForUserWrite = defineWriteHandler({
   description:
     "Irreversibly signs a named user out of all their live sessions, across every tenant unless a tenantId narrows it; use it for operator actions such as freezing or banning an account.",
   agent: { risk: "high" },
+  escapeHatch: {
+    reason: REVOKE_ALL_SESSIONS_REASON,
+  },
   handler: async (event, ctx) => {
+    const runner = ctx.db.unsafeRaw(REVOKE_ALL_SESSIONS_REASON);
     const updated = await updateMany<{ id: string }>(
-      ctx.db.raw,
+      runner,
       userSessionTable,
       { revokedAt: Temporal.Now.instant() },
       {
@@ -79,7 +86,7 @@ export const revokeAllForUserWrite = defineWriteHandler({
         sessionIds: updated.map((row) => row.id),
       });
       const reqCtx = requestContext.get();
-      await append(ctx.db.raw, {
+      await append(runner, {
         aggregateId: generateId(),
         aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
         tenantId: SYSTEM_TENANT_ID,

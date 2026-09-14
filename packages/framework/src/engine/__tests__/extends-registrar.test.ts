@@ -1,6 +1,26 @@
 import { describe, expect, mock, test } from "bun:test";
 import { z } from "zod";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
+import { AccessDeniedError } from "../../errors";
+import { createGatedIdentitySwitch, type QueryAsFn } from "../../pipeline/system-identity-switch";
+import {
+  createEntity,
+  createRegistry,
+  createSystemUser,
+  createTextField,
+  defineFeature,
+} from "../index";
+import type { AppContext, SaveContext } from "../types";
+import type { TenantId } from "../types/identifiers";
+
+const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
+const dummySaveContext: SaveContext = {
+  kind: "save",
+  id: "vehicle-1" as SaveContext["id"],
+  data: {},
+  changes: {},
+  previous: {},
+  isNew: true,
+};
 
 describe("extendsRegistrar", () => {
   test("r.useExtension records usage with name, entity, and options", () => {
@@ -115,10 +135,15 @@ describe("extendsRegistrar", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       );
-      r.writeHandler("create", z.object({ name: z.string() }), async () => ({
-        isSuccess: true as const,
-        data: { id: "c1" },
-      }));
+      r.writeHandler(
+        "create",
+        z.object({ name: z.string() }),
+        async () => ({
+          isSuccess: true as const,
+          data: { id: "c1" },
+        }),
+        { access: { openToAll: true } },
+      );
       r.useExtension("audited", "credit");
     });
 
@@ -127,7 +152,7 @@ describe("extendsRegistrar", () => {
     expect(hooks.length).toBeGreaterThan(0);
   });
 
-  test("extension preSave hooks fire for entity-scoped handlers", () => {
+  test("extension preSave hooks fire for entity-scoped handlers", async () => {
     const preSaveFn = mock(async (changes: Record<string, unknown>) => changes);
 
     const ext = defineFeature("audit", (r) => {
@@ -149,27 +174,43 @@ describe("extendsRegistrar", () => {
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
-      r.writeHandler("vehicle:create", z.object({ name: z.string() }), async () => ({
-        isSuccess: true as const,
-        data: { id: "v1" },
-      }));
-      r.writeHandler("vehicle:update", z.object({ id: z.string() }), async () => ({
-        isSuccess: true as const,
-        data: { id: "v1" },
-      }));
+      r.writeHandler(
+        "vehicle:create",
+        z.object({ name: z.string() }),
+        async () => ({
+          isSuccess: true as const,
+          data: { id: "v1" },
+        }),
+        { access: { openToAll: true } },
+      );
+      r.writeHandler(
+        "vehicle:update",
+        z.object({ id: z.string() }),
+        async () => ({
+          isSuccess: true as const,
+          data: { id: "v1" },
+        }),
+        { access: { openToAll: true } },
+      );
       r.useExtension("audited", "vehicle");
     });
 
     const registry = createRegistry([ext, consumer]);
     const createHooks = registry.getPreSaveHooks("fleet:write:vehicle:create");
     expect(createHooks).toHaveLength(1);
-    expect(createHooks[0]).toBe(preSaveFn);
+    // Hook is wrapped for the SYSTEM gate (system-identity-switch.ts), so it's no longer reference-equal to preSaveFn.
+    const preSaveContext = { previous: {}, isNew: true } as AppContext & {
+      previous: Readonly<Record<string, unknown>>;
+      isNew: boolean;
+    };
+    await createHooks[0]?.({ name: "x" }, preSaveContext);
+    expect(preSaveFn).toHaveBeenCalledTimes(1);
 
     const updateHooks = registry.getPreSaveHooks("fleet:write:vehicle:update");
     expect(updateHooks).toHaveLength(1);
   });
 
-  test("extension postSave hooks are entity hooks", () => {
+  test("extension postSave hooks are entity hooks", async () => {
     const postSaveFn = mock(async () => {});
 
     const ext = defineFeature("audit", (r) => {
@@ -187,6 +228,51 @@ describe("extendsRegistrar", () => {
     const registry = createRegistry([ext, consumer]);
     const hooks = registry.getEntityPostSaveHooks("vehicle");
     expect(hooks).toHaveLength(1);
-    expect(hooks[0]).toBe(postSaveFn);
+    await hooks[0]?.(dummySaveContext, {} as AppContext);
+    expect(postSaveFn).toHaveBeenCalledTimes(1);
+  });
+
+  test("extension postSave hook cannot switch identity to SYSTEM — no declaration site to opt in with", async () => {
+    const ungatedQueryAs = mock(async () => "ok");
+    const ungated = {
+      queryAs: ungatedQueryAs as QueryAsFn,
+      writeAs: async () => ({ isSuccess: true as const, data: null }),
+    };
+    // Simulates a handler whose OWN grant is allow=true (escapeHatch or
+    // systemScope) — the extension hook must not inherit this.
+    const handlerCtx = createGatedIdentitySwitch(
+      'handler "fleet:write:vehicle:create"',
+      true,
+      ungated,
+    );
+
+    let caught: unknown;
+    const ext = defineFeature("audit", (r) => {
+      r.extendsRegistrar("audited", {
+        hooks: {
+          postSave: async (_result, ctx) => {
+            const asContext = ctx as unknown as { queryAs: QueryAsFn };
+            try {
+              await asContext.queryAs(createSystemUser(TENANT), "whoami", {});
+            } catch (err) {
+              caught = err;
+            }
+          },
+        },
+      });
+    });
+    const consumer = defineFeature("fleet", (r) => {
+      r.entity("vehicle", createEntity({ table: "Vehicles", fields: {} }));
+      r.useExtension("audited", "vehicle");
+    });
+
+    const registry = createRegistry([ext, consumer]);
+    const hooks = registry.getEntityPostSaveHooks("vehicle");
+    expect(hooks).toHaveLength(1);
+
+    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+
+    expect(caught).toBeInstanceOf(AccessDeniedError);
+    expect(ungatedQueryAs).not.toHaveBeenCalled();
   });
 });

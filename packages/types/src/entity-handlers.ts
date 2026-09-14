@@ -2,7 +2,7 @@ import type { EntityDefinition } from "./fields";
 import type { AccessRule, AgentHandlerHints, QueryHandlerDef, WriteHandlerDef } from "./handlers";
 
 export type EntityHandlerOptions = {
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   /** Reads and writes across every tenant instead of the caller's own — for a
@@ -26,9 +26,14 @@ export type EntityQueryHandlerOptions = EntityHandlerOptions;
 
 export type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
 
+// `access` stays optional here — registerEntityCrud resolves it per-verb from `verbAccess`, falling back to this default.
+export type EntityCrudHandlerDefaults = Omit<EntityHandlerOptions, "access"> & {
+  readonly access?: AccessRule;
+};
+
 export type RegisterEntityCrudOptions = {
-  readonly write?: EntityHandlerOptions;
-  readonly read?: EntityQueryHandlerOptions;
+  readonly write?: EntityCrudHandlerDefaults;
+  readonly read?: EntityCrudHandlerDefaults;
   readonly verbs?: Partial<Record<EntityCrudVerb, boolean>>;
   /** Per-verb access override — falls back to `write.access`/`read.access` when unset for a verb. */
   readonly verbAccess?: Partial<Record<EntityCrudVerb, AccessRule>>;

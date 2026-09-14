@@ -37,29 +37,35 @@ const noteEntitySoftDelete = createEntity({
   softDelete: true,
 });
 
+const adminAccess = { access: { roles: ["Admin"] } } as const;
+
 describe("defineEntityWriteHandler", () => {
   test("throws when name has no colon", () => {
-    expect(() => defineEntityWriteHandler("note", noteEntity)).toThrow(/<entity>:<verb>/);
+    expect(() => defineEntityWriteHandler("note", noteEntity, adminAccess)).toThrow(
+      /<entity>:<verb>/,
+    );
   });
 
   test("throws when entity part is empty", () => {
-    expect(() => defineEntityWriteHandler(":create", noteEntity)).toThrow(
+    expect(() => defineEntityWriteHandler(":create", noteEntity, adminAccess)).toThrow(
       /missing the entity part/,
     );
   });
 
   test("throws when verb is unknown", () => {
-    expect(() => defineEntityWriteHandler("note:archive", noteEntity)).toThrow(
+    expect(() => defineEntityWriteHandler("note:archive", noteEntity, adminAccess)).toThrow(
       /Unknown verb "archive"/,
     );
   });
 
   test("throws when restore is requested on an entity without softDelete", () => {
-    expect(() => defineEntityRestoreHandler("note", noteEntity)).toThrow(/restore is only valid/);
+    expect(() => defineEntityRestoreHandler("note", noteEntity, adminAccess)).toThrow(
+      /restore is only valid/,
+    );
   });
 
   test("create: handler def carries name, schema, handler", () => {
-    const def = defineEntityCreateHandler("note", noteEntity);
+    const def = defineEntityCreateHandler("note", noteEntity, adminAccess);
     expect(def.name).toBe("note:create");
     expect(typeof def.handler).toBe("function");
     expect(def.schema.safeParse({ title: "x" }).success).toBe(true);
@@ -67,7 +73,7 @@ describe("defineEntityWriteHandler", () => {
   });
 
   test("update: schema requires id + version + changes", () => {
-    const def = defineEntityUpdateHandler("note", noteEntity);
+    const def = defineEntityUpdateHandler("note", noteEntity, adminAccess);
     expect(
       def.schema.safeParse({ id: VALID_UUID, version: 1, changes: { title: "x" } }).success,
     ).toBe(true);
@@ -76,13 +82,13 @@ describe("defineEntityWriteHandler", () => {
   });
 
   test("delete: schema requires only id", () => {
-    const def = defineEntityDeleteHandler("note", noteEntity);
+    const def = defineEntityDeleteHandler("note", noteEntity, adminAccess);
     expect(def.schema.safeParse({ id: VALID_UUID }).success).toBe(true);
     expect(def.schema.safeParse({}).success).toBe(false);
   });
 
   test("restore: schema requires only id (with softDelete)", () => {
-    const def = defineEntityRestoreHandler("note", noteEntitySoftDelete);
+    const def = defineEntityRestoreHandler("note", noteEntitySoftDelete, adminAccess);
     expect(def.schema.safeParse({ id: VALID_UUID }).success).toBe(true);
     expect(def.schema.safeParse({}).success).toBe(false);
   });
@@ -94,21 +100,21 @@ describe("defineEntityWriteHandler", () => {
     expect(def.access).toEqual({ roles: ["Admin"] });
   });
 
-  test("omitting access leaves the handler def's access unset", () => {
-    const def = defineEntityCreateHandler("note", noteEntity);
-    expect(def.access).toBeUndefined();
+  test("access is now a required option — omitting it is a type error", () => {
+    // @ts-expect-error access is required since fw#2855 — no implicit openToAll.
+    expect(() => defineEntityCreateHandler("note", noteEntity)).toThrow();
   });
 });
 
 describe("defineEntityQueryHandler", () => {
   test("throws when verb is unknown (write verbs are not allowed here)", () => {
-    expect(() => defineEntityQueryHandler("note:create", noteEntity)).toThrow(
+    expect(() => defineEntityQueryHandler("note:create", noteEntity, adminAccess)).toThrow(
       /Unknown verb "create"/,
     );
   });
 
   test("list: schema accepts the standard pagination/search/sort params", () => {
-    const def = defineEntityListHandler("note", noteEntity);
+    const def = defineEntityListHandler("note", noteEntity, adminAccess);
     expect(def.schema.safeParse({}).success).toBe(true);
     expect(
       def.schema.safeParse({
@@ -123,7 +129,7 @@ describe("defineEntityQueryHandler", () => {
   });
 
   test("list: schema is the exported entityListSchema, not a private copy", () => {
-    const def = defineEntityListHandler("note", noteEntity);
+    const def = defineEntityListHandler("note", noteEntity, adminAccess);
     expect(def.schema).toBe(entityListSchema);
     // money-horse#293: a consumer copy silently dropped these fields when it
     // drifted from the handler's actual schema — assert they still round-trip.
@@ -136,7 +142,7 @@ describe("defineEntityQueryHandler", () => {
   });
 
   test("detail: schema requires id", () => {
-    const def = defineEntityDetailHandler("note", noteEntity);
+    const def = defineEntityDetailHandler("note", noteEntity, adminAccess);
     expect(def.schema.safeParse({ id: VALID_UUID }).success).toBe(true);
     expect(def.schema.safeParse({}).success).toBe(false);
   });
@@ -186,6 +192,7 @@ describe("defineProjectionQueryHandler", () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
+      { access: { openToAll: true } },
     );
     const fakeRows = [{ customer: "a", totalCents: 100 }];
     const ctx = {
@@ -208,7 +215,7 @@ describe("defineProjectionQueryHandler", () => {
     const def = defineProjectionQueryHandler(
       "revenue:list",
       "showcase:projection:customer-revenue",
-      { unsafeAllTenants: true },
+      { access: { openToAll: true }, unsafeAllTenants: true },
     );
     const ctx = { queryProjection: mock().mockResolvedValue([]) };
     await def.handler(
@@ -222,12 +229,11 @@ describe("defineProjectionQueryHandler", () => {
     });
   });
 
-  test("omitting access leaves the handler def's access unset", () => {
-    const def = defineProjectionQueryHandler(
-      "revenue:list",
-      "showcase:projection:customer-revenue",
-    );
-    expect(def.access).toBeUndefined();
+  test("access is now a required option — omitting it is a type error", () => {
+    expect(() =>
+      // @ts-expect-error access is required since fw#2855 — no implicit openToAll.
+      defineProjectionQueryHandler("revenue:list", "showcase:projection:customer-revenue"),
+    ).toThrow();
   });
 });
 
@@ -247,22 +253,24 @@ describe("Verb-specific entity-handler factories", () => {
   });
 
   test("defineEntityUpdateHandler produziert <entity>:update", () => {
-    const def = defineEntityUpdateHandler("note", noteEntity);
+    const def = defineEntityUpdateHandler("note", noteEntity, adminAccess);
     expect(def.name).toBe("note:update");
   });
 
   test("defineEntityDeleteHandler produziert <entity>:delete", () => {
-    const def = defineEntityDeleteHandler("note", noteEntity);
+    const def = defineEntityDeleteHandler("note", noteEntity, adminAccess);
     expect(def.name).toBe("note:delete");
   });
 
   test("defineEntityRestoreHandler produziert <entity>:restore (auf softDelete-Entity)", () => {
-    const def = defineEntityRestoreHandler("note", noteEntitySoftDelete);
+    const def = defineEntityRestoreHandler("note", noteEntitySoftDelete, adminAccess);
     expect(def.name).toBe("note:restore");
   });
 
   test("defineEntityRestoreHandler ohne softDelete → throw (Runtime-Guard bleibt)", () => {
-    expect(() => defineEntityRestoreHandler("note", noteEntity)).toThrow(/softDelete: true/);
+    expect(() => defineEntityRestoreHandler("note", noteEntity, adminAccess)).toThrow(
+      /softDelete: true/,
+    );
   });
 
   test("defineEntityListHandler produziert <entity>:list", () => {
@@ -274,7 +282,7 @@ describe("Verb-specific entity-handler factories", () => {
   });
 
   test("defineEntityDetailHandler produziert <entity>:detail", () => {
-    const def = defineEntityDetailHandler("note", noteEntity);
+    const def = defineEntityDetailHandler("note", noteEntity, adminAccess);
     expect(def.name).toBe("note:detail");
   });
 
@@ -284,8 +292,8 @@ describe("Verb-specific entity-handler factories", () => {
     // defineEntityCreateHandler("note", ...) sein. Wir vergleichen
     // hier die Schema-Identitäten + Handler-Namen; Behavior-Tests des
     // Executors leben in event-store-executor.integration.ts.
-    const newApi = defineEntityCreateHandler("note", noteEntity);
-    const legacyApi = defineEntityCreateHandler("note", noteEntity);
+    const newApi = defineEntityCreateHandler("note", noteEntity, adminAccess);
+    const legacyApi = defineEntityCreateHandler("note", noteEntity, adminAccess);
     expect(newApi.name).toBe(legacyApi.name);
     expect(typeof newApi.handler).toBe("function");
     expect(typeof legacyApi.handler).toBe("function");
@@ -337,17 +345,16 @@ describe("registerEntityCrud", () => {
   test("verbs.delete: false skips delete handler", () => {
     const { r, writes } = createCrudRegistrarMock();
     registerEntityCrud(r, "note", noteEntity, {
+      write: adminAccess,
+      read: adminAccess,
       verbs: { delete: false },
     });
     expect(writes.map((w) => w.name)).toEqual(["note:create", "note:update"]);
   });
 
-  test("no options → handlers have no access (no implicit openToAll)", () => {
-    const { r, writes, queries } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity);
-    for (const def of [...writes, ...queries]) {
-      expect(def.access).toBeUndefined();
-    }
+  test("no options → registration throws (no implicit openToAll)", () => {
+    const { r } = createCrudRegistrarMock();
+    expect(() => registerEntityCrud(r, "note", noteEntity)).toThrow(/no access rule resolved/);
   });
 
   test("restore verb on entity without softDelete throws", () => {
@@ -361,6 +368,7 @@ describe("registerEntityCrud", () => {
     const { r, entities, writes } = createCrudRegistrarMock();
     r.entity("note", noteEntity);
     registerEntityCrud(r, "note", noteEntity, {
+      write: adminAccess,
       registerEntity: false,
       verbs: { update: false, delete: false, restore: false, list: false, detail: false },
     });
@@ -370,6 +378,8 @@ describe("registerEntityCrud", () => {
   test("descriptions: per-verb text lands on that verb only, and drives agent exposure", () => {
     const { r, writes, queries } = createCrudRegistrarMock();
     registerEntityCrud(r, "note", noteEntity, {
+      write: adminAccess,
+      read: adminAccess,
       descriptions: {
         create: "Files a new note.",
         list: "Lists notes newest first.",
@@ -398,7 +408,7 @@ describe("registerEntityCrud", () => {
   test("descriptions: per-verb entry wins over the write/read fallback", () => {
     const { r, writes } = createCrudRegistrarMock();
     registerEntityCrud(r, "note", noteEntity, {
-      write: { description: "Shared write text." },
+      write: { access: { roles: ["Admin"] }, description: "Shared write text." },
       descriptions: { create: "Files a new note." },
       verbs: { list: false, detail: false },
     });
@@ -409,10 +419,12 @@ describe("registerEntityCrud", () => {
 
   test("agent hints on the per-handler options raise the resolved risk", () => {
     const del = defineEntityDeleteHandler("note", noteEntity, {
+      access: { roles: ["Admin"] },
       description: "Deletes a note permanently.",
       agent: { risk: "high" },
     });
     const create = defineEntityCreateHandler("note", noteEntity, {
+      access: { roles: ["Admin"] },
       description: "Files a new note.",
     });
 

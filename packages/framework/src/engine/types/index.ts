@@ -138,6 +138,9 @@ export type {
 } from "@cosmicdrift/kumiko-types/fields";
 export type {
   AccessRule,
+  ActiveMembership,
+  ActiveMembershipRejection,
+  ActiveMembershipResult,
   AgentExposure,
   AgentHandlerHints,
   AgentRisk,
@@ -156,6 +159,7 @@ export type {
   DeclarativeEventMigration,
   DispatchWriteRef,
   EntityRef,
+  EscapeHatchDeclaration,
   EventDef,
   EventMigrationDef,
   EventPiiFields,
@@ -167,11 +171,15 @@ export type {
   HandlerRef,
   JobContext,
   JobRunnerRef,
+  MemberReader,
   NameOrRef,
   NotifyFactory,
   NotifyFn,
   NotifyOptions,
   NotifyPriority,
+  OpenToAllAccessRule,
+  OpenToAllDeclaration,
+  OpenToAllPersonalData,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,
@@ -179,6 +187,7 @@ export type {
   RateLimitOption,
   RateLimitPer,
   SessionUser,
+  SessionUserOrigin,
   StreamHandlerDef,
   StreamHandlerFn,
   TryAppendEventFn,
@@ -189,6 +198,7 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
+export { isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
 export type {
   DeleteContext,
   EntityHookMap,

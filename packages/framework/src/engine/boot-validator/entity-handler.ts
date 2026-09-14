@@ -143,7 +143,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
       if (!handler.access) {
         throw new Error(
           `${label} handler "${feature.name}:${kind}:${name}" is missing an access rule. ` +
-            `Set { roles: [...] } for role-based access, or { openToAll: true } for any authenticated user.`,
+            `Set { roles: [...] } for role-based access, or { openToAll: { reason: "..." } } for any authenticated user.`,
         );
       }
       validateAnonymousRateLimit(feature.name, kind, name, handler.access, handler.rateLimit);

@@ -21,8 +21,8 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 // kann abweichen).
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
-// `conn` ist ctx.db.raw (regulaere Handler) ODER die offene tx (forget-cleanup
-// Sub-Tx) — so bleibt der Event-Append atomar mit dem umgebenden Write.
+// `conn` is ctx.db.unsafeRaw(reason) (regular handlers) or the open tx
+// (forget-cleanup sub-tx) — keeps the event append atomic with the write.
 export async function updateUserLifecycle(
   conn: DbRunner,
   userId: string,

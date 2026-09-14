@@ -45,6 +45,14 @@ export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (value["openToAll"] === true) {
     return { openToAll: true };
   }
+  const openToAll = value["openToAll"];
+  if (isPlainObject(openToAll) && typeof openToAll["reason"] === "string") {
+    const personalData =
+      openToAll["personalData"] === "tenant-members"
+        ? { personalData: "tenant-members" as const }
+        : {};
+    return { openToAll: { reason: openToAll["reason"], ...personalData } };
+  }
   return undefined;
 }
 

@@ -116,6 +116,15 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     name: "invite-accept-with-login",
     schema: InviteAcceptWithLoginSchema,
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Anonymous invite-accept has no session in the invited tenant yet — checks existing " +
+        "membership via ctx.queryAs(SYSTEM, tenant:query:memberships) of the invitation's tenant. " +
+        "Also reads the pending invitation by id (the invitee is not yet a member of the " +
+        "invitation's tenant), adds the membership and accepts the invitation in the " +
+        "invitation's tenant, which differs from the caller's tenant, and reads the MFA " +
+        "enrollment of that tenant via the mfaStatusChecker callback.",
+    },
     agent: { expose: false },
     // kumiko-lint-ignore complexity-budget reuses login.write.ts's gate chain (lockout/password/email/status/membership/mfa) plus invite-specific branches (email match, already-member check, invitation update, unburn-on-failure) — splitting would scatter gate order across functions without reducing risk
     handler: async (event, ctx) => {
@@ -149,9 +158,13 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
       let committed = false;
       try {
-        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
-          id: invitationId,
-        });
+        const invitation = await fetchOne<InvitationRow>(
+          ctx.db.unsafeRaw(
+            "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant",
+          ),
+          tenantInvitationsTable,
+          { id: invitationId },
+        );
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
@@ -173,7 +186,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         // login.write.ts runs (see login-gates.test.ts for the gate contracts).
         // Email uniqueness is partial on live rows (framework#2593) — without
         // this filter the lookup can resolve a soft-deleted row.
-        const userRow = await fetchOne<UserAuthRow>(ctx.db.raw, userTable, {
+        const userRow = await ctx.db.global(userTable).fetchOne<UserAuthRow>({
           email: invitationEmail,
           isDeleted: false,
         });
@@ -210,7 +223,9 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         )) as Array<{ tenantId: string }>; // @cast-boundary db-row
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
-        const dbConn = ctx.db.raw;
+        const dbConn = ctx.db.unsafeRaw(
+          "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant",
+        );
 
         if (!alreadyMember) {
           const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);

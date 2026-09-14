@@ -9,6 +9,7 @@ import type {
   AppendEventArgs,
   FetchForWritingArgs,
   HandlerContext,
+  MemberReader,
   SessionUser,
   WriteResult,
 } from "../engine/types";
@@ -57,6 +58,8 @@ export function bridgeStub(opts?: {
   | "loadAggregateWithSnapshot"
   | "queryProjection"
   | "resolveAuthClaims"
+  | "resolveActiveMembership"
+  | "queryAsMember"
   | "hasFeature"
   | "metrics"
   | "metricsFor"
@@ -118,6 +121,10 @@ export function bridgeStub(opts?: {
     resolveAuthClaims: notAvailable(
       "resolveAuthClaims",
     ) as unknown as HandlerContext["resolveAuthClaims"],
+    resolveActiveMembership: notAvailable(
+      "resolveActiveMembership",
+    ) as unknown as HandlerContext["resolveActiveMembership"],
+    queryAsMember: notAvailable("queryAsMember") as unknown as MemberReader,
     // Stub defaults to always-enabled — matches the dispatcher's behaviour
     // when no effectiveFeatures resolver is wired (tests without toggles).
     hasFeature: async () => true,

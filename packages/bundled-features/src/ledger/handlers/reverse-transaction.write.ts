@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
   ConflictError,
@@ -48,7 +47,7 @@ export function createReverseTransactionHandler(
       // an independently-balanced Storno (the global trial balance stays 0
       // either way, masking the bug), doubling the per-account effect. The
       // reference column ties a Storno back to its original 1:1.
-      const alreadyReversed = await selectMany(ctx.db.raw, transactionTable, {
+      const alreadyReversed = await ctx.db.selectMany(transactionTable, {
         tenantId: event.user.tenantId,
         reference: payload.id,
       });

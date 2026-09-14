@@ -44,6 +44,13 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     name: "request-deletion",
     schema: z.object({}),
     access: { openToAll: true },
+    escapeHatch: {
+      reason:
+        "startDeletionGracePeriod reads the tenant compliance profile via ctx.queryAs(SYSTEM, " +
+        "...) to compute the grace period end — the calling user's own identity has no read " +
+        "access to that tenant-config projection. It also appends the user lifecycle event on " +
+        "the SYSTEM_TENANT_ID user stream.",
+    },
     description:
       "Starts the GDPR Art. 17 deletion of the calling user's own account by arming the grace period from the tenant compliance profile and mailing a confirmation, after which only cancel-deletion can stop the erasure.",
     agent: { risk: "high" },

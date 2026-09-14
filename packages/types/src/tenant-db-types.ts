@@ -1,8 +1,9 @@
 import type { DbRunner } from "./db-connection";
 import type { EntityTableMeta } from "./entity-table-meta-types";
-import type { NotExecutorOnly } from "./executor-brand";
+import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand";
 import type { TenantId } from "./identifiers";
 import type { SchemaTable } from "./schema-table-types";
+import type { TenancyBrand } from "./tenancy-brand";
 import type { SelectOptions, WhereObject } from "./where-clause-types";
 
 // Method-form writes reject the executor-only brand exactly like the free-function
@@ -13,6 +14,28 @@ import type { SelectOptions, WhereObject } from "./where-clause-types";
 // EntityTables (its `[EXECUTOR_ONLY]: true` violates the optional-never). Reads keep
 // the plain `SchemaTable` param.
 type WritableTable = (SchemaTable | EntityTableMeta) & NotExecutorOnly;
+
+// db.global(table)'s surface: reads are unrestricted; writes require the managed
+// EntityTable's executor-only brand to be absent (mirrors WritableTable above).
+type GlobalReads = {
+  selectMany<T = Record<string, unknown>>(
+    where?: WhereObject,
+    options?: SelectOptions,
+  ): Promise<readonly T[]>;
+  fetchOne<T = Record<string, unknown>>(where: WhereObject): Promise<T | undefined>;
+};
+type GlobalWrites = {
+  insertOne<T = Record<string, unknown>>(values: Record<string, unknown>): Promise<T | undefined>;
+  updateMany<T = Record<string, unknown>>(
+    set: Record<string, unknown>,
+    where: WhereObject,
+  ): Promise<readonly T[]>;
+  deleteMany(where: WhereObject): Promise<void>;
+};
+// Checks `extends ExecutorOnly`, not `NotExecutorOnly` — the latter's optional-never
+// property is a TS "weak type" that would silently collapse every TTable to GlobalReads.
+export type GlobalTableDb<TTable> = GlobalReads &
+  (TTable extends ExecutorOnly ? unknown : GlobalWrites);
 
 /**
  * TenantDb scope modes:
@@ -34,15 +57,30 @@ export type TenantDb = {
    * Underlying DbRunner. Framework-internal use (event-store, migrations) —
    * bypasses tenant-filter. Feature code uses the typed helpers above so the
    * automatic scoping stays intact.
+   * @deprecated Use `ctx.db.unsafeRaw(reason)` / `db.global(table)` (method-
+   * form) instead — both make the cross-tenant intent an explicit, named
+   * declaration instead of a silent unfiltered escape hatch. Removal fw#2860.
    */
   readonly raw: DbRunner;
+  /**
+   * Unfiltered DbRunner escape hatch for handlers/hooks that declare `escapeHatch: { reason }`.
+   * Throws `AccessDeniedError` when ungranted, or `Error` when `reason` is empty.
+   */
+  unsafeRaw(reason: string): DbRunner;
+  /**
+   * Reach a "global" table with the tenant filter lifted — reads always work; writes
+   * reject unless the write handler declared `escapeHatch: { reason }`. "tenant"-tenancy is a compile error here.
+   */
+  global<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
+    table: TTable,
+  ): GlobalTableDb<TTable>;
   selectMany<T = Record<string, unknown>>(
-    table: SchemaTable,
+    table: SchemaTable | EntityTableMeta,
     where?: WhereObject,
     options?: SelectOptions,
   ): Promise<readonly T[]>;
   fetchOne<T = Record<string, unknown>>(
-    table: SchemaTable,
+    table: SchemaTable | EntityTableMeta,
     where: WhereObject,
   ): Promise<T | undefined>;
   insertOne<T = Record<string, unknown>>(
@@ -68,6 +106,11 @@ export type UncheckedSystemDb = {
   assertTenantMatch(tenantId: TenantId): TenantDb;
   assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[];
   acknowledgeCrossTenant(reason: string): TenantDb;
+  /**
+   * Raw unfiltered DbRunner, gated behind a mandatory non-empty `reason` for auditability.
+   * Throws on an empty (or whitespace-only) reason.
+   */
+  unsafeRaw(reason: string): DbRunner;
   // Same self-check pair as above, but hands back the caller's
   // ctx.dbOutsideTransaction TenantDb instead of the in-tx one — for
   // durability writes that must survive a rollback of the handler's own

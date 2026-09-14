@@ -21,7 +21,11 @@ export type MfaCodeVerifier = (
 // codes exist for.
 export function createMfaCodeVerifier(): MfaCodeVerifier {
   return async (ctx, userId, tenantId, code) => {
-    const scopedDb = createTenantDb(ctx.db.raw, tenantId, "system");
+    const scopedDb = createTenantDb(
+      ctx.db.unsafeRaw("reads the MFA enrollment of the user being re-authenticated"),
+      tenantId,
+      "system",
+    );
     const row = await findUserMfaRow(scopedDb, { id: userId, tenantId, roles: [] });
     if (!row) return { enrolled: false, ok: false };
     // Fail closed without ctx.redis, matching disable.write.ts/verify.write.ts —

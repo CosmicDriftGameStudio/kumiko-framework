@@ -146,14 +146,16 @@ export { tableExists } from "./schema-inspection";
 export {
   buildBaseColumns,
   buildEntityTable,
+  declareGlobalTenancy,
   type EntityTable,
   toSnakeCase,
   toTableName,
 } from "./table-builder";
-export type { TenantDb, TenantDbMode, UncheckedSystemDb } from "./tenant-db";
+export type { TenantDb, TenantDbGrants, TenantDbMode, UncheckedSystemDb } from "./tenant-db";
 export {
   castTenantRows,
   createTenantDb,
   createUncheckedSystemDb,
   SYSTEM_SCOPE_CHECK_BRAND,
+  withUnsafeRawGrant,
 } from "./tenant-db";

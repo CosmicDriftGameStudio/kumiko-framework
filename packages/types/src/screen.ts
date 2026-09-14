@@ -995,6 +995,10 @@ export type EntityEditScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Derived by buildAppSchema from the navigate `params` targeting this
+   *  screen — the only URL query keys the create form prefills. An authored
+   *  value is overwritten. */
+  readonly urlPrefillFields?: readonly string[];
   readonly entity: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
@@ -1035,7 +1039,9 @@ export type EntityEditScreenDefinition = {
    *  The object form additionally names the success-payload field the
    *  navigation id comes from (`ActionFormRedirect.idFrom`) — needed when
    *  the edited record is a child and the target screen is the parent's
-   *  detail screen. */
+   *  detail screen. Update falls back to the loaded record when the
+   *  success payload doesn't carry that field flatly; create falls back
+   *  to the submitted form values. */
   readonly redirect?: string | ActionFormRedirect;
   /** Parent list screen (short id) for breadcrumb + nav highlighting when
    *  this screen has no nav entry of its own. Same field/semantics as on
@@ -1086,6 +1092,8 @@ export type ActionFormScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
+  readonly urlPrefillFields?: readonly string[];
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
    *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
   readonly handler: string;
@@ -1215,6 +1223,8 @@ export type SecretMintScreenDefinition = {
   readonly detailFor?: string;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
+  readonly urlPrefillFields?: readonly string[];
   /** Write-handler QN dispatched on submit. */
   readonly handler: string;
   readonly fields: Readonly<Record<string, FieldDefinition>>;

@@ -5,7 +5,9 @@ import {
   EXT_SEARCH_ADAPTER,
   EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
+  EXT_TENANT_LIFECYCLE_STATUS,
   type FeatureDefinition,
+  type TenantLifecycleStatusPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { validateTenantDataHookCoverage } from "./boot-checks";
 import {
@@ -32,7 +34,14 @@ import {
 } from "./events";
 import { cancelDestructionWrite } from "./handlers/cancel-destruction.write";
 import { requestDestructionWrite } from "./handlers/request-destruction.write";
-import { runTenantDestructionSweep } from "./run-tenant-destroy";
+import { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy";
+
+const tenantLifecycleStatusPlugin: TenantLifecycleStatusPlugin = {
+  async resolveStatus(tenantId, { db }) {
+    const gate = await resolveTenantLifecycleGate(db, tenantId);
+    return gate ? { status: gate.status } : null;
+  },
+};
 
 export function createTenantLifecycleFeature(): FeatureDefinition {
   return defineFeature("tenant-lifecycle", (r) => {
@@ -53,6 +62,11 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.extendsRegistrar(EXT_EXTERNAL_RESOURCE, {});
     r.extendsRegistrar(EXT_STORAGE_PROVIDER, {});
     r.extendsRegistrar(EXT_INFRA_RESOURCE, {});
+
+    // Self-extension, same pattern as `user`/EXT_PRINCIPAL_STATUS — declares
+    // AND fulfils tenantLifecycleStatus so teardown state is visible with no per-app wiring.
+    r.extendsRegistrar(EXT_TENANT_LIFECYCLE_STATUS, {});
+    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "tenant-lifecycle", tenantLifecycleStatusPlugin);
 
     // GDPR-storage guard V4 (#1314) — moved off the framework-internal
     // boot-validator onto this feature's own r.bootCheck(), since it owns

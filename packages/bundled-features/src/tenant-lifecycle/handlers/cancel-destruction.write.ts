@@ -15,15 +15,25 @@ type TenantLifecycleRow = {
   gracePeriodEnd: Temporal.Instant | null;
 };
 
+const CANCEL_DESTRUCTION_TENANT_ROW_REASON =
+  "reads the caller's tenant row, whose tenant_id is the creating tenant, not the row's own id";
+
 export const cancelDestructionWrite = defineWriteHandler({
   name: "cancel-destruction",
   schema: z.object({}),
   access: { roles: ["TenantOwner", "Admin"] },
   description:
     "Returns a tenant whose destruction was requested back to active and clears the grace period; use it to undo a close-account request while the grace period is still running.",
+  escapeHatch: {
+    reason: CANCEL_DESTRUCTION_TENANT_ROW_REASON,
+  },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const row = await fetchOne<TenantLifecycleRow>(ctx.db.raw, tenantTable, { id: tenantId });
+    const row = await fetchOne<TenantLifecycleRow>(
+      ctx.db.unsafeRaw(CANCEL_DESTRUCTION_TENANT_ROW_REASON),
+      tenantTable,
+      { id: tenantId },
+    );
     if (!row) {
       return writeFailure(new UnprocessableError("tenant_not_found", { details: { tenantId } }));
     }

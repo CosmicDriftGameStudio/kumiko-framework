@@ -1,4 +1,5 @@
 import type { EntityTableMeta } from "../db/entity-table-meta";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
 import { LifecycleHookTypes } from "./constants";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { resolveName } from "./handler-helpers";
@@ -6,6 +7,7 @@ import { isKebabSegment, toKebab } from "./qualified-name";
 import type {
   BootCheckFn,
   EntityProjectionExtension,
+  EscapeHatchDeclaration,
   HookPhase,
   LifecycleHookFn,
   LifecycleHookType,
@@ -117,8 +119,32 @@ export function buildUiExtensionsMethods<TName extends string>(
       type: LifecycleHookType | "validation",
       target: NameOrRef | readonly NameOrRef[] | { readonly allOf: NameOrRef },
       fn: LifecycleHookFn | ValidationHookFn,
-      options?: { phase?: HookPhase },
+      options?: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration },
     ): void {
+      if (type === "validation") {
+        if (options?.escapeHatch !== undefined) {
+          throw new Error(
+            `[Feature ${name}] r.hook("validation", ...) does not accept { escapeHatch } — ` +
+              "validation hooks receive no context to switch identity with.",
+          );
+        }
+      } else if (
+        options?.escapeHatch !== undefined &&
+        options.escapeHatch.reason.trim().length === 0
+      ) {
+        throw new Error(
+          `[Feature ${name}] r.hook("${type}", ...) declares { escapeHatch: { reason: "" } } — ` +
+            "the reason must be a non-empty string explaining why this hook switches identity to SYSTEM.",
+        );
+      }
+
+      // Wrapped once for both branches below; validation hooks stay unwrapped (no context).
+      const hookLabel = `${type} hook of feature "${name}"`;
+      const wrapped: LifecycleHookFn | ValidationHookFn =
+        type === "validation"
+          ? fn
+          : bindHookEscapeHatchGrant(fn as LifecycleHookFn, hookLabel, options?.escapeHatch); // @cast-boundary engine-bridge
+
       // Entity-wide target ("all write/query handlers of this entity") —
       // replaces the old r.entityHook(type, entity, fn).
       if (
@@ -138,7 +164,7 @@ export function buildUiExtensionsMethods<TName extends string>(
           name,
           type,
           resolveName(target.allOf),
-          fn as LifecycleHookFn,
+          wrapped as LifecycleHookFn, // @cast-boundary engine-bridge
           options,
         );
         // skip: entity-wide target fully handled above, nothing more to do
@@ -152,7 +178,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       // — typed Dev-API (LifecycleHookFn|ValidationHookFn) → erased Map<name, fn>.
       if (type === "validation") {
         for (const n of names) {
-          state.validationHooks[n] = fn as ValidationHookFn; // @cast-boundary engine-bridge
+          state.validationHooks[n] = wrapped as ValidationHookFn; // @cast-boundary engine-bridge
         }
         // skip: validation hooks have no phase, stored and done
         return;
@@ -166,7 +192,10 @@ export function buildUiExtensionsMethods<TName extends string>(
         if (!state.lifecycleHooks[type]) state.lifecycleHooks[type] = {};
         for (const n of names) {
           if (!state.lifecycleHooks[type][n]) state.lifecycleHooks[type][n] = [];
-          state.lifecycleHooks[type][n].push({ fn: fn as LifecycleHookFn, featureName: name }); // @cast-boundary engine-bridge
+          state.lifecycleHooks[type][n].push({
+            fn: wrapped as LifecycleHookFn, // @cast-boundary engine-bridge
+            featureName: name,
+          });
         }
         // skip: pre/post-hooks without phase semantics, stored and done
         return;
@@ -181,7 +210,11 @@ export function buildUiExtensionsMethods<TName extends string>(
       const bucket = state.phasedLifecycleHooks[type];
       for (const n of names) {
         if (!bucket[n]) bucket[n] = [];
-        bucket[n].push({ fn: fn as LifecycleHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
+        bucket[n].push({
+          fn: wrapped as LifecycleHookFn, // @cast-boundary engine-bridge
+          phase,
+          featureName: name,
+        });
       }
     },
     searchPayloadExtension(entityRef: NameOrRef, fn: SearchPayloadContributorFn): void {

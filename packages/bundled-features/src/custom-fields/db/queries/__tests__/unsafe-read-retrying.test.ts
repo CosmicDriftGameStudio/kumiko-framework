@@ -41,16 +41,21 @@ function fakeClient(failures: Error[], row: Record<string, unknown>): FakeClient
 }
 
 describe("custom-fields db/queries — closed-connection retry (#2323)", () => {
-  test("selectSerializedFieldDefinition retries once through db.raw and returns the row", async () => {
+  test("selectSerializedFieldDefinition retries once through db.unsafeRaw and returns the row", async () => {
     const raw = fakeClient([closedConnectionError()], { serialized_field: "sf1" });
-    const result = await selectSerializedFieldDefinition({ raw } as never, "t1", "entity", "field");
+    const result = await selectSerializedFieldDefinition(
+      { unsafeRaw: () => raw } as never,
+      "t1",
+      "entity",
+      "field",
+    );
     expect(result).toBe("sf1");
     expect(raw.calls).toBe(2);
   });
 
-  test("countTenantFieldDefinitions retries once through db.raw and returns the count", async () => {
+  test("countTenantFieldDefinitions retries once through db.unsafeRaw and returns the count", async () => {
     const raw = fakeClient([closedConnectionError()], { n: 3 });
-    const result = await countTenantFieldDefinitions({ raw } as never, "t1");
+    const result = await countTenantFieldDefinitions({ unsafeRaw: () => raw } as never, "t1");
     expect(result).toBe(3);
     expect(raw.calls).toBe(2);
   });
@@ -86,7 +91,7 @@ describe("custom-fields db/queries — closed-connection retry (#2323)", () => {
       serialized_field: "sf1",
     });
     await expect(
-      selectSerializedFieldDefinition({ raw } as never, "t1", "entity", "field"),
+      selectSerializedFieldDefinition({ unsafeRaw: () => raw } as never, "t1", "entity", "field"),
     ).rejects.toThrow("connection was closed");
     expect(raw.calls).toBe(2);
   });

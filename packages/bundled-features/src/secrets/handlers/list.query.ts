@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { DEFAULT_SECRETS_ACCESS } from "../constants";
@@ -15,14 +14,13 @@ export function createListHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
     schema: z.object({}),
     access,
     handler: async (event, ctx) => {
-      const rows = await selectMany<{
+      const rows = await ctx.db.selectMany<{
         key: string;
         kekVersion: number;
         metadata: { redactedPreview?: string; hint?: string };
         lastRotatedAt: unknown;
         insertedAt: unknown;
       }>(
-        ctx.db.raw,
         tenantSecretsTable,
         { tenantId: event.user.tenantId },
         {

@@ -38,6 +38,18 @@ export const FrameworkReasons = {
   // Distinct from access-denied — clients should surface "feature X is
   // currently unavailable" not "you don't have permission".
   featureDisabled: "feature_disabled",
+
+  // AccessDeniedError: a handler/hook called ctx.queryAs/ctx.writeAs with a
+  // SYSTEM identity without an r.systemScope() feature or a declared escapeHatch.
+  systemIdentitySwitchDenied: "system_identity_switch_denied",
+
+  // AccessDeniedError: ctx.queryAsMember's userId is not an active member of
+  // ctx's tenant. Deliberately generic — a caller can't probe which check failed.
+  memberResolutionDenied: "member_resolution_denied",
+
+  // AccessDeniedError: a query handler invoked via ctx.queryAsMember tried to
+  // write — a resolved member principal is read-only by construction.
+  memberResolutionReadOnly: "member_resolution_read_only",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

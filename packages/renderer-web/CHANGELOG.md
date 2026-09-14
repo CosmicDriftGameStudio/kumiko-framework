@@ -1,5 +1,92 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.268.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.268.0
+- @cosmicdrift/kumiko-renderer@0.268.0
+- @cosmicdrift/kumiko-dispatcher-live@0.268.0
+
+## 0.267.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.267.0
+- @cosmicdrift/kumiko-renderer@0.267.0
+- @cosmicdrift/kumiko-dispatcher-live@0.267.0
+
+## 0.266.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.266.0
+- @cosmicdrift/kumiko-renderer@0.266.0
+- @cosmicdrift/kumiko-dispatcher-live@0.266.0
+
+## 0.265.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.265.0
+- @cosmicdrift/kumiko-renderer@0.265.0
+- @cosmicdrift/kumiko-dispatcher-live@0.265.0
+
+## 0.264.1
+
+### Patch Changes
+
+- c42f1b6: `styles.css`'s Tailwind `@source` scan was missing `bundled-features` entirely, so any app that only imports `@cosmicdrift/kumiko-renderer-web/styles.css` (without its own extra `@source` lines, the workaround `publicstatus` already had to add) shipped unstyled utility classes for every bundled-features web component — `LoginScreen`, the admin shell, MFA and PAT screens, and others. The pre-existing `renderer` scan line was also silently broken for real (non-workspace) consumer installs, since it targeted the unscoped package name (`renderer`) instead of the registry name (`kumiko-renderer`) that actually exists under `node_modules/@cosmicdrift/`.
+
+  Both sibling packages are now scanned with two `@source` variants each — one for the workspace layout (bun-symlinked, resolves via realpath to the unscoped package dir) and one for a real standalone consumer install (scoped registry name) — so classes from `bundled-features` and `renderer` are generated in both layouts without app-side workarounds. Apps that added their own `@source` lines for `bundled-features` (e.g. `publicstatus`) can drop them; the scan now happens once here.
+
+  - @cosmicdrift/kumiko-dispatcher-live@0.264.1
+  - @cosmicdrift/kumiko-headless@0.264.1
+  - @cosmicdrift/kumiko-renderer@0.264.1
+
+## 0.264.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.264.0
+- @cosmicdrift/kumiko-renderer@0.264.0
+- @cosmicdrift/kumiko-dispatcher-live@0.264.0
+
+## 0.263.0
+
+### Minor Changes
+
+- db13c00: Three additive primitive gaps closed, surfaced while wiring an AI-agent panel and the Designer's file links:
+
+  - `ShellHeader` now exposes its rendered height as the `--shell-header-height` CSS variable (`0` when no `ShellHeader` is mounted). `Drawer` gets an optional `belowHeader?: boolean` (`variant="flush"` only) that docks the panel below the app header instead of covering it — default `false` keeps today's edge-to-edge behavior.
+  - `Card`, `Link`, `Button` and `Input` (`kind="text"`/`"textarea"`) get an optional `dataAttributes?: Readonly<Record<\`data-${string}\`, string>>`prop, forwarded to the rendered DOM node in the web renderer — an escape hatch for E2E selectors that don't warrant a dedicated typed prop, without dropping to a raw`<a>`/`<div>`.
+  - `Input` (`kind="text"`/`"textarea"`) gets an optional `onKeyDown` handler, forwarded in the web renderer, so a caller can build "Enter sends, Shift+Enter inserts a newline" at the field itself instead of the surrounding `Form`. Composes with the existing `onSubmitShortcut` (`kind="textarea"`) — both fire on the same keystroke when both are set.
+
+### Patch Changes
+
+- Updated dependencies [db13c00]
+- Updated dependencies [f6732fa]
+  - @cosmicdrift/kumiko-renderer@0.263.0
+  - @cosmicdrift/kumiko-headless@0.263.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.263.0
+
+## 0.262.0
+
+### Patch Changes
+
+- Updated dependencies [352d623]
+  - @cosmicdrift/kumiko-renderer@0.262.0
+  - @cosmicdrift/kumiko-headless@0.262.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.262.0
+
+## 0.261.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.261.0
+- @cosmicdrift/kumiko-renderer@0.261.0
+- @cosmicdrift/kumiko-dispatcher-live@0.261.0
+
 ## 0.260.0
 
 ### Minor Changes

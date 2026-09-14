@@ -16,13 +16,16 @@ import type {
   FetchForWritingArgs,
   HandlerContext,
   JobRunnerRef,
+  MemberReader,
   Registry,
   SessionUser,
   WriteResult,
 } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 import {
+  AccessDeniedError,
   FeatureDisabledError,
+  FrameworkReasons,
   InternalError,
   VersionConflictError,
   type WriteErrorInfo,
@@ -64,6 +67,7 @@ import {
 } from "../observability";
 import { buildBucketKey } from "../rate-limit";
 import { createTzContext, isValidIanaTimeZone } from "../time";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
 import { appendDomainEventCore } from "./append-event-core";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
 import { executeQuery } from "./dispatch-query";
@@ -75,6 +79,12 @@ import {
 } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { createMemberReaderFn } from "./member-reader";
+import {
+  createGatedIdentitySwitch,
+  createGatedMemberReader,
+  systemIdentitySwitchDenied,
+} from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
@@ -122,6 +132,9 @@ export type DispatchContext = {
   tenantTimezoneCache: TenantTimezoneCache;
   tracer: ReturnType<typeof getFallbackTracer>;
   meter: ReturnType<typeof getFallbackMeter>;
+  // Qualified name of the membership-list query handler consulted by
+  // resolveActiveMembershipFn — defaults to TENANT_MEMBERSHIPS_QUERY, overridable via DispatcherOptions.
+  membershipQuery: string;
 };
 
 // Narrowing-helper: AppContext.db ist DbConnection|TenantDb|undefined. Die
@@ -146,6 +159,8 @@ async function appendDomainEvent(
   tx: DbTx | undefined,
   callerFeature: string | undefined,
 ): Promise<void> {
+  // Sink behind every append surface, so a resolved member stays read-only even via fetchForWriting handles.
+  if (user.origin === "member-resolution") throw memberResolutionReadOnlyDenied();
   const { registry } = ctx;
   const dbSource = resolveDbSource(ctx, tx);
   if (!dbSource) {
@@ -191,6 +206,59 @@ function createSystemScopedDbGuard(
   });
 }
 
+export function memberResolutionReadOnlyDenied(): AccessDeniedError {
+  return new AccessDeniedError({
+    message: "a resolved member principal (ctx.queryAsMember) cannot write — read-only",
+    details: { reason: FrameworkReasons.memberResolutionReadOnly },
+  });
+}
+
+async function denyMemberResolutionWrite(): Promise<never> {
+  throw memberResolutionReadOnlyDenied();
+}
+
+// JobRunnerRef's declared type only carries handleEvent, but callers
+// routinely bracket-access a fuller runner — a Proxy denies ANY property read.
+function denyingJobRunnerProxy(): JobRunnerRef {
+  return new Proxy({} as JobRunnerRef, {
+    get() {
+      throw memberResolutionReadOnlyDenied();
+    },
+  });
+}
+
+// Every write/side-effect surface throws, so "no writeAsMember" holds even
+// if a handler tries ctx.write directly on a resolved member principal.
+function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
+  return {
+    ...handlerContext,
+    // `db` itself stays open — same access the member's own HTTP request has;
+    // raw ctx.db writes inside a queried handler are not blocked by this.
+    dbOutsideTransaction: undefined,
+    write: denyMemberResolutionWrite,
+    writeAs: denyMemberResolutionWrite,
+    appendEvent: denyMemberResolutionWrite as AppendEventFn, // @cast-boundary engine-bridge
+    unsafeAppendEvent: denyMemberResolutionWrite,
+    tryAppendEvent: denyMemberResolutionWrite,
+    fetchForWriting: denyMemberResolutionWrite,
+    archiveStream: denyMemberResolutionWrite,
+    restoreStream: denyMemberResolutionWrite,
+    snapshotAggregate: denyMemberResolutionWrite,
+    queryAsMember: denyMemberResolutionWrite,
+    resolveActiveMembership: denyMemberResolutionWrite,
+    scheduleAfterCommit: () => {
+      throw memberResolutionReadOnlyDenied();
+    },
+    // A read as a member gets no system-scope DB, preSave pipeline or file storage.
+    runPreSave: undefined,
+    systemDb: undefined,
+    files: undefined,
+    derivatives: undefined,
+    ...(handlerContext.jobRunner && { jobRunner: denyingJobRunnerProxy() }),
+    ...(handlerContext.notify && { notify: denyMemberResolutionWrite }),
+  };
+}
+
 export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
@@ -206,6 +274,13 @@ export async function buildHandlerContext(
   // but at this point we're the root of the pipeline — cast is safe.
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
+  // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write, query or stream escapeHatch.
+  const writeEscapeHatch = registry.getWriteHandler(type)?.escapeHatch;
+  const handlerEscapeHatch =
+    writeEscapeHatch ??
+    registry.getQueryHandler(type)?.escapeHatch ??
+    registry.getStreamHandler(type)?.escapeHatch;
+  const allowSystemIdentity = isSystem || handlerEscapeHatch !== undefined;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -214,6 +289,7 @@ export async function buildHandlerContext(
       context.tracer,
       context.meter,
       signal,
+      { globalWrites: writeEscapeHatch, unsafeRaw: handlerEscapeHatch },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip
@@ -301,29 +377,38 @@ export async function buildHandlerContext(
     ? (targetFeatureName: string) => createSafeMetricsHandle(meter, targetFeatureName)
     : () => createNoopMetricsHandle();
 
-  // Cross-feature bridge. Queries and writes invoked through ctx.* share:
-  //   - the current transaction (tx) — nested writes roll back with the parent
-  //   - the current afterCommitHooks sink — deferred side-effects fire once
-  //     when the outermost transaction commits
-  // `queryAs` / `writeAs` let a handler explicitly switch identity
-  // (e.g. system-privileged lookups that bypass field-access read filters).
+  // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
+  // queryAs/writeAs switch identity; SYSTEM needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
+  const identitySwitch = createGatedIdentitySwitch(`handler "${type}"`, allowSystemIdentity, {
+    queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+      executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+    writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+      executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
+  });
+  // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
+  // on first actual use, not on every HandlerContext build.
+  let ungatedMemberReader: MemberReader | undefined;
+  const queryAsMember = createGatedMemberReader(
+    `handler "${type}"`,
+    allowSystemIdentity,
+    (userId, qn, payload) => {
+      ungatedMemberReader ??= createMemberReaderFn(ctx, user.tenantId, tx);
+      return ungatedMemberReader(userId, qn, payload);
+    },
+  );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
       executeQuery(ctx, targetType, payload, user, tx), // @wrapper-known semantic-alias
-    queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-      executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+    queryAs: identitySwitch.queryAs,
     write: async (targetType: string, payload: unknown) => {
       const res = await executeWrite(ctx, targetType, payload, user, tx, bridgeSink);
       return res;
     },
-    writeAs: async (asUser: SessionUser, targetType: string, payload: unknown) => {
-      const res = await executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink);
-      return res;
-    },
+    writeAs: identitySwitch.writeAs,
     // Strict + unsafe share the same runtime — only the type-surface
     // differs. The strict signature is what's exposed to typed callers;
     // unsafe is the explicit escape-hatch for runtime-pluggable events.
@@ -584,6 +669,18 @@ export async function buildHandlerContext(
     // dispatcher.resolveAuthClaims) cannot drift.
     resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser), // @wrapper-known semantic-alias
 
+    // Thin pass-through, same reasoning as resolveAuthClaims above — one
+    // resolve impl lives on the dispatcher so callers can't drift apart.
+    // Internally queries memberships as SYSTEM, so it needs the same grant
+    // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
+    resolveActiveMembership: (userId: string, tenantId: TenantId) => {
+      if (!allowSystemIdentity) throw systemIdentitySwitchDenied(`handler "${type}"`);
+      return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
+    },
+
+    // Needs the same grant as a SYSTEM queryAs.
+    queryAsMember,
+
     // Feature-effective check for in-handler opt-in logic. Scope:
     // **current user's tenant** — for cross-tenant lookups (rare,
     // SysAdmin operations) read effectiveFeatures(otherTenantId) directly.
@@ -668,7 +765,7 @@ export async function buildHandlerContext(
     user.locale !== undefined && isValidLocaleTag(user.locale) ? user.locale : undefined;
   const locale = reqCtx?.locale ?? safeUserLocale ?? context.defaultLocale ?? DEFAULT_LOCALE;
 
-  return {
+  const handlerContext = {
     ...context,
     registry,
     db: exposedDb,
@@ -720,6 +817,11 @@ export async function buildHandlerContext(
     ...(includeDeleted && { includeDeleted: true }),
     ...bridge,
   } as HandlerContext; // @cast-boundary engine-bridge
+
+  // A resolved member principal is read-only by construction.
+  return user.origin === "member-resolution"
+    ? applyMemberResolutionReadOnly(handlerContext)
+    : handlerContext;
 }
 
 // Wrap handler execution in a dispatcher.handler span AND emit the standard
@@ -946,8 +1048,8 @@ export async function enforceRateLimit(
 // Build the per-hook context every auth-claims invocation gets. Claims
 // hooks run OUTSIDE any request transaction (login is itself the root
 // operation, not a nested call) and read-only — so the TenantDb is
-// scoped as "tenant" and no tx is threaded through. Hooks that need
-// cross-tenant lookups opt in explicitly via queryAs(systemUser, ...).
+// scoped as "tenant" and no tx is threaded through. Cross-tenant lookups
+// go through queryAs(otherUser, ...); SYSTEM is always denied (no escapeHatch declaration site here).
 function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthClaimsContext {
   const { appContext: context } = ctx;
   const dbSource = resolveDbSource(ctx, undefined);
@@ -964,10 +1066,18 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
         secrets: context.secrets,
       })
     : undefined;
-  return {
-    db,
+  const identitySwitch = createGatedIdentitySwitch("r.authClaims hook", false, {
     queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
       executeQuery(ctx, qn, payload, asUser), // @wrapper-known semantic-alias
+    writeAs: async () => {
+      throw new InternalError({
+        message: "r.authClaims hook context has no writeAs — auth-claims hooks are read-only.",
+      });
+    },
+  });
+  return {
+    db,
+    queryAs: identitySwitch.queryAs,
     ...(configAccessor && { config: configAccessor }),
   };
 }

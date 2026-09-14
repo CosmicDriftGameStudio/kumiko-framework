@@ -30,6 +30,7 @@ import type {
 } from "./types/entity-handlers";
 
 export type {
+  EntityCrudHandlerDefaults,
   EntityCrudRegistrar,
   EntityCrudVerb,
   EntityHandlerOptions,
@@ -174,7 +175,7 @@ function parseHandlerName<TVerb extends string>(
 export function defineEntityWriteHandler(
   name: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options: EntityHandlerOptions,
 ): WriteHandlerDef {
   const { entityName, verb } = parseHandlerName(name, WRITE_VERBS);
   if (verb === "restore" && !entity.softDelete) {
@@ -291,9 +292,9 @@ export function defineEntityWriteHandler(
     name,
     schema,
     handler,
-    ...(options?.access && { access: options.access }),
-    ...(options?.description !== undefined && { description: options.description }),
-    ...(options?.agent !== undefined && { agent: options.agent }),
+    access: options.access,
+    ...(options.description !== undefined && { description: options.description }),
+    ...(options.agent !== undefined && { agent: options.agent }),
   };
 }
 
@@ -323,7 +324,7 @@ function augmentDerivedFields(
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
-  options?: EntityQueryHandlerOptions,
+  options: EntityQueryHandlerOptions,
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
 
@@ -421,9 +422,9 @@ export function defineEntityQueryHandler(
     name,
     schema,
     handler,
-    ...(options?.access && { access: options.access }),
-    ...(options?.description !== undefined && { description: options.description }),
-    ...(options?.agent !== undefined && { agent: options.agent }),
+    access: options.access,
+    ...(options.description !== undefined && { description: options.description }),
+    ...(options.agent !== undefined && { agent: options.agent }),
     // The "list" verb's executor.list() always returns { rows, nextCursor,
     // total? } (see the handler body above) — brand it so the definition
     // site documents the PagedRows contract without needing
@@ -458,7 +459,7 @@ export function defineEntityQueryHandler(
 export function defineEntityCreateHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options: EntityHandlerOptions,
 ): WriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:create`, entity, options);
 }
@@ -467,7 +468,7 @@ export function defineEntityCreateHandler(
 export function defineEntityUpdateHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options: EntityHandlerOptions,
 ): WriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:update`, entity, options);
 }
@@ -476,7 +477,7 @@ export function defineEntityUpdateHandler(
 export function defineEntityDeleteHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options: EntityHandlerOptions,
 ): WriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:delete`, entity, options);
 }
@@ -485,7 +486,7 @@ export function defineEntityDeleteHandler(
 export function defineEntityRestoreHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options: EntityHandlerOptions,
 ): WriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:restore`, entity, options);
 }
@@ -494,7 +495,7 @@ export function defineEntityRestoreHandler(
 export function defineEntityListHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityQueryHandlerOptions,
+  options: EntityQueryHandlerOptions,
 ): QueryHandlerDef {
   return defineEntityQueryHandler(`${entityName}:list`, entity, options);
 }
@@ -503,7 +504,7 @@ export function defineEntityListHandler(
 export function defineEntityDetailHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityQueryHandlerOptions,
+  options: EntityQueryHandlerOptions,
 ): QueryHandlerDef {
   return defineEntityQueryHandler(`${entityName}:detail`, entity, options);
 }
@@ -542,7 +543,7 @@ export function createEntityExecutor(
 export function defineProjectionQueryHandler(
   name: string,
   projectionQualifiedName: string,
-  options?: { access?: AccessRule; unsafeAllTenants?: boolean },
+  options: { access: AccessRule; unsafeAllTenants?: boolean },
 ): QueryHandlerDef {
   return {
     name,
@@ -554,9 +555,9 @@ export function defineProjectionQueryHandler(
     handler: async (_query, ctx) =>
       ctx.queryProjection(
         projectionQualifiedName,
-        options?.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
+        options.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
       ), // @wrapper-known semantic-alias
-    ...(options?.access && { access: options.access }),
+    access: options.access,
   };
 }
 
@@ -588,14 +589,23 @@ export function registerEntityCrud(
   }
   const writeOpts = options?.write;
   const readOpts = options?.read;
+  const requireAccess = (verb: EntityCrudVerb, access: AccessRule | undefined): AccessRule => {
+    if (!access) {
+      throw new Error(
+        `registerEntityCrud("${entityName}", verb: "${verb}"): no access rule resolved. ` +
+          `Set write.access/read.access on registerEntityCrud's options, or verbAccess.${verb}.`,
+      );
+    }
+    return access;
+  };
   const resolveWriteOpts = (verb: EntityCrudVerb): EntityHandlerOptions => ({
     ...writeOpts,
-    access: options?.verbAccess?.[verb] ?? writeOpts?.access,
+    access: requireAccess(verb, options?.verbAccess?.[verb] ?? writeOpts?.access),
     description: options?.descriptions?.[verb] ?? writeOpts?.description,
   });
   const resolveReadOpts = (verb: EntityCrudVerb): EntityQueryHandlerOptions => ({
     ...readOpts,
-    access: options?.verbAccess?.[verb] ?? readOpts?.access,
+    access: requireAccess(verb, options?.verbAccess?.[verb] ?? readOpts?.access),
     description: options?.descriptions?.[verb] ?? readOpts?.description,
   });
 

@@ -16,13 +16,45 @@ import type { TzContext } from "./tz-context";
 
 // --- Access ---
 
+// "tenant-members": signed-in members may write personal data not bound to the caller by an owner rule.
+export type OpenToAllPersonalData = "tenant-members";
+
+export type OpenToAllDeclaration = {
+  readonly reason: string;
+  readonly personalData?: OpenToAllPersonalData;
+};
+
+export type OpenToAllAccessRule = {
+  // `true` is the deprecated pre-#2855 form, kept until the call-site migration (fw#2854).
+  readonly openToAll: OpenToAllDeclaration | true;
+};
+
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
 // To grant access, set one of:
-//   - { roles: ["Admin", ...] }   — role-based allowlist (empty array denies everyone)
-//   - { openToAll: true }         — any authenticated user may call (still requires a valid JWT)
-export type AccessRule = { readonly roles: readonly string[] } | { readonly openToAll: true };
+//   - { roles: ["Admin", ...] }             — role-based allowlist (empty array denies everyone)
+//   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
+//   - { openToAll: true }                   — deprecated pre-#2855 form, still accepted
+export type AccessRule = { readonly roles: readonly string[] } | OpenToAllAccessRule;
+
+export type EscapeHatchDeclaration = { readonly reason: string };
+
+// AccessRule can arrive from untyped sources (pattern-library JSON, Designer)
+// where `openToAll` doesn't actually match the declared union — narrow via
+// `unknown` instead of trusting the static type, deny on anything malformed.
+export function isOpenToAllGranted(rule: AccessRule): boolean {
+  if (!("openToAll" in rule)) return false;
+  const openToAll: unknown = rule.openToAll;
+  if (openToAll === true) return true;
+  if (typeof openToAll !== "object" || openToAll === null) return false;
+  if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return false;
+  return openToAll.reason.trim().length > 0;
+}
 
 // --- Pipeline User ---
+
+// Set only on a SessionUser the framework resolved internally for a
+// background read (ctx.queryAsMember) — such a principal never carries `sid`.
+export type SessionUserOrigin = "member-resolution";
 
 export type SessionUser = {
   // UUID-string so user.id threads through the event-store (aggregate-id) and
@@ -64,6 +96,7 @@ export type SessionUser = {
     readonly scopes: readonly string[];
     readonly allowedQns: readonly string[];
   };
+  readonly origin?: SessionUserOrigin;
 };
 
 // --- Claim Keys (r.claimKey declarations) ---
@@ -155,6 +188,25 @@ export type AuthClaimsHookDef = {
   readonly declaredKeys?: ReadonlySet<string>;
 };
 
+// --- Active Membership ---
+
+// Not a member of the target tenant, the principal is blocked (see
+// engine/active-membership.ts's principalStatus contract), or the tenant is in teardown.
+export type ActiveMembershipRejection = "not_a_member" | "principal_blocked" | "tenant_teardown";
+
+export type ActiveMembership = {
+  readonly tenantId: TenantId;
+  // Raw membership roles — the caller runs buildSessionRoles(globalRoles,
+  // roles) itself; this building block never merges global roles in.
+  readonly roles: readonly string[];
+  readonly tenantName?: string;
+  readonly tenantKey?: string;
+};
+
+export type ActiveMembershipResult =
+  | { readonly kind: "active"; readonly membership: ActiveMembership }
+  | { readonly kind: "rejected"; readonly reason: ActiveMembershipRejection };
+
 // --- Handler Events ---
 
 export type WriteEvent<TPayload = unknown> = {
@@ -184,6 +236,9 @@ import type { Registry } from "./feature";
 import type { TenantId } from "./identifiers";
 import type { UncheckedSystemDb } from "./tenant-db-types";
 
+// The framework resolves the member internally, so no hand-built SessionUser reaches app code.
+export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
+
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
 export type JobRunnerRef = {
   handleEvent(
@@ -202,6 +257,9 @@ export type JobRunnerRef = {
 export type DispatchWriteRef = {
   readonly write: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  // Builds a tenant-scoped MemberReader — one per JobContext.queryAsMember
+  // caller (job-runner.ts lazily creates one per job run).
+  readonly createMemberReader: (tenantId: TenantId) => MemberReader;
 };
 
 // Priority levels for notifications
@@ -308,6 +366,9 @@ type SharedContextFields = {
   // hooks synchronously (kumiko-framework#1566). Absent outside a write
   // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
   readonly scheduleAfterCommit?: (hook: () => Promise<void>) => void;
+  // Present on HandlerContext/JobContext; hooks receive HandlerContext as
+  // AppContext, so it's optional here. See HandlerContext.queryAsMember.
+  readonly queryAsMember?: MemberReader;
 };
 
 // All optional — used at pipeline/system boundaries.
@@ -354,7 +415,9 @@ export type AppContext = SharedContextFields & {
 //   sharing the active tx + afterCommit queue. Field-access filters apply.
 //   ctx.queryAs / ctx.writeAs switch identity (e.g. SYSTEM for privileged
 //   lookups like "find user by email for auth" — system reads aren't filtered
-//   by field-access read rules).
+//   by field-access read rules). SYSTEM as the target is gated: reachable
+//   only from an r.systemScope() feature, a job, or a handler/hook that
+//   declared { escapeHatch: { reason } } (system-identity-switch.ts).
 //
 // The design: handlers are the contract between features. Feature A requires
 // Feature B and talks to it through B's registered handlers — never through
@@ -584,6 +647,17 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // before the JWT is signed. Thin pass-through to dispatcher.resolveAuthClaims
   // so there's a single resolve impl — both entry-points can't drift.
   readonly resolveAuthClaims: (user: SessionUser) => Promise<Record<string, unknown>>;
+
+  // Membership check for interactive sign-in paths (login, MFA completion,
+  // tenant switch). Thin pass-through to dispatcher.resolveActiveMembership so there's a single resolve impl.
+  readonly resolveActiveMembership: (
+    userId: string,
+    tenantId: TenantId,
+  ) => Promise<ActiveMembershipResult>;
+
+  // Read-only principal without `sid`; needs the same grant as a SYSTEM queryAs
+  // (membership is resolved as SYSTEM), cached per handler invocation or job run.
+  readonly queryAsMember: MemberReader;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
@@ -630,6 +704,9 @@ export type JobContext = SharedContextFields & {
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  // Tenant = the job's resolved tenant (may originate from payload.tenantId
+  // for tenant-less triggers, see _tenantId below). Ungated, like queryAs.
+  readonly queryAsMember: MemberReader;
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
@@ -996,11 +1073,12 @@ export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
   // to inspect the step list. Absent on free-form handlers.
@@ -1025,7 +1103,7 @@ export type QueryHandlerDef = {
    *  read-gate. The boot-validator requires it on a `parentRef` entity's
    *  list/detail handler — see boot-validator/parent-ref.ts. */
   readonly [ENTITY_CONVENTION_QUERY_BRAND]?: true;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
@@ -1038,12 +1116,20 @@ export type QueryHandlerDef = {
    *  `header`/`metrics`, dashboard `valueField`/`subField`/etc.) rather
    *  than requiring it retroactively. See fw#2493. */
   readonly outputSchema?: ZodType;
+  // Query handlers can't reach db.global() (that gate is write-only), but
+  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // in, same contract as WriteHandlerDef.escapeHatch.
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 export type StreamHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: StreamHandlerFn;
-  readonly access?: AccessRule;
+  readonly access: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  // Stream handlers can't reach db.global() (that gate is write-only), but
+  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // in, same contract as WriteHandlerDef.escapeHatch.
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };

@@ -27,6 +27,7 @@ import {
   CONFIG_WRITE_SET_TYPE,
   checkFeatureEnabled,
   enforceRateLimit,
+  memberResolutionReadOnlyDenied,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
 } from "./dispatch-shared";
@@ -326,6 +327,12 @@ async function executeWriteInner(
   const { registry, jobRunner } = ctx;
   const handler = registry.getWriteHandler(type);
   if (!handler) return writeFailure(new NotFoundError("handler", type));
+
+  // Defense in depth — covers runBatch and a spread-copied user that kept
+  // `origin`, beyond buildHandlerContext's own ctx.write replacement.
+  if (user.origin === "member-resolution") {
+    return writeFailure(memberResolutionReadOnlyDenied());
+  }
 
   // Feature-toggle gate: disabled handlers must short-circuit before any
   // rate-limit/access/validation work — see executeQueryInner comment.

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-13
+verified: 2026-09-14
 ---
 
 # RBAC & Tenant-Isolation: role origins and the membership-role invariant
@@ -39,6 +39,25 @@ notion of where a role came from**. That flatness is intentional (it keeps
 authorization a single set-membership test), but it means the *only* thing
 keeping a tenant role from acting platform-wide is that platform roles never
 appear in a membership.
+
+## Decision 1a — active membership is resolved before roles are assembled
+
+Login, MFA completion and switch-tenant resolve the target membership through
+`dispatcher.resolveActiveMembership` before any role merge runs: is the user a
+member of the tenant, is the principal not blocked (`principalStatus`
+contract, fulfilled by `user`), and is the tenant not in teardown
+(`tenantLifecycleStatus` contract, fulfilled by `tenant-lifecycle`; a tenant in
+`destroyRequested` is still allowed so its owner can cancel destruction). Only
+then does `buildSessionRoles` merge global + membership roles and
+`resolveAuthClaims` mint the session.
+
+`ctx.queryAsMember(userId, qn, payload)` reuses this same resolution for
+background reads (a hook/job reading as a stored member instead of SYSTEM),
+but under a stricter, non-interactive policy: no `destroyRequested`
+cancel-window grace, no unknown-principal pass. The resolved `SessionUser`
+carries `origin: "member-resolution"`, no `sid`, and is read-only — writes
+through it fail closed (`member_resolution_read_only`), and it is never
+signed into a JWT.
 
 ## Decision 2 — reserved roles are global-only (the invariant)
 

@@ -1,4 +1,7 @@
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { ExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
+import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import type {
   EntityDefinition,
   EntityRelations,
@@ -26,6 +29,7 @@ import {
   moneyAmount,
   table as pgTable,
   plainDate,
+  type SchemaTable,
   SQL_EXPR_BRAND,
   type SqlExpression,
   serial,
@@ -408,6 +412,18 @@ type SoftDeleteColumnsType = {
 
 // ── ES-write brand ──────────────────────────────────────────────────────
 export type { ExecutorOnly, NotExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
+// ── Tenancy brand ────────────────────────────────────────────────────────
+export type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
+
+// `E extends { tenancy?: "global" }` would wrongly match any E missing
+// `tenancy` too (an absent optional property structurally satisfies an
+// optional one) — index into E["tenancy"] instead so only a literal
+// "global" (not undefined/"tenant"/a union/never) brands "global".
+type EntityTableTenancy<E extends EntityDefinition> = [NonNullable<E["tenancy"]>] extends [never]
+  ? "tenant"
+  : [NonNullable<E["tenancy"]>] extends ["global"]
+    ? "global"
+    : "tenant";
 
 export type EntityTable<E extends EntityDefinition = EntityDefinition> =
   TableColumns<// biome-ignore lint/suspicious/noExplicitAny: drizzle's internal table-config stays generic; we layer typed columns on top via the intersection below.
@@ -415,7 +431,8 @@ export type EntityTable<E extends EntityDefinition = EntityDefinition> =
     BaseColumnsType<E> &
     SoftDeleteColumnsType &
     ColumnsForEntity<E["fields"]> &
-    ExecutorOnly;
+    ExecutorOnly &
+    TenancyBrand<EntityTableTenancy<E>>;
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =
@@ -474,6 +491,47 @@ export type BuildEntityTableOptions = {
   readonly relations?: EntityRelations;
 };
 
+function stampGlobalTenancyMeta<E extends EntityDefinition>(
+  table: EntityTable<E>,
+  entity: E,
+): void {
+  // skip: non-global entities keep pgTable's default tenancy meta
+  if (entity.tenancy !== "global") return;
+  const meta = (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL];
+  // skip: no meta stamp present — nothing to patch
+  if (!meta) return;
+  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
+    ...meta,
+    tenancy: "global",
+  };
+}
+
+/**
+ * Stamps `tenancy: "global"` onto a `table()`/SchemaTable's meta in place.
+ * Throws if the table has a `tenant_id` column or no EntityTableMeta to stamp.
+ */
+export function declareGlobalTenancy<T extends SchemaTable>(table: T): T & TenancyBrand<"global"> {
+  const meta = (table as unknown as Record<symbol, EntityTableMeta | undefined>)[
+    KUMIKO_META_SYMBOL
+  ];
+  if (!meta) {
+    throw new Error("declareGlobalTenancy(): table has no EntityTableMeta to stamp.");
+  }
+  if (meta.columns.some((c) => c.name === "tenant_id")) {
+    throw new Error(
+      `declareGlobalTenancy("${meta.tableName}"): tables with a "tenant_id" column cannot be ` +
+        'declared tenancy: "global" — a global table\'s rows carry the system tenant, not a ' +
+        "per-row tenant identity.",
+    );
+  }
+  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
+    ...meta,
+    tenancy: "global",
+  };
+  // @cast-boundary type-brand — TenancyBrand<"global"> is a phantom marker with no runtime representation.
+  return table as T & TenancyBrand<"global">;
+}
+
 export function buildEntityTable<E extends EntityDefinition>(
   entityName: string,
   entity: E,
@@ -525,7 +583,7 @@ export function buildEntityTable<E extends EntityDefinition>(
   // hand in. Our typed signature narrows that to the static names from
   // EntityDefinition (kept in sync with fieldToColumns + buildBaseColumns).
   // Drizzle's runtime instance carries every needed method on top.
-  return pgTable(
+  const built = pgTable(
     tableName,
     {
       ...baseColumns,
@@ -627,4 +685,8 @@ export function buildEntityTable<E extends EntityDefinition>(
       return indexes;
     },
   ) as unknown as EntityTable<E>;
+
+  // pgTable's own meta stamp doesn't see entity.tenancy — patch it so db.global()'s runtime guard matches the type brand.
+  stampGlobalTenancyMeta(built, entity);
+  return built;
 }

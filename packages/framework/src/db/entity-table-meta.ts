@@ -16,6 +16,7 @@
 //      hand-built path; app author owns tenant scoping / versioning. Prefer a
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
+import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { collectPiiSubjectFields } from "../crypto";
 import type { EntityDefinition, EntityIndexDef, FieldDefinition } from "../engine/types";
 import { SQL_EXPR_BRAND } from "./dialect";
@@ -385,6 +386,7 @@ export function deriveEntityTableMeta(
     indexes,
     source,
     ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
+    ...(entity.tenancy === "global" && { tenancy: "global" as const }),
   };
 }
 
@@ -453,8 +455,17 @@ function columnsByNameMeta(meta: EntityTableMeta): Map<string, ColumnMeta> {
  * table. Justify WHY in the call site; reviewers should scrutinize every new
  * unmanaged table.
  */
-export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMeta {
+export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
+  input: UnmanagedTableInput & { readonly tenancy?: T },
+): EntityTableMeta & TenancyBrand<T> {
   assertUnmanagedTableName(input.tableName, "defineUnmanagedTable");
+  if (input.tenancy === "global" && input.columns.some((c) => c.name === "tenant_id")) {
+    throw new Error(
+      `defineUnmanagedTable("${input.tableName}"): tenancy: "global" unmanaged tables must not ` +
+        "have a tenant_id column — a global table's rows carry the system tenant, not a per-row " +
+        "tenant identity.",
+    );
+  }
   return {
     tableName: input.tableName,
     columns: input.columns,
@@ -463,7 +474,9 @@ export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMet
       compositePrimaryKey: input.compositePrimaryKey,
     }),
     source: "unmanaged",
-  };
+    ...(input.tenancy === "global" && { tenancy: "global" as const }),
+    // @cast-boundary type-brand — TenancyBrand<T> is a phantom marker with no runtime representation.
+  } as EntityTableMeta & TenancyBrand<T>;
 }
 
 function assertUnmanagedTableName(tableName: string, via: string): void {

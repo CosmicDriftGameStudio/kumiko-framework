@@ -18,7 +18,7 @@ import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { encryptForDirectWrite } from "../shared";
 import { tenantMembershipsTable } from "../tenant";
-import { USER_STATUS, type UserStatus, userTable } from "../user";
+import { isPrincipalBlocked, type UserStatus, userTable } from "../user";
 import { DEFAULT_SESSION_EXPIRY_MS, LAST_SEEN_REFRESH_MS } from "./constants";
 import { userSessionEntity, userSessionTable } from "./schema/user-session";
 import {
@@ -27,19 +27,8 @@ import {
   sessionRevokedSchema,
 } from "./session-revoked-event";
 
-// Locked accounts whose live sessions must be refused. deletionRequested is
-// intentionally absent — it's a reversible grace period and the user needs
-// their session to reach cancel-deletion.
-const BLOCKED_STATUSES: ReadonlySet<UserStatus> = new Set([
-  USER_STATUS.Restricted,
-  USER_STATUS.Deleted,
-]);
-
-// Shared with personal-access-tokens' resolver — a PAT belonging to a
-// locked-out principal must be refused the same way a live session is.
-export function isPrincipalBlocked(status: UserStatus): boolean {
-  return BLOCKED_STATUSES.has(status);
-}
+// Re-exported so existing `../sessions` importers keep working unchanged.
+export { isPrincipalBlocked };
 
 // Why the callbacks live at the raw-DB level rather than going through the
 // dispatcher: session-create/revoke/check run on the hot path of every

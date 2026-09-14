@@ -27,6 +27,11 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
     name: "verify-email",
     schema: VerifyEmailSchema,
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +
+        "target user via ctx.writeAs(SYSTEM, user:update) to set emailVerified.",
+    },
     agent: { expose: false },
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {

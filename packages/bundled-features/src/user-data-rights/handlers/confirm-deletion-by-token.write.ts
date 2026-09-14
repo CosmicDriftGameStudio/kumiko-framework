@@ -1,4 +1,3 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -25,9 +24,11 @@ async function readPendingDeletionRequestId(
   userId: string,
 ): Promise<string | null> {
   try {
-    const row = await fetchOne<{ pendingDeletionRequestId: string | null }>(ctx.db.raw, userTable, {
-      id: userId,
-    });
+    const row = await ctx.db
+      .global(userTable)
+      .fetchOne<{ pendingDeletionRequestId: string | null }>({
+        id: userId,
+      });
     return row?.["pendingDeletionRequestId"] ?? null;
   } catch {
     return null;
@@ -50,6 +51,13 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     name: "confirm-deletion-by-token",
     schema: z.object({ token: z.string().min(1) }),
     access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+    escapeHatch: {
+      reason:
+        "startDeletionGracePeriod reads the tenant compliance profile via ctx.queryAs(SYSTEM, " +
+        "...) to compute the grace period end — the anonymous token holder has no read access " +
+        "to that tenant-config projection. It also appends the user lifecycle event on the " +
+        "SYSTEM_TENANT_ID user stream.",
+    },
     agent: { expose: false },
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {

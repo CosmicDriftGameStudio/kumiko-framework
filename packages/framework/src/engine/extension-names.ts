@@ -156,6 +156,22 @@ export const EXT_EXTERNAL_RESOURCE = "externalResource" as const;
 export const EXT_INFRA_RESOURCE = "infraResource" as const;
 
 /**
+ * `principalStatus` — "is this principal blocked from signing in" contract,
+ * consulted by the active-membership building block; fulfilled by the bundled `user` feature.
+ */
+export const EXT_PRINCIPAL_STATUS = "principalStatus" as const;
+
+/**
+ * `tenantLifecycleStatus` — tenant-teardown status contract, fulfilled by
+ * the bundled `tenant-lifecycle` feature; absent means no tenant is ever "in teardown".
+ */
+export const EXT_TENANT_LIFECYCLE_STATUS = "tenantLifecycleStatus" as const;
+
+// Default membership-list query handler name. Accepted coupling, same
+// pattern as FILE_PROVIDER_CONFIG_KEY — the `tenant` feature registers a handler under this literal.
+export const TENANT_MEMBERSHIPS_QUERY = "tenant:query:memberships" as const;
+
+/**
  * Union aller standardisierten Extension-Namen der Datenschutz-Surface.
  * Nicht alle Extensions im System sind in dieser Liste — andere
  * Features koennen weiterhin eigene Extension-Namen registrieren.

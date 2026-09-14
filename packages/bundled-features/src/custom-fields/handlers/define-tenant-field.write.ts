@@ -45,6 +45,9 @@ export interface DefineTenantFieldOptions {
   readonly roles?: readonly string[];
 }
 
+const DEFINE_TENANT_FIELD_REASON =
+  "counts custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
+
 export function createDefineTenantFieldHandler(
   opts: DefineTenantFieldOptions = {},
 ): WriteHandlerDef {
@@ -55,6 +58,9 @@ export function createDefineTenantFieldHandler(
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
     description:
       "Creates a custom-field definition owned by the caller's own tenant on the named entity, rejecting the write once the tenant's definition quota is reached; use it when one tenant needs an extra field the other tenants must not see.",
+    escapeHatch: {
+      reason: DEFINE_TENANT_FIELD_REASON,
+    },
     handler: async (event, ctx) => {
       const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;
