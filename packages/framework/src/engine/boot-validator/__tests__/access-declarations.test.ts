@@ -144,8 +144,8 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
-  // 3. openToAll write handler accepting a personal-data field needs publicIntake.
-  test("openToAll write handler accepting a personal-data field without publicIntake throws", () => {
+  // 3. openToAll write handler accepting an unbound personal-data field needs personalData.
+  test("openToAll write handler accepting a personal-data field without personalData throws", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.writeHandler(
@@ -156,16 +156,17 @@ describe("validateAccessDeclarations", () => {
           data: {},
         }),
         {
-          access: { openToAll: { reason: "public signup" } },
+          access: { openToAll: { reason: "members share contacts" } },
         },
       );
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create"/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"email"/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/personalData: "tenant-members"/);
   });
 
-  test("openToAll write handler accepting a personal-data field WITH publicIntake boots fine", () => {
+  test('openToAll write handler accepting a personal-data field WITH personalData: "tenant-members" boots fine', () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.writeHandler(
@@ -176,51 +177,95 @@ describe("validateAccessDeclarations", () => {
           data: {},
         }),
         {
-          access: { openToAll: { reason: "public signup" }, publicIntake: true },
+          access: {
+            openToAll: { reason: "members share contacts", personalData: "tenant-members" },
+          },
         },
       );
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
-  // 4. publicIntake is only meaningful on a write handler.
-  test("publicIntake on a query handler throws", () => {
+  test("an unknown personalData value from an untyped source throws", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:create",
+        z.object({ title: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        {
+          // @cast-boundary test — simulates JSON/Designer input that doesn't match the static union
+          access: {
+            openToAll: { reason: "signup", personalData: "public-intake" },
+          } as unknown as AccessRule,
+        },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"public-intake"/);
+  });
+
+  test("the removed publicIntake flag no longer type-checks and no longer exempts", () => {
+    const access: AccessRule = {
+      openToAll: { reason: "members share contacts" },
+      // @ts-expect-error publicIntake was replaced by openToAll.personalData
+      publicIntake: true,
+    };
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:create",
+        z.object({ email: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"email"/);
+  });
+
+  test("the deprecated openToAll: true form cannot carry personalData", () => {
+    // @ts-expect-error personalData lives only on the { reason } object form
+    const access: AccessRule = { openToAll: true, personalData: "tenant-members" };
+    expect(access).toBeDefined();
+  });
+
+  // 4. personalData is only meaningful on a write handler.
+  test("personalData on a query handler throws", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.queryHandler("note:list", z.object({}), async () => [], {
-        access: { openToAll: { reason: "public listing" }, publicIntake: true },
+        access: { openToAll: { reason: "member listing", personalData: "tenant-members" } },
       });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list"/);
   });
 
-  test("query handler without publicIntake boots fine", () => {
+  test("query handler without personalData boots fine", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.queryHandler("note:list", z.object({}), async () => [], {
-        access: { openToAll: { reason: "public listing" } },
+        access: { openToAll: { reason: "member listing" } },
       });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
-  test("publicIntake on a stream handler throws", () => {
+  test("personalData on a stream handler throws", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.streamHandler("note:watch", z.object({}), async function* () {}, {
-        access: { openToAll: { reason: "public stream" }, publicIntake: true },
+        access: { openToAll: { reason: "member stream", personalData: "tenant-members" } },
       });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:watch"/);
   });
 
-  test("stream handler without publicIntake boots fine", () => {
+  test("stream handler without personalData boots fine", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.streamHandler("note:watch", z.object({}), async function* () {}, {
-        access: { openToAll: { reason: "public stream" } },
+        access: { openToAll: { reason: "member stream" } },
       });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
@@ -431,5 +476,67 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
     const schema = buildInsertSchema(entity).omit({ ownerUserId: true, assigneeId: true });
     const feature = featureWithWriteHandler(schema, { access: openToAll }, "note:create", entity);
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+});
+
+describe("validateAccessDeclarations — self-bound personal-data fields", () => {
+  const selfBound: OwnershipMap = { Member: from("user:id", "id") };
+
+  function profileEntity(write: OwnershipMap | undefined) {
+    return createEntity({
+      table: "fw_access_pii_profiles",
+      fields: {
+        displayName: createTextField({ personal: "self", find: "none" }),
+        bio: createTextField({ personal: { of: "id" }, find: "none" }),
+      },
+      ...(write && { access: { write } }),
+    });
+  }
+
+  const profileUpdate = z.object({
+    id: z.string(),
+    version: z.number(),
+    changes: z.object({ displayName: z.string(), bio: z.string() }).partial(),
+  });
+
+  test('self and record-owned fields on an entity whose every write role is from("user:id", "id") boot fine', () => {
+    const multiRole: OwnershipMap = { ...selfBound, Viewer: from("user:id", "id") };
+    for (const map of [selfBound, multiRole]) {
+      const feature = featureWithWriteHandler(
+        profileUpdate,
+        { access: openToAll },
+        "note:update",
+        profileEntity(map),
+      );
+      expect(() => validateAccessDeclarations(feature)).not.toThrow();
+    }
+  });
+
+  test.each<[string, OwnershipMap | undefined]>([
+    ["no access.write", undefined],
+    ["an owner rule on another column", { Member: from("user:id", "ownerUserId") }],
+    ['a from("user:id", "id") rule plus an "all" role', { ...selfBound, TenantAdmin: "all" }],
+  ])("a self field on an entity with %s still throws", (_label, map) => {
+    const feature = featureWithWriteHandler(
+      profileUpdate,
+      { access: openToAll },
+      "note:update",
+      profileEntity(map),
+    );
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"displayName"/);
+  });
+
+  test("a self-bound entity in an r.systemScope() feature is not exempted", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.systemScope();
+      r.entity("note", profileEntity(selfBound));
+      r.writeHandler(
+        "note:update",
+        profileUpdate,
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: openToAll },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"displayName"/);
   });
 });
