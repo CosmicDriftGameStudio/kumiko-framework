@@ -16,13 +16,16 @@ import type {
   FetchForWritingArgs,
   HandlerContext,
   JobRunnerRef,
+  MemberReader,
   Registry,
   SessionUser,
   WriteResult,
 } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 import {
+  AccessDeniedError,
   FeatureDisabledError,
+  FrameworkReasons,
   InternalError,
   VersionConflictError,
   type WriteErrorInfo,
@@ -76,7 +79,12 @@ import {
 } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { createGatedIdentitySwitch, systemIdentitySwitchDenied } from "./system-identity-switch";
+import { createMemberReaderFn } from "./member-reader";
+import {
+  createGatedIdentitySwitch,
+  createGatedMemberReader,
+  systemIdentitySwitchDenied,
+} from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
@@ -194,6 +202,52 @@ function createSystemScopedDbGuard(
       });
     },
   });
+}
+
+// Exported so dispatch-write.ts / dispatch-stream.ts throw the identical
+// error for their own defense-in-depth checks.
+export function memberResolutionReadOnlyDenied(): AccessDeniedError {
+  return new AccessDeniedError({
+    message: "a resolved member principal (ctx.queryAsMember) cannot write — read-only",
+    details: { reason: FrameworkReasons.memberResolutionReadOnly },
+  });
+}
+
+async function denyMemberResolutionWrite(): Promise<never> {
+  throw memberResolutionReadOnlyDenied();
+}
+
+// JobRunnerRef's declared type only carries handleEvent, but callers
+// routinely bracket-access a fuller runner — a Proxy denies ANY property read.
+function denyingJobRunnerProxy(): JobRunnerRef {
+  return new Proxy({} as JobRunnerRef, {
+    get() {
+      throw memberResolutionReadOnlyDenied();
+    },
+  });
+}
+
+// Every write/side-effect surface throws, so "no writeAsMember" holds even
+// if a handler tries ctx.write directly on a resolved member principal.
+function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
+  return {
+    ...handlerContext,
+    // `db` itself stays open — same access the member's own HTTP request has;
+    // raw ctx.db writes inside a queried handler are not blocked by this.
+    dbOutsideTransaction: undefined,
+    write: denyMemberResolutionWrite,
+    writeAs: denyMemberResolutionWrite,
+    appendEvent: denyMemberResolutionWrite as AppendEventFn, // @cast-boundary engine-bridge
+    unsafeAppendEvent: denyMemberResolutionWrite,
+    tryAppendEvent: denyMemberResolutionWrite,
+    queryAsMember: denyMemberResolutionWrite,
+    resolveActiveMembership: denyMemberResolutionWrite,
+    scheduleAfterCommit: () => {
+      throw memberResolutionReadOnlyDenied();
+    },
+    ...(handlerContext.jobRunner && { jobRunner: denyingJobRunnerProxy() }),
+    ...(handlerContext.notify && { notify: denyMemberResolutionWrite }),
+  };
 }
 
 export async function buildHandlerContext(
@@ -326,6 +380,17 @@ export async function buildHandlerContext(
     writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
       executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
   });
+  // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
+  // on first actual use, not on every HandlerContext build.
+  let ungatedMemberReader: MemberReader | undefined;
+  const queryAsMember = createGatedMemberReader(
+    `handler "${type}"`,
+    allowSystemIdentity,
+    (userId, qn, payload) => {
+      ungatedMemberReader ??= createMemberReaderFn(ctx, user.tenantId, tx);
+      return ungatedMemberReader(userId, qn, payload);
+    },
+  );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
       executeQuery(ctx, targetType, payload, user, tx), // @wrapper-known semantic-alias
@@ -604,6 +669,9 @@ export async function buildHandlerContext(
       return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
     },
 
+    // Needs the same grant as a SYSTEM queryAs.
+    queryAsMember,
+
     // Feature-effective check for in-handler opt-in logic. Scope:
     // **current user's tenant** — for cross-tenant lookups (rare,
     // SysAdmin operations) read effectiveFeatures(otherTenantId) directly.
@@ -688,7 +756,7 @@ export async function buildHandlerContext(
     user.locale !== undefined && isValidLocaleTag(user.locale) ? user.locale : undefined;
   const locale = reqCtx?.locale ?? safeUserLocale ?? context.defaultLocale ?? DEFAULT_LOCALE;
 
-  return {
+  const handlerContext = {
     ...context,
     registry,
     db: exposedDb,
@@ -740,6 +808,11 @@ export async function buildHandlerContext(
     ...(includeDeleted && { includeDeleted: true }),
     ...bridge,
   } as HandlerContext; // @cast-boundary engine-bridge
+
+  // A resolved member principal is read-only by construction.
+  return user.origin === "member-resolution"
+    ? applyMemberResolutionReadOnly(handlerContext)
+    : handlerContext;
 }
 
 // Wrap handler execution in a dispatcher.handler span AND emit the standard

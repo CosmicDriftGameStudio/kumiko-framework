@@ -3,6 +3,7 @@ import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
   LifecycleHookFn,
+  MemberReader,
   SessionUser,
   WriteResult,
 } from "../engine/types";
@@ -39,6 +40,8 @@ export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedErr
 
 // Reverse-lookup so withHookIdentitySwitchGrant can re-gate the SAME ungated pair under a narrower grant.
 const ungatedByGated = new WeakMap<QueryAsFn | WriteAsFn, IdentitySwitch>();
+// Same idea, for ctx.queryAsMember — a single function rather than a pair.
+const ungatedMemberReaderByGated = new WeakMap<MemberReader, MemberReader>();
 
 export function createGatedIdentitySwitch(
   callerLabel: string,
@@ -63,9 +66,26 @@ export function createGatedIdentitySwitch(
   return gated;
 }
 
-function readIdentitySwitchFn<TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn>(
+// ctx.queryAsMember's gate: the caller never names the target identity up
+// front (it's resolved internally), so this is a flat allow/deny.
+export function createGatedMemberReader(
+  callerLabel: string,
+  allowSystemIdentity: boolean,
+  ungated: MemberReader,
+): MemberReader {
+  const gated: MemberReader = async (userId, qn, payload) => {
+    if (!allowSystemIdentity) throw systemIdentitySwitchDenied(callerLabel);
+    return ungated(userId, qn, payload);
+  };
+  ungatedMemberReaderByGated.set(gated, ungated);
+  return gated;
+}
+
+function readIdentitySwitchFn<
+  TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn | MemberReader,
+>(
   context: object,
-  key: "queryAs" | "writeAs" | "resolveActiveMembership",
+  key: "queryAs" | "writeAs" | "resolveActiveMembership" | "queryAsMember",
 ): TFn | undefined {
   if (!(key in context)) return undefined;
   const value = (context as Record<string, unknown>)[key];
@@ -117,6 +137,20 @@ function gatedIdentitySwitchFields(
   };
 }
 
+// Unlike ctx.resolveActiveMembership (deny-only), a hook's own escapeHatch
+// can grant queryAsMember even when the enclosing handler has none.
+function gatedMemberReaderField(
+  callerLabel: string,
+  escapeHatch: EscapeHatchDeclaration | undefined,
+  ctxQueryAsMember: MemberReader | undefined,
+): { queryAsMember?: MemberReader } {
+  if (!ctxQueryAsMember) return {};
+  const ungated = ungatedMemberReaderByGated.get(ctxQueryAsMember) ?? ctxQueryAsMember;
+  return {
+    queryAsMember: createGatedMemberReader(callerLabel, escapeHatch !== undefined, ungated),
+  };
+}
+
 export function withHookIdentitySwitchGrant<TContext extends object>(
   context: TContext,
   callerLabel: string,
@@ -128,7 +162,10 @@ export function withHookIdentitySwitchGrant<TContext extends object>(
     context,
     "resolveActiveMembership",
   );
-  if (!ctxQueryAs && !ctxWriteAs && !ctxResolveActiveMembership) return context;
+  const ctxQueryAsMember = readIdentitySwitchFn<MemberReader>(context, "queryAsMember");
+  if (!ctxQueryAs && !ctxWriteAs && !ctxResolveActiveMembership && !ctxQueryAsMember) {
+    return context;
+  }
 
   return {
     ...context,
@@ -137,6 +174,7 @@ export function withHookIdentitySwitchGrant<TContext extends object>(
       escapeHatch === undefined && {
         resolveActiveMembership: deniedResolveActiveMembership(callerLabel),
       }),
+    ...gatedMemberReaderField(callerLabel, escapeHatch, ctxQueryAsMember),
   };
 }
 

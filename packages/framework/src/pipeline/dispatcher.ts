@@ -6,7 +6,9 @@ import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extensio
 import type {
   ActiveMembershipResult,
   AppContext,
+  DispatchWriteRef,
   JobRunnerRef,
+  MemberReader,
   Registry,
   SessionUser,
   WriteResult,
@@ -23,6 +25,7 @@ import { executeStream } from "./dispatch-stream";
 import { type HandlerType, resolveType } from "./dispatcher-utils";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
+import { createMemberReaderFn } from "./member-reader";
 import { createTenantTimezoneCache } from "./tenant-timezone-cache";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
@@ -97,7 +100,22 @@ export type Dispatcher = {
   // Membership check for interactive sign-in paths (login, MFA completion,
   // tenant switch) — single resolve implementation so callers can't independently drift.
   resolveActiveMembership(userId: string, tenantId: TenantId): Promise<ActiveMembershipResult>;
+  // Trusted server surface, ungated (like resolveActiveMembership) — builds
+  // a tenant-scoped MemberReader for JobContext.queryAsMember. Handler/hook
+  // ctx.queryAsMember goes through buildHandlerContext's own gated reader
+  // instead of this method directly.
+  createMemberReader(tenantId: TenantId): MemberReader;
 };
+
+// Adapts Dispatcher's (type, payload, user) call shape to DispatchWriteRef's
+// (user, qn, payload) — JobRunner.attachDispatcher needs the latter.
+export function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
+  return {
+    write: (user, qn, payload) => dispatcher.write(qn, payload, user),
+    queryAs: (user, qn, payload) => dispatcher.query(qn, payload, user),
+    createMemberReader: (tenantId) => dispatcher.createMemberReader(tenantId),
+  };
+}
 
 export function createDispatcher(
   registry: Registry,
@@ -164,5 +182,7 @@ export function createDispatcher(
 
     resolveActiveMembership: (userId, tenantId) =>
       resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY),
+
+    createMemberReader: (tenantId) => createMemberReaderFn(ctx, tenantId),
   };
 }

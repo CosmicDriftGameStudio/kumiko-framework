@@ -76,7 +76,9 @@ async function findMembership(
   return rawMemberships.find((m) => m.tenantId === tenantId);
 }
 
-function resolvePrincipalPlugin(registry: Registry): PrincipalStatusPlugin {
+// Exported so member-reader.ts (ctx.queryAsMember) can reach the registered
+// PrincipalStatusPlugin's resolveProfile without duplicating this lookup.
+export function resolvePrincipalPlugin(registry: Registry): PrincipalStatusPlugin {
   const usages = registry.getExtensionUsages(EXT_PRINCIPAL_STATUS);
   if (usages.length !== 1) {
     throw new InternalError({
