@@ -1,6 +1,6 @@
 import type { AccessRule, FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types";
 import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
-import { getZodObjectShape } from "./zod-shape";
+import { collectZodObjectKeys } from "./zod-shape";
 
 type HandlerKind = "write" | "query" | "stream";
 
@@ -110,11 +110,9 @@ function validateOpenToAllPersonalData(
   const access = handler.access;
   // skip: no openToAll declared, or publicIntake already covers personal data
   if (!hasOpenToAll(access) || hasPublicIntake(access)) return;
-  const shape = getZodObjectShape(handler.schema);
-  // skip: handler schema isn't a zod object — nothing to inspect
-  if (!shape) return;
+  const inputKeys = collectZodObjectKeys(handler.schema);
   const personalNames = candidatePersonalFieldNames(feature, handlerName);
-  const offending = Object.keys(shape).filter((key) => personalNames.has(key));
+  const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input
   if (offending.length === 0) return;
   throw new Error(

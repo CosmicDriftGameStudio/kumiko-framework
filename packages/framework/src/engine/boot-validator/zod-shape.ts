@@ -1,4 +1,23 @@
-import { ZodArray, ZodDefault, ZodNullable, ZodObject, ZodOptional, type ZodType } from "zod";
+import {
+  ZodArray,
+  ZodCatch,
+  ZodDefault,
+  ZodIntersection,
+  ZodLazy,
+  ZodNonOptional,
+  ZodNullable,
+  ZodObject,
+  ZodOptional,
+  ZodPipe,
+  ZodPrefault,
+  ZodReadonly,
+  ZodRecord,
+  ZodTuple,
+  type ZodType,
+  ZodUnion,
+  ZodXor,
+} from "zod";
+import type { $ZodType } from "zod/v4/core";
 
 // Drills through wrapper types (.nullable(), .optional(), .default()) a
 // handler's schema may use around its actual object/array shape — e.g. a
@@ -48,4 +67,58 @@ export function getZodRowShape(schema: ZodType | undefined): Record<string, ZodT
   return rowsArray instanceof ZodArray
     ? getZodObjectShape(rowsArray.element as ZodType)
     : undefined;
+}
+
+function childSchemas(schema: $ZodType): readonly $ZodType[] {
+  if (schema instanceof ZodObject) return Object.values(schema.shape);
+  if (schema instanceof ZodArray) return [schema.element];
+  if (schema instanceof ZodRecord) return [schema.valueType];
+  if (schema instanceof ZodTuple) {
+    const { items, rest } = schema.def;
+    return rest ? [...items, rest] : items;
+  }
+  if (schema instanceof ZodUnion || schema instanceof ZodXor) return schema.options;
+  if (schema instanceof ZodIntersection) return [schema.def.left, schema.def.right];
+  // z.preprocess() carries the accepted shape on `out`, .transform() on `in`.
+  if (schema instanceof ZodPipe) return [schema.in, schema.out];
+  if (
+    schema instanceof ZodOptional ||
+    schema instanceof ZodNullable ||
+    schema instanceof ZodDefault ||
+    schema instanceof ZodPrefault ||
+    schema instanceof ZodNonOptional ||
+    schema instanceof ZodCatch ||
+    schema instanceof ZodReadonly ||
+    schema instanceof ZodLazy
+  ) {
+    return [schema.unwrap()];
+  }
+  return [];
+}
+
+// A z.lazy() getter that builds a fresh schema per call never revisits a node.
+const MAX_WALKED_SCHEMAS = 10_000;
+
+// Object keys at any depth, so a field nested in an intersection, union or an
+// update's `changes` object is found too.
+export function collectZodObjectKeys(schema: $ZodType | undefined): ReadonlySet<string> {
+  const keys = new Set<string>();
+  if (schema === undefined) return keys;
+  const visited = new Set<$ZodType>();
+  const pending: $ZodType[] = [schema];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    if (visited.has(next)) continue;
+    if (visited.size >= MAX_WALKED_SCHEMAS) {
+      throw new Error(
+        `collectZodObjectKeys: schema has more than ${MAX_WALKED_SCHEMAS} nodes — ` +
+          "a z.lazy() getter probably returns a new schema on every call; hoist it into a constant.",
+      );
+    }
+    visited.add(next);
+    if (next instanceof ZodObject) {
+      for (const key of Object.keys(next.shape)) keys.add(key);
+    }
+    pending.push(...childSchemas(next));
+  }
+  return keys;
 }
