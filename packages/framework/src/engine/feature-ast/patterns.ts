@@ -70,6 +70,7 @@ import type {
   AccessRule,
   AgentHandlerHints,
   ClaimKeyType,
+  EscapeHatchDeclaration,
   RateLimitOption,
 } from "../types/handlers";
 import type { HookPhase } from "../types/hooks";
@@ -388,6 +389,7 @@ export type WriteHandlerPattern = {
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 // `r.queryHandler(...)` — registers a read handler: name, Zod input schema,
@@ -410,6 +412,7 @@ export type QueryHandlerPattern = {
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 // `r.streamHandler(...)` — registers a streaming read handler: name, Zod
@@ -444,6 +447,7 @@ export type HookPattern = {
   readonly target: string | readonly string[] | { readonly allOf: string };
   readonly fnBody: SourceLocation;
   readonly phase?: HookPhase;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 // `r.job(name, options, handler)` — registers a background job, qualified

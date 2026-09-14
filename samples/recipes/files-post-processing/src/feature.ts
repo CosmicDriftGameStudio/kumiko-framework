@@ -97,7 +97,15 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
       coverOrder.push(fileRefId);
       return { isSuccess: true as const, data: { fileRefId, storageKey: result.storageKey } };
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo recipe: any signed-in user may generate a cover-image derivative for " +
+            "a file; there is no per-user file ownership check in this sample",
+        },
+      },
+    },
   );
 
   // A real app would gate this behind real roles; `openToAll` keeps the
@@ -109,7 +117,15 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
       publishedPhotoIds.add(`${event.user.tenantId}:${event.payload.entityId}`);
       return { isSuccess: true as const, data: { entityId: event.payload.entityId } };
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo recipe: any signed-in user may mark a photo entity published; a real " +
+            "app would replace this with a role check as noted above",
+        },
+      },
+    },
   );
 
   // Entry point 3 — default-deny. No registration here means every entityId

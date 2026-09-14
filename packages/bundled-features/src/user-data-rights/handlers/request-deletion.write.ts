@@ -43,7 +43,13 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
   return defineWriteHandler({
     name: "request-deletion",
     schema: z.object({}),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user starts deletion of only their own account; the grace " +
+          "period is armed for the caller's own userId",
+      },
+    },
     escapeHatch: {
       reason:
         "startDeletionGracePeriod reads the tenant compliance profile via ctx.queryAs(SYSTEM, " +

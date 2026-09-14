@@ -81,7 +81,12 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({
     // Deliberately no `ownership` — the gate must hold on a bare mount.
-    features: [createNotesHistoryFeature({ access: { openToAll: true } }), hostFixturesFeature],
+    features: [
+      createNotesHistoryFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+      hostFixturesFeature,
+    ],
   });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
   await unsafeCreateEntityTable(stack.db, noteMentionEntity);
@@ -192,7 +197,10 @@ describe("notes-history read-gate — parents allowlist narrows both paths", () 
   beforeAll(async () => {
     allowStack = await setupTestStack({
       features: [
-        createNotesHistoryFeature({ access: { openToAll: true }, parents: ["project"] }),
+        createNotesHistoryFeature({
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          parents: ["project"],
+        }),
         fixtures,
       ],
     });

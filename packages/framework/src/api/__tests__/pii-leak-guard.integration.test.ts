@@ -18,7 +18,7 @@ const leakyFeature = defineFeature("leaky", (r) => {
     defineQueryHandler({
       name: "raw",
       schema: z.object({}),
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       handler: async () => ({ email: CIPHERTEXT, note: "plain" }),
     }),
   );
@@ -26,7 +26,7 @@ const leakyFeature = defineFeature("leaky", (r) => {
     defineQueryHandler({
       name: "clean",
       schema: z.object({}),
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       handler: async () => ({ email: "marc@example.com" }),
     }),
   );

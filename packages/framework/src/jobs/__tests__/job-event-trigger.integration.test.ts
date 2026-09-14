@@ -26,7 +26,7 @@ const ordersFeature = defineFeature("orders", (r) => {
         data: { id: 1, product: event.payload.product, amount: event.payload.amount },
       };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 
@@ -51,7 +51,7 @@ const analyticsFeature = defineFeature("analytics", (r) => {
       isSuccess: true as const,
       data: null,
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.job("trackOrder", { trigger: { on: "orders:write:orders:create" } }, async (payload) => {

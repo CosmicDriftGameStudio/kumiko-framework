@@ -63,7 +63,7 @@ const taskEntity = createEntity({
 export const taskFeature = defineFeature("tasks", (r) => {
   r.crud("task", taskEntity, {
     write: { access: { roles: ["Admin", "User"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "any signed-in user may list and view tasks" } } },
   });
 });
 ```

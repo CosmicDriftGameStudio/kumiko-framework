@@ -408,6 +408,7 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
   if (p.agent !== undefined) lines.push(`  agent: ${renderValue(p.agent)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   if (p.unsafeSkipTransitionGuard === true) lines.push("  unsafeSkipTransitionGuard: true,");
+  if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");
   return lines.join("\n");
 }
@@ -422,6 +423,7 @@ function renderQueryHandler(p: QueryHandlerPattern): string {
   if (p.description !== undefined) lines.push(`  description: ${JSON.stringify(p.description)},`);
   if (p.agent !== undefined) lines.push(`  agent: ${renderValue(p.agent)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
+  if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");
   return lines.join("\n");
 }
@@ -450,6 +452,7 @@ function renderHook(p: HookPattern): string {
   lines.push(`  target: ${renderHookTarget(p.target)},`);
   lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
+  if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");
   return lines.join("\n");
 }

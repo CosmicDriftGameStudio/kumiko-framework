@@ -41,7 +41,7 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
       });
       return { isSuccess: true as const, data: { note: event.payload.note } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.job("write-via-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     try {

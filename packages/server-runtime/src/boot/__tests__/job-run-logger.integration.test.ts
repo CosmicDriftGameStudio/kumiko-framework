@@ -124,11 +124,11 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.queryHandler("list", z.object({}), async (_query, ctx) => selectMany(ctx.db, attachNoteTable), {
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
   r.job("record", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {

@@ -20,7 +20,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionList column not in the paged query's row shape throws", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
       });
       r.screen({
@@ -39,7 +39,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionList column present in the row shape does not throw", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
       });
       r.screen({
@@ -56,7 +56,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionList column with a label is exempt as a virtual/computed column", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
       });
       r.screen({
@@ -78,7 +78,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionList without a declared outputSchema skips the column check entirely", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "items",
@@ -94,7 +94,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionList outputSchema that isn't a ZodObject (e.g. a union) skips the column check", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.union([pagedSchema, z.null()]),
       });
       r.screen({
@@ -111,11 +111,11 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("relatedList column not in the query's row shape throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ description: z.string() }),
       });
       r.queryHandler("rent:payments", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({
           rows: z.array(z.object({ amount: z.number() })),
           nextCursor: z.string().nullable(),
@@ -145,7 +145,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionDetail header.title referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), name: z.string() }),
       });
       r.screen({
@@ -164,7 +164,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionDetail header.status referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), name: z.string() }),
       });
       r.screen({
@@ -181,7 +181,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("projectionDetail metrics referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", balance: 0 }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ id: z.string(), balance: z.number() }),
       });
       r.screen({
@@ -214,7 +214,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         z.object({}),
         async () => ({ id: "1", name: "x", balance: 0 }),
         {
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({
             id: z.string(),
             name: z.string(),
@@ -241,7 +241,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("dashboard stat panel valueField referencing an unknown field throws", () => {
     const feature = defineFeature("demo", (r) => {
       r.queryHandler("open-count", z.object({}), async () => ({ value: "0" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ value: z.string() }),
       });
       r.screen({
@@ -269,7 +269,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("dashboard stat-group child deltaField referencing an unknown field throws", () => {
     const feature = defineFeature("demo", (r) => {
       r.queryHandler("net-worth", z.object({}), async () => ({ value: "0" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({ value: z.string() }),
       });
       r.screen({
@@ -308,7 +308,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
   test("dashboard list panel column not in the query's row shape throws", () => {
     const feature = defineFeature("demo", (r) => {
       r.queryHandler("next-events", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: z.object({
           rows: z.array(z.object({ title: z.string() })),
           nextCursor: z.string().nullable(),
@@ -342,7 +342,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         defineQueryHandler({
           name: "items:detail",
           schema: z.object({ id: z.string() }),
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: z.object({ id: z.string(), name: z.string() }),
           handler: async () => ({ id: "1", name: "x" }),
         }),
@@ -366,7 +366,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         definePagedQueryHandler({
           name: "items:list",
           schema: z.object({}),
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: pagedSchema,
           handler: async () => ({ rows: [], nextCursor: null }),
         }),
@@ -390,7 +390,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         definePagedQueryHandler({
           name: "items:list",
           schema: z.object({}),
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           // Row schema passed directly instead of wrapping it in
           // { rows: [...], nextCursor } — the mistake fw#2493's follow-up
           // check catches instead of silently skipping every column check.
@@ -417,7 +417,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         definePagedQueryHandler({
           name: "items:list",
           schema: z.object({}),
-          access: { openToAll: true },
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           outputSchema: pagedSchema,
           handler: async () => ({ rows: [], nextCursor: null }),
         }),

@@ -8,7 +8,13 @@ export const schemaQuery = defineQueryHandler({
     "Returns the definitions of all config keys the caller may read (scope, type, default, bounds, required flag) without any values; use it to discover which settings exist and how they may be set.",
   schema: z.object({}),
   // Per-key read access enforced via hasConfigAccess inside the handler.
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may call schema; hasConfigAccess filters the result to " +
+        "only the config key definitions the caller's roles may read",
+    },
+  },
   handler: async (query, ctx) => {
     const registry = ctx.registry;
     const allKeys = registry.getAllConfigKeys();

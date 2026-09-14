@@ -16,7 +16,13 @@ import { z } from "zod";
 export const listProfilesQuery = defineQueryHandler({
   name: "list-profiles",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may list the selectable compliance profiles; the data is " +
+        "static, deployment-wide reference information, not tenant- or user-specific",
+    },
+  },
   description:
     "Lists the compliance profiles a tenant can choose from (key, region, label, supervisory-authority contact, notification languages), for rendering the onboarding profile picker; the minimal-no-region fallback is excluded because it is not selectable.",
   handler: async (): Promise<{ profiles: readonly ComplianceProfileSummary[] }> => {

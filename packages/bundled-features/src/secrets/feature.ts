@@ -93,7 +93,7 @@ export function requireSecretsContext(
 export type SecretsFeatureOptions = {
   /** Access rule for the `set`, `delete` and `list` handlers. Default
    *  { roles: ["TenantAdmin"] }. Adopt the host's role vocabulary with
-   *  { roles: [...] }, or { openToAll: true } to let any authenticated tenant
+   *  { roles: [...] }, or { openToAll: { reason: "..." } } to let any authenticated tenant
    *  user manage secrets — note this is a much larger blast radius than the
    *  default: tenant credentials (API keys, tokens) become writable/deletable,
    *  and their previews/hints listable, by every tenant member, not just
@@ -121,7 +121,7 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
   const access = resolveSecretsAccess(opts);
   return defineFeature(SECRETS_FEATURE_NAME, (r) => {
     r.describe(
-      'Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: ["TenantAdmin"] }; adopt the host\'s role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: true } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins).',
+      'Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump. The `set`/`delete`/`list` handlers share one access rule — default { roles: ["TenantAdmin"] }; adopt the host\'s role vocabulary with createSecretsFeature({ roles }) or open it to every authenticated tenant user with { access: { openToAll: { reason } } } (larger blast radius: any tenant member can then read secret previews and write/delete secrets, not just admins).',
     );
     r.uiHints({
       displayLabel: "Tenant Secrets",

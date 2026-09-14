@@ -111,7 +111,11 @@ describe("resolveNavigation", () => {
 
   test("access: openToAll bypasses user-role check (matches handler-access semantic)", () => {
     const source = buildSource([
-      { id: "app:nav:help", label: "Help", access: { openToAll: true } },
+      {
+        id: "app:nav:help",
+        label: "Help",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      },
     ]);
 
     // Anonymous sees it.

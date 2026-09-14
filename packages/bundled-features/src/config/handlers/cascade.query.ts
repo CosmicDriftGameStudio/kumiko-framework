@@ -16,7 +16,13 @@ export const cascadeQuery = defineQueryHandler({
   schema: z.object({
     keys: z.array(z.string()).optional(),
   }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may call cascade; hasConfigAccess filters the result to " +
+        "only the config keys the caller's roles may read, before any value is returned",
+    },
+  },
   handler: async (query, ctx) => {
     const db = requireSystemDb(ctx, "config:query:cascade", query.user.tenantId);
     const registry = ctx.registry;

@@ -6,7 +6,13 @@ import { inAppMessagesTable } from "../tables";
 export const markAllReadWrite = defineWriteHandler({
   name: "markAllRead",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user marks only their own unread in-app messages as read; the " +
+        "update is scoped to the caller's own userId",
+    },
+  },
   description:
     "Marks every unread in-app message of the calling user as read and returns how many rows were touched; use it for a mark-all-as-read action.",
   handler: async (event, ctx) => {

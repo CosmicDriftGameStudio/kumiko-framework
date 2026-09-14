@@ -18,7 +18,7 @@ const localeProbe = defineFeature("locale-probe", (r) => {
     "read-locale",
     z.object({}),
     async (_event, ctx) => ({ isSuccess: true, data: { locale: ctx.locale } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

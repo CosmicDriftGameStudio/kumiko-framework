@@ -46,7 +46,12 @@ describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
     expect(screen?.type).toBe("projectionDetail");
     if (screen?.type === "projectionDetail") {
       expect(screen.query).toBe("user:query:user:me");
-      expect(screen.access).toEqual({ openToAll: true });
+      expect(screen.access).toEqual({
+        openToAll: {
+          reason:
+            "each signed-in user manages only their own profile: change-email/password re-authenticate the caller, and deletion request/cancel act on the caller's own userId; no app role name is portable enough to gate this",
+        },
+      });
     }
   });
 

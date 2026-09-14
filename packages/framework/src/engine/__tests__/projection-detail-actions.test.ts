@@ -42,13 +42,13 @@ describe("validateBoot — projectionDetail actions (fw#2166)", () => {
   test("valid navigate + writeHandler actions boot cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.writeHandler(
         "archive",
         z.object({ id: z.string() }),
         async () => ({ isSuccess: true as const, data: {} }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "rent-detail",

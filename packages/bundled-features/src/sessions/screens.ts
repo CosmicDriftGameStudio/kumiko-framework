@@ -13,6 +13,8 @@ import {
 } from "./constants";
 
 const listAccess = { roles: access.admin };
+const SESSION_MINE_OPEN_REASON =
+  "each signed-in user views and revokes only their own sessions, mirroring the mine/revoke handlers";
 
 export const sessionListScreen: ProjectionListScreenDefinition = {
   id: SESSION_LIST_SCREEN_ID,
@@ -140,5 +142,9 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
       confirm: i18nKey("sessions.mine.revokeAllOthers.confirm"),
     },
   ],
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason: SESSION_MINE_OPEN_REASON,
+    },
+  },
 };

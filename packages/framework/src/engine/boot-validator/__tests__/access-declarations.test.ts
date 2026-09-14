@@ -55,7 +55,8 @@ describe("validateAccessDeclarations", () => {
   });
 
   // 1b. malformed openToAll (from untyped sources) counts as invalid, not a crash.
-  test.each([{ openToAll: false }, { openToAll: {} }])(
+  // `{ openToAll: true }` (deprecated) must fail boot too — it never grants access per isOpenToAllGranted.
+  test.each([{ openToAll: false }, { openToAll: {} }, { openToAll: true }])(
     "malformed openToAll %p throws, naming the handler",
     (access) => {
       const feature = defineFeature("notes", (r) => {
@@ -259,9 +260,9 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).toThrow(/"email"/);
   });
 
-  test("the deprecated openToAll: true form cannot carry personalData", () => {
-    // @ts-expect-error personalData lives only on the { reason } object form
-    const access: AccessRule = { openToAll: true, personalData: "tenant-members" };
+  test("the deprecated openToAll: true form no longer type-checks against AccessRule", () => {
+    // @ts-expect-error `openToAll: true` was removed from AccessRule — see #2858
+    const access: AccessRule = { openToAll: true };
     expect(access).toBeDefined();
   });
 

@@ -401,7 +401,11 @@ describe("scenario 7: access rules on handlers", () => {
       "SystemAdmin",
     ]);
     expect(stack.registry.getQueryHandler(TenantQueries.me)?.access).toEqual({
-      openToAll: true,
+      openToAll: {
+        reason:
+          "any signed-in user reads only their own active tenant; the query is scoped " +
+          "to the caller's own tenantId",
+      },
     });
   });
 });

@@ -58,7 +58,7 @@ const seedTestFeature = defineFeature("esopstest", (r) => {
     "probe:create",
     z.object({ label: z.string().min(1) }),
     async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.writeHandler(
     "probe:fail",
@@ -70,7 +70,7 @@ const seedTestFeature = defineFeature("esopstest", (r) => {
         currentVersion: 2,
       });
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   // Role-gated handler (no openToAll): the bare system actor has no bypass
   // for explicit role gates — only systemWriteAs' extraRoles reaches it.

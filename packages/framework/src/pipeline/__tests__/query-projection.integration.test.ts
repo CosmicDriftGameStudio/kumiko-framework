@@ -92,7 +92,7 @@ const qpFeature = defineFeature("qp", (r) => {
     "widget:list-tenant",
     z.object({}),
     async (_query, ctx) => ctx.queryProjection("qp:projection:widget-count-tenant"),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.queryHandler(
@@ -102,14 +102,14 @@ const qpFeature = defineFeature("qp", (r) => {
       ctx.queryProjection("qp:projection:widget-audit", {
         unsafeAllTenants: query.payload.unsafeAllTenants ?? false,
       }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.queryHandler(
     "widget:list-ghost",
     z.object({}),
     async (_query, ctx) => ctx.queryProjection("qp:projection:does-not-exist"),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

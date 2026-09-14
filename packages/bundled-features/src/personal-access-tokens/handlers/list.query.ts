@@ -46,7 +46,13 @@ export const listPatQuery = definePagedQueryHandler({
     sort: z.string().optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
   }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user lists only their own personal access tokens; the query " +
+        "filters apiTokenTable by the caller's own userId",
+    },
+  },
   description:
     "Lists the calling user's personal access tokens with metadata only (name, key prefix, scopes, computed status, created/expiry/revoked timestamps, including revoked ones) and never the token secret.",
   outputSchema: z.object({

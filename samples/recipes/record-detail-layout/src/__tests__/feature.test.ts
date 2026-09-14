@@ -70,7 +70,7 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
   test("metric without a fieldLabels entry fails boot — no fallback to the raw column name", () => {
     const broken = defineFeature("broken-order-desk", (r) => {
       r.queryHandler("order:detail", z.object({ id: z.string() }), async () => ({ id: "1" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "order-detail",
@@ -88,7 +88,7 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
   test("tabs with only one section fails boot", () => {
     const broken = defineFeature("broken-order-desk-tabs", (r) => {
       r.queryHandler("order:detail", z.object({ id: z.string() }), async () => ({ id: "1" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "order-detail",

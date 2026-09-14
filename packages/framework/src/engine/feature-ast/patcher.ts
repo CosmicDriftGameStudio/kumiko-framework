@@ -31,7 +31,12 @@ import type {
 } from "../types/config";
 import type { MetricOptions, SecretOptions } from "../types/feature";
 import type { EntityDefinition } from "../types/fields";
-import type { AccessRule, ClaimKeyType, RateLimitOption } from "../types/handlers";
+import type {
+  AccessRule,
+  ClaimKeyType,
+  EscapeHatchDeclaration,
+  RateLimitOption,
+} from "../types/handlers";
 import type { HookPhase } from "../types/hooks";
 import type { HttpRouteMethod } from "../types/http-route";
 import type { NavDefinition } from "../types/nav";
@@ -94,6 +99,7 @@ export type AddWriteHandlerArgs = {
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 export type AddQueryHandlerArgs = {
@@ -102,6 +108,7 @@ export type AddQueryHandlerArgs = {
   readonly handlerSource: string;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 export type AddStreamHandlerArgs = {
@@ -121,6 +128,7 @@ export type AddHookArgs = {
   /** Source text of the closure, e.g. `"async (event, ctx) => { ... }"`. */
   readonly handlerSource: string;
   readonly phase?: HookPhase;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 export type AddJobArgs = {
@@ -380,6 +388,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       access,
       rateLimit,
       unsafeSkipTransitionGuard,
+      escapeHatch,
     }) {
       add({
         kind: "writeHandler",
@@ -390,10 +399,11 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         ...(access !== undefined && { access }),
         ...(rateLimit !== undefined && { rateLimit }),
         ...(unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
+        ...(escapeHatch !== undefined && { escapeHatch }),
       });
     },
 
-    addQueryHandler({ name, schemaSource, handlerSource, access, rateLimit }) {
+    addQueryHandler({ name, schemaSource, handlerSource, access, rateLimit, escapeHatch }) {
       add({
         kind: "queryHandler",
         source: SYNTHETIC_LOC,
@@ -402,6 +412,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         handlerBody: rawLoc(handlerSource),
         ...(access !== undefined && { access }),
         ...(rateLimit !== undefined && { rateLimit }),
+        ...(escapeHatch !== undefined && { escapeHatch }),
       });
     },
 
@@ -417,7 +428,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addHook({ type, target, handlerSource, phase }) {
+    addHook({ type, target, handlerSource, phase, escapeHatch }) {
       add({
         kind: "hook",
         source: SYNTHETIC_LOC,
@@ -425,6 +436,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         target,
         fnBody: rawLoc(handlerSource),
         ...(phase !== undefined && { phase }),
+        ...(escapeHatch !== undefined && { escapeHatch }),
       });
     },
 

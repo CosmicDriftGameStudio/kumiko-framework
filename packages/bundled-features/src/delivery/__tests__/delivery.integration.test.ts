@@ -101,7 +101,7 @@ const appFeature = defineFeature("app", (r) => {
 
         return { isSuccess: true, data: { assigned: true } };
       },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     }),
   );
 
@@ -124,7 +124,7 @@ const appFeature = defineFeature("app", (r) => {
 
         return { isSuccess: true, data: { sent: true } };
       },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     }),
   );
 
@@ -141,7 +141,7 @@ const appFeature = defineFeature("app", (r) => {
         title: z.string(),
         body: z.string(),
       }),
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       handler: async (event, ctx) => {
         const notify = ctx.notify as NotifyFn;
         await notify(event.payload.notificationType, {
@@ -173,7 +173,7 @@ const appFeature = defineFeature("app", (r) => {
 
         return { isSuccess: true, data: { sent: true } };
       },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     }),
   );
 });
@@ -206,7 +206,7 @@ const ticketFeature = defineFeature("tickets", (r) => {
       status: z.string(),
     }),
     async (event, ctx) => ticketExecutor().create(event.payload, event.user, ctx.db),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   // Declarative: notify assignee when ticket is created with assigneeId

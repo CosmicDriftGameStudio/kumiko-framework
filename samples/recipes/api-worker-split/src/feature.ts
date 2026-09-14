@@ -23,7 +23,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
-const openAccess = { access: { openToAll: true } } as const;
+const openAccess = {
+  access: {
+    openToAll: {
+      reason:
+        "demo recipe: any signed-in user manages every order and fulfillment; there " +
+        "is no per-user ownership in this sample",
+    },
+  },
+} as const;
 
 // --- Entities ------------------------------------------------------------
 // Both are plain event-sourced CRUD entities. The write handler rows are

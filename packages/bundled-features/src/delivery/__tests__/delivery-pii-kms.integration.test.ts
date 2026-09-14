@@ -65,7 +65,7 @@ const appFeature = defineFeature("app", (r) => {
         });
         return { isSuccess: true, data: { sent: true } };
       },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     }),
   );
 
@@ -82,7 +82,7 @@ const appFeature = defineFeature("app", (r) => {
         });
         return { isSuccess: true, data: { sent: true } };
       },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     }),
   );
 });

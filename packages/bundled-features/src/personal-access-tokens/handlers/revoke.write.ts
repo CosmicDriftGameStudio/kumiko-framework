@@ -13,7 +13,13 @@ import { apiTokenTable } from "../schema/api-token";
 export const revokePatWrite = defineWriteHandler({
   name: "revoke",
   schema: z.object({ id: z.uuid() }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user revokes only their own personal access token; ownership " +
+        "is enforced in the WHERE (userId = caller)",
+    },
+  },
   description:
     "Permanently revokes one of the caller's own personal access tokens so it stops authenticating; use it when a token leaked or is no longer needed.",
   agent: { risk: "high" },

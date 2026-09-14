@@ -37,7 +37,7 @@ const LIST_QN = "roster:query:member:list";
 const rosterFeature = defineFeature("roster", (r) => {
   r.crud("member", memberEntity, {
     write: { access: { roles: ["Admin"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
   r.screen({
     id: "member-list",

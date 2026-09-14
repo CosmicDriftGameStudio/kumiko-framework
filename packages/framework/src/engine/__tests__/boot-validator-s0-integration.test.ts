@@ -44,7 +44,7 @@ describe("S0 Integration — full surface stack", () => {
         name: "compliance:query:for-tenant",
         schema: z.object({}),
         handler: async () => ({ profile: "eu-dsgvo" }) as never,
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 
@@ -101,7 +101,7 @@ describe("S0 Integration — full surface stack", () => {
         name: "user:list",
         schema: z.object({}),
         handler: async () => ({ rows: [], nextCursor: null }) as never,
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
 
       r.useExtension(EXT_USER_DATA, "user", {});

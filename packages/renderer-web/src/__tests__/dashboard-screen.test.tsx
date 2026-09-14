@@ -539,7 +539,7 @@ const sessionsSchema: FeatureSchema = {
       type: "projectionList",
       query: "sessions:query:user-session:mine",
       columns: [{ field: "userAgent", label: "sessions.mine.col.userAgent" }],
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     },
     {
       id: "session-list",
@@ -563,7 +563,7 @@ const mfaSchema: FeatureSchema = {
       layout: { sections: [] },
       submitLabel: "mfa.enable.start",
       reveal: { fields: [{ field: "recoveryCodes", label: "codes", display: "list" }] },
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     },
     {
       id: "auth-mfa-disable",
@@ -572,7 +572,7 @@ const mfaSchema: FeatureSchema = {
       fields: { code: { type: "text", required: true } },
       layout: { sections: [{ fields: ["code"] }] },
       submitLabel: "mfa.disable.submit",
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     },
   ],
 };

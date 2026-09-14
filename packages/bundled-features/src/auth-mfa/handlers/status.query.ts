@@ -13,7 +13,13 @@ import { userMfaTable } from "../schema/user-mfa";
 export const mfaStatusQuery = defineQueryHandler({
   name: "user-mfa:status",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user reads only their own MFA status; the query filters " +
+        "userMfaTable by the caller's own id",
+    },
+  },
   description:
     "Reports whether the calling user has TOTP two-factor authentication enrolled; use it before offering either the enrollment flow or the disable and recovery-code actions.",
   handler: async (query, ctx) => {

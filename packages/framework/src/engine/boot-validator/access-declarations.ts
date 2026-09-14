@@ -88,12 +88,10 @@ function candidatePersonalFieldNames(
   return names;
 }
 
-// A value that is neither `true` nor an object with a non-empty string `reason`
-// counts as "empty" — catches malformed openToAll from untyped sources too.
+// Not an object with a non-empty string `reason` (incl. deprecated `openToAll: true`) counts as "empty".
 function openToAllReasonIsEmpty(access: AccessRule): boolean {
   if (!("openToAll" in access)) return false;
   const openToAll: unknown = access.openToAll;
-  if (openToAll === true) return false;
   if (typeof openToAll !== "object" || openToAll === null) return true;
   if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return true;
   return openToAll.reason.trim().length === 0;
@@ -125,8 +123,8 @@ function validateOpenToAllReason(
   if (!openToAllReasonIsEmpty(access)) return;
   throw new Error(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid ` +
-      '{ openToAll: ... } — must be `true` or { reason: "<non-empty explanation>" } ' +
-      "for why any authenticated user may call this handler.",
+      '{ openToAll: ... } — must be { reason: "<non-empty explanation>" } for why any ' +
+      "authenticated user may call this handler. `{ openToAll: true }` is no longer accepted.",
   );
 }
 

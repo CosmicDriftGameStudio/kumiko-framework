@@ -58,7 +58,7 @@ const postQueryFeature = defineFeature("postquerytest", (r) => {
       ],
       nextCursor: null,
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   // Handler-keyed: fires only for widget:list
@@ -91,13 +91,13 @@ const duplicateRowHook: PostQueryHookFn = async ({ rows }) => ({ rows: [...rows,
 const singleObjectFeature = defineFeature("singleobjtest", (r) => {
   const gadget = r.entity("gadget", gadgetEntity);
   r.queryHandler("gadget:get", z.object({}), async () => ({ id: "g1", name: "Gadget" }), {
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.hook("postQuery", { allOf: gadget }, dropRowHook);
 
   const gizmo = r.entity("gizmo", gizmoEntity);
   r.queryHandler("gizmo:get", z.object({}), async () => ({ id: "z1", name: "Gizmo" }), {
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.hook("postQuery", { allOf: gizmo }, duplicateRowHook);
 });

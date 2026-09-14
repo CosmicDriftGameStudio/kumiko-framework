@@ -25,7 +25,15 @@ export const taskEntity = createEntity({
 
 const editorWrite = { access: { roles: ["Admin", "User"] } } as const;
 const adminWrite = { access: { roles: ["Admin"] } } as const;
-const openRead = { access: { openToAll: true } } as const;
+const TASK_LIST_VIEW_OPEN_REASON =
+  "any signed-in user may list and view tasks; writes are still gated by the roles below";
+const openRead = {
+  access: {
+    openToAll: {
+      reason: TASK_LIST_VIEW_OPEN_REASON,
+    },
+  },
+} as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
   r.crud("task", taskEntity, {

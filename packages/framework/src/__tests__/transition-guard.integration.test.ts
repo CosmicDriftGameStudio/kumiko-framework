@@ -86,7 +86,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -102,7 +102,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -114,7 +114,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -130,7 +130,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -142,7 +142,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -154,7 +154,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.writeHandler(
@@ -170,7 +170,7 @@ const feature = defineFeature("txguard", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

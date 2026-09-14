@@ -33,7 +33,7 @@ const wiringFeature = defineFeature("wiring", (r) => {
       isSuccess: true as const,
       data: { id: 1, sku: event.payload.sku },
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.job(
     "record-order",
@@ -57,7 +57,7 @@ const mixedLaneFeature = defineFeature("mixed", (r) => {
       isSuccess: true as const,
       data: { id: 1, msg: event.payload.msg },
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.job(
     "handle-on-worker",
@@ -240,7 +240,7 @@ const featureGateJobFeature = defineFeature("featuregate", (r) => {
       isSuccess: true as const,
       data: { id: 1, msg: event.payload.msg },
     }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.job(
     "record-features",

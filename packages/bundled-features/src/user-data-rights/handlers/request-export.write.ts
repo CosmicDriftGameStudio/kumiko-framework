@@ -60,7 +60,13 @@ function isActiveJobConflict(failure: WriteFailure): boolean {
 export const requestExportWrite = defineWriteHandler({
   name: "request-export",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user queues only their own data export; the active-job " +
+        "check and the created job are both keyed by the caller's own userId",
+    },
+  },
   description:
     "Queues a GDPR Art. 15 and 20 data export for the calling user and returns its job id, handing back the running job with isExisting true instead of a second one when an export is already pending.",
   escapeHatch: {

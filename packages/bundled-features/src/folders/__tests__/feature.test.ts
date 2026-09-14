@@ -93,7 +93,9 @@ describe("createFoldersFeature access-options", () => {
   });
 
   test("access:{openToAll} applies to every write- and query-path", () => {
-    const feature = createFoldersFeature({ access: { openToAll: true } });
+    const feature = createFoldersFeature({
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
     for (const path of [
       "folder:create",
       "folder:update",
@@ -101,13 +103,20 @@ describe("createFoldersFeature access-options", () => {
       "set-folder",
       "clear-folder",
     ]) {
-      expect(rawWriteAccess(feature, path)).toEqual({ openToAll: true });
+      expect(rawWriteAccess(feature, path)).toEqual({
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      });
     }
   });
 
   test("access takes precedence over the roles shorthand", () => {
-    const feature = createFoldersFeature({ access: { openToAll: true }, roles: ["Admin"] });
-    expect(rawWriteAccess(feature, "set-folder")).toEqual({ openToAll: true });
+    const feature = createFoldersFeature({
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      roles: ["Admin"],
+    });
+    expect(rawWriteAccess(feature, "set-folder")).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
   });
 });
 
@@ -118,7 +127,7 @@ describe("createFoldersFeature toggleable-option (tier-gating)", () => {
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
     const feature = createFoldersFeature({
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });
     expect(feature.toggleableDefault).toBe(false);

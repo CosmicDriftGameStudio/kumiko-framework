@@ -47,7 +47,7 @@ function registerFolders(
   parents: readonly string[] | undefined,
 ): void {
   r.describe(
-    "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: true } }) or pin roles. Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: { reason } } }) or pin roles. Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Folders",
@@ -113,7 +113,7 @@ export const foldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>
 
 export type FoldersFeatureOptions = {
   /** Access rule for all folder write/read paths. Default { roles: ["TenantAdmin","TenantMember"] }.
-   *  Adopt the host's model — e.g. { openToAll: true } when any authenticated
+   *  Adopt the host's model — e.g. { openToAll: { reason: "..." } } when any authenticated
    *  tenant user may file entities, or { roles: ["Admin"] } for a custom role
    *  vocabulary. Takes precedence over `roles`. */
   readonly access?: AccessRule;

@@ -16,7 +16,13 @@ export const valuesQuery = defineQueryHandler({
     "Returns the effective value, scope and winning source for every config key the caller may read, with encrypted and secret-backed values masked; use it to inspect the current settings.",
   schema: z.object({}),
   // Per-key read access enforced via hasConfigAccess inside the handler.
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may call values; hasConfigAccess filters the result to " +
+        "only the config keys the caller's roles may read, before any value is returned",
+    },
+  },
   handler: async (query, ctx) => {
     const db = requireSystemDb(ctx, "config:query:values", query.user.tenantId);
     const registry = ctx.registry;

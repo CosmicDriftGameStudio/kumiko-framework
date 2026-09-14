@@ -22,7 +22,13 @@ const APPEND_LIFECYCLE_EVENT_REASON =
 export const cancelDeletionWrite = defineWriteHandler({
   name: "cancel-deletion",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user cancels only their own pending deletion request; the " +
+        "lookup and update are scoped to the caller's own id",
+    },
+  },
   description:
     "Withdraws the calling user's own pending account-deletion request and puts the account back to active, accepted only while the grace period is still running.",
   escapeHatch: {

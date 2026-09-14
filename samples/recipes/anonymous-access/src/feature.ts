@@ -16,7 +16,7 @@
 //     audiences, with the handler-body branching on `event.user.id` if
 //     personalisation is needed.
 //
-// `openToAll: true` is intentionally NOT public — it still means "any
+// `openToAll` is intentionally NOT public — it still means "any
 // authenticated user", and the framework rejects anonymous callers there.
 // Without that guard, enabling anonymousAccess on the server would silently
 // expose every existing openToAll handler. The `product:authenticated-only`
@@ -67,13 +67,22 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
   );
 
   // Authenticated-only listing — same data, different access rule. The
-  // openToAll: true here is the regression-guard: even with anonymousAccess
-  // enabled on the server, this endpoint stays gated to logged-in users.
+  // openToAll declaration here is the regression-guard: even with
+  // anonymousAccess enabled on the server, this endpoint stays gated to
+  // logged-in users.
   r.queryHandler(
     "product:authenticated-only",
     z.object({}),
     async (_event, ctx) => ctx.db.selectMany(productTable),
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "any signed-in (non-anonymous) user may list products here; this handler is " +
+            "the regression-guard proving anonymousAccess never silently exposes an authenticated-only endpoint",
+        },
+      },
+    },
   );
 
   // Anonymous + authenticated guest checkout. Stores the synthesised user-id
