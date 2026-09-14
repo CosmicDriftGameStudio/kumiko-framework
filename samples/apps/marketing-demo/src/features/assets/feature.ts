@@ -6,13 +6,11 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { assetsTranslations } from "./i18n";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
-const ASSETS_MANAGE_OPEN_REASON =
-  "demo app: any signed-in user manages every marketing asset; there is no per-user ownership in this sample";
-
 const open = {
   access: {
     openToAll: {
-      reason: ASSETS_MANAGE_OPEN_REASON,
+      reason:
+        "demo app: any signed-in user manages every marketing asset; there is no per-user ownership in this sample",
     },
   },
 } as const;

@@ -21,11 +21,6 @@ export const counterEntity = createEntity({
   },
 });
 
-const COUNTER_ACTIVE_LIST_OPEN_REASON =
-  "any signed-in user may list active counters; the sample has no per-user counter ownership";
-const COUNTER_DETAIL_OPEN_REASON =
-  "any signed-in user may read a counter by id; the sample has no per-user counter ownership";
-
 export const counterFeature = defineFeature("counters", (r) => {
   r.entity("counter", counterEntity);
 
@@ -99,7 +94,8 @@ export const counterFeature = defineFeature("counters", (r) => {
     {
       access: {
         openToAll: {
-          reason: COUNTER_ACTIVE_LIST_OPEN_REASON,
+          reason:
+            "any signed-in user may list active counters; the sample has no per-user counter ownership",
         },
       },
     },
@@ -113,7 +109,8 @@ export const counterFeature = defineFeature("counters", (r) => {
     {
       access: {
         openToAll: {
-          reason: COUNTER_DETAIL_OPEN_REASON,
+          reason:
+            "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
         },
       },
     },
