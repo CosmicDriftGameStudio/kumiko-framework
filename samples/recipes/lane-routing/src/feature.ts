@@ -37,9 +37,6 @@ const orderEntity = createEntity({
   },
 });
 
-const ORDER_CREATE_OPEN_REASON =
-  "demo recipe: any signed-in user may place an order; the handler is a stub with no persistence";
-
 export function createLaneRoutingFeature(): FeatureDefinition {
   return defineFeature("orders", (r) => {
     r.entity("order", orderEntity);
@@ -64,7 +61,8 @@ export function createLaneRoutingFeature(): FeatureDefinition {
       {
         access: {
           openToAll: {
-            reason: ORDER_CREATE_OPEN_REASON,
+            reason:
+              "demo recipe: any signed-in user may place an order; the handler is a stub with no persistence",
           },
         },
       },

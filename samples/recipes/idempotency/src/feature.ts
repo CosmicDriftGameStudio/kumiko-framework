@@ -18,9 +18,6 @@ export const orderEntity = createEntity({
 });
 
 const orderTable = buildEntityTable("order", orderEntity);
-const ORDER_LIST_OPEN_REASON =
-  "any signed-in user may list orders in this recipe; placing an order still requires a role above";
-
 export const orderFeature = defineFeature("orders", (r) => {
   r.entity("order", orderEntity);
 
@@ -44,7 +41,8 @@ export const orderFeature = defineFeature("orders", (r) => {
     {
       access: {
         openToAll: {
-          reason: ORDER_LIST_OPEN_REASON,
+          reason:
+            "any signed-in user may list orders in this recipe; placing an order still requires a role above",
         },
       },
     },

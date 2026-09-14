@@ -498,9 +498,6 @@ function minMaskOrder(keys: readonly MaskedKey[]): number {
 // opt-int, und zeigt user-scope (write `all`) jedem. `all` lässt sich in
 // AccessRule nur als openToAll ausdrücken; der Write bleibt server-seitig
 // per Key gegated.
-const ALL_ROLE_OPEN_TO_ALL_REASON =
-  'config key declares the "all" role, so every signed-in user of the tenant may read/write it';
-
 // Union der Navs-Access-Regeln: ein openToAll-Nav öffnet das ganze Gate, sonst
 // die Vereinigung der Rollen. undefined-access-Navs tragen nichts bei.
 function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRule {
@@ -519,6 +516,12 @@ function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRul
 // `all` lässt sich in AccessRule nur als openToAll ausdrücken; der Write bleibt
 // server-seitig per Key gegated.
 function rolesToAccess(roles: readonly string[]): AccessRule {
-  if (roles.includes("all")) return { openToAll: { reason: ALL_ROLE_OPEN_TO_ALL_REASON } };
+  if (roles.includes("all"))
+    return {
+      openToAll: {
+        reason:
+          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
+      },
+    };
   return { roles: [...new Set(roles)] };
 }

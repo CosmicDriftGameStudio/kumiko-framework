@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.4.0",
+    "type": "improvement",
+    "title": "`@cosmicdrift/kumiko-cli/repo-manifest`: kumiko.json repo manifest schema and loader (fw#2856).",
+    "detail": "repoManifestSchema declares kind (a role — framework|library|app, not a layout description) plus repo-relative sourceRoots/testGlobs/uiRoots/excludes patterns; loadRepoManifest reads and validates a repo's kumiko.json, rejecting absolute paths, \"..\" traversal, and symlinks that resolve outside the repo root, and is strict against unknown fields (typos fail loudly instead of being silently ignored). Without a kumiko.json it falls back to deriving a layout from packages/*/src or src/ and warns once via the injected warn option."
+  }
+]

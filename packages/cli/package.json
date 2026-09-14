@@ -28,12 +28,17 @@
     "./commands": {
       "types": "./src/commands/index.ts",
       "default": "./src/commands/index.ts"
+    },
+    "./repo-manifest": {
+      "types": "./src/repo-manifest.ts",
+      "default": "./src/repo-manifest.ts"
     }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
