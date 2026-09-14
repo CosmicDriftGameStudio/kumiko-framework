@@ -496,5 +496,41 @@ describe("validateBoot — projectionList screens", () => {
       });
       expect(() => validateBoot([feature])).not.toThrow();
     });
+
+    test("a reference facet filtering by an id field with no same-named column boots (displays a different label column)", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.entity(
+          "property",
+          createEntity({
+            table: "Properties",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: true } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          // Filters by propertyId, displays propertyLabel — no "propertyId"
+          // column exists, and none should be required for a reference facet.
+          columns: ["propertyLabel"],
+          facets: [
+            { field: "propertyId", type: "reference", label: "Property", entity: "property" },
+          ],
+        });
+        r.translations({
+          keys: {
+            "screen:schedule-list.title": { de: "Liste", en: "List" },
+            "ledger:entity:property:field:name": { de: "Name", en: "Name" },
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
   });
 });
