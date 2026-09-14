@@ -69,6 +69,39 @@ export function getZodRowShape(schema: ZodType | undefined): Record<string, ZodT
     : undefined;
 }
 
+type SingleInnerSchema =
+  | ZodOptional
+  | ZodNullable
+  | ZodDefault
+  | ZodPrefault
+  | ZodNonOptional
+  | ZodCatch
+  | ZodReadonly
+  | ZodLazy;
+
+const SINGLE_INNER_SCHEMA_CLASSES = [
+  ZodOptional,
+  ZodNullable,
+  ZodDefault,
+  ZodPrefault,
+  ZodNonOptional,
+  ZodCatch,
+  ZodReadonly,
+  ZodLazy,
+] as const;
+
+function isSingleInnerSchema(schema: $ZodType): schema is SingleInnerSchema {
+  return SINGLE_INNER_SCHEMA_CLASSES.some((schemaClass) => schema instanceof schemaClass);
+}
+
+function combinatorChildSchemas(schema: $ZodType): readonly $ZodType[] {
+  if (schema instanceof ZodUnion || schema instanceof ZodXor) return schema.options;
+  if (schema instanceof ZodIntersection) return [schema.def.left, schema.def.right];
+  // z.preprocess() carries the accepted shape on `out`, .transform() on `in`.
+  if (schema instanceof ZodPipe) return [schema.in, schema.out];
+  return [];
+}
+
 function childSchemas(schema: $ZodType): readonly $ZodType[] {
   if (schema instanceof ZodObject) return Object.values(schema.shape);
   if (schema instanceof ZodArray) return [schema.element];
@@ -77,23 +110,8 @@ function childSchemas(schema: $ZodType): readonly $ZodType[] {
     const { items, rest } = schema.def;
     return rest ? [...items, rest] : items;
   }
-  if (schema instanceof ZodUnion || schema instanceof ZodXor) return schema.options;
-  if (schema instanceof ZodIntersection) return [schema.def.left, schema.def.right];
-  // z.preprocess() carries the accepted shape on `out`, .transform() on `in`.
-  if (schema instanceof ZodPipe) return [schema.in, schema.out];
-  if (
-    schema instanceof ZodOptional ||
-    schema instanceof ZodNullable ||
-    schema instanceof ZodDefault ||
-    schema instanceof ZodPrefault ||
-    schema instanceof ZodNonOptional ||
-    schema instanceof ZodCatch ||
-    schema instanceof ZodReadonly ||
-    schema instanceof ZodLazy
-  ) {
-    return [schema.unwrap()];
-  }
-  return [];
+  if (isSingleInnerSchema(schema)) return [schema.unwrap()];
+  return combinatorChildSchemas(schema);
 }
 
 // A z.lazy() getter that builds a fresh schema per call never revisits a node.
