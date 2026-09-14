@@ -1,6 +1,7 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition } from "../types";
+import { validateAccessDeclarations } from "./access-declarations";
 import { warnOnUniqueAccessRoles } from "./access-roles";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
@@ -60,6 +61,7 @@ import {
   validateScreenShortIdCollisions,
   validateScreens,
 } from "./screens";
+import { warnOnMissingSecurityBaseline } from "./security-baseline";
 import {
   collectWorkspaceQns,
   validateDefaultWorkspaceUniqueness,
@@ -71,6 +73,7 @@ export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
 export { collectWriteHandlerQns } from "./nav";
+export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline";
 
 export type ValidateBootOptions = {
   /** Warn when an access role is used by exactly one handler/config-key/
@@ -187,6 +190,7 @@ export function validateBoot(
     validateExtendSchemaCollisions(feature);
     validateDerivedFieldCollisions(feature);
     validateHandlerAccess(feature);
+    validateAccessDeclarations(feature);
     validateLocatedTimestamps(feature);
     validateEntityIndexes(feature);
     validateConfigKeyBounds(feature);
@@ -252,6 +256,7 @@ export function validateBoot(
 
   validateConfigReads(features, allConfigKeys);
   warnOnToggleableDependencies(features, featureMap);
+  warnOnMissingSecurityBaseline(features);
   if (options?.warnOnUniqueAccessRoles === true) {
     warnOnUniqueAccessRoles(features);
   }

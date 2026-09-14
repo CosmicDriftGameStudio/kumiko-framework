@@ -15,6 +15,7 @@ import {
   createTextField,
 } from "../factories";
 import { createApp, createRegistry, defineFeature } from "../index";
+import type { AccessRule } from "../types";
 import { buildMinimalCtx } from "./_pipeline-test-utils";
 
 // --- defineFeature ---
@@ -930,6 +931,15 @@ describe("hasAccess", () => {
     const user = createTestUser({ roles: [] });
     expect(hasAccess(user, { openToAll: true })).toBe(true);
   });
+
+  test.each([{ openToAll: false }, { openToAll: {} }])(
+    "malformed openToAll %p denies access instead of crashing",
+    (access) => {
+      const user = createTestUser({ roles: ["Employee"] });
+      // @cast-boundary test — simulates JSON/Designer input that doesn't match the static union
+      expect(hasAccess(user, access as unknown as AccessRule)).toBe(false);
+    },
+  );
 });
 
 // --- Entity with softDelete ---

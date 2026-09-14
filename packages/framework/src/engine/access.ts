@@ -1,5 +1,6 @@
 import { ANONYMOUS_ROLE } from "./system-user";
 import type { AccessRule, SessionUser } from "./types";
+import { isOpenToAllGranted } from "./types";
 
 // Default-deny: a handler without an explicit AccessRule is unreachable. To
 // grant access a handler must either list allowed roles or opt into
@@ -18,7 +19,7 @@ export function hasAccess(
 ): boolean {
   if (!access) return false;
   if ("openToAll" in access) {
-    if (access.openToAll !== true) return false;
+    if (!isOpenToAllGranted(access)) return false;
     return !user.roles.includes(ANONYMOUS_ROLE);
   }
   if (access.roles.length === 0) return false;

@@ -206,6 +206,8 @@ export async function buildHandlerContext(
   // but at this point we're the root of the pipeline — cast is safe.
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
+  // db.global()'s write-gate — undefined for query/stream handlers, which can't declare escapeHatch.
+  const escapeHatch = registry.getWriteHandler(type)?.escapeHatch;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -214,6 +216,7 @@ export async function buildHandlerContext(
       context.tracer,
       context.meter,
       signal,
+      escapeHatch,
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip

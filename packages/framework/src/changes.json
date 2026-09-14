@@ -1,22 +1,42 @@
 [
   {
-    "version": "0.261.0",
+    "version": "0.263.0",
     "type": "breaking",
     "title": "Forms are prefilled from URL query parameters only for fields a declarative `navigate` action declares as `params` (fw#2852).",
     "detail": "`buildAppSchema` now derives `urlPrefillFields` per actionForm/secretMint/entityEdit-create screen from every navigate `params` that targets it — entityList/projectionList rowActions, projectionDetail/entityEdit actions, relatedList rowActions, and projectionDetail metrics; a form nothing targets takes nothing from the URL. Previously any query parameter matching a field name was taken, so a crafted link could seed e.g. an IBAN or e-mail field. Declared params keep working. `sensitive` and `format: \"password\"` fields are still never prefilled — not from the URL, an allowlist, or a handoff.",
     "migration": "Code that prefills a form via `nav.navigate` + `nav.setSearchParams` without a declared `params` (known: publicstatus `custom-field-list`, phronexsis `driver-map-node-panel`, kumiko-enterprise ai-agent `openForm` client tool / `agentPrefill=1`) must switch to a declared `navigate` action with `params`, or — for programmatic prefill — to `useNavigateWithInitialValues()` from `@cosmicdrift/kumiko-renderer`. No codemod."
   },
   {
-    "version": "0.261.0",
+    "version": "0.263.0",
     "type": "improvement",
     "title": "New `useNavigateWithInitialValues()` hands a form screen initial values in memory instead of the query string (fw#2852).",
     "detail": "`useNavigateWithInitialValues()`, exported from `@cosmicdrift/kumiko-renderer`, returns `(target: ScreenTarget, initialValues: Readonly<Record<string, unknown>>) => void`, which navigates to a form screen and carries the initial values in memory rather than as URL search params — for programmatic prefill outside a declared `navigate` `params` action. `sensitive` and `format: \"password\"` fields are still never prefilled, same as URL and allowlist prefill."
   },
   {
-    "version": "0.261.0",
+    "version": "0.263.0",
     "type": "fix",
     "title": "`projectField`/`projectEntity` now forward field metadata the client schema previously dropped (fw#2852).",
     "detail": "`projectField`/`projectEntity` (`packages/framework/src/engine/build-app-schema.ts`) now forward number `unit`, entity `defaultCurrency`, text `format`, timestamp `locatedBy`, file/image `accept`/`maxSize`/`variants`, decimal `scale` (incl. embedded sub-fields), and `sensitive` into the client schema; previously they were lost on the way, so the unit suffix did not render, money fields fell back to \"EUR\", password masking and the never-prefill-sensitive rule were inactive client-side."
+  },
+  {
+    "version": "0.262.0",
+    "type": "improvement",
+    "title": "Boot validator warns when NODE_ENV=production boots without the security baseline (fw#2857).",
+    "detail": "`SECURITY_BASELINE_FEATURE_NAMES` (`@cosmicdrift/kumiko-framework/engine`) names the four security-relevant feature names the boot validator expects in a production app: `sessions`, `crypto-shredding`, `rate-limiting`, `audit`. `validateBoot` now calls `warnOnMissingSecurityBaseline(features)` (`engine/boot-validator/security-baseline.ts`) after every other check; when `process.env.NODE_ENV === \"production\"` and one or more of those feature names is absent from the mounted feature list (matched by exact `FeatureDefinition.name`, not by require-chain inference), it logs one `console.warn` naming the missing feature(s) and pointing at `securityBaselineFeatures()`. It never throws and is a no-op for any other `NODE_ENV` value (including `undefined`). Mount `securityBaselineFeatures()` from `@cosmicdrift/kumiko-bundled-features/presets` to silence it.",
+    "migration": "No action required for existing apps outside production. Apps that boot with `NODE_ENV=production` and don't already mount `sessions`/`crypto-shredding`/`rate-limiting`/`audit` will see a new boot-time `console.warn` — mount the missing feature(s) individually or via `securityBaselineFeatures()` to remove it."
+  },
+  {
+    "version": "0.261.0",
+    "type": "breaking",
+    "title": "access is required on handler definitions; openToAll accepts { reason } (+ publicIntake) (fw#2855).",
+    "detail": "`WriteHandlerDef`/`QueryHandlerDef`/`StreamHandlerDef`.access (`@cosmicdrift/kumiko-types/handlers`), `WriteHandlerDefinition`/`WriteHandlerInput`/`QueryHandlerDefinition`/`StreamHandlerDefinition`.access, `EntityHandlerOptions.access`, and the `r.writeHandler`/`r.queryHandler`/`r.streamHandler` positional `options` param are now required — a handler with no access rule fails to compile instead of silently registering unreachable (previously the boot-validator caught it at runtime). `registerEntityCrud` throws at registration when an enabled verb resolves no access (`write.access`/`read.access`/`verbAccess.<verb>` all unset) — was previously a boot-validator throw. `AccessRule.openToAll` accepts `{ reason: string }` (plus optional `publicIntake: true`); `true` still compiles (deprecated pre-#2855 form, tracked for removal in fw#2854's call-site migration) but a new boot-validator (`engine/boot-validator/access-declarations.ts`) rejects an empty `openToAll.reason`, an empty `escapeHatch.reason`, `publicIntake` on a query/stream handler, and — the main new catch — a write handler with `openToAll` that accepts a personal-data field (pii/userOwned/recordOwned) in its input schema without `publicIntake: true`. Code that read `access.openToAll` as a boolean must switch to `isOpenToAllGranted(rule)` (`@cosmicdrift/kumiko-types/handlers`, also re-exported from `@cosmicdrift/kumiko-framework/engine` and `/ui-types`), which handles both the `true` and `{ reason }` forms.",
+    "migration": "Add `access` to every handler definition: `r.writeHandler`/`r.queryHandler`/`r.streamHandler` object- and positional-form options, `defineWriteHandler`/`defineQueryHandler`/`definePagedQueryHandler`/`defineProjectionQueryHandler` options, `defineEntityCreate/Update/Delete/Restore/List/DetailHandler` options, and `registerEntityCrud`'s `write.access`/`read.access` (or per-verb `verbAccess`). Replace `openToAll: true` with `openToAll: { reason: \"...\" }` going forward — `true` still compiles but is deprecated (fw#2854 tracks the 471-site call-site migration; new code should use the object form). A write handler that already used `openToAll` and accepts a PII field now fails boot unless it also declares `publicIntake: true` (any authenticated user may legitimately submit that data) or is restricted to roles instead. Any code reading `access.openToAll` as a boolean must switch to `isOpenToAllGranted(rule)`."
+  },
+  {
+    "version": "0.261.0",
+    "type": "improvement",
+    "title": "EntityDefinition.tenancy + db.global(table), escapeHatch, UncheckedSystemDb.unsafeRaw(reason) (fw#2855).",
+    "detail": "`EntityDefinition.tenancy?: \"global\" | \"tenant\"` (default `\"tenant\"`; `createEntity({ tenancy: \"global\", ... })`) marks an entity's rows as shared across every tenant instead of row-scoped — only reachable via the new `TenantDb.global(table)`, which drops the tenant filter but keeps the caller's own `where` field-filter for reads, and rejects writes unless the calling write handler declared `escapeHatch: { reason: \"...\" }` (`WriteHandlerDef.escapeHatch`, threaded through `r.writeHandler`/`defineWriteHandler`/`registerEntityCrud`). `defineUnmanagedTable({ tenancy: \"global\", ... })` covers hand-built store tables the same way; a `\"tenant\"`-tenancy table passed to `db.global()` is a compile error (`TenancyBrand<\"global\">` required) and, for an erased/runtime-only table the brand can't catch, also a runtime `AccessDeniedError`. `UncheckedSystemDb.unsafeRaw(reason: string): DbRunner` replaces reaching for `ctx.systemDb`'s guarded `.raw` escape hatch with a named, auditable declaration (throws on an empty reason); `TenantDb.raw` is now `@deprecated` in favor of `unsafeRaw`/`db.global()`, removal tracked in fw#2860."
   },
   {
     "version": "0.259.0",

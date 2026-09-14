@@ -85,6 +85,7 @@ export function defineWriteHandler<
       unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard,
     }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
+    ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
   };
 
   if ("perform" in def && def.perform !== undefined) {

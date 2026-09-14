@@ -136,10 +136,14 @@ describe("getAllStreamHandlers", () => {
 
   test("duplicate stream-handler short-name across features qualifies independently, no collision", () => {
     const aiFeature = defineFeature("registry-test-dup-a", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {});
+      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+        access: { openToAll: true },
+      });
     });
     const otherFeature = defineFeature("registry-test-dup-b", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {});
+      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+        access: { openToAll: true },
+      });
     });
     expect(() => createRegistry([aiFeature, otherFeature])).not.toThrow();
   });
@@ -149,10 +153,14 @@ describe("getAllStreamHandlers", () => {
     // feature.name values (so the earlier Duplicate-feature guard doesn't
     // fire) but toKebab() collapses both to the same qualified name.
     const featureA = defineFeature("registry-test-kebab-dup", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {});
+      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+        access: { openToAll: true },
+      });
     });
     const featureB = defineFeature("registryTestKebabDup", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {});
+      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+        access: { openToAll: true },
+      });
     });
     expect(() => createRegistry([featureA, featureB])).toThrow(/Duplicate stream handler/);
   });
@@ -188,6 +196,7 @@ describe("double-qualified handler names (#1991)", () => {
         "registry-test-ai-orch:query:duplicate-candidates",
         z.object({}),
         async () => ({}),
+        { access: { openToAll: true } },
       );
     });
 
@@ -196,7 +205,9 @@ describe("double-qualified handler names (#1991)", () => {
 
   test("createRegistry allows a sub-structured short name whose entity prefix merely resembles the feature name", () => {
     const feature = defineFeature("registry-test-invoices", (r) => {
-      r.queryHandler("invoice:mark-paid", z.object({}), async () => ({}));
+      r.queryHandler("invoice:mark-paid", z.object({}), async () => ({}), {
+        access: { openToAll: true },
+      });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();

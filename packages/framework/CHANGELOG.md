@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.262.0
+
+### Minor Changes
+
+- 6fbede9: `validateBoot` now warns (never throws) when `NODE_ENV=production` and the mounted feature list is missing one of `SECURITY_BASELINE_FEATURE_NAMES` (`sessions`, `crypto-shredding`, `rate-limiting`, `audit`; the list is exported from `@cosmicdrift/kumiko-framework/engine`); a new `securityBaselineFeatures({ includeSessions? })` preset (`@cosmicdrift/kumiko-bundled-features/presets`) mounts all four in one call, with `includeSessions: false` for apps that already pull `sessions` in via `dsgvoSelfServiceFeatures()`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.262.0
+
+## 0.261.0
+
+### Minor Changes
+
+- 5139a3f: `access` is now required on every handler definition (`openToAll: true` still compiles but is deprecated in favor of `openToAll: { reason: "..." }`, and a boot validator now rejects an empty reason or a write handler that accepts personal-data fields under `openToAll` without `publicIntake: true`); `EntityDefinition.tenancy: "global" | "tenant"` plus `TenantDb.global(table)` let a "global" table's rows be reached across every tenant (writes gated by a write handler's `escapeHatch: { reason }`); `UncheckedSystemDb.unsafeRaw(reason)` replaces the now-`@deprecated` `TenantDb.raw` escape hatch with an auditable, named declaration.
+
+### Patch Changes
+
+- Updated dependencies [5139a3f]
+  - @cosmicdrift/kumiko-types@0.261.0
+
 ## 0.260.0
 
 ### Minor Changes

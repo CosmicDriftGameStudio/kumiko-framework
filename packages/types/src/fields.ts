@@ -8,6 +8,7 @@ import type { VariantSpec } from "./derivatives-types";
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
 import type { OwnershipMap } from "./ownership";
+import type { EntityTenancy } from "./tenancy-brand";
 
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];
@@ -914,10 +915,16 @@ export type ParentRefDef = {
   readonly allowedTypes?: readonly string[];
 };
 
-export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
+export type EntityDefinition<
+  F extends FieldsMap = FieldsMap,
+  T extends EntityTenancy = EntityTenancy,
+> = {
   readonly table?: string;
   readonly fields: F;
   readonly softDelete?: boolean;
+  /** "tenant" (default): auto-filtered by every db accessor. "global": shared across
+   *  tenants, reachable only via `db.global(table)`. Not named `scope` — config keys use that. */
+  readonly tenancy?: T;
   /** This aggregate's event stream lives on SYSTEM_TENANT_ID rather than the
    *  creator's tenant. Opt-in per entity (NOT inherited from r.systemScope()):
    *  only for genuinely tenant-independent aggregates like `user`. The first

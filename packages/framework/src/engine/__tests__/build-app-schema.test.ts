@@ -980,6 +980,7 @@ describe("buildAppSchema", () => {
           cursor: z.string().optional(),
         }),
         async () => ({ rows: [], nextCursor: null }),
+        { access: { openToAll: true } },
       );
       r.screen({
         id: "schedule-list",
@@ -998,7 +999,9 @@ describe("buildAppSchema", () => {
 
   test("projectionList: a query schema without search/sort/cursor derives no capability", () => {
     const f = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }));
+      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: true },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -1020,6 +1023,7 @@ describe("buildAppSchema", () => {
         "schedule:list",
         z.union([z.object({ a: z.string() }), z.object({ b: z.string() })]),
         async () => ({ rows: [], nextCursor: null }),
+        { access: { openToAll: true } },
       );
       r.screen({
         id: "schedule-list",
@@ -1041,10 +1045,15 @@ describe("buildAppSchema", () => {
 
   test("projectionList: author-written searchable:false survives even when the schema accepts search", () => {
     const f = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({ search: z.string().optional() }), async () => ({
-        rows: [],
-        nextCursor: null,
-      }));
+      r.queryHandler(
+        "schedule:list",
+        z.object({ search: z.string().optional() }),
+        async () => ({
+          rows: [],
+          nextCursor: null,
+        }),
+        { access: { openToAll: true } },
+      );
       r.screen({
         id: "schedule-list",
         type: "projectionList",

@@ -16,7 +16,6 @@
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
-import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
@@ -34,7 +33,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { complianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
-import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -66,13 +64,12 @@ import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { notesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
+import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
-import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
@@ -114,7 +111,8 @@ export const APP_FEATURES = [
   localeDe(),
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
-  createSessionsFeature(),
+  // security baseline: sessions + crypto-shredding + rate-limiting + audit
+  ...securityBaselineFeatures(),
   // auth-mfa: composeFeatures auto-threads mfaStatusCheckerFromFeature into
   // the auto-mounted auth-email-password login handler when this feature is
   // present in appFeatures (see dev-server/src/compose-features.ts) — no
@@ -247,7 +245,6 @@ export const APP_FEATURES = [
   createComplianceProfilesFeature(),
   complianceProfilesOpsFeature,
   createTenantLifecycleFeature(),
-  createCryptoShreddingFeature(),
   createDataRetentionFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
@@ -323,8 +320,6 @@ export const APP_FEATURES = [
   createTenantSettingsFeature(),
 
   // operational
-  createRateLimitingFeature(),
-  createAuditFeature(),
   // admin-shell: requires tenant (auto-mounted) + audit + jobs + tier-engine,
   // all mounted above. includeCapOverview:true exercises the my-caps /
   // tenant-caps nav entries end-to-end — cap-overview is mounted below.

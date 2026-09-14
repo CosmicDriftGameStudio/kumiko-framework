@@ -3,6 +3,7 @@
 export { hasAccess } from "./access";
 export {
   collectWriteHandlerQns,
+  SECURITY_BASELINE_FEATURE_NAMES,
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "./boot-validator";
@@ -358,6 +359,7 @@ export type {
   EntityListScreenDefinition,
   EntityRef,
   EntityRelations,
+  EscapeHatchDeclaration,
   EventDef,
   FeatureDefinition,
   FeatureRegistrar,
@@ -414,6 +416,8 @@ export type {
   NotifyPriority,
   NumberFieldDef,
   OnDeleteStrategy,
+  OpenToAllAccessRule,
+  OpenToAllDeclaration,
   ParentRefDef,
   PersonalAnnotations,
   PersonalAnnotationsLongText,
@@ -489,6 +493,7 @@ export {
   DEFAULT_LOCALES,
   HookPhases,
   isAgentVisibleScreen,
+  isOpenToAllGranted,
   resolveAgentExposure,
 } from "./types";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";

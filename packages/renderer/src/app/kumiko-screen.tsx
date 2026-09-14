@@ -33,7 +33,11 @@ import type {
 import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
-import { RenderEdit, type RenderEditAction } from "../components/render-edit";
+import {
+  RenderEdit,
+  type RenderEditAction,
+  type RenderEditControls,
+} from "../components/render-edit";
 import {
   needsActionConfirm,
   RenderEditActionButton,
@@ -732,6 +736,13 @@ function EntityEditCreateBody({
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
+  // Create's write-handler success payload doesn't flatly expose a parent FK
+  // (`{ kind, id, data, … }`), so an object-form redirect's `idFrom` falls
+  // back to the values just submitted to the handler.
+  const controlsRef = useRef<RenderEditControls<FormValues> | null>(null);
+  const handleControlsReady = useCallback((controls: RenderEditControls<FormValues>) => {
+    controlsRef.current = controls;
+  }, []);
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
@@ -753,6 +764,7 @@ function EntityEditCreateBody({
           result.data,
           schema,
           appFeatures,
+          controlsRef.current?.getValues(),
         );
         nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         return;
@@ -775,6 +787,7 @@ function EntityEditCreateBody({
       schema={formSchema}
       writeCommand={writeCommand}
       onSubmit={handleSubmitted}
+      onControlsReady={handleControlsReady}
       onCancel={navigateToList}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
@@ -2990,8 +3003,9 @@ function redirectScreenTarget(
 // list screen never gets an id attached, matching actionForm's original
 // behavior. The id itself prefers the write-handler's success payload
 // (`submittedData`) and falls back to `fallbackRecord` — the entityEdit
-// update path's already-loaded record, which has fields (e.g. a parent FK)
-// the CRUD write executor's success payload doesn't flatly expose.
+// update path's already-loaded record, or the create path's just-submitted
+// form values — both of which carry fields (e.g. a parent FK) the CRUD
+// write executor's success payload doesn't flatly expose.
 function resolveRedirectTarget(
   redirect: string | ActionFormRedirect,
   submittedData: unknown,

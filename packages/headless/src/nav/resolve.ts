@@ -1,4 +1,5 @@
 import type { AccessRule, NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavTree, ResolveNavigationOptions } from "./types";
 
 // Assembles the renderable nav tree from the registry's pre-grouped
@@ -69,7 +70,7 @@ function userCanSee(
   // No rule = always visible — matches the framework's "engine stays
   // un-opinionated about who sees what" stance in the nav docs.
   if (!access) return true;
-  if ("openToAll" in access && access.openToAll) return true;
+  if ("openToAll" in access && isOpenToAllGranted(access)) return true;
   if (!user) return false; // anonymous can't match a role-gated rule
   if ("roles" in access) {
     const allowed = access.roles;
