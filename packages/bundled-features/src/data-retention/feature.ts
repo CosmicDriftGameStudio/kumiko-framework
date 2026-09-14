@@ -71,19 +71,23 @@ export function createDataRetentionFeature(): FeatureDefinition {
     r.exposesApi("retention.policyFor");
     r.queryHandler(policyForQuery);
 
-    // S2.D2b — autonomer Retention-Cleanup. perTenant-Fan-out (ein Run pro
-    // aktivem Tenant, wie soft-delete-cleanup): die job-DB ist NICHT
-    // tenant-scoped, deshalb scoped der Runner jeden Delete explizit per
-    // tenantId. Ohne diesen Cron werden Retention-Regeln zwar konfiguriert,
-    // aber nie ausgefuehrt.
-    r.job(
-      "retention-cleanup",
-      { trigger: { cron: "0 3 * * *" }, perTenant: true, concurrency: "skip" },
-      async (_payload, ctx) => {
-        if (!ctx.db || !ctx.registry) {
-          throw new Error(
-            "retention-cleanup: ctx.db + ctx.registry required (JobContext incomplete)",
-          );
+    // S2.D2b — autonomous retention cleanup. perTenant fan-out (one run per
+    // active tenant, like soft-delete-cleanup): runRetentionCleanup's raw
+    // query helpers need the unfiltered runner, so the handler declares
+    // escapeHatch and reaches for ctx.db.unsafeRaw(). Without this cron,
+    // retention rules are configured but never enforced.
+    r.job({
+      name: "retention-cleanup",
+      trigger: { cron: "0 3 * * *" },
+      perTenant: true,
+      concurrency: "skip",
+      escapeHatch: {
+        reason:
+          "retention cleanup runs raw deletes and preset lookups; every statement filters by this run's tenantId",
+      },
+      handler: async (_payload, ctx) => {
+        if (!ctx.registry) {
+          throw new Error("retention-cleanup: ctx.registry required (JobContext incomplete)");
         }
         const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
         if (tenantId === undefined) {
@@ -91,7 +95,9 @@ export function createDataRetentionFeature(): FeatureDefinition {
           return;
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-        const cleanupDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const cleanupDb = ctx.db.unsafeRaw(
+          "retention cleanup runs raw deletes and preset lookups; every statement filters by this run's tenantId",
+        ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const tenantPreset = await resolveTenantRetentionPreset({
           db: cleanupDb,
           registry: ctx.registry,
@@ -111,6 +117,6 @@ export function createDataRetentionFeature(): FeatureDefinition {
           );
         }
       },
-    );
+    });
   });
 }

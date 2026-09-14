@@ -203,18 +203,22 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
     destroy: mailThreadTenantDestroyHook,
   });
 
-  // Data-Retention (#957) — perTenant-Fan-out (ein Run pro Tenant, wie
-  // data-retention:retention-cleanup): die job-DB ist NICHT tenant-scoped,
-  // der Sweep scoped jeden Delete explizit per tenantId. Ohne diesen Cron
-  // wachsen read_inbound_messages + die Bodies unbegrenzt (DSGVO Art. 5).
-  r.job(
-    "inbound-mail-retention",
-    { trigger: { cron: "0 3 * * *" }, perTenant: true, concurrency: "skip" },
-    async (_payload, ctx) => {
-      if (!ctx.db || !ctx.registry) {
-        throw new Error(
-          "inbound-mail-retention: ctx.db + ctx.registry required (JobContext incomplete)",
-        );
+  // Data-Retention (#957) — perTenant fan-out (one run per tenant, like
+  // data-retention:retention-cleanup): runInboundMailRetention's raw query
+  // helpers need the unfiltered runner, so the handler declares escapeHatch
+  // and reaches for ctx.db.unsafeRaw(). Without this cron, read_inbound_messages
+  // + the bodies grow unbounded (GDPR Art. 5).
+  const INBOUND_MAIL_RETENTION_REASON =
+    "inbound-mail retention runs raw deletes; every statement filters by this run's tenantId";
+  r.job({
+    name: "inbound-mail-retention",
+    trigger: { cron: "0 3 * * *" },
+    perTenant: true,
+    concurrency: "skip",
+    escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
+    handler: async (_payload, ctx) => {
+      if (!ctx.registry) {
+        throw new Error("inbound-mail-retention: ctx.registry required (JobContext incomplete)");
       }
       const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
       if (tenantId === undefined) {
@@ -222,7 +226,7 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
         return;
       }
       const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-      const retentionDb = ctx.db as DbConnection; // @cast-boundary db-operator
+      const retentionDb = ctx.db.unsafeRaw(INBOUND_MAIL_RETENTION_REASON) as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 
       // Body-Objekte liegen in file-foundation. Provider lazy + memoized —
       // heute schreibt der Ingest kein bodyRef (storeBody-Hook ungebunden),
@@ -253,5 +257,5 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
         );
       }
     },
-  );
+  });
 });

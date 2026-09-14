@@ -1,3 +1,4 @@
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { mfaRequiredConfigKey } from "./config";
 import { createDisableHandler } from "./handlers/disable.write";
@@ -137,7 +138,21 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // KEK-rotation for totpSecret (entity-field encryption). Manual
     // trigger — ops runs it once after adding a new master key version,
     // same operator workflow as config's own reencrypt job.
-    r.job("reencrypt", { trigger: { manual: true } }, mfaReencryptJob);
+    r.job({
+      name: "reencrypt",
+      trigger: { manual: true },
+      escapeHatch: {
+        reason: "re-encrypts MFA secrets of every tenant's users with the new master key",
+      },
+      handler: (payload, ctx) =>
+        mfaReencryptJob(
+          payload,
+          ctx,
+          ctx.db.unsafeRaw(
+            "re-encrypts MFA secrets of every tenant's users with the new master key",
+          ) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+        ),
+    });
 
     r.entity("user-mfa", userMfaEntity);
 

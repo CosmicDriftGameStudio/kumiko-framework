@@ -23,7 +23,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createTenantDb,
+  createUncheckedSystemDb,
+  insertOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -177,7 +182,8 @@ async function runResumeDueRunsJob(): Promise<void> {
 
   const systemUser = createSystemUser(admin.tenantId);
   const ctx: JobContext = {
-    db: stack.db,
+    db: createTenantDb(stack.db, admin.tenantId),
+    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, admin.tenantId, "system")),
     registry: stack.registry,
     systemUser,
     log: noopLogger,

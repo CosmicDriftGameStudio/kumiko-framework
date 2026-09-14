@@ -2,7 +2,7 @@ import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow } from "../db/connection";
-import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { createSystemUser } from "../engine/system-user";
 import {
@@ -551,20 +551,24 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // unchecked cross-tenant escape hatch for such a job.
     const tenantScopedDb = configDb ? createTenantDb(configDb, tenantId, "system") : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
+    // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
+    const reportEscapeHatch = createEscapeHatchReporter({
+      handler: jobName,
+      tenantId,
+      actor: jobSystemUser.id,
+      sink: context._escapeHatchAuditSink,
+      log: context.log,
+    });
     const systemDb =
       isSystemJob && tenantScopedDb
-        ? createUncheckedSystemDb(
-            tenantScopedDb,
-            undefined,
-            createEscapeHatchReporter({
-              handler: jobName,
-              tenantId,
-              actor: jobSystemUser.id,
-              sink: context._escapeHatchAuditSink,
-              log: context.log,
-            }),
-          )
+        ? createUncheckedSystemDb(tenantScopedDb, undefined, reportEscapeHatch)
         : undefined;
+    const jobDb = configDb
+      ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
+          unsafeRaw: jobDef.escapeHatch,
+          report: reportEscapeHatch,
+        })
+      : undefined;
     const config =
       context._configAccessorFactory && tenantScopedDb
         ? context._configAccessorFactory({
@@ -589,9 +593,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     let memberReader: MemberReader | undefined;
     const jobContext: JobContext = {
       ...context,
-      // Same union as configDb above — job runners are always constructed
-      // with a real DbConnection; JobContext requires it non-optional.
-      db: configDb as DbConnection, // @cast-boundary db-operator
+      // Undefined only for a runner built without a db; JobContext requires db non-optional.
+      db: jobDb as TenantDb, // @cast-boundary db-operator
       files,
       derivatives,
       ...(notify !== undefined && { notify }),

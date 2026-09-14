@@ -12,6 +12,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -127,7 +128,9 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
     // log required since #1572 persists incomplete[] via ctx.log.warn.
     const jobCtx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      }),
       registry: stack.registry,
       configResolver,
       log: {

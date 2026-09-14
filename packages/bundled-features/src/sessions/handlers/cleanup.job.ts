@@ -18,7 +18,7 @@
 // seed). Mirror of secrets/retention.job in shape.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
+import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { deleteStaleSessionsBatch } from "../db/queries/cleanup";
 
@@ -37,15 +37,12 @@ export type SessionCleanupResult = {
   readonly stoppedReason: "empty" | "timeout" | "signal";
 };
 
-export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
+export async function cleanupJob(
+  rawPayload: Record<string, unknown>,
+  ctx: JobContext,
+  db: DbConnection,
+): Promise<void> {
   const payload = rawPayload as SessionCleanupPayload; // @cast-boundary engine-payload
-  if (!ctx.db) {
-    throw new InternalError({
-      message: "[sessions:cleanup] ctx.db missing — job context requires a database connection.",
-    });
-  }
-  const db = ctx.db as DbConnection;
-
   const olderThanDaysRaw = payload.olderThanDays ?? DEFAULT_OLDER_THAN_DAYS;
   const olderThanDays = Number(olderThanDaysRaw);
   if (!Number.isFinite(olderThanDays) || olderThanDays < 0 || !Number.isInteger(olderThanDays)) {
@@ -83,4 +80,4 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
 
   const result: SessionCleanupResult = { deleted, batchesProcessed, stoppedReason };
   ctx.log?.info?.(`[sessions:cleanup] complete: ${JSON.stringify(result)}`);
-};
+}

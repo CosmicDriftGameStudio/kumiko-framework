@@ -11,6 +11,7 @@
 // fileRef entity exists and the hooks work fine — same reasoning as
 // folders-user-data's optionalRequires("folders").
 
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   EXT_STORAGE_PROVIDER,
@@ -39,15 +40,23 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
     r.useExtension(EXT_TENANT_DATA, "fileRef", { destroy: fileRefTenantDestroyHook });
     r.useExtension(EXT_STORAGE_PROVIDER, "fileRef", { destroyTenant: fileRefStorageDestroyHook });
 
-    r.job(
-      "sweep-orphaned-derivatives",
-      {
-        trigger: { manual: true },
-        concurrency: "skip",
-        schema: sweepOrphanedDerivativesPayloadSchema,
+    r.job({
+      name: "sweep-orphaned-derivatives",
+      trigger: { manual: true },
+      concurrency: "skip",
+      schema: sweepOrphanedDerivativesPayloadSchema,
+      escapeHatch: {
+        reason: "iterates every tenant and checks fileRef owners per tenant",
       },
-      sweepOrphanedDerivativesJob,
-    );
+      handler: (payload, ctx) =>
+        sweepOrphanedDerivativesJob(
+          payload,
+          ctx,
+          ctx.db.unsafeRaw(
+            "iterates every tenant and checks fileRef owners per tenant",
+          ) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+        ),
+    });
   });
 }
 

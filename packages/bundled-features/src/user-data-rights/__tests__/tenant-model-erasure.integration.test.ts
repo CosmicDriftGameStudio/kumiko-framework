@@ -467,7 +467,9 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
     if (!job) return;
 
     const ctx: JobContext = {
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      }),
       registry: stack.registry,
       configResolver: createConfigResolver({
         appOverrides: new Map([[TENANT_MODEL_CONFIG_KEY, "single-user"]]),

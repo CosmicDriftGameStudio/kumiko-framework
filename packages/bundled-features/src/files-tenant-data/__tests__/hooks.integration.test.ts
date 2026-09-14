@@ -57,7 +57,6 @@ import {
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
 } from "../../tenant-lifecycle/constants";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy";
-import { sweepOrphanedDerivativesJob } from "../handlers/sweep-orphaned-derivatives.job";
 import { createFilesTenantDataFeature } from "../index";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -181,7 +180,10 @@ describe("files-tenant-data :: job registration", () => {
   test("registers sweepOrphanedDerivativesJob as files-tenant-data:job:sweep-orphaned-derivatives — the name jobs:write:trigger dispatches by", () => {
     const job = stack.registry.getJob(SWEEP_JOB);
     expect(job).toBeDefined();
-    expect(job?.handler).toBe(sweepOrphanedDerivativesJob);
+    expect(typeof job?.handler).toBe("function");
+    expect(job?.escapeHatch?.reason).toBe(
+      "iterates every tenant and checks fileRef owners per tenant",
+    );
     expect(job?.trigger).toEqual({ manual: true });
   });
 });

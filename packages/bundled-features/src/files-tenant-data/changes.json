@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.275.0",
+    "type": "breaking",
+    "title": "sweepOrphanedDerivativesJob takes the raw DbConnection as a third argument; the job declares escapeHatch (fw#2914).",
+    "detail": "JobContext.db is now a tenant-filtered TenantDb. The sweep checks fileRef owners of every tenant, so its registration declares `escapeHatch` and passes `ctx.db.unsafeRaw(reason)` to `sweepOrphanedDerivativesJob(payload, ctx, db)`. Without the raw runner, the foreign-tenant owner lookup would be narrowed away and every derivative would look orphaned.",
+    "migration": "Direct callers of the exported `sweepOrphanedDerivativesJob` pass the raw `DbConnection` as the third argument. Apps that only mount the feature need no change."
+  }
+]

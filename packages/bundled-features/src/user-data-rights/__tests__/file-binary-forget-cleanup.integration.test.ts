@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
@@ -200,7 +200,9 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
     if (!job) return;
 
     const ctx: JobContext = {
-      db,
+      db: createTenantDb(db, TENANT, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      }),
       registry: stack.registry,
       configResolver: configResolverForJobCtx,
       systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },

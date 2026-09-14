@@ -140,7 +140,7 @@ describe("rotate-job circuit-breaker", () => {
 
     // maxFailures: 3 means the job gives up after 3 failed rows. Without
     // the breaker it would attempt all 20 and log 20 warns.
-    await rotateJob({ batchSize: 10, maxFailures: 3 }, jobCtx(broken));
+    await rotateJob({ batchSize: 10, maxFailures: 3 }, jobCtx(broken), stack.db);
 
     // All 20 rows still at V1 — the broken provider never let any rewrap
     // succeed. Plus: the breaker tripped at ≤3 attempts, not 20.
@@ -151,7 +151,7 @@ describe("rotate-job circuit-breaker", () => {
   test("maxFailures=1 trips on the very first failure — single attempt then stop", async () => {
     const broken = createBrokenUnwrapProvider();
 
-    await rotateJob({ batchSize: 10, maxFailures: 1 }, jobCtx(broken));
+    await rotateJob({ batchSize: 10, maxFailures: 1 }, jobCtx(broken), stack.db);
 
     // Same end-state (all rows on V1) but the internal counter proves the
     // breaker fired after exactly one failure instead of draining the batch.
@@ -167,7 +167,7 @@ describe("rotate-job circuit-breaker", () => {
     // honours its parameter rather than silently capping.
     const broken = createBrokenUnwrapProvider();
 
-    await rotateJob({ batchSize: 10, maxFailures: 25 }, jobCtx(broken));
+    await rotateJob({ batchSize: 10, maxFailures: 25 }, jobCtx(broken), stack.db);
 
     expect(await countV1Rows()).toBe(20);
     expect(broken.calls()).toBe(25);
@@ -205,7 +205,7 @@ describe("rotate-job circuit-breaker", () => {
     );
     const ciphertextByKey = new Map(preRotation.map((row) => [row.key, row.envelope.ciphertext]));
 
-    await rotateJob({ batchSize: 10, maxFailures: 5 }, jobCtx(rotator));
+    await rotateJob({ batchSize: 10, maxFailures: 5 }, jobCtx(rotator), stack.db);
 
     expect(await countV1Rows()).toBe(0);
 

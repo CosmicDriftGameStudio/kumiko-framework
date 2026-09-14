@@ -147,7 +147,7 @@ describe("auth-mfa KEK-rotation job — kumiko-framework#266 Step 8", () => {
       }),
     );
 
-    await mfaReencryptJob({}, jobCtx());
+    await mfaReencryptJob({}, jobCtx(), stack.db);
 
     const afterJobRow = await readRawRow(user.id);
     expect(JSON.parse(afterJobRow.totpSecret).kekVersion).toBe(2);
@@ -222,12 +222,16 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       child: () => capturingLog,
     };
 
-    await mfaReencryptJob({}, {
-      db: stack.db,
-      registry: stack.registry,
-      masterKeyProvider: mutableProvider,
-      log: capturingLog,
-    } as unknown as JobContext);
+    await mfaReencryptJob(
+      {},
+      {
+        db: stack.db,
+        registry: stack.registry,
+        masterKeyProvider: mutableProvider,
+        log: capturingLog,
+      } as unknown as JobContext,
+      stack.db,
+    );
 
     const completeLine = captured.info.find((line) =>
       line.includes("[auth-mfa:reencrypt] complete:"),
@@ -296,12 +300,16 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       child: () => capturingLog,
     };
 
-    await mfaReencryptJob({}, {
-      db: stack.db,
-      registry: stack.registry,
-      masterKeyProvider: mutableProvider,
-      log: capturingLog,
-    } as unknown as JobContext);
+    await mfaReencryptJob(
+      {},
+      {
+        db: stack.db,
+        registry: stack.registry,
+        masterKeyProvider: mutableProvider,
+        log: capturingLog,
+      } as unknown as JobContext,
+      stack.db,
+    );
 
     const completeLine = captured.info.find((line) =>
       line.includes("[auth-mfa:reencrypt] complete:"),

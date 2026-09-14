@@ -10,7 +10,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  createUncheckedSystemDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemConfig,
@@ -134,13 +138,15 @@ function capturingLog(captured: CapturedLog): TestJobLog {
 
 function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
   const log = captured ? capturingLog(captured) : noopLog;
+  const systemModeDb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
   return {
-    db: stack.db,
+    db: systemModeDb,
+    systemDb: createUncheckedSystemDb(systemModeDb),
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: cipher,
     log,
-  } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log
+  } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/systemDb/registry/masterKeyProvider/configEncryption/log
 }
 
 beforeAll(async () => {

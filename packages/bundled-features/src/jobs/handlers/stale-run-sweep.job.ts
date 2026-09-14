@@ -15,13 +15,15 @@ export const DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS = 24;
 
 export function createStaleRunSweepJob(timeoutHours: number): JobHandlerFn {
   return async (_payload, ctx) => {
-    if (!ctx.db) {
+    if (!ctx.systemDb) {
       throw new InternalError({
         message:
-          "[jobs:stale-run-sweep] ctx.db missing — job context requires a database connection.",
+          "[jobs:stale-run-sweep] ctx.systemDb missing — is r.systemScope() still set on the jobs feature?",
       });
     }
-    const db = ctx.db as DbConnection; // @cast-boundary db-operator (matches sibling cron jobs)
+    const db = ctx.systemDb.unsafeRaw(
+      "stale-run sweep marks stuck runs of every tenant as failed",
+    ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
     const result = await markStaleJobRunsFailed(db, timeoutHours);
     ctx.log?.info?.(`[jobs:stale-run-sweep] complete: ${JSON.stringify(result)}`);
   };

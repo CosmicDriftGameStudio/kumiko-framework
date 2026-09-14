@@ -24,6 +24,7 @@
 //
 // wait/retry/waitForEvent suspensions all resume automatically now.
 
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { selectDueWorkflowRunPending } from "./db/queries/due-runs";
 import { resumeRunHandler } from "./handlers/resume-run.write";
@@ -58,8 +59,8 @@ export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
     "resume-due-runs",
     { trigger: { cron: "* * * * *" }, perTenant: true, concurrency: "skip" },
     async (_payload, ctx) => {
-      if (!ctx.db) {
-        throw new Error("resume-due-runs: ctx.db required (JobContext incomplete)");
+      if (!ctx.systemDb) {
+        throw new Error("resume-due-runs: ctx.systemDb required (r.systemScope() feature)");
       }
       const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
       if (tenantId === undefined) {
@@ -67,7 +68,13 @@ export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
         return;
       }
 
-      const dueRows = await selectDueWorkflowRunPending(ctx.db, tenantId);
+      ctx.systemDb.assertTenantMatch(tenantId);
+      const dueRows = await selectDueWorkflowRunPending(
+        ctx.systemDb.unsafeRaw(
+          "due-row pickup needs FOR UPDATE SKIP LOCKED raw SQL; the query filters by this job's tenantId",
+        ) as DbConnection, // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
+        tenantId,
+      );
 
       for (const row of dueRows) {
         try {

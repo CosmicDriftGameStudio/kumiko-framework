@@ -1,3 +1,4 @@
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   type AccessRule,
   defineFeature,
@@ -157,16 +158,30 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
 
     // Per-tenant handlers (set/delete/list) run in the default tenant-scope,
     // giving them the automatic ctx.db tenant-filter as extra defense.
-    // The rotation job deliberately reaches for ctx.db as DbConnection
-    // (raw, cross-tenant) because rotation is a deployment-wide operation —
-    // no feature-wide r.systemScope() needed.
+    // The rotation job deliberately reaches for ctx.db.unsafeRaw() (raw,
+    // cross-tenant) because rotation is a deployment-wide operation — no
+    // feature-wide r.systemScope() needed.
     r.writeHandler(createSetHandler(access));
     r.writeHandler(createDeleteHandler(access));
     r.queryHandler(createListHandler(access));
     // Manual-only by design: ops triggers rotation after a KEK version flip.
     // BullMQ delivers to exactly one worker, so running it against a busy
     // table on multiple instances is still safe.
-    r.job("rotate", { trigger: { manual: true } }, rotateJob);
+    r.job({
+      name: "rotate",
+      trigger: { manual: true },
+      escapeHatch: {
+        reason: "re-encrypts every tenant's secrets with the new master key",
+      },
+      handler: (payload, ctx) =>
+        rotateJob(
+          payload,
+          ctx,
+          ctx.db.unsafeRaw(
+            "re-encrypts every tenant's secrets with the new master key",
+          ) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+        ),
+    });
 
     // Pre-ES had a separate `retention-cleanup` job scrubbing the audit
     // table on a compliance-driven schedule (90d default). Post-ES the

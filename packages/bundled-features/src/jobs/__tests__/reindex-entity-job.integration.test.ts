@@ -100,7 +100,7 @@ describe("reindexEntityJob", () => {
     expect(preResults).toHaveLength(0);
 
     const ctx: JobContext = {
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId),
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
@@ -141,7 +141,7 @@ describe("reindexEntityJob", () => {
     if (!job) return;
 
     const ctx: JobContext = {
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId),
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
@@ -205,7 +205,7 @@ describe("reindexEntityJob", () => {
   test("fails closed when ctx.systemDb is scoped to a different tenant than ctx.systemUser", async () => {
     const otherTenantId = TestUsers.otherTenant.tenantId;
     const ctx: JobContext = {
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId),
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,

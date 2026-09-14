@@ -42,9 +42,10 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     throw new Error("soft-delete cleanup: ctx.db + ctx.registry required (JobContext incomplete)");
   }
   // perTenant fan-out → one run per active tenant, systemUser scoped to it.
-  // The job's db is the boot DbConnection (NOT tenant-scoped), so every delete
-  // is explicitly tenant-filtered below — otherwise a tenant with a short grace
-  // would purge another tenant's still-within-grace rows.
+  // The job's db is a tenant-filtered TenantDb, but every delete is still
+  // explicitly tenant-filtered below as defense-in-depth — otherwise a
+  // tenant with a short grace would purge another tenant's still-within-grace
+  // rows.
   const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
   if (tenantId === undefined) {
     // skip: cron fired without a perTenant fan-out tenant — nothing scoped to purge

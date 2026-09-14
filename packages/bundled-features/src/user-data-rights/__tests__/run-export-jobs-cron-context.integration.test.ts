@@ -12,6 +12,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
@@ -146,7 +147,9 @@ describe("run-export-jobs cron-context", () => {
 
     // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
     const jobCtx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "processes pending export jobs across every tenant" },
+      }),
       registry: stack.registry,
       configResolver,
       _userId: SYSTEM_USER_ID,

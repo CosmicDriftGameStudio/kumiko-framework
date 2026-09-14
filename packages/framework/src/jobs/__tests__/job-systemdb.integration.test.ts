@@ -49,7 +49,7 @@ const systemScopedFeature = defineFeature("jobsystemdb-system", (r) => {
     results.push({
       name: "system",
       present: true,
-      boundToRawDb: tenantDbRunner(checked) === ctx.db,
+      boundToRawDb: tenantDbRunner(checked) === tenantDbRunner(ctx.db),
       foreignTenantThrew,
     });
   });

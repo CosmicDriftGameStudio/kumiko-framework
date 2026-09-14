@@ -87,17 +87,20 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
         "[config:reencrypt] ctx.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
     });
   }
-  if (!ctx.db) {
-    throw new InternalError({
-      message: "[config:reencrypt] ctx.db missing — job context requires a database connection.",
-    });
-  }
   if (!ctx.registry) {
     throw new InternalError({
       message: "[config:reencrypt] ctx.registry missing — job context requires the registry.",
     });
   }
-  const db = ctx.db as DbConnection; // @cast-boundary db-operator
+  // config is r.systemScope(), so ctx.systemDb is always present on its jobs.
+  if (!ctx.systemDb) {
+    throw new InternalError({
+      message: "[config:reencrypt] ctx.systemDb missing on a system-scoped job",
+    });
+  }
+  const db = ctx.systemDb.unsafeRaw(
+    "system-wide KEK rotation scans every tenant's encrypted config values",
+  ) as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 
   const encryptedKeys = [...ctx.registry.getAllConfigKeys()]
     .filter(([, def]) => def.encrypted === true)

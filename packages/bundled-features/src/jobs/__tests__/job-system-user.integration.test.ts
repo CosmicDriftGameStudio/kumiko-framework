@@ -62,36 +62,45 @@ const billingFeature = defineFeature("billing", (r) => {
   // resolver.set escape hatch is gone. checkWriteAccess grants a
   // SYSTEM_ROLE caller the right to write system-only keys that Admin
   // cannot touch, so the security invariant (see Admin test below) holds.
-  r.job("calculateTotal", { trigger: { manual: true } }, async (_payload, ctx) => {
-    const systemUser = ctx["systemUser"] as SessionUser;
-    const jobDb = ctx["db"] as DbConnection;
-    const reg = ctx["registry"] as Registry;
+  r.job(
+    "calculateTotal",
+    {
+      trigger: { manual: true },
+      escapeHatch: { reason: "test job builds a system-mode handler context for config:write:set" },
+    },
+    async (_payload, ctx) => {
+      const systemUser = ctx["systemUser"] as SessionUser;
+      const jobDb = ctx.db.unsafeRaw(
+        "test job builds a system-mode handler context for config:write:set",
+      ) as DbConnection;
+      const reg = ctx["registry"] as Registry;
 
-    ctx.log?.info("Calculating monthly total...");
-    const total = 42000;
+      ctx.log?.info("Calculating monthly total...");
+      const total = 42000;
 
-    const handler = reg.getWriteHandler("config:write:set");
-    if (handler) {
-      const parsed = handler.schema.parse({
-        key: "billing:config:monthly-total",
-        value: total,
-      });
-      const tenantDb = createTenantDb(jobDb, systemUser.tenantId, "system");
-      await handler.handler(
-        { type: "config:write:set", payload: parsed, user: systemUser },
-        {
-          db: tenantDb,
-          dbOutsideTransaction: tenantDb,
-          systemDb: createUncheckedSystemDb(tenantDb),
-          registry: reg,
-          configResolver: ctx["configResolver"] as ConfigResolver,
-          ...bridgeStub(),
-        },
-      );
-    }
+      const handler = reg.getWriteHandler("config:write:set");
+      if (handler) {
+        const parsed = handler.schema.parse({
+          key: "billing:config:monthly-total",
+          value: total,
+        });
+        const tenantDb = createTenantDb(jobDb, systemUser.tenantId, "system");
+        await handler.handler(
+          { type: "config:write:set", payload: parsed, user: systemUser },
+          {
+            db: tenantDb,
+            dbOutsideTransaction: tenantDb,
+            systemDb: createUncheckedSystemDb(tenantDb),
+            registry: reg,
+            configResolver: ctx["configResolver"] as ConfigResolver,
+            ...bridgeStub(),
+          },
+        );
+      }
 
-    ctx.log?.info(`Set monthlyTotal to ${total}`);
-  });
+      ctx.log?.info(`Set monthlyTotal to ${total}`);
+    },
+  );
 });
 
 const configFeature = createConfigFeature();

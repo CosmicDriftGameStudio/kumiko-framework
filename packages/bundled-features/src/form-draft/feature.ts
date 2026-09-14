@@ -5,6 +5,7 @@
 // savedAt } through save/discard/get. See entity.ts for the ownership +
 // uniqueness model.
 
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { FORM_DRAFT_FEATURE_NAME } from "./constants";
 import { formDraftEntity } from "./entity";
@@ -39,7 +40,18 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   r.queryHandler(listDraftsQuery);
 
   r.config({ keys: { retentionDays: formDraftRetentionDaysConfig } });
-  r.job("cleanup", { trigger: { cron: "0 3 * * *" }, concurrency: "skip" }, cleanupDraftsJob);
+  r.job({
+    name: "cleanup",
+    trigger: { cron: "0 3 * * *" },
+    concurrency: "skip",
+    escapeHatch: { reason: "purges stale drafts of every tenant" },
+    handler: (payload, ctx) =>
+      cleanupDraftsJob(
+        payload,
+        ctx,
+        ctx.db.unsafeRaw("purges stale drafts of every tenant") as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+      ),
+  });
 }
 
 export const formDraftFeature = defineFeature(FORM_DRAFT_FEATURE_NAME, registerFormDraft);
