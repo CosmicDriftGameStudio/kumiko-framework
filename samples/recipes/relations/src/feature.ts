@@ -30,12 +30,10 @@ export const memberTable = buildEntityTable("member", memberEntity);
 export const taskTable = buildEntityTable("task", taskEntity);
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
-const TASK_READ_OPEN_REASON =
-  "any signed-in user may read a task by id; writes are still gated by adminWrite";
 const openRead = {
   access: {
     openToAll: {
-      reason: TASK_READ_OPEN_REASON,
+      reason: "any signed-in user may read a task by id; writes are still gated by adminWrite",
     },
   },
 } as const;
