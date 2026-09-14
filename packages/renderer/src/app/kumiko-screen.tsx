@@ -1,4 +1,5 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -48,7 +49,7 @@ import { RenderList } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
 import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
-import { useQuery } from "../hooks/use-query";
+import { type UseQueryResult, useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import {
   type DataTableFacet,
@@ -404,9 +405,14 @@ function useNavigateToCreateFor(
 
 // `defaultCurrency` is entityEdit-only — it enables the `{amount, currency}`
 // write shape (fw#1923); config-edit's plain-number contract needs bare `0`.
+// `moneyCurrencyOverrides` (fw#2933) replaces `defaultCurrency` per field name
+// — used for a `money` field that declares `currency: { kind: "tenant" }`, so
+// its empty initial value carries the tenant's own currency instead of the
+// entity-wide default.
 export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
   defaultCurrency?: string,
+  moneyCurrencyOverrides?: Readonly<Record<string, string>>,
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   for (const [name, def] of Object.entries(fields)) {
@@ -419,9 +425,12 @@ export function buildInitialValues(
       out[name] = [];
       continue;
     }
-    if (shape.type === "money" && defaultCurrency !== undefined) {
-      out[name] = { amount: 0, currency: defaultCurrency };
-      continue;
+    if (shape.type === "money") {
+      const currency = moneyCurrencyOverrides?.[name] ?? defaultCurrency;
+      if (currency !== undefined) {
+        out[name] = { amount: 0, currency };
+        continue;
+      }
     }
     out[name] =
       shape.type === "boolean"
@@ -433,6 +442,49 @@ export function buildInitialValues(
             : "";
   }
   return out;
+}
+
+// A `money` field opts a currently-empty value into the tenant-settings
+// bundle's per-tenant currency (fw#2933) via `currency: { kind: "tenant" }`
+// on its FieldDefinition. Read structurally — renderer only depends on the
+// client-safe FieldDefinition subset, not the concrete MoneyFieldDef/
+// MoneyCurrencySource types, same idiom as the other field-shape narrowings
+// in this file (PrefillFieldShape etc.).
+function tenantCurrencyMoneyFieldNames(
+  fields: Readonly<Record<string, unknown>>,
+): readonly string[] {
+  const names: string[] = [];
+  for (const [name, def] of Object.entries(fields)) {
+    const shape = def as { readonly type?: string; readonly currency?: { readonly kind?: string } };
+    if (shape.type === "money" && shape.currency?.kind === "tenant") names.push(name);
+  }
+  return names;
+}
+
+type TenantConfigValuesResponse = Readonly<
+  Record<string, { readonly value: string | number | boolean | undefined }>
+>;
+
+type TenantCurrencyResolution =
+  | { readonly status: "not-needed" }
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly currency: string };
+
+// Resolves what a tenant-declared money field's currency should be, from the
+// same `config:query:values` query ConfigEditBody already uses. Never falls
+// back to "EUR" while the query is genuinely still in flight (fw#2933) — a
+// screen with no tenant-declared money field, or a query that errored or
+// returned no value for the key, resolves immediately instead of blocking.
+function resolveTenantCurrency(
+  fieldNames: readonly string[],
+  query: UseQueryResult<TenantConfigValuesResponse>,
+  fallback: string,
+): TenantCurrencyResolution {
+  if (fieldNames.length === 0) return { status: "not-needed" };
+  if (query.error) return { status: "ready", currency: fallback };
+  if (query.data === null) return { status: "loading" };
+  const raw = query.data[TENANT_CURRENCY_CONFIG_KEY]?.value;
+  return { status: "ready", currency: typeof raw === "string" && raw !== "" ? raw : fallback };
 }
 
 function multiSelectOptionValues(shape: {
@@ -586,6 +638,9 @@ export type InitialValueSources = {
   readonly urlPrefillFields: readonly string[] | undefined;
   readonly renderableFields?: ReadonlySet<string>;
   readonly defaultCurrency?: string;
+  // Per-field override of `defaultCurrency` for money fields declaring
+  // `currency: { kind: "tenant" }` (fw#2933) — see buildInitialValues.
+  readonly moneyCurrencyOverrides?: Readonly<Record<string, string>>;
   // Drawer-kind row actions (fw#2710) prefill from the clicked row's
   // already-typed values; wins over every other source.
   readonly drawerOverrides?: Readonly<Record<string, unknown>>;
@@ -600,13 +655,14 @@ function coercePrefillString(
   shape: PrefillFieldShape,
   fallback: unknown,
   defaultCurrency: string | undefined,
+  moneyCurrencyOverrides: Readonly<Record<string, string>> | undefined,
 ): unknown {
   if (shape.type === "number") {
     const parsed = Number(raw);
     return Number.isNaN(parsed) ? fallback : parsed;
   }
   if (shape.type === "money") {
-    const coerced = coerceMoneyValue(raw, name, defaultCurrency);
+    const coerced = coerceMoneyValue(raw, name, moneyCurrencyOverrides?.[name] ?? defaultCurrency);
     return coerced === undefined ? fallback : coerced;
   }
   if (shape.type === "boolean") return raw === "true";
@@ -648,10 +704,19 @@ export function mergeSearchParamsIntoInitial(
   fields: Readonly<Record<string, unknown>>,
   sources: InitialValueSources,
 ): Record<string, unknown> {
-  const { searchParams, renderableFields, defaultCurrency, drawerOverrides, handoffValues } =
-    sources;
+  const {
+    searchParams,
+    renderableFields,
+    defaultCurrency,
+    moneyCurrencyOverrides,
+    drawerOverrides,
+    handoffValues,
+  } = sources;
   const urlPrefillFields = new Set(sources.urlPrefillFields ?? []);
-  const defaults = buildInitialValues(fields, defaultCurrency) as Record<string, unknown>;
+  const defaults = buildInitialValues(fields, defaultCurrency, moneyCurrencyOverrides) as Record<
+    string,
+    unknown
+  >;
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
     if (renderableFields !== undefined && !renderableFields.has(name)) continue;
@@ -670,14 +735,28 @@ export function mergeSearchParamsIntoInitial(
     if (handedOff !== undefined) {
       merged[name] =
         typeof handedOff === "string"
-          ? coercePrefillString(handedOff, name, shape, defaults[name], defaultCurrency)
+          ? coercePrefillString(
+              handedOff,
+              name,
+              shape,
+              defaults[name],
+              defaultCurrency,
+              moneyCurrencyOverrides,
+            )
           : handedOff;
       continue;
     }
     if (!urlPrefillFields.has(name)) continue;
     const raw = searchParams[name];
     if (raw === undefined) continue;
-    merged[name] = coercePrefillString(raw, name, shape, defaults[name], defaultCurrency);
+    merged[name] = coercePrefillString(
+      raw,
+      name,
+      shape,
+      defaults[name],
+      defaultCurrency,
+      moneyCurrencyOverrides,
+    );
   }
   return merged;
 }
@@ -761,6 +840,7 @@ function EntityEditCreateBody({
   // new row.
   readonly onSaved?: () => void;
 }): ReactNode {
+  const { Banner } = usePrimitives();
   const nav = useNav();
   const handoffValues = useInitialValuesHandoff(screen.id);
   const appFeatures = useAppFeatures();
@@ -768,16 +848,53 @@ function EntityEditCreateBody({
   // A singleton stays on its own screen after saving (onSaved/refetch) —
   // returnTo would fight that.
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
+  const entityDefaultCurrency = entity.defaultCurrency ?? "EUR";
+  // A money field declaring `currency: { kind: "tenant" }` (fw#2933) resolves
+  // its empty-value currency from the tenant-settings config key instead of
+  // entityDefaultCurrency — `enabled` keeps the query a no-op for entities
+  // without any such field.
+  const tenantCurrencyFieldNames = useMemo(
+    () => tenantCurrencyMoneyFieldNames(entity.fields),
+    [entity.fields],
+  );
+  const needsTenantCurrency = tenantCurrencyFieldNames.length > 0;
+  const tenantCurrencyQuery = useQuery<TenantConfigValuesResponse>(
+    "config:query:values",
+    {},
+    { enabled: needsTenantCurrency },
+  );
+  const tenantCurrencyResolution = resolveTenantCurrency(
+    tenantCurrencyFieldNames,
+    tenantCurrencyQuery,
+    entityDefaultCurrency,
+  );
+  const resolvedTenantCurrency =
+    tenantCurrencyResolution.status === "ready" ? tenantCurrencyResolution.currency : undefined;
+  const moneyCurrencyOverrides = useMemo(
+    () =>
+      resolvedTenantCurrency !== undefined
+        ? Object.fromEntries(tenantCurrencyFieldNames.map((name) => [name, resolvedTenantCurrency]))
+        : undefined,
+    [tenantCurrencyFieldNames, resolvedTenantCurrency],
+  );
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(entity.fields, {
         searchParams: nav.searchParams,
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(screen),
-        defaultCurrency: entity.defaultCurrency ?? "EUR",
+        defaultCurrency: entityDefaultCurrency,
+        ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
         ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
-    [entity.fields, nav.searchParams, screen, entity.defaultCurrency, handoffValues],
+    [
+      entity.fields,
+      nav.searchParams,
+      screen,
+      entityDefaultCurrency,
+      moneyCurrencyOverrides,
+      handoffValues,
+    ],
   );
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
@@ -827,6 +944,15 @@ function EntityEditCreateBody({
     },
     [nav, screen.redirect, schema, appFeatures, navigateToList, onSaved, returnTarget],
   );
+  // Never seed a tenant-declared money field with entityDefaultCurrency while
+  // its real tenant currency is still in flight (fw#2933) — wait instead.
+  if (needsTenantCurrency && tenantCurrencyResolution.status === "loading") {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
   // Deliberately no `actions` prop here: `screen.actions` targets an
   // EXISTING record (publish/archive/duplicate and friends), which the
   // create branch has none of yet — see EntityEditUpdateForm for the
@@ -958,6 +1084,7 @@ function EntityEditUpdateForm({
   readonly onSaved?: () => void;
   readonly onDeleted?: () => void;
 }): ReactNode {
+  const { Banner } = usePrimitives();
   // Seed the form with the server values for the entity's declared
   // fields; anything else (id, tenant_id, created_at…) stays out of
   // the form and lives in the closure. The record's `version` is
@@ -965,15 +1092,56 @@ function EntityEditUpdateForm({
   // concurrent writer bumps it, the server returns a version-conflict
   // error and the user reloads.
   const recordVersion = (record as { version?: number }).version ?? 1;
+  const entityDefaultCurrency = entity.defaultCurrency ?? "EUR";
+  // A money field declaring `currency: { kind: "tenant" }` (fw#2933) resolves
+  // its empty-value currency from the tenant-settings config key instead of
+  // entityDefaultCurrency — `enabled` keeps the query a no-op for entities
+  // without any such field. A record's own stored value (below) always wins
+  // over this, regardless of the declaration.
+  //
+  // Only fields the record itself has no value for need the fetch at all —
+  // an already-set tenant-declared field keeps its own stored currency and
+  // must never block the form on this query.
+  const tenantCurrencyFieldNames = useMemo(
+    () =>
+      tenantCurrencyMoneyFieldNames(entity.fields).filter(
+        (name) => record[name] === null || record[name] === undefined,
+      ),
+    [entity.fields, record],
+  );
+  const needsTenantCurrency = tenantCurrencyFieldNames.length > 0;
+  const tenantCurrencyQuery = useQuery<TenantConfigValuesResponse>(
+    "config:query:values",
+    {},
+    { enabled: needsTenantCurrency },
+  );
+  const tenantCurrencyResolution = resolveTenantCurrency(
+    tenantCurrencyFieldNames,
+    tenantCurrencyQuery,
+    entityDefaultCurrency,
+  );
+  const resolvedTenantCurrency =
+    tenantCurrencyResolution.status === "ready" ? tenantCurrencyResolution.currency : undefined;
+  const moneyCurrencyOverrides = useMemo(
+    () =>
+      resolvedTenantCurrency !== undefined
+        ? Object.fromEntries(tenantCurrencyFieldNames.map((name) => [name, resolvedTenantCurrency]))
+        : undefined,
+    [tenantCurrencyFieldNames, resolvedTenantCurrency],
+  );
   const initial = useMemo(() => {
     const out: Record<string, unknown> = {};
-    const defaultCurrency = entity.defaultCurrency ?? "EUR";
     for (const name of Object.keys(entity.fields)) {
       out[name] =
-        record[name] ?? buildInitialValues({ [name]: entity.fields[name] }, defaultCurrency)[name];
+        record[name] ??
+        buildInitialValues(
+          { [name]: entity.fields[name] },
+          entityDefaultCurrency,
+          moneyCurrencyOverrides,
+        )[name];
     }
     return out as FormValues;
-  }, [entity.fields, entity.defaultCurrency, record]);
+  }, [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides, record]);
 
   const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
 
@@ -1185,6 +1353,18 @@ function EntityEditUpdateForm({
       onDeleted?.();
     }
   }, [dispatcher, deleteCommand, entityId, navigateToList, onDeleted, returnTarget, nav]);
+
+  // Never seed a tenant-declared money field with entityDefaultCurrency while
+  // its real tenant currency is still in flight (fw#2933) — wait instead. A
+  // stored (non-empty) value is unaffected — it never reaches this branch's
+  // fallback because `initial` above already prefers `record[name]`.
+  if (needsTenantCurrency && tenantCurrencyResolution.status === "loading") {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
 
   return (
     <>

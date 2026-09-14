@@ -497,6 +497,11 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
     out["variants"] = def["variants"];
   // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
   if (typeof def["scale"] === "number") out["scale"] = def["scale"];
+  // money: declared currency source (MoneyCurrencySource, fw#2933) — without
+  // it the renderer can't tell a "currency: { kind: 'tenant' }" field apart
+  // from an undeclared one and always falls back to entity.defaultCurrency.
+  if (isPlainObject(def["currency"]) && isJsonSafeValue(def["currency"]))
+    out["currency"] = def["currency"];
   // embedded lists: row-count bounds, computed cells, totals row, and the
   // sibling-money-field totals check (fw#2497).
   if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];

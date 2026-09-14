@@ -97,6 +97,14 @@ export type { ConcurrencyMode };
 const _concurrencyModeExhaustive: Record<ConcurrencyMode, unknown> = ConcurrencyModes;
 void _concurrencyModeExhaustive;
 
+// --- Money Currency Sources ---
+// Qualified config key a `money` field's `currency: { kind: "tenant" }`
+// declaration (MoneyCurrencySource, fw#2933) resolves against — the
+// tenant-settings bundle's per-tenant currency (bundled-features/src/
+// tenant-settings/constants.ts TenantSettingsConfig.currency reuses this
+// same constant, so the two stay in sync by construction).
+export const TENANT_CURRENCY_CONFIG_KEY = "tenant-settings:config:currency";
+
 // --- SSE Channels ---
 
 export function tenantChannel(tenantId: TenantId): string {

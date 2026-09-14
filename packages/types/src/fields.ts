@@ -445,6 +445,13 @@ export type DecimalFieldDef = {
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 
+/** Where a money field's currency comes from, for the fields that opt in.
+ *  Discriminated union so #2839 can add `{ kind: "literal", code }` and
+ *  `{ kind: "field", of }` variants without a breaking change. `"tenant"` is
+ *  the tenant-settings bundle's per-tenant currency (`tenant-settings:config:
+ *  currency`) — see kumiko-framework#2933. */
+export type MoneyCurrencySource = { readonly kind: "tenant" };
+
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly description?: string;
@@ -453,6 +460,11 @@ export type MoneyFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
+  /** Declares where this field's currency comes from for a currently-empty
+   *  value in an entityEdit form. Undefined = unchanged existing behaviour
+   *  (`entity.defaultCurrency ?? "EUR"`); a stored value always keeps its
+   *  own currency regardless of this declaration. */
+  readonly currency?: MoneyCurrencySource;
 };
 
 // Reference-Field (Tier 2.7e-3) — FK-Style Verweis auf eine andere
