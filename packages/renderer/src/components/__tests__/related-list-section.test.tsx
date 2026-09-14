@@ -1356,7 +1356,7 @@ describe("RelatedListSection — search + facets (fw#2740)", () => {
 // A dispatcher stub that filters a fixed row set by `payload.filter` (single
 // eq clause), `payload.search` (substring on `name`) and `payload.filters`
 // (facet membership) together — proves parentFilter composes with search
-// and facets instead of being clobbered by either (fw akte-bedienkonzept-2).
+// and facets instead of being clobbered by either.
 function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
   dispatcher: Dispatcher;
   payloads: Record<string, unknown>[];
@@ -1401,7 +1401,7 @@ function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
   return { dispatcher, payloads };
 }
 
-describe("RelatedListSection — parentFilter (fw akte-bedienkonzept-2)", () => {
+describe("RelatedListSection — parentFilter", () => {
   const rows = [
     { id: "r1", parentId: "order-1", name: "Alice", status: "active" },
     { id: "r2", parentId: "order-1", name: "Bob", status: "ended" },

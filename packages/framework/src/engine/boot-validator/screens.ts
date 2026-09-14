@@ -275,8 +275,7 @@ function validateWizardLayout(
 // falsche Sichtbarkeit (gleiche "Typo fällt erst beim Klick"-Klasse wie
 // navigate/handler). Exported for query-output-columns.ts, which reuses it
 // against a projectionDetail's outputSchema-derived record shape instead of
-// an entity's field map (relatedList toolbarActions' visible/params —
-// fw akte-bedienkonzept-2).
+// an entity's field map (relatedList toolbarActions' visible/params).
 export function validateActionFieldRefs(
   featureName: string,
   screenId: string,

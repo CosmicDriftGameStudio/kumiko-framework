@@ -3,7 +3,7 @@
 // bespoke top-level key (related-list-section.tsx) — proving it against the
 // generic `<entity>:list` query end-to-end means proving `filter` and
 // `search` combine correctly in the real executor, over real HTTP, exactly
-// as the renderer's own request would look (fw akte-bedienkonzept-2).
+// as the renderer's own request would look.
 //
 // Bun.SQL-only setup via setupTestStack.
 
@@ -36,7 +36,7 @@ const ordersFeature = defineFeature("akteorders", (r) => {
   r.queryHandler(defineEntityListHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
 });
 
-describe("relatedList parentFilter against the generic <entity>:list query (fw akte-bedienkonzept-2)", () => {
+describe("relatedList parentFilter against the generic <entity>:list query", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
