@@ -43,6 +43,11 @@ export const FrameworkReasons = {
   // SYSTEM identity without an r.systemScope() feature or a declared escapeHatch.
   systemIdentitySwitchDenied: "system_identity_switch_denied",
 
+  // AccessDeniedError: a handler/hook called ctx.queryAs/ctx.writeAs with a
+  // non-SYSTEM identity other than its own caller (different user, tenant,
+  // claims, origin or extra roles) without r.systemScope() or escapeHatch.
+  identitySwitchDenied: "identity_switch_denied",
+
   // AccessDeniedError: ctx.queryAsMember's userId is not an active member of
   // ctx's tenant. Deliberately generic — a caller can't probe which check failed.
   memberResolutionDenied: "member_resolution_denied",
