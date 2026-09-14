@@ -82,9 +82,7 @@ function errorReason(details: unknown): string | undefined {
 }
 
 const authClaimsCalls: string[] = [];
-// Set by a test right before the write that triggers the corresponding
-// postSave hook — read back inside the hook body. Tests run serially within
-// this file (bun:test default), so a shared slot is safe.
+// Shared slot is safe: tests within this file run serially (bun:test default).
 let hookTargetUserId = "";
 const hookNoHatchOutcomes: Array<{ readonly threw: boolean }> = [];
 const hookWithHatchResults: unknown[] = [];
@@ -235,9 +233,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     return { marker: user.id };
   });
 
-  // postSave hooks: gated independently of the handler they fire on — a
-  // hook's OWN escapeHatch can grant even without one on the handler, and
-  // does NOT inherit one the handler declares.
+  // A hook's own escapeHatch grants independently of the handler it fires on, in both directions.
   r.writeHandler({
     ...defineEntityWriteHandler("hook-note-a:create", hookNoteAEntity, {
       access: { roles: ["Admin"] },

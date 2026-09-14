@@ -180,10 +180,7 @@ describe("withHookIdentitySwitchGrant", () => {
   });
 
   test("a deny-stubbed writeAs is not revived through a sibling queryAs's registered ungated pair", async () => {
-    // Mirrors a member-resolution HandlerContext: queryAs is still the real
-    // gated fn (registered in ungatedByGated), writeAs was independently
-    // replaced by a deny stub never registered in that map. The per-function
-    // resolution must not let queryAs's registration leak a working writeAs.
+    // Like a member-resolution ctx: registered gated queryAs next to an unregistered deny-stub writeAs.
     const { ungated, writeAsMock } = makeUngated();
     const gatedIdentitySwitch = createGatedIdentitySwitch('handler "outer"', true, ungated);
     const denyStubWriteAs: WriteAsFn = async () => {

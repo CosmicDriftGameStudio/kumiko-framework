@@ -118,11 +118,8 @@ function fallbackUngatedIdentitySwitch(
   };
 }
 
-// Reuses the ORIGINAL ungated fn when known, so this grant doesn't compose
-// with the caller's. Resolved independently per function — a context can
-// carry a live queryAs alongside a deny-stubbed writeAs (member-resolution
-// contexts), and reusing one shared ungated pair for both would revive the
-// stub through the still-registered queryAs side.
+// Resolved per function: a shared ungated pair would revive a member-resolution
+// ctx's deny-stubbed writeAs through its still-registered queryAs.
 function gatedIdentitySwitchFields(
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,

@@ -236,9 +236,7 @@ import type { Registry } from "./feature";
 import type { TenantId } from "./identifiers";
 import type { UncheckedSystemDb } from "./tenant-db-types";
 
-// Reads a query handler as a stored tenant member the framework resolves
-// internally (active membership → roles → auth claims) — no hand-built
-// SessionUser ever reaches app code. See HandlerContext.queryAsMember.
+// The framework resolves the member internally, so no hand-built SessionUser reaches app code.
 export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
 
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
@@ -657,9 +655,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     tenantId: TenantId,
   ) => Promise<ActiveMembershipResult>;
 
-  // Reads a query handler as a stored tenant member (framework-resolved,
-  // read-only, no `sid`) — needs the same grant as a SYSTEM queryAs, cached
-  // per context instance (handler/hook invocation or job run).
+  // Read-only principal without `sid`; needs the same grant as a SYSTEM queryAs
+  // (membership is resolved as SYSTEM), cached per handler invocation or job run.
   readonly queryAsMember: MemberReader;
 };
 

@@ -159,9 +159,7 @@ async function appendDomainEvent(
   tx: DbTx | undefined,
   callerFeature: string | undefined,
 ): Promise<void> {
-  // Single sink behind appendEvent/unsafeAppendEvent/fetchForWriting().appendOne
-  // — the last of those isn't itself denied on a resolved member principal, so
-  // the write-block must live here too, not only on the gated ctx surfaces.
+  // Sink behind every append surface, so a resolved member stays read-only even via fetchForWriting handles.
   if (user.origin === "member-resolution") throw memberResolutionReadOnlyDenied();
   const { registry } = ctx;
   const dbSource = resolveDbSource(ctx, tx);
@@ -251,9 +249,7 @@ function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerC
     scheduleAfterCommit: () => {
       throw memberResolutionReadOnlyDenied();
     },
-    // A read as a member must not carry SYSTEM-scope DB access, nor run
-    // preSave lifecycle hooks meant for the handler's own write path, nor
-    // touch file storage (both are optional fields, so undefined is valid).
+    // A read as a member gets no system-scope DB, preSave pipeline or file storage.
     runPreSave: undefined,
     systemDb: undefined,
     files: undefined,
