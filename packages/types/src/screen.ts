@@ -377,7 +377,7 @@ export type ToolbarAction =
       readonly style?: "primary" | "secondary" | "danger";
     };
 
-// relatedList-only extension of ToolbarAction (fw akte-bedienkonzept-2):
+// relatedList-only extension of ToolbarAction:
 // a relatedList section's toolbar renders inside a projectionDetail, which
 // has a record to evaluate against — a plain entityList/projectionList
 // toolbar does not, so `visible`/`params` live here instead of on the base

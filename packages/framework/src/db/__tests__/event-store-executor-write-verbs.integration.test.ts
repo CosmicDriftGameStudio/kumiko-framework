@@ -386,6 +386,83 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
 });
 
 // =============================================================================
+// Explicit-id create: cross-tenant isolation, no resurrection of a deleted row
+// =============================================================================
+
+const deletedIdEntity = createEntity({
+  table: "read_es_write_deleted_id",
+  fields: {
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+  },
+  softDelete: true,
+});
+const deletedIdTable = buildEntityTable("esWriteDeletedId", deletedIdEntity);
+
+describe("event-store-executor write-verbs — explicit-id tenant isolation + soft-delete", () => {
+  const crud = createEventStoreExecutor(deletedIdTable, deletedIdEntity, {
+    entityName: "esWriteDeletedId",
+  });
+  let otherTenantDb: TenantDb;
+
+  beforeAll(async () => {
+    await unsafeCreateEntityTable(testDb.db, deletedIdEntity, "esWriteDeletedId");
+    otherTenantDb = createTenantDb(testDb.db, TestUsers.otherTenant.tenantId);
+  });
+
+  beforeEach(async () => {
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_write_deleted_id RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  test("create with an id already used by another tenant → conflict, tenant A's row untouched, no leak", async () => {
+    // The event log itself is tenant-scoped (UNIQUE (tenant_id, aggregate_id,
+    // version)) and would happily let tenant B open its own stream at the
+    // same id — but every entity's projection table has a plain `id` primary
+    // key (table-builder.ts), shared across all tenants for that entity
+    // type. So a same-id create for a different tenant fails at the
+    // projection-insert step with `unique_violation`, not `version_conflict`
+    // — a different, still-typed error, and the mapped error's details carry
+    // only entityName/constraintName, nothing that identifies tenant A's row.
+    const first = await crud.create({ email: "tenant-a@test.de" }, admin, tdb);
+    if (!first.isSuccess) throw new Error("setup failed");
+
+    const other = await crud.create(
+      { id: first.data.id, email: "tenant-b@test.de" },
+      TestUsers.otherTenant,
+      otherTenantDb,
+    );
+    expect(other.isSuccess).toBe(false);
+    if (other.isSuccess) return;
+    expect(other.error.code).toBe("unique_violation");
+    expect(JSON.stringify(other.error.details)).not.toContain(admin.tenantId);
+
+    const row = await asRawClient(testDb.db).unsafe(
+      `SELECT email FROM read_es_write_deleted_id WHERE id = $1`,
+      [first.data.id],
+    );
+    expect((row as unknown as { email: string }[])[0]?.email).toBe("tenant-a@test.de");
+  });
+
+  test("create with the id of a soft-deleted row → version_conflict, no resurrection", async () => {
+    const created = await crud.create({ email: "gone@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
+    expect(deleted.isSuccess).toBe(true);
+
+    const resurrect = await crud.create(
+      { id: created.data.id, email: "back-from-the-dead@test.de" },
+      admin,
+      tdb,
+    );
+    expect(resurrect.isSuccess).toBe(false);
+    if (resurrect.isSuccess) return;
+    expect(resurrect.error.code).toBe("version_conflict");
+  });
+});
+
+// =============================================================================
 // Concurrent update race → EventStoreVersionConflict catch + entityCache.del
 // on forget/restore (create/update/delete already exercise cache in the
 // main suite; forget/restore del() stayed uncovered).

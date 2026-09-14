@@ -72,6 +72,12 @@ describe("defineEntityWriteHandler", () => {
     expect(def.schema.safeParse({}).success).toBe(false);
   });
 
+  test("create: schema accepts an optional caller-chosen id, well-formed UUID only", () => {
+    const def = defineEntityCreateHandler("note", noteEntity, adminAccess);
+    expect(def.schema.safeParse({ title: "x", id: VALID_UUID }).success).toBe(true);
+    expect(def.schema.safeParse({ title: "x", id: "not-a-uuid" }).success).toBe(false);
+  });
+
   test("update: schema requires id + version + changes", () => {
     const def = defineEntityUpdateHandler("note", noteEntity, adminAccess);
     expect(
