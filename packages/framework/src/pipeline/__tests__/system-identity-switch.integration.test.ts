@@ -75,6 +75,24 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     access: { roles: ["Admin"] },
   });
 
+  // --- ctx.resolveActiveMembership: gated the same as a SYSTEM queryAs/writeAs ---
+  r.queryHandler(
+    "resolve-active-membership-no-hatch",
+    z.object({}),
+    async (query, ctx) => ctx.resolveActiveMembership(query.user.id, query.user.tenantId),
+    { access: { roles: ["User"] } },
+  );
+
+  r.queryHandler(
+    "resolve-active-membership-with-hatch",
+    z.object({}),
+    async (query, ctx) => ctx.resolveActiveMembership(query.user.id, query.user.tenantId),
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: needs SYSTEM to resolve membership" },
+    },
+  );
+
   // --- Direct SYSTEM switch: gated by the CALLING handler's own escapeHatch ---
   r.writeHandler(
     "write-as-system-no-hatch",
@@ -273,6 +291,26 @@ describe("ctx.queryAs(SYSTEM, ...) — gated by the calling handler's escapeHatc
       user,
     );
     expect(result.roles).toContain("system");
+  });
+});
+
+describe("ctx.resolveActiveMembership — gated like a SYSTEM queryAs/writeAs", () => {
+  test("WITHOUT escapeHatch: fails with access_denied", async () => {
+    const err = await stack.http.queryErr(
+      "idswitch-probe:query:resolve-active-membership-no-hatch",
+      {},
+      user,
+    );
+    expect(err.code).toBe("access_denied");
+  });
+
+  test("WITH escapeHatch: the SYSTEM-identity gate lets the call through (no membershipQuery wired here, so it fails downstream instead)", async () => {
+    const err = await stack.http.queryErr(
+      "idswitch-probe:query:resolve-active-membership-with-hatch",
+      {},
+      user,
+    );
+    expect(err.code).not.toBe("access_denied");
   });
 });
 

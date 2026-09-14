@@ -49,7 +49,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
     escapeHatch: {
       reason:
         "Pre-auth MFA step has no session yet — re-derives it via ctx.queryAs(SYSTEM, " +
-        "user:findForAuth / tenant:query:memberships) for the user the challenge token names.",
+        "user:findForAuth) and ctx.resolveActiveMembership for the user the challenge token names.",
     },
     description:
       "Finishes a two-step sign-in by checking a TOTP or recovery code against the challenge token that login handed back, under a per-account attempt cap, and derives the resulting session.",
@@ -166,19 +166,14 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
 
       const globalRoles = parseRoles(userRow?.roles ?? null);
 
-      const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
-        userId,
-      })) as ReadonlyArray<{ tenantId: string; roles: readonly string[] }>; // @cast-boundary engine-payload
-      const membership = memberships.find((m) => m.tenantId === tenantId);
-      // Membership revoked between login and verify (race, or a stale
-      // challenge token from before removal) — login.write.ts would have
-      // refused with noMembership() at the same juncture; mirror it here
-      // instead of silently falling back to globalRoles only.
-      if (!membership) return invalidChallengeToken();
+      // Membership revoked or principal blocked between login and verify —
+      // mirror login.write.ts's refusal instead of falling back to globalRoles only.
+      const active = await ctx.resolveActiveMembership(userId, tenantId);
+      if (active.kind === "rejected") return invalidChallengeToken();
       // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
       // roles from the membership portion (globalRoles keeps SystemAdmin) —
       // read-time backstop against a rebuild-resurrected role.
-      const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
+      const mergedRoles = buildSessionRoles(globalRoles, active.membership.roles);
 
       const baseSession: SessionUser = {
         id: userId,
