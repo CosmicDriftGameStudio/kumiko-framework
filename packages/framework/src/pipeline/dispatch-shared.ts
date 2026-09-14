@@ -212,10 +212,11 @@ function createSystemScopedDbGuard(
   });
 }
 
-export function memberResolutionReadOnlyDenied(): AccessDeniedError {
+export function memberResolutionReadOnlyDenied(cause?: unknown): AccessDeniedError {
   return new AccessDeniedError({
     message: "a resolved member principal (ctx.queryAsMember) cannot write — read-only",
     details: { reason: FrameworkReasons.memberResolutionReadOnly },
+    ...(cause instanceof Error && { cause }),
   });
 }
 
@@ -238,8 +239,8 @@ function denyingJobRunnerProxy(): JobRunnerRef {
 function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
-    // `db` itself stays open — same access the member's own HTTP request has;
-    // raw ctx.db writes inside a queried handler are not blocked by this.
+    // `db` itself stays open — executeQuery runs the whole handler inside a
+    // Postgres READ ONLY transaction, so a ctx.db write fails in Postgres.
     dbOutsideTransaction: undefined,
     write: denyMemberResolutionWrite,
     writeAs: denyMemberResolutionWrite,
