@@ -738,6 +738,13 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/security-baseline": {
+      "name": "@cosmicdrift/kumiko-sample-security-baseline",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/seed-migration": {
       "name": "@cosmicdrift/kumiko-sample-seed-migration",
       "dependencies": {
@@ -1059,6 +1066,8 @@
     "@cosmicdrift/kumiko-sample-search": ["@cosmicdrift/kumiko-sample-search@workspace:samples/recipes/search"],
 
     "@cosmicdrift/kumiko-sample-secrets-demo": ["@cosmicdrift/kumiko-sample-secrets-demo@workspace:samples/recipes/secrets-demo"],
+
+    "@cosmicdrift/kumiko-sample-security-baseline": ["@cosmicdrift/kumiko-sample-security-baseline@workspace:samples/recipes/security-baseline"],
 
     "@cosmicdrift/kumiko-sample-seed-migration": ["@cosmicdrift/kumiko-sample-seed-migration@workspace:samples/recipes/seed-migration"],
 

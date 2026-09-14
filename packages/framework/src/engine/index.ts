@@ -3,6 +3,7 @@
 export { hasAccess } from "./access";
 export {
   collectWriteHandlerQns,
+  SECURITY_BASELINE_FEATURE_NAMES,
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "./boot-validator";
