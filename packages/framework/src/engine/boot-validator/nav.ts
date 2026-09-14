@@ -136,11 +136,7 @@ export function validateNavCycles(
   }
 }
 
-// undefined access or a granted openToAll rule both mean "visible to
-// everyone" — neither has a role-set an inversion check could compare
-// against. A malformed/denied openToAll (including the deprecated `true`
-// form) returns `[]` — same "visible to nobody" signal as an explicit
-// `roles: []`, which the caller below already treats as its own problem.
+// undefined or granted openToAll means visible to everyone (no role-set to compare); malformed/denied openToAll returns `[]`, same as an explicit `roles: []`.
 function navViewerRoles(access: AccessRule | undefined): readonly string[] | undefined {
   if (access === undefined) return undefined;
   if ("openToAll" in access) return isOpenToAllGranted(access) ? undefined : [];

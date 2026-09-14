@@ -39,8 +39,6 @@ export type EscapeHatchDeclaration = { readonly reason: string };
 // AccessRule can arrive from untyped sources (pattern-library JSON, Designer)
 // where `openToAll` doesn't actually match the declared union — narrow via
 // `unknown` instead of trusting the static type, deny on anything malformed.
-// `openToAll: true` (the deprecated pre-#2855 form) is fail-closed here too:
-// it is not an object with a `reason`, so it never grants access.
 export function isOpenToAllGranted(rule: AccessRule): boolean {
   if (!("openToAll" in rule)) return false;
   const openToAll: unknown = rule.openToAll;

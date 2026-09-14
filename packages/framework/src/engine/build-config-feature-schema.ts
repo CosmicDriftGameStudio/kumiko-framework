@@ -28,6 +28,7 @@ import type { ConfigKeyDefinition, TranslationKeys } from "./types/config";
 import type { Registry, SecretKeyDefinition } from "./types/feature";
 import type { FieldDefinition } from "./types/fields";
 import type { AccessRule } from "./types/handlers";
+import { isOpenToAllGranted } from "./types/handlers";
 import type { NavDefinition, NavIconKey } from "./types/nav";
 import type {
   ConfigEditScreenDefinition,
@@ -506,7 +507,10 @@ function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRul
   const roles: string[] = [];
   for (const rule of rules) {
     if (rule === undefined) continue;
-    if ("openToAll" in rule) return { openToAll: { reason: ALL_ROLE_OPEN_TO_ALL_REASON } };
+    if ("openToAll" in rule) {
+      if (isOpenToAllGranted(rule)) return rule;
+      continue;
+    }
     roles.push(...rule.roles);
   }
   return rolesToAccess(roles);

@@ -55,9 +55,7 @@ describe("validateAccessDeclarations", () => {
   });
 
   // 1b. malformed openToAll (from untyped sources) counts as invalid, not a crash.
-  // `{ openToAll: true }` — the deprecated pre-#2855 form — must fail boot too: it
-  // never grants access per isOpenToAllGranted, so accepting it at boot would let a
-  // handler silently stay unreachable while looking configured.
+  // `{ openToAll: true }` (deprecated) must fail boot too — it never grants access per isOpenToAllGranted.
   test.each([{ openToAll: false }, { openToAll: {} }, { openToAll: true }])(
     "malformed openToAll %p throws, naming the handler",
     (access) => {

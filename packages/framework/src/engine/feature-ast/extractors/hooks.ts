@@ -37,10 +37,7 @@ export function readOptionalPhase(node: Node | undefined): HookPhase | undefined
   return undefined;
 }
 
-// `openToAll: true` (the deprecated pre-#2855 form) is deliberately not
-// recognised here: isOpenToAllGranted never grants it, so extracting it as a
-// valid AccessRule would round-trip a rule that looks configured but denies
-// everyone. Treated the same as any other unrecognised shape — not extracted.
+// `openToAll: true` (deprecated) is not recognised here — isOpenToAllGranted never grants it, so extracting it would round-trip a rule that looks configured but denies everyone.
 export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (!isPlainObject(value)) return undefined;
   if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
@@ -71,13 +68,7 @@ export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration 
   return { reason: value["reason"] };
 }
 
-// r.hook's escapeHatch option lives on the same raw options node (the whole
-// object-form call, or the positional 4th-argument bag) — unlike
-// readOptionalPhase, this extracts the `escapeHatch` sub-property node FIRST
-// and only converts that to data: the object-form call also carries the
-// `handler` closure, and readDataLiteralNode's ObjectLiteralExpression case
-// returns undefined for the whole object when any property (the function)
-// isn't representable as plain data.
+// Extracts the `escapeHatch` sub-property node first, not via readDataLiteralNode on the whole object — a sibling property like `handler` (a closure) isn't representable as plain data, which would make the whole-object read return undefined.
 export function readOptionalHookEscapeHatch(
   node: Node | undefined,
 ): EscapeHatchDeclaration | undefined {

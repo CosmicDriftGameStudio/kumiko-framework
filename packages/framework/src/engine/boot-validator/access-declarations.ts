@@ -87,10 +87,7 @@ function candidatePersonalFieldNames(
   return names;
 }
 
-// A value that is not an object with a non-empty string `reason` counts as
-// "empty" — catches malformed openToAll from untyped sources, including the
-// deprecated `openToAll: true` form, which must fail boot instead of silently
-// granting access.
+// Not an object with a non-empty string `reason` (incl. deprecated `openToAll: true`) counts as "empty".
 function openToAllReasonIsEmpty(access: AccessRule): boolean {
   if (!("openToAll" in access)) return false;
   const openToAll: unknown = access.openToAll;

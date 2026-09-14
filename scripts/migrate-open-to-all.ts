@@ -1,12 +1,5 @@
 #!/usr/bin/env bun
-// migrate-open-to-all — rewrites `openToAll: true` (the deprecated pre-#2855
-// form, now denied by isOpenToAllGranted) to `openToAll: { reason }` wherever
-// that is provably safe (test files, where the reason is a fixed placeholder
-// authors can refine), and reports every remaining site in non-test files for
-// a human to write a specific, non-generic reason — see #2858.
-//
-// Usage:
-//   bun scripts/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>
+// migrate-open-to-all: rewrites deprecated `openToAll: true` to `{ reason }` in test files, and reports remaining non-test sites for a human to fix (see #2858). Usage: bun scripts/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -71,11 +64,7 @@ function enclosingObjectLiterals(node: Node): ObjectLiteralExpression[] {
   return result;
 }
 
-// Best-effort human-triage hints, not a source of truth for the rewrite
-// itself: walk the enclosing object literals for `name`/`description` string
-// literals (covers both the object-form and options-bag handler shapes),
-// falling back to the enclosing call's first string-literal argument
-// (positional-form `r.writeHandler("name", ...)`).
+// Best-effort human-triage hint (not the rewrite's source of truth): derive a handler name/description from the enclosing object literal, or the enclosing call's first string-literal argument for the positional form.
 function deriveHandlerContext(assignment: PropertyAssignment): {
   readonly handlerName?: string;
   readonly description?: string;
