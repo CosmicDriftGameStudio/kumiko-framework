@@ -1035,7 +1035,9 @@ export type EntityEditScreenDefinition = {
    *  The object form additionally names the success-payload field the
    *  navigation id comes from (`ActionFormRedirect.idFrom`) — needed when
    *  the edited record is a child and the target screen is the parent's
-   *  detail screen. */
+   *  detail screen. Update falls back to the loaded record when the
+   *  success payload doesn't carry that field flatly; create falls back
+   *  to the submitted form values. */
   readonly redirect?: string | ActionFormRedirect;
   /** Parent list screen (short id) for breadcrumb + nav highlighting when
    *  this screen has no nav entry of its own. Same field/semantics as on
