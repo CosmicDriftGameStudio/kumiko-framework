@@ -10,6 +10,16 @@ verified: 2026-09-14
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.274.0
+
+### framework-core
+
+**A searchable reference field targeting an encrypted/PII labelField now fails boot unless that label is itself searchable.**
+
+A searchable reference field can now match a search term against a target row's label even when that label is encrypted or personal data — the match runs through the target entity's own search index instead of the plain-text lookup used for a readable label, which could never match ciphertext and always returned zero matches. As with the plain-text lookup, an unusually large number of index matches drops the match clause instead of silently returning an incomplete page. A matched target row is also checked against the target entity's own read access for the current user, so a match can never surface a row the user could not otherwise see.
+
+**Migration:** A searchable reference field whose target label is encrypted or personal data, but is not itself marked searchable (with fuzzy matching enabled if it also carries a personal-data annotation), now fails to boot instead of silently never matching at request time. Mark the target's label field searchable — with fuzzy matching if it holds personal data, so it is indexed for search — or remove the searchable flag from the reference field if the label was never meant to be searched.
+
 ## 0.272.0
 
 ### framework-core

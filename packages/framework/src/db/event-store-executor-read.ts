@@ -9,14 +9,19 @@ import {
   normalizeAccessEntry,
   shiftParams,
 } from "../engine/ownership";
-import type { EntityDefinition, EntityId } from "../engine/types";
+import type { EntityDefinition, EntityId, SessionUser } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { UnprocessableError } from "../errors";
 import { getStreamVersion } from "../event-store";
+import type { SearchAdapter } from "../search/types";
 import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta";
 import { rehydrateCompoundTypes } from "./compound-types";
 import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
-import { collectEncryptedFieldNames } from "./entity-field-encryption";
+import {
+  collectEncryptedFieldNames,
+  hasSearchablePlaintext,
+  isSensitiveLabelField,
+} from "./entity-field-encryption";
 import type { EventStoreExecutor } from "./event-store-executor";
 import { buildFilterWhere, type ExecutorContext, type Table } from "./event-store-executor-context";
 import { buildParentRefClause } from "./parent-ref-clause";
@@ -291,37 +296,13 @@ function collectReferenceSearchDescriptors(
 // unscoped SQL, a match in a foreign tenant must never surface a row here
 // (fw#2660's hard constraint). Mirrors the main table's own tenant filter
 // (see the `table["tenantId"]` check further down in list()).
-async function resolveReferenceMatches(
+async function resolveReferenceMatchesViaIlike(
   descriptor: ReferenceSearchDescriptor,
   searchTerm: string,
-  resolveEntity: (entityName: string) => EntityDefinition | undefined,
+  targetTable: Table,
+  targetTableName: string,
   db: TenantDb,
 ): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
-  const targetEntity = resolveEntity(descriptor.targetEntityName);
-  if (targetEntity === undefined) {
-    // skip: unknown target entity — registry inconsistency the boot-validator
-    // should have caught; fail open (no clause) rather than 500 the request
-    return undefined;
-  }
-  if (targetEntity.fields[descriptor.labelField] === undefined) {
-    // skip: labelField isn't a real (declared) column on the target entity —
-    // row-meta references (e.g. tenant.name) always resolve here since
-    // `name` is a declared field on the tenant entity, not an id/row-meta column
-    return undefined;
-  }
-  if (
-    collectEncryptedFieldNames(targetEntity).has(descriptor.labelField) ||
-    collectPiiSubjectFields(targetEntity).includes(descriptor.labelField)
-  ) {
-    // skip: encrypted/PII labelField — ILIKE can never match ciphertext,
-    // emitting the query would just be a silent, permanent non-match
-    return undefined;
-  }
-
-  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
-  const targetTableName = String(
-    (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
-  );
   const labelCol = physicalColumnName(targetTable, descriptor.labelField);
   const subParams: unknown[] = [`%${escapeLikePattern(searchTerm)}%`];
   let tenantClause = "";
@@ -341,6 +322,103 @@ async function resolveReferenceMatches(
     return undefined;
   }
   return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
+}
+
+// Same lookup, but the target's index is tenant-wide, not per-viewer, so
+// candidate ids get re-checked against the target entity's own read access.
+async function resolveReferenceMatchesViaSearchIndex(
+  descriptor: ReferenceSearchDescriptor,
+  searchTerm: string,
+  targetEntity: EntityDefinition,
+  targetTable: Table,
+  targetTableName: string,
+  user: SessionUser,
+  db: TenantDb,
+  searchAdapter: SearchAdapter,
+): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
+  const searchTenantId = targetEntity.systemStream ? SYSTEM_TENANT_ID : user.tenantId;
+  const results = await searchAdapter.search(searchTenantId, searchTerm, {
+    filterType: descriptor.targetEntityName,
+    limit: MAX_REFERENCE_SEARCH_IDS + 1,
+  });
+  if (results.length === 0 || results.length > MAX_REFERENCE_SEARCH_IDS) {
+    // skip: no match, or over the cap — same drop-the-clause policy as the ILIKE path
+    return undefined;
+  }
+
+  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
+  if (ownership.kind === "empty") return undefined;
+
+  const candidateIds = results.map((r) => String(r.entityId));
+  if (ownership.kind === "pass") {
+    return { ownColumn: descriptor.ownColumn, ids: candidateIds };
+  }
+
+  const params: unknown[] = [...candidateIds];
+  const idPlaceholders = candidateIds.map((_, i) => `$${i + 1}`);
+  const shifted = shiftParams(
+    { sqlText: ownership.sqlText, params: ownership.params },
+    params.length,
+  );
+  const sql =
+    `SELECT "id" FROM "${targetTableName}" WHERE "id" IN (${idPlaceholders.join(", ")}) ` +
+    `AND ${shifted.sqlText}`;
+  for (const p of shifted.params) params.push(p);
+  const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, params);
+  if (rows.length === 0) return undefined;
+  return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
+}
+
+async function resolveReferenceMatches(
+  descriptor: ReferenceSearchDescriptor,
+  searchTerm: string,
+  resolveEntity: (entityName: string) => EntityDefinition | undefined,
+  db: TenantDb,
+  user: SessionUser,
+  searchAdapter: SearchAdapter,
+): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
+  const targetEntity = resolveEntity(descriptor.targetEntityName);
+  if (targetEntity === undefined) {
+    // skip: unknown target entity — registry inconsistency the boot-validator
+    // should have caught; fail open (no clause) rather than 500 the request
+    return undefined;
+  }
+  if (targetEntity.fields[descriptor.labelField] === undefined) {
+    // skip: labelField isn't a real (declared) column on the target entity —
+    // row-meta references (e.g. tenant.name) always resolve here since
+    // `name` is a declared field on the tenant entity, not an id/row-meta column
+    return undefined;
+  }
+
+  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
+  const targetTableName = String(
+    (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
+  );
+
+  if (!isSensitiveLabelField(targetEntity, descriptor.labelField)) {
+    return resolveReferenceMatchesViaIlike(
+      descriptor,
+      searchTerm,
+      targetTable,
+      targetTableName,
+      db,
+    );
+  }
+  if (!hasSearchablePlaintext(targetEntity, descriptor.labelField)) {
+    // skip: no plaintext anywhere to match — boot rejects this normally,
+    // this is defense-in-depth for a target entity resolved only at runtime.
+    return undefined;
+  }
+  return resolveReferenceMatchesViaSearchIndex(
+    descriptor,
+    searchTerm,
+    targetEntity,
+    targetTable,
+    targetTableName,
+    user,
+    db,
+    searchAdapter,
+  );
 }
 
 // Projected alongside the row when a reference sort is active, so the keyset
@@ -518,7 +596,14 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           ? (
               await Promise.all(
                 descriptors.map((d) =>
-                  resolveReferenceMatches(d, searchTerm, referenceSearch.resolveEntity, db),
+                  resolveReferenceMatches(
+                    d,
+                    searchTerm,
+                    referenceSearch.resolveEntity,
+                    db,
+                    user,
+                    effectiveSearchAdapter,
+                  ),
                 ),
               )
             ).filter(

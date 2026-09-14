@@ -754,6 +754,92 @@ describe("createRegistry", () => {
     expect(() => createRegistry([feature])).toThrow(/multiple/);
   });
 
+  test("throws at boot when a searchable reference targets an encrypted labelField", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({
+          table: "Customers",
+          fields: {
+            name: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+          },
+        }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            customerId: {
+              type: "reference",
+              entity: "customer",
+              labelField: "name",
+              searchable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/encrypted\/PII/);
+  });
+
+  test('throws at boot when a searchable reference targets a PII labelField without find: "fuzzy" (no plaintext index)', () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "contact",
+        createEntity({
+          table: "Contacts",
+          fields: { displayName: createTextField({ personal: "self", find: "exact" }) },
+        }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            contactId: {
+              type: "reference",
+              entity: "contact",
+              labelField: "displayName",
+              searchable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).toThrow(/encrypted\/PII/);
+  });
+
+  test('does not throw when a searchable reference targets a PII labelField with find: "fuzzy" (derived search index)', () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "contact",
+        createEntity({
+          table: "Contacts",
+          fields: { displayName: createTextField({ personal: "self", find: "fuzzy" }) },
+        }),
+      );
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            contactId: {
+              type: "reference",
+              entity: "contact",
+              labelField: "displayName",
+              searchable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    expect(() => createRegistry([feature])).not.toThrow();
+  });
+
   test("returns sortable reference fields for entity, without leaking them into getSortableFields (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(
