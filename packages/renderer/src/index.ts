@@ -82,6 +82,15 @@ export {
   useNavigateWithInitialValues,
 } from "./app/nav";
 export { lastSegment } from "./app/qn";
+export type { ReturnHost } from "./app/return-to";
+export {
+  navigateWithReturnTo,
+  RETURN_TO_PARAM,
+  ReturnHostProvider,
+  resolveReturnTarget,
+  useReturnHost,
+  useReturnTarget,
+} from "./app/return-to";
 export type { EmbeddedScreenTarget } from "./app/use-embedded-screen";
 export { useEmbeddedScreen } from "./app/use-embedded-screen";
 export type { VariableChipsProps } from "./app/variable-chips";

@@ -29,10 +29,12 @@ import {
   mergeTranslations,
   type NavApi,
   NavProvider,
+  navigateWithReturnTo,
   PrimitivesProvider,
   type PrimitivesRegistry,
   type QualifiedContentCollection,
   qualifyScreenId,
+  type ReturnHost,
   TokensProvider,
   type TranslationsByLocale,
   toAppSchema,
@@ -638,14 +640,23 @@ function RoutedScreen({
           (s) => s.type === "entityEdit" && s.entity === entityName,
         );
         if (editScreen) {
+          // No ReturnHostProvider out here — derive the host from this memo's own qn/entityId.
+          const host: ReturnHost = {
+            screenId: lastSegment(qn),
+            ...(entityId !== undefined && { entityId }),
+          };
           // editScreen.id is already short form; lastSegment is a no-op
           // safety net here, kept for symmetry with the other call sites.
-          nav.navigate({ screenId: lastSegment(editScreen.id), entityId: row.id });
+          navigateWithReturnTo(
+            nav,
+            { screenId: lastSegment(editScreen.id), entityId: row.id },
+            host,
+          );
           return;
         }
       }
     };
-  }, [app, activeScreen, onRowClick, nav]);
+  }, [app, activeScreen, onRowClick, nav, qn, entityId]);
 
   // Copy-link action (Issue #912) for entityEdit update screens. Builds
   // the absolute permalink URL from the current route + copies it —
