@@ -1,17 +1,10 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
-import { createTenantDb } from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names";
 import { runsInLane } from "../engine/run-in";
 import { createAnonymousUser } from "../engine/system-user";
-import {
-  type AppContext,
-  isFileField,
-  type Registry,
-  type RunIn,
-  SYSTEM_TENANT_ID,
-} from "../engine/types";
+import { type AppContext, isFileField, type Registry, type RunIn } from "../engine/types";
 import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
@@ -491,9 +484,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   // MultiStreamProjections: one EventConsumer per MSP. Handler routes by
   // event.type into the MSP's apply map. MSPs aggregate cross-aggregate but
-  // still within one tenant by default — the applier receives the
-  // tenant-scoped DbRunner; SYSTEM_TENANT_ID events pass through the raw
-  // baseDb so system-level sinks can read across tenants.
+  // still within one tenant by default — the applier receives the plain
+  // baseDb DbRunner; tenant consistency comes from the triggering event's
+  // own tenantId, not a per-event TenantDb scope.
   //
   // Lane-filter (Welle 2.6.b): MSPs declare `runIn` to pin them to a
   // deploy-lane. An MSP with `runIn: "api"` won't be wired into the
@@ -535,12 +528,6 @@ export function buildServer(options: ServerOptions): KumikoServer {
         // production. Defensive return for the type-narrowing path.
         return;
       }
-      const scopedDb =
-        event.tenantId === SYSTEM_TENANT_ID ? baseDb : createTenantDb(baseDb, event.tenantId);
-      // Hand the raw DbRunner to apply(): MSPs write to their projection
-      // table directly, they don't go through the TenantDb wrapper.
-      const rawRunner =
-        event.tenantId === SYSTEM_TENANT_ID ? baseDb : (scopedDb as { raw: typeof baseDb }).raw; // @cast-boundary engine-bridge
       // Saga/process-manager ctx: apply can call ctx.appendEvent to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
@@ -553,7 +540,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         : undefined;
       const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,
-        db: rawRunner,
+        db: baseDb,
         tenantId: event.tenantId,
         userId: event.metadata.userId,
         ...(mspOwner && { callerFeature: mspOwner }),
@@ -562,12 +549,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
           derivatives: createDerivativesContext({
             files: mspFiles,
             registry: options.registry,
-            db: rawRunner,
+            db: baseDb,
             tenantId: event.tenantId,
           }),
         }),
       });
-      await applyFn(event, rawRunner, applyCtx);
+      await applyFn(event, baseDb, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.
       void ctx;
     },

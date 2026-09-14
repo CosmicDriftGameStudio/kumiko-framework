@@ -100,11 +100,14 @@ export function asRawClient(db: unknown): RawClient {
   if (typeof dbAny["unsafe"] === "function") {
     return dbAny as unknown as RawClient;
   }
-  // TenantDb-shape: framework wrapper exposing the underlying runner as `.raw`.
-  // Callers that pass `ctx.db` instead of `ctx.db.raw` land here — unwrap once.
-  const raw = dbAny["raw"];
-  if (raw && typeof (raw as Record<string, unknown>)["unsafe"] === "function") {
-    return raw as unknown as RawClient;
+  // TenantDb (ctx.db) has no unfiltered escape via asRawClient anymore — fail
+  // closed instead of silently unwrapping a tenant-scoped handle.
+  if (isTenantDbShape(db)) {
+    throw new Error(
+      "asRawClient: received a tenant-scoped TenantDb (ctx.db). Raw SQL helpers do not apply the " +
+        "tenant filter — use a ctx.db.<method>, or ctx.db.unsafeRaw(reason) with escapeHatch: " +
+        "{ reason } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).",
+    );
   }
   // Drizzle DbConnection (legacy compat): $client = postgres-js Sql.
   const $client = dbAny["$client"];
@@ -118,7 +121,7 @@ export function asRawClient(db: unknown): RawClient {
     return sessionClient as unknown as RawClient;
   }
   throw new Error(
-    "bun-db: db argument has no .unsafe() — pass Bun.SQL, postgres-js Sql, TenantDb, or a transaction handle.",
+    "bun-db: db argument has no .unsafe() — pass Bun.SQL, postgres-js Sql, or a transaction handle.",
   );
 }
 
@@ -199,35 +202,35 @@ type TenantDbDelegate = {
   deleteMany(table: TableLike, where: WhereObject): Promise<void>;
 };
 
-function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
-  if (typeof db !== "object" || db === null) return undefined;
+// Duck-types TenantDb: five scoped methods + tenantId, no `.unsafe` of its own.
+// A throwing systemScope guard Proxy fails closed here too — intended, not a bug.
+function isTenantDbShape(db: unknown): boolean {
+  if (typeof db !== "object" || db === null) return false;
   const d = db as Record<string, unknown>;
-  const raw = d["raw"];
-  if (
-    raw &&
-    typeof (raw as Record<string, unknown>)["unsafe"] === "function" &&
+  if (typeof d["unsafe"] === "function") return false;
+  return (
     typeof d["selectMany"] === "function" &&
     typeof d["fetchOne"] === "function" &&
     typeof d["insertOne"] === "function" &&
     typeof d["updateMany"] === "function" &&
     typeof d["deleteMany"] === "function" &&
     "tenantId" in d
-  ) {
-    return db as TenantDbDelegate;
-  }
-  return undefined;
+  );
 }
 
-// Guard for helpers that do NOT delegate to TenantDb (upsert/increment/insertMany):
-// passing a TenantDb here would silently run unscoped against `.raw`, bypassing
-// the tenant filter. Fail loudly so the caller picks `ctx.db.<method>` (scoped)
-// or `ctx.db.raw` (explicit cross-tenant) on purpose.
+function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
+  return isTenantDbShape(db) ? (db as TenantDbDelegate) : undefined;
+}
+
+// Fails loudly for helpers that don't delegate to TenantDb (upsert/increment/insertMany) —
+// passing one here would otherwise reach asRawClient and throw with a less specific message.
 // @wrapper-known semantic-alias
 function assertNotTenantScoped(db: unknown, fnName: string): void {
   if (tenantDbDelegate(db) !== undefined) {
     throw new Error(
       `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
-        `Pass ctx.db.raw for an explicit cross-tenant op, or use a scoped TenantDb method.`,
+        "Pass ctx.db.unsafeRaw(reason) (with escapeHatch: { reason } on the handler/hook) for an " +
+        "explicit cross-tenant op, or use a scoped TenantDb method.",
     );
   }
 }

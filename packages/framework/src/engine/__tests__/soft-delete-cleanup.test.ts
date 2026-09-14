@@ -58,7 +58,6 @@ function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): JobContext 
   // to this recorder instead of trying to extract real table metadata.
   const fakeDb = {
     tenantId: "t1",
-    raw: { unsafe: async () => [] },
     selectMany: async () => [],
     fetchOne: async () => undefined,
     insertOne: async () => undefined,

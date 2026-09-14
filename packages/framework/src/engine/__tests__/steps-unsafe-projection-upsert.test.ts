@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import type { DbRunner } from "../../db/connection";
 import { table, text, uuid } from "../../db/dialect";
+import { createTenantDb } from "../../db/tenant-db";
+import { testTenantId } from "../../stack";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionUpsertStep } from "../steps/unsafe-projection-upsert";
 import type { PipelineCtx } from "../types/step";
@@ -11,13 +14,13 @@ const testTable = table("test_projection", {
   label: text("label"),
 });
 
-// New bun-db path: step uses asRawClient(ctx.db.raw).unsafe(sqlText, params).
+// New bun-db path: step uses asRawClient(tenantDbRunner(ctx.db)).unsafe(sqlText, params).
 // Capture the raw SQL string + params per call instead of the old
 // insert/values/onConflictDoUpdate chain.
 const unsafeMock = mock(async (_sqlText: string, _params: unknown[]) => []);
 const beginMock = mock(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
-const rawDb = { unsafe: unsafeMock, begin: beginMock };
-const ctxDb = { raw: rawDb };
+const rawDb = { unsafe: unsafeMock, begin: beginMock } as DbRunner;
+const ctxDb = createTenantDb(rawDb, testTenantId(1));
 
 const mockCtx = {
   db: ctxDb,

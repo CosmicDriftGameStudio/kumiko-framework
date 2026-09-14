@@ -18,6 +18,7 @@
 
 import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { deleteMany, type WhereObject } from "../../db/query";
+import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";
@@ -40,7 +41,7 @@ defineStep<UnsafeProjectionDeleteArgs, void>({
     // The `unsafe*`-step IS the sanctioned direct projection write — it exists
     // to bypass the executor deliberately (boot-validated allowlist + reviewer
     // gate). The brand-strip cast makes that explicit at the one blessed seam.
-    await deleteMany(ctx.db.raw, args.table as EntityTableMeta, where);
+    await deleteMany(tenantDbRunner(ctx.db), args.table as EntityTableMeta, where);
   },
 });
 

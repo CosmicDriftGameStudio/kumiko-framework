@@ -117,19 +117,22 @@ export type SeedTenantHooks = {
 // (HandlerContext from a live write), afterCommit hooks are queued onto the
 // dispatcher's sink and flush post-commit. Without a sink (fixture / plain
 // Connection) they still fire immediately — there is no outer TX to wait for.
-function resolveRawDb(db: AppContext["db"]): DbRunner | undefined {
-  if (!db) return undefined;
-  if (typeof db === "object" && "raw" in db) {
-    return (db as { raw: DbRunner }).raw;
-  }
-  return db as DbRunner;
-}
-
-function scopeSeedHookContext(context: AppContext, targetTenantId: TenantId): AppContext {
-  const raw = resolveRawDb(context.db);
-  const db = raw
-    ? createTenantDb(raw, targetTenantId, "system", context.tracer, context.meter, context.signal)
-    : context.db;
+//
+// `runner` comes from the caller, which already holds a declared DbRunner —
+// a TenantDb exposes no runner back out to feature code.
+function scopeSeedHookContext(
+  context: AppContext,
+  targetTenantId: TenantId,
+  runner: DbRunner,
+): AppContext {
+  const db = createTenantDb(
+    runner,
+    targetTenantId,
+    "system",
+    context.tracer,
+    context.meter,
+    context.signal,
+  );
 
   // HandlerContext carries `user`; AppContext only `systemUser`. Prefer the
   // live handler user when present so notify/hasFeature keep a real SessionUser.
@@ -163,7 +166,7 @@ function scopeSeedHookContext(context: AppContext, targetTenantId: TenantId): Ap
   return {
     ...context,
     _tenantId: targetTenantId,
-    ...(db !== undefined ? { db } : {}),
+    db,
     ...(notify !== undefined ? { notify } : {}),
     ...(scopedUser && "user" in context ? { user: scopedUser } : {}),
     ...(hasFeature ? { hasFeature } : {}),
@@ -176,16 +179,16 @@ export async function fireEntityPostSave(
   entityData: SaveContext,
   // Undefined for tenant-agnostic entities (user has no tenant_id column at
   // seed time) — keeps hooks.context._tenantId as the caller passed it.
-  targetTenantId?: TenantId,
+  target?: { readonly tenantId: TenantId; readonly db: DbRunner },
 ): Promise<void> {
   // skip: caller opted out of hooks (existing fixture/test call-sites that
   // don't pass them keep today's hook-less behavior, see seedTenant's doc).
   if (!hooks) return;
   const lifecycle = createLifecycleHooks(hooks.registry);
   const scopedContext =
-    targetTenantId === undefined
+    target === undefined
       ? hooks.context
-      : scopeSeedHookContext(hooks.context, targetTenantId);
+      : scopeSeedHookContext(hooks.context, target.tenantId, target.db);
   await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.inTransaction);
   const runAfterCommit = () =>
     lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.afterCommit);
@@ -239,7 +242,7 @@ export async function seedTenant(
   // "tenant:seed" matches no handler-scoped hook, only entity-scoped ones
   // (keyed by result.entityName === "tenant") — that's exactly what
   // tier-engine's `r.hook("postSave", { allOf: "tenant" }, ...)` needs.
-  await fireEntityPostSave(hooks, "tenant:seed", result.data, options.id);
+  await fireEntityPostSave(hooks, "tenant:seed", result.data, { tenantId: options.id, db });
 
   return { id: options.id };
 }
@@ -301,7 +304,10 @@ export async function seedTenantMembership(
       `seedTenantMembership failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
-  await fireEntityPostSave(hooks, "tenant-membership:seed", result.data, options.tenantId);
+  await fireEntityPostSave(hooks, "tenant-membership:seed", result.data, {
+    tenantId: options.tenantId,
+    db,
+  });
   return { id: extractMembershipId(result.data) };
 }
 
