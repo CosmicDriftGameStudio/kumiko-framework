@@ -55,6 +55,7 @@ async function resolveMember(
   const profile = await principalPlugin.resolveProfile(userId, { db });
   if (!profile) throw memberResolutionDenied();
 
+  // buildSessionRoles runs stripForbiddenMembershipRoles on the membership half (rebuild-resurrected roles).
   const roles = buildSessionRoles(profile.globalRoles, membership.membership.roles);
   const base: SessionUser = {
     id: userId,

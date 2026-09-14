@@ -58,7 +58,7 @@ import { createAuthEmailPasswordFeature } from "../feature";
 const noteEntity = createEntity({
   table: "qam_notes",
   fields: {
-    ownerId: createTextField(),
+    ownerId: createTextField({ personal: false, reason: "test_fixture" }),
     body: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   access: {
