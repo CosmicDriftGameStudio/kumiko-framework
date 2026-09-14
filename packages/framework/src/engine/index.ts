@@ -4,6 +4,7 @@ export { hasAccess } from "./access";
 export {
   isPrincipalStatusPlugin,
   isTenantLifecycleStatusPlugin,
+  type PrincipalProfile,
   type PrincipalStatus,
   type PrincipalStatusPlugin,
   TENANT_TEARDOWN_STATUSES,
@@ -410,6 +411,7 @@ export type {
   ListSortSpec,
   LongTextFindability,
   ManyToManyRelation,
+  MemberReader,
   MetricNavigate,
   MetricSpec,
   MspErrorMode,
@@ -478,6 +480,7 @@ export type {
   SecretsEditSection,
   SelectFieldDef,
   SessionUser,
+  SessionUserOrigin,
   StreamHandlerDef,
   StreamHandlerFn,
   Subscribe,

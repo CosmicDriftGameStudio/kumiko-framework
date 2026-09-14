@@ -8,6 +8,7 @@ import {
   type IdentitySwitch,
   isSystemIdentity,
   isSystemIdentitySwitchAllowed,
+  type WriteAsFn,
   withHookIdentitySwitchGrant,
 } from "../system-identity-switch";
 
@@ -176,6 +177,28 @@ describe("withHookIdentitySwitchGrant", () => {
     const plainContext = { db: {} };
     const result = withHookIdentitySwitchGrant(plainContext, "hook", { reason: "x" });
     expect(result).toBe(plainContext);
+  });
+
+  test("a deny-stubbed writeAs is not revived through a sibling queryAs's registered ungated pair", async () => {
+    // Like a member-resolution ctx: registered gated queryAs next to an unregistered deny-stub writeAs.
+    const { ungated, writeAsMock } = makeUngated();
+    const gatedIdentitySwitch = createGatedIdentitySwitch('handler "outer"', true, ungated);
+    const denyStubWriteAs: WriteAsFn = async () => {
+      throw new AccessDeniedError({
+        message: "read-only",
+        details: { reason: "member_resolution_read_only" },
+      });
+    };
+    const handlerCtx = { queryAs: gatedIdentitySwitch.queryAs, writeAs: denyStubWriteAs };
+
+    const hookCtx = withHookIdentitySwitchGrant(handlerCtx, "hook", {
+      reason: "test hook needs SYSTEM",
+    });
+
+    await expect(hookCtx.writeAs(systemUserById, "w", {})).rejects.toBeInstanceOf(
+      AccessDeniedError,
+    );
+    expect(writeAsMock).not.toHaveBeenCalled();
   });
 
   test("an ungated context not built by the dispatcher bridge fails closed (unit-test stub)", async () => {

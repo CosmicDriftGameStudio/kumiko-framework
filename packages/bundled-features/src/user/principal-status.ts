@@ -1,5 +1,10 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { PrincipalStatus, PrincipalStatusPlugin } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  PrincipalProfile,
+  PrincipalStatus,
+  PrincipalStatusPlugin,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { USER_STATUS, type UserStatus, userTable } from "./schema/user";
 
 // Locked accounts whose live sessions must be refused. deletionRequested is
@@ -22,5 +27,21 @@ export const principalStatusPlugin: PrincipalStatusPlugin = {
     const row = await fetchOne<{ status: UserStatus }>(db, userTable, { id: userId });
     if (!row) return "unknown";
     return isPrincipalBlocked(row.status) ? "blocked" : "active";
+  },
+
+  // ctx.queryAsMember's global-roles/timezone/locale source — same fields
+  // login mints a session from (see login.write.ts gateBuildSession).
+  async resolveProfile(userId, { db }): Promise<PrincipalProfile | null> {
+    const row = await fetchOne<{ roles: unknown; timezone: string | null; locale: string | null }>(
+      db,
+      userTable,
+      { id: userId },
+    );
+    if (!row) return null;
+    return {
+      globalRoles: parseRoles(row.roles),
+      ...(row.timezone ? { timezone: row.timezone } : {}),
+      ...(row.locale ? { locale: row.locale } : {}),
+    };
   },
 };

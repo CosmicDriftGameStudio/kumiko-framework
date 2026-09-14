@@ -38,7 +38,7 @@ import { buildServer, withFileProviderResolver } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
-import type { AppContext, DispatchWriteRef, JobRunIn, Registry, RunIn } from "../engine/types";
+import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner";
 import { createJobRunner } from "../jobs/job-runner";
 import type { Lifecycle } from "../lifecycle";
@@ -47,6 +47,7 @@ import type { ObservabilityOptions, ObservabilityProvider } from "../observabili
 import { createNoopProvider } from "../observability";
 import type { EventDedup, EventDispatcher } from "../pipeline";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher";
+import { dispatcherToWriteRef } from "../pipeline/dispatcher";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 
 // Shared fields across all three modes. A caller that swaps between
@@ -203,18 +204,6 @@ function contextWithObservability(
     ...(effectiveFeatures && { effectiveFeatures }),
     tracer: observability.tracer,
     meter: observability.meter,
-  };
-}
-
-// Adapts the command-dispatcher's positional (type, payload, user) calls to
-// DispatchWriteRef's (user, qn, payload) shape — JobContext.write/queryAs
-// pass identity explicitly per call (boot-time singleton), while Dispatcher
-// takes it last (request-scoped closure caller). Same underlying pipeline,
-// different argument order.
-function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
-  return {
-    write: (user, qn, payload) => dispatcher.write(qn, payload, user),
-    queryAs: (user, qn, payload) => dispatcher.query(qn, payload, user),
   };
 }
 

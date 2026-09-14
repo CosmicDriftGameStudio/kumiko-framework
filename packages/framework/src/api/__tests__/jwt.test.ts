@@ -106,6 +106,14 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     const payload = await jwt.verify(await jwt.sign(user));
     expect(payload.locale).toBeUndefined();
   });
+
+  // A ctx.queryAsMember-resolved SessionUser must never be minted into a
+  // session — it carries no `sid` and is read-only by construction.
+  it("refuses to sign a SessionUser with origin set", async () => {
+    await expect(jwt.sign({ ...user, origin: "member-resolution" })).rejects.toThrow(
+      /member-resolution/,
+    );
+  });
 });
 
 describe("createJwtHelper — keyring form", () => {

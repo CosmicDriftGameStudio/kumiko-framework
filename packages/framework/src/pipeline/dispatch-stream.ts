@@ -7,6 +7,7 @@ import {
   type DispatchContext,
   enforceRateLimit,
   ensureFeatureEnabled,
+  memberResolutionReadOnlyDenied,
   runStreamInstrumented,
 } from "./dispatch-shared";
 
@@ -34,6 +35,12 @@ async function* executeStreamInner(
   const { registry } = ctx;
   const handler = registry.getStreamHandler(type);
   if (!handler) throw new NotFoundError("handler", type);
+
+  // A resolved member principal (ctx.queryAsMember) is read-only — streams
+  // are excluded the same way executeWriteInner excludes writes.
+  if (user.origin === "member-resolution") {
+    throw memberResolutionReadOnlyDenied();
+  }
 
   await ensureFeatureEnabled(ctx, type, user.tenantId);
 
@@ -96,11 +103,8 @@ async function* executeStreamInner(
     }
   } finally {
     unsubscribeAccessInvalidation?.();
-    // Consumer break / throw — always close the handler generator so its
-    // finally (cleanup) runs (for-await would do this). Do NOT swallow
-    // return() errors — close-time cleanup failures must surface to
-    // runStreamInstrumented (#1543). Skip the await after access-revoke
-    // abandonment (overlapping next+return deadlocks — see above).
+    // Close the generator so cleanup runs; skip awaiting return() after
+    // access-revoke abandonment — overlapping next()+return() can deadlock.
     if (iterator !== undefined && !abandonedForInvalidation) {
       await iterator.return?.(undefined);
     }

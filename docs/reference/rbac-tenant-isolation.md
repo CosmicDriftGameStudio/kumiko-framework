@@ -51,6 +51,14 @@ contract, fulfilled by `user`), and is the tenant not in teardown
 then does `buildSessionRoles` merge global + membership roles and
 `resolveAuthClaims` mint the session.
 
+`ctx.queryAsMember(userId, qn, payload)` reuses this same resolution for
+background reads (a hook/job reading as a stored member instead of SYSTEM),
+but under a stricter, non-interactive policy: no `destroyRequested`
+cancel-window grace, no unknown-principal pass. The resolved `SessionUser`
+carries `origin: "member-resolution"`, no `sid`, and is read-only — writes
+through it fail closed (`member_resolution_read_only`), and it is never
+signed into a JWT.
+
 ## Decision 2 — reserved roles are global-only (the invariant)
 
 `{ system, SystemAdmin, all, anonymous }` (derived from the engine access

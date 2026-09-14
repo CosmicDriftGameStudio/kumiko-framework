@@ -640,6 +640,12 @@ describe("POST /api/stream pre-pull race", () => {
       async resolveActiveMembership() {
         return { kind: "rejected", reason: "not_a_member" };
       },
+      // Not exercised by this route.
+      createMemberReader() {
+        return async () => {
+          throw new Error("createMemberReader not available in this stub");
+        };
+      },
     };
   }
 

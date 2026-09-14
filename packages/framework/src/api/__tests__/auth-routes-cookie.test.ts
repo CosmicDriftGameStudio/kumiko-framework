@@ -64,6 +64,12 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
       }
       return { kind: "active", membership: { tenantId, roles: membership.roles } };
     },
+    // Not exercised by these cookie-only tests.
+    createMemberReader() {
+      return async () => {
+        throw new Error("createMemberReader not available in this stub");
+      };
+    },
     ...overrides,
   };
   return merged;
