@@ -1,6 +1,6 @@
 // r.step.callFeature — typed sub-command on another Kumiko feature.
 // Tier-2: requires r.requires.step("callFeature"). Sync (no dispatcher).
-// Cross-tenant via opts.as (Sysadmin-role-checked at the dispatcher layer).
+// opts.as other than the caller itself needs escapeHatch on the handler (system-identity-switch.ts).
 
 import { defineStep } from "../define-step";
 import type { SessionUser } from "../types";

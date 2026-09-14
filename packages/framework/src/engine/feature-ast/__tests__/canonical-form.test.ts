@@ -70,13 +70,14 @@ defineFeature("todoList", (r) => {
       return { isSuccess: true, data: { id: "x" } };
     },
     access: { roles: ["user"] },
+    escapeHatch: { reason: "seeds default priority labels via db.global()" },
   });
 
   r.queryHandler({
     name: "task:list",
     schema: z.object({}),
     handler: async (q, ctx) => [],
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
   r.streamHandler({
@@ -94,6 +95,7 @@ defineFeature("todoList", (r) => {
     handler: async (event, ctx) => {
       console.log("task saved");
     },
+    escapeHatch: { reason: "reindexes the task search doc via SYSTEM identity" },
   });
 
   r.hook({

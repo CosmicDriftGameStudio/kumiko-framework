@@ -209,7 +209,11 @@ defineFeature("workflow", (r) => {
     "step:list",
     z.object({}),
     async (q, ctx) => [],
-    { access: { openToAll: true }, description: "Lists steps.", agent: { risk: "low" } },
+    {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      description: "Lists steps.",
+      agent: { risk: "low" },
+    },
   );
 
   r.streamHandler(

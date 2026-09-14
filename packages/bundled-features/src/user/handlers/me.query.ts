@@ -11,7 +11,13 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 export const meQuery = defineQueryHandler({
   name: "user:me",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user reads only their own identity record; the detail lookup " +
+        "is by the caller's own id",
+    },
+  },
   description:
     "Returns the signed-in caller's own identity record, with the password hash stripped by field-level read access; use it whenever the current user's own profile data is needed.",
   handler: async (query, ctx) => {

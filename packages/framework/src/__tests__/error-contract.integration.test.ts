@@ -149,7 +149,7 @@ const errorFeature = defineFeature("errctr", (r) => {
     async (event) => {
       throw new NotFoundError("item", event.payload.id);
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   // InternalError auto-wrap: handler raises an unexpected TypeError; the

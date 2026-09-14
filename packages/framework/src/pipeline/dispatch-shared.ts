@@ -280,7 +280,7 @@ export async function buildHandlerContext(
     writeEscapeHatch ??
     registry.getQueryHandler(type)?.escapeHatch ??
     registry.getStreamHandler(type)?.escapeHatch;
-  const allowSystemIdentity = isSystem || handlerEscapeHatch !== undefined;
+  const hasIdentitySwitchGrant = isSystem || handlerEscapeHatch !== undefined;
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
       source,
@@ -378,23 +378,28 @@ export async function buildHandlerContext(
     : () => createNoopMetricsHandle();
 
   // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
-  // queryAs/writeAs switch identity; SYSTEM needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
+  // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
-  const identitySwitch = createGatedIdentitySwitch(`handler "${type}"`, allowSystemIdentity, {
-    queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-      executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
-    writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-      executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
-  });
+  const identitySwitch = createGatedIdentitySwitch(
+    `handler "${type}"`,
+    user,
+    hasIdentitySwitchGrant,
+    {
+      queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+        executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+      writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
+        executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
+    },
+  );
   // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
   // on first actual use, not on every HandlerContext build.
   let ungatedMemberReader: MemberReader | undefined;
   const queryAsMember = createGatedMemberReader(
     `handler "${type}"`,
-    allowSystemIdentity,
+    hasIdentitySwitchGrant,
     (userId, qn, payload) => {
       ungatedMemberReader ??= createMemberReaderFn(ctx, user.tenantId, tx);
       return ungatedMemberReader(userId, qn, payload);
@@ -674,7 +679,7 @@ export async function buildHandlerContext(
     // Internally queries memberships as SYSTEM, so it needs the same grant
     // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
     resolveActiveMembership: (userId: string, tenantId: TenantId) => {
-      if (!allowSystemIdentity) throw systemIdentitySwitchDenied(`handler "${type}"`);
+      if (!hasIdentitySwitchGrant) throw systemIdentitySwitchDenied(`handler "${type}"`);
       return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
     },
 
@@ -1049,7 +1054,7 @@ export async function enforceRateLimit(
 // hooks run OUTSIDE any request transaction (login is itself the root
 // operation, not a nested call) and read-only — so the TenantDb is
 // scoped as "tenant" and no tx is threaded through. Cross-tenant lookups
-// go through queryAs(otherUser, ...); SYSTEM is always denied (no escapeHatch declaration site here).
+// are denied: queryAs only reaches the claims user itself (no escapeHatch declaration site here).
 function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthClaimsContext {
   const { appContext: context } = ctx;
   const dbSource = resolveDbSource(ctx, undefined);
@@ -1066,7 +1071,7 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
         secrets: context.secrets,
       })
     : undefined;
-  const identitySwitch = createGatedIdentitySwitch("r.authClaims hook", false, {
+  const identitySwitch = createGatedIdentitySwitch("r.authClaims hook", user, false, {
     queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
       executeQuery(ctx, qn, payload, asUser), // @wrapper-known semantic-alias
     writeAs: async () => {

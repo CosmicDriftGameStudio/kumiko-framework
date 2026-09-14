@@ -8,7 +8,16 @@ export const pageEntity = createEntity({
   },
 });
 
-const open = { access: { openToAll: true } } as const;
+const CONTENT_MANAGE_OPEN_REASON =
+  "demo app: any signed-in user manages every content page; there is no per-user ownership in this sample";
+
+const open = {
+  access: {
+    openToAll: {
+      reason: CONTENT_MANAGE_OPEN_REASON,
+    },
+  },
+} as const;
 
 export const contentFeature = defineFeature("content", (r) => {
   r.crud("page", pageEntity, {

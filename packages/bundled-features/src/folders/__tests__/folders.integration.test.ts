@@ -336,7 +336,12 @@ describe("folders integration — openToAll access model", () => {
 
   beforeAll(async () => {
     openStack = await setupTestStack({
-      features: [createFoldersFeature({ access: { openToAll: true } }), hostFixturesFeature],
+      features: [
+        createFoldersFeature({
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+        hostFixturesFeature,
+      ],
     });
     await unsafeCreateEntityTable(openStack.db, folderEntity);
     await unsafeCreateEntityTable(openStack.db, folderAssignmentEntity);

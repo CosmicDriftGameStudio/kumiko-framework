@@ -19,7 +19,13 @@ import { tenantComplianceProfileTable } from "../schema/profile-selection";
 export const forTenantQuery = defineQueryHandler({
   name: "for-tenant",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in tenant member may read their own tenant's effective compliance " +
+        "profile; the result carries policy metadata, never PII",
+    },
+  },
   description:
     "Returns the effective compliance profile for the caller's tenant with any tenant override merged in, falling back to minimal-no-region plus a no-profile-selected warning when the tenant has not picked one yet.",
   handler: async (query, ctx): Promise<EffectiveComplianceProfile> => {

@@ -29,7 +29,13 @@ export function createEnableStartHandler(opts: EnableStartOptions) {
       // input fields) — derived server-side from the caller's own email below.
       accountLabel: z.string().min(1).max(200).optional(),
     }),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user may begin MFA enrollment for their own account only; nothing is " +
+          "persisted until enable-confirm and the label defaults from the caller's own session",
+      },
+    },
     description:
       "Begins TOTP enrollment for the signed-in user by generating a secret plus recovery codes and returning them as a short-lived setup token, an otpauth:// URI, the base32 secret for manual entry and the one-time plaintext recovery codes; nothing is persisted until enable-confirm. accountLabel defaults to the caller's own email.",
     // The result carries the TOTP secret, the otpauth:// URI and the plaintext

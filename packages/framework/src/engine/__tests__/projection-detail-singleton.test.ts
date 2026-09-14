@@ -21,7 +21,7 @@ describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
   test("singleton + idParam throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "profile",
@@ -46,7 +46,7 @@ describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
         }),
       );
       r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "profile",
@@ -71,7 +71,7 @@ describe("validateBoot — projectionDetail singleton (fw#2312)", () => {
   test("singleton without idParam/detailFor boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("me", z.object({}), async () => ({ id: "u1" }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "profile",

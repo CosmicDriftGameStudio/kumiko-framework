@@ -57,6 +57,14 @@ export const aiTextDemoFeature = defineFeature("ai-text", (r) => {
         usage: { inputTokens: payload.text.length, outputTokens: text.length },
       };
     },
-    { access: { openToAll: true } },
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo stand-in for a real LLM call: returns canned text transforms with no " +
+            "side effects or per-user data; any signed-in user may query it",
+        },
+      },
+    },
   );
 });

@@ -12,7 +12,13 @@ import { userSessionTable } from "../schema/user-session";
 export const mineQuery = definePagedQueryHandler({
   name: "user-session:mine",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user lists only their own live sessions; the query filters " +
+        "userSessionTable by the caller's own userId",
+    },
+  },
   description:
     "Lists the calling user's own still-live sessions, newest first, each flagged whether it is the one making the request; use it to show a user their signed-in devices.",
   outputSchema: z.object({

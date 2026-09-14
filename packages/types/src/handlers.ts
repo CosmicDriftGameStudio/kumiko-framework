@@ -25,15 +25,13 @@ export type OpenToAllDeclaration = {
 };
 
 export type OpenToAllAccessRule = {
-  // `true` is the deprecated pre-#2855 form, kept until the call-site migration (fw#2854).
-  readonly openToAll: OpenToAllDeclaration | true;
+  readonly openToAll: OpenToAllDeclaration;
 };
 
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
 // To grant access, set one of:
 //   - { roles: ["Admin", ...] }             — role-based allowlist (empty array denies everyone)
 //   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
-//   - { openToAll: true }                   — deprecated pre-#2855 form, still accepted
 export type AccessRule = { readonly roles: readonly string[] } | OpenToAllAccessRule;
 
 export type EscapeHatchDeclaration = { readonly reason: string };
@@ -44,7 +42,6 @@ export type EscapeHatchDeclaration = { readonly reason: string };
 export function isOpenToAllGranted(rule: AccessRule): boolean {
   if (!("openToAll" in rule)) return false;
   const openToAll: unknown = rule.openToAll;
-  if (openToAll === true) return true;
   if (typeof openToAll !== "object" || openToAll === null) return false;
   if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return false;
   return openToAll.reason.trim().length > 0;
@@ -415,8 +412,9 @@ export type AppContext = SharedContextFields & {
 //   sharing the active tx + afterCommit queue. Field-access filters apply.
 //   ctx.queryAs / ctx.writeAs switch identity (e.g. SYSTEM for privileged
 //   lookups like "find user by email for auth" — system reads aren't filtered
-//   by field-access read rules). SYSTEM as the target is gated: reachable
-//   only from an r.systemScope() feature, a job, or a handler/hook that
+//   by field-access read rules). Any target other than the caller itself (or
+//   a subset of its roles) is gated: reachable only from an r.systemScope()
+//   feature, a job, or a handler/hook that
 //   declared { escapeHatch: { reason } } (system-identity-switch.ts).
 //
 // The design: handlers are the contract between features. Feature A requires

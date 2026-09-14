@@ -94,6 +94,21 @@ system_identity_switch_denied:
     (or on the `r.hook(...)` call, if the switch happens inside a hook), or
     move the logic into an `r.systemScope()` feature or a job.
 
+identity_switch_denied:
+  endUser: |
+    This action isn't allowed.
+    Please contact an administrator if you believe this is a mistake.
+  developer: |
+    `AccessDeniedError`: a handler or hook called `ctx.queryAs`/`ctx.writeAs`
+    with an identity other than its own caller — a different user id, tenant,
+    claims or origin, or roles the caller does not have — without being an
+    `r.systemScope()` handler, a job, or declaring `escapeHatch: { reason }`.
+    Switching to the caller itself or to a subset of its roles stays free.
+
+    Declare `escapeHatch: { reason: "..." }` on the write or query handler
+    (or on the `r.hook(...)` call, if the switch happens inside a hook), or
+    move the logic into an `r.systemScope()` feature or a job.
+
 member_resolution_denied:
   endUser: |
     This action isn't allowed.

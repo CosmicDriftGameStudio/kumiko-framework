@@ -27,7 +27,7 @@ describe("HookPhases defaults", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
       r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postSave", "thing:create", noopSave);
     });
@@ -41,7 +41,7 @@ describe("HookPhases defaults", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
       r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postSave", "thing:create", noopSave, { phase: HookPhases.inTransaction });
     });
@@ -60,7 +60,7 @@ describe("HookPhases defaults", () => {
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.hook("preDelete", "thing:delete", async () => undefined);
     });
@@ -95,7 +95,7 @@ describe("Registry phase filtering", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
       r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.hook("postSave", "thing:create", inTxFn, { phase: HookPhases.inTransaction });
       r.hook("postSave", "thing:create", afterFn); // default afterCommit
@@ -127,7 +127,7 @@ describe("Registry phase filtering", () => {
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
       r.writeHandler("thing:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
 

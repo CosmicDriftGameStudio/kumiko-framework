@@ -79,7 +79,12 @@ let folderId: string;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createFoldersFeature({ access: { openToAll: true } }), hostFixturesFeature],
+    features: [
+      createFoldersFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+      hostFixturesFeature,
+    ],
   });
   await unsafeCreateEntityTable(stack.db, folderEntity);
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);

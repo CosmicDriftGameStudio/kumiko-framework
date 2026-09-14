@@ -34,7 +34,11 @@ function createTasksFeature() {
   return defineFeature("tasks", (r) => {
     r.systemScope();
     r.entity("task", taskEntity);
-    r.writeHandler(defineEntityCreateHandler("task", taskEntity, { access: { openToAll: true } }));
+    r.writeHandler(
+      defineEntityCreateHandler("task", taskEntity, {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }),
+    );
     r.screen({
       id: "task-list",
       type: "entityList",
@@ -105,7 +109,11 @@ describe("generateE2ESpec", () => {
     const feature = defineFeature("events", (r) => {
       r.systemScope();
       r.entity("event", entity);
-      r.writeHandler(defineEntityCreateHandler("event", entity, { access: { openToAll: true } }));
+      r.writeHandler(
+        defineEntityCreateHandler("event", entity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+      );
       r.screen({
         id: "event-edit",
         type: "entityEdit",
@@ -165,7 +173,9 @@ describe("generateE2ESpec", () => {
       r.systemScope();
       r.entity("task", taskEntity);
       r.writeHandler(
-        defineEntityCreateHandler("task", taskEntity, { access: { openToAll: true } }),
+        defineEntityCreateHandler("task", taskEntity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
       );
       r.screen({
         id: "edit",
@@ -201,7 +211,9 @@ describe("generateE2ESpec", () => {
       r.systemScope();
       r.entity("contact", contactEntity);
       r.writeHandler(
-        defineEntityCreateHandler("contact", contactEntity, { access: { openToAll: true } }),
+        defineEntityCreateHandler("contact", contactEntity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
       );
       r.screen({
         id: "list",
@@ -225,7 +237,9 @@ describe("generateE2ESpec", () => {
       r.systemScope();
       r.entity("task", taskEntity);
       r.writeHandler(
-        defineEntityCreateHandler("task", taskEntity, { access: { openToAll: true } }),
+        defineEntityCreateHandler("task", taskEntity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
       );
       r.screen({ id: "list", type: "entityList", entity: "task", columns: ["title"] });
       r.screen({

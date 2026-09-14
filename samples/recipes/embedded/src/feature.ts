@@ -28,7 +28,15 @@ export { invoiceEntity } from "./entities/invoice";
 export { productEntity } from "./entities/product";
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
-const openRead = { access: { openToAll: true } } as const;
+const openRead = {
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may read products and invoices in this recipe; writes are " +
+        "still gated by adminWrite",
+    },
+  },
+} as const;
 
 export const embeddedFeature = defineFeature("contacts", (r) => {
   r.entity("contact", contactEntity);

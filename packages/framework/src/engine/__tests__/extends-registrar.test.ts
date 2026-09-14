@@ -142,7 +142,7 @@ describe("extendsRegistrar", () => {
           isSuccess: true as const,
           data: { id: "c1" },
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.useExtension("audited", "credit");
     });
@@ -181,7 +181,7 @@ describe("extendsRegistrar", () => {
           isSuccess: true as const,
           data: { id: "v1" },
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.writeHandler(
         "vehicle:update",
@@ -190,7 +190,7 @@ describe("extendsRegistrar", () => {
           isSuccess: true as const,
           data: { id: "v1" },
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.useExtension("audited", "vehicle");
     });
@@ -242,6 +242,7 @@ describe("extendsRegistrar", () => {
     // systemScope) — the extension hook must not inherit this.
     const handlerCtx = createGatedIdentitySwitch(
       'handler "fleet:write:vehicle:create"',
+      undefined,
       true,
       ungated,
     );

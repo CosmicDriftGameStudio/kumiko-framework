@@ -26,7 +26,13 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
   return defineWriteHandler({
     name: "regenerate-recovery",
     schema: z.object({ code: z.string().min(6).max(9) }),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "each signed-in user may regenerate only their own recovery codes after proving " +
+          "possession of a TOTP or recovery code; the handler looks up the caller's own user-mfa row",
+      },
+    },
     description:
       "Destroys every existing recovery code of the caller, including unused ones, and returns a fresh set once in plaintext; use it when recovery codes may have leaked but TOTP itself should stay enrolled.",
     // Returns a fresh set of plaintext recovery codes — same transcript leak as

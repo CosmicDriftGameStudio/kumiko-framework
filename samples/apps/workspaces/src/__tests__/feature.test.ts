@@ -88,7 +88,11 @@ describe("workspaces showcase — registry state", () => {
 
   test("workspace with no explicit nav and no self-assignments has empty resolved members", () => {
     const ws = defineFeature("ws-empty", (r) => {
-      r.workspace({ id: "lonely", label: "x", access: { openToAll: true } });
+      r.workspace({
+        id: "lonely",
+        label: "x",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const reg = createRegistry([ws]);
     expect(reg.getWorkspaceNavs("ws-empty:workspace:lonely")).toEqual([]);
@@ -99,7 +103,11 @@ describe("workspaces — boot validation", () => {
   test("rejects non-kebab workspace id at registration time", () => {
     expect(() =>
       defineFeature("ws-bad", (r) => {
-        r.workspace({ id: "BadCase", label: "x", access: { openToAll: true } });
+        r.workspace({
+          id: "BadCase",
+          label: "x",
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
       }),
     ).toThrow(/must be kebab-case/);
   });
@@ -107,8 +115,16 @@ describe("workspaces — boot validation", () => {
   test("rejects duplicate workspace id within a feature", () => {
     expect(() =>
       defineFeature("ws-dup", (r) => {
-        r.workspace({ id: "shared", label: "x", access: { openToAll: true } });
-        r.workspace({ id: "shared", label: "y", access: { openToAll: true } });
+        r.workspace({
+          id: "shared",
+          label: "x",
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.workspace({
+          id: "shared",
+          label: "y",
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
       }),
     ).toThrow(/already registered/);
   });
@@ -118,7 +134,7 @@ describe("workspaces — boot validation", () => {
       r.workspace({
         id: "ghost",
         label: "x",
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         nav: ["ws-dangling:nav:does-not-exist"],
       });
     });
@@ -140,16 +156,34 @@ describe("workspaces — boot validation", () => {
 
   test("rejects multiple workspaces with default: true", () => {
     const f = defineFeature("two-defaults", (r) => {
-      r.workspace({ id: "a", label: "x", access: { openToAll: true }, default: true });
-      r.workspace({ id: "b", label: "y", access: { openToAll: true }, default: true });
+      r.workspace({
+        id: "a",
+        label: "x",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        default: true,
+      });
+      r.workspace({
+        id: "b",
+        label: "y",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        default: true,
+      });
     });
     expect(() => validateBoot([f])).toThrow(/Multiple workspaces declare default: true/);
   });
 
   test("permits no default workspace at all", () => {
     const f = defineFeature("no-default", (r) => {
-      r.workspace({ id: "a", label: "x", access: { openToAll: true } });
-      r.workspace({ id: "b", label: "y", access: { openToAll: true } });
+      r.workspace({
+        id: "a",
+        label: "x",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.workspace({
+        id: "b",
+        label: "y",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     expect(() => validateBoot([f])).not.toThrow();
     const reg = createRegistry([f]);

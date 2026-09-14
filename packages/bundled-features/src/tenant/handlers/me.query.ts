@@ -9,7 +9,13 @@ import { tenantTable } from "../schema/tenant";
 export const meQuery = defineQueryHandler({
   name: "me",
   schema: z.object({}),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user reads only their own active tenant; the query is scoped " +
+        "to the caller's own tenantId",
+    },
+  },
   description:
     "Returns the record of the tenant the caller is currently signed in to, or null if it is gone; use it whenever the active tenant's own name, key or settings are needed.",
   handler: async (query, ctx) => {

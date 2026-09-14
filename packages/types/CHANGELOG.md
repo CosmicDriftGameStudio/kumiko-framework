@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-types
 
+## 0.270.0
+
+### Minor Changes
+
+- dba0a60: `openToAll: true` is removed from `OpenToAllAccessRule` — every `openToAll` grant now requires `{ reason: string }`. `isOpenToAllGranted` denies a bare `true` reaching it from an untyped source (pattern JSON, Designer) the same way it already denied a malformed object. The boot validator rejects an untyped `openToAll: true` access declaration with an error pointing at `{ reason }`. The pattern-library Designer access field is now a required text input on `access.openToAll.reason` instead of a boolean toggle. `build-config-feature-schema.ts` synthesizes `{ openToAll: { reason: "..." } }` (instead of `{ openToAll: true }`) for a config key whose roles include `"all"`. `boot-validator/nav.ts` and `renderer-web/app/create-app.tsx` switched from `"openToAll" in access` to `isOpenToAllGranted(access)`. The feature-AST extractor now also extracts `escapeHatch: { reason }` on write/query handlers and on `r.hook` options.
+
+  New codemod `scripts/codemod/migrate-open-to-all.ts` rewrites `openToAll: true` to `openToAll: { reason }` in test files and reports every non-test site for a manual reason.
+
+## 0.269.2
+
+## 0.269.1
+
+## 0.269.0
+
+### Minor Changes
+
+- ec9aaca: Breaking: `ctx.queryAs`/`ctx.writeAs` without a grant only accept the caller itself — same `id`, `tenantId`, `origin` and `claims`, with roles that are a subset of the caller's roles. Any other identity (a different user, a different tenant, extra roles, changed claims) now throws `AccessDeniedError` with `details.reason: "identity_switch_denied"`; SYSTEM targets keep `system_identity_switch_denied`. The grant is unchanged from fw#2859: an `r.systemScope()` feature, `escapeHatch: { reason }` on the write/query/stream handler, or the hook's own `r.hook(..., { escapeHatch })` — non-transitive, never inherited by hooks. `isSystemIdentitySwitchAllowed` is replaced by `isIdentitySwitchAllowed(caller, asUser, hasGrant)` and `createGatedIdentitySwitch` takes the caller as second argument. Jobs, top-level dispatcher calls, `ctx.queryAsMember` and `ctx.resolveActiveMembership` are unchanged. Migration: declare `escapeHatch` on handlers that act as another user or tenant, or move the call into a job / `r.systemScope()` feature (see `changes.json`, fw#2876).
+- 8412e09: `StreamHandlerDef`/`StreamHandlerDefinition` (`@cosmicdrift/kumiko-types/handlers`, `/define-handler`) and the `r.streamHandler` options param now accept `escapeHatch: { reason }`, same contract as `WriteHandlerDef`/`QueryHandlerDef`: a stream handler that switches identity to SYSTEM via `ctx.queryAs` needs its own `escapeHatch` declaration (or its feature must be `r.systemScope()`), same as write and query handlers already require. Stream handlers still cannot reach `db.global()` (`globalWrites` stays write-only) but do get the same SYSTEM-identity-switch and `ctx.db.unsafeRaw(reason)` grant a query handler's `escapeHatch` already unlocks. The boot validator rejects an empty `escapeHatch.reason` on a stream handler the same way it does for write/query handlers.
+
 ## 0.268.0
 
 ### Minor Changes

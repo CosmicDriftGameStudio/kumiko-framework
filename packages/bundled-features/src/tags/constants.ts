@@ -55,7 +55,7 @@ export const TagsQueries = {
 export const DEFAULT_TAG_ROLES = ["TenantAdmin", "TenantMember"] as const;
 
 // The default access rule applied to every tag handler when the app passes
-// neither `access` nor `roles`. createTagsFeature({ access: { openToAll: true } })
+// neither `access` nor `roles`. createTagsFeature({ access: { openToAll: { reason } } })
 // makes tagging reachable for any authenticated tenant user — matching apps
 // whose other handlers are openToAll rather than role-gated.
 export const DEFAULT_TAG_ACCESS: AccessRule = { roles: DEFAULT_TAG_ROLES };

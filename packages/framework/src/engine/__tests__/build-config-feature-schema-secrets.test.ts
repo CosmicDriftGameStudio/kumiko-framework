@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { buildConfigFeatureSchema } from "../build-config-feature-schema";
+import { createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
+import type { AccessRule } from "../types/handlers";
 import type { NavDefinition } from "../types/nav";
 import type { ScreenDefinition, SecretsEditScreenDefinition } from "../types/screen";
 
@@ -112,6 +114,52 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
     expect(secretsScreen(schema).access).toEqual({ roles: customRoles });
     expect(navById(schema, "secrets")?.access).toEqual({ roles: customRoles });
     expect(navById(schema, "audience-tenant")?.access).toEqual({ roles: customRoles });
+  });
+
+  test("audience nav union keeps a granted openToAll's own reason, not the generic ALL_ROLE reason", () => {
+    const customReason = "billing key rotation is safe for any signed-in tenant member";
+    const secretsOpenToAll = defineFeature("secrets", (r) => {
+      r.writeHandler(
+        "set",
+        z.object({ key: z.string(), value: z.string() }),
+        async () => ({ isSuccess: true, data: null }),
+        { access: { openToAll: { reason: customReason } } },
+      );
+    });
+    const billing = defineFeature("billing", (r) => {
+      r.config({
+        keys: { apiKey: createTenantConfig("text", { mask: { title: "billing.api-key" } }) },
+      });
+      r.secret("apiKey", { label: { en: "Billing API Key" }, scope: "tenant" });
+    });
+    const schema = buildConfigFeatureSchema(createRegistry([secretsOpenToAll, billing]));
+
+    expect(navById(schema, "audience-tenant")?.access).toEqual({
+      openToAll: { reason: customReason },
+    });
+  });
+
+  test("audience nav union ignores a malformed openToAll — falls back to the role union", () => {
+    const secretsMalformedOpenToAll = defineFeature("secrets", (r) => {
+      r.writeHandler(
+        "set",
+        z.object({ key: z.string(), value: z.string() }),
+        async () => ({ isSuccess: true, data: null }),
+        // @cast-boundary test — simulates JSON/Designer input that doesn't match the static union
+        { access: { openToAll: {} } as unknown as AccessRule },
+      );
+    });
+    const billing = defineFeature("billing", (r) => {
+      r.config({
+        keys: { apiKey: createTenantConfig("text", { mask: { title: "billing.api-key" } }) },
+      });
+      r.secret("apiKey", { label: { en: "Billing API Key" }, scope: "tenant" });
+    });
+    const schema = buildConfigFeatureSchema(createRegistry([secretsMalformedOpenToAll, billing]));
+
+    expect(navById(schema, "audience-tenant")?.access).toEqual({
+      roles: ["TenantAdmin", "Admin", "SystemAdmin"],
+    });
   });
 
   test("declared secrets without a mounted secrets feature yield no secretsEdit screen and no secrets nav", () => {

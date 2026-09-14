@@ -37,7 +37,7 @@ const testFeature = defineFeature("test", (r) => {
     "item:list",
     z.object({ search: z.string().optional() }),
     async () => [{ id: 1, name: "Test" }],
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.streamHandler(
@@ -750,7 +750,7 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
       }),
     );
     r.queryHandler("item:list", z.object({}), async () => [{ id: 7 }], {
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.httpRoute({
       method: "GET",

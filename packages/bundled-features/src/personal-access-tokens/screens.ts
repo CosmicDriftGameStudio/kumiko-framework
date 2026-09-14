@@ -6,6 +6,11 @@ import {
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "./constants";
 import type { PatScopeConfig } from "./scopes";
 
+const PAT_LIST_OPEN_REASON =
+  "each signed-in user views only their own personal access tokens, mirroring the list handler";
+const PAT_MINT_OPEN_REASON =
+  "each signed-in user mints a token for their own account only, mirroring the create handler";
+
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
@@ -47,7 +52,11 @@ export const patListScreen: ProjectionListScreenDefinition = {
       style: "primary",
     },
   ],
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason: PAT_LIST_OPEN_REASON,
+    },
+  },
 };
 
 // Grant-string vocabulary for a scope config's multiSelect field — a
@@ -102,6 +111,10 @@ export function createPatMintScreen(scopes: PatScopeConfig): SecretMintScreenDef
     },
     redirect: PAT_SCREEN_ID,
     cancelTarget: PAT_SCREEN_ID,
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason: PAT_MINT_OPEN_REASON,
+      },
+    },
   };
 }

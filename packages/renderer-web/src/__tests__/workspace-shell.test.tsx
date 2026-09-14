@@ -74,7 +74,7 @@ function ws(
   } = {},
 ): WorkspaceSchema {
   const access = options.openToAll
-    ? ({ openToAll: true } as const)
+    ? ({ openToAll: { reason: "test handler callable by any signed-in test user" } } as const)
     : options.roles !== undefined
       ? ({ roles: options.roles } as const)
       : undefined;
@@ -121,9 +121,18 @@ describe("filterByAccess", () => {
 
   test("sorts by order then insertion order", () => {
     const list = [
-      ws("c", { openToAll: true, order: 3 }),
-      ws("a", { openToAll: true, order: 1 }),
-      ws("b", { openToAll: true, order: 2 }),
+      ws("c", {
+        openToAll: true,
+        order: 3,
+      }),
+      ws("a", {
+        openToAll: true,
+        order: 1,
+      }),
+      ws("b", {
+        openToAll: true,
+        order: 2,
+      }),
       ws("d", { openToAll: true }), // no order — sorts last
     ];
     expect(filterByAccess(list, []).map((w) => w.definition.id)).toEqual(["a", "b", "c", "d"]);
@@ -133,7 +142,10 @@ describe("filterByAccess", () => {
 describe("resolveDefaultId", () => {
   const visible = [
     ws("admin", { openToAll: true }),
-    ws("dispatch", { openToAll: true, isDefault: true }),
+    ws("dispatch", {
+      openToAll: true,
+      isDefault: true,
+    }),
     ws("driver", { openToAll: true }),
   ];
 
@@ -234,8 +246,14 @@ describe("WorkspaceSwitcher", () => {
     renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[
-          ws("admin", { label: "Admin", openToAll: true }),
-          ws("driver", { label: "Driver", openToAll: true }),
+          ws("admin", {
+            label: "Admin",
+            openToAll: true,
+          }),
+          ws("driver", {
+            label: "Driver",
+            openToAll: true,
+          }),
         ]}
         activeId="admin"
         onSelect={() => {}}
@@ -253,8 +271,14 @@ describe("WorkspaceSwitcher", () => {
     renderWithSidebar(
       <WorkspaceSwitcher
         workspaces={[
-          ws("admin", { label: "Admin", openToAll: true }),
-          ws("driver", { label: "Driver", openToAll: true }),
+          ws("admin", {
+            label: "Admin",
+            openToAll: true,
+          }),
+          ws("driver", {
+            label: "Driver",
+            openToAll: true,
+          }),
         ]}
         activeId="admin"
         onSelect={onSelect}

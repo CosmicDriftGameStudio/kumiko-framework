@@ -50,7 +50,7 @@ const throwOnPreSave: import("../types").PreSaveHookFn = async () => {
 const contactFeature = defineFeature("presave-wiring", (r) => {
   r.crud("contact", contactEntity, {
     write: { access: { roles: ["User"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
 
   // preSave has no entity-wide `{ allOf }` shorthand (unlike postSave/
@@ -70,7 +70,7 @@ const throwingEntity = createEntity({
 const throwingFeature = defineFeature("presave-wiring-throw", (r) => {
   r.crud("thing", throwingEntity, {
     write: { access: { roles: ["User"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
   r.hook("preSave", "thing:create", throwOnPreSave);
 });

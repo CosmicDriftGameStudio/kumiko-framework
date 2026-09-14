@@ -173,7 +173,7 @@ const probeFeature = defineFeature("probe", (r) => {
         data: { orders: probe.orders, push: probe.push, betaEnabled: probe.betaEnabled },
       };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
 

@@ -33,7 +33,7 @@ function registerNotesHistory(
   parents: readonly string[] | undefined,
 ): void {
   r.describe(
-    "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: true } }) or pin roles with createNotesHistoryFeature({ roles }).",
+    "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: { reason } } }) or pin roles with createNotesHistoryFeature({ roles }).",
   );
   r.uiHints({
     displayLabel: "Notes",
@@ -68,7 +68,7 @@ export const notesHistoryFeature = defineFeature(NOTES_HISTORY_FEATURE_NAME, (r)
 
 export type NotesHistoryFeatureOptions = {
   /** Access rule for the create/list paths. Default { roles: ["TenantAdmin","TenantMember"] }.
-   *  Adopt the host's model — e.g. { openToAll: true } when the host lets any
+   *  Adopt the host's model — e.g. { openToAll: { reason: "..." } } when the host lets any
    *  authenticated tenant user write (like the rest of its handlers), or
    *  { roles: ["Admin"] } for a custom role vocabulary. Takes precedence over `roles`. */
   readonly access?: AccessRule;

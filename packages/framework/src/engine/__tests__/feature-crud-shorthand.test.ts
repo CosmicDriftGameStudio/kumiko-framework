@@ -11,7 +11,9 @@ const taskEntity = createEntity({
 describe("r.crud", () => {
   test("registers the entity + full CRUD handler set, same as registerEntityCrud", () => {
     const write = { access: { roles: ["Admin"] } } as const;
-    const read = { access: { openToAll: true } } as const;
+    const read = {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    } as const;
 
     const feature = defineFeature("via-crud", (r) => {
       r.crud("task", taskEntity, { write, read });
@@ -28,7 +30,9 @@ describe("r.crud", () => {
 
   test("without verbAccess, write handlers keep write.access (never fall back to the broader read.access)", () => {
     const write = { access: { roles: ["Manager"] } } as const;
-    const read = { access: { openToAll: true } } as const;
+    const read = {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    } as const;
 
     const feature = defineFeature("via-crud-no-verb-access", (r) => {
       r.crud("task", taskEntity, { write, read });
@@ -44,7 +48,9 @@ describe("r.crud", () => {
 
   test("verbAccess overrides access per verb, other verbs keep write/read.access", () => {
     const write = { access: { roles: ["Manager"] } } as const;
-    const read = { access: { openToAll: true } } as const;
+    const read = {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    } as const;
     const deleteAccess = { roles: ["Operator"] } as const;
     const restoreAccess = { roles: ["Operator"] } as const;
     const listAccess = { roles: ["Auditor"] } as const;

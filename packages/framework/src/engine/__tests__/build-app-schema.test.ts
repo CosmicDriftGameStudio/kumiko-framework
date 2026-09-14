@@ -209,7 +209,7 @@ describe("buildAppSchema", () => {
       r.workspace({
         id: "admin",
         label: "Admin",
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         nav: ["orders:nav:list", "fleet:nav:vehicles"],
         default: true,
       });
@@ -832,7 +832,11 @@ describe("buildAppSchema", () => {
     const f = defineFeature("ent", (r) => {
       r.entity("thing", entity);
       r.nav({ id: "n", label: "N" });
-      r.workspace({ id: "ws", label: "Ws", access: { openToAll: true } });
+      r.workspace({
+        id: "ws",
+        label: "Ws",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const app = buildAppSchema(createRegistry([f]));
     const json = JSON.stringify(app);
@@ -980,7 +984,7 @@ describe("buildAppSchema", () => {
           cursor: z.string().optional(),
         }),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",
@@ -1000,7 +1004,7 @@ describe("buildAppSchema", () => {
   test("projectionList: a query schema without search/sort/cursor derives no capability", () => {
     const f = defineFeature("ledger", (r) => {
       r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
         id: "schedule-list",
@@ -1023,7 +1027,7 @@ describe("buildAppSchema", () => {
         "schedule:list",
         z.union([z.object({ a: z.string() }), z.object({ b: z.string() })]),
         async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",
@@ -1052,7 +1056,7 @@ describe("buildAppSchema", () => {
           rows: [],
           nextCursor: null,
         }),
-        { access: { openToAll: true } },
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
       );
       r.screen({
         id: "schedule-list",

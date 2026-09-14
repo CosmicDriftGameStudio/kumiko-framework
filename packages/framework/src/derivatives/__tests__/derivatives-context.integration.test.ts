@@ -38,7 +38,7 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
       );
       return { isSuccess: true as const, data: result };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   // Catches the error INSIDE the handler (not via HTTP serialization) so the
@@ -69,7 +69,7 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
         };
       }
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload, ctx) => {

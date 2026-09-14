@@ -28,7 +28,14 @@ export const myAuditLogQuery = defineQueryHandler({
       message: "`from` must be less than or equal to `to`",
       path: ["from"],
     }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user reads only their own event-store history for the GDPR " +
+        "Art. 15 self-disclosure; the query hard-codes createdBy = caller and can never " +
+        "read another user's history",
+    },
+  },
   description:
     "Returns the calling user's own event-store entries across all their tenant memberships, paged and filterable by aggregate type, event type and time range, for the GDPR Art. 15 self-disclosure; it can never read another user's history.",
   escapeHatch: {

@@ -26,7 +26,13 @@ export const resetWrite = defineWriteHandler({
     scope: scopeEnum.optional(),
   }),
   // Per-key access enforcement lives inside the handler via checkWriteAccess.
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "any signed-in user may call reset; prepareConfigWrite enforces the per-key " +
+        "write access rule before any value is touched",
+    },
+  },
   handler: async (event, ctx) => {
     const db = requireSystemDb(ctx, "config:write:reset", event.user.tenantId);
 

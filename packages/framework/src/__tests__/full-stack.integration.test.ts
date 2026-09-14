@@ -174,14 +174,14 @@ const userFeature = defineFeature("users", (r) => {
       sortDirection: z.enum(["asc", "desc"]).optional(),
     }),
     async (query, ctx) => userExecutor(ctx).list(query.payload, query.user, ctx.db),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.queryHandler(
     "user:detail",
     z.object({ id: z.uuid() }),
     async (query, ctx) => userExecutor(ctx).detail(query.payload, query.user, ctx.db),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 
   r.hook("postSave", { allOf: user }, async (result) => {

@@ -105,7 +105,9 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access:{openToAll} applies to every write- and query-path", () => {
-    const feature = createTagsFeature({ access: { openToAll: true } });
+    const feature = createTagsFeature({
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
     for (const path of [
       "create-tag",
       "update-tag",
@@ -116,17 +118,28 @@ describe("createTagsFeature access-options", () => {
       "assign-tag",
       "remove-tag",
     ]) {
-      expect(rawWriteAccess(feature, path)).toEqual({ openToAll: true });
+      expect(rawWriteAccess(feature, path)).toEqual({
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      });
     }
     for (const query of ["tag:list", "tag:detail", "tag-assignment:list"]) {
-      expect(rawQueryAccess(feature, query)).toEqual({ openToAll: true });
+      expect(rawQueryAccess(feature, query)).toEqual({
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      });
     }
   });
 
   test("access takes precedence over the roles shorthand", () => {
-    const feature = createTagsFeature({ access: { openToAll: true }, roles: ["Admin"] });
-    expect(rawWriteAccess(feature, "create-tag")).toEqual({ openToAll: true });
-    expect(rawQueryAccess(feature, "tag:list")).toEqual({ openToAll: true });
+    const feature = createTagsFeature({
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      roles: ["Admin"],
+    });
+    expect(rawWriteAccess(feature, "create-tag")).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
+    expect(rawQueryAccess(feature, "tag:list")).toEqual({
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    });
   });
 
   test("access:{roles} threads through like the roles shorthand", () => {
@@ -139,12 +152,16 @@ describe("createTagsFeature access-options", () => {
 describe("createTagsFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {
     expect(createTagsFeature().toggleableDefault).toBeUndefined();
-    expect(createTagsFeature({ access: { openToAll: true } }).toggleableDefault).toBeUndefined();
+    expect(
+      createTagsFeature({
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      }).toggleableDefault,
+    ).toBeUndefined();
   });
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
     const feature = createTagsFeature({
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });
     expect(feature.toggleableDefault).toBe(false);

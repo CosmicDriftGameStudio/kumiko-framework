@@ -10,7 +10,13 @@ export function buildAvailableScopesQuery(scopes: PatScopeConfig) {
   return defineQueryHandler({
     name: "available-scopes",
     schema: z.object({}),
-    access: { openToAll: true },
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may list the deployment-wide PAT scope domains; the data " +
+          "is static configuration, not per-user or per-tenant",
+      },
+    },
     description:
       "Lists the API scope domains this deployment declares, each with its display label and whether it offers write access, for choosing what a new personal access token may do.",
     handler: async () =>

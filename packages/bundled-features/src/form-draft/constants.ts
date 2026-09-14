@@ -22,7 +22,13 @@ export const FormDraftQueries = {
 // Any authenticated tenant user may save/discard/read their OWN draft — the
 // per-row ownerId check in the handlers (not roles) is what keeps a draft
 // private to the user who created it. See handlers/*.ts.
-export const FORM_DRAFT_ACCESS: AccessRule = { openToAll: true };
+export const FORM_DRAFT_ACCESS: AccessRule = {
+  openToAll: {
+    reason:
+      "any signed-in tenant user may save, discard or read a draft; the per-row " +
+      "ownerId check in the handlers, not roles, keeps a draft private to its owner",
+  },
+};
 
 // Unique index name — shared between entity.ts (index declaration) and
 // handlers/save.write.ts (unique-violation race detection).

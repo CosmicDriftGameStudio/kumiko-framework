@@ -69,8 +69,17 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     },
   );
 
-  // --- ctx.queryAs(nonSystemUser, ...) from a stream handler: never gated
-  // by this feature, only the target's own access rule — same as write/query. ---
+  // --- ctx.queryAs(nonSystemUser, ...) from a stream handler (fw#2876): a foreign
+  // user needs the stream handler's escapeHatch; the target's own access rule still applies. ---
+  r.streamHandler(
+    "query-as-normal-user-no-hatch",
+    z.object({}),
+    async function* (_query, ctx) {
+      yield await ctx.queryAs(otherUserWithAdminRole, "stream-idswitch-probe:query:admin-only", {});
+    },
+    { access: { roles: ["User"] } },
+  );
+
   r.streamHandler(
     "query-as-normal-user",
     z.object({ granted: z.boolean() }),
@@ -82,7 +91,10 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
       );
       yield result;
     },
-    { access: { roles: ["User"] } },
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: stream reads admin-only data as a named colleague" },
+    },
   );
 });
 
@@ -144,8 +156,27 @@ describe("ctx.queryAs(SYSTEM, ...) from a stream handler — gated by the handle
   });
 });
 
-describe("ctx.queryAs(nonSystemUser, ...) from a stream handler — never gated by this feature", () => {
-  test("delegates to the target's own access check: denied when the target user lacks the role", async () => {
+describe("ctx.queryAs(nonSystemUser, ...) from a stream handler — gated like write/query (fw#2876)", () => {
+  test("WITHOUT escapeHatch: a foreign user fails with identity_switch_denied", async () => {
+    const dispatcher = await buildDispatcherFor(user);
+    let thrown: unknown;
+    try {
+      for await (const _ of dispatcher.stream(
+        "stream-idswitch-probe:stream:query-as-normal-user-no-hatch",
+        {},
+      )) {
+        // should not yield
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({
+      code: "access_denied",
+      details: { reason: "identity_switch_denied" },
+    });
+  });
+
+  test("WITH escapeHatch, delegates to the target's own access check: denied when the target user lacks the role", async () => {
     const dispatcher = await buildDispatcherFor(user);
     let thrown: unknown;
     try {
@@ -160,7 +191,7 @@ describe("ctx.queryAs(nonSystemUser, ...) from a stream handler — never gated 
     expect(thrown).toMatchObject({ code: "access_denied" });
   });
 
-  test("delegates to the target's own access check: allowed when the target user has the role", async () => {
+  test("WITH escapeHatch, delegates to the target's own access check: allowed when the target user has the role", async () => {
     const dispatcher = await buildDispatcherFor(user);
     const chunks = await collectAll(
       dispatcher.stream<{ ok: boolean }>("stream-idswitch-probe:stream:query-as-normal-user", {

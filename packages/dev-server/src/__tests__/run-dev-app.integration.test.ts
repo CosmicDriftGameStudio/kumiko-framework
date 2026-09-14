@@ -154,7 +154,7 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
     const readBlockQuery = defineQueryHandler({
       name: "read-block",
       schema: z.object({}),
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       handler: async (_query, ctx) => {
         const api = requireTemplateResolver(ctx, "textcheck:query:read-block");
         return api.findExact({

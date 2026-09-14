@@ -61,9 +61,13 @@ export const accessRuleField: FormFieldSpec = {
       label: { en: "Open to all (auth still required)", de: "Für alle (Auth nötig)" },
       fields: [
         {
-          path: "access.openToAll",
-          label: { en: "Open to all", de: "Offen für alle" },
-          input: "boolean",
+          path: "access.openToAll.reason",
+          label: { en: "Reason", de: "Begründung" },
+          hint: {
+            en: "Who may call this, and why that is safe without a role — required, `true` alone no longer grants access.",
+          },
+          input: "text",
+          required: true,
         },
       ],
     },

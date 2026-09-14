@@ -1332,6 +1332,37 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({ kind: "hook", phase: "afterCommit" });
   });
 
+  test("captures the optional escapeHatch from the options object (positional form)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", "task", (event, ctx) => {}, { escapeHatch: { reason: "reindexes via SYSTEM" } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      escapeHatch: { reason: "reindexes via SYSTEM" },
+    });
+  });
+
+  test("captures the optional escapeHatch from the object form", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook({
+    type: "postSave",
+    target: "task",
+    handler: (event, ctx) => {},
+    escapeHatch: { reason: "reindexes via SYSTEM" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      escapeHatch: { reason: "reindexes via SYSTEM" },
+    });
+  });
+
   test("rejects an unknown hook type", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
@@ -1576,7 +1607,7 @@ defineFeature("f", (r) => {
     name: "task:approve",
     schema: z.object({ id: z.string() }),
     handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
 `);
@@ -1584,7 +1615,7 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({
       kind: "writeHandler",
       handlerName: "task:approve",
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
   });
 
@@ -1678,6 +1709,42 @@ defineFeature("f", (r) => {
     });
     expect(result.errors).toEqual([]);
   });
+
+  test("object form: escapeHatch is extracted", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "task:reindex",
+    schema: z.object({}),
+    handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "bulk reindex writes via db.global()" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:reindex",
+      escapeHatch: { reason: "bulk reindex writes via db.global()" },
+    });
+  });
+
+  test("4-argument form: escapeHatch is read from the options object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler("task:reindex", z.object({}), async (event, ctx) => {
+    return { isSuccess: true, data: {} };
+  }, { access: { roles: ["Admin"] }, escapeHatch: { reason: "bulk reindex writes via db.global()" } });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:reindex",
+      escapeHatch: { reason: "bulk reindex writes via db.global()" },
+    });
+  });
 });
 
 describe("extractQueryHandler", () => {
@@ -1714,6 +1781,26 @@ defineFeature("f", (r) => {
       agent: { risk: "low" },
     });
   });
+
+  test("object form: escapeHatch is extracted (query handlers may switch to SYSTEM via ctx.queryAs)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.queryHandler({
+    name: "task:audit-list",
+    schema: z.object({}),
+    handler: async (q, ctx) => [],
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)" },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "queryHandler",
+      handlerName: "task:audit-list",
+      escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)" },
+    });
+  });
 });
 
 describe("extractStreamHandler", () => {
@@ -1740,7 +1827,7 @@ defineFeature("f", (r) => {
     name: "chat:complete",
     schema: z.object({ prompt: z.string() }),
     handler: async function* (input, ctx) { yield "token"; },
-    access: { openToAll: true },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
 `);
@@ -1748,7 +1835,7 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({
       kind: "streamHandler",
       handlerName: "chat:complete",
-      access: { openToAll: true },
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
   });
 
@@ -1782,6 +1869,21 @@ defineFeature("f", (r) => {
 
     expect(result.patterns[0]).not.toHaveProperty("description");
     expect(result.patterns[0]).not.toHaveProperty("agent");
+  });
+
+  test("escapeHatch is NOT part of StreamHandlerPattern's runtime shape (StreamHandlerDef has no escapeHatch)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.streamHandler({
+    name: "chat:complete",
+    schema: z.object({ prompt: z.string() }),
+    handler: async function* (input, ctx) { yield "token"; },
+    escapeHatch: { reason: "Should be ignored for streamHandler." },
+  });
+});
+`);
+
+    expect(result.patterns[0]).not.toHaveProperty("escapeHatch");
   });
 });
 

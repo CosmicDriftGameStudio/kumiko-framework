@@ -52,8 +52,16 @@ describe("validateParentRefs", () => {
     const entity = joinEntity(validRef);
     const feature = defineFeature("joins", (r) => {
       r.entity("join", entity);
-      r.queryHandler(defineEntityListHandler("join", entity, { access: { openToAll: true } }));
-      r.queryHandler(defineEntityDetailHandler("join", entity, { access: { openToAll: true } }));
+      r.queryHandler(
+        defineEntityListHandler("join", entity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+      );
+      r.queryHandler(
+        defineEntityDetailHandler("join", entity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+      );
     });
     expect(() => validate(feature)).not.toThrow();
   });
@@ -65,7 +73,7 @@ describe("validateParentRefs", () => {
         name: "host:list",
         schema: z.object({}),
         handler: async () => ({ rows: [], nextCursor: null }),
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     expect(() => validate(feature)).not.toThrow();
@@ -99,7 +107,11 @@ describe("validateParentRefs", () => {
     const entity = joinEntity({ ...validRef, allowedTypes: ["host"] });
     const feature = defineFeature("joins", (r) => {
       r.entity("join", entity);
-      r.queryHandler(defineEntityListHandler("join", entity, { access: { openToAll: true } }));
+      r.queryHandler(
+        defineEntityListHandler("join", entity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+      );
     });
     expect(() => validate(feature, [hosts])).not.toThrow();
   });
@@ -121,7 +133,7 @@ describe("validateParentRefs", () => {
         name: "join:list",
         schema: z.object({}),
         handler: async () => ({ rows: [], nextCursor: null }),
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     expect(() => validate(feature)).toThrow(/join:list/);
@@ -134,7 +146,7 @@ describe("validateParentRefs", () => {
         name: "join:detail",
         schema: z.object({ id: z.uuid() }),
         handler: async () => null,
-        access: { openToAll: true },
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     expect(() => validate(feature)).toThrow(/join:detail/);

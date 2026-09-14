@@ -36,7 +36,7 @@ const LIST_QN = "filternotes:query:note:list";
 const filterNotesFeature = defineFeature("filternotes", (r) => {
   r.crud("note", filterNoteEntity, {
     write: { access: { roles: ["Admin"] } },
-    read: { access: { openToAll: true } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
 });
 

@@ -29,7 +29,7 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
       await jobRunner.dispatch("manualdispatch:job:record", { note: event.payload.note });
       return { isSuccess: true as const, data: { id: 1, note: event.payload.note } };
     },
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload) => {
     jobRuns.push({ name: "manualdispatch:job:record", payload });

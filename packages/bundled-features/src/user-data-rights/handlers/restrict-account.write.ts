@@ -40,7 +40,14 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 export const restrictAccountWrite = defineWriteHandler({
   name: "restrict-account",
   schema: z.object({ userId: z.string().uuid().optional() }),
-  access: { openToAll: true },
+  access: {
+    openToAll: {
+      reason:
+        "each signed-in user may restrict only their own account by default; targeting " +
+        "another userId additionally requires isAdminActor(event.user) and a membership " +
+        "row for the target in the admin's own tenant, both checked in the handler body",
+    },
+  },
   escapeHatch: {
     reason:
       "Revokes all live sessions of the (possibly self-)restricted user via ctx.writeAs(SYSTEM, " +

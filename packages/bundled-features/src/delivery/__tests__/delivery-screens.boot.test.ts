@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { access, isOpenToAllGranted, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { DELIVERY_LOG_SCREEN_ID } from "../constants";
 import { createDeliveryFeature } from "../feature";
@@ -33,9 +33,7 @@ describe("delivery screens + handler access alignment", () => {
   test("access option leaves the preferences handler openToAll — that's per-user, not an admin surface", () => {
     const delivery = createDeliveryFeature({ access: access.systemAdmin });
     const preferencesAccess = delivery.queryHandlers["preferences"]?.access;
-    expect(
-      preferencesAccess && "openToAll" in preferencesAccess && preferencesAccess.openToAll,
-    ).toBe(true);
+    expect(preferencesAccess !== undefined && isOpenToAllGranted(preferencesAccess)).toBe(true);
   });
 
   test("boot-validates with a narrowed access option", () => {

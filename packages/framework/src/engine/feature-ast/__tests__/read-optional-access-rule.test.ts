@@ -20,9 +20,9 @@ describe("readOptionalAccessRule — openToAll.personalData", () => {
     ).toEqual({ openToAll: { reason: "signup" } });
   });
 
-  test("the deprecated openToAll: true form carries no personalData", () => {
-    expect(readOptionalAccessRule({ openToAll: true, personalData: "tenant-members" })).toEqual({
-      openToAll: true,
-    });
+  test("the deprecated openToAll: true form is not extracted — fail-closed, consistent with isOpenToAllGranted", () => {
+    expect(
+      readOptionalAccessRule({ openToAll: true, personalData: "tenant-members" }),
+    ).toBeUndefined();
   });
 });

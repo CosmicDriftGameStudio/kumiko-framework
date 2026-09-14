@@ -27,13 +27,13 @@ const orderFeature = defineFeature("multi", (r) => {
     "order:open",
     z.object({ id: z.string() }),
     async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.writeHandler(
     "order:cancel",
     z.object({ id: z.string() }),
     async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
-    { access: { openToAll: true } },
+    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
   r.job(
     "fanout",
