@@ -3,6 +3,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import type { SchemaTable } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, entityTableFromRegistry, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntity,
@@ -67,6 +69,9 @@ const noteEntity = createEntity({
   },
 });
 
+// Needs stack.registry — assigned in beforeAll.
+let noteTable: SchemaTable;
+
 const hookNoteAEntity = createEntity({
   table: "qam_hook_note_a",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
@@ -94,6 +99,11 @@ const TRIES_WRITE_QN = "queryasmemberprobe:query:tries-write";
 const TRIES_APPEND_EVENT_QN = "queryasmemberprobe:query:tries-append-event";
 const TRIES_FETCH_FOR_WRITING_QN = "queryasmemberprobe:query:tries-fetch-for-writing";
 const TRIES_JOB_RUNNER_QN = "queryasmemberprobe:query:tries-job-runner";
+const TRIES_DB_WRITE_QN = "queryasmemberprobe:query:tries-db-write";
+const TRIES_UNSAFE_RAW_WRITE_QN = "queryasmemberprobe:query:tries-unsafe-raw-write";
+const TRIES_READ_WRITE_RESET_QN = "queryasmemberprobe:query:tries-read-write-reset";
+const NESTED_DB_WRITE_QN = "queryasmemberprobe:query:nested-db-write";
+const READ_AS_MEMBER_QUERY_QN = "queryasmemberprobe:query:read-as-member-query";
 const SYSTEM_SCOPE_READ_AS_MEMBER_QN = "queryasmembersystemscope:write:read-as-member";
 
 const probeFeature = defineFeature("queryasmemberprobe", (r) => {
@@ -170,6 +180,65 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     { access: { roles: ["Admin", "User"] } },
   );
 
+  // ctx.db stays available to a resolved member; these targets write through it.
+  r.queryHandler(
+    "tries-db-write",
+    z.object({}),
+    async (query, ctx) => {
+      await ctx.db.updateMany(noteTable, { body: "tampered" }, { tenantId: query.user.tenantId });
+      return { ok: true };
+    },
+    { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "tries-unsafe-raw-write",
+    z.object({}),
+    async (_query, ctx) => {
+      await asRawClient(ctx.db.unsafeRaw("test: raw write probe")).unsafe(
+        "UPDATE qam_notes SET body = 'tampered'",
+      );
+      return { ok: true };
+    },
+    {
+      access: { roles: ["Admin", "User"] },
+      escapeHatch: { reason: "test: raw write probe" },
+    },
+  );
+  r.queryHandler(
+    "tries-read-write-reset",
+    z.object({}),
+    async (_query, ctx) => {
+      const raw = asRawClient(ctx.db.unsafeRaw("test: raw write probe"));
+      await raw.unsafe("SET TRANSACTION READ WRITE");
+      await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
+      return { ok: true };
+    },
+    {
+      access: { roles: ["Admin", "User"] },
+      escapeHatch: { reason: "test: raw write probe" },
+    },
+  );
+  r.queryHandler(
+    "nested-db-write",
+    z.object({}),
+    async (_query, ctx) => ctx.query(TRIES_DB_WRITE_QN, {}),
+    { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "read-as-member-query",
+    z.object({
+      userId: z.string(),
+      targetQn: z.string(),
+      payload: z.record(z.string(), z.unknown()).default({}),
+    }),
+    async (query, ctx) =>
+      ctx.queryAsMember(query.payload.userId, query.payload.targetQn, query.payload.payload),
+    {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "test: reads as a stored member via a query caller" },
+    },
+  );
+
   // Caller-facing write handler that reads as a member — WITH and WITHOUT
   // escapeHatch (systemIdentitySwitchDenied gate).
   r.writeHandler(
@@ -225,6 +294,22 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     { access: { roles: ["Admin"] }, escapeHatch: { reason: "test: two-user cache check" } },
+  );
+  r.writeHandler(
+    "read-as-member-then-write",
+    z.object({ userId: z.string() }),
+    async (event, ctx) => {
+      await ctx.queryAsMember(event.payload.userId, NOTE_LIST_QN, {});
+      const result = await ctx.write("queryasmemberprobe:write:note:create", {
+        ownerId: event.payload.userId,
+        body: "after-read",
+      });
+      if (!result.isSuccess) {
+        throw new Error(`nested write after queryAsMember failed: ${JSON.stringify(result.error)}`);
+      }
+      return { isSuccess: true as const, data: { ok: true } };
+    },
+    { access: { roles: ["Admin"] }, escapeHatch: { reason: "test: read-then-write probe" } },
   );
 
   // authClaims — counter parity with cache + real-login-claims check.
@@ -330,6 +415,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, noteEntity);
+  noteTable = entityTableFromRegistry(stack.registry, "note", noteEntity);
   await unsafeCreateEntityTable(stack.db, hookNoteAEntity);
   await unsafeCreateEntityTable(stack.db, hookNoteBEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
@@ -415,6 +501,27 @@ async function readAsMemberErr(
 
 async function createNote(ownerId: string, body: string): Promise<void> {
   await stack.http.writeOk("queryasmemberprobe:write:note:create", { ownerId, body }, admin);
+}
+
+async function readAsMemberViaQuery(
+  userId: string,
+  targetQn: string,
+  payload: Record<string, unknown> = {},
+) {
+  return stack.http.queryOk<unknown>(READ_AS_MEMBER_QUERY_QN, { userId, targetQn, payload }, admin);
+}
+
+async function readAsMemberViaQueryErr(
+  userId: string,
+  targetQn: string,
+  payload: Record<string, unknown> = {},
+) {
+  return stack.http.queryErr(READ_AS_MEMBER_QUERY_QN, { userId, targetQn, payload }, admin);
+}
+
+async function readNoteBodies(): Promise<readonly string[]> {
+  const rows = await selectMany<{ body: string }>(stack.db, noteTable);
+  return [...rows.map((row) => row.body)].sort();
 }
 
 // ── 1. Ownership — reading as a member applies THEIR row filters ──────────
@@ -743,5 +850,138 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
     if (!result.isSuccess) {
       expect(errorReason(result.error.details)).toBe("member_resolution_read_only");
     }
+  });
+});
+
+// ── 7. Database-level read-only — the resolved principal's Postgres tx is
+//      itself READ ONLY, so even a raw ctx.db/unsafeRaw write is rejected ──
+
+describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)", () => {
+  beforeEach(async () => {
+    await resetTestTables(stack.db, [noteTable]);
+  });
+
+  test("a) tries-db-write via a write-caller (savepoint path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("dbwrite-write@example.com", "pw-long-enough-22");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+    await createNote(userId, "note-2");
+
+    const err = await readAsMemberErr(userId, TRIES_DB_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1", "note-2"]);
+  });
+
+  test("b) tries-db-write via a query-caller (pool path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("dbwrite-query@example.com", "pw-long-enough-23");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberViaQueryErr(userId, TRIES_DB_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("c1) tries-unsafe-raw-write via a write-caller (savepoint path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("rawwrite-write@example.com", "pw-long-enough-24");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberErr(userId, TRIES_UNSAFE_RAW_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("c2) tries-unsafe-raw-write via a query-caller (pool path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("rawwrite-query@example.com", "pw-long-enough-25");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberViaQueryErr(userId, TRIES_UNSAFE_RAW_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("d1) tries-read-write-reset via a write-caller: request fails, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("resetwrite-write@example.com", "pw-long-enough-26");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    await readAsMemberErr(userId, TRIES_READ_WRITE_RESET_QN);
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("d2) tries-read-write-reset via a query-caller: request fails, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("resetwrite-query@example.com", "pw-long-enough-27");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    await readAsMemberViaQueryErr(userId, TRIES_READ_WRITE_RESET_QN);
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("e) nested-db-write via a write-caller → denied with member_resolution_read_only, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("nesteddbwrite@example.com", "pw-long-enough-28");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberErr(userId, NESTED_DB_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("f) note:list via a query-caller (pool path) returns only the resolved member's own rows", async () => {
+    await createTenant(TENANT_A);
+    const userA = await createUser("dblist-a@example.com", "pw-long-enough-29");
+    const userB = await createUser("dblist-b@example.com", "pw-long-enough-30");
+    await addMembership(userA, TENANT_A);
+    await addMembership(userB, TENANT_A);
+    await createNote(userA, "a-note-1");
+    await createNote(userB, "b-note-1");
+
+    const result = (await readAsMemberViaQuery(userA, NOTE_LIST_QN)) as {
+      rows: Array<{ ownerId: string }>;
+    };
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.ownerId).toBe(userA);
+  });
+
+  test("g) tries-db-write via the normal dispatch path (no queryAsMember) succeeds, updates every row", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("directwrite@example.com", "pw-long-enough-31");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+    await createNote(userId, "note-2");
+
+    const result = await stack.http.queryOk<{ ok: boolean }>(TRIES_DB_WRITE_QN, {}, admin);
+    expect(result.ok).toBe(true);
+    expect(await readNoteBodies()).toEqual(["tampered", "tampered"]);
+  });
+
+  test("h) read-as-member-then-write: a read via queryAsMember followed by a normal write succeeds", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("readthenwrite@example.com", "pw-long-enough-32");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "existing-note");
+
+    const result = await stack.http.writeOk<{ ok: boolean }>(
+      "queryasmemberprobe:write:read-as-member-then-write",
+      { userId },
+      admin,
+    );
+    expect(result.ok).toBe(true);
+    expect(await readNoteBodies()).toEqual(["after-read", "existing-note"]);
   });
 });
