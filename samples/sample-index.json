@@ -30,6 +30,7 @@
       "samples": [
         "recipes-apex-surface-auth",
         "recipes-auth-foundation-providers",
+        "recipes-security-baseline",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,
@@ -102,6 +103,7 @@
         "recipes-encrypted-tenant-config",
         "recipes-managed-config",
         "recipes-managed-pages",
+        "recipes-security-baseline",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,
@@ -315,7 +317,7 @@
         "recipes-session-revocation",
         "recipes-user-profile"
       ],
-      "hasVisualOutput": true,
+      "hasVisualOutput": false,
       "readmeSummary": "**I want JWTs to be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding tokens before they expire.**",
       "primarySample": "recipes-session-revocation",
       "whenToUse": "Logins must be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding JWTs before they expire.",
@@ -347,6 +349,7 @@
     "tenant": {
       "samples": [
         "recipes-apex-surface-auth",
+        "recipes-security-baseline",
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
@@ -384,6 +387,7 @@
     "user": {
       "samples": [
         "recipes-apex-surface-auth",
+        "recipes-security-baseline",
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,

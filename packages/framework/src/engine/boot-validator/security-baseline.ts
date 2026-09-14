@@ -11,10 +11,12 @@ export function warnOnMissingSecurityBaseline(
   features: readonly FeatureDefinition[],
   nodeEnv: string | undefined = process.env["NODE_ENV"],
 ): void {
+  // skip: baseline is only enforced for production boots
   if (nodeEnv !== "production") return;
 
   const mountedNames = new Set(features.map((f) => f.name));
   const missing = SECURITY_BASELINE_FEATURE_NAMES.filter((name) => !mountedNames.has(name));
+  // skip: every baseline feature is mounted
   if (missing.length === 0) return;
 
   // biome-ignore lint/suspicious/noConsole: boot-time hint, no logger available yet
