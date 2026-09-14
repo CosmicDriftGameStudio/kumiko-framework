@@ -13,7 +13,13 @@ import { z } from "zod";
 import { ROLES } from "../../auth/roles";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
-import { createRegistry, defineFeature, type SessionUser, type WriteResult } from "../../engine";
+import {
+  createRegistry,
+  createSystemUser,
+  defineFeature,
+  type SessionUser,
+  type WriteResult,
+} from "../../engine";
 import { createWorkerEntrypoint } from "../../entrypoint";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
@@ -28,6 +34,7 @@ type ProbeOutcome = { readonly isSuccess: boolean; readonly errorCode: string | 
 const writeOutcomes: ProbeOutcome[] = [];
 const writeAsOutcomes: ProbeOutcome[] = [];
 const writeAsFailures: string[] = [];
+const jobQueryAsSystemResults: Array<{ readonly roles: readonly string[] }> = [];
 
 function recordOutcome(sink: ProbeOutcome[], result: WriteResult): void {
   sink.push({
@@ -57,11 +64,25 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     { access: { roles: [ROLES.TenantAdmin] } },
   );
 
+  r.queryHandler("whoami", z.object({}), async (query) => ({ roles: query.user.roles }), {
+    access: { roles: ["system"] },
+  });
+
   r.job("writeAsSystem", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     const result = await ctx.write("write-as-probe:write:admin-note", {
       note: payload["note"] as string, // @cast-boundary dynamic-key
     });
     recordOutcome(writeOutcomes, result);
+  });
+
+  // fw#2859 — JobContext.queryAs stays UNgated by the SYSTEM identity-switch gate.
+  r.job("queryAsSystemWhoami", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
+    const result = (await ctx.queryAs(
+      createSystemUser(ctx.systemUser.tenantId),
+      "write-as-probe:query:whoami",
+      {},
+    )) as { roles: readonly string[] }; // @cast-boundary engine-payload
+    jobQueryAsSystemResults.push(result);
   });
 
   r.job("writeAsActor", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
@@ -201,6 +222,31 @@ describe("JobContext.writeAs before attachDispatcher()", () => {
       expect(await notesFor("should never land")).toHaveLength(0);
     } finally {
       await runner.stop();
+    }
+  });
+});
+
+describe("JobContext.queryAs stays ungated by the SYSTEM identity-switch gate (framework#2859)", () => {
+  test("ctx.queryAs(createSystemUser(...), whoami) succeeds from inside a job", async () => {
+    jobQueryAsSystemResults.length = 0;
+    const worker = createWorkerEntrypoint({
+      registry: createRegistry([writeAsProbeFeature]),
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl: redisUrl(),
+      queueNamePrefix: uniquePrefix("job-query-as-system"),
+    });
+
+    await worker.start();
+    try {
+      await worker.jobRunner.dispatch("write-as-probe:job:query-as-system-whoami", {});
+
+      await waitFor(() => {
+        expect(jobQueryAsSystemResults.length).toBe(1);
+      });
+      expect(jobQueryAsSystemResults[0]?.roles).toContain("system");
+    } finally {
+      await worker.stop();
     }
   });
 });

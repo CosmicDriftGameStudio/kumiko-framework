@@ -97,6 +97,7 @@ export type QueryHandlerDefinition<
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,

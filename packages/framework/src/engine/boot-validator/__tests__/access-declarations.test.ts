@@ -116,6 +116,32 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
+  // 2b. escapeHatch reason must be non-empty on a query handler too (fw#2859:
+  // query handlers can't reach db.global(), but they can still declare
+  // escapeHatch to switch identity to SYSTEM via ctx.queryAs).
+  test("query handler escapeHatch with an empty reason throws, naming the handler", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "" },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list"/);
+  });
+
+  test("query handler escapeHatch with a non-empty reason boots fine", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "cross-tenant note lookup for auth" },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
   // 3. openToAll write handler accepting a personal-data field needs publicIntake.
   test("openToAll write handler accepting a personal-data field without publicIntake throws", () => {
     const feature = defineFeature("notes", (r) => {

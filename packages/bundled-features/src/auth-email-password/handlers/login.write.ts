@@ -263,6 +263,12 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       password: z.string().min(1),
     }),
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Unauthenticated login has no caller identity yet — it looks up the user row by " +
+        "email and resolves tenant memberships via ctx.queryAs(SYSTEM, ...) before a " +
+        "session exists.",
+    },
     description:
       "Signs a user in with email and password, running the lockout, email-verification, account-status, tenant-membership and MFA gates, and answering with a session or with an MFA challenge or setup requirement.",
     handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {

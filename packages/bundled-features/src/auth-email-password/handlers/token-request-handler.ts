@@ -95,6 +95,11 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     name: spec.handlerName,
     schema: RequestTokenSchema,
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Anonymous requester has no session — looks up the target user by email via " +
+        "ctx.queryAs(SYSTEM, user:findForAuth) to mint the out-of-band token.",
+    },
     description: spec.description,
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {

@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, defineFeature, HookPhases } from "../index";
-import type { PostSaveHookFn } from "../types";
+import type { AppContext, PostSaveHookFn, SaveContext } from "../types";
+
+const dummySaveContext: SaveContext = {
+  kind: "save",
+  id: "thing-1" as SaveContext["id"],
+  data: {},
+  changes: {},
+  previous: {},
+  isNew: true,
+};
+const dummyAppContext = {} as AppContext;
 
 // These tests lock in the phase defaults + filtering so the invariants survive
 // refactors. Behavior under test:
@@ -72,9 +82,15 @@ describe("HookPhases defaults", () => {
 });
 
 describe("Registry phase filtering", () => {
-  test("getPostSaveHooks filters by phase when given", () => {
-    const inTxFn: PostSaveHookFn = async () => undefined;
-    const afterFn: PostSaveHookFn = async () => undefined;
+  test("getPostSaveHooks filters by phase when given", async () => {
+    const inTxCalls: SaveContext[] = [];
+    const afterCalls: SaveContext[] = [];
+    const inTxFn: PostSaveHookFn = async (result) => {
+      inTxCalls.push(result);
+    };
+    const afterFn: PostSaveHookFn = async (result) => {
+      afterCalls.push(result);
+    };
 
     const feature = defineFeature("test", (r) => {
       r.entity("thing", createEntity({ table: "things", fields: {} }));
@@ -92,10 +108,18 @@ describe("Registry phase filtering", () => {
     const afterOnly = registry.getPostSaveHooks(handlerQn, HookPhases.afterCommit);
     const all = registry.getPostSaveHooks(handlerQn);
 
+    // Hooks are wrapped for the SYSTEM identity-switch gate (system-identity-
+    // switch.ts), so the stored fn is no longer reference-equal to the
+    // original — prove behaviour (calling the original) instead.
     expect(inTxOnly).toHaveLength(1);
-    expect(inTxOnly[0]).toBe(inTxFn);
+    await inTxOnly[0]?.(dummySaveContext, dummyAppContext);
+    expect(inTxCalls).toEqual([dummySaveContext]);
+    expect(afterCalls).toEqual([]);
+
     expect(afterOnly).toHaveLength(1);
-    expect(afterOnly[0]).toBe(afterFn);
+    await afterOnly[0]?.(dummySaveContext, dummyAppContext);
+    expect(afterCalls).toEqual([dummySaveContext]);
+
     expect(all).toHaveLength(2);
   });
 
@@ -114,9 +138,15 @@ describe("Registry phase filtering", () => {
     );
   });
 
-  test("getEntityPostSaveHooks filters by phase", () => {
-    const inTxFn: PostSaveHookFn = async () => undefined;
-    const afterFn: PostSaveHookFn = async () => undefined;
+  test("getEntityPostSaveHooks filters by phase", async () => {
+    const inTxCalls: SaveContext[] = [];
+    const afterCalls: SaveContext[] = [];
+    const inTxFn: PostSaveHookFn = async (result) => {
+      inTxCalls.push(result);
+    };
+    const afterFn: PostSaveHookFn = async (result) => {
+      afterCalls.push(result);
+    };
 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
@@ -125,8 +155,18 @@ describe("Registry phase filtering", () => {
     });
 
     const registry = createRegistry([feature]);
-    expect(registry.getEntityPostSaveHooks("thing", HookPhases.inTransaction)).toEqual([inTxFn]);
-    expect(registry.getEntityPostSaveHooks("thing", HookPhases.afterCommit)).toEqual([afterFn]);
+    const inTxHooks = registry.getEntityPostSaveHooks("thing", HookPhases.inTransaction);
+    const afterHooks = registry.getEntityPostSaveHooks("thing", HookPhases.afterCommit);
+
+    expect(inTxHooks).toHaveLength(1);
+    await inTxHooks[0]?.(dummySaveContext, dummyAppContext);
+    expect(inTxCalls).toEqual([dummySaveContext]);
+    expect(afterCalls).toEqual([]);
+
+    expect(afterHooks).toHaveLength(1);
+    await afterHooks[0]?.(dummySaveContext, dummyAppContext);
+    expect(afterCalls).toEqual([dummySaveContext]);
+
     expect(registry.getEntityPostSaveHooks("thing")).toHaveLength(2);
   });
 });

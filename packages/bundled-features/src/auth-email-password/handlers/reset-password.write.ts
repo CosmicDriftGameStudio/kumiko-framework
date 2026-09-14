@@ -26,6 +26,11 @@ export function createResetPasswordHandler(opts: ResetPasswordOptions) {
       newPassword: passwordSchema,
     }),
     access: { roles: ["all"] },
+    escapeHatch: {
+      reason:
+        "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +
+        "target user via ctx.writeAs(SYSTEM, user:update) to set the new password hash.",
+    },
     agent: { expose: false },
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {

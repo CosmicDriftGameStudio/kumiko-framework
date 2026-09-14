@@ -58,6 +58,11 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       mfaCode: z.string().optional(),
     }),
     access: { openToAll: true },
+    escapeHatch: {
+      reason:
+        "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, " +
+        "user:findForAuth) to re-verify the current password before minting the token.",
+    },
     description:
       "Mints a personal access token for the calling user after re-verifying their password (and MFA code when enrolled) and returns the plaintext token exactly once; use it when a user needs a long-lived API credential.",
     // Returns the plaintext token once; an agent turn would archive it in the
