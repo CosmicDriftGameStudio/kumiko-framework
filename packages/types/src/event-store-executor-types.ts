@@ -74,7 +74,7 @@ export type EventStoreExecutor = {
       filter?:
         | {
             readonly field: string;
-            readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+            readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
             readonly value: unknown;
           }
         | undefined;
@@ -83,7 +83,7 @@ export type EventStoreExecutor = {
       filters?:
         | ReadonlyArray<{
             readonly field: string;
-            readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+            readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
             readonly value: unknown;
           }>
         | undefined;

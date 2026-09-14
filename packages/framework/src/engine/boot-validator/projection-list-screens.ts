@@ -96,7 +96,7 @@ function validateProjectionListFilterSchemaAcceptance(
   if (screen.filter === undefined || schemaAccepts(schema, "filter")) return;
   throw new Error(
     `${prefix}: declares filter but query "${screen.query}" has no "filter" parameter in its Zod ` +
-      `schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","in"]), ` +
+      `schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","lte","gte","in"]), ` +
       `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
   );
 }
@@ -203,7 +203,7 @@ function validateRelatedListParentFilter(
   if (!schemaAccepts(schema, "filter")) {
     throw new Error(
       `${prefix}: declares parentFilter but query "${section.query}" has no "filter" parameter in its ` +
-        `Zod schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","in"]), ` +
+        `Zod schema — add filter: z.object({ field: z.string(), op: z.enum(["eq","ne","lt","gt","lte","gte","in"]), ` +
         `value: z.unknown() }).optional() (or reuse entityListSchema's shape) to the handler's schema.`,
     );
   }

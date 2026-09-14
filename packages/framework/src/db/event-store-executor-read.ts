@@ -104,26 +104,27 @@ function keysetBoundarySql(
 
 type ListFilter = {
   readonly field: string;
-  readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+  readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
   readonly value: unknown;
 };
 
 // multiSelect stores its options as a jsonb array — a filter value is one
 // option, not the whole array, so eq/ne/in must check array containment
 // (`@>`) instead of scalar `=`/`<>`/`IN` against the jsonb column (fw#2490).
-// lt/gt have no containment analogue; the boot-validator already blocks them
-// for screen-declared filters (screen-filter-ops.ts EQUALITY_ONLY), but a
-// client-supplied facet filter reaches here unvalidated, so treat it as
-// unsatisfiable rather than emitting SQL Postgres would reject.
+// lt/gt/lte/gte have no containment analogue; the boot-validator already
+// blocks them for screen-declared filters (screen-filter-ops.ts
+// EQUALITY_ONLY), but a client-supplied facet filter reaches here
+// unvalidated, so treat it as unsatisfiable rather than emitting SQL
+// Postgres would reject.
 function applyMultiSelectFilter(
   colSql: (field: string) => string,
   whereSql: string[],
   params: unknown[],
   f: ListFilter,
 ): void {
-  if (f.op === "lt" || f.op === "gt") {
+  if (f.op === "lt" || f.op === "gt" || f.op === "lte" || f.op === "gte") {
     whereSql.push("FALSE");
-    // skip: lt/gt is unsatisfiable on a multiSelect column
+    // skip: lt/gt/lte/gte is unsatisfiable on a multiSelect column
     return;
   }
   if (f.op === "in") {

@@ -171,21 +171,23 @@ export type ListSortSpec = {
 // unterscheidet sie.
 //
 // Operatoren (Drizzle-konsistent):
-//   eq/ne → field = value | field != value
-//   lt/gt → field < value | field > value (numerisch / temporal)
-//   in    → field IN (...values), value muss readonly array sein
+//   eq/ne     → field = value | field != value
+//   lt/gt     → field < value | field > value (numerisch / temporal)
+//   lte/gte   → field <= value | field >= value (numerisch / temporal)
+//   in        → field IN (...values), value muss readonly array sein
 //
 // Field muss in der Entity existieren UND `filterable: true` haben
-// (Boot-Validator pinned beides). `lt`/`gt` nur auf vergleichbaren
-// Field-Types (number/money/date/timestamp/locatedTimestamp); auf
-// text/boolean/select/multiSelect lehnt der Validator das ab.
+// (Boot-Validator pinned beides). `lt`/`gt`/`lte`/`gte` nur auf
+// vergleichbaren Field-Types (number/money/date/timestamp/
+// locatedTimestamp); auf text/boolean/select/multiSelect lehnt der
+// Validator das ab.
 //
 // Security-Modell: Filter ist UX-Bucketing, KEINE Access-Boundary. Der
 // Server appliziert den filter aus dem Payload — der Client kann ihn
 // weglassen oder durch einen anderen ersetzen. Boundary bleiben
 // access-rule + Tenant-Scope; Felder mit Sicherheits-Bias (encrypted,
 // restricted) müssen dort geschützt werden, nicht über den Screen-Filter.
-export type ScreenFilterOp = "eq" | "ne" | "lt" | "gt" | "in";
+export type ScreenFilterOp = "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
 export type ScreenFilter = {
   readonly field: string;
   readonly op: ScreenFilterOp;

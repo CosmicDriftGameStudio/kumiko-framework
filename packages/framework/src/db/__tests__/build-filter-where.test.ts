@@ -26,6 +26,14 @@ describe("buildFilterWhere", () => {
     expect(buildFilterWhere("createdAt", "gt", 100)).toEqual({ createdAt: { gt: 100 } });
   });
 
+  test("lte: wraps the value in a { lte } clause", () => {
+    expect(buildFilterWhere("createdAt", "lte", 100)).toEqual({ createdAt: { lte: 100 } });
+  });
+
+  test("gte: wraps the value in a { gte } clause", () => {
+    expect(buildFilterWhere("createdAt", "gte", 100)).toEqual({ createdAt: { gte: 100 } });
+  });
+
   test("in: non-empty array → direct array WhereObject", () => {
     expect(buildFilterWhere("status", "in", ["active", "pending"])).toEqual({
       status: ["active", "pending"],

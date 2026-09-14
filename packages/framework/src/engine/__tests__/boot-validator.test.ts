@@ -2306,7 +2306,7 @@ describe("boot-validator", () => {
     function makeFeature(
       filter: {
         readonly field: string;
-        readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+        readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
         readonly value: unknown;
       },
       fields: Record<string, unknown> = {
@@ -2363,6 +2363,25 @@ describe("boot-validator", () => {
           ),
         ]),
       ).not.toThrow();
+    });
+
+    test("filter.op=lte/gte auf number-Feld → kein Throw (vergleichbar)", () => {
+      const fields = {
+        name: { type: "text", filterable: true },
+        rank: { type: "number", filterable: true },
+      };
+      expect(() =>
+        validateBoot([makeFeature({ field: "rank", op: "lte", value: 5 }, fields)]),
+      ).not.toThrow();
+      expect(() =>
+        validateBoot([makeFeature({ field: "rank", op: "gte", value: 5 }, fields)]),
+      ).not.toThrow();
+    });
+
+    test("filter.op=lte auf text-Feld → Throw (op-vs-Type-Compat)", () => {
+      expect(() => validateBoot([makeFeature({ field: "status", op: "lte", value: "x" })])).toThrow(
+        /filter\.op "lte" is not allowed on field "status" \(type "text"\)/,
+      );
     });
 
     test('filter.op="in" mit non-array value → Throw', () => {

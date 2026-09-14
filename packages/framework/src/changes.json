@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.274.0",
+    "type": "improvement",
+    "title": "Entity-list filters gain lte/gte comparison operators.",
+    "detail": "Entity-list filters — a screen's static filter, its faceted filters, and any handler built on the entity-list executor — now accept `lte` and `gte` alongside the existing `eq`/`ne`/`lt`/`gt`/`in`, so a \"valid as of today or earlier\" filter can be applied server-side instead of loading every row and filtering in memory. Allowed on the same field types as `lt`/`gt` (number/money/decimal/date/timestamp/locatedTimestamp) — the boot validator rejects them elsewhere the same way it already rejects `lt`/`gt`.",
+    "migration": "No action required — purely additive; existing filters and their allowed operators are unchanged."
+  },
+  {
     "version": "0.272.0",
     "type": "breaking",
     "title": "r.step.read.findOne/read.findMany now tenant-filter by default; cross-tenant reads need unsafeAllTenants + escapeHatch (fw#2914).",

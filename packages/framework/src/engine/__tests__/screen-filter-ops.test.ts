@@ -3,7 +3,7 @@ import { createDecimalField, createMoneyField, createNumberField } from "../fact
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { ScreenFilterOp } from "../types";
 
-const COMPARABLE: ScreenFilterOp[] = ["eq", "ne", "lt", "gt", "in"];
+const COMPARABLE: ScreenFilterOp[] = ["eq", "ne", "lt", "gt", "lte", "gte", "in"];
 
 describe("getAllowedFilterOps — decimal is comparable (#343/1)", () => {
   test("decimal yields the full comparable op-set, not the empty default", () => {

@@ -6,7 +6,7 @@
 //     compare nutzt der Author selten bewusst); Author kann den
 //     Filter dann einfach nicht setzen.
 //   - boolean: eq, ne (in/lt/gt sinnlos für 2-Werte-Type).
-//   - number/money/decimal/date/timestamp/locatedTimestamp: alle 5
+//   - number/money/decimal/date/timestamp/locatedTimestamp: alle 7
 //     Ops — die Felder sind natürlich vergleichbar.
 //
 // Boot-Validator nutzt diese Map um Author-Fehler früh zu fangen
@@ -17,7 +17,15 @@
 import type { FieldDefinition, ScreenFilterOp } from "./types";
 
 const EQUALITY_ONLY = ["eq", "ne", "in"] as const satisfies readonly ScreenFilterOp[];
-const COMPARABLE = ["eq", "ne", "lt", "gt", "in"] as const satisfies readonly ScreenFilterOp[];
+const COMPARABLE = [
+  "eq",
+  "ne",
+  "lt",
+  "gt",
+  "lte",
+  "gte",
+  "in",
+] as const satisfies readonly ScreenFilterOp[];
 const BOOL_OPS = ["eq", "ne"] as const satisfies readonly ScreenFilterOp[];
 
 export function getAllowedFilterOps(field: FieldDefinition): readonly ScreenFilterOp[] {
