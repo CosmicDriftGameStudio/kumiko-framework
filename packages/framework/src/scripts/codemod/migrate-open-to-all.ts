@@ -1,13 +1,18 @@
 #!/usr/bin/env bun
-// migrate-open-to-all: rewrites deprecated `openToAll: true` to `{ reason }` in test files, and reports remaining non-test sites for a human to fix (see #2858). Usage: bun scripts/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>
+// migrate-open-to-all — rewrites deprecated `openToAll: true` to the required
+// `{ reason }` form in test files, and reports every remaining non-test site
+// for a human to pick a reason (fw#2858).
+//
+// Usage:
+//   bun scripts/codemod/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   Node,
   type ObjectLiteralExpression,
-  type PropertyAssignment,
   Project,
+  type PropertyAssignment,
   SyntaxKind,
 } from "ts-morph";
 

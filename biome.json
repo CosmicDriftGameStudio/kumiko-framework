@@ -18,7 +18,8 @@
       "!**/feature-manifest.json",
       "!**/sample-index.json",
       "!**/renderer-web/src/ui",
-      "!**/__tests__/fixtures/migrate-db-raw"
+      "!**/__tests__/fixtures/migrate-db-raw",
+      "!**/__tests__/fixtures/migrate-open-to-all"
     ]
   },
   "assist": {

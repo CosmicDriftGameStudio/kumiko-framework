@@ -6,6 +6,9 @@
     "outDir": "./dist"
   },
   "include": ["./src"],
-  "exclude": ["./src/__tests__/fixtures/migrate-db-raw"],
+  "exclude": [
+    "./src/__tests__/fixtures/migrate-db-raw",
+    "./src/__tests__/fixtures/migrate-open-to-all"
+  ],
   "references": [{ "path": "../types" }]
 }

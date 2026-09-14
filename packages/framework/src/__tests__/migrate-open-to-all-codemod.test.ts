@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { migrateOpenToAllSource } from "../migrate-open-to-all";
+import { migrateOpenToAllSource } from "../scripts/codemod/migrate-open-to-all";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-open-to-all");
 const DEFAULT_REASON = "test handler callable by any signed-in test user";
@@ -16,13 +16,13 @@ function readFixture(name: string): { input: string; expected: string } {
 describe("migrateOpenToAllSource", () => {
   it("rewrites a top-level openToAll: true in a *.test.ts file to the default test reason", () => {
     const { input, expected } = readFixture("test-simple");
-    const result = migrateOpenToAllSource(input, "widget-list.test.ts", { testReason: DEFAULT_REASON });
+    const result = migrateOpenToAllSource(input, "widget-list.test.ts", {
+      testReason: DEFAULT_REASON,
+    });
 
     expect(result.output).toBe(expected);
     expect(result.rewrites).toHaveLength(1);
-    expect(result.rewrites[0]?.after).toBe(
-      `openToAll: { reason: "${DEFAULT_REASON}" }`,
-    );
+    expect(result.rewrites[0]?.after).toBe(`openToAll: { reason: "${DEFAULT_REASON}" }`);
     expect(result.manual).toHaveLength(0);
   });
 
