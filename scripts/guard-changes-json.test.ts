@@ -189,7 +189,7 @@ describe("findChangesetViolations", () => {
     const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
     mkdirSync(join(root, ".changeset"), { recursive: true });
 
-    const violations = findChangesetViolations(root);
+    const violations = findChangesetViolations(root, undefined, { GITHUB_BASE_SHA: "missing-base" });
     expect(violations).toHaveLength(1);
     expect(violations[0].file).toBe("git");
   });

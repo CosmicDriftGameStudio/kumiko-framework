@@ -25,8 +25,22 @@ const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
 
-function changedFiles(repoRoot: string): readonly string[] {
-  const base = process.env["GITHUB_BASE_SHA"] ?? "origin/main";
+function changedFiles(
+  repoRoot: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): readonly string[] {
+  let base = env["GITHUB_BASE_SHA"] ?? "origin/main";
+  const baseRef = env["GITHUB_BASE_REF"] ?? (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
+  if (!env["GITHUB_BASE_SHA"] && baseRef) {
+    const fetched = Bun.spawnSync(["git", "fetch", "--no-tags", "--depth=1", "origin", baseRef], {
+      cwd: repoRoot,
+    });
+    if (fetched.exitCode !== 0) {
+      const detail = new TextDecoder().decode(fetched.stderr).trim();
+      throw new Error(`could not fetch diff base ${baseRef}${detail ? `: ${detail}` : ""}`);
+    }
+    base = "FETCH_HEAD";
+  }
   const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", `${base}...HEAD`], {
     cwd: repoRoot,
   });
@@ -53,7 +67,7 @@ export function findChangesetViolations(
   const violations: ChangelogViolation[] = [];
   let changedFilesToCheck: readonly string[];
   try {
-    changedFilesToCheck = changed ?? changedFiles(repoRoot);
+    changedFilesToCheck = changed ?? changedFiles(repoRoot, env);
   } catch (error) {
     return [
       {
