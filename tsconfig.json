@@ -83,6 +83,12 @@
       "path": "./packages/cli"
     },
     {
+      "path": "./packages/repo-manifest"
+    },
+    {
+      "path": "./packages/guards"
+    },
+    {
       "path": "./packages/create-kumiko-app"
     },
     {

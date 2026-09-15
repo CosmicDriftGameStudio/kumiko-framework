@@ -1,0 +1,39 @@
+{
+  "name": "@cosmicdrift/kumiko-repo-manifest",
+  "version": "0.0.0",
+  "description": "kumiko.json repo manifest schema and loader.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/repo-manifest"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
+  "type": "module",
+  "kumiko": {
+    "runtime": "dev"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "!src/**/__tests__/**",
+    "README.md",
+    "LICENSE"
+  ]
+}

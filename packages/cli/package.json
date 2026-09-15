@@ -38,6 +38,7 @@
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
     "zod": "^4.4.3"
   },
   "publishConfig": {

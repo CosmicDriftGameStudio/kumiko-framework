@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "repo": "kumiko-framework",
+  "generated": "2026-09-15",
+  "total": 20,
+  "hardFail": [
+    "Open-To-All-Reason Guard"
+  ],
+  "findings": {
+    "Access-Denied-Test Guard": {
+      "packages/bundled-features/src/user-data-rights/handlers/run-forget-cleanup.write.ts": 1,
+      "samples/recipes/encrypted-tenant-config/src/feature.ts": 1,
+      "samples/recipes/pipeline-basics/src/feature.ts": 3,
+      "samples/recipes/secrets-demo/src/feature.ts": 1,
+      "samples/recipes/webhook-step/src/feature.ts": 3
+    },
+    "Escape-Hatch-Declared Guard": {
+      "packages/bundled-features/src/auth-email-password/handlers/confirm-token-flow.ts": 2,
+      "packages/bundled-features/src/auth-email-password/handlers/login.write.ts": 2,
+      "packages/bundled-features/src/auth-mfa/mfa-code-verifier.ts": 1,
+      "packages/bundled-features/src/auth-mfa/mfa-status-checker.ts": 1,
+      "packages/bundled-features/src/crypto-shredding/handlers/forget-subject.write.ts": 1,
+      "packages/bundled-features/src/custom-fields/db/queries/field-access.ts": 1,
+      "packages/bundled-features/src/custom-fields/db/queries/quota.ts": 1,
+      "packages/bundled-features/src/user-data-rights/handlers/deletion-grace-period.ts": 2
+    }
+  }
+}

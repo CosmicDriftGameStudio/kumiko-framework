@@ -6,5 +6,5 @@
     "packages/bundled-features/src/**/web",
     "samples/apps/*/src/**/web"
   ],
-  "excludes": ["**/node_modules/**", "**/dist/**"]
+  "excludes": ["**/node_modules/**", "**/dist/**", "packages/guards/**", "packages/repo-manifest/**"]
 }

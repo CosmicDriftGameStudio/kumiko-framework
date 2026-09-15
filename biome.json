@@ -105,6 +105,7 @@
         "packages/framework/src/pipeline/**",
         "packages/framework/src/db/**",
         "packages/create-kumiko-app/**",
+        "packages/guards/**",
         "packages/dev-server/src/schema-apply.ts",
         "**/scripts/**"
       ],
