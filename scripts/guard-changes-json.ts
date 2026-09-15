@@ -30,7 +30,7 @@ function changedFiles(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
   let base = env["GITHUB_BASE_SHA"] ?? "origin/main";
-  const baseRef = env["GITHUB_BASE_REF"] ?? (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
+  const baseRef = env["GITHUB_BASE_REF"]?.trim() || (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
   if (!env["GITHUB_BASE_SHA"] && baseRef) {
     const fetched = Bun.spawnSync(["git", "fetch", "--no-tags", "--depth=1", "origin", baseRef], {
       cwd: repoRoot,
