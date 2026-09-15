@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { findChangelogViolations } from "./guard-changes-json";
+import { findChangelogViolations, findChangesetViolations, isReleaseBranch } from "./guard-changes-json";
 
 function buildFixtureRoot(features: readonly [relDir: string, entries: unknown][]): string {
   const root = mkdtempSync(join(tmpdir(), "changes-json-"));
@@ -31,7 +31,7 @@ describe("findChangelogViolations", () => {
       ],
     ]);
 
-    expect(findChangelogViolations(root)).toEqual([]);
+    expect(findChangelogViolations(root, [])).toEqual([]);
   });
 
   it("flags entries that are not newest-version-first", () => {
@@ -45,7 +45,7 @@ describe("findChangelogViolations", () => {
       ],
     ]);
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.length).toBe(1);
     expect(violations[0].detail).toContain("newest-version-first");
   });
@@ -61,7 +61,7 @@ describe("findChangelogViolations", () => {
       ],
     ]);
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.some((v) => v.detail.includes("newest-version-first"))).toBe(false);
   });
 
@@ -70,7 +70,7 @@ describe("findChangelogViolations", () => {
       ["some-feature", [{ version: "0.1.0", type: "breakign", title: "typo type" }]],
     ]);
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.some((v) => v.detail.includes("silently dropped"))).toBe(true);
   });
 
@@ -86,7 +86,7 @@ describe("findChangelogViolations", () => {
       ],
     ]);
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     const droppedViolations = violations.filter((v) => v.detail.includes("silently dropped"));
     expect(droppedViolations.length).toBe(1);
     expect(droppedViolations[0].detail).toContain("entry #1");
@@ -98,7 +98,7 @@ describe("findChangelogViolations", () => {
       ["some-feature", [{ version: "0.1.0", type: "breaking", title: "no migration field" }]],
     ]);
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.some((v) => v.detail.includes("migration"))).toBe(true);
   });
 
@@ -113,7 +113,7 @@ describe("findChangelogViolations", () => {
       ],
     ]);
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.some((v) => v.detail.includes("semver"))).toBe(true);
     expect(violations.some((v) => v.detail.includes("newest-version-first"))).toBe(false);
   });
@@ -124,19 +124,73 @@ describe("findChangelogViolations", () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "changes.json"), "{ not json");
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.some((v) => v.detail.includes("invalid JSON"))).toBe(true);
   });
 
   it("flags a repo with no changes.json at all", () => {
     const root = mkdtempSync(join(tmpdir(), "changes-json-"));
 
-    const violations = findChangelogViolations(root);
+    const violations = findChangelogViolations(root, []);
     expect(violations.length).toBe(1);
     expect(violations[0].detail).toContain("no changes.json found");
   });
 
   it("passes the real repo", () => {
-    expect(findChangelogViolations(join(import.meta.dir, ".."))).toEqual([]);
+    expect(findChangelogViolations(join(import.meta.dir, ".."), [])).toEqual([]);
+  });
+});
+
+describe("findChangesetViolations", () => {
+  it("requires metadata on changed changesets", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+    writeFileSync(join(root, ".changeset", "missing.md"), "---\n\"pkg\": patch\n---\n\nPlain note.\n");
+
+    const violations = findChangesetViolations(root, [".changeset/missing.md"]);
+
+    expect(violations).toEqual([
+      { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
+    ]);
+  });
+
+  it("rejects direct changes.json edits outside the release branch", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+
+    const violations = findChangesetViolations(root, ["packages/framework/src/changes.json"], {});
+
+    expect(violations).toEqual([
+      {
+        file: "packages/framework/src/changes.json",
+        detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead",
+      },
+    ]);
+  });
+
+  it("allows direct changes.json edits on a release push branch", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+
+    expect(isReleaseBranch({ GITHUB_REF_NAME: "changeset-release/main" })).toBe(true);
+    expect(findChangesetViolations(root, ["packages/framework/src/changes.json"], {
+      GITHUB_REF_NAME: "changeset-release/main",
+    })).toEqual([]);
+  });
+
+  it("ignores deleted changesets", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+
+    expect(findChangesetViolations(root, [".changeset/deleted.md"], {})).toEqual([]);
+  });
+
+  it("reports a git diff failure instead of passing silently", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+
+    const violations = findChangesetViolations(root, undefined, { GITHUB_BASE_SHA: "missing-base" });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].file).toBe("git");
   });
 });

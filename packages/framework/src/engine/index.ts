@@ -24,6 +24,7 @@ export {
   SETTINGS_HUB_WORKSPACE,
 } from "./build-config-feature-schema";
 export { buildTarget } from "./build-target";
+export { type PendingChange, parseChangesetChanges } from "./changeset-changes";
 export {
   access,
   createSeed,

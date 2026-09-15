@@ -11,7 +11,7 @@
  * Exit 1 on violations, 0 when clean.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
 import {
@@ -19,10 +19,87 @@ import {
   parseFeatureChangelog,
   validateChangelog,
 } from "../packages/framework/src/engine/feature-changelog";
+import { parseChangesetChanges } from "../packages/framework/src/engine/changeset-changes";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
+
+function changedFiles(
+  repoRoot: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): readonly string[] {
+  let base = env["GITHUB_BASE_SHA"] ?? "origin/main";
+  const baseRef = env["GITHUB_BASE_REF"] ?? (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
+  if (!env["GITHUB_BASE_SHA"] && baseRef) {
+    const fetched = Bun.spawnSync(["git", "fetch", "--no-tags", "--depth=1", "origin", baseRef], {
+      cwd: repoRoot,
+    });
+    if (fetched.exitCode !== 0) {
+      const detail = new TextDecoder().decode(fetched.stderr).trim();
+      throw new Error(`could not fetch diff base ${baseRef}${detail ? `: ${detail}` : ""}`);
+    }
+    base = "FETCH_HEAD";
+  }
+  const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", base, "HEAD"], {
+    cwd: repoRoot,
+  });
+  if (result.exitCode !== 0) {
+    const detail = new TextDecoder().decode(result.stderr).trim();
+    throw new Error(`could not determine changed files${detail ? `: ${detail}` : ""}`);
+  }
+  return new TextDecoder().decode(result.stdout).split("\n").filter(Boolean);
+}
+
+export function isReleaseBranch(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return (
+    (env["GITHUB_HEAD_REF"] ?? "").startsWith("changeset-release/") ||
+    (env["GITHUB_REF_NAME"] ?? "").startsWith("changeset-release/") ||
+    (env["GITHUB_REF"] ?? "").endsWith("/heads/changeset-release/main")
+  );
+}
+
+export function findChangesetViolations(
+  repoRoot: string,
+  changed?: readonly string[],
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): ChangelogViolation[] {
+  const violations: ChangelogViolation[] = [];
+  let changedFilesToCheck: readonly string[];
+  try {
+    changedFilesToCheck = changed ?? changedFiles(repoRoot, env);
+  } catch (error) {
+    return [
+      {
+        file: "git",
+        detail: error instanceof Error ? error.message : String(error),
+      },
+    ];
+  }
+
+  const changesetDir = join(repoRoot, ".changeset");
+  if (existsSync(changesetDir)) {
+    for (const file of changedFilesToCheck.filter((path) => path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md")) {
+      if (!existsSync(join(repoRoot, file))) continue;
+      try {
+        const raw = readFileSync(join(repoRoot, file), "utf-8");
+        const parsed = parseChangesetChanges(raw, file);
+        if (parsed.length === 0) {
+          violations.push({ file, detail: "missing kumiko-changes metadata block" });
+        }
+      } catch (error) {
+        violations.push({ file, detail: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  }
+
+  if (!isReleaseBranch(env)) {
+    for (const file of changedFilesToCheck.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
+      violations.push({ file, detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead" });
+    }
+  }
+  return violations;
+}
 
 export function findChangesFiles(repoRoot: string): string[] {
   return Array.from(new Glob("packages/**/changes.json").scanSync({ cwd: repoRoot }))
@@ -30,11 +107,17 @@ export function findChangesFiles(repoRoot: string): string[] {
     .sort();
 }
 
-export function findChangelogViolations(repoRoot: string): ChangelogViolation[] {
+export function findChangelogViolations(
+  repoRoot: string,
+  changed?: readonly string[],
+): ChangelogViolation[] {
   const files = findChangesFiles(repoRoot);
+
+  const changesetViolations = findChangesetViolations(repoRoot, changed);
 
   if (files.length === 0) {
     return [
+      ...changesetViolations,
       {
         file: "packages/**/changes.json",
         detail: "no changes.json found — the glob no longer matches the repo layout",
@@ -42,7 +125,7 @@ export function findChangelogViolations(repoRoot: string): ChangelogViolation[] 
     ];
   }
 
-  const violations: ChangelogViolation[] = [];
+  const violations: ChangelogViolation[] = changesetViolations;
 
   for (const rel of files) {
     const raw = readFileSync(join(repoRoot, rel), "utf-8");
