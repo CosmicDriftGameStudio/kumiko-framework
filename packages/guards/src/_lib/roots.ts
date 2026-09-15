@@ -8,7 +8,7 @@
  * array for the local repo.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   type LoadedRepoManifest,
@@ -246,4 +246,59 @@ export function frameworkPackageTsConfigPath(
 
 export function frameworkTsConfigPath(cwd?: string): string | undefined {
   return frameworkPackageTsConfigPath("framework", cwd);
+}
+
+export function isFlatSrcLayout(root: RepoRoot): boolean {
+  return root.manifest.sourceRoots.length === 1 && root.manifest.sourceRoots[0] === "src";
+}
+
+// Only a whole-segment "*" is supported for dir expansion — "**" or a partial
+// wildcard (e.g. "pkg*") has no single real directory to expand to.
+function assertExpandablePattern(pattern: string): void {
+  for (const segment of pattern.split("/")) {
+    if (segment === "*") continue;
+    if (/[*?[\]{}]/.test(segment)) {
+      throw new Error(`sourceRootDirs: unsupported pattern for dir expansion: "${pattern}"`);
+    }
+  }
+}
+
+function isRealDirectory(path: string): boolean {
+  try {
+    return lstatSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function expandSourceRootPattern(rootAbs: string, pattern: string): string[] {
+  assertExpandablePattern(pattern);
+  let current = [rootAbs];
+  for (const segment of pattern.split("/")) {
+    const next: string[] = [];
+    for (const dir of current) {
+      if (segment === "*") {
+        if (!existsSync(dir)) continue;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          if (entry.isDirectory()) next.push(join(dir, entry.name));
+        }
+      } else {
+        const candidate = join(dir, segment);
+        // lstat (not statSync) so a symlinked "src" dir is rejected, not followed.
+        if (isRealDirectory(candidate)) next.push(candidate);
+      }
+    }
+    current = next;
+  }
+  return current;
+}
+
+export function sourceRootDirs(root: RepoRoot): string[] {
+  const out = new Set<string>();
+  for (const pattern of root.manifest.sourceRoots) {
+    for (const dir of expandSourceRootPattern(root.absPath, pattern)) {
+      out.add(dir);
+    }
+  }
+  return [...out].sort();
 }
