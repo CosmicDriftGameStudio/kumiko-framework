@@ -253,6 +253,8 @@ export type RunResult = {
   readonly frozenFindings?: number;
   /** True when `isSecurityGuard(guard)` — governs reportResults' security-only lines. */
   readonly security?: boolean;
+  /** Printed, never blocking. */
+  readonly warnings?: readonly GuardViolation[];
 };
 
 // Per-root floor: a root whose declared sourceRoots hold zero .ts/.tsx files is a violation; only applies to scope "source".
@@ -336,6 +338,57 @@ export function runGuards(
     } catch (e) {
       results.push({
         name: guard.name,
+        ok: false,
+        ms: Math.round(performance.now() - start),
+        error: e instanceof Error ? (e.stack ?? e.message) : String(e),
+      });
+    }
+  }
+  return results;
+}
+
+export type RepoCheckOutcome = {
+  readonly violations: readonly GuardViolation[];
+  readonly warnings?: readonly GuardViolation[];
+  readonly matchedFiles: number;
+  /** Target not in this repo (e.g. no packages/renderer/src). */
+  readonly notApplicable: boolean;
+};
+
+export type RepoCheck = {
+  readonly name: string;
+  readonly hint?: string;
+  run(roots: readonly RepoRoot[]): RepoCheckOutcome | Promise<RepoCheckOutcome>;
+};
+
+const VACUOUS_MESSAGE =
+  "0 Dateien gescannt, obwohl die Ziel-Repos im Checkout liegen — die Globs greifen nicht.";
+
+/** Standalone-`main()` guards (their own scan/walk, no shared ts-morph project) run in-process through this. */
+export async function runRepoChecks(
+  checks: readonly RepoCheck[],
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Promise<RunResult[]> {
+  const results: RunResult[] = [];
+  for (const check of checks) {
+    const start = performance.now();
+    try {
+      const outcome = await check.run(roots);
+      const vacuous = !outcome.notApplicable && outcome.matchedFiles === 0;
+      results.push({
+        name: check.name,
+        ok: outcome.violations.length === 0 && !vacuous,
+        ms: Math.round(performance.now() - start),
+        outcome: { violations: outcome.violations },
+        warnings: outcome.warnings,
+        hint: check.hint,
+        notApplicable: outcome.notApplicable,
+        matchedFiles: outcome.matchedFiles,
+        message: vacuous ? VACUOUS_MESSAGE : undefined,
+      });
+    } catch (e) {
+      results.push({
+        name: check.name,
         ok: false,
         ms: Math.round(performance.now() - start),
         error: e instanceof Error ? (e.stack ?? e.message) : String(e),
@@ -437,6 +490,9 @@ export function reportResults(results: readonly RunResult[]): number {
           ? ` — ${r.frozenFindings} eingefrorene Security-Findings (Baseline)`
           : "";
       console.log(`  ✓ ${r.name} (${r.ms}ms)${scope}${frozen}`);
+      for (const w of r.warnings ?? []) {
+        console.log(`    ! ${w.file}:${w.line}  ${w.message}`);
+      }
       continue;
     }
     failed++;
@@ -462,6 +518,9 @@ export function reportResults(results: readonly RunResult[]): number {
     }
     for (const v of r.outcome?.violations ?? []) {
       console.error(`    ${v.file}:${v.line}  ${v.message}`);
+    }
+    for (const w of r.warnings ?? []) {
+      console.error(`    ! ${w.file}:${w.line}  ${w.message}`);
     }
     if (r.hint) console.error(`    → ${r.hint}`);
   }

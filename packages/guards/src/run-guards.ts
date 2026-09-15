@@ -17,12 +17,21 @@ import {
 import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 import { guard as accessDeniedTest } from "./guard-access-denied-test";
 import { guard as adminApi } from "./guard-admin-api";
+import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
 import { guard as directFetch } from "./guard-direct-fetch";
 import { guard as escapeHatchDeclared } from "./guard-escape-hatch-declared";
+import { guard as fakeTests } from "./guard-fake-tests";
+import { guard as htmlEscape } from "./guard-html-escape";
+import { guard as noDateApi } from "./guard-no-date-api";
 import { guard as noDirectFs } from "./guard-no-direct-fs";
+import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as openToAllReason } from "./guard-open-to-all-reason";
+import { guard as preEsPatterns } from "./guard-pre-es-patterns";
+import { guard as restrictedSymbols } from "./guard-restricted-symbols";
+import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
+import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
 
 export const GUARDS = [
   accessDeniedTest,
@@ -33,6 +42,15 @@ export const GUARDS = [
   noDirectFs,
   openToAllReason,
   tenantEscalation,
+  preEsPatterns,
+  unsafeJsonParse,
+  silentSkip,
+  htmlEscape,
+  crossFeatureImports,
+  noDateApi,
+  restrictedSymbols,
+  fakeTests,
+  noLogicInViews,
 ];
 
 // Only run on direct invocation — otherwise `import { GUARDS }` would kick

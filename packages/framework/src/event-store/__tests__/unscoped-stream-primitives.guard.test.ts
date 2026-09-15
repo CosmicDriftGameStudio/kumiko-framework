@@ -13,6 +13,9 @@ const ALLOWED_FILES = new Set([
   "packages/bundled-features/src/tenant/seeding.ts",
   "packages/bundled-features/src/tier-engine/feature.ts",
   "packages/framework/src/event-store/__tests__/unscoped-stream-primitives.guard.test.ts",
+  // Fixtures of the AST guard that enforces this same restriction.
+  "packages/guards/src/__tests__/guard-fires.test.ts",
+  "packages/guards/src/__tests__/guard-restricted-symbols.test.ts",
 ]);
 
 const REPO_ROOT = `${import.meta.dir}/../../../../..`;
