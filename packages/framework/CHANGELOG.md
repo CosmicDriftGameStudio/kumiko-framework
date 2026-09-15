@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.277.0
+
+### Minor Changes
+
+- 411e80b: Use Changesets as the single source for structured upgrade changelog entries.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Changesets are the single source for upgrade changelog entries
+  detail: The release step folds structured Changeset metadata into changes.json with the actual published version.
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.277.0
+
 ## 0.276.0
 
 ### Minor Changes

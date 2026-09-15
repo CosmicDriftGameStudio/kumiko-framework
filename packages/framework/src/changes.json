@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.277.0",
+    "type": "improvement",
+    "title": "Changesets are the single source for upgrade changelog entries",
+    "detail": "The release step folds structured Changeset metadata into changes.json with the actual published version."
+  },
+  {
     "version": "0.276.0",
     "type": "improvement",
     "title": "entityEdit and actionForm screens accept `slots.titleAction`, rendered on the right of the form title.",
