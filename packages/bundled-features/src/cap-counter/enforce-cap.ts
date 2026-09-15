@@ -1,12 +1,6 @@
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { rollingCapAggregateId } from "./aggregate-id";
-import {
-  CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-  CapCounterHandlers,
-  ROLLING_INCREMENTED_EVENT_QN,
-} from "./constants";
+import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage";
 import { capCounterEntity } from "./entity";
 
 // Temporal globally provided by the framework's polyfill init
@@ -180,32 +174,10 @@ export async function enforceRollingCap(
   const softThreshold = options.limit * tolerance.soft;
   const hardThreshold = options.limit * tolerance.hard;
 
-  const aggregateId = rollingCapAggregateId(ctx.user.tenantId, options.capName);
-  const cutoff = Temporal.Now.instant().subtract({ hours: options.windowDays * 24 });
-
-  // events_tenant_type_idx (tenant_id, aggregate_type, created_at)
-  // covers the prefix; the additional aggregate_id eq narrows to the
-  // single rolling-stream. Postgres can use the index even with the
-  // aggregate_id filter applied as a residual.
-  const rows = await ctx.db.selectMany<{ payload: { amount?: number } }>(eventsTable, {
-    tenantId: ctx.user.tenantId,
-    aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-    aggregateId,
-    type: ROLLING_INCREMENTED_EVENT_QN,
-    createdAt: { gte: cutoff },
+  const value = await readRollingCapUsage(ctx.db, ctx.user.tenantId, {
+    capName: options.capName,
+    windowDays: options.windowDays,
   });
-
-  let value = 0;
-  for (const row of rows) {
-    // @cast-boundary engine-payload — events.payload is jsonb (typed as
-    // unknown by drizzle's $type<Record<string,unknown>>); narrowing
-    // the shape here is a deliberate read-side contract for the
-    // rolling-incremented-event we authored.
-    const payload = row["payload"] as { amount?: number };
-    if (typeof payload.amount === "number") {
-      value += payload.amount;
-    }
-  }
 
   if (value >= hardThreshold) {
     throw new CapExceededError(options.capName, options.limit, value, tolerance);
@@ -335,11 +307,7 @@ export async function enforceCapAndMaybeNotify(
       tenantId: ctx.user.tenantId,
     });
     // Flip the soft-warned flag so the same period doesn't re-notify.
-    // We're already inside a write-handler-context, so dispatching the
-    // mark-soft-warned-handler in-line works via ctx.write (re-uses
-    // the request user; the handler's own access-check enforces the
-    // SystemAdmin role on the caller).
-    await ctx.write(CapCounterHandlers.markSoftWarned, {
+    await markCapSoftWarned(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
     });
