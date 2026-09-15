@@ -35,6 +35,7 @@ function buildEntity(): EntityDefinition {
 function renderEditCapturingForm(
   screen: EntityEditScreenDefinition,
   extraTranslations?: TranslationsByLocale,
+  hideSectionTitles = false,
 ): {
   captured: FormProps | undefined;
 } {
@@ -78,6 +79,7 @@ function renderEditCapturingForm(
           entity={buildEntity()}
           featureName="widgets"
           initial={{ name: "" }}
+          {...(hideSectionTitles && { hideSectionTitles: true })}
         />
       </PrimitivesProvider>
     </LocaleProvider>,
@@ -127,6 +129,24 @@ describe("RenderEdit — screen.description as form subtitle (fw#2723)", () => {
     const { captured } = renderEditCapturingForm(screen);
 
     expect(captured).toBeDefined();
+    expect(captured && "subtitle" in captured).toBe(false);
+  });
+
+  test("tabs mode suppresses a description whose key matches the subtitle probe", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "widget-edit",
+      type: "entityEdit",
+      entity: "widget",
+      description: "screen:widget-edit.subtitle",
+      layout: { mode: "tabs", sections: [{ title: "Basics", fields: ["name"] }] },
+    };
+
+    const { captured } = renderEditCapturingForm(
+      screen,
+      { "en-US": { "screen:widget-edit.subtitle": "Widget details." } },
+      true,
+    );
+
     expect(captured && "subtitle" in captured).toBe(false);
   });
 });

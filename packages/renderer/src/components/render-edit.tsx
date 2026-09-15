@@ -1193,10 +1193,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // screen.description is head-card copy, not tab content — in tabs mode
   // (hideSectionTitles) the head card already carries title/subtitle/status.
   const formSubtitle =
-    resolveScreenText("subtitle") ??
-    (hideSectionTitles !== true && screen.description !== undefined
-      ? translate(screen.description)
-      : undefined);
+    hideSectionTitles !== true
+      ? (resolveScreenText("subtitle") ??
+        (screen.description !== undefined ? translate(screen.description) : undefined))
+      : undefined;
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
