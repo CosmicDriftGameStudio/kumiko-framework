@@ -3,8 +3,7 @@
 // only per-app variables were the TierName union and its caps/defaults, so
 // both are now factory parameters.
 
-import { buildEntityTable, type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { tierAssignmentEntity } from "./entity";
 
 export type TierResolverDeps<TTier extends string, TCaps> = {
@@ -18,14 +17,16 @@ export function createTierResolver<TTier extends string, TCaps>(
 ) {
   const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
-  async function resolveTier(db: DbRunner, tenantId: TenantId): Promise<TTier> {
-    const row = await fetchOne<{ tier?: unknown }>(db, tierAssignmentTable, { tenantId });
+  async function resolveTier(db: TenantDb): Promise<TTier> {
+    const row = await db.fetchOne<{ tier?: unknown }>(tierAssignmentTable, {
+      tenantId: db.tenantId,
+    });
     const tier = row?.tier;
     return typeof tier === "string" && deps.isTierName(tier) ? tier : deps.defaultTier;
   }
 
-  async function resolveTierCaps(db: DbRunner, tenantId: TenantId): Promise<TCaps> {
-    return deps.capsForTier(await resolveTier(db, tenantId));
+  async function resolveTierCaps(db: TenantDb): Promise<TCaps> {
+    return deps.capsForTier(await resolveTier(db));
   }
 
   return { tierAssignmentTable, resolveTier, resolveTierCaps };

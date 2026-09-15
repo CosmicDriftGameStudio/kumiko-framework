@@ -9,7 +9,7 @@
 //      verbrannt für gescheiterte writes)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   defineFeature,
@@ -25,6 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
+import { bookCapUsage, readRollingCapUsage } from "../book-cap-usage";
 import { CapCounterQueries } from "../constants";
 import type { SoftHitNotifier } from "../enforce-cap";
 import { capCounterEntity } from "../entity";
@@ -87,9 +88,71 @@ const wrappedRolling = withRollingCapEnforcement(
 
 const NEWSLETTER_QN = "newsletter:write:send-newsletter";
 const NEWSLETTER_ROLLING_QN = "newsletter:write:send-rolling";
+
+// =============================================================================
+// TenantAdmin-only probes (fw#2854 gap): the users above carry BOTH
+// TenantAdmin and SystemAdmin, which hid the bug that enforceCapAndMaybeNotify
+// / withCapEnforcement / withRollingCapEnforcement used to dispatch
+// SystemAdmin-only handlers (ctx.write(CapCounterHandlers.increment) etc.) —
+// a plain TenantAdmin caller with no escapeHatch would have gotten
+// access_denied. These handlers carry ONLY TenantAdmin and no escapeHatch,
+// proving the in-process booking helpers (book-cap-usage.ts) work for
+// ordinary tenant callers.
+// =============================================================================
+
+const tenantOnlyInnerHandler: WriteHandlerDef = {
+  name: "send-newsletter-tenant-only",
+  schema: z.object({ to: z.string() }),
+  access: { roles: ["TenantAdmin"] },
+  handler: async (_event, _ctx) => ({ isSuccess: true as const, data: { sent: true } }),
+};
+
+const TENANT_ONLY_PERIOD = "2026-08-01T00:00:00Z";
+
+const wrappedCalendarTenantOnly = withCapEnforcement(tenantOnlyInnerHandler, () => ({
+  capName: "newsletter-cap-tenant-only",
+  periodStartIso: TENANT_ONLY_PERIOD,
+  limit: 10,
+  profile: "burstable",
+  notify: recordingNotifier,
+}));
+
+const wrappedRollingTenantOnly = withRollingCapEnforcement(
+  { ...tenantOnlyInnerHandler, name: "send-rolling-tenant-only" },
+  () => ({
+    capName: "newsletter-rolling-cap-tenant-only",
+    windowDays: 7,
+    limit: 2,
+    profile: "hardSlot",
+    notify: recordingNotifier,
+  }),
+);
+
+const OUTSIDE_TX_CAP_NAME = "outside-tx-booking-cap";
+const bookOutsideTxThenFailHandler: WriteHandlerDef = {
+  name: "book-outside-tx-then-fail",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: async (_event, ctx) => {
+    await bookCapUsage(ctx, {
+      capName: OUTSIDE_TX_CAP_NAME,
+      periodStartIso: TENANT_ONLY_PERIOD,
+      outsideTransaction: true,
+    });
+    throw new Error("boom-after-booking");
+  },
+};
+
+const NEWSLETTER_TENANT_ONLY_QN = "newsletter:write:send-newsletter-tenant-only";
+const NEWSLETTER_ROLLING_TENANT_ONLY_QN = "newsletter:write:send-rolling-tenant-only";
+const BOOK_OUTSIDE_TX_QN = "newsletter:write:book-outside-tx-then-fail";
+
 const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedCalendar);
   r.writeHandler(wrappedRolling);
+  r.writeHandler(wrappedCalendarTenantOnly);
+  r.writeHandler(wrappedRollingTenantOnly);
+  r.writeHandler(bookOutsideTxThenFailHandler);
 });
 
 // =============================================================================
@@ -119,6 +182,14 @@ function adminFor(tenantNumber: number) {
     id: tenantNumber,
     tenantId: testTenantId(tenantNumber),
     roles: ["TenantAdmin", "SystemAdmin"],
+  });
+}
+
+function tenantAdminOnlyFor(tenantNumber: number) {
+  return createTestUser({
+    id: tenantNumber,
+    tenantId: testTenantId(tenantNumber),
+    roles: ["TenantAdmin"],
   });
 }
 
@@ -275,5 +346,97 @@ describe("withRollingCapEnforcement — rolling", () => {
     expect(blocked.code).toBe("cap_exceeded");
     expect(blocked.httpStatus).toBe(429);
     expect(sendCallCount).toBe(7); // wrapper hat den blockierten handler NICHT gerufen
+  });
+});
+
+// =============================================================================
+// TenantAdmin-only callers (no SystemAdmin, no escapeHatch) — fw#2854
+// =============================================================================
+
+describe("withCapEnforcement / withRollingCapEnforcement — TenantAdmin-only callers", () => {
+  test("calendar: TenantAdmin-only caller books usage, soft-warn flag gets set, hard cap blocks", async () => {
+    const user = tenantAdminOnlyFor(2201);
+
+    // limit=10, burstable(soft=1.1,hard=1.2) → soft=11, hard=12. 12 successful
+    // calls cross the soft threshold on the 12th (pre-check sees value=11);
+    // the 13th sees value=12 >= hard and blocks.
+    for (let i = 0; i < 12; i++) {
+      await stack.http.writeOk(NEWSLETTER_TENANT_ONLY_QN, { to: `${i}@x.de` }, user);
+    }
+    const row = await readCounter(user, "newsletter-cap-tenant-only", TENANT_ONLY_PERIOD);
+    expect(row).not.toBeNull();
+    expect(row!["value"]).toBe(12);
+    expect(row!["lastSoftWarnedAt"]).not.toBeNull();
+
+    const blocked = await stack.http.writeErr(
+      NEWSLETTER_TENANT_ONLY_QN,
+      { to: "blocked@x.de" },
+      user,
+    );
+    expect(blocked.code).toBe("cap_exceeded");
+    expect(blocked.httpStatus).toBe(429);
+  });
+
+  test("rolling: TenantAdmin-only caller books usage, hard cap blocks", async () => {
+    const user = tenantAdminOnlyFor(2202);
+
+    // limit=2, hardSlot(soft=hard=1.0) → 2 successful bookings, 3rd blocks.
+    await stack.http.writeOk(NEWSLETTER_ROLLING_TENANT_ONLY_QN, { to: "a@x.de" }, user);
+    await stack.http.writeOk(NEWSLETTER_ROLLING_TENANT_ONLY_QN, { to: "b@x.de" }, user);
+
+    const blocked = await stack.http.writeErr(
+      NEWSLETTER_ROLLING_TENANT_ONLY_QN,
+      { to: "blocked@x.de" },
+      user,
+    );
+    expect(blocked.code).toBe("cap_exceeded");
+    expect(blocked.httpStatus).toBe(429);
+  });
+
+  test("tenant B's counter is unaffected by tenant A's TenantAdmin-only bookings", async () => {
+    const tenantA = tenantAdminOnlyFor(2301);
+    const tenantB = tenantAdminOnlyFor(2302);
+
+    for (let i = 0; i < 3; i++) {
+      await stack.http.writeOk(NEWSLETTER_TENANT_ONLY_QN, { to: `${i}@x.de` }, tenantA);
+    }
+
+    const rowA = await readCounter(tenantA, "newsletter-cap-tenant-only", TENANT_ONLY_PERIOD);
+    expect(rowA!["value"]).toBe(3);
+
+    const rowB = await readCounter(tenantB, "newsletter-cap-tenant-only", TENANT_ONLY_PERIOD);
+    expect(rowB).toBeNull();
+  });
+
+  test("bookCapUsage(..., outsideTransaction: true) survives the handler's own rollback", async () => {
+    const user = tenantAdminOnlyFor(2401);
+
+    const error = await stack.http.writeErr(BOOK_OUTSIDE_TX_QN, {}, user);
+    expect(error.httpStatus).toBeGreaterThanOrEqual(400);
+
+    const row = await readCounter(user, OUTSIDE_TX_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row).not.toBeNull();
+    expect(row!["value"]).toBe(1);
+  });
+
+  test("readRollingCapUsage: tenant B reads 0 for the same capName after tenant A booked", async () => {
+    const tenantA = tenantAdminOnlyFor(2501);
+    const tenantB = tenantAdminOnlyFor(2502);
+
+    await stack.http.writeOk(NEWSLETTER_ROLLING_TENANT_ONLY_QN, { to: "a@x.de" }, tenantA);
+
+    const usageA = await readRollingCapUsage(
+      createTenantDb(stack.db, tenantA.tenantId),
+      tenantA.tenantId,
+      { capName: "newsletter-rolling-cap-tenant-only", windowDays: 7 },
+    );
+    expect(usageA).toBeGreaterThan(0);
+
+    const usageB = await readRollingCapUsage(
+      createTenantDb(stack.db, tenantB.tenantId),
+      tenantB.tenantId,
+      { capName: "newsletter-rolling-cap-tenant-only", windowDays: 7 },
+    );
+    expect(usageB).toBe(0);
   });
 });

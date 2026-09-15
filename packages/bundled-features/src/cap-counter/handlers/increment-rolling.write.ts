@@ -20,8 +20,7 @@
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { rollingCapAggregateId } from "../aggregate-id";
-import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "../constants";
+import { bookRollingCapUsage } from "../book-cap-usage";
 
 const incrementRollingSchema = z.object({
   /** App-defined cap-name. e.g. "ai-tokens-7day", "egress-bytes-24h". */
@@ -59,22 +58,10 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     // shape we declared via incrementRollingSchema. Mirror der
     // existing increment.write.ts-Cast — gleiche dispatcher-boundary.
     const payload = event.payload as IncrementRollingPayload;
-    const aggregateId = rollingCapAggregateId(event.user.tenantId, payload.capName);
-
-    // unsafeAppendEvent — bundled-features-Pfad (apps mit bun kumiko
-    // codegen kriegen den strict-typed appendEvent-Wrapper). Schema-
-    // Validation läuft trotzdem, weil r.defineEvent das Schema
-    // registriert hat.
-    await ctx.unsafeAppendEvent({
-      aggregateId,
-      aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-      type: ROLLING_INCREMENTED_EVENT_QN,
-      payload: {
-        capName: payload.capName,
-        amount: payload.amount,
-      },
+    const data = await bookRollingCapUsage(ctx, {
+      capName: payload.capName,
+      amount: payload.amount,
     });
-
-    return { isSuccess: true, data: { aggregateId, amount: payload.amount } };
+    return { isSuccess: true, data };
   },
 };

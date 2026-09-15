@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-08-30
-evidence: "kumiko-framework#2496 (feat/cap-overview); #2503 (drei Caps, Tone); #2515 (not-measured); admin-shell Opt-in Nav (602174b77); bundled-features/cap-overview"
+verified: 2026-09-15
+evidence: "kumiko-framework#2496 (feat/cap-overview); #2503 (drei Caps, Tone); #2515 (not-measured); admin-shell Opt-in Nav (602174b77); bundled-features/cap-overview; fw#2854"
 ---
 
 # cap-overview: Tier- und Cap-Usage-Dashboards
@@ -23,6 +23,21 @@ Dashboards.
   Weggelassen → **kein** Facet (die Engine trägt keine eigene Tier-Vokabular-
   Enumeration, aus der man eines ableiten könnte; "Filter by tier" war explizit
   angefragt — `tiers` weglassen droppt den Filter bewusst, kein Default).
+
+### Usage-Callbacks
+
+`CapSpec.usage`/`usageBatch` bekommen eine **system-mode** `TenantDb` — ohne
+eigenen Tenant-Filter. Immer explizit `tenantId` übergeben:
+
+```ts
+usage: (db, tenantId) => db.count(table, { tenantId, ... }),
+usage: (db, tenantId) => db.fetchOne(table, { tenantId, ... }),
+```
+
+Für ein Rolling-Window-Cap (z.B. AI-Tokens/7d) das `cap-counter`-Feature
+nutzen: `bookRollingCapUsage(ctx, { capName, amount })` zum Buchen im
+Handler, `readRollingCapUsage(db, tenantId, { capName, windowDays })` als
+`usage`-Callback.
 
 ## Registrierte Screens
 

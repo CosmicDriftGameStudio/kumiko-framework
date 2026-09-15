@@ -15,6 +15,7 @@ import {
 import {
   asEntityTableMeta,
   asRawClient,
+  countWhere as bunCountWhere,
   deleteMany as bunDeleteMany,
   fetchOne as bunFetchOne,
   insertOne as bunInsertOne,
@@ -451,6 +452,11 @@ export function createTenantDb(
     ): Promise<T | undefined> {
       const filter = readWhere(table, where) ?? {};
       return withDbSpan("select", table, async () => bunFetchOne<T>(db, table, filter));
+    },
+
+    count(table: Table | EntityTableMeta, where?: WhereObject): Promise<number> {
+      const filter = readWhere(table, where);
+      return withDbSpan("select", table, async () => bunCountWhere(db, table, filter));
     },
 
     insertOne<T = Record<string, unknown>>(
