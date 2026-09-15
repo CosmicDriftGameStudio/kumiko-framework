@@ -1474,6 +1474,8 @@ export type SecretsEditScreenDefinition = {
 
 export type ScreenSlots = {
   readonly header?: PlatformComponent;
+  /** entityEdit / actionForm: rendered on the right of the form title, same row. */
+  readonly titleAction?: PlatformComponent;
   readonly beforeForm?: PlatformComponent;
   readonly afterForm?: PlatformComponent;
   readonly sidebar?: PlatformComponent;

@@ -2294,39 +2294,52 @@ function FormSections({
 function FormTitleBlock({
   title,
   subtitle,
+  titleAction,
   testId,
   bordered,
   fillHeight,
 }: {
   readonly title: ReactNode;
   readonly subtitle: ReactNode;
+  readonly titleAction: ReactNode;
   readonly testId: string | undefined;
   readonly bordered: boolean;
   readonly fillHeight: boolean | undefined;
 }): ReactNode {
-  if (title === undefined && subtitle === undefined) return null;
+  if (title === undefined && subtitle === undefined && titleAction === undefined) return null;
   return (
     <div
       className={cn(
+        "flex items-start justify-between gap-4",
         bordered ? cn(cardHeaderBorder, "px-6 pb-4 pt-5") : "pb-4",
         fillHeight === true && "shrink-0",
       )}
     >
-      {title !== undefined && (
-        <h2
-          data-testid={testId !== undefined ? `${testId}-title` : undefined}
-          className="text-lg font-semibold tracking-tight"
+      <div className="min-w-0">
+        {title !== undefined && (
+          <h2
+            data-testid={testId !== undefined ? `${testId}-title` : undefined}
+            className="text-lg font-semibold tracking-tight"
+          >
+            {title}
+          </h2>
+        )}
+        {subtitle !== undefined && (
+          <p
+            data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+            className="mt-1 text-sm text-muted-foreground"
+          >
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {titleAction !== undefined && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-title-action` : undefined}
+          className="flex shrink-0 flex-wrap items-center justify-end gap-2"
         >
-          {title}
-        </h2>
-      )}
-      {subtitle !== undefined && (
-        <p
-          data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
-          className="mt-1 text-sm text-muted-foreground"
-        >
-          {subtitle}
-        </p>
+          {titleAction}
+        </div>
       )}
     </div>
   );
@@ -2397,6 +2410,7 @@ function DefaultForm({
   width,
   stickyActions,
   headerRegion,
+  titleAction,
   fillHeight,
   chromeless,
 }: FormProps): ReactNode {
@@ -2473,6 +2487,7 @@ function DefaultForm({
           <FormTitleBlock
             title={title}
             subtitle={subtitle}
+            titleAction={titleAction}
             testId={testId}
             bordered={false}
             fillHeight={fillHeight}
@@ -2519,6 +2534,7 @@ function DefaultForm({
           <FormTitleBlock
             title={title}
             subtitle={subtitle}
+            titleAction={titleAction}
             testId={testId}
             bordered={true}
             fillHeight={fillHeight}

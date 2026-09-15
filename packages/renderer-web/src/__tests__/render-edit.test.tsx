@@ -3621,6 +3621,75 @@ describe("RenderEdit fields filter", () => {
   });
 });
 
+describe("RenderEdit — slots.titleAction", () => {
+  function TitleChips({ entityId }: { readonly entityId: string | null }): ReactNode {
+    return (
+      <span data-testid="title-chips" data-entity-id={entityId ?? "(create)"}>
+        3 left
+      </span>
+    );
+  }
+
+  test("titleAction renders in the form title row, next to the title and outside the actions", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ TitleChips }}>
+          <RenderEdit<TestValues>
+            screen={{
+              id: "orders:screen:order-edit-title-action",
+              type: "entityEdit",
+              entity: "order",
+              description: "Edit the order",
+              layout: {
+                sections: [{ title: "Basics", columns: 1, fields: [{ field: "title" }] }],
+              },
+              slots: { titleAction: { react: { __component: "TitleChips" } } },
+            }}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleAction = screen.getByTestId("render-edit-form-title-action");
+    const chips = screen.getByTestId("title-chips");
+    expect(titleAction.contains(chips)).toBe(true);
+    expect(chips.getAttribute("data-entity-id")).toBe("order-1");
+    const titleRow = titleAction.parentElement;
+    expect(titleRow?.contains(screen.getByTestId("render-edit-form-title"))).toBe(true);
+    expect(
+      screen.getByTestId("render-edit-form-actions").querySelector('[data-testid="title-chips"]'),
+    ).toBeNull();
+  });
+
+  test("without titleAction the title row has no action container", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={{
+            id: "orders:screen:order-edit-plain-title",
+            type: "entityEdit",
+            entity: "order",
+            description: "Edit the order",
+            layout: { sections: [{ title: "Basics", columns: 1, fields: [{ field: "title" }] }] },
+          }}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:update"
+          entityId="order-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("render-edit-form-title-action")).toBeNull();
+  });
+});
+
 describe("RenderEdit — slots.header", () => {
   function HeaderExtra({ entityId }: { readonly entityId: string | null }): ReactNode {
     return (
