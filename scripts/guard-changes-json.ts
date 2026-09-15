@@ -41,7 +41,7 @@ function changedFiles(
     }
     base = "FETCH_HEAD";
   }
-  const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", `${base}...HEAD`], {
+  const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", base, "HEAD"], {
     cwd: repoRoot,
   });
   if (result.exitCode !== 0) {
