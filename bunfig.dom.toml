@@ -53,4 +53,6 @@ pathIgnorePatterns = [
   "**/renderer-web/src/__tests__/kumiko-screen-singleton-entity-edit.test.tsx",
   # Same #457 singleton create->update pattern, split out of return-to.test.tsx.
   "**/renderer-web/src/__tests__/return-to-singleton.test.tsx",
+  # Same #457 pattern: entityEdit waits for an async load, then types and submits.
+  "**/renderer-web/src/__tests__/kumiko-screen-money-tenant-currency.test.tsx",
 ]
