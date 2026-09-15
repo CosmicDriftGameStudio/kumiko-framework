@@ -3,8 +3,13 @@
 // only per-app variable was the Caps shape and how to resolve it for a
 // tenant, so both are now factory parameters.
 
-import { countWhere, type DbRunner, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EntityTableMeta,
+  SchemaTable,
+  TenantDb,
+  WhereObject,
+} from "@cosmicdrift/kumiko-framework/db";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,
   type WriteFailure,
@@ -13,7 +18,7 @@ import {
 import { enforceStockCap } from "./enforce-cap";
 
 export type StockCapSpec<TCaps> = {
-  readonly table: Parameters<typeof countWhere>[1];
+  readonly table: SchemaTable | EntityTableMeta;
   readonly limit: (caps: TCaps) => number;
   readonly where?: WhereObject;
   readonly code: string;
@@ -22,24 +27,19 @@ export type StockCapSpec<TCaps> = {
 };
 
 export type StockCapGuard<TCaps> = {
-  readonly checkStockCap: (
-    db: DbRunner,
-    tenantId: TenantId,
-    spec: StockCapSpec<TCaps>,
-  ) => Promise<WriteFailure | null>;
+  readonly checkStockCap: (db: TenantDb, spec: StockCapSpec<TCaps>) => Promise<WriteFailure | null>;
   readonly withStockCap: (handler: WriteHandlerDef, spec: StockCapSpec<TCaps>) => WriteHandlerDef;
 };
 
 export function createStockCapGuard<TCaps>(
-  resolveTierCaps: (db: DbRunner, tenantId: TenantId) => Promise<TCaps>,
+  resolveTierCaps: (db: TenantDb) => Promise<TCaps>,
 ): StockCapGuard<TCaps> {
   async function checkStockCap(
-    db: DbRunner,
-    tenantId: TenantId,
+    db: TenantDb,
     spec: StockCapSpec<TCaps>,
   ): Promise<WriteFailure | null> {
-    const caps = await resolveTierCaps(db, tenantId);
-    const current = await countWhere(db, spec.table, { ...spec.where, tenantId });
+    const caps = await resolveTierCaps(db);
+    const current = await db.count(spec.table, { ...spec.where, tenantId: db.tenantId });
     const { state, limit } = enforceStockCap({
       current,
       limit: spec.limit(caps),
@@ -55,15 +55,10 @@ export function createStockCapGuard<TCaps>(
   }
 
   function withStockCap(handler: WriteHandlerDef, spec: StockCapSpec<TCaps>): WriteHandlerDef {
-    const capReason =
-      "counts the caller tenant's rows and resolves its tier caps through the raw-runner cap API";
     return {
       ...handler,
-      escapeHatch: handler.escapeHatch
-        ? { reason: `${handler.escapeHatch.reason} ${capReason}` }
-        : { reason: capReason },
       handler: async (event, ctx) => {
-        const failure = await checkStockCap(ctx.db.unsafeRaw(capReason), event.user.tenantId, spec);
+        const failure = await checkStockCap(ctx.db, spec);
         return failure ?? handler.handler(event, ctx);
       },
     };

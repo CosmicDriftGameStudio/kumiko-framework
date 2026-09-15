@@ -1,10 +1,6 @@
-import { createEntityExecutor, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { Temporal } from "temporal-polyfill";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { capCounterAggregateId } from "../aggregate-id";
-import { capCounterEntity } from "../entity";
-
-const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
+import { markCapSoftWarned } from "../book-cap-usage";
 
 // mark-soft-warned — sets lastSoftWarnedAt on the counter so subsequent
 // soft-cap-hits in the same period don't re-trigger notifications.
@@ -26,32 +22,9 @@ export const markSoftWarnedHandler: WriteHandlerDef = {
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const payload = event.payload as z.infer<typeof markSoftWarnedSchema>; // @cast-boundary engine-payload
-    const aggregateId = capCounterAggregateId(
-      event.user.tenantId,
-      payload.capName,
-      payload.periodStartIso,
-    );
-
-    const existing = await ctx.db.selectMany(table, { id: aggregateId }, { limit: 1 });
-    if (existing.length === 0) {
-      throw new Error(
-        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${event.user.tenantId} cap=${payload.capName} period=${payload.periodStartIso}`,
-      );
-    }
-    const row = existing[0];
-    if (!row) {
-      throw new Error("cap-counter:mark-soft-warned: row vanished between length-check and read");
-    }
-    const currentVersion = row["version"] as number; // @cast-boundary db-row
-
-    return executor.update(
-      {
-        id: aggregateId,
-        version: currentVersion,
-        changes: { lastSoftWarnedAt: Temporal.Now.instant() },
-      },
-      event.user,
-      ctx.db,
-    );
+    return markCapSoftWarned(ctx, {
+      capName: payload.capName,
+      periodStartIso: payload.periodStartIso,
+    });
   },
 };

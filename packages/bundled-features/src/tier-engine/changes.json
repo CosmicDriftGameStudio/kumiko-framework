@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.275.0",
+    "type": "breaking",
+    "title": "createTierResolver's resolveTier/resolveTierCaps take only a TenantDb — no separate tenantId argument (fw#2854).",
+    "detail": "`resolveTier(db)` and `resolveTierCaps(db)` (from `createTierResolver`) now read the tenant from `db.tenantId` instead of taking a second `tenantId` parameter, so a caller can no longer pass a `TenantDb` for one tenant alongside a different `tenantId` and resolve a foreign tenant's tier.",
+    "migration": "`resolveTier(ctx.db.raw|runner, tenantId)` → `resolveTier(ctx.db)` (same for `resolveTierCaps`). Outside a handler: `resolveTier(createTenantDb(runner, tenantId))`."
+  },
+  {
     "version": "0.241.0",
     "type": "breaking",
     "title": "TierAdminScreen removed; tier-admin is now a declarative actionForm (fw#2312).",
