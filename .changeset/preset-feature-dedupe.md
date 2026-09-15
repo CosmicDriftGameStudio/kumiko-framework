@@ -1,5 +1,0 @@
----
-"@cosmicdrift/kumiko-framework": minor
----
-
-`createRegistry`, `validateBoot`, `createApp`, and `composeFeatures` now deduplicate the mounted feature list before building the registry, instead of failing with `Duplicate feature: "<name>"` the moment two mounts share a name. A factory can opt in via `defineFeature`'s new third `settings` argument (`{ dedupeOptions }`): two instances with shallow-equal `dedupeOptions` are treated as interchangeable and collapsed to the first one, same reference twice is always collapsed, and anything else (differing options, or two instances with no `dedupeOptions` at all) still throws — now with a message that explains why. `createSessionsFeature`, `createCryptoShreddingFeature`, `createRateLimitingFeature`, and `createAuditFeature` opt in, so `securityBaselineFeatures()` no longer needs `includeSessions: false` to combine with `dsgvoSelfServiceFeatures()`, and mounting `createSessionsFeature()` both standalone and via the preset no longer throws at boot.
