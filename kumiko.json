@@ -1,6 +1,6 @@
 {
   "kind": "framework",
-  "sourceRoots": ["packages/*/src", "samples", "scripts"],
+  "sourceRoots": ["packages/*/src", "packages/*/bin", "packages/renderer-web/e2e", "samples", "scripts"],
   "testGlobs": ["packages/*/src/**/*.{test,integration}.{ts,tsx}"],
   "uiRoots": [
     "packages/bundled-features/src/**/web",
