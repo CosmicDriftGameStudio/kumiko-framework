@@ -7,7 +7,7 @@ import {
   REPO_MANIFEST_FILE,
   type RepoManifest,
   RepoManifestError,
-} from "../repo-manifest";
+} from "../index";
 
 function writeManifest(root: string, manifest: unknown): void {
   writeFileSync(join(root, REPO_MANIFEST_FILE), JSON.stringify(manifest), "utf8");
