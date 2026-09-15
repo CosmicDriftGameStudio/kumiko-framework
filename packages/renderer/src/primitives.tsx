@@ -811,6 +811,10 @@ export type FormProps = {
    *  instead of rendering as unpadded siblings before it. Native impls may
    *  ignore this prop. */
   readonly headerRegion?: ReactNode;
+  /** Compact content on the right of the form title, same row — status
+   *  chips or allowance badges that belong to the screen, not to a field.
+   *  Native impls may ignore this prop. */
+  readonly titleAction?: ReactNode;
   /** Sizes the form to fill its container's height (instead of the page's
    *  natural content height) so a single scrolling child — a lone
    *  relatedList tab's table — can scroll internally instead of stretching

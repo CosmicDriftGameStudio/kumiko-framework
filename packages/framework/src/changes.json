@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.276.0",
+    "type": "improvement",
+    "title": "entityEdit and actionForm screens accept `slots.titleAction`, rendered on the right of the form title.",
+    "detail": "`ScreenSlots.titleAction` mounts an `extensionSectionComponents` entry in the form title row (same props as `slots.header`: screenId, entityName, entityId, values). `FormProps.titleAction` carries it to the primitives; the web `DefaultForm` renders it right-aligned next to title and subtitle in `<testId>-title-action`, in both the card and the chromeless layout. Native primitives may ignore it.",
+    "migration": "No action required — purely additive."
+  },
+  {
     "version": "0.275.0",
     "type": "breaking",
     "title": "JobContext.db is a tenant-filtered TenantDb; unfiltered job access needs r.job({ escapeHatch }) or r.systemScope() (fw#2914).",

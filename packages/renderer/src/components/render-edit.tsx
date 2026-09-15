@@ -208,7 +208,7 @@ function EditSlotMount({
   wizardStep,
 }: {
   readonly slot: PlatformComponent;
-  readonly slotName: "header" | "footer";
+  readonly slotName: "header" | "titleAction" | "footer";
   readonly screenId: string;
   readonly entityName: string;
   readonly entityId: string | null;
@@ -1088,6 +1088,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ) : (
       headerRegion
     );
+  const titleActionSlot = screen.slots?.titleAction;
+  const titleActionMount =
+    titleActionSlot !== undefined ? (
+      <EditSlotMount
+        slot={titleActionSlot}
+        slotName="titleAction"
+        screenId={screen.id}
+        entityName={vm.entityName}
+        entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
+        values={snapshot.values}
+      />
+    ) : undefined;
   const footerSlot = screen.slots?.footer;
   // Mirrors every branch inside formActions below — without this guard
   // DefaultForm renders an empty footer strip (border + padding, no content)
@@ -1199,6 +1211,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         stickyActions={isWizard}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
         {...(formHeaderRegion !== undefined && { headerRegion: formHeaderRegion })}
+        {...(titleActionMount !== undefined && { titleAction: titleActionMount })}
         {...(fillHeight && { fillHeight })}
         {...(hideSectionTitles === true && { chromeless: true })}
       >
