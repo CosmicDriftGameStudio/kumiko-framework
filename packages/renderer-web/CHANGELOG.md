@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.276.0
+
+### Minor Changes
+
+- a5347bc: entityEdit and actionForm screens accept `slots.titleAction`: an extension component rendered on the right of the form title, in the same row — for status chips or allowance badges that belong to the screen. `FormProps.titleAction` carries it to the primitives; the web form renders it in `<testId>-title-action`.
+
+### Patch Changes
+
+- Updated dependencies [a5347bc]
+  - @cosmicdrift/kumiko-renderer@0.276.0
+  - @cosmicdrift/kumiko-headless@0.276.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.276.0
+
 ## 0.275.0
 
 ### Patch Changes
