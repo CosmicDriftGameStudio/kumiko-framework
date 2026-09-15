@@ -44,6 +44,7 @@ export {
   OnDeleteStrategies,
   SystemHookNames,
   SystemHookPriorities,
+  TENANT_CURRENCY_CONFIG_KEY,
   tenantChannel,
 } from "./constants";
 export type { App, AppConfig } from "./create-app";

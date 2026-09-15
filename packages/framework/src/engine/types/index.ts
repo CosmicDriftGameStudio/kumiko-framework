@@ -119,6 +119,7 @@ export type {
   LocatedTimestampFieldDef,
   LongTextFieldDef,
   LongTextFindability,
+  MoneyCurrencySource,
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,

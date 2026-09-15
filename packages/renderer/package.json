@@ -17,6 +17,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-types": "workspace:*",
     "react": "^19.2.6",
     "temporal-polyfill": "^0.3.2",
     "zod": "^4.4.3"

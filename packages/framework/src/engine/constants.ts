@@ -97,6 +97,15 @@ export type { ConcurrencyMode };
 const _concurrencyModeExhaustive: Record<ConcurrencyMode, unknown> = ConcurrencyModes;
 void _concurrencyModeExhaustive;
 
+// --- Money Currency Sources ---
+// Canonical definition lives in kumiko-types/fields (client-safe, next to
+// MoneyCurrencySource) so renderer code can import it without pulling in
+// runtime-only engine code (fw#2937). Re-exported here for server callers
+// already importing framework/engine (bundled-features/src/tenant-settings/
+// constants.ts TenantSettingsConfig.currency reuses this same constant, so
+// the two stay in sync by construction).
+export { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
+
 // --- SSE Channels ---
 
 export function tenantChannel(tenantId: TenantId): string {

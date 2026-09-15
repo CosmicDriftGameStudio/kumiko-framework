@@ -1,3 +1,5 @@
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
+
 // tenant-settings bundle constants — feature-name + qualified config names.
 //
 // Motivation (solon#P19): apps kept hard-coding a single currency/locale
@@ -11,6 +13,9 @@ export const TENANT_SETTINGS_FEATURE_NAME = "tenant-settings";
 // ctx.config(...) reads. Clients reference the object instead of magic
 // strings (mirror tags' Handlers/Queries constants).
 export const TenantSettingsConfig = {
-  currency: "tenant-settings:config:currency",
+  // Shared with engine/constants.ts's TENANT_CURRENCY_CONFIG_KEY — a
+  // `money` field's `currency: { kind: "tenant" }` declaration (fw#2933)
+  // resolves against this same key.
+  currency: TENANT_CURRENCY_CONFIG_KEY,
   locale: "tenant-settings:config:locale",
 } as const;

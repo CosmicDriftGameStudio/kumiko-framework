@@ -8,6 +8,13 @@
   },
   {
     "version": "0.274.0",
+    "type": "improvement",
+    "title": "A money field can declare `currency: { kind: \"tenant\" }` to source its currency from the tenant-settings config key.",
+    "detail": "`createMoneyField` accepts an optional `currency: MoneyCurrencySource` — a discriminated union (exported from `@cosmicdrift/kumiko-framework/engine/types`), currently only `{ kind: \"tenant\" }`, left room for #2839's later `literal`/`field` variants. The declaration reaches the client app schema (`buildAppSchema`'s field projection). In an entityEdit form (create and update), a rendered money field that declares `{ kind: \"tenant\" }` reads the tenant's currency via the existing `config:query:values` query (key `tenant-settings:config:currency`) instead of `entity.defaultCurrency ?? \"EUR\"`: an empty value's initial amount and currency come from the tenant's setting, and the form waits for that query rather than momentarily showing/submitting `EUR` while it is in flight. A field's already-stored value always keeps its own currency, unaffected by the declaration. A field without the declaration is unchanged.",
+    "migration": "No action required — purely additive; a money field without `currency` declared keeps today's `entity.defaultCurrency ?? \"EUR\"` behavior."
+  },
+  {
+    "version": "0.274.0",
     "type": "breaking",
     "title": "A searchable reference field targeting an encrypted/PII labelField now fails boot unless that label is itself searchable.",
     "detail": "A searchable reference field can now match a search term against a target row's label even when that label is encrypted or personal data — the match runs through the target entity's own search index instead of the plain-text lookup used for a readable label, which could never match ciphertext and always returned zero matches. As with the plain-text lookup, an unusually large number of index matches drops the match clause instead of silently returning an incomplete page. A matched target row is also checked against the target entity's own read access for the current user, so a match can never surface a row the user could not otherwise see.",
