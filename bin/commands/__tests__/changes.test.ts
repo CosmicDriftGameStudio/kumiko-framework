@@ -137,4 +137,40 @@ describe("changes fold", () => {
     expect(second.exit).toBe(0);
     expect(JSON.parse(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8"))).toHaveLength(2);
   });
+
+  test("reads all target changelogs before writing any updates", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/framework/src/changes.json": JSON.stringify([
+        { version: "0.275.0", type: "fix", title: "Previous framework fix" },
+      ]),
+      "packages/bundled-features/package.json": BUNDLED_FEATURES_PACKAGE,
+      "packages/bundled-features/src/sessions/changes.json": "not json",
+      ".changeset/a-framework-fix.md": `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nFramework fix.\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Framework fix\n-->\n`,
+      ".changeset/b-sessions-fix.md": `---\n"@cosmicdrift/kumiko-bundled-features": patch\n---\n\nSessions fix.\n\n<!-- kumiko-changes\nfeature: sessions\ntype: fix\ntitle: Sessions fix\n-->\n`,
+      ".changeset-status.json": JSON.stringify({
+        changesets: [{ id: "a-framework-fix" }, { id: "b-sessions-fix" }],
+        releases: [
+          {
+            name: "@cosmicdrift/kumiko-framework",
+            newVersion: "0.277.0",
+            changesets: ["a-framework-fix"],
+          },
+          {
+            name: "@cosmicdrift/kumiko-bundled-features",
+            newVersion: "0.277.0",
+            changesets: ["b-sessions-fix"],
+          },
+        ],
+      }),
+    });
+
+    const result = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")]);
+
+    expect(result.exit).toBe(1);
+    expect(result.errs.join("\n")).toContain("invalid changelog");
+    expect(JSON.parse(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8"))).toEqual([
+      { version: "0.275.0", type: "fix", title: "Previous framework fix" },
+    ]);
+  });
 });

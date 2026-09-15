@@ -18,6 +18,7 @@ type ChangeType = "breaking" | "improvement" | "fix";
 type PackageTarget = { readonly packageName: string; readonly changelogPath: string };
 type Release = { readonly name: string; readonly newVersion: string; readonly changesets: readonly string[] };
 type ChangesetStatus = { readonly changesets: readonly { readonly id: string }[]; readonly releases: readonly Release[] };
+type ChangelogUpdate = { readonly path: string; readonly contents: string; readonly length: number };
 type ChangelogEntry = {
   readonly version: string;
   readonly type: ChangeType;
@@ -223,7 +224,9 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
   }
   const repoRoot = findRepoRoot(ctx.cwd);
   const dryRun = getFlag(args, "dry-run");
-  const files = readdirSync(join(repoRoot, ".changeset")).filter((name) => name.endsWith(".md") && name !== "README.md");
+  const files = readdirSync(join(repoRoot, ".changeset"))
+    .filter((name) => name.endsWith(".md") && name !== "README.md")
+    .sort();
   const pending = new Map<string, ChangelogEntry[]>();
   try {
     for (const file of files) {
@@ -253,15 +256,21 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
         pending.set(target.changelogPath, entries);
       }
     }
+    const updates: ChangelogUpdate[] = [];
     for (const [path, additions] of pending) {
       const existing = readEntries(path);
       const keys = new Set(existing.map(entryKey));
       const merged = [...additions.filter((entry) => !keys.has(entryKey(entry))), ...existing];
-      if (!dryRun) {
-        mkdirSync(dirname(path), { recursive: true });
-        writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`, "utf-8");
+      updates.push({ path, contents: `${JSON.stringify(merged, null, 2)}\n`, length: merged.length });
+    }
+    if (!dryRun) {
+      for (const update of updates) {
+        mkdirSync(dirname(update.path), { recursive: true });
+        writeFileSync(update.path, update.contents, "utf-8");
       }
-      ctx.out.log(`${dryRun ? "would update" : "updated"} ${path} (${merged.length} entries)`);
+    }
+    for (const update of updates) {
+      ctx.out.log(`${dryRun ? "would update" : "updated"} ${update.path} (${update.length} entries)`);
     }
   } catch (error) {
     ctx.out.err(`  Fold failed: ${error instanceof Error ? error.message : String(error)}`);

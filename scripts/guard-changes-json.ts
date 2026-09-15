@@ -26,37 +26,61 @@ const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
 
 function changedFiles(repoRoot: string): readonly string[] {
-  const result = Bun.spawnSync(["git", "diff", "--name-only", "origin/main...HEAD"], { cwd: repoRoot });
-  if (result.exitCode !== 0) return [];
+  const base = process.env["GITHUB_BASE_SHA"] ?? "origin/main";
+  const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", `${base}...HEAD`], {
+    cwd: repoRoot,
+  });
+  if (result.exitCode !== 0) {
+    const detail = new TextDecoder().decode(result.stderr).trim();
+    throw new Error(`could not determine changed files${detail ? `: ${detail}` : ""}`);
+  }
   return new TextDecoder().decode(result.stdout).split("\n").filter(Boolean);
 }
 
-function hasReleaseBranch(): boolean {
-  return (process.env["GITHUB_HEAD_REF"] ?? "").startsWith("changeset-release/");
+export function isReleaseBranch(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return (
+    (env["GITHUB_HEAD_REF"] ?? "").startsWith("changeset-release/") ||
+    (env["GITHUB_REF_NAME"] ?? "").startsWith("changeset-release/") ||
+    (env["GITHUB_REF"] ?? "").endsWith("/heads/changeset-release/main")
+  );
 }
 
 export function findChangesetViolations(
   repoRoot: string,
-  changed: readonly string[] = changedFiles(repoRoot),
+  changed?: readonly string[],
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): ChangelogViolation[] {
-  const changesetDir = join(repoRoot, ".changeset");
-  if (!existsSync(changesetDir)) return [];
   const violations: ChangelogViolation[] = [];
+  let changedFilesToCheck: readonly string[];
+  try {
+    changedFilesToCheck = changed ?? changedFiles(repoRoot);
+  } catch (error) {
+    return [
+      {
+        file: "git",
+        detail: error instanceof Error ? error.message : String(error),
+      },
+    ];
+  }
 
-  for (const file of changed.filter((path) => path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md")) {
-    const raw = readFileSync(join(repoRoot, file), "utf-8");
-    try {
-      const parsed = parseChangesetChanges(raw, file);
-      if (parsed.length === 0) {
-        violations.push({ file, detail: "missing kumiko-changes metadata block" });
+  const changesetDir = join(repoRoot, ".changeset");
+  if (existsSync(changesetDir)) {
+    for (const file of changedFilesToCheck.filter((path) => path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md")) {
+      if (!existsSync(join(repoRoot, file))) continue;
+      try {
+        const raw = readFileSync(join(repoRoot, file), "utf-8");
+        const parsed = parseChangesetChanges(raw, file);
+        if (parsed.length === 0) {
+          violations.push({ file, detail: "missing kumiko-changes metadata block" });
+        }
+      } catch (error) {
+        violations.push({ file, detail: error instanceof Error ? error.message : String(error) });
       }
-    } catch (error) {
-      violations.push({ file, detail: error instanceof Error ? error.message : String(error) });
     }
   }
 
-  if (!hasReleaseBranch()) {
-    for (const file of changed.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
+  if (!isReleaseBranch(env)) {
+    for (const file of changedFilesToCheck.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
       violations.push({ file, detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead" });
     }
   }
@@ -69,11 +93,17 @@ export function findChangesFiles(repoRoot: string): string[] {
     .sort();
 }
 
-export function findChangelogViolations(repoRoot: string): ChangelogViolation[] {
+export function findChangelogViolations(
+  repoRoot: string,
+  changed?: readonly string[],
+): ChangelogViolation[] {
   const files = findChangesFiles(repoRoot);
+
+  const changesetViolations = findChangesetViolations(repoRoot, changed);
 
   if (files.length === 0) {
     return [
+      ...changesetViolations,
       {
         file: "packages/**/changes.json",
         detail: "no changes.json found — the glob no longer matches the repo layout",
@@ -81,7 +111,7 @@ export function findChangelogViolations(repoRoot: string): ChangelogViolation[] 
     ];
   }
 
-  const violations: ChangelogViolation[] = findChangesetViolations(repoRoot);
+  const violations: ChangelogViolation[] = changesetViolations;
 
   for (const rel of files) {
     const raw = readFileSync(join(repoRoot, rel), "utf-8");
