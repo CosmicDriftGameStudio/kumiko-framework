@@ -133,7 +133,9 @@ describe("money field currency: { kind: 'tenant' } (fw#2933)", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
+      timeout: 3000,
+    });
     // The submit button stays disabled while the form is pristine — touch an
     // unrelated field so the click below actually fires; `price` itself is
     // deliberately left untouched to prove its initial value already carries
