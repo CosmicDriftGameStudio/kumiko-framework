@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChangelogViolations, findChangesetViolations, isReleaseBranch } from "./guard-changes-json";
@@ -192,5 +192,52 @@ describe("findChangesetViolations", () => {
     const violations = findChangesetViolations(root, undefined, { GITHUB_BASE_SHA: "missing-base" });
     expect(violations).toHaveLength(1);
     expect(violations[0].file).toBe("git");
+  });
+
+  it("uses main as the push base when GITHUB_BASE_REF is empty", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-git-"));
+    const remote = join(root, "remote.git");
+    const repo = join(root, "repo");
+
+    const runGit = (args: string[], cwd: string): void => {
+      const result = Bun.spawnSync(["git", ...args], {
+        cwd,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (result.exitCode !== 0) {
+        throw new Error(`${args.join(" ")}: ${result.stderr.toString()}`);
+      }
+    };
+
+    try {
+      mkdirSync(repo, { recursive: true });
+      runGit(["init", "--bare", remote], root);
+      runGit(["init", "-q", repo], root);
+      runGit(["config", "user.email", "test@example.com"], repo);
+      runGit(["config", "user.name", "test"], repo);
+      writeFileSync(join(repo, "README.md"), "base\n");
+      runGit(["add", "README.md"], repo);
+      runGit(["commit", "-q", "-m", "base"], repo);
+      runGit(["branch", "-M", "main"], repo);
+      runGit(["remote", "add", "origin", remote], repo);
+      runGit(["push", "-q", "-u", "origin", "main"], repo);
+      runGit(["switch", "-q", "-c", "feature"], repo);
+      mkdirSync(join(repo, ".changeset"));
+      writeFileSync(join(repo, ".changeset", "missing.md"), "Plain note.\n");
+      runGit(["add", ".changeset/missing.md"], repo);
+      runGit(["commit", "-q", "-m", "changeset"], repo);
+
+      const violations = findChangesetViolations(repo, undefined, {
+        GITHUB_BASE_REF: "",
+        GITHUB_EVENT_NAME: "push",
+      });
+
+      expect(violations).toEqual([
+        { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
