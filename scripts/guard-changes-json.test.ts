@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { findChangelogViolations } from "./guard-changes-json";
+import { findChangelogViolations, findChangesetViolations } from "./guard-changes-json";
 
 function buildFixtureRoot(features: readonly [relDir: string, entries: unknown][]): string {
   const root = mkdtempSync(join(tmpdir(), "changes-json-"));
@@ -138,5 +138,33 @@ describe("findChangelogViolations", () => {
 
   it("passes the real repo", () => {
     expect(findChangelogViolations(join(import.meta.dir, ".."))).toEqual([]);
+  });
+});
+
+describe("findChangesetViolations", () => {
+  it("requires metadata on changed changesets", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+    writeFileSync(join(root, ".changeset", "missing.md"), "---\n\"pkg\": patch\n---\n\nPlain note.\n");
+
+    const violations = findChangesetViolations(root, [".changeset/missing.md"]);
+
+    expect(violations).toEqual([
+      { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
+    ]);
+  });
+
+  it("rejects direct changes.json edits outside the release branch", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+
+    const violations = findChangesetViolations(root, ["packages/framework/src/changes.json"]);
+
+    expect(violations).toEqual([
+      {
+        file: "packages/framework/src/changes.json",
+        detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead",
+      },
+    ]);
   });
 });

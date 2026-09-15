@@ -11,7 +11,7 @@
  * Exit 1 on violations, 0 when clean.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
 import {
@@ -19,10 +19,49 @@ import {
   parseFeatureChangelog,
   validateChangelog,
 } from "../packages/framework/src/engine/feature-changelog";
+import { parseChangesetChanges } from "../packages/framework/src/engine/changeset-changes";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
+
+function changedFiles(repoRoot: string): readonly string[] {
+  const result = Bun.spawnSync(["git", "diff", "--name-only", "origin/main...HEAD"], { cwd: repoRoot });
+  if (result.exitCode !== 0) return [];
+  return new TextDecoder().decode(result.stdout).split("\n").filter(Boolean);
+}
+
+function hasReleaseBranch(): boolean {
+  return (process.env["GITHUB_HEAD_REF"] ?? "").startsWith("changeset-release/");
+}
+
+export function findChangesetViolations(
+  repoRoot: string,
+  changed: readonly string[] = changedFiles(repoRoot),
+): ChangelogViolation[] {
+  const changesetDir = join(repoRoot, ".changeset");
+  if (!existsSync(changesetDir)) return [];
+  const violations: ChangelogViolation[] = [];
+
+  for (const file of changed.filter((path) => path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md")) {
+    const raw = readFileSync(join(repoRoot, file), "utf-8");
+    try {
+      const parsed = parseChangesetChanges(raw, file);
+      if (parsed.length === 0) {
+        violations.push({ file, detail: "missing kumiko-changes metadata block" });
+      }
+    } catch (error) {
+      violations.push({ file, detail: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  if (!hasReleaseBranch()) {
+    for (const file of changed.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
+      violations.push({ file, detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead" });
+    }
+  }
+  return violations;
+}
 
 export function findChangesFiles(repoRoot: string): string[] {
   return Array.from(new Glob("packages/**/changes.json").scanSync({ cwd: repoRoot }))
@@ -42,7 +81,7 @@ export function findChangelogViolations(repoRoot: string): ChangelogViolation[] 
     ];
   }
 
-  const violations: ChangelogViolation[] = [];
+  const violations: ChangelogViolation[] = findChangesetViolations(repoRoot);
 
   for (const rel of files) {
     const raw = readFileSync(join(repoRoot, rel), "utf-8");

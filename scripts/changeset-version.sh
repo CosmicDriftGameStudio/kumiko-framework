@@ -4,6 +4,11 @@
 # changeset ("Too many arguments"). Wrap the steps in a real shell here.
 set -euo pipefail
 
+bump_status=.changeset-status.json
+trap 'rm -f "$bump_status"' EXIT
+
+bunx changeset status --output="$bump_status"
+bun bin/kumiko.ts changes fold --status "$bump_status"
 bunx changeset version
 # Block accidental major≥1 bumps (stay on 0.x until explicitly approved).
 bun scripts/guard-no-major-gt-zero.ts
