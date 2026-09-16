@@ -54,10 +54,15 @@ describe("cli.ts — real process runs, no mocks", () => {
       };
       total: number;
     };
+    expect(GUARDS.length).toBeGreaterThan(0);
+    expect(UI_GUARDS.length).toBeGreaterThan(0);
+    expect(REPO_CHECKS.length).toBeGreaterThan(0);
     expect(inventory.suites.guards.count).toBe(GUARDS.length);
     expect(inventory.suites.ui.count).toBe(UI_GUARDS.length);
     expect(inventory.suites.checks.count).toBe(REPO_CHECKS.length);
     expect(inventory.suites.guards.names).toEqual(GUARDS.map((g) => g.name));
+    expect(inventory.suites.ui.names).toEqual(UI_GUARDS.map((g) => g.name));
+    expect(inventory.suites.checks.names).toEqual(REPO_CHECKS.map((c) => c.name));
     expect(inventory.total).toBe(GUARDS.length + UI_GUARDS.length + REPO_CHECKS.length);
   });
 
