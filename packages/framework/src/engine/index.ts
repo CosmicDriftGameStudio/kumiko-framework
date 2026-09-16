@@ -93,6 +93,7 @@ export {
   type RegisterEntityCrudOptions,
   registerEntityCrud,
 } from "./entity-handlers";
+export { declareEscapeHatch } from "./escape-hatch-declaration";
 export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";
 export type { KumikoExtensionName } from "./extension-names";
