@@ -12,6 +12,8 @@ bun bin/kumiko.ts changes fold --status "$bump_status"
 bunx changeset version
 # Block accidental major≥1 bumps (stay on 0.x until explicitly approved).
 bun scripts/guard-no-major-gt-zero.ts
+# CI verifies this file is generated, so the bump must regenerate it here.
+bun scripts/gen-migration-guide.ts
 bun install
 # bun install does NOT refresh the workspace "version" fields in bun.lock after
 # the bump (only `rm bun.lock && bun install` does, which drifts every floating
