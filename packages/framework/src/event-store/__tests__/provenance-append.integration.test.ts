@@ -88,4 +88,22 @@ describe("appendProvenanceEvent", () => {
       InternalError,
     );
   });
+
+  test("rejects a kumiko:system: type and writes nothing", async () => {
+    const event = provenanceEvent({ type: "kumiko:system:deferred-dispatch" });
+
+    await expect(appendProvenanceEvent(tdb, event)).rejects.toThrow(InternalError);
+
+    const events = await loadAggregate(testDb.db, event.aggregateId, tenantA);
+    expect(events).toHaveLength(0);
+  });
+
+  test("rejects an unqualified type without a ':' and writes nothing", async () => {
+    const event = provenanceEvent({ type: "ai-call-recorded" });
+
+    await expect(appendProvenanceEvent(tdb, event)).rejects.toThrow(InternalError);
+
+    const events = await loadAggregate(testDb.db, event.aggregateId, tenantA);
+    expect(events).toHaveLength(0);
+  });
 });

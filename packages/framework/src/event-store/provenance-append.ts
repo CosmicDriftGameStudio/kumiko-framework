@@ -1,6 +1,8 @@
 import { runInSavepointIfSupported } from "../db/query";
 import { type TenantDb, unsafeRawForDeclaredStep, withUnsafeRawGrant } from "../db/tenant-db";
 import type { TenantId } from "../engine/types";
+import { InternalError } from "../errors";
+import { SYSTEM_EVENT_PREFIX } from "../pipeline/append-event-core";
 import { append, type EventMetadata, getStreamVersion } from "./event-store";
 
 // Fixed by the framework, not the caller — the point of this entry point is
@@ -19,15 +21,21 @@ export type ProvenanceEventInput = {
   readonly metadata: EventMetadata;
 };
 
-/**
- * The only place enterprise provenance writers (ai-foundation, ai-pipeline)
- * are allowed to reach a raw event-store append — they pass a plain
- * `TenantDb`/`ctx.dbOutsideTransaction`, never a `DbRunner` of their own.
- */
+// The only place provenance writers are allowed to reach a raw event-store append.
 export async function appendProvenanceEvent(
   db: TenantDb,
   event: ProvenanceEventInput,
 ): Promise<void> {
+  if (event.type.startsWith(SYSTEM_EVENT_PREFIX)) {
+    throw new InternalError({
+      message: `appendProvenanceEvent("${event.type}") — the "${SYSTEM_EVENT_PREFIX}" namespace is framework-internal and is not reachable through this entry point.`,
+    });
+  }
+  if (!event.type.includes(":")) {
+    throw new InternalError({
+      message: `appendProvenanceEvent("${event.type}") — event types must be owner-qualified ("<feature>:<name>"). Unowned types are not allowed here.`,
+    });
+  }
   const granted = withUnsafeRawGrant(db, { reason: PROVENANCE_APPEND_REASON });
   const runner = unsafeRawForDeclaredStep(granted, PROVENANCE_APPEND_REASON);
   // Bun.SQL/postgres.js abort the whole surrounding begin() on a statement
