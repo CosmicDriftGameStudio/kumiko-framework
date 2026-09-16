@@ -8,7 +8,7 @@ Event-store gains `appendProvenanceEvent(db, event)` — a declared, framework-o
 
 <!-- kumiko-changes
 feature: framework
-type: feature
+type: improvement
 title: Event-store gains appendProvenanceEvent(db, event), a declared entry point for provenance events (fw#2914).
 migration: |
   No action required — purely additive. Existing self-granted `withUnsafeRawGrant(...).unsafeRaw(...)` provenance writers can migrate to `appendProvenanceEvent` in a follow-up; nothing is removed in this change.
