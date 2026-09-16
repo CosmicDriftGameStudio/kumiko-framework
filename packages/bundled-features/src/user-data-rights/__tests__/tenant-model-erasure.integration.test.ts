@@ -65,11 +65,6 @@ const TABLE = "read_dsgvo_tenant_scoped";
 
 // Tenant-scoped contributor with NO per-user column — deletes by tenant only,
 // and ONLY when this tenant is effectively single-user (mirrors credit).
-const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
-  if (ctx.tenantModel !== "single-user") return; // shared tenant: erasing would hit co-members
-  await asRawClient(ctx.db).unsafe(`DELETE FROM ${TABLE} WHERE tenant_id = $1`, [ctx.tenantId]);
-};
-
 const scopedEntity = createEntity({
   table: TABLE,
   fields: {
@@ -77,11 +72,26 @@ const scopedEntity = createEntity({
   },
 });
 
+// fw#2914 — "tenant-scoped" is a managed r.entity table (EXECUTOR_ONLY-branded),
+// so TenantDb's typed write methods reject it; this delete is raw SQL, still
+// filtered by tenant_id.
+const TENANT_SCOPED_DELETE_REASON =
+  "fw#2914 test fixture: tenant-scoped erasure against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by tenant_id";
+
+const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
+  if (ctx.tenantModel !== "single-user") return; // shared tenant: erasing would hit co-members
+  await asRawClient(ctx.db.unsafeRaw(TENANT_SCOPED_DELETE_REASON)).unsafe(
+    `DELETE FROM ${TABLE} WHERE tenant_id = $1`,
+    [ctx.tenantId],
+  );
+};
+
 const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
   r.entity("tenant-scoped", scopedEntity);
   r.useExtension(EXT_USER_DATA, "tenant-scoped", {
     export: async () => null,
     delete: tenantScopedDeleteHook,
+    escapeHatch: { reason: TENANT_SCOPED_DELETE_REASON },
   });
 });
 

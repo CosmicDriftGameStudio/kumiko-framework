@@ -54,9 +54,15 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 
+// fw#2914 — "note" is a managed r.entity table (EXECUTOR_ONLY-branded), so
+// TenantDb's typed write methods reject it; this delete is raw SQL, still
+// filtered by author_id + tenant_id.
+const HARD_DELETE_NOTE_REASON =
+  "fw#2914 test fixture: hard delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by author_id + tenant_id";
+
 const hardDeleteNoteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") return;
-  await asRawClient(ctx.db).unsafe(
+  await asRawClient(ctx.db.unsafeRaw(HARD_DELETE_NOTE_REASON)).unsafe(
     `DELETE FROM read_forget_purge_notes WHERE author_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
@@ -67,6 +73,7 @@ const noteFeature = defineFeature("forget-purge-notes", (r) => {
   r.useExtension(EXT_USER_DATA, "note", {
     export: async () => null,
     delete: hardDeleteNoteHook,
+    escapeHatch: { reason: HARD_DELETE_NOTE_REASON },
   });
 });
 

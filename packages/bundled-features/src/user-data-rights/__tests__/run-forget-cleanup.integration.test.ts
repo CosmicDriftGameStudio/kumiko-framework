@@ -22,8 +22,8 @@ import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
-  SYSTEM_TENANT_ID,
   type JobContext,
+  SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -364,6 +364,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
           unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
         }),
         registry: stack.registry,
+        systemUser: createSystemUser(TENANT_A),
         log,
       } as unknown as JobContext);
     } finally {
