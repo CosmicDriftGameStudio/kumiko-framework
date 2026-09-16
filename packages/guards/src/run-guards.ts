@@ -15,6 +15,8 @@ import {
   runGuards,
 } from "./_lib/guard-kit";
 import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
+import { guard as complexity } from "./check-complexity";
+import { guard as predicateExtraction } from "./check-predicates";
 import { guard as accessDeniedTest } from "./guard-access-denied-test";
 import { guard as adminApi } from "./guard-admin-api";
 import { guard as brokerSubscribe } from "./guard-broker-subscribe";
@@ -34,10 +36,12 @@ import { guard as openToAllReason } from "./guard-open-to-all-reason";
 import { guard as piiAnnotations } from "./guard-pii-annotations";
 import { guard as preEsPatterns } from "./guard-pre-es-patterns";
 import { guard as restrictedSymbols } from "./guard-restricted-symbols";
+import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
 import { guard as textFieldStance } from "./guard-text-field-stance";
 import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
+import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
 export const GUARDS = [
   accessDeniedTest,
@@ -63,6 +67,10 @@ export const GUARDS = [
   i18nLocaleMount,
   piiAnnotations,
   textFieldStance,
+  complexity,
+  predicateExtraction,
+  screenConventions,
+  writeHandlerQns,
 ];
 
 // Only run on direct invocation — otherwise `import { GUARDS }` would kick

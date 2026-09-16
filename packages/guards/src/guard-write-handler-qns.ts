@@ -1,0 +1,222 @@
+#!/usr/bin/env bun
+/**
+ * Guard: prüft dass `dispatcher.write("qn:literal:...")`-Aufrufe in
+ * Custom-Screens gültige Write-Handler-QNs referenzieren. Tippfehler
+ * im QN fallen sonst erst zur Runtime als 404 auf.
+ *
+ * Validierung in zwei Stufen:
+ *   1. **Strukturell**: jeder QN muss `:write:` enthalten — fängt
+ *      offensichtliche Tippfehler ("feautre:write:create").
+ *   2. **Gegen Manifest**: wenn `feature-manifest.json` im Repo-Root
+ *      liegt und `writeHandlers` enthält, matched der Guard dagegen.
+ *
+ * Usage:
+ *   bun infra/guards/guard-write-handler-qns.ts
+ */
+import { existsSync, readFileSync } from "node:fs";
+import * as path from "node:path";
+import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { toKebab, VALID_QN_RE } from "./_lib/qn";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
+
+export { toKebab, VALID_QN_RE };
+
+const ROOT = process.cwd();
+
+const SCAN: ScanSpec = {
+  scope: "source",
+  extensions: ["tsx"],
+  frameworkWithin: ["packages/*/src/**", "samples/**"],
+};
+
+// Tests nutzen absichtlich generische QNs wie dispatcher.write("x", {}).
+const EXCLUDE = /(__tests__|\.test\.tsx$|\.integration\.tsx$|\/node_modules\/|\/dist\/)/;
+
+/**
+ * Liest pro Repo-Root `feature-manifest.json` → Set der writeHandlers.
+ * Stage-2-Match gilt nur innerhalb desselben Repos — verhindert false
+ * positives wenn z.B. publicstatus gegen framework-Manifest gematcht wird.
+ */
+function loadKnownQnsByRepo(roots: ReadonlyArray<RepoRoot>): Map<string, Set<string>> {
+  const byRepo = new Map<string, Set<string>>();
+
+  const manifestCandidates = [
+    "feature-manifest.json",
+    "samples/apps/use-all-bundled/feature-manifest.json",
+  ];
+
+  for (const repo of roots) {
+    const known = new Set<string>();
+    for (const rel of manifestCandidates) {
+      const manifestPath = path.join(repo.absPath, rel);
+      if (!existsSync(manifestPath)) continue;
+      try {
+        const raw = readFileSync(manifestPath, "utf-8");
+        const manifest = JSON.parse(raw) as {
+          readonly features?: ReadonlyArray<{
+            readonly writeHandlers?: readonly string[];
+          }>;
+        };
+        if (!manifest.features) continue;
+        for (const f of manifest.features) {
+          if (f.writeHandlers) {
+            for (const qn of f.writeHandlers) known.add(qn);
+          }
+        }
+      } catch (err) {
+        console.warn(`[WARN] Manifest ${manifestPath} nicht lesbar: ${err}`);
+      }
+    }
+    if (known.size > 0) byRepo.set(repo.absPath, known);
+  }
+  return byRepo;
+}
+
+/**
+ * Extrahiert den Literal-Wert aus einem String-Literal, einem
+ * Backtick-Literal ohne Interpolation (`NoSubstitutionTemplateLiteral`) oder
+ * einem `<literal> as T`-Cast. Backtick-Konstanten (`const QN = \`x:write:y\``)
+ * wurden vorher nur als direktes Argument, nicht als aufgelöste Deklaration
+ * erkannt.
+ */
+function literalValueOf(node: Node): string | undefined {
+  if (
+    node.isKind(SyntaxKind.StringLiteral) ||
+    node.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)
+  ) {
+    return node.getLiteralValue();
+  }
+  if (node.isKind(SyntaxKind.AsExpression)) {
+    return literalValueOf(node.getExpression());
+  }
+  return undefined;
+}
+
+/** Resolve Handler-constant refs (`Handlers.foo`) to string literals when static. */
+export function resolveWriteQnFromArg(node: Node): string | undefined {
+  const direct = literalValueOf(node);
+  if (direct !== undefined) return direct;
+
+  if (!node.isKind(SyntaxKind.Identifier) && !node.isKind(SyntaxKind.PropertyAccessExpression)) {
+    return undefined;
+  }
+
+  const symbol = node.getSymbol() ?? node.getType().getSymbol();
+  if (!symbol) return undefined;
+
+  for (const decl of symbol.getDeclarations()) {
+    if (decl.isKind(SyntaxKind.PropertyAssignment) || decl.isKind(SyntaxKind.VariableDeclaration)) {
+      const init = decl.getInitializer();
+      const value = init ? literalValueOf(init) : undefined;
+      if (value !== undefined) return value;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Scannt eine SourceFile nach `dispatcher.write(<stringLiteral>, ...)`-
+ * oder `<expr>.write(<stringLiteral>, ...)`-Aufrufen.
+ */
+export function scanDispatcherWriteCalls(
+  sf: SourceFile,
+): Array<{ line: number; qn: string; snippet: string }> {
+  const hits: Array<{ line: number; qn: string; snippet: string }> = [];
+  for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const expr = call.getExpression();
+    const exprText = expr.getText();
+
+    // `dispatcher.write(...)` oder irgendein `<obj>.write(...)` (ein
+    // aliaster Dispatcher heißt nicht zwingend "dispatcher").
+    const isDispatcherCall = exprText === "dispatcher.write";
+    if (!isDispatcherCall && !exprText.endsWith(".write")) continue;
+
+    // Erster Parameter muss ein String-Literal sein — dynamische
+    // QNs (Handler-Konstanten, Template-Literale) werden nicht
+    // validiert (sind entweder typ-safe oder nicht prüfbar).
+    const args = call.getArguments();
+    const first = args[0];
+    if (!first) continue;
+
+    const qn = resolveWriteQnFromArg(first);
+    if (qn === undefined) continue;
+
+    // `.endsWith(".write")` matcht auch Nicht-Dispatcher-Writes:
+    // `res.write(...)`, `stream.write(...)`, SSE `res.write("data: …")`.
+    // Deren Argument ist kein QN → würde sonst als "ungültiges QN-Format"
+    // false-positiv gemeldet. Außerhalb eines expliziten `dispatcher.write`
+    // nur prüfen, wenn das Literal ein Write-QN ist (enthält ":write:").
+    if (!isDispatcherCall && !qn.includes(":write:")) continue;
+
+    hits.push({
+      line: call.getStartLineNumber(),
+      qn,
+      snippet: call.getText().slice(0, 120),
+    });
+  }
+  return hits;
+}
+
+export const guard: AstGuard = {
+  name: "Write-Handler-QN Guard",
+  scan: SCAN,
+  hint: "Tippfehler im Write-Handler-QN? Feature-Namen + Handler-Namen prüfen.",
+  run(files) {
+    const roots = resolveRepoRoots();
+    const knownQnsByRepo = loadKnownQnsByRepo(roots);
+
+    const violations: Array<{
+      file: string;
+      line: number;
+      message: string;
+    }> = [];
+
+    for (const sf of files) {
+      const filePath = sf.getFilePath();
+      if (EXCLUDE.test(filePath)) continue;
+
+      const repo = roots.find((r) => filePath.startsWith(`${r.absPath}${path.sep}`));
+      const knownQns = repo
+        ? (knownQnsByRepo.get(repo.absPath) ?? new Set<string>())
+        : new Set<string>();
+
+      for (const hit of scanDispatcherWriteCalls(sf)) {
+        // Stufe 1: strukturelle Validierung
+        if (!VALID_QN_RE.test(hit.qn)) {
+          violations.push({
+            file: path.relative(ROOT, filePath),
+            line: hit.line,
+            message: `ungültiges QN-Format: "${hit.qn}" — muss "<feature>:write:<handler>" entsprechen`,
+          });
+          continue;
+        }
+
+        // Stufe 2: gegen Manifest matchen (wenn vorhanden).
+        // QN wird vor dem Match auf kebab-case normalisiert, sodass
+        // camelCase- und kebab-case-Eingaben gleich behandelt werden.
+        const normalizedQn = toKebab(hit.qn);
+        if (knownQns.size > 0 && !knownQns.has(normalizedQn)) {
+          violations.push({
+            file: path.relative(ROOT, filePath),
+            line: hit.line,
+            message: `unbekannter Write-Handler: "${hit.qn}" — nicht in feature-manifest.json gefunden`,
+          });
+        }
+      }
+    }
+
+    // Info-Log wenn kein Manifest geladen wurde — kein Fehler, aber
+    // der Guard läuft dann nur mit struktureller Prüfung.
+    if (knownQnsByRepo.size === 0 && violations.length === 0) {
+      console.warn(
+        "  [INFO] Kein feature-manifest.json mit writeHandlers gefunden — strukturelle Prüfung aktiv.",
+      );
+    }
+
+    return { violations };
+  },
+};
+
+if (import.meta.main) runStandalone(guard);
