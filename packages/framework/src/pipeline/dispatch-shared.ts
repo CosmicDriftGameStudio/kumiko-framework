@@ -73,6 +73,10 @@ import {
   getFallbackTracer,
   observabilityContext,
 } from "../observability";
+import {
+  createEscapeHatchReporter,
+  type EscapeHatchReportWindow,
+} from "../observability/escape-hatch-report";
 import { buildBucketKey } from "../rate-limit";
 import { createTzContext, isValidIanaTimeZone } from "../time";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
@@ -85,7 +89,6 @@ import {
   dispatcherSpanAttributes,
   isFailedWriteResult,
 } from "./dispatcher-utils";
-import { createEscapeHatchReporter, type EscapeHatchReportWindow } from "./escape-hatch-report";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { createMemberReaderFn } from "./member-reader";

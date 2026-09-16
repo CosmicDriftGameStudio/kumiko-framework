@@ -10,8 +10,8 @@ import { executeRawQuery } from "../../db/queries/raw-sql";
 import { createSystemUser, defineFeature } from "../../engine";
 import type { EscapeHatchUseEvent } from "../../engine/types";
 import type { Logger } from "../../logging/types";
+import { ESCAPE_HATCH_USED_SIGNAL } from "../../observability/escape-hatch-report";
 import { createTestUser, setupTestStack, type TestStack } from "../../stack";
-import { ESCAPE_HATCH_USED_SIGNAL } from "../escape-hatch-report";
 
 const globalStoreTable = defineUnmanagedTable({
   tableName: "store_fw2861_escape_hatch_audit_items",

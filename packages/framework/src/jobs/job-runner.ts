@@ -27,8 +27,8 @@ import {
   type SerializedTraceContext,
   type Tracer,
 } from "../observability";
+import { createEscapeHatchReporter } from "../observability/escape-hatch-report";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
-import { createEscapeHatchReporter } from "../pipeline/escape-hatch-report";
 import { RedisKeys } from "../pipeline/redis-keys";
 import { bridgeStub } from "../testing/handler-context";
 
