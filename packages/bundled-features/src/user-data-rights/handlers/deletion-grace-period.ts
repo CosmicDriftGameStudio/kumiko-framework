@@ -23,6 +23,9 @@ export type StartGracePeriodResult =
 // request-deletion path (event.user) and the anonymous confirm-by-token path
 // (userId from a verified token) — one source for the grace-period logic.
 //
+// The user row is tenant-agnostic (account-wide deletion), so it is read via
+// ctx.db.global(userTable); only the grace period duration is tenant-configured.
+//
 // `gracePeriod` and `lifecycleRunner` are resolved by the caller: both
 // require an escalation (reading the tenant compliance profile, appending to
 // the SYSTEM_TENANT_ID user stream) that only the declaring handler's
