@@ -8,11 +8,10 @@
 // pre-call zu machen — beides ist atomic-mit-dem-Handler-zusammen.
 // Wrapper macht das Pattern explizit + co-located.
 //
-// **Atomicity caveat:** post-success booking runs in-process via
-// bookCapUsage/bookRollingCapUsage (see book-cap-usage.ts), no separate
-// SystemAdmin ctx.write dispatch. A crash between handler-success and
-// booking still under-counts — acceptable, cap-tolerances (110/120%) exist
-// for exactly this drift.
+// **Atomicity caveat:** calendar booking runs in-process via bookCapUsage
+// (see book-cap-usage.ts). Rolling booking still dispatches the
+// SystemAdmin-only increment-rolling handler (event ownership), so rolling
+// callers need a SystemAdmin identity.
 //
 // No automatic markSoftWarned here — that's inside enforceCapAndMaybeNotify
 // (enforce-cap.ts).
@@ -22,7 +21,8 @@ import type {
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { bookCapUsage, bookRollingCapUsage } from "./book-cap-usage";
+import { bookCapUsage } from "./book-cap-usage";
+import { CapCounterHandlers } from "./constants";
 import {
   type CapToleranceProfileName,
   enforceCapAndMaybeNotify,
@@ -165,7 +165,7 @@ export function withRollingCapEnforcement(
       const result = await handler.handler(event, ctx);
 
       if (result.isSuccess) {
-        await bookRollingCapUsage(ctx, {
+        await ctx.write(CapCounterHandlers.incrementRolling, {
           capName: cap.capName,
           amount: cap.amount ?? 1,
         });

@@ -120,36 +120,6 @@ export async function markCapSoftWarned(
   );
 }
 
-export type BookRollingCapUsageOptions = {
-  readonly capName: string;
-  readonly amount?: number;
-};
-
-const rollingBookingSchema = z.object({
-  capName: z.string().min(1).max(100),
-  amount: z.number().int().positive().default(1),
-});
-
-export async function bookRollingCapUsage(
-  ctx: HandlerContext,
-  options: BookRollingCapUsageOptions,
-): Promise<{ readonly aggregateId: string; readonly amount: number }> {
-  const parsed = rollingBookingSchema.parse(options);
-  const aggregateId = rollingCapAggregateId(ctx.user.tenantId, parsed.capName);
-
-  await ctx.unsafeAppendEvent({
-    aggregateId,
-    aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-    type: ROLLING_INCREMENTED_EVENT_QN,
-    payload: {
-      capName: parsed.capName,
-      amount: parsed.amount,
-    },
-  });
-
-  return { aggregateId, amount: parsed.amount };
-}
-
 export type ReadRollingCapUsageOptions = {
   readonly capName: string;
   readonly windowDays: number;

@@ -141,7 +141,7 @@ const guardedCreateItemHandler = stockGuard.withStockCap(createItemHandler, {
   table: capCounterTable,
   limit: (caps: { maxItems: number }) => caps.maxItems,
   where: { capName: "http-stock-item" },
-  code: "stock-cap-exceeded",
+  code: "stock_cap_exceeded",
   i18nKey: "cap.stock-exceeded",
   field: "capName",
 });
@@ -187,7 +187,9 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
       { capName: "http-stock-item" },
       admin,
     );
-    expect(error.code).toBe("stock-cap-exceeded");
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("cap.stock-exceeded");
+    expect(error.details).toMatchObject({ reason: "stock_cap_exceeded", current: 2, limit: 2 });
   });
 
   test("tenant B with 0 rows still succeeds (tenant isolation through the real dispatcher)", async () => {
@@ -198,6 +200,16 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
     await httpStack.http.writeOk(STOCK_ITEM_QN, { capName: "http-stock-item" }, admin);
 
     // Tenant A is now at its cap, but tenant B has zero rows of its own.
-    await httpStack.http.writeOk(STOCK_ITEM_QN, { capName: "http-stock-item" }, other);
+    const created = await httpStack.http.writeOk(
+      STOCK_ITEM_QN,
+      { capName: "http-stock-item" },
+      other,
+    );
+    expect(created["data"]).toMatchObject({ capName: "http-stock-item" });
+
+    const otherCount = await createTenantDb(httpStack.db, other.tenantId).count(capCounterTable, {
+      capName: "http-stock-item",
+    });
+    expect(otherCount).toBe(1);
   });
 });

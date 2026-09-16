@@ -3,9 +3,7 @@
 export { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id";
 export {
   type BookCapUsageOptions,
-  type BookRollingCapUsageOptions,
   bookCapUsage,
-  bookRollingCapUsage,
   type MarkCapSoftWarnedOptions,
   markCapSoftWarned,
   type ReadRollingCapUsageOptions,
