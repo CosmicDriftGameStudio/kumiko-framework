@@ -27,7 +27,7 @@ import {
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { AccessDeniedError, InternalError } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
-import { fallbackEscapeHatchReporter } from "../pipeline/escape-hatch-report";
+import { fallbackEscapeHatchReporter } from "../observability/escape-hatch-report";
 import type { DbRunner } from "./connection";
 import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner";
 

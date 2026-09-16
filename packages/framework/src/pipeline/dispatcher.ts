@@ -20,6 +20,7 @@ import type {
 import type { TenantId } from "../engine/types/identifiers";
 import { reraiseAsKumikoError } from "../errors";
 import { getFallbackMeter, getFallbackTracer, registerStandardMetrics } from "../observability";
+import { createEscapeHatchReportWindow } from "../observability/escape-hatch-report";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
 import { runBatch, unwrapSingle } from "./dispatch-batch";
 import { executeQuery } from "./dispatch-query";
@@ -27,7 +28,6 @@ import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shar
 import { resolveAuthClaimsFn } from "./dispatch-shared";
 import { executeStream } from "./dispatch-stream";
 import { type HandlerType, resolveType } from "./dispatcher-utils";
-import { createEscapeHatchReportWindow } from "./escape-hatch-report";
 import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { createMemberReaderFn } from "./member-reader";
