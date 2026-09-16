@@ -26,6 +26,14 @@ type Violating = {
   // that trips a DIFFERENT violation must not pass just because
   // `violations.length > 0`.
   readonly expectedMessage: RegExp;
+  /**
+   * Extra virtual files (e.g. a package.json a guard's gate reads) written into
+   * the same in-memory project before `violating.path` is created — guards
+   * whose scope check reads sibling files via `sf.getProject().getFileSystem()`
+   * (i18n-Locale-Mount Guard's nearest-package.json walk) need this instead of
+   * a real sibling checkout.
+   */
+  readonly extraFiles?: Record<string, string>;
 };
 
 // Paths need the "packages/"/"samples/" marker: relFromRepoRoot() classifies
@@ -85,6 +93,32 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/io.ts`,
     code: 'import { readFileSync } from "node:fs";\nexport const r = () => readFileSync("/tmp/x");',
     expectedMessage: /\[node:fs\] direct fs import outside allowlist/,
+  },
+  "No-Broker-Subscribe Guard": {
+    path: `${PKG}/features/x/sub.ts`,
+    code: 'import { broker } from "k";\nexport const s = () => broker.subscribe("topic", () => {});',
+    expectedMessage: /\[broker\.subscribe\]/,
+  },
+  "Error-Reasons Guard": {
+    path: `${PKG}/features/x/err.ts`,
+    code: 'export const fail = () => ({ reason: "something went wrong" });',
+    expectedMessage: /details\.reason "something went wrong"/,
+  },
+  "i18n-Keys Guard": {
+    path: `${PKG}/features/x/web/screen.tsx`,
+    code: 'export const S = () => t("x:missing.key.that.does.not.exist");',
+    expectedMessage: /"x:missing\.key\.that\.does\.not\.exist"/,
+  },
+  "i18n-Locale-Mount Guard": {
+    path: `${APP}/web/mount.tsx`,
+    code: "createKumikoApp({ shell: X, clientFeatures: [] });",
+    expectedMessage: /localeDeClient\(\) fehlt/,
+    extraFiles: {
+      [`${CWD}/packages/app/package.json`]: JSON.stringify({
+        name: "fixture-app",
+        dependencies: { "@cosmicdrift/kumiko-locale-de": "0.1.0" },
+      }),
+    },
   },
   "Restricted-Symbols Guard": {
     path: `${PKG}/features/x/read.ts`,
@@ -156,6 +190,10 @@ const WARNING_ONLY: Record<string, string> = {
     "baseline-ratchet pattern (infra#654) — only fails against a committed baseline file; stays warning-only until a repo bootstraps it with --write-baseline",
   "Raw-Interactive-Elements Guard (App-Repos)":
     "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed baseline file; stays warning-only until an app repo bootstraps it with --write-baseline",
+  "PII-Annotations Guard":
+    "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
+  "Text-Field Personal-Stance Guard":
+    "same baseline-ratchet pattern as PII-Annotations Guard (kumiko-framework#2810) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
 };
 
 describe("every registered guard catches its own violation", () => {
@@ -180,6 +218,9 @@ describe("every registered guard catches its own violation", () => {
     if (violating === undefined) continue;
     test(guard.name, () => {
       const project = new Project({ useInMemoryFileSystem: true });
+      for (const [path, content] of Object.entries(violating.extraFiles ?? {})) {
+        project.getFileSystem().writeFileSync(path, content);
+      }
       const sf = project.createSourceFile(violating.path, violating.code);
       const outcome = guard.run([sf]);
       expect(outcome.violations.some((v) => violating.expectedMessage.test(v.message))).toBe(true);

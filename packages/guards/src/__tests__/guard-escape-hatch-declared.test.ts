@@ -129,6 +129,91 @@ r.systemScope();
     });
     expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
   });
+
+  test("passes unsafeRaw in a .job.ts file", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/handlers/cleanup.job.ts": `
+declare const ctx: { db: { unsafeRaw: (reason: string) => unknown } };
+export const cleanup = async () => ctx.db.unsafeRaw("cleanup tenant rows");
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("passes an explicit withUnsafeRawGrant", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
+declare const ctx: { db: unknown };
+declare function withUnsafeRawGrant(db: unknown, grant: { reason: string }): { unsafeRaw: (reason: string) => unknown };
+export const x = withUnsafeRawGrant(ctx.db, { reason: "append provenance event" }).unsafeRaw("append provenance event");
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+});
+
+describe("R2: escapeHatch declared via r.useExtension(...)", () => {
+  test("recognizes escapeHatch declared alongside an inline `export` property (not `handler`)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire.ts": `
+declare const r: { useExtension(name: string, cfg: unknown): void };
+r.useExtension("dataRights", {
+	escapeHatch: { reason: "GDPR export needs cross-tenant read" },
+	export: async (ctx: any) => {
+		return ctx.systemDb.unsafeRaw("export all tenant data for subject");
+	},
+});
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("still flags unsafeRaw under the same construction without escapeHatch", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire.ts": `
+declare const r: { useExtension(name: string, cfg: unknown): void };
+r.useExtension("dataRights", {
+	export: async (ctx: any) => {
+		return ctx.systemDb.unsafeRaw("export all tenant data for subject");
+	},
+});
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("recognizes escapeHatch passed as a sibling options argument to useExtension (like r.hook)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire.ts": `
+declare const r: { useExtension(name: string, fn: (ctx: any) => unknown, opts?: unknown): void };
+r.useExtension(
+	"dataRights",
+	async (ctx: any) => {
+		return ctx.systemDb.unsafeRaw("export all tenant data for subject");
+	},
+	{ escapeHatch: { reason: "GDPR export needs cross-tenant read" } },
+);
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("R4 still flags a placeholder escapeHatch reason under a non-handler key", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire.ts": `
+declare const r: { useExtension(name: string, cfg: unknown): void };
+r.useExtension("dataRights", {
+	escapeHatch: { reason: "todo" },
+	export: async (ctx: any) => {
+		return ctx.systemDb.unsafeRaw("export all tenant data for subject");
+	},
+});
+`,
+    });
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(1);
+  });
 });
 
 describe("R3: system-identity-outside-declared-scope", () => {
@@ -592,7 +677,7 @@ export const feature = defineFeature({
     ]);
   });
 
-  test("a call in a different property than handler on the same object is not covered", () => {
+  test("an inline function in any property (not just handler) on the same object as escapeHatch is covered", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
 declare function defineWriteHandler(cfg: unknown): unknown;
@@ -603,9 +688,7 @@ export const h = defineWriteHandler({
 });
 `,
     });
-    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
-      "unsafe-raw-outside-system-scope",
-    ]);
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
   });
 
   test("a function referenced by variable is not covered even when assigned as handler", () => {

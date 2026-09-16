@@ -6,8 +6,8 @@
  *   R1 raw-outside-system-scope: a TenantDb `.raw` escape used outside a
  *      `r.systemScope()` feature.
  *   R2 unsafe-raw-outside-system-scope: `ctx.systemDb.unsafeRaw(...)` outside
- *      systemScope and outside a handler/hook that lexically declares
- *      `escapeHatch`.
+ *      systemScope, a job scope, an explicit `withUnsafeRawGrant(...)`, or a
+ *      handler/hook that lexically declares `escapeHatch`.
  *   R3 system-identity-outside-declared-scope: `queryAs`/`writeAs` called
  *      with a system identity outside systemScope, `.job.ts`, an `r.job(...)`
  *      call, a `*Job` function, or a handler/hook that lexically declares
@@ -22,11 +22,13 @@
  *
  * escapeHatch (R2/R3) is recognized only as a direct, literal `escapeHatch`
  * property (object literal, or ternary of two object literals) either in the
- * same object literal as an inline `handler` function, or in an options object
- * passed to `r.hook`/`writeHandler`/`queryHandler`/`streamHandler` alongside
- * the handler function argument. Referenced-by-variable functions, spread
- * options, computed/string keys, and non-literal escapeHatch values are
- * conservatively not recognized (miss, don't falsely clear).
+ * same object literal as any inline function property (ArrowFunction or
+ * FunctionExpression, under any key name — e.g. `handler`, `export`,
+ * `delete`), or in an options object passed to
+ * `r.hook`/`writeHandler`/`queryHandler`/`streamHandler`/`useExtension`
+ * alongside the handler function argument. Referenced-by-variable functions,
+ * spread options, computed/string keys, and non-literal escapeHatch values
+ * are conservatively not recognized (miss, don't falsely clear).
  *
  * Empty reasons, `openToAll.personalData` and PII are the framework boot validator's
  * job (access-declarations.ts), not this guard's. Known false-negatives:
@@ -174,7 +176,7 @@ function findUnsafeRawFindings(
     const expr = call.getExpression();
     if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) continue;
     if (expr.getName() !== "unsafeRaw") continue;
-    if (isInsideEscapeHatchDeclaredFunction(call)) continue;
+    if (isAllowedEscapeHatchCall(call, sf, systemDirs) || isExplicitUnsafeRawGrant(call)) continue;
     out.push({
       file: path.relative(root, sf.getFilePath()),
       line: call.getStartLineNumber(),
@@ -184,6 +186,19 @@ function findUnsafeRawFindings(
     });
   }
   return out;
+}
+
+function isExplicitUnsafeRawGrant(call: Node): boolean {
+  if (!call.isKind(SyntaxKind.CallExpression)) return false;
+  const expr = call.getExpression();
+  if (!expr.isKind(SyntaxKind.PropertyAccessExpression) || expr.getName() !== "unsafeRaw") {
+    return false;
+  }
+  const receiver = expr.getExpression();
+  return (
+    receiver.isKind(SyntaxKind.CallExpression) &&
+    receiver.getExpression().getText() === "withUnsafeRawGrant"
+  );
 }
 
 function isSystemIdentityExpression(node: Node): boolean {
@@ -270,6 +285,7 @@ const ESCAPE_HATCH_CALL_METHODS = new Set([
   "writeHandler",
   "queryHandler",
   "streamHandler",
+  "useExtension",
 ]);
 
 function isEscapeHatchDeclaredFunction(fn: Node): boolean {
@@ -277,13 +293,7 @@ function isEscapeHatchDeclaredFunction(fn: Node): boolean {
   if (!parent) return false;
 
   if (fn.isKind(SyntaxKind.MethodDeclaration)) {
-    const nameNode = fn.getNameNode();
-    return (
-      nameNode.isKind(SyntaxKind.Identifier) &&
-      nameNode.getText() === "handler" &&
-      parent.isKind(SyntaxKind.ObjectLiteralExpression) &&
-      objectDeclaresEscapeHatch(parent)
-    );
+    return parent.isKind(SyntaxKind.ObjectLiteralExpression) && objectDeclaresEscapeHatch(parent);
   }
 
   if (!fn.isKind(SyntaxKind.ArrowFunction) && !fn.isKind(SyntaxKind.FunctionExpression)) {
@@ -291,11 +301,8 @@ function isEscapeHatchDeclaredFunction(fn: Node): boolean {
   }
 
   if (parent.isKind(SyntaxKind.PropertyAssignment)) {
-    const nameNode = parent.getNameNode();
     const obj = parent.getParent();
     return (
-      nameNode.isKind(SyntaxKind.Identifier) &&
-      nameNode.getText() === "handler" &&
       parent.getInitializer() === fn &&
       obj.isKind(SyntaxKind.ObjectLiteralExpression) &&
       objectDeclaresEscapeHatch(obj)

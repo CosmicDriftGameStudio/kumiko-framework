@@ -126,6 +126,13 @@ export function isAllowlisted(relPath: string, allowlist: readonly RegExp[]): bo
   return allowlist.some((re) => re.test(relPath));
 }
 
+// allRepos guards render sibling hits as "../<repo>/..." relative to ROOT —
+// freezing those into a repo-local baseline would fail a sibling's own
+// refactor locally while CI (no sibling checked out there) never sees it.
+export function isLocalFinding<T extends { readonly file: string }>(item: T): boolean {
+  return !item.file.startsWith("../");
+}
+
 type BaselinePayload = {
   readonly format: number;
   readonly generated: string;
