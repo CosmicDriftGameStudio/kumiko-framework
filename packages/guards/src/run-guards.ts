@@ -21,6 +21,7 @@ import { guard as complexity } from "./check-complexity";
 import { guard as predicateExtraction } from "./check-predicates";
 import { guard as accessDeniedTest } from "./guard-access-denied-test";
 import { guard as adminApi } from "./guard-admin-api";
+import { guard as appFeatureStructure } from "./guard-app-feature-structure";
 import { guard as brokerSubscribe } from "./guard-broker-subscribe";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
@@ -31,6 +32,8 @@ import { guard as fakeTests } from "./guard-fake-tests";
 import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
+import { guard as i18nLocaleTerminology } from "./guard-i18n-locale-terminology";
+import { guard as libTestCoverage } from "./guard-lib-test-coverage";
 import { guard as loadallEvents } from "./guard-loadall-events";
 import { guard as noDateApi } from "./guard-no-date-api";
 import { guard as noDirectFs } from "./guard-no-direct-fs";
@@ -69,6 +72,7 @@ export const GUARDS = [
   errorReasons,
   i18nKeys,
   i18nLocaleMount,
+  i18nLocaleTerminology,
   piiAnnotations,
   textFieldStance,
   complexity,
@@ -78,6 +82,8 @@ export const GUARDS = [
   asCasts,
   loadallEvents,
   tableDdl,
+  appFeatureStructure,
+  libTestCoverage,
 ];
 
 // Only run on direct invocation — otherwise `import { GUARDS }` would kick
