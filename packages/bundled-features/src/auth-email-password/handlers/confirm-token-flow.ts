@@ -24,6 +24,7 @@
 
 import {
   createSystemUser,
+  declareEscapeHatch,
   type HandlerContext,
   type SessionUser,
   SYSTEM_TENANT_ID,
@@ -69,6 +70,10 @@ export async function runConfirmTokenFlow<TSuccessData>(
   expiresAtMs: number,
   spec: ConfirmTokenFlowSpec<TSuccessData>,
 ): Promise<WriteResult<TSuccessData>> {
+  declareEscapeHatch({
+    reason:
+      "writes the confirming user's row via UserHandlers.update on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
+  });
   if (!ctx.redis) {
     return writeFailure(new InternalError({ message: spec.redisRequiredMessage }));
   }
@@ -131,6 +136,10 @@ async function loadValidatedUser(
   systemUser: SessionUser,
   userId: string,
 ): Promise<(AuthUserRow & { version: number }) | null> {
+  declareEscapeHatch({
+    reason:
+      "reads the confirming user's row via UserQueries.findForAuth on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
+  });
   const me = parseAuthUserRow(
     await ctx.queryAs(systemUser, UserQueries.findForAuth, { id: userId }),
   );

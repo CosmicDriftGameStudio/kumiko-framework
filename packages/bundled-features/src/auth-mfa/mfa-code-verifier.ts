@@ -1,5 +1,9 @@
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  declareEscapeHatch,
+  type HandlerContext,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { findUserMfaRow } from "./db/queries";
 import { verifyMfaFactor } from "./verify-factor";
 
@@ -21,6 +25,10 @@ export type MfaCodeVerifier = (
 // codes exist for.
 export function createMfaCodeVerifier(): MfaCodeVerifier {
   return async (ctx, userId, tenantId, code) => {
+    declareEscapeHatch({
+      reason:
+        "reads the MFA enrollment of the user being re-authenticated on the caller's handler context; the calling handler declares its own escapeHatch",
+    });
     const scopedDb = createTenantDb(
       ctx.db.unsafeRaw("reads the MFA enrollment of the user being re-authenticated"),
       tenantId,
