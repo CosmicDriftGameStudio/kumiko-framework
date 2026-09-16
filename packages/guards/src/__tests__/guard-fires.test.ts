@@ -180,6 +180,26 @@ const ENFORCING: Record<string, Violating> = {
     code: 'import { useEffect } from "react";\nexport const S = () => { useEffect(() => {}, []); return null; };',
     expectedMessage: /useEffect in App-Screen/,
   },
+  "Screen-Conventions Guard": {
+    path: `${PKG}/features/x/screens.ts`,
+    code: 'declare const r: { screen: (x: unknown) => unknown };\nr.screen({ metrics: ["42"] });',
+    expectedMessage: /metrics-Eintrag "42" ist ein reiner String/,
+  },
+  "i18n-UI-Strings Guard (App-Repos)": {
+    path: `${APP}/features/x/web/screen.tsx`,
+    code: "export const S = () => <div>Lade Tenants…</div>;",
+    expectedMessage: /hardcodeter JSX-Text/,
+  },
+  "Write-Handler-QN Guard": {
+    path: `${PKG}/features/x/web/screen.tsx`,
+    code: 'declare const dispatcher: { write: (qn: string, payload?: unknown) => unknown };\nexport const run = () => dispatcher.write("bad-qn-format");',
+    expectedMessage: /ungültiges QN-Format/,
+  },
+  "loadAllEventsByType Guard": {
+    path: `${PKG}/features/x/events.ts`,
+    code: 'declare function loadAllEventsByType(t: string): unknown;\nexport const load = () => loadAllEventsByType("x");',
+    expectedMessage: /loadAllEventsByType\(\.\.\.\) in load/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report
@@ -194,6 +214,14 @@ const WARNING_ONLY: Record<string, string> = {
     "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Text-Field Personal-Stance Guard":
     "same baseline-ratchet pattern as PII-Annotations Guard (kumiko-framework#2810) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
+  "Complexity Check":
+    "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
+  "Predicate Extraction Check":
+    "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
+  "As-Casts Audit":
+    "coding-standards.md 'Type Assertions' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports suspect casts + baseline delta via console, always returns violations: []",
+  "Table-DDL Guard":
+    "documented warning-only in its own module header (unsafe* bypass calls outside the allowlist are reported via console, never blocking)",
 };
 
 describe("every registered guard catches its own violation", () => {
@@ -235,6 +263,16 @@ describe("every registered guard catches its own violation", () => {
     "Raw-Interactive-Elements Guard (App-Repos)": {
       path: `${APP}/features/x/web/link.tsx`,
       code: 'import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";\nexport const X = () => <a href="/x">go</a>;',
+      expectedMessage: /.*/,
+    },
+    "As-Casts Audit": {
+      path: `${PKG}/features/x/cast.ts`,
+      code: "export const f = (x: unknown) => x as string;",
+      expectedMessage: /.*/,
+    },
+    "Table-DDL Guard": {
+      path: `${PKG}/features/x/tables.ts`,
+      code: "declare function unsafePushTables(): void;\nexport const run = () => unsafePushTables();",
       expectedMessage: /.*/,
     },
   };
