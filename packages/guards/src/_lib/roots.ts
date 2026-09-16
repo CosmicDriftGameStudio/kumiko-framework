@@ -18,6 +18,7 @@ import {
   RepoManifestError,
   type RepoManifestSource,
 } from "@cosmicdrift/kumiko-repo-manifest";
+import { gitEnv } from "./git-env";
 
 export type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
 
@@ -67,24 +68,6 @@ function manifestAt(dir: string): LoadedRepoManifest | undefined {
   }
   manifestCache.set(abs, result);
   return result;
-}
-
-/**
- * Spawned git calls get an allowlisted environment, never `...process.env`.
- * A caller running as a pre-push hook would otherwise inherit `GIT_DIR`/
- * `GIT_WORK_TREE` from git, which git prefers over `cwd` — so an inherited
- * environment would answer for the hook's repo instead of the path being
- * asked about. `HOME` stays in, so the global config is still read.
- */
-const GIT_ENV_KEYS = ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "USER", "LOGNAME"] as const;
-
-function gitEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const key of GIT_ENV_KEYS) {
-    const value = process.env[key];
-    if (value !== undefined) env[key] = value;
-  }
-  return env;
 }
 
 function git(from: string, args: readonly string[]): string | undefined {
