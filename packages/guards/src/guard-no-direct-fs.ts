@@ -203,7 +203,7 @@ export const guard: AstGuard = {
   name: "No-Direct-Fs Guard",
   scan: SCAN,
   security: true,
-  hint: "Direkter node:fs-Import außerhalb der Allowlist — nutze FileStorageProvider (packages/framework/src/files/) statt fs selbst zu verdrahten. Path-Traversal-Guard existiert nur dort (resolveContainedPath). Legitimer neuer Tooling-Caller? Allowlist in guard-no-direct-fs.ts erweitern, mit Begründung + repo-Scope.",
+  hint: "Direct node:fs import outside the allowlist — use FileStorageProvider (packages/framework/src/files/) instead of wiring fs yourself. The path-traversal guard (resolveContainedPath) only exists there. Legitimate new tooling caller? Extend the allowlist in guard-no-direct-fs.ts, with a reason + repo scope.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     const roots = resolveRepoRoots();

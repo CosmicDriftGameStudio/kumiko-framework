@@ -104,8 +104,8 @@ export async function scanSecretLiterals(roots: readonly RepoRoot[]): Promise<{
 export const check: RepoCheck = {
   name: "Secret-Literal Guard",
   hint:
-    "Ein fehlendes Secret muss hart fehlschlagen, nie auf ein Literal zurückfallen. " +
-    "Aus dem validierten Env lesen (throw wenn fehlt). Dev-only-Fallbacks gehören nach bin/server.ts.",
+    "A missing secret must fail hard, never fall back to a literal. " +
+    "Read from the validated env (throw if missing). Dev-only fallbacks belong in bin/server.ts.",
   async run(roots) {
     if (roots.length === 0) {
       return { violations: [], matchedFiles: 0, notApplicable: true };

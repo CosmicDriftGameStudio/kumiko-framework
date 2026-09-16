@@ -84,8 +84,8 @@ export const guard: AstGuard = {
   name: "Raw-ClassName Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Design-tragende Klassen gehören in Widgets/Theme-Tokens (@cosmicdrift/kumiko-renderer-web widgets/, --color-status-*). " +
-    `Begründete Ausnahme: // ${IGNORE_TAG} <Grund>`,
+    "Design-bearing classes belong in widgets/theme tokens (@cosmicdrift/kumiko-renderer-web widgets/, --color-status-*). " +
+    `Justified exception: // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
@@ -99,7 +99,7 @@ export const guard: AstGuard = {
           violations.push({
             file: sf.getFilePath(),
             line: part.line,
-            message: `design-tragende Tailwind-Klassen in App-Code: ${bad.join(", ")}`,
+            message: `design-bearing Tailwind classes in app code: ${bad.join(", ")}`,
           });
         }
       }

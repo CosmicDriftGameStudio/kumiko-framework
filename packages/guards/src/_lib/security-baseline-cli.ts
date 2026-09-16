@@ -28,7 +28,7 @@ export function writeSecurityBaselines(guards: readonly AstGuard[], project: Pro
   for (const root of roots) {
     const load = loadSecurityBaseline(root.name, root.absPath);
     if (load.kind === "invalid") {
-      console.error(`  ✗ Security-Baseline ${load.file}: ${load.reason}`);
+      console.error(`  ✗ Security baseline ${load.file}: ${load.reason}`);
       process.exit(1);
     }
     hardFailByRepo.set(root.name, load.hardFail);
@@ -38,7 +38,7 @@ export function writeSecurityBaselines(guards: readonly AstGuard[], project: Pro
     const hardFail = hardFailByRepo.get(root.name) ?? [];
     const baseline = buildSecurityBaseline(root.name, guardViolations, roots, cwd, hardFail);
     const path = writeSecurityBaseline(baseline, root.absPath);
-    console.log(`  Security-Baseline geschrieben: ${path} (total ${baseline.total})`);
+    console.log(`  Security baseline written: ${path} (total ${baseline.total})`);
     for (const guardName of hardFail) {
       const count = guardViolations
         .filter((gv) => gv.guardName === guardName)
@@ -46,7 +46,7 @@ export function writeSecurityBaselines(guards: readonly AstGuard[], project: Pro
         .filter((v) => locateFinding(v.file, roots, cwd)?.repo === root.name).length;
       if (count > 0) {
         console.warn(
-          `  ! ${root.name}: ${count} Funde von ${guardName} nicht eingefroren (hardFail) — der Guard-Lauf blockiert sie`,
+          `  ! ${root.name}: ${count} findings from ${guardName} not frozen (hardFail) — the guard run blocks them`,
         );
       }
     }

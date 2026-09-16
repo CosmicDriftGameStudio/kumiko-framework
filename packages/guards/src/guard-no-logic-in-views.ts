@@ -124,8 +124,8 @@ export const guard: AstGuard = {
   name: "No-Logic-in-Views Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Berechnung/Parsing/Aggregation gehört nach lib/ (mit Test) — web/ enthält nur " +
-    `Komponenten und Hooks. Begründete Ausnahme: // ${IGNORE_TAG} <Grund>`,
+    "Computation/parsing/aggregation belongs in lib/ (with a test) — web/ holds only " +
+    `components and hooks. Justified exception: // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
@@ -136,7 +136,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: fn.getStartLineNumber(),
-          message: `View-Logik "${name}" gehört nach lib/ (mit Test) — web/ nur Komponenten/Hooks`,
+          message: `View logic "${name}" belongs in lib/ (with a test) — web/ only components/hooks`,
         });
       }
     }

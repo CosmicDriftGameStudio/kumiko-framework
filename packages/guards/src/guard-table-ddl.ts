@@ -121,22 +121,22 @@ export function collectFindings(sf: SourceFile, repoRoot: string): Finding[] {
 }
 
 function report(findings: readonly Finding[], scanned: number): void {
-  console.log(`Table-DDL Guard: ${scanned} Dateien geprueft.`);
+  console.log(`Table-DDL Guard: ${scanned} files checked.`);
   if (findings.length === 0) {
-    console.log("  Keine Bypass-Aufrufe ausserhalb der Allowlist.");
+    console.log("  No bypass calls outside the allowlist.");
     return;
   }
-  console.log(`  ${findings.length} Bypass-Aufruf(e) ausserhalb der Allowlist:`);
+  console.log(`  ${findings.length} bypass call(s) outside the allowlist:`);
   for (const f of findings) {
     console.log(`    ${f.file}:${f.line}  ${f.symbol}`);
     console.log(`      ${f.snippet}`);
   }
   console.log("");
-  console.log("  Regel: unsafe*-Aufrufe sind reserviert für Framework-internes (event-store,");
-  console.log("  pipeline-state, stack), Test-Setup (__tests__, drizzle/), App-Migrate-CLIs");
-  console.log("  (bin/migrate.ts). Apps deklarieren Tabellen via r.entity() oder r.rawTable().");
+  console.log("  Rule: unsafe* calls are reserved for framework-internal code (event-store,");
+  console.log("  pipeline-state, stack), test setup (__tests__, drizzle/), app migrate CLIs");
+  console.log("  (bin/migrate.ts). Apps declare tables via r.entity() or r.rawTable().");
   console.log("  Plan: kumiko-platform/docs/plans/architecture/table-ddl-guard.md");
-  console.log("  Warnung, kein Fail.");
+  console.log("  Warning, no fail.");
 }
 
 export const guard: AstGuard = {

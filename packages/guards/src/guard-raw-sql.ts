@@ -62,8 +62,8 @@ export async function collectRawSqlFindings(
 export const check: RepoCheck = {
   name: "guard-raw-sql",
   hint:
-    "Regel: Runtime-SQL nur in db/queries/*, bun-db/query.ts, testing/*, oder mit " +
-    "// kumiko-lint-ignore raw-sql <Grund> auf der Zeile bzw. der Zeile davor.",
+    "Rule: runtime SQL only in db/queries/*, bun-db/query.ts, testing/*, or with " +
+    "// kumiko-lint-ignore raw-sql <reason> on the line or the line above.",
   async run(roots) {
     // kumiko-platform's deliberate empty scan-dir list must not read as vacuous (infra#610).
     const applicableRoots = roots.filter((r) => sqlScanLayoutFor(r) !== "none");

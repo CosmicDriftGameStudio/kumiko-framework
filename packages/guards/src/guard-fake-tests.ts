@@ -117,7 +117,7 @@ function scanFile(sf: SourceFile): Violation[] {
 export const guard: AstGuard = {
   name: "Fake-Test Guard",
   scan: SCAN,
-  hint: "Test ohne expect() oder mit Tautologie — echtes Verhalten prüfen, nicht Existenz.",
+  hint: "Test without expect() or with a tautology — check real behavior, not existence.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

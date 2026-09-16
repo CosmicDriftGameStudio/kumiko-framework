@@ -151,8 +151,8 @@ export const guard: AstGuard = {
   name: "i18n-UI-Strings Guard (App-Repos)",
   scan: SCAN,
   hint:
-    'UI-Text gehört in i18n-Bundles + t("feature:key") — nicht als Literal in JSX. ' +
-    `Begründete Ausnahme (z.B. Eigenname/Brand): // ${IGNORE_TAG} <Grund>`,
+    'UI text belongs in i18n bundles + t("feature:key") — not as a literal in JSX. ' +
+    `Justified exception (e.g. proper noun/brand): // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
@@ -164,7 +164,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: textNode.getStartLineNumber(),
-          message: `hardcodeter JSX-Text: "${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"`,
+          message: `hardcoded JSX text: "${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"`,
         });
       }
       for (const attr of sf.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
@@ -177,7 +177,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: attr.getStartLineNumber(),
-          message: `hardcodetes Label-Prop ${attr.getNameNode().getText()}="${value.slice(0, 40)}"`,
+          message: `hardcoded label prop ${attr.getNameNode().getText()}="${value.slice(0, 40)}"`,
         });
       }
       // Ternary/logical JSX expressions: `{saving ? "Saving…" : "Save"}` as a
@@ -199,8 +199,8 @@ export const guard: AstGuard = {
             line: piece.node.getStartLineNumber(),
             message:
               attr !== undefined
-                ? `hardcodetes Label-Prop ${attr.getNameNode().getText()} in Ternary/Logik-Ausdruck: "${shown}"`
-                : `hardcodeter JSX-Text in Ternary/Logik-Ausdruck: "${shown}"`,
+                ? `hardcoded label prop ${attr.getNameNode().getText()} in ternary/logical expression: "${shown}"`
+                : `hardcoded JSX text in ternary/logical expression: "${shown}"`,
           });
         }
       }
@@ -237,7 +237,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: prop.getStartLineNumber(),
-          message: `hardcodetes Label-Property ${prop.getName()}="${value.slice(0, 40)}" in r.*-Aufruf — i18n-Key statt Klartext`,
+          message: `hardcoded label property ${prop.getName()}="${value.slice(0, 40)}" in r.* call — use an i18n key instead of plain text`,
         });
       }
     }

@@ -73,7 +73,7 @@ function checkMetrics(
       violations.push({
         file: sf.getFilePath(),
         line: el.getStartLineNumber(),
-        message: `metrics-Eintrag "${el.getLiteralValue()}" ist ein reiner String (Zahl ohne Bedeutung) — Objektform mit \`label\` verwenden.`,
+        message: `metrics entry "${el.getLiteralValue()}" is a plain string (a number with no meaning) — use the object form with \`label\`.`,
       });
       continue;
     }
@@ -82,7 +82,7 @@ function checkMetrics(
         file: sf.getFilePath(),
         line: el.getStartLineNumber(),
         message:
-          "metrics-Eintrag ohne `label` (Zahl ohne Bedeutung) — Objektform braucht ein Label.",
+          "metrics entry without `label` (a number with no meaning) — the object form needs a label.",
       });
     }
   }
@@ -102,7 +102,7 @@ function checkRelatedListSections(
     violations.push({
       file: sf.getFilePath(),
       line: obj.getStartLineNumber(),
-      message: "relatedList-Section ohne `rowClick`/`rowActions` — die Zeile führt nirgendwohin.",
+      message: "relatedList section without `rowClick`/`rowActions` — the row leads nowhere.",
     });
   }
 }
@@ -129,7 +129,7 @@ function checkRowActions(
         violations.push({
           file: sf.getFilePath(),
           line: el.getStartLineNumber(),
-          message: `rowAction "${id}" hat Label "${label}" (klingt nach Bearbeiten), id ist aber nicht "edit" — Label/Aktion-Mismatch.`,
+          message: `rowAction "${id}" has label "${label}" (sounds like edit), but id is not "edit" — label/action mismatch.`,
         });
       }
     }
@@ -140,10 +140,10 @@ export const guard: AstGuard = {
   name: "Screen-Conventions Guard",
   scan: SCAN,
   hint:
-    "metrics-Einträge brauchen die Objektform mit `label`; relatedList-Sections brauchen " +
-    '`rowClick` oder `rowActions`; ein rowAction-Label darf nicht auf ".action.edit" enden, ' +
-    'wenn die `id` nicht "edit" ist. ' +
-    `Begründete Ausnahme: // ${IGNORE_TAG} <Grund>`,
+    "metrics entries need the object form with `label`; relatedList sections need " +
+    '`rowClick` or `rowActions`; a rowAction label must not end in ".action.edit" ' +
+    'when the `id` is not "edit". ' +
+    `Justified exception: // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {

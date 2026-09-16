@@ -145,7 +145,7 @@ function scan(files: readonly SourceFile[]): {
         if (token.length === 0 || allowed.has(token)) continue;
         findings.push({ file, line, token });
         console.warn(
-          `  [tailwind-scan-surface WARN] ${file}:${line}  Klasse "${token}" liegt außerhalb des Tailwind-Scan-Bereichs (renderer-web/src, renderer/src, samples/**/src)`,
+          `  [tailwind-scan-surface WARN] ${file}:${line}  class "${token}" is outside the Tailwind scan surface (renderer-web/src, renderer/src, samples/**/src)`,
         );
       }
     }
@@ -163,7 +163,7 @@ const BASELINE_FILE = ".kumiko-tailwind-scan-surface-baseline.json";
 const tailwindScanSurfaceBaseline = baselineRatchet({
   file: path.join(BASELINE_ROOT, BASELINE_FILE),
   formatVersion: 1,
-  unit: "Klassen-Token(s)",
+  unit: "class token(s)",
 });
 
 // Second, independent rule: a consuming app repo (studio,
@@ -489,7 +489,7 @@ const SOURCE_COVERAGE_BASELINE_FILE = ".kumiko-tailwind-source-coverage-baseline
 const sourceCoverageBaseline = baselineRatchet({
   file: path.join(BASELINE_ROOT, SOURCE_COVERAGE_BASELINE_FILE),
   formatVersion: 1,
-  unit: "fehlende(r) @source-Eintrag/Einträge",
+  unit: "missing @source entry/entries",
 });
 
 export function sourceCoverageBaselineCounts(
@@ -504,10 +504,10 @@ function checkSourceCoverageBaseline(findings: readonly SourceCoverageFinding[])
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
   return sourceCoverageBaseline.check(
     sourceCoverageBaselineCounts(findings),
-    "Paket liefert Tailwind-Klassen ohne @source-Abdeckung in dieser App — @source-Eintrag für beide Install-Layouts ergänzen (Muster: bestehende bundled-features-Einträge).",
+    "Package delivers Tailwind classes without @source coverage in this app — add an @source entry for both install layouts (pattern: existing bundled-features entries).",
     {
       formatDriftRemediation:
-        "Einmalig `bun guards/guard-tailwind-scan-surface.ts --write-baseline` aufrufen.",
+        "Run `bun guards/guard-tailwind-scan-surface.ts --write-baseline` once.",
       resolveLine,
     },
   );
@@ -523,10 +523,10 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
   return tailwindScanSurfaceBaseline.check(
     baselineCounts(findings),
-    "Klasse außerhalb des @source-Scan-Bereichs (renderer-web/src, renderer/src, samples/**/src) — eine dort bereits emittierte Klasse wiederverwenden, oder das Styling nach renderer-web ziehen.",
+    "Class outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) — reuse a class already emitted there, or move the styling into renderer-web.",
     {
       formatDriftRemediation:
-        "Einmalig `bun guards/guard-tailwind-scan-surface.ts --write-baseline` aufrufen.",
+        "Run `bun guards/guard-tailwind-scan-surface.ts --write-baseline` once.",
       resolveLine,
     },
   );
@@ -542,7 +542,7 @@ export function analyse(
   const publishedSurfaceFindings = scanPublishedScanSurface(roots);
   reportPublishedScanSurfaceFindings(publishedSurfaceFindings);
   if (!compareBaseline) {
-    console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+    console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
   return {
@@ -558,10 +558,10 @@ export const guard: AstGuard = {
   name: "Tailwind-Scan-Surface Guard",
   scan: SCAN,
   hint:
-    "Tailwind-Klasse in bundled-features außerhalb des @source-Scan-Bereichs (renderer-web/src, renderer/src, samples/**/src) " +
-    `— reuse a class already emitted there, or move the styling into renderer-web. Begründete Ausnahme: // ${IGNORE_TAG} <Grund>. ` +
-    "Paket ohne @source-Abdeckung in einer App: @source-Eintrag für beide Install-Layouts ergänzen. " +
-    "@source mit node_modules/<pkg>/<segment>-Pfad: prüfen ob <pkg> dieses Segment überhaupt publiziert (package.json files).",
+    "Tailwind class in bundled-features outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) " +
+    `— reuse a class already emitted there, or move the styling into renderer-web. Justified exception: // ${IGNORE_TAG} <reason>. ` +
+    "Package without @source coverage in an app: add an @source entry for both install layouts. " +
+    "@source with a node_modules/<pkg>/<segment> path: check whether <pkg> even publishes that segment (package.json files).",
   run: (files) => analyse(files, true),
 };
 

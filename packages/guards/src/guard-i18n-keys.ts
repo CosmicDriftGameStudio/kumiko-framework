@@ -411,7 +411,7 @@ export function checkI18nKeys(
       {
         file: d.file,
         line: d.line,
-        message: `Key "${d.fullKey}" fehlt Locale: ${missingLocales.join(", ")}`,
+        message: `Key "${d.fullKey}" is missing locale: ${missingLocales.join(", ")}`,
       },
     ];
   });
@@ -421,7 +421,7 @@ export function checkI18nKeys(
       ...missing.map((m) => ({
         file: m.file,
         line: m.line,
-        message: `verwendeter Key ohne Definition: "${m.key}"`,
+        message: `used key without a definition: "${m.key}"`,
       })),
       ...localeViolations,
     ],
@@ -431,7 +431,7 @@ export function checkI18nKeys(
 export const guard: AstGuard = {
   name: "i18n-Keys Guard",
   scan: SCAN,
-  hint: "Verwendeter i18n-Key ohne Definition oder fehlende Locale — Key/Locale in der Feature-translations-Map ergänzen (Locales aus src/i18n-guard-locales.ts oder src/marketing/locale-routes.ts).",
+  hint: "Used i18n key without a definition, or missing locale — add the key/locale to the feature's translations map (locales from src/i18n-guard-locales.ts or src/marketing/locale-routes.ts).",
   run(files) {
     return checkI18nKeys(files);
   },

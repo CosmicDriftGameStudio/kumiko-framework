@@ -112,7 +112,7 @@ const ENFORCING: Record<string, Violating> = {
   "i18n-Locale-Mount Guard": {
     path: `${APP}/web/mount.tsx`,
     code: "createKumikoApp({ shell: X, clientFeatures: [] });",
-    expectedMessage: /localeDeClient\(\) fehlt/,
+    expectedMessage: /localeDeClient\(\) missing/,
     extraFiles: {
       [`${CWD}/packages/app/package.json`]: JSON.stringify({
         name: "fixture-app",
@@ -158,22 +158,22 @@ const ENFORCING: Record<string, Violating> = {
   "No-Logic-in-Views Guard (App-Repos)": {
     path: `${APP}/features/x/web/calc.tsx`,
     code: "export function paidFraction(principal: number, remaining: number): number {\n  if (principal <= 0) return 0;\n  return Math.max(0, Math.min(1, (principal - remaining) / principal));\n}",
-    expectedMessage: /View-Logik "paidFraction" gehört nach lib\//,
+    expectedMessage: /View logic "paidFraction" belongs in lib\//,
   },
   "Raw-ClassName Guard (App-Repos)": {
     path: `${APP}/features/x/web/card.tsx`,
     code: 'export const C = () => <div className="bg-red-500">x</div>;',
-    expectedMessage: /design-tragende Tailwind-Klassen/,
+    expectedMessage: /design-bearing Tailwind classes/,
   },
   "No-Inline-Styles Guard (App-Repos)": {
     path: `${APP}/features/x/web/box.tsx`,
     code: "export const B = () => <div style={{ padding: 8 }}>x</div>;",
-    expectedMessage: /style=-Prop in App-Code/,
+    expectedMessage: /style= prop in app code/,
   },
   "No-Custom-Primitives Guard (App-Repos)": {
     path: `${APP}/features/x/web/table.tsx`,
     code: "const StatCard = () => <div>x</div>;\nexport const T = () => <StatCard />;",
-    expectedMessage: /App-lokales UI-Primitive "StatCard"/,
+    expectedMessage: /App-local UI primitive "StatCard"/,
   },
   "No-Raw-Hooks Guard (App-Repos)": {
     path: `${APP}/features/x/web/screen.tsx`,
@@ -183,17 +183,17 @@ const ENFORCING: Record<string, Violating> = {
   "Screen-Conventions Guard": {
     path: `${PKG}/features/x/screens.ts`,
     code: 'declare const r: { screen: (x: unknown) => unknown };\nr.screen({ metrics: ["42"] });',
-    expectedMessage: /metrics-Eintrag "42" ist ein reiner String/,
+    expectedMessage: /metrics entry "42" is a plain string/,
   },
   "i18n-UI-Strings Guard (App-Repos)": {
     path: `${APP}/features/x/web/screen.tsx`,
     code: "export const S = () => <div>Lade Tenants…</div>;",
-    expectedMessage: /hardcodeter JSX-Text/,
+    expectedMessage: /hardcoded JSX text/,
   },
   "Write-Handler-QN Guard": {
     path: `${PKG}/features/x/web/screen.tsx`,
     code: 'declare const dispatcher: { write: (qn: string, payload?: unknown) => unknown };\nexport const run = () => dispatcher.write("bad-qn-format");',
-    expectedMessage: /ungültiges QN-Format/,
+    expectedMessage: /invalid QN format/,
   },
   "loadAllEventsByType Guard": {
     path: `${PKG}/features/x/events.ts`,

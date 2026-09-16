@@ -128,7 +128,7 @@ export function findViolations(file: string, root: string): Violation[] {
 
 export const check: RepoCheck = {
   name: "Renderer-Boundaries Guard",
-  hint: "@cosmicdrift/kumiko-renderer darf keine DOM-/Browser-/Platform-APIs nutzen. Platform-spezifischer Code gehört nach @cosmicdrift/kumiko-renderer-web (oder renderer-native).",
+  hint: "@cosmicdrift/kumiko-renderer must not use DOM/browser/platform APIs. Platform-specific code belongs in @cosmicdrift/kumiko-renderer-web (or renderer-native).",
   run(roots) {
     const frameworkRoots = roots.filter((r) => r.kind === "framework");
     const scanDirs = frameworkRoots

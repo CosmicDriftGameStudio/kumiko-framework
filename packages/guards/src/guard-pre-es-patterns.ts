@@ -188,7 +188,7 @@ export const guard: AstGuard = {
         file: "packages/framework/src/pipeline/event-log.ts",
         line: 0,
         message:
-          "BLOCKED: pipeline/event-log.ts wurde wiederhergestellt. Die Datei gehört gelöscht — ihre Rolle übernimmt die events-Tabelle.",
+          "BLOCKED: pipeline/event-log.ts was restored. The file must be deleted — the events table now takes over its role.",
       });
     }
 

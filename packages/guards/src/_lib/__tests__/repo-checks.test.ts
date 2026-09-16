@@ -61,7 +61,7 @@ describe("runRepoChecks — the five verdicts", () => {
       [],
     );
     expect(result?.ok).toBe(false);
-    expect(result?.message).toContain("0 Dateien gescannt");
+    expect(result?.message).toContain("0 files scanned");
   });
 
   test("notApplicable (target repo not in this checkout) stays ok, even with 0 matched files", async () => {

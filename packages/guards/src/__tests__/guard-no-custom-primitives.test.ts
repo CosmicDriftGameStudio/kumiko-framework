@@ -59,7 +59,7 @@ export function ClarifyForm() { return <Field><input value="x" /></Field>; }`,
       );
       const violations = guard.run([sf]).violations;
       expect(violations).toHaveLength(1);
-      expect(violations[0]?.message).toContain("rohes Formular-HTML");
+      expect(violations[0]?.message).toContain("raw form HTML");
     });
 
     test("flags <select>, <textarea> and <label> in a file with primitives access", () => {
@@ -77,7 +77,7 @@ export function ClarifyForm() {
       );
       const violations = guard.run([sf]).violations;
       expect(violations).toHaveLength(1);
-      expect(violations[0]?.message).toContain("rohes Formular-HTML");
+      expect(violations[0]?.message).toContain("raw form HTML");
     });
 
     test("flags a usePrimitives() import from kumiko-renderer (not just -web)", () => {
@@ -96,7 +96,7 @@ export function ProposalPanel() {
       const sf = parse('export function LegacyForm() { return <input value="x" />; }');
       const violations = guard.run([sf]).violations;
       expect(violations).toHaveLength(1);
-      expect(violations[0]?.message).toContain("rohes Formular-HTML");
+      expect(violations[0]?.message).toContain("raw form HTML");
     });
 
     test("flags raw form HTML when only kumiko-renderer (types) instead of -renderer-web is imported — the designer gap (infra#748 follow-up)", () => {
@@ -106,7 +106,7 @@ export function PatternForm() { return <input value="x" />; }`,
       );
       const violations = guard.run([sf]).violations;
       expect(violations).toHaveLength(1);
-      expect(violations[0]?.message).toContain("rohes Formular-HTML");
+      expect(violations[0]?.message).toContain("raw form HTML");
     });
 
     test("ignore tag on the JSX element suppresses the finding", () => {
