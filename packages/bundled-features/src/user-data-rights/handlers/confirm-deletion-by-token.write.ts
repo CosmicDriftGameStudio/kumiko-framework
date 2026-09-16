@@ -1,4 +1,9 @@
-import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
+import {
+  createSystemUser,
+  defineWriteHandler,
+  type HandlerContext,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
@@ -81,7 +86,19 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
       );
       if (!verified.ok) return writeFailure(invalidToken());
 
-      const res = await startDeletionGracePeriod(ctx, verified.userId, event.user.tenantId);
+      // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
+      // the compliance-profile shape.
+      const profile = (await ctx.queryAs(
+        createSystemUser(event.user.tenantId),
+        "compliance-profiles:query:for-tenant",
+        {},
+      )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
+      const res = await startDeletionGracePeriod(
+        ctx,
+        verified.userId,
+        profile.profile.userRights.gracePeriod,
+        ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+      );
       if (!res.ok) {
         // Generischer 422 statt res.error: dieser Endpoint ist anonym-öffentlich,
         // res.error trägt den konkreten User-Status (currentStatus aus

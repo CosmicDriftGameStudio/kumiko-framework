@@ -1,5 +1,6 @@
 import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import type { DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
+import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS } from "../../user";
@@ -61,7 +62,19 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       "Starts the GDPR Art. 17 deletion of the calling user's own account by arming the grace period from the tenant compliance profile and mailing a confirmation, after which only cancel-deletion can stop the erasure.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
-      const res = await startDeletionGracePeriod(ctx, event.user.id, event.user.tenantId);
+      // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
+      // the compliance-profile shape.
+      const profile = (await ctx.queryAs(
+        createSystemUser(event.user.tenantId),
+        "compliance-profiles:query:for-tenant",
+        {},
+      )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
+      const res = await startDeletionGracePeriod(
+        ctx,
+        event.user.id,
+        profile.profile.userRights.gracePeriod,
+        ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+      );
       if (!res.ok) return writeFailure(res.error);
       const { gracePeriodEnd, userEmail, userLocale } = res;
 
