@@ -23,6 +23,9 @@
       "default": "./src/index.ts"
     }
   },
+  "bin": {
+    "kumiko-guards": "./src/run-guards.ts"
+  },
   "dependencies": {
     "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
     "ts-morph": "^28.0.0"

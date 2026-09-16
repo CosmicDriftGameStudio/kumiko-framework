@@ -223,7 +223,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Der Runner baut das Project EINMAL (~6s) und lässt alle Guards seriell
   // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
   // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
-  steps.push({ name: "AST-Guards (shared runner)", cmd: "bunx kumiko-guards-run" });
+  steps.push({ name: "AST-Guards (shared runner)", cmd: "bunx kumiko-guards" });
   steps.push({ name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" });
   steps.push({
     name: "Primitives-Discipline Guard",
