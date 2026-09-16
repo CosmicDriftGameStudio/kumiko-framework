@@ -55,7 +55,7 @@ describe("custom-fields db/queries — closed-connection retry (#2323)", () => {
 
   test("countTenantFieldDefinitions retries once through db.unsafeRaw and returns the count", async () => {
     const raw = fakeClient([closedConnectionError()], { n: 3 });
-    const result = await countTenantFieldDefinitions({ unsafeRaw: () => raw } as never, "t1");
+    const result = await countTenantFieldDefinitions(raw, "t1");
     expect(result).toBe(3);
     expect(raw.calls).toBe(2);
   });
