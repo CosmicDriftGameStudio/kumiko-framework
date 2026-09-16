@@ -192,9 +192,9 @@ async function appendDenialAuditEvent(
   subjectKey: string,
   subjectKind: SubjectIdInput["kind"],
   denialCode: string,
+  denialAuditRunner: DbRunner | undefined,
 ): Promise<WriteFailure | null> {
-  const outsideTx = ctx.dbOutsideTransaction;
-  if (!outsideTx) {
+  if (!denialAuditRunner) {
     return writeFailure(
       new InternalError({
         message:
@@ -230,28 +230,23 @@ async function appendDenialAuditEvent(
   // This event is the only proof the denial happened. Skipping
   // runProjectionsForEvent here is fine — nothing projects
   // crypto-shredding:event:forget-denied.
-  await append(
-    outsideTx.unsafeRaw(
-      "denial audit append: names the prober's own tenant stream on the outside-transaction db",
-    ),
-    {
-      aggregateId: generateId(),
-      aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-      // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw
-      // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event (fw#2452).
-      tenantId: event.user.tenantId,
-      expectedVersion: 0,
-      type: SUBJECT_FORGET_DENIED_EVENT_NAME,
-      eventVersion: eventDef.version,
-      payload,
-      metadata: {
-        userId: event.user.id,
-        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
-        ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
-        ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
-      },
+  await append(denialAuditRunner, {
+    aggregateId: generateId(),
+    aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+    // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw
+    // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event (fw#2452).
+    tenantId: event.user.tenantId,
+    expectedVersion: 0,
+    type: SUBJECT_FORGET_DENIED_EVENT_NAME,
+    eventVersion: eventDef.version,
+    payload,
+    metadata: {
+      userId: event.user.id,
+      ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+      ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+      ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
     },
-  );
+  });
   return null;
 }
 
@@ -316,6 +311,9 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         tenantScopeDenial.error.code,
+        ctx.dbOutsideTransaction?.unsafeRaw(
+          "denial audit append: names the prober's own tenant stream on the outside-transaction db",
+        ),
       );
       return auditFailure ?? tenantScopeDenial;
     }
@@ -335,6 +333,9 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         TARGET_RECORD_RETENTION_BLOCK_DELETE,
+        ctx.dbOutsideTransaction?.unsafeRaw(
+          "denial audit append: names the prober's own tenant stream on the outside-transaction db",
+        ),
       );
       return auditFailure ?? retentionDenial;
     }
