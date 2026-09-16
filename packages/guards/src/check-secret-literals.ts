@@ -57,10 +57,11 @@ export type SecretLiteralFinding = {
 
 /** Returns the offending literal, or null when the line is clean. */
 export function secretLiteralOnLine(line: string): string | null {
-  // Nur echte Full-Line-Comments skippen — Stripping ab dem ersten //
-  // (egal wo) schnitt Connection-String-Fallbacks (postgres://, redis://,
-  // https://token@host/…) vor dem schliessenden Quote ab, keine Findings.
-  const code = /^\s*\/\//.test(line) ? "" : line;
+  // Only the line start counts as a comment (`//`, or a block-comment line
+  // starting with `*`/`/*`/`*/`): stripping from the first `//` anywhere in
+  // the line would cut connection-string fallbacks (postgres://, redis://,
+  // https://token@host/…) off before their closing quote, losing findings.
+  const code = /^\s*(?:\/\/|\/\*|\*\/|\*)/.test(line) ? "" : line;
   if (!SECRET_CONTEXT.test(code)) return null;
   const match = STRING_FALLBACK.exec(code);
   if (!match) return null;

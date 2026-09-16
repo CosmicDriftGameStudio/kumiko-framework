@@ -537,6 +537,7 @@ function matchArgString(call: CallExpression, index: number, expected: string): 
   return readNameLiteral(arg) === expected;
 }
 
+// @wrapper-known semantic-alias
 function matchFirstArgString(call: CallExpression, expected: string): boolean {
   return matchArgString(call, 0, expected);
 }

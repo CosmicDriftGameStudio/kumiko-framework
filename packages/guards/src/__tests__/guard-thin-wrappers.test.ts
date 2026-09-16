@@ -63,6 +63,16 @@ describe("collectFindings — excluded patterns (the detection bug fixes)", () =
     const code = "const chain = (x: number) => builder.build(x).attach(y);";
     expect(findingFor(code, "chain")).toBeUndefined();
   });
+
+  test("regex .test() is not a call to a function named 'test'", () => {
+    const code = "function isTsFile(name: string) { return /\\.tsx?$/.test(name); }";
+    expect(findingFor(code, "isTsFile")).toBeUndefined();
+  });
+
+  test("control case: a plain function call is still a wrapper", () => {
+    const f = findingFor("function isThing(name: string) { return someHelper(name); }", "isThing");
+    expect(f?.callee).toBe("someHelper");
+  });
 });
 
 describe("check.run — RepoCheck seam (warning-only)", () => {

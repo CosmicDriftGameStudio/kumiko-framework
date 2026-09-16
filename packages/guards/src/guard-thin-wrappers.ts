@@ -299,7 +299,12 @@ function extractCalleeName(callNode: ReturnType<FnNode["getBody"]> | undefined):
   const expr = callNode.isKind(SyntaxKind.CallExpression) ? callNode.getExpression() : null;
   if (!expr) return null;
   if (expr.isKind(SyntaxKind.Identifier)) return expr.getText();
-  if (expr.isKind(SyntaxKind.PropertyAccessExpression)) return expr.getName();
+  if (expr.isKind(SyntaxKind.PropertyAccessExpression)) {
+    // `/re/.test(x)` is a RegExp method call, not a call to a function named
+    // "test" — a regex-literal receiver is never a wrapper callee.
+    if (expr.getExpression().isKind(SyntaxKind.RegularExpressionLiteral)) return null;
+    return expr.getName();
+  }
   return null;
 }
 
