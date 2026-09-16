@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +8,8 @@ import {
   type AstGuard,
   checkRootFloor,
   explainGuards,
+  guardKitPreflightError,
+  printGuardKitBanner,
   reportResults,
   runGuards,
 } from "../guard-kit";
@@ -401,5 +403,49 @@ describe("explainGuards — per guard and root: source, files, source surface", 
       resolution: { roots: [] },
     });
     expect(lines[0]).toContain("none found");
+  });
+});
+
+// infra#2863: both cases were a silent, green run before — exactly what a
+// differently-laid-out external consumer checkout hits — so the runners must
+// fail closed instead of reporting success on nothing.
+describe("guardKitPreflightError — fail-closed on the two globally-empty cases", () => {
+  test("zero resolved roots is an error, independent of guard count", () => {
+    expect(guardKitPreflightError(30, 0)).toContain("No repo root resolved");
+  });
+
+  test("zero registered guards is an error, given a resolved root", () => {
+    expect(guardKitPreflightError(0, 1)).toContain("No guards registered");
+  });
+
+  test("a resolved root and a non-empty guard list is not an error", () => {
+    expect(guardKitPreflightError(30, 1)).toBeUndefined();
+  });
+});
+
+describe("printGuardKitBanner — exits(1) on the two globally-empty cases", () => {
+  const local = repoRoot("kumiko-framework", "/repo/kumiko-framework");
+  const mockExit = () =>
+    spyOn(process, "exit").mockImplementation((_code?: number): never => undefined as never);
+
+  test("zero resolved roots calls process.exit(1) instead of printing the banner", () => {
+    const exit = mockExit();
+    printGuardKitBanner(30, undefined, { resolution: { roots: [] } });
+    expect(exit).toHaveBeenCalledWith(1);
+    exit.mockRestore();
+  });
+
+  test("zero registered guards calls process.exit(1) instead of printing the banner", () => {
+    const exit = mockExit();
+    printGuardKitBanner(0, undefined, { resolution: { roots: [{ root: local, source: "local" }] } });
+    expect(exit).toHaveBeenCalledWith(1);
+    exit.mockRestore();
+  });
+
+  test("a resolved root and guards registered does not exit", () => {
+    const exit = mockExit();
+    printGuardKitBanner(30, undefined, { resolution: { roots: [{ root: local, source: "local" }] } });
+    expect(exit).not.toHaveBeenCalled();
+    exit.mockRestore();
   });
 });

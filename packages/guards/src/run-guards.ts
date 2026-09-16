@@ -11,6 +11,7 @@ import {
   buildSharedProject,
   explainGuards,
   isSecurityGuard,
+  printGuardKitBanner,
   reportResults,
   runGuards,
 } from "./_lib/guard-kit";
@@ -97,8 +98,8 @@ if (import.meta.main) {
   }
   const strictSecurityBaseline = process.argv.includes("--strict-security-baseline");
   const guards = strictSecurityBaseline ? GUARDS.filter(isSecurityGuard) : GUARDS;
-  const failed = reportResults(
-    runGuards(guards, buildSharedProject(guards), { strictSecurityBaseline }),
-  );
+  const project = buildSharedProject(guards);
+  printGuardKitBanner(guards.length, project);
+  const failed = reportResults(runGuards(guards, project, { strictSecurityBaseline }));
   process.exit(failed > 0 ? 1 : 0);
 }

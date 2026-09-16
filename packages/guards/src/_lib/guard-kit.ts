@@ -13,7 +13,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { relative as pathRelative } from "node:path";
+import { relative as pathRelative, resolve } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import { compareToBaseline, findRepoRootFor } from "./baseline-compare";
 import {
@@ -455,6 +455,54 @@ export function explainGuards(
     }
   }
   return lines;
+}
+
+function guardKitVersion(): string {
+  const pkgPath = resolve(import.meta.dir, "../../package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { readonly version?: string };
+  return pkg.version ?? "0.0.0";
+}
+
+/**
+ * Pure preflight verdict, injectable for tests: which of the two globally
+ * silent-green cases (infra#2863) applies, if any. Not to be confused with a
+ * single guard finding no target repos — that stays a per-guard `skipped`
+ * line in `reportResults`.
+ */
+export function guardKitPreflightError(guardCount: number, rootCount: number): string | undefined {
+  if (rootCount === 0) {
+    return "No repo root resolved — checkout has no package.json with a kumiko.json/src layout above cwd.";
+  }
+  if (guardCount === 0) {
+    return "No guards registered — the runner's guard array is empty.";
+  }
+  return undefined;
+}
+
+export type GuardKitBannerDeps = {
+  readonly resolution?: RootResolution;
+};
+
+/**
+ * Shared entrypoint banner for the three bin/run-*.ts runners: fails closed
+ * on the two globally-empty cases above, otherwise prints the header every
+ * run starts with, before the first guard result. Not used by `--explain`,
+ * which already prints its own "Repo: ..." header.
+ */
+export function printGuardKitBanner(
+  guardCount: number,
+  project?: Project,
+  deps: GuardKitBannerDeps = {},
+): void {
+  const { roots } = deps.resolution ?? explainRepoRoots();
+  const error = guardKitPreflightError(guardCount, roots.length);
+  if (error !== undefined) {
+    console.error(error);
+    process.exit(1);
+  }
+  console.log(`kumiko-guards ${guardKitVersion()} - ${guardCount} guards registered`);
+  console.log(`Roots: ${roots.map((r) => r.root.name).join(", ")} (${roots.length})`);
+  if (project) console.log(`Project: ${project.getSourceFiles().length} files`);
 }
 
 /**

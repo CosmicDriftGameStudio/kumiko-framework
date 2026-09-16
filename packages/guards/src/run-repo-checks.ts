@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { reportResults, runRepoChecks } from "./_lib/guard-kit";
+import { printGuardKitBanner, reportResults, runRepoChecks } from "./_lib/guard-kit";
 // Standalone-`main()` guards ported as RepoCheck — run in-process, no
 // per-guard subprocess/project.
 import { check as secretLiterals } from "./check-secret-literals";
@@ -19,6 +19,9 @@ export const REPO_CHECKS = [
 ];
 
 if (import.meta.main) {
+  // No shared ts-morph Project here — RepoCheck.run() does its own file
+  // walk per check, so the banner omits the "Project: N files" line.
+  printGuardKitBanner(REPO_CHECKS.length);
   const failed = reportResults(await runRepoChecks(REPO_CHECKS));
   process.exit(failed > 0 ? 1 : 0);
 }
