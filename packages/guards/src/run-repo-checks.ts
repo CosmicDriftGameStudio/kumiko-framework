@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
+import { reportResults, runRepoChecks } from "./_lib/guard-kit";
 // Standalone-`main()` guards ported as RepoCheck — run in-process, no
 // per-guard subprocess/project.
-import { reportResults, runRepoChecks } from "./_lib/guard-kit";
+import { check as secretLiterals } from "./check-secret-literals";
 import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
 import { check as primitivesDiscipline } from "./guard-primitives-discipline";
 import { check as rawSql } from "./guard-raw-sql";
@@ -14,6 +15,7 @@ export const REPO_CHECKS = [
   rendererBoundaries,
   primitivesDiscipline,
   thinWrappers,
+  secretLiterals,
 ];
 
 if (import.meta.main) {
