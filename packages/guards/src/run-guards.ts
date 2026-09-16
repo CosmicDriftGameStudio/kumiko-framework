@@ -9,6 +9,7 @@
 // security guards.
 import {
   buildSharedProject,
+  cliFlagsError,
   explainGuards,
   isSecurityGuard,
   printGuardKitBanner,
@@ -86,26 +87,43 @@ export const GUARDS = [
   libTestCoverage,
 ];
 
-// Only run on direct invocation — otherwise `import { GUARDS }` would kick
-// off the whole suite and the list wouldn't be testable.
-if (import.meta.main) {
-  if (process.argv.includes("--explain")) {
+export const GUARD_FLAGS = [
+  "--explain",
+  "--write-security-baseline",
+  "--strict-security-baseline",
+] as const;
+
+// Shared by the direct `bun run-guards.ts` invocation below and by the
+// `guards` subcommand in cli.ts — one place for the flag behavior so the
+// two entry points can never drift.
+export function runGuardsCli(argv: readonly string[]): number {
+  const flagsError = cliFlagsError("guards", argv, GUARD_FLAGS);
+  if (flagsError !== undefined) {
+    console.error(flagsError);
+    return 1;
+  }
+  if (argv.includes("--explain")) {
     for (const line of explainGuards(GUARDS, buildSharedProject(GUARDS))) {
       console.log(line);
     }
-    process.exit(0);
+    return 0;
   }
-  if (process.argv.includes("--write-security-baseline")) {
+  if (argv.includes("--write-security-baseline")) {
     writeSecurityBaselines(
       GUARDS.filter(isSecurityGuard),
       buildSharedProject(GUARDS.filter(isSecurityGuard)),
     );
-    process.exit(0);
+    return 0;
   }
-  const strictSecurityBaseline = process.argv.includes("--strict-security-baseline");
+  const strictSecurityBaseline = argv.includes("--strict-security-baseline");
   const guards = strictSecurityBaseline ? GUARDS.filter(isSecurityGuard) : GUARDS;
   const project = buildSharedProject(guards);
   printGuardKitBanner(guards.length, project);
-  const failed = reportResults(runGuards(guards, project, { strictSecurityBaseline }));
-  process.exit(failed > 0 ? 1 : 0);
+  return reportResults(runGuards(guards, project, { strictSecurityBaseline }));
+}
+
+// Only run on direct invocation — otherwise `import { GUARDS }` would kick
+// off the whole suite and the list wouldn't be testable.
+if (import.meta.main) {
+  process.exit(runGuardsCli(process.argv.slice(2)));
 }

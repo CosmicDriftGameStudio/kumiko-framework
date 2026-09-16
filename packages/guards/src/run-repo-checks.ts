@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { printGuardKitBanner, reportResults, runRepoChecks } from "./_lib/guard-kit";
+import { cliFlagsError, printGuardKitBanner, reportResults, runRepoChecks } from "./_lib/guard-kit";
 // Standalone-`main()` guards ported as RepoCheck — run in-process, no
 // per-guard subprocess/project.
 import { check as runtimeIsolation } from "./check-runtime-isolation";
@@ -26,10 +26,24 @@ export const REPO_CHECKS = [
   upgradeState,
 ];
 
-if (import.meta.main) {
+// No flags today — the array stays so an unknown flag still fails loud
+// instead of silently doing nothing, and so a future flag has one place to land.
+export const REPO_CHECK_FLAGS: readonly string[] = [];
+
+// Shared by the direct `bun run-repo-checks.ts` invocation below and by the
+// `checks` subcommand in cli.ts.
+export async function runRepoChecksCli(argv: readonly string[]): Promise<number> {
+  const flagsError = cliFlagsError("checks", argv, REPO_CHECK_FLAGS);
+  if (flagsError !== undefined) {
+    console.error(flagsError);
+    return 1;
+  }
   // No shared ts-morph Project here — RepoCheck.run() does its own file
   // walk per check, so the banner omits the "Project: N files" line.
   printGuardKitBanner(REPO_CHECKS.length);
-  const failed = reportResults(await runRepoChecks(REPO_CHECKS));
-  process.exit(failed > 0 ? 1 : 0);
+  return reportResults(await runRepoChecks(REPO_CHECKS));
+}
+
+if (import.meta.main) {
+  process.exit(await runRepoChecksCli(process.argv.slice(2)));
 }
