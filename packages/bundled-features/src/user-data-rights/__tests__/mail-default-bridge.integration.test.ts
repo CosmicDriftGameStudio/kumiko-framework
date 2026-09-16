@@ -134,6 +134,7 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
       }),
       registry: stack.registry,
       configResolver,
+      systemUser: createSystemUser(TENANT_A),
       log: {
         info() {},
         warn() {},

@@ -13,7 +13,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  type JobContext,
+  SYSTEM_USER_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
@@ -153,12 +157,13 @@ describe("run-export-jobs cron-context", () => {
       registry: stack.registry,
       configResolver,
       _userId: SYSTEM_USER_ID,
+      systemUser: createSystemUser(TENANT),
       now: getTemporal().Now.instant(),
     };
     // Vor dem Fix wirft der Wrapper hier "ctx.config is missing".
     // jobCtx is a deliberately minimal prod-context replica (missing
-    // systemUser/log/triggeredBy) — double-cast at this test boundary since
-    // the handler under test never touches those fields.
+    // log/triggeredBy) — double-cast at this test boundary since the
+    // handler under test never touches those fields.
     await job?.handler({}, jobCtx as unknown as JobContext);
 
     const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{

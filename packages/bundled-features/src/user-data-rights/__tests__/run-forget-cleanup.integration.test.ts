@@ -20,7 +20,11 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_TENANT_ID, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+  type JobContext,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -318,6 +322,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
       }),
       registry: stack.registry,
       log,
+      systemUser: createSystemUser(TENANT_A),
     };
     await job?.handler({}, jobCtx as unknown as JobContext);
 

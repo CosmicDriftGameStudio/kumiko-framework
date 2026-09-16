@@ -15,6 +15,7 @@ import {
   createTextField,
   defineFeature,
   EXT_USER_DATA,
+  SYSTEM_TENANT_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -32,7 +33,7 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
 
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const TENANT_A = "00000000-0000-4000-8000-0000000000f1";
 const ALICE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-0000000000f1";

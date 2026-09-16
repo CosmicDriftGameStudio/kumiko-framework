@@ -19,6 +19,7 @@ import { defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   EXT_USER_DATA,
+  SYSTEM_TENANT_ID,
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -49,7 +50,7 @@ let stack: TestStack;
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 
 function uuid(suffix: number): string {
   return `cccccccc-cccc-4ccc-8ccc-${suffix.toString(16).padStart(12, "0")}`;
