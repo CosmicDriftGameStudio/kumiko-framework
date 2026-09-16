@@ -6,15 +6,18 @@
  *   R1 raw-outside-system-scope: a TenantDb `.raw` escape used outside a
  *      `r.systemScope()` feature.
  *   R2 unsafe-raw-outside-system-scope: `ctx.systemDb.unsafeRaw(...)` outside
- *      systemScope, a job scope, an explicit `withUnsafeRawGrant(...)`, or a
- *      handler/hook that lexically declares `escapeHatch`.
+ *      systemScope, a job scope, an explicit `withUnsafeRawGrant(...)`, a
+ *      handler/hook that lexically declares `escapeHatch`, or a standalone
+ *      function whose direct body declares `declareEscapeHatch({ reason: "..." })`.
  *   R3 system-identity-outside-declared-scope: `queryAs`/`writeAs` called
  *      with a system identity outside systemScope, `.job.ts`, an `r.job(...)`
- *      call, a `*Job` function, or a handler/hook that lexically declares
- *      `escapeHatch`.
- *   R4 generic-reason: `acknowledgeCrossTenant`/`unsafeRaw`, or a declared
- *      `escapeHatch: { reason }`/`unsafeAllTenants: { reason }`, given a
- *      placeholder reason literal — hard-fails everywhere, not baselined.
+ *      call, a `*Job` function, a handler/hook that lexically declares
+ *      `escapeHatch`, or a standalone function whose direct body declares
+ *      `declareEscapeHatch({ reason: "..." })`.
+ *   R4 generic-reason: `acknowledgeCrossTenant`/`unsafeRaw`, a declared
+ *      `escapeHatch: { reason }`/`unsafeAllTenants: { reason }`, or a
+ *      `declareEscapeHatch({ reason })` call, given a placeholder reason
+ *      literal — hard-fails everywhere, not baselined.
  *   R5 unsafe-all-tenants-outside-declared-scope: an `unsafeAllTenants: true`
  *      or `unsafeAllTenants: { reason: "..." }` option, passed directly as a
  *      call argument, outside systemScope, `.job.ts`, an `r.job(...)` call,
@@ -26,26 +29,49 @@
  * FunctionExpression, under any key name — e.g. `handler`, `export`,
  * `delete`), or in an options object passed to
  * `r.hook`/`writeHandler`/`queryHandler`/`streamHandler`/`useExtension`
- * alongside the handler function argument. Referenced-by-variable functions,
- * spread options, computed/string keys, and non-literal escapeHatch values
- * are conservatively not recognized (miss, don't falsely clear).
+ * alongside the handler function argument. A standalone function (arrow
+ * function, function expression, method declaration, or function
+ * declaration) is additionally recognized when a statement in its own direct
+ * body — not a nested function's, not inside an `if` — calls the bare
+ * identifier `declareEscapeHatch` with exactly one object-literal argument
+ * carrying a literal, non-placeholder `reason` (from
+ * `@cosmicdrift/kumiko-framework/engine`'s `declareEscapeHatch`: a helper
+ * that escalates on a `HandlerContext` handed to it by its caller, rather
+ * than a `HandlerContext` from its own registration). The declaration does
+ * not propagate upward: it covers escalations inside that function's own
+ * body, not the function it is nested inside. This detection is purely
+ * lexical — the guard matches on the name `declareEscapeHatch`, not on where
+ * it was imported from, so a same-named local function clears just as well;
+ * consistent with `escapeHatch:` itself, which is likewise never checked for
+ * origin. Referenced-by-variable functions, spread options, computed/string
+ * keys, and non-literal escapeHatch/reason values are conservatively not
+ * recognized (miss, don't falsely clear).
  *
  * Empty reasons, `openToAll.personalData` and PII are the framework boot validator's
- * job (access-declarations.ts), not this guard's. Known false-negatives:
- * multi-hop aliasing, `ctx["db"]` through an intermediate variable, and a
- * TenantDb/system-identity handed to another function across file
- * boundaries — all conservative (miss, don't falsely flag). R5 additionally
- * misses `unsafeAllTenants` given via an identifier, a ternary, `false`, or
- * `undefined`, and an options object passed by variable reference or spread
- * rather than as a literal call argument — all conservative (miss, don't
- * falsely flag).
+ * job (access-declarations.ts), not this guard's — except a `declareEscapeHatch`
+ * reason, which has no boot validator behind it: an empty or placeholder
+ * reason there is never recognized as a valid declaration (see R4). Known
+ * false-negatives: multi-hop aliasing, `ctx["db"]` through an intermediate
+ * variable, and a TenantDb/system-identity handed to another function across
+ * file boundaries with no `declareEscapeHatch` call at the escalation site
+ * (declarable now, so no longer a blanket false-negative) — all conservative
+ * (miss, don't falsely flag). R5 additionally misses `unsafeAllTenants`
+ * given via an identifier, a ternary, `false`, or `undefined`, and an
+ * options object passed by variable reference or spread rather than as a
+ * literal call argument — all conservative (miss, don't falsely flag).
  *
  * Usage:
  *   bun guards/guard-escape-hatch-declared.ts
  *   Baseline: bun guards/run-guards.ts --write-security-baseline
  */
 import * as path from "node:path";
-import { type Node, type ObjectLiteralExpression, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type Node,
+  type ObjectLiteralExpression,
+  type PropertyAssignment,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { isGenericReason, literalReasonText } from "./_lib/generic-reason";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
@@ -330,15 +356,68 @@ function isEscapeHatchDeclaredFunction(fn: Node): boolean {
   return false;
 }
 
+// The bare-identifier `reason` PropertyAssignment on an object literal —
+// shared between the declareEscapeHatch statement check below and its R4
+// generic-reason collector, so both agree on what counts as the reason.
+function findReasonPropertyAssignment(obj: ObjectLiteralExpression): PropertyAssignment | undefined {
+  return obj.getProperties().find(
+    (prop): prop is PropertyAssignment =>
+      prop.isKind(SyntaxKind.PropertyAssignment) &&
+      prop.getNameNode().isKind(SyntaxKind.Identifier) &&
+      prop.getNameNode().getText() === "reason",
+  );
+}
+
+// declareEscapeHatch({ reason: "..." }) as a direct-body statement of a
+// standalone function. No boot validator backs this form (unlike the
+// escapeHatch: {...} property, which access-declarations.ts checks at boot),
+// so an empty/placeholder reason is rejected here rather than left to it.
+function isValidDeclareEscapeHatchCall(stmt: Node): boolean {
+  if (!stmt.isKind(SyntaxKind.ExpressionStatement)) return false;
+  const expr = stmt.getExpression();
+  if (!expr.isKind(SyntaxKind.CallExpression)) return false;
+  const callee = expr.getExpression();
+  if (!callee.isKind(SyntaxKind.Identifier) || callee.getText() !== "declareEscapeHatch") {
+    return false;
+  }
+  const args = expr.getArguments();
+  const arg = args[0];
+  if (args.length !== 1 || !arg?.isKind(SyntaxKind.ObjectLiteralExpression)) return false;
+  const reasonProp = findReasonPropertyAssignment(arg);
+  if (!reasonProp) return false;
+  const reasonText = literalReasonText(reasonProp.getInitializer());
+  return reasonText !== undefined && !isGenericReason(reasonText);
+}
+
+// Only the function's own direct body — not a nested function's, not an
+// `if`'s — so a declareEscapeHatch call does not cover the function it is
+// itself nested inside (miss, don't falsely clear).
+function hasDeclaredEscapeHatchStatement(fn: Node): boolean {
+  let body: Node | undefined;
+  if (
+    fn.isKind(SyntaxKind.ArrowFunction) ||
+    fn.isKind(SyntaxKind.FunctionExpression) ||
+    fn.isKind(SyntaxKind.MethodDeclaration) ||
+    fn.isKind(SyntaxKind.FunctionDeclaration)
+  ) {
+    body = fn.getBody();
+  }
+  if (!body?.isKind(SyntaxKind.Block)) return false;
+  return body.getStatements().some((stmt) => isValidDeclareEscapeHatchCall(stmt));
+}
+
 function isInsideEscapeHatchDeclaredFunction(node: Node): boolean {
   let ancestor: Node | undefined = node.getParent();
   while (ancestor) {
     if (
       ancestor.isKind(SyntaxKind.ArrowFunction) ||
       ancestor.isKind(SyntaxKind.FunctionExpression) ||
-      ancestor.isKind(SyntaxKind.MethodDeclaration)
+      ancestor.isKind(SyntaxKind.MethodDeclaration) ||
+      ancestor.isKind(SyntaxKind.FunctionDeclaration)
     ) {
-      if (isEscapeHatchDeclaredFunction(ancestor)) return true;
+      if (isEscapeHatchDeclaredFunction(ancestor) || hasDeclaredEscapeHatchStatement(ancestor)) {
+        return true;
+      }
     }
     ancestor = ancestor.getParent();
   }
@@ -453,6 +532,35 @@ function findGenericReasonMethodCalls(sf: SourceFile, root: string): GenericReas
   return out;
 }
 
+// The declareEscapeHatch({ reason }) form falls through both existing R4
+// collectors: its callee is a bare identifier, not a PropertyAccessExpression
+// (unlike acknowledgeCrossTenant/unsafeRaw), and its reason sits directly in
+// the call argument, not under an escapeHatch:/unsafeAllTenants: property.
+function findGenericReasonDeclareEscapeHatchCalls(
+  sf: SourceFile,
+  root: string,
+): GenericReasonFinding[] {
+  const out: GenericReasonFinding[] = [];
+  for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression();
+    if (!callee.isKind(SyntaxKind.Identifier) || callee.getText() !== "declareEscapeHatch") {
+      continue;
+    }
+    const arg = call.getArguments()[0];
+    if (!arg?.isKind(SyntaxKind.ObjectLiteralExpression)) continue;
+    const reasonProp = findReasonPropertyAssignment(arg);
+    if (!reasonProp) continue;
+    const reasonText = literalReasonText(reasonProp.getInitializer());
+    if (reasonText === undefined || !isGenericReason(reasonText)) continue;
+    out.push({
+      file: path.relative(root, sf.getFilePath()),
+      line: call.getStartLineNumber(),
+      message: `declareEscapeHatch({ reason: "${reasonText}" }) uses a placeholder reason — give a concrete, reviewable justification for this cross-tenant/unsafe access.`,
+    });
+  }
+  return out;
+}
+
 const REASON_OBJECT_PROPERTY_NAMES = ["escapeHatch", "unsafeAllTenants"] as const;
 
 function findGenericReasonObjectProperty(
@@ -488,6 +596,7 @@ export function findGenericReasonCalls(
   const out: GenericReasonFinding[] = [];
   for (const sf of scannableFiles(files)) {
     out.push(...findGenericReasonMethodCalls(sf, root));
+    out.push(...findGenericReasonDeclareEscapeHatchCalls(sf, root));
     for (const propertyName of REASON_OBJECT_PROPERTY_NAMES) {
       out.push(...findGenericReasonObjectProperty(sf, root, propertyName));
     }
