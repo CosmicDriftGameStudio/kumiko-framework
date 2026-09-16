@@ -8,15 +8,23 @@
 # + unit tests. These need no cross-repo import resolution and are correct in
 # the worktree.
 #
-# Import-resolving guards (runtime isolation etc.) intentionally do NOT run
-# here: worktree node_modules symlinks point at main → cross-repo targets get
-# misclassified. Guards run reliably in PR CI (real merge, correct node_modules).
+# comment-lang scans the cwd directly (no sibling/cross-repo resolution), so
+# it is safe to run here scoped to the worktree. The public kumiko-guards
+# bundles (guards/ui/checks) are NOT wired in: this repo's own CI does not run
+# them (only the private kumiko-guard-no-logic-in-views, unrelated to the
+# public bundle), so there is nothing to mirror locally.
 set -uo pipefail
 
 echo "── Worktree check · $(pwd) ──"
 [ -f tsconfig.json ] || { echo "✗ no tsconfig.json in cwd — are you in the worktree root?"; exit 2; }
 
 fail=0
+
+# Merge-base against origin/main, not @{u}: after the first push, @{u} points
+# at this branch's own remote, which drifts from the diff CI actually checks.
+BASE="origin/main"
+git rev-parse --verify --quiet "$BASE" >/dev/null || BASE="main"
+MERGE_BASE="$(git merge-base "$BASE" HEAD)"
 
 echo
 echo "→ typecheck (bun run typecheck — repo-owned tsc runs)"
@@ -35,6 +43,15 @@ bun scripts/check-app-tsc.ts || fail=1
 echo
 echo "→ biome check"
 bunx biome check . || fail=1
+
+echo
+if [ -e node_modules/.bin/kumiko-guard-comment-lang ]; then
+  echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
+  bun kumiko-guard-comment-lang --touched --base="$MERGE_BASE" || fail=1
+else
+  echo "✗ missing guard binary: node_modules/.bin/kumiko-guard-comment-lang — install broken, comment-lang did not run"
+  fail=1
+fi
 
 echo
 echo "→ bun test (unit suite)"
@@ -70,10 +87,11 @@ fi
 
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + unit tests + component tests. (Guards run in PR CI.)"
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + comment-lang --touched + unit tests + component tests."
 elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + unit tests. (Guards run in PR CI.)"
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + comment-lang --touched + unit tests."
 else
   echo "✗ Worktree check red — see above. Do not commit until green."
 fi
+echo "  guards checked against $MERGE_BASE (merge-base with $BASE)"
 exit "$fail"
