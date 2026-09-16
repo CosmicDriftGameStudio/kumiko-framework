@@ -479,6 +479,21 @@ export function guardKitPreflightError(guardCount: number, rootCount: number): s
   return undefined;
 }
 
+/**
+ * Validates CLI args for one subcommand against the flags it actually
+ * understands — an unknown flag must fail loud, never pass through silently.
+ */
+export function cliFlagsError(
+  subcommand: string,
+  argv: readonly string[],
+  known: readonly string[],
+): string | undefined {
+  const unknown = argv.filter((arg) => arg.startsWith("--") && !known.includes(arg));
+  if (unknown.length === 0) return undefined;
+  const knownList = known.length > 0 ? known.join(", ") : "(none)";
+  return `Unknown flag${unknown.length > 1 ? "s" : ""} for "${subcommand}": ${unknown.join(", ")}. Known flags: ${knownList}`;
+}
+
 export type GuardKitBannerDeps = {
   readonly resolution?: RootResolution;
 };

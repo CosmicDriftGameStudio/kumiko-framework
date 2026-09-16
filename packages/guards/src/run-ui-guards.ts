@@ -3,6 +3,7 @@
 // Project over the UI enforcement guards.
 import {
   buildSharedProject,
+  cliFlagsError,
   printGuardKitBanner,
   reportResults,
   runGuards,
@@ -25,10 +26,24 @@ export const UI_GUARDS = [
   i18nUiStrings,
 ];
 
-// Same as run-guards.ts: only run on direct invocation.
-if (import.meta.main) {
+// No flags today — the array stays so an unknown flag still fails loud
+// instead of silently doing nothing, and so a future flag has one place to land.
+export const UI_GUARD_FLAGS: readonly string[] = [];
+
+// Shared by the direct `bun run-ui-guards.ts` invocation below and by the
+// `ui` subcommand in cli.ts.
+export function runUiGuardsCli(argv: readonly string[]): number {
+  const flagsError = cliFlagsError("ui", argv, UI_GUARD_FLAGS);
+  if (flagsError !== undefined) {
+    console.error(flagsError);
+    return 1;
+  }
   const project = buildSharedProject(UI_GUARDS);
   printGuardKitBanner(UI_GUARDS.length, project);
-  const failed = reportResults(runGuards(UI_GUARDS, project));
-  process.exit(failed > 0 ? 1 : 0);
+  return reportResults(runGuards(UI_GUARDS, project));
+}
+
+// Same as run-guards.ts: only run on direct invocation.
+if (import.meta.main) {
+  process.exit(runUiGuardsCli(process.argv.slice(2)));
 }
