@@ -70,7 +70,31 @@ const leasesFeature = defineFeature("leases", (r) => {
     id: "lease-detail",
     type: "projectionDetail",
     query: "leases:query:lease:detail",
-    layout: { sections: [] },
+    layout: {
+      sections: [
+        {
+          kind: "relatedList",
+          title: "Items",
+          query: "leases:query:lease:items",
+          columns: ["name"],
+          toolbarActions: [
+            {
+              kind: "navigate",
+              id: "quick-note",
+              label: "Quick note",
+              screen: "item-toolbar-note",
+              params: { map: { leaseId: "id" } },
+            },
+            {
+              kind: "navigate",
+              id: "silent-add",
+              label: "Silent add",
+              screen: "item-toolbar-silent",
+            },
+          ],
+        },
+      ],
+    },
     metrics: [
       {
         field: "openItems",
@@ -81,6 +105,18 @@ const leasesFeature = defineFeature("leases", (r) => {
   });
   r.screen({
     id: "item-create",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
+    id: "item-toolbar-note",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
+    id: "item-toolbar-silent",
     type: "entityEdit",
     entity: "item",
     layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
@@ -149,5 +185,13 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
 
   test("non-form screens carry no urlPrefillFields", () => {
     expect(urlPrefillFieldsOf("leases", "lease-list")).toBeUndefined();
+  });
+
+  test("a relatedList toolbarAction's params.map target gets the mapped field", () => {
+    expect(urlPrefillFieldsOf("leases", "item-toolbar-note")).toEqual(["leaseId"]);
+  });
+
+  test("a relatedList toolbarAction without params contributes no fields — the allowlist stays an allowlist", () => {
+    expect(urlPrefillFieldsOf("leases", "item-toolbar-silent")).toEqual([]);
   });
 });
