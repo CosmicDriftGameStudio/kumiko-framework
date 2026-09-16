@@ -24,7 +24,7 @@
     }
   },
   "bin": {
-    "kumiko-guards": "./src/run-guards.ts"
+    "kumiko-guards": "./src/cli.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
