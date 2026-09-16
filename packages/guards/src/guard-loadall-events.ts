@@ -111,9 +111,9 @@ export const guard: AstGuard = {
   name: "loadAllEventsByType Guard",
   scan: SCAN,
   hint:
-    "loadAllEventsByType buffert ALLE Events eines aggregate_type im Speicher (OOM-Cliff > ~100k Events). " +
-    "Nutze streamAllEventsByType (batchweise, memory-bounded) im Prod-Code. " +
-    "Erlaubt nur in Tests, scripts/ und der event-store-Definition.",
+    "loadAllEventsByType buffers ALL events of an aggregate_type in memory (OOM cliff > ~100k events). " +
+    "Use streamAllEventsByType (batched, memory-bounded) in production code. " +
+    "Allowed only in tests, scripts/, and the event-store definition.",
   run(files) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {

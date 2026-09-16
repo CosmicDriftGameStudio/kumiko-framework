@@ -437,14 +437,18 @@ describe("printGuardKitBanner — exits(1) on the two globally-empty cases", () 
 
   test("zero registered guards calls process.exit(1) instead of printing the banner", () => {
     const exit = mockExit();
-    printGuardKitBanner(0, undefined, { resolution: { roots: [{ root: local, source: "local" }] } });
+    printGuardKitBanner(0, undefined, {
+      resolution: { roots: [{ root: local, source: "local" }] },
+    });
     expect(exit).toHaveBeenCalledWith(1);
     exit.mockRestore();
   });
 
   test("a resolved root and guards registered does not exit", () => {
     const exit = mockExit();
-    printGuardKitBanner(30, undefined, { resolution: { roots: [{ root: local, source: "local" }] } });
+    printGuardKitBanner(30, undefined, {
+      resolution: { roots: [{ root: local, source: "local" }] },
+    });
     expect(exit).not.toHaveBeenCalled();
     exit.mockRestore();
   });

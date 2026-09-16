@@ -513,9 +513,7 @@ describe("applySecurityBaseline strict mode", () => {
       strict: true,
     });
     expect(strict.blocking).toHaveLength(2);
-    expect(strict.blocking.every((v) => !v.message.includes("Security baseline stale"))).toBe(
-      true,
-    );
+    expect(strict.blocking.every((v) => !v.message.includes("Security baseline stale"))).toBe(true);
   });
 
   test("invalid baseline, repo without violations: strict reports one baseline-file finding; non-strict none", () => {

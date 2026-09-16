@@ -63,8 +63,7 @@ export const guard: AstGuard = {
           violations.push({
             file: sf.getFilePath(),
             line: call.getStartLineNumber(),
-            message:
-              "fetch() in App-Screen — use useQuery/useMutation or an API client (*.ts)",
+            message: "fetch() in App-Screen — use useQuery/useMutation or an API client (*.ts)",
           });
         }
       }

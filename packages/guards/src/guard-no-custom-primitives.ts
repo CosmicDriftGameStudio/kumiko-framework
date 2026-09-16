@@ -109,8 +109,7 @@ function checkRawFormHtmlBaseline(findings: readonly RawFormFinding[]): GuardVio
     }));
   }
   return rawFormHtmlBaseline.check(current, RAW_FORM_HTML_REMEDIATION, {
-    formatDriftRemediation:
-      "Run `bun guards/guard-no-custom-primitives.ts --write-baseline` once.",
+    formatDriftRemediation: "Run `bun guards/guard-no-custom-primitives.ts --write-baseline` once.",
     resolveLine,
   });
 }

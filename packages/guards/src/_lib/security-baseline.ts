@@ -98,18 +98,18 @@ export function loadSecurityBaseline(repo: string, repoDir: string): SecurityBas
     return {
       kind: "invalid",
       file,
-      reason: `kaputtes JSON: ${e instanceof Error ? e.message : String(e)}`,
+      reason: `broken JSON: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
   const parsed = parseSecurityBaseline(raw);
   if (!parsed) {
-    return { kind: "invalid", file, reason: "unerwartetes Baseline-Format (format/repo/findings)" };
+    return { kind: "invalid", file, reason: "unexpected baseline format (format/repo/findings)" };
   }
   if (parsed.repo !== repo) {
     return {
       kind: "invalid",
       file,
-      reason: `repo-Feld "${parsed.repo}" passt nicht zum Dateinamen "${repo}"`,
+      reason: `repo field "${parsed.repo}" does not match the file name "${repo}"`,
     };
   }
   return { kind: "ok", findings: parsed.findings, hardFail: parsed.hardFail ?? [] };
