@@ -2,6 +2,7 @@
 import { printGuardKitBanner, reportResults, runRepoChecks } from "./_lib/guard-kit";
 // Standalone-`main()` guards ported as RepoCheck — run in-process, no
 // per-guard subprocess/project.
+import { check as runtimeIsolation } from "./check-runtime-isolation";
 import { check as secretLiterals } from "./check-secret-literals";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
 import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
@@ -10,6 +11,7 @@ import { check as rawSql } from "./guard-raw-sql";
 import { check as rendererBoundaries } from "./guard-renderer-boundaries";
 import { check as testStackDrift } from "./guard-test-stack-drift";
 import { check as thinWrappers } from "./guard-thin-wrappers";
+import { check as upgradeState } from "./guard-upgrade-state";
 
 export const REPO_CHECKS = [
   rawSql,
@@ -20,6 +22,8 @@ export const REPO_CHECKS = [
   secretLiterals,
   featureIntegrationTests,
   testStackDrift,
+  runtimeIsolation,
+  upgradeState,
 ];
 
 if (import.meta.main) {
