@@ -1,4 +1,4 @@
-export type EscapeHatchDeclaration = { readonly reason: string };
+import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 
 // Marks a standalone helper that escalates on a HandlerContext handed to it
 // by its caller. The caller's registration carries the escapeHatch that
