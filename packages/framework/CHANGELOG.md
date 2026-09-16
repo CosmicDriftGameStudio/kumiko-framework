@@ -1,5 +1,65 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.281.0
+
+### Minor Changes
+
+- 8de23a7: New `declareEscapeHatch({ reason: "..." })` export from `@cosmicdrift/kumiko-framework/engine`. It's a no-op statement for a standalone helper that escalates (`unsafeRaw`, `queryAs`/`writeAs` with a system identity) on a `HandlerContext` handed to it by its caller rather than one from its own registration — a shape the existing `escapeHatch: { reason: "..." }` handler/hook property can't attach to, because there's no handler/hook literal at that call site. The Escape-Hatch-Declared Guard now recognizes a `declareEscapeHatch(...)` call as the first statement of such a helper's body as covering the escalations inside that same body, with the same non-placeholder-reason check the guard already applies elsewhere.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: declareEscapeHatch is a new export from @cosmicdrift/kumiko-framework/engine
+  migration: |
+    A standalone helper that escalates (`unsafeRaw`, or `queryAs`/`writeAs` with a
+    system identity) on a `HandlerContext` handed to it by its caller — rather than
+    baselining the Escape-Hatch-Declared Guard finding — declares it at the call
+    site instead: `declareEscapeHatch({ reason: "..." })` as the first statement of
+    the helper's body, describing what is escalated and on whose right (the caller's
+    handler still carries its own `escapeHatch` declaration). The reason must be a
+    string literal and not a placeholder (see the guard's generic-reason check) —
+    there is no boot validator behind this form to catch an empty or vague one.
+  -->
+
+- 7ae9256: `withUnsafeRawGrant` is no longer exported from `@cosmicdrift/kumiko-framework/db`. It let a consumer self-issue the `unsafeRaw` escape hatch without the guard seeing it declared at registration. No app repo, platform, studio, or enterprise code imported the symbol; the framework's own internal users already import `withUnsafeRawGrant` directly from `./tenant-db`/`../db/tenant-db`, not through the barrel, so they are unaffected.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: withUnsafeRawGrant is no longer exported from @cosmicdrift/kumiko-framework/db
+  migration: |
+    A consumer that imported `withUnsafeRawGrant` from `@cosmicdrift/kumiko-framework/db` to grant itself `unsafeRaw` access declares `escapeHatch: { reason: "<why>" }` on the relevant registration (handler, hook, or `r.useExtension(...)`) instead, then fetches the runner with `ctx.db.unsafeRaw("<same reason>")`. No blast radius found outside the framework itself: no app repo, kumiko-platform, kumiko-studio, or kumiko-enterprise code used this symbol.
+  -->
+
+- f1dc700: Merge the CLI, scaffolder, guards, and repo-manifest version lines into the
+  existing framework fixed group, so the version number alone shows what
+  belongs together. `@cosmicdrift/kumiko-cli`, `create-kumiko-app`,
+  `@cosmicdrift/kumiko-guards`, and `@cosmicdrift/kumiko-repo-manifest` jump
+  once to the group version at the next release, then move in lockstep with
+  the other 11 packages from then on.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Unify all framework packages into one version group
+  detail: kumiko-cli, create-kumiko-app, kumiko-guards, and kumiko-repo-manifest join the existing fixed version group; all 15 non-private packages now share one version number.
+  -->
+
+### Patch Changes
+
+- 7bf2e5e: Move escape-hatch report deduplication from `pipeline/` to `observability/`,
+  so the db layer no longer pulls in the pipeline module graph at runtime; the
+  public API is unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Move escape-hatch reporting from pipeline to observability
+  detail: escape-hatch-report.ts now lives in observability/ instead of pipeline/, removing a runtime layering violation where the db layer imported from pipeline; the public API (@cosmicdrift/kumiko-framework/pipeline exports) is unchanged.
+  -->
+
+  - @cosmicdrift/kumiko-types@0.281.0
+
 ## 0.280.0
 
 ### Minor Changes
