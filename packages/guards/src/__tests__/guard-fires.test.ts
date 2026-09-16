@@ -195,6 +195,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare const dispatcher: { write: (qn: string, payload?: unknown) => unknown };\nexport const run = () => dispatcher.write("bad-qn-format");',
     expectedMessage: /ungültiges QN-Format/,
   },
+  "loadAllEventsByType Guard": {
+    path: `${PKG}/features/x/events.ts`,
+    code: 'declare function loadAllEventsByType(t: string): unknown;\nexport const load = () => loadAllEventsByType("x");',
+    expectedMessage: /loadAllEventsByType\(\.\.\.\) in load/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report
@@ -213,6 +218,10 @@ const WARNING_ONLY: Record<string, string> = {
     "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
   "Predicate Extraction Check":
     "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
+  "As-Casts Audit":
+    "coding-standards.md 'Type Assertions' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports suspect casts + baseline delta via console, always returns violations: []",
+  "Table-DDL Guard":
+    "documented warning-only in its own module header (unsafe* bypass calls outside the allowlist are reported via console, never blocking)",
 };
 
 describe("every registered guard catches its own violation", () => {
@@ -254,6 +263,16 @@ describe("every registered guard catches its own violation", () => {
     "Raw-Interactive-Elements Guard (App-Repos)": {
       path: `${APP}/features/x/web/link.tsx`,
       code: 'import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";\nexport const X = () => <a href="/x">go</a>;',
+      expectedMessage: /.*/,
+    },
+    "As-Casts Audit": {
+      path: `${PKG}/features/x/cast.ts`,
+      code: "export const f = (x: unknown) => x as string;",
+      expectedMessage: /.*/,
+    },
+    "Table-DDL Guard": {
+      path: `${PKG}/features/x/tables.ts`,
+      code: "declare function unsafePushTables(): void;\nexport const run = () => unsafePushTables();",
       expectedMessage: /.*/,
     },
   };
