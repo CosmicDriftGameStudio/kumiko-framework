@@ -7,6 +7,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -50,7 +51,12 @@ describe("formDraftDeleteHook — delete failure handling (#review-batch-fw-1)",
 
     await expect(
       formDraftDeleteHook(
-        { db: stack.db, registry: stack.registry, tenantId: bob.tenantId, userId: bob.id },
+        {
+          db: createTenantDb(stack.db, bob.tenantId, "tenant"),
+          registry: stack.registry,
+          tenantId: bob.tenantId,
+          userId: bob.id,
+        },
         "delete",
       ),
     ).resolves.toBeUndefined();

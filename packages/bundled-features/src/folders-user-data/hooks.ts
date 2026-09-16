@@ -4,8 +4,7 @@
 // Mirrors credit-user-data — standard tenant-scoped pattern, no name-stripping
 // (a folder name is tenant data, not per-user PII).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, type EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   createSystemUser,
@@ -27,9 +26,7 @@ const { table: folderAssignmentTable, executor: folderAssignmentExecutor } = cre
 // all tenant folders in-app, so bundling them into the user's export is no new
 // exposure — it gives the data subject the organisation of the loans they work with.
 export const folderExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, folderTable, {
-    tenantId: ctx.tenantId,
-  });
+  const rows = await ctx.db.selectMany(folderTable, { tenantId: ctx.tenantId });
   if (rows.length === 0) return null;
   return { entity: "folder", rows };
 };
@@ -38,7 +35,7 @@ export const folderAssignmentExportHook: UserDataExportHook = async (ctx) => {
   // folderAssignmentEntity is softDelete: true — a cleared assignment
   // (isDeleted: true) is a removed folder membership, not something the GDPR
   // export should still surface as current data.
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, folderAssignmentTable, {
+  const rows = await ctx.db.selectMany(folderAssignmentTable, {
     tenantId: ctx.tenantId,
     isDeleted: false,
   });
@@ -65,11 +62,9 @@ function tenantScopedDelete(
     // eventless, so a projection rebuild resurrects the rows. Bounded — forget
     // only fires for single-user tenants.
     const systemUser = createSystemUser(ctx.tenantId);
-    // The executor needs a TenantDb (loadById → db.fetchOne), not the raw ctx.db.
-    const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
-    const rows = await selectMany<{ id: string }>(ctx.db, table, { tenantId: ctx.tenantId });
+    const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
     for (const row of rows) {
-      await executor.delete({ id: row.id }, systemUser, tdb);
+      await executor.delete({ id: row.id }, systemUser, ctx.db);
     }
   };
 }

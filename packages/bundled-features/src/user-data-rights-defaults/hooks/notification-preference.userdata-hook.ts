@@ -1,5 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -23,7 +22,7 @@ const crud = createEventStoreExecutor(notificationPreferencesTable, notification
 
 export const notificationPreferenceExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "delivery")) return null;
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, notificationPreferencesTable, {
+  const rows = await ctx.db.selectMany<Record<string, unknown>>(notificationPreferencesTable, {
     tenantId: ctx.tenantId,
     userId: ctx.userId,
   });
@@ -42,14 +41,13 @@ export const notificationPreferenceDeleteHook: UserDataDeleteHook = async (ctx) 
   // skip: delivery not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "delivery")) return;
   const systemUser = createSystemUser(ctx.tenantId);
-  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, notificationPreferencesTable, {
+  const rows = await ctx.db.selectMany<Record<string, unknown>>(notificationPreferencesTable, {
     tenantId: ctx.tenantId,
     userId: ctx.userId,
   });
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    assertErased(await crud.forget({ id }, systemUser, tdb), "notification-preference", id);
+    assertErased(await crud.forget({ id }, systemUser, ctx.db), "notification-preference", id);
   }
 };

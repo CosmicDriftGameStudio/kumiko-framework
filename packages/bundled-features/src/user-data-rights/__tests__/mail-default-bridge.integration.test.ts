@@ -13,6 +13,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -35,7 +36,7 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { createUserDataRightsFeature } from "../feature";
 
 const TENANT_A = "00000000-0000-4000-8000-0000000006a1";
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const USER_ID = "00000000-0000-4000-8000-0000000006b1";
 const ORIGINAL_EMAIL = "bridge-delete@example.test";
 const FORGET_JOB = "user-data-rights:job:run-forget-cleanup";

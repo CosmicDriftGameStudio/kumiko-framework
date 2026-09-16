@@ -3,6 +3,7 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
+  type EscapeHatchAuditSink,
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -216,6 +217,8 @@ export async function runNextDestructionStage(args: {
   readonly tenantId: TenantId;
   readonly log?: (message: string) => void;
   readonly fileProviderResolver?: FileProviderResolver;
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly actor?: string;
 }): Promise<{ readonly done: boolean; readonly error?: string; readonly halted?: boolean }> {
   const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
@@ -238,6 +241,8 @@ export async function runNextDestructionStage(args: {
     tenantId: args.tenantId,
     log: args.log,
     fileProviderResolver: args.fileProviderResolver,
+    escapeHatchAuditSink: args.escapeHatchAuditSink,
+    actor: args.actor,
   };
 
   let version = lastEventVersion(events);
@@ -304,6 +309,8 @@ export async function runTenantDestructionSweep(args: {
   readonly now?: Temporal.Instant;
   readonly log?: (message: string) => void;
   readonly fileProviderResolver?: FileProviderResolver;
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly actor?: string;
 }): Promise<{ readonly triggered: number; readonly advanced: number }> {
   const T = getTemporal();
   const now = args.now ?? T.Now.instant();
@@ -353,6 +360,8 @@ export async function runTenantDestructionSweep(args: {
         tenantId: row.id as TenantId,
         log: args.log,
         fileProviderResolver: args.fileProviderResolver,
+        escapeHatchAuditSink: args.escapeHatchAuditSink,
+        actor: args.actor,
       });
       if (!result.error && !result.halted) advanced++;
     } catch (err) {

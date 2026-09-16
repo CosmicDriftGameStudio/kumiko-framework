@@ -1,5 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -42,13 +41,13 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 //                Frist auf einer FK-target-Entity)
 
 export const userExportHook: UserDataExportHook = async (ctx) => {
-  const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
+  const row = await ctx.db.fetchOne<{
     id: string;
     email: string;
     displayName: string;
     locale: string | null;
     emailVerified: boolean;
-  } | null; // @cast-boundary db-runner
+  }>(userTable, { id: ctx.userId });
 
   if (!row) return null;
 
@@ -75,11 +74,11 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
 
   // System actor + skipOptimisticLock: the forget pipeline has no read
   // version and writes privileged identity columns ("system" is privileged).
-  // The executor needs a TenantDb (loadById → db.fetchOne); ctx.db is a raw
-  // runner, so wrap it. "system" mode = no tenant filter — user is a systemStream
-  // entity (tenant-agnostic) and forget must reach the row in any tenant.
+  // crud.update extracts the raw connection from ctx.db via tenantDbRunner
+  // and enforces global-entity tenancy itself (isForeignTenantOnGlobalEntity),
+  // so it reaches the row by id regardless of which tenant pass triggered it —
+  // TenantDb's own tenant-scoping narrowing never applies to executor writes.
   const systemUser = createSystemUser(ctx.tenantId);
-  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
 
   if (strategy === "delete") {
     // PII raus + status=deleted (Login geblockt) via Event → Rebuild spielt den
@@ -102,7 +101,7 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
         },
       },
       systemUser,
-      tdb,
+      ctx.db,
       { skipOptimisticLock: true },
     );
   } else {
@@ -120,7 +119,7 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
         },
       },
       systemUser,
-      tdb,
+      ctx.db,
       { skipOptimisticLock: true },
     );
   }

@@ -1,4 +1,3 @@
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { inAppMessagesTable } from "../../channel-in-app";
 import { featureMounted } from "./feature-mounted";
@@ -14,7 +13,7 @@ import { featureMounted } from "./feature-mounted";
 
 export const inAppMessageExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "channel-in-app")) return null;
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, inAppMessagesTable, {
+  const rows = await ctx.db.selectMany(inAppMessagesTable, {
     userId: ctx.userId,
     tenantId: ctx.tenantId,
   });
@@ -34,5 +33,5 @@ export const inAppMessageExportHook: UserDataExportHook = async (ctx) => {
 export const inAppMessageDeleteHook: UserDataDeleteHook = async (ctx) => {
   // skip: channel-in-app not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "channel-in-app")) return;
-  await deleteMany(ctx.db, inAppMessagesTable, { userId: ctx.userId, tenantId: ctx.tenantId });
+  await ctx.db.deleteMany(inAppMessagesTable, { userId: ctx.userId, tenantId: ctx.tenantId });
 };

@@ -18,8 +18,7 @@
 //     cross into another tenant's keys (the provider's own list() prefix
 //     already scopes it).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type StorageProviderDestroyTenantHook,
@@ -34,13 +33,12 @@ import {
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
 
 export const fileRefTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
-  const rows = await selectMany<{ id: string }>(ctx.db, fileRefsTable, {
+  const rows = await ctx.db.selectMany<{ id: string }>(fileRefsTable, {
     tenantId: ctx.tenantId,
   });
   const user = createSystemUser(ctx.tenantId);
-  const db = createTenantDb(ctx.db, ctx.tenantId, "system");
   for (const row of rows) {
-    const result = await crud.forget({ id: row.id }, user, db);
+    const result = await crud.forget({ id: row.id }, user, ctx.db);
     // Executor writes return {isSuccess:false} instead of throwing — a
     // discarded result would report this destroy stage "succeeded" while the
     // row (and its PII fileName) survives. Throw so the pipeline's

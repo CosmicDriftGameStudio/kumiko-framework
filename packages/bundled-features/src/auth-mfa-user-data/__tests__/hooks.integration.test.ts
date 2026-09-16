@@ -3,7 +3,7 @@
 // (not just leave it dangling for a future projection rebuild to resurrect).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import { configureEntityFieldEncryption, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
   setupTestStack,
@@ -77,7 +77,7 @@ describe("userMfaExportHook / userMfaDeleteHook", () => {
     const user = await enrollUser("export-1");
 
     const snippet = await userMfaExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, user.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: user.tenantId,
       userId: user.id,
@@ -94,7 +94,7 @@ describe("userMfaExportHook / userMfaDeleteHook", () => {
   test("export returns null for a user who never enrolled", async () => {
     const user = createTestUser({ id: "never-enrolled", roles: ["User"] });
     const snippet = await userMfaExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, user.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: user.tenantId,
       userId: user.id,
@@ -106,7 +106,7 @@ describe("userMfaExportHook / userMfaDeleteHook", () => {
     const user = await enrollUser("delete-1");
 
     const before = await userMfaExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, user.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: user.tenantId,
       userId: user.id,
@@ -115,7 +115,7 @@ describe("userMfaExportHook / userMfaDeleteHook", () => {
 
     await userMfaDeleteHook(
       {
-        db: stack.db,
+        db: createTenantDb(stack.db, user.tenantId, "tenant"),
         registry: stack.registry,
         tenantId: user.tenantId,
         userId: user.id,
@@ -124,7 +124,7 @@ describe("userMfaExportHook / userMfaDeleteHook", () => {
     );
 
     const after = await userMfaExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, user.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: user.tenantId,
       userId: user.id,

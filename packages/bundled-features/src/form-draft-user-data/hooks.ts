@@ -3,8 +3,6 @@
 // consumers without the user-data-rights pipeline don't pull a hard
 // dependency.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -13,7 +11,7 @@ import {
 import { formDraftExecutor, formDraftTable } from "../form-draft";
 
 export const formDraftExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, formDraftTable, {
+  const rows = await ctx.db.selectMany(formDraftTable, {
     tenantId: ctx.tenantId,
     ownerId: ctx.userId,
   });
@@ -37,15 +35,14 @@ export const formDraftExportHook: UserDataExportHook = async (ctx) => {
 // owners' drafts, tenant model doesn't matter here (unlike folders' single-
 // user gating: a form-draft row always has exactly one owner already).
 export const formDraftDeleteHook: UserDataDeleteHook = async (ctx) => {
-  const rows = await selectMany<{ id: string }>(ctx.db, formDraftTable, {
+  const rows = await ctx.db.selectMany<{ id: string }>(formDraftTable, {
     tenantId: ctx.tenantId,
     ownerId: ctx.userId,
   });
   const systemUser = createSystemUser(ctx.tenantId);
-  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
   const failures: string[] = [];
   for (const row of rows) {
-    const result = await formDraftExecutor.delete({ id: row.id }, systemUser, tdb);
+    const result = await formDraftExecutor.delete({ id: row.id }, systemUser, ctx.db);
     if (!result.isSuccess) {
       failures.push(`${row.id}: ${result.error.message}`);
     }

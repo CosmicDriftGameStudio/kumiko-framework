@@ -39,14 +39,17 @@ import {
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  createTenantDb,
   type DbRunner,
   entityEventName,
   executeRawQuery,
   nullBlindIndexesForSubject,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  type EscapeHatchAuditSink,
   EXT_USER_DATA,
   EXT_USER_DATA_ORDER,
+  extensionUsageEscapeHatchReason,
   type Registry,
   type TenantId,
   type TenantUserModel,
@@ -54,6 +57,7 @@ import {
   type UserDataDeleteStrategy,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   purgeSearchDocumentsForSubject,
   type SearchAdapter,
@@ -140,6 +144,12 @@ export interface RunForgetCleanupArgs {
    * (no tenant-scoped erasure).
    */
   readonly tenantModel?: TenantUserModel;
+
+  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
+  // escapeHatch when its delete hook calls ctx.db.unsafeRaw(reason).
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly actor?: string;
 }
 
 export interface ForgetCleanupError {
@@ -184,6 +194,25 @@ interface HookEntry {
   /** Lower runs first. Owner-column-preserving redaction declares a negative
    * order so it precedes owner-nulling hooks on the same entity (see sort below). */
   readonly order: number;
+  readonly escapeHatchReason: string | undefined;
+}
+
+function buildHookDb(
+  db: DbRunner,
+  tenantId: TenantId,
+  entry: HookEntry,
+  args: { readonly escapeHatchAuditSink?: EscapeHatchAuditSink; readonly actor?: string },
+) {
+  const report = createEscapeHatchReporter({
+    handler: `${EXT_USER_DATA}:${entry.entityName}`,
+    tenantId,
+    actor: args.actor ?? "system",
+    sink: args.escapeHatchAuditSink,
+  });
+  return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
+    unsafeRaw: entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
+    report,
+  });
 }
 
 // EXT_USER_DATA delete-hooks default here; a hook that redacts data keyed on an
@@ -226,7 +255,12 @@ export async function runForgetCleanup(
       const opts = (u.options ?? {}) as { delete?: UserDataDeleteHook; order?: number }; // @cast-boundary engine-payload
       if (!opts.delete) return null;
       const order = typeof opts.order === "number" ? opts.order : HOOK_ORDER_DEFAULT;
-      return { entityName: u.entityName, deleteHook: opts.delete, order };
+      return {
+        entityName: u.entityName,
+        deleteHook: opts.delete,
+        order,
+        escapeHatchReason: extensionUsageEscapeHatchReason(u),
+      };
     })
     .filter((x): x is HookEntry => x !== null)
     // Order ascending. Array.sort is ES2019-stable, so equal orders keep
@@ -252,6 +286,8 @@ export async function runForgetCleanup(
       appTenantModel,
       kms,
       searchAdapter: args.searchAdapter,
+      escapeHatchAuditSink: args.escapeHatchAuditSink,
+      actor: args.actor,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
@@ -316,6 +352,8 @@ async function processUser(args: {
   appTenantModel: TenantUserModel;
   kms?: KmsAdapter;
   searchAdapter?: SearchAdapter;
+  escapeHatchAuditSink?: EscapeHatchAuditSink;
+  actor?: string;
 }): Promise<ProcessUserResult> {
   const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
   const errors: ForgetCleanupError[] = [];
@@ -404,7 +442,10 @@ async function processUser(args: {
           hookCallsAttempted++;
           const hookResult = await entry.deleteHook(
             {
-              db: tx,
+              db: buildHookDb(tx, tenantId, entry, {
+                escapeHatchAuditSink: args.escapeHatchAuditSink,
+                actor: args.actor,
+              }),
               registry,
               tenantId,
               userId,

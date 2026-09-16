@@ -11,6 +11,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -87,7 +88,7 @@ describe("folderAssignmentExportHook", () => {
     );
 
     const snippet = await folderAssignmentExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,

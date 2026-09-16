@@ -4,7 +4,6 @@
 // dependency. Mirrors job-run/delivery-attempt (user-data-rights-defaults):
 // export-only, erasure via crypto-shredding.
 
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
@@ -14,7 +13,7 @@ import { policyToStrategy } from "../user-data-rights";
 // note-entry has no per-tenant scope quirk (unlike folders) — it's genuinely
 // per-user content, so the export filters by authorId directly.
 export const noteEntryExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, noteEntryTable, {
+  const rows = await ctx.db.selectMany(noteEntryTable, {
     authorId: ctx.userId,
   });
   if (rows.length === 0) return null;
@@ -55,7 +54,7 @@ export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
   // skip: no KMS adapter mounted — record-owned fields stay plaintext framework-wide, forget is a true no-op
   if (!kms) return;
 
-  const mentions = await selectMany<{ noteId: string }>(ctx.db, noteMentionTable, {
+  const mentions = await ctx.db.selectMany<{ noteId: string }>(noteMentionTable, {
     subjectId: ctx.userId,
   });
   // skip: no note-mention rows for this user — nothing structurally reaches this user's data to shred
@@ -63,7 +62,7 @@ export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
 
   const noteIds = new Set(mentions.map((m) => m.noteId));
   for (const noteId of noteIds) {
-    const note = await fetchOne<{ entityType: string }>(ctx.db, noteEntryTable, { id: noteId });
+    const note = await ctx.db.fetchOne<{ entityType: string }>(noteEntryTable, { id: noteId });
     // Defensive: append-only rows are never hard-deleted, so this shouldn't
     // happen — but a missing host means no retention policy to consult.
     if (!note) continue;

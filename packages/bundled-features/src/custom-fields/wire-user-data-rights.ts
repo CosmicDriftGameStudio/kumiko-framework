@@ -27,6 +27,15 @@ function asCustomFieldsHostRow(value: unknown): CustomFieldsHostRow | null {
   return { id: value.id, customFields: Object.fromEntries(Object.entries(cf)) };
 }
 
+// fw#2914 — selectCustomFieldsHostRows runs raw SQL against a dynamic host
+// table name (opts.entityTable varies per call site), so it can't go through
+// TenantDb's typed method API (table param must be a known SchemaTable). The
+// SQL text itself still filters `tenant_id = ctx.tenantId`, so this stays a
+// single-tenant read — the escapeHatch is only for the raw-SQL mechanism, not
+// for cross-tenant access.
+const CUSTOM_FIELDS_EXPORT_REASON =
+  "custom-fields export reads a generic customFields column via raw SQL against a dynamic host table name, not expressible through TenantDb's typed method API; the query still filters tenant_id = ctx.tenantId";
+
 // Export-only wiring: custom fields hold supplemental business data, not PII
 // (#972) — there is nothing to redact on user-forget, only Art. 20 export.
 export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<string>>(
@@ -37,7 +46,7 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
 
   const exportHook: UserDataExportHook = async (ctx) => {
     const rows = await selectCustomFieldsHostRows(
-      ctx.db,
+      ctx.db.unsafeRaw(CUSTOM_FIELDS_EXPORT_REASON),
       tableName,
       opts.userIdColumn,
       ctx.userId,
@@ -59,5 +68,6 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar API, not a React hook.
   r.useExtension(EXT_USER_DATA, opts.entityName, {
     export: exportHook,
+    escapeHatch: { reason: CUSTOM_FIELDS_EXPORT_REASON },
   });
 }

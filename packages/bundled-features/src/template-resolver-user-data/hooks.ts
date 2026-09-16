@@ -3,7 +3,6 @@
 // so apps without the user-data-rights pipeline don't pull a hard dependency.
 // Mirrors notes-history-user-data: export-only, erasure via crypto-shredding.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { userContentEntriesTable } from "../template-resolver";
 
@@ -11,7 +10,7 @@ import { userContentEntriesTable } from "../template-resolver";
 // scoping comes from the tenant-scoped ctx.db; a user who belongs to two
 // tenants gets each tenant's entries from that tenant's forget run.
 export const userContentExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, userContentEntriesTable, {
+  const rows = await ctx.db.selectMany(userContentEntriesTable, {
     ownerId: ctx.userId,
   });
   if (rows.length === 0) return null;

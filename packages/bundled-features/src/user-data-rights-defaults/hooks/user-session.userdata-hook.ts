@@ -1,4 +1,3 @@
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { userSessionTable } from "../../sessions";
 import { featureMounted } from "./feature-mounted";
@@ -16,7 +15,7 @@ import { featureMounted } from "./feature-mounted";
 
 export const userSessionExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "sessions")) return null;
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, userSessionTable, {
+  const rows = await ctx.db.selectMany(userSessionTable, {
     userId: ctx.userId,
     tenantId: ctx.tenantId,
   });
@@ -38,5 +37,5 @@ export const userSessionExportHook: UserDataExportHook = async (ctx) => {
 export const userSessionDeleteHook: UserDataDeleteHook = async (ctx) => {
   // skip: sessions not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "sessions")) return;
-  await deleteMany(ctx.db, userSessionTable, { userId: ctx.userId, tenantId: ctx.tenantId });
+  await ctx.db.deleteMany(userSessionTable, { userId: ctx.userId, tenantId: ctx.tenantId });
 };

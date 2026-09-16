@@ -1,4 +1,3 @@
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { apiTokenTable } from "../../personal-access-tokens";
 import { featureMounted } from "./feature-mounted";
@@ -11,7 +10,7 @@ import { featureMounted } from "./feature-mounted";
 
 export const apiTokenExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "personal-access-tokens")) return null;
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, apiTokenTable, {
+  const rows = await ctx.db.selectMany(apiTokenTable, {
     userId: ctx.userId,
     tenantId: ctx.tenantId,
   });
@@ -33,5 +32,5 @@ export const apiTokenExportHook: UserDataExportHook = async (ctx) => {
 export const apiTokenDeleteHook: UserDataDeleteHook = async (ctx) => {
   // skip: personal-access-tokens not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "personal-access-tokens")) return;
-  await deleteMany(ctx.db, apiTokenTable, { userId: ctx.userId, tenantId: ctx.tenantId });
+  await ctx.db.deleteMany(apiTokenTable, { userId: ctx.userId, tenantId: ctx.tenantId });
 };

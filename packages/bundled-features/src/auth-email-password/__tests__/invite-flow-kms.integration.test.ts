@@ -7,6 +7,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -319,7 +320,7 @@ describe("auth flows with active KMS + blind index", () => {
     expect(isPiiCiphertext(rawInvitation["email"])).toBe(true);
 
     const result = await tenantInvitationExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A_ID, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A_ID,
       userId: bobId,
@@ -347,7 +348,12 @@ describe("auth flows with active KMS + blind index", () => {
     expect(isPiiCiphertext(rawBefore["invited_by"])).toBe(true);
 
     await tenantInvitationDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A_ID, userId: aliceId },
+      {
+        db: createTenantDb(stack.db, TENANT_A_ID, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A_ID,
+        userId: aliceId,
+      },
       "delete",
     );
 

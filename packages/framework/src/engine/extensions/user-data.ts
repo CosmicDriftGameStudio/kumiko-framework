@@ -13,7 +13,7 @@
 //
 // Siehe docs/plans/datenschutz/user-data-rights.md.
 
-import type { DbRunner } from "../../db/connection";
+import type { TenantDb } from "../../db/tenant-db";
 import type { Registry, TenantId } from "../types";
 
 // SessionUser.id ist plattformweit `string` (kein Brand-Type). Wenn
@@ -52,10 +52,10 @@ export type TenantUserModel = "single-user" | "multi-user";
  * Context-Snapshot der dem Hook übergeben wird. Sprint 2 erweitert
  * das ggf. um cancel-/timeout-Marker; aktuell minimaler Schnitt.
  *
- * `db` ist `DbRunner` (DbConnection | DbTx) damit der Cleanup-Runner
- * (S2.U5b) den Hook in einer Per-User-Sub-Tx callen kann. Hooks die
- * raw-DB-Operationen machen funktionieren auf beiden Shapes via
- * Drizzle's polymorphem select/insert/update/delete-Chain.
+ * fw#2914 — `db` ist ein tenant-gefilterter `TenantDb`, gebunden an
+ * `tenantId` (bzw. die per-User-Sub-Tx im Forget-Pfad). Unfiltered
+ * Zugriff braucht `escapeHatch: { reason }` auf der `r.useExtension(...)`-
+ * Registrierung, danach `ctx.db.unsafeRaw(reason)`.
  */
 /**
  * Minimal storage surface a file-aware forget hook needs to erase binaries.
@@ -73,7 +73,7 @@ export interface UserDataStorageProvider {
 }
 
 export interface UserDataHookCtx {
-  readonly db: DbRunner;
+  readonly db: TenantDb;
   /**
    * The app registry. A forget hook that must erase CHILD read-model rows past
    * the entity's own row — m:n join projections, per-parent detail projections —

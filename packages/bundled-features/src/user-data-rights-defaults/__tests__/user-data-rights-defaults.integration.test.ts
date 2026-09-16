@@ -13,7 +13,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   deriveKey,
@@ -87,10 +89,9 @@ async function seedUser(id: string, overrides: Record<string, unknown> = {}): Pr
   // user-Entity ist tenant-agnostisch im Domain-Sinn, aber das DB-
   // Schema hat tenant_id-Spalte automatisch (Framework-Default).
   // Pragmatisch: SYSTEM_TENANT_ID fuer User-Rows in Tests.
-  const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000001";
   await seedRow(stack.db, userTable, {
     id,
-    tenantId: SYSTEM_TENANT,
+    tenantId: SYSTEM_TENANT_ID,
     email: `user-${id}@example.com`,
     passwordHash: "hashed-password",
     displayName: `User ${id}`,
@@ -168,7 +169,7 @@ describe("S2.H1 :: userExportHook", () => {
     await seedUser(uuid(1001), { displayName: "Marc" });
 
     const result = await userExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: uuid(1001),
@@ -189,7 +190,7 @@ describe("S2.H1 :: userExportHook", () => {
 
   test("returns null wenn User nicht existiert", async () => {
     const result = await userExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: uuid(1002),
@@ -203,7 +204,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     await seedUser(uuid(1003));
 
     await userDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1003) },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1003) },
       "delete",
     );
 
@@ -222,7 +223,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     await seedUser(uuid(1004));
 
     await userDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1004) },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1004) },
       "anonymize",
     );
 
@@ -238,7 +239,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     await seedUser(uuid(1005));
 
     await userDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
       "delete",
     );
     const afterFirst = await fetchUser(uuid(1005));
@@ -247,7 +248,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     // Zweiter Call: kein Crash + State unverändert
     await expect(
       userDeleteHook(
-        { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
+        { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
         "delete",
       ),
     ).resolves.toBeUndefined();
@@ -269,7 +270,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
     await seedFileRef(uuid(102), TENANT_A, "user-files-1", "anschreiben.pdf");
 
     const result = await fileRefExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: "user-files-1",
@@ -284,7 +285,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
 
   test("returns null wenn User keine Files hat", async () => {
     const result = await fileRefExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: "ghost-user-no-files",
@@ -299,7 +300,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(202), TENANT_A, "user-delete-files", "f2.pdf");
 
     await fileRefDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-delete-files" },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-delete-files" },
       "delete",
     );
 
@@ -311,7 +312,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(203), TENANT_A, "user-anon-files", "shared.pdf");
 
     await fileRefDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-anon-files" },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-anon-files" },
       "anonymize",
     );
 
@@ -329,7 +330,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     // Tenant A loescht alle Files von "shared-user"
     await fileRefDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "shared-user" },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "shared-user" },
       "delete",
     );
 
@@ -345,7 +346,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(401), TENANT_A, "user-idem-files", "f.pdf");
 
     await fileRefDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
+      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
       "delete",
     );
     const afterFirst = await fetchFileRefs(TENANT_A, "user-idem-files");
@@ -354,7 +355,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     // Zweiter Call: kein Crash + State weiter 0 Files
     await expect(
       fileRefDeleteHook(
-        { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
+        { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
         "delete",
       ),
     ).resolves.toBeUndefined();
@@ -398,7 +399,7 @@ describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue 
 
     await fileRefDeleteHook(
       {
-        db: stack.db,
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -428,7 +429,7 @@ describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue 
 
     await fileRefDeleteHook(
       {
-        db: stack.db,
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -459,7 +460,7 @@ describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue 
     await expect(
       fileRefDeleteHook(
         {
-          db: stack.db,
+          db: createTenantDb(stack.db, TENANT_A, "tenant"),
           registry: stack.registry,
           tenantId: TENANT_A,
           userId,

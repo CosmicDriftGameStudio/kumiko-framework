@@ -7,15 +7,19 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
+  type EscapeHatchAuditSink,
   EXT_EXTERNAL_RESOURCE,
   EXT_INFRA_RESOURCE,
   EXT_SEARCH_ADAPTER,
   EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
+  extensionUsageEscapeHatchReason,
   type Registry,
+  type TenantDataHookCtx,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
+import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   tenantEntity,
@@ -35,6 +39,11 @@ export type DestructionStageCtx = {
   // "destroyTenant" hooks) — undefined when no file-provider is wired,
   // which those hooks must treat as "nothing to clean up", not an error.
   readonly fileProviderResolver?: FileProviderResolver;
+  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // systemUser.id); runTenantDataHooks uses them to attribute+audit any
+  // EXT_TENANT_DATA usage's declared escapeHatch.
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly actor?: string;
 };
 
 export type DestructionStage = {
@@ -73,10 +82,25 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<void> {
   const usages = ctx.registry.getExtensionUsages(EXT_TENANT_DATA);
   for (const usage of usages) {
     const destroy = usage.options?.["destroy"] as
-      | ((ctx: DestructionStageCtx) => Promise<void>)
+      | ((hookCtx: TenantDataHookCtx) => Promise<void>)
       | undefined;
     if (!destroy) continue;
-    await destroy(ctx);
+    const reason = extensionUsageEscapeHatchReason(usage);
+    const report = createEscapeHatchReporter({
+      handler: `${EXT_TENANT_DATA}:${usage.entityName}`,
+      tenantId: ctx.tenantId,
+      actor: ctx.actor ?? "system",
+      sink: ctx.escapeHatchAuditSink,
+    });
+    const hookCtx: TenantDataHookCtx = {
+      db: createTenantDb(ctx.db, ctx.tenantId, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: reason !== undefined ? { reason } : undefined,
+        report,
+      }),
+      registry: ctx.registry,
+      tenantId: ctx.tenantId,
+    };
+    await destroy(hookCtx);
   }
 }
 

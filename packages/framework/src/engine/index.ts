@@ -112,6 +112,7 @@ export {
   FILE_PROVIDER_CONFIG_KEY,
   TENANT_MEMBERSHIPS_QUERY,
 } from "./extension-names";
+export { extensionUsageEscapeHatchReason } from "./extensions/escape-hatch-usage";
 export type {
   StorageProviderDestroyTenantHook,
   StorageProviderExtensionHooks,

@@ -25,7 +25,11 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+  type UserDataHookCtx,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -58,7 +62,7 @@ let stack: TestStack;
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 
 function uuid(suffix: number): string {
   return `bbbbbbbb-bbbb-4bbb-8bbb-${suffix.toString(16).padStart(12, "0")}`;
@@ -498,7 +502,7 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     // in the GDPR bundle. The hook decrypts locally (same as invitations
     // query) — assert plaintext here so a regression to raw ciphertext fails.
     const hookCtx: UserDataHookCtx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: ALICE_ID,
@@ -571,7 +575,7 @@ describe("runUserExport :: fileRef PII export via the fileRefs side-channel (#19
     // assertion would catch it even though the runUserExport() assertions
     // below would stay green either way.
     const hookCtx: UserDataHookCtx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: ALICE_ID,
