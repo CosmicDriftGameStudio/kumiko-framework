@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.281.0",
+    "type": "breaking",
+    "title": "declareEscapeHatch is a new export from @cosmicdrift/kumiko-framework/engine",
+    "migration": "A standalone helper that escalates (`unsafeRaw`, or `queryAs`/`writeAs` with a\nsystem identity) on a `HandlerContext` handed to it by its caller — rather than\nbaselining the Escape-Hatch-Declared Guard finding — declares it at the call\nsite instead: `declareEscapeHatch({ reason: \"...\" })` as the first statement of\nthe helper's body, describing what is escalated and on whose right (the caller's\nhandler still carries its own `escapeHatch` declaration). The reason must be a\nstring literal and not a placeholder (see the guard's generic-reason check) —\nthere is no boot validator behind this form to catch an empty or vague one."
+  },
+  {
+    "version": "0.281.0",
+    "type": "breaking",
+    "title": "withUnsafeRawGrant is no longer exported from @cosmicdrift/kumiko-framework/db",
+    "migration": "A consumer that imported `withUnsafeRawGrant` from `@cosmicdrift/kumiko-framework/db` to grant itself `unsafeRaw` access declares `escapeHatch: { reason: \"<why>\" }` on the relevant registration (handler, hook, or `r.useExtension(...)`) instead, then fetches the runner with `ctx.db.unsafeRaw(\"<same reason>\")`. No blast radius found outside the framework itself: no app repo, kumiko-platform, kumiko-studio, or kumiko-enterprise code used this symbol."
+  },
+  {
+    "version": "0.281.0",
+    "type": "improvement",
+    "title": "Move escape-hatch reporting from pipeline to observability",
+    "detail": "escape-hatch-report.ts now lives in observability/ instead of pipeline/, removing a runtime layering violation where the db layer imported from pipeline; the public API (@cosmicdrift/kumiko-framework/pipeline exports) is unchanged."
+  },
+  {
+    "version": "0.281.0",
+    "type": "improvement",
+    "title": "Unify all framework packages into one version group",
+    "detail": "kumiko-cli, create-kumiko-app, kumiko-guards, and kumiko-repo-manifest join the existing fixed version group; all 15 non-private packages now share one version number."
+  },
+  {
     "version": "0.280.0",
     "type": "breaking",
     "title": "TenantDataHookCtx/UserDataHookCtx.db is a tenant-filtered TenantDb; unfiltered hook access needs r.useExtension({ escapeHatch }) (fw#2914 Zugang 3).",

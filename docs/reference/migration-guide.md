@@ -10,6 +10,25 @@ verified: 2026-09-16
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.281.0
+
+### framework-core
+
+**declareEscapeHatch is a new export from @cosmicdrift/kumiko-framework/engine**
+
+**Migration:** A standalone helper that escalates (`unsafeRaw`, or `queryAs`/`writeAs` with a
+system identity) on a `HandlerContext` handed to it by its caller — rather than
+baselining the Escape-Hatch-Declared Guard finding — declares it at the call
+site instead: `declareEscapeHatch({ reason: "..." })` as the first statement of
+the helper's body, describing what is escalated and on whose right (the caller's
+handler still carries its own `escapeHatch` declaration). The reason must be a
+string literal and not a placeholder (see the guard's generic-reason check) —
+there is no boot validator behind this form to catch an empty or vague one.
+
+**withUnsafeRawGrant is no longer exported from @cosmicdrift/kumiko-framework/db**
+
+**Migration:** A consumer that imported `withUnsafeRawGrant` from `@cosmicdrift/kumiko-framework/db` to grant itself `unsafeRaw` access declares `escapeHatch: { reason: "<why>" }` on the relevant registration (handler, hook, or `r.useExtension(...)`) instead, then fetches the runner with `ctx.db.unsafeRaw("<same reason>")`. No blast radius found outside the framework itself: no app repo, kumiko-platform, kumiko-studio, or kumiko-enterprise code used this symbol.
+
 ## 0.280.0
 
 ### framework-core
