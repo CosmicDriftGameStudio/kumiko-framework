@@ -25,6 +25,6 @@ migration: |
   - `packages/ai-agent/src/hooks/ai-agent-turn.userdata-hook.ts`, `packages/ai-conversation/src/hooks/designer-conversation-turn.userdata-hook.ts`, `packages/pattern-storage/src/hooks/pattern-file.userdata-hook.ts`, `packages/prompt-store/src/hooks/prompt-template-version.userdata-hook.ts`: each has the same `createTenantDb(ctx.db, ctx.tenantId, "system")` + two `selectMany(ctx.db, table, { ... })` inline pair as `userdata-hook-shared.ts` above — same fix per file.
   
   `packages/ai-foundation/src/providers/provenance.ts` (`recordAiCall`) and `packages/ai-pipeline/src/steps/shared.ts` (`recordStepProvenance`) were checked and need NO change: neither registers an EXT_USER_DATA/EXT_TENANT_DATA hook (they run off `HandlerContext`/`WorkflowPipelineCtx`, unrelated to this PR — that context's `.db` was already `TenantDb` from an earlier fw#2914 change), and both already use exactly the pattern this PR expects from hooks too: `withUnsafeRawGrant(ctx.dbOutsideTransaction ?? ctx.db, { reason: PROVENANCE_UNSAFE_RAW_REASON }).unsafeRaw(reason)`.
-
+  
   Guard-version gap: once each of these 7 files declares `escapeHatch` on its `r.useExtension(...)` registration, expect the same `AST-Guards (shared runner)` failure this PR hits on `wire-user-data-rights.ts` (see Detail above) — the currently-pinned `@cosmicdriftgamestudio/kumiko-guards@^0.36.0` doesn't recognize `escapeHatch` on a `useExtension` call. That guard bump has to land (and kumiko-enterprise's pinned guards range has to move) before or alongside this migration, not after.
 -->
