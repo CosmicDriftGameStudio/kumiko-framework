@@ -1,5 +1,56 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.279.0
+
+### Minor Changes
+
+- e55f357: Event-store gains `appendProvenanceEvent(db, event)` — a declared, framework-owned entry point for provenance events that must bypass cross-feature event ownership (fw#2914).
+
+  `appendProvenanceEvent` (`@cosmicdrift/kumiko-framework/event-store`) takes a plain `TenantDb` and an event (`aggregateId`, `aggregateType`, `tenantId`, `expectedVersion` — a number or `"current"` to resolve the stream's current version inside the same savepoint, `type`, `payload`, `metadata`), grants itself a raw runner with a fixed, framework-owned reason, runs the append in a driver savepoint when one is available, and calls the public `append()`. The reason string is never caller-supplied — only the framework declares why this append is allowed to skip the ownership check. `event.type` must be owner-qualified (`"<feature>:<name>"`) and rejects the framework-internal `kumiko:system:` namespace. A `TenantDb` not built by `createTenantDb` fails closed.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Event-store gains appendProvenanceEvent(db, event), a declared entry point for provenance events (fw#2914).
+  migration: |
+    No action required — purely additive. Existing self-granted `withUnsafeRawGrant(...).unsafeRaw(...)` provenance writers can migrate to `appendProvenanceEvent` in a follow-up; nothing is removed in this change.
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-types@0.279.0
+
+## 0.278.0
+
+### Minor Changes
+
+- 17dcac1: TenantDb gains a count(table, where?) method for a tenant-scoped COUNT(\*) (fw#2854).
+
+  `TenantDb.count(table, where?)` returns a tenant-scoped row count with the same tenant semantics as `selectMany`: "tenant" mode counts the caller's own tenant plus `SYSTEM_TENANT_ID` reference rows, a caller-supplied `where.tenantId` may only narrow that scope, and "system" mode counts unfiltered. Lets app/feature code compute stock-caps (`count(*) WHERE tenant_id = …`) without an `unsafeRaw`/`escapeHatch` detour. A hand-built `TenantDb` object literal (test fakes, mocks) must add a `count` method to keep satisfying the `TenantDb` type — `db.global()` is unaffected, `count` is only on the tenant-scoped surface.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: TenantDb gains a count(table, where?) method for a tenant-scoped COUNT(*) (fw#2854).
+  migration: |
+    No action required for existing `TenantDb` consumers — purely additive. Any hand-built object literal typed as `TenantDb` (not built via `createTenantDb`) needs a `count(table, where?)` method added; `bunCountWhere`/`countWhere` from `@cosmicdrift/kumiko-framework/db` implements the same query shape if you need equivalent logic outside a `TenantDb`.
+  -->
+
+### Patch Changes
+
+- 3e1eb25: Fix urlPrefillFields allowlist missing relatedList toolbarActions
+
+  A screen reached only through a relatedList toolbar action never received its mapped id, so its hidden required field stayed empty and the declared redirect never ran.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fix urlPrefillFields allowlist missing relatedList toolbarActions
+  -->
+
+- Updated dependencies [17dcac1]
+  - @cosmicdrift/kumiko-types@0.278.0
+
 ## 0.277.0
 
 ### Minor Changes

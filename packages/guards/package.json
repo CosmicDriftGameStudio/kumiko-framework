@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-guards",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AST-based security guards for Kumiko repos: direct-fs/fetch, tenant escalation, admin-API, escape hatches and related checks, run over a shared ts-morph project.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -22,6 +22,9 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     }
+  },
+  "bin": {
+    "kumiko-guards": "./src/run-guards.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-repo-manifest": "workspace:*",

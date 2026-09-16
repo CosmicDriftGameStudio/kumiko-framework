@@ -1,0 +1,18 @@
+[
+  {
+    "version": "0.2.0",
+    "type": "improvement",
+    "title": "Migrate remaining framework-semantic guards out of infra/guards"
+  },
+  {
+    "version": "0.2.0",
+    "type": "improvement",
+    "title": "Add runner parity with the private infra/guards package"
+  },
+  {
+    "version": "0.1.1",
+    "type": "fix",
+    "title": "Spawned git calls no longer inherit GIT_DIR/GIT_WORK_TREE",
+    "detail": "Guards that shell out to git now pass an allowlisted environment. Running inside a Husky pre-push hook, an inherited GIT_DIR pointed git at the hook's repo instead of the path being checked, so a guard could read and write the wrong repository."
+  }
+]

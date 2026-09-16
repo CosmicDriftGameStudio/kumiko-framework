@@ -52,6 +52,9 @@ function projectionDetailNavigateActions(
     ...screen.layout.sections.flatMap((section) =>
       section.kind === "relatedList" ? scopeActions(section.rowActions, undefined) : [],
     ),
+    ...screen.layout.sections.flatMap((section) =>
+      section.kind === "relatedList" ? scopeActions(section.toolbarActions, undefined) : [],
+    ),
     ...(screen.metrics ?? []).flatMap((metric) =>
       typeof metric === "string" || metric.navigate === undefined
         ? []

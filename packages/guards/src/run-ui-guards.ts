@@ -2,6 +2,7 @@
 // UI-guard bundle (App-Mounting 2.0, infra#208): one process, shared ts-morph
 // Project over the UI enforcement guards.
 import { reportResults, runGuards } from "./_lib/guard-kit";
+import { guard as i18nUiStrings } from "./guard-i18n-ui-strings";
 import { guard as noCustomPrimitives } from "./guard-no-custom-primitives";
 import { guard as noInlineStyles } from "./guard-no-inline-styles";
 import { guard as noRawHooks } from "./guard-no-raw-hooks";
@@ -16,6 +17,7 @@ export const UI_GUARDS = [
   noRawHooks,
   tailwindScanSurface,
   rawInteractiveElements,
+  i18nUiStrings,
 ];
 
 // Same as run-guards.ts: only run on direct invocation.

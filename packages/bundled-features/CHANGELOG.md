@@ -1,5 +1,68 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.279.0
+
+### Patch Changes
+
+- Updated dependencies [e55f357]
+  - @cosmicdrift/kumiko-framework@0.279.0
+  - @cosmicdrift/kumiko-headless@0.279.0
+  - @cosmicdrift/kumiko-renderer@0.279.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.279.0
+  - @cosmicdrift/kumiko-renderer-web@0.279.0
+  - @cosmicdrift/kumiko-types@0.279.0
+
+## 0.278.0
+
+### Minor Changes
+
+- 17dcac1: bookCapUsage/markCapSoftWarned/readRollingCapUsage — in-process calendar-cap booking bound to the caller's own tenant (fw#2854).
+
+  New helpers in `book-cap-usage.ts`: `bookCapUsage(ctx, options)` and `markCapSoftWarned(ctx, options)` run the calendar-counter create-or-update / soft-warn-flip logic in-process against `ctx.db`/`ctx.user`; `readRollingCapUsage(db, tenantId, options)` sums a rolling window without throwing and works as the `usage` callback for an existing rolling stream. `enforceCapAndMaybeNotify` and `withCapEnforcement` now call `bookCapUsage`/`markCapSoftWarned` in-process instead of dispatching the `SystemAdmin`-only `increment`/`mark-soft-warned` write-handlers through `ctx.write` — a plain `TenantAdmin` caller (no `SystemAdmin` role, no `escapeHatch`, no `ctx.writeAs` identity-switch) can now use calendar cap-enforcement end to end. `withRollingCapEnforcement` still books through the `SystemAdmin`-only `increment-rolling` write-handler via `ctx.write` — the framework's event-ownership rule rejects `unsafeAppendEvent` calls for a foreign feature made in-process, so rolling callers still need a `SystemAdmin` identity.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: bookCapUsage/markCapSoftWarned/readRollingCapUsage — in-process calendar-cap booking bound to the caller's own tenant (fw#2854).
+  migration: |
+    No action required for the call signatures — `enforceCapAndMaybeNotify`/`withCapEnforcement`/`withRollingCapEnforcement` keep their existing signatures and result shapes. An app that previously worked around the `SystemAdmin`-only calendar dispatch with its own `escapeHatch` + `ctx.writeAs(SystemAdmin, ...)` wrapper can remove that workaround for `withCapEnforcement`; `withRollingCapEnforcement` callers still need a `SystemAdmin` identity (role or `ctx.writeAs`).
+  -->
+
+- 17dcac1: createStockCapGuard/checkStockCap/withStockCap resolve through the caller's TenantDb, not a raw DbRunner + explicit tenantId (fw#2854).
+
+  `createStockCapGuard`'s resolver is now `(db: TenantDb) => Promise<TCaps>` instead of `(db: DbRunner, tenantId: TenantId) => Promise<TCaps>`. `checkStockCap(db: TenantDb, spec)` drops the separate `tenantId` parameter — the tenant comes from `db.tenantId`, and the count runs through `TenantDb.count` instead of the raw `countWhere`. `StockCapSpec.table` is now typed `SchemaTable | EntityTableMeta` (matching `TenantDb.count`'s table parameter) instead of `Parameters<typeof countWhere>[1]`. `withStockCap` no longer declares an `escapeHatch` on the wrapped handler and no longer reads through `ctx.db.unsafeRaw(...)` — it calls `checkStockCap(ctx.db, spec)` directly, so a `TenantAdmin`-only handler with no `escapeHatch` can use it.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: createStockCapGuard/checkStockCap/withStockCap resolve through the caller's TenantDb, not a raw DbRunner + explicit tenantId (fw#2854).
+  migration: |
+    `createStockCapGuard(async (db, tenantId) => ...)` → `createStockCapGuard(async (db) => ...)`, reading `db.tenantId` instead of the removed second argument. A direct `checkStockCap(runner, tenantId, spec)` call → `checkStockCap(tenantDb, spec)` with a `TenantDb` built via `createTenantDb(runner, tenantId)` (or `ctx.db` inside a handler). If your wrapped handler relied on `withStockCap`'s auto-added `escapeHatch` for some other reason, declare it explicitly on the handler instead — `withStockCap` no longer adds one.
+  -->
+
+- 17dcac1: createTierResolver's resolveTier/resolveTierCaps take only a TenantDb — no separate tenantId argument (fw#2854).
+
+  `resolveTier(db)` and `resolveTierCaps(db)` (from `createTierResolver`) now read the tenant from `db.tenantId` instead of taking a second `tenantId` parameter, so a caller can no longer pass a `TenantDb` for one tenant alongside a different `tenantId` and resolve a foreign tenant's tier.
+
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: breaking
+  title: createTierResolver's resolveTier/resolveTierCaps take only a TenantDb — no separate tenantId argument (fw#2854).
+  migration: |
+    `resolveTier(ctx.db.raw|runner, tenantId)` → `resolveTier(ctx.db)` (same for `resolveTierCaps`). Outside a handler: `resolveTier(createTenantDb(runner, tenantId))`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [3e1eb25]
+- Updated dependencies [17dcac1]
+  - @cosmicdrift/kumiko-framework@0.278.0
+  - @cosmicdrift/kumiko-types@0.278.0
+  - @cosmicdrift/kumiko-headless@0.278.0
+  - @cosmicdrift/kumiko-renderer@0.278.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.278.0
+  - @cosmicdrift/kumiko-renderer-web@0.278.0
+
 ## 0.277.0
 
 ### Patch Changes
