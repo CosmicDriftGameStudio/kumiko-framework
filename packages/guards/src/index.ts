@@ -1,8 +1,10 @@
 export {
   type AstGuard,
+  buildGuardKitInventory,
   buildSharedProject,
   explainGuards,
   filesForGuard,
+  type GuardKitInventory,
   type GuardOutcome,
   type GuardViolation,
   isSecurityGuard,
@@ -14,6 +16,7 @@ export {
   runGuards,
   runRepoChecks,
   type ScanSpec,
+  type SuiteInventory,
 } from "./_lib/guard-kit";
 export { findLocalRepo, type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 export {

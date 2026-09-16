@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isSecurityGuard } from "../_lib/guard-kit";
 import { GUARDS } from "../run-guards";
+import { REPO_CHECKS } from "../run-repo-checks";
+import { UI_GUARDS } from "../run-ui-guards";
 import { writeRepo } from "./parent-workspace-fixture";
 
 const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
@@ -37,6 +39,31 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(stderr).toContain("guards");
     expect(stderr).toContain("ui");
     expect(stderr).toContain("checks");
+  });
+
+  test("list prints the registration inventory as JSON, without running any suite", async () => {
+    const { exitCode, stdout, stderr } = await runCli(["list"]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    const inventory = JSON.parse(stdout) as {
+      suites: {
+        guards: { count: number; names: string[] };
+        ui: { count: number; names: string[] };
+        checks: { count: number; names: string[] };
+      };
+      total: number;
+    };
+    expect(GUARDS.length).toBeGreaterThan(0);
+    expect(UI_GUARDS.length).toBeGreaterThan(0);
+    expect(REPO_CHECKS.length).toBeGreaterThan(0);
+    expect(inventory.suites.guards.count).toBe(GUARDS.length);
+    expect(inventory.suites.ui.count).toBe(UI_GUARDS.length);
+    expect(inventory.suites.checks.count).toBe(REPO_CHECKS.length);
+    expect(inventory.suites.guards.names).toEqual(GUARDS.map((g) => g.name));
+    expect(inventory.suites.ui.names).toEqual(UI_GUARDS.map((g) => g.name));
+    expect(inventory.suites.checks.names).toEqual(REPO_CHECKS.map((c) => c.name));
+    expect(inventory.total).toBe(GUARDS.length + UI_GUARDS.length + REPO_CHECKS.length);
   });
 
   test("checks runs the repo-checks suite and prints the guard-kit banner", async () => {
