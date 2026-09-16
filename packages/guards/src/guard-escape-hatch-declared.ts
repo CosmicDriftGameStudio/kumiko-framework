@@ -22,11 +22,15 @@
  *
  * escapeHatch (R2/R3) is recognized only as a direct, literal `escapeHatch`
  * property (object literal, or ternary of two object literals) either in the
- * same object literal as an inline `handler` function, or in an options object
+ * same object literal as an inline `handler` function, in an options object
  * passed to `r.hook`/`writeHandler`/`queryHandler`/`streamHandler` alongside
- * the handler function argument. Referenced-by-variable functions, spread
- * options, computed/string keys, and non-literal escapeHatch values are
- * conservatively not recognized (miss, don't falsely clear).
+ * the handler function argument, or in the options object passed directly to
+ * `r.useExtension(...)` alongside any of its hook function properties
+ * (`export`, `forget`, ...) — the grant covers every hook in that one options
+ * object, matching the runtime per-usage scope. Referenced-by-variable
+ * functions, spread options, computed/string keys, and non-literal
+ * escapeHatch values are conservatively not recognized (miss, don't falsely
+ * clear).
  *
  * Empty reasons, `openToAll.personalData` and PII are the framework boot validator's
  * job (access-declarations.ts), not this guard's. Known false-negatives:
@@ -265,12 +269,35 @@ function objectDeclaresEscapeHatch(obj: ObjectLiteralExpression): boolean {
   });
 }
 
+function isUseExtensionOptionsArgument(obj: ObjectLiteralExpression): boolean {
+  const call = obj.getParent();
+  if (!call?.isKind(SyntaxKind.CallExpression)) return false;
+  if (!call.getArguments().includes(obj)) return false;
+  const callee = call.getExpression();
+  return callee.isKind(SyntaxKind.PropertyAccessExpression) && callee.getName() === "useExtension";
+}
+
 const ESCAPE_HATCH_CALL_METHODS = new Set([
   "hook",
   "writeHandler",
   "queryHandler",
   "streamHandler",
 ]);
+
+function isDeclaredExtensionOrHandlerProperty(fn: Node, parent: Node): boolean {
+  if (!parent.isKind(SyntaxKind.PropertyAssignment)) return false;
+  const nameNode = parent.getNameNode();
+  const obj = parent.getParent();
+  if (
+    !nameNode.isKind(SyntaxKind.Identifier) ||
+    parent.getInitializer() !== fn ||
+    !obj.isKind(SyntaxKind.ObjectLiteralExpression) ||
+    !objectDeclaresEscapeHatch(obj)
+  ) {
+    return false;
+  }
+  return nameNode.getText() === "handler" || isUseExtensionOptionsArgument(obj);
+}
 
 function isEscapeHatchDeclaredFunction(fn: Node): boolean {
   const parent = fn.getParent();
@@ -291,15 +318,7 @@ function isEscapeHatchDeclaredFunction(fn: Node): boolean {
   }
 
   if (parent.isKind(SyntaxKind.PropertyAssignment)) {
-    const nameNode = parent.getNameNode();
-    const obj = parent.getParent();
-    return (
-      nameNode.isKind(SyntaxKind.Identifier) &&
-      nameNode.getText() === "handler" &&
-      parent.getInitializer() === fn &&
-      obj.isKind(SyntaxKind.ObjectLiteralExpression) &&
-      objectDeclaresEscapeHatch(obj)
-    );
+    return isDeclaredExtensionOrHandlerProperty(fn, parent);
   }
 
   if (parent.isKind(SyntaxKind.CallExpression)) {

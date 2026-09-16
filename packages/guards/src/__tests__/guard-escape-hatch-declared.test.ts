@@ -818,6 +818,57 @@ export const h = defineWriteHandler({
       "raw-outside-system-scope",
     ]);
   });
+
+  test("r.useExtension hook with escapeHatch in the options object clears unsafeRaw", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire-user-data.ts": `
+declare const r: {
+	useExtension(ext: string, entityName: string, opts: unknown): void;
+};
+declare const EXT_USER_DATA: string;
+r.useExtension(EXT_USER_DATA, "entity", {
+	export: async (ctx: any) => ctx.db.unsafeRaw("extension export needs a raw cross-tenant read"),
+	escapeHatch: { reason: "extension export needs a raw cross-tenant read" },
+});
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("r.useExtension hook without escapeHatch in the options object flags unsafeRaw", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire-user-data.ts": `
+declare const r: {
+	useExtension(ext: string, entityName: string, opts: unknown): void;
+};
+declare const EXT_USER_DATA: string;
+r.useExtension(EXT_USER_DATA, "entity", {
+	export: async (ctx: any) => ctx.db.unsafeRaw("extension export needs a raw cross-tenant read"),
+});
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("the same options-object-with-escapeHatch shape passed to a non-useExtension call is not covered", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/wire-user-data.ts": `
+declare const r: {
+	somethingElse(ext: string, entityName: string, opts: unknown): void;
+};
+declare const EXT_USER_DATA: string;
+r.somethingElse(EXT_USER_DATA, "entity", {
+	export: async (ctx: any) => ctx.db.unsafeRaw("extension export needs a raw cross-tenant read"),
+	escapeHatch: { reason: "extension export needs a raw cross-tenant read" },
+});
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
 });
 
 describe("systemScopeDirs", () => {
