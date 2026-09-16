@@ -1,17 +1,14 @@
-// Hook-Signatur-Types für die EXT_USER_DATA-Extension (DSGVO Art. 15+17+20).
+// Hook signature types for the EXT_USER_DATA extension (GDPR Art. 15+17+20).
 //
-// Sprint 1.9 Z1: Bisher gibt der Boot-Validator JEDES Hook-Shape durch
-// — useExtension(EXT_USER_DATA, "X", { export: ... }) wird nicht gegen
-// eine erwartete Signatur geprüft. Diese Types sind die canonical
-// Schema-Sicht; Sprint 2 user-data-rights wird sie via
-// `r.extendsRegistrar(EXT_USER_DATA, { hooks: ... })`-Doku exposen.
+// The boot validator does not check useExtension(EXT_USER_DATA, "X", { export: ... })
+// hook shapes against an expected signature — these types are the canonical
+// schema view; app authors get compile-time hints only, no runtime validation.
 //
-// Boot-Time-Schape-Check (Runtime) ist orthogonal und kommt in Sprint
-// 2 wenn die exportRunner-/forgetRunner-Pipelines stehen — bis dahin
-// sind diese Types Compile-Time-Hints für App-Authors, keine Runtime-
-// Validation.
+// The runner pipelines that consume these hooks are built and live: see
+// packages/bundled-features/src/user-data-rights/run-user-export.ts,
+// run-forget-cleanup.ts, run-export-jobs.ts.
 //
-// Siehe docs/plans/datenschutz/user-data-rights.md.
+// See docs/plans/datenschutz/user-data-rights.md.
 
 import type { TenantDb } from "../../db/tenant-db";
 import type { Registry, TenantId } from "../types";
@@ -49,13 +46,10 @@ export type UserDataDeleteStrategy = "delete" | "anonymize";
 export type TenantUserModel = "single-user" | "multi-user";
 
 /**
- * Context-Snapshot der dem Hook übergeben wird. Sprint 2 erweitert
- * das ggf. um cancel-/timeout-Marker; aktuell minimaler Schnitt.
- *
- * fw#2914 — `db` ist ein tenant-gefilterter `TenantDb`, gebunden an
- * `tenantId` (bzw. die per-User-Sub-Tx im Forget-Pfad). Unfiltered
- * Zugriff braucht `escapeHatch: { reason }` auf der `r.useExtension(...)`-
- * Registrierung, danach `ctx.db.unsafeRaw(reason)`.
+ * fw#2914 — `db` is a tenant-filtered `TenantDb`, bound to `tenantId`
+ * (or the per-user sub-tx in the forget path). Unfiltered access needs
+ * `escapeHatch: { reason }` on the `r.useExtension(...)` registration,
+ * then `ctx.db.unsafeRaw(reason)`.
  */
 /**
  * Minimal storage surface a file-aware forget hook needs to erase binaries.
