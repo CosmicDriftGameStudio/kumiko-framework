@@ -42,7 +42,11 @@ import {
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
-import { EXT_USER_DATA, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  EXT_USER_DATA,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
@@ -233,6 +237,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
         unsafeRaw: forgetCron?.escapeHatch,
       }),
       registry: stack.registry,
+      systemUser: createSystemUser(SYSTEM_TENANT_ID),
     } as unknown as JobContext);
     const cronRow = (await asRawClient(stack.db).unsafe(
       `SELECT status FROM read_users WHERE id = $1`,

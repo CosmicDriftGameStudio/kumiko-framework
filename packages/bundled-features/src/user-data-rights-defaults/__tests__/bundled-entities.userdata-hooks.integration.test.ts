@@ -12,6 +12,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -117,7 +119,7 @@ function uuid(suffix: number): string {
 
 function ctx(userId: string, overrides: Record<string, unknown> = {}) {
   return {
-    db: full.db,
+    db: createTenantDb(full.db, TENANT_A, "tenant"),
     registry: full.registry,
     tenantId: TENANT_A,
     userId,
@@ -132,10 +134,9 @@ async function rawSelect(sql: string, params: unknown[]) {
 }
 
 async function seedUser(id: string): Promise<void> {
-  const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000001";
   await seedRow(full.db, userTable, {
     id,
-    tenantId: SYSTEM_TENANT,
+    tenantId: SYSTEM_TENANT_ID,
     email: `user-${id}@example.com`,
     passwordHash: "hashed-password",
     displayName: `User ${id}`,
@@ -404,11 +405,11 @@ describe("job-run userData-hooks (#799)", () => {
       `INSERT INTO store_job_runs
          (id, tenant_id, job_name, bull_job_id, status, payload, attempt, started_at, triggered_by_id)
        VALUES ($1::uuid, $2, 'app:job:export', $3, 'completed', '{"scope":"mine"}', 1, now(), $4)`,
-      [id, TENANT_A, `bull-${id}`, triggeredById],
+      [id, SYSTEM_TENANT_ID, `bull-${id}`, triggeredById],
     );
   }
 
-  test("export filters by triggeredById only (system-tenant rows)", async () => {
+  test("export filters by triggeredById only (rows live on SYSTEM_TENANT_ID, ctx bound to TENANT_A)", async () => {
     await seedRun(uuid(70), "jr-user-1");
     await seedRun(uuid(71), "jr-user-2");
     await seedRun(uuid(72), null);
@@ -428,7 +429,7 @@ describe("job-run userData-hooks (#799)", () => {
 describe("Presence-Gating: Source-Feature nicht gemountet → null/no-op statt Crash", () => {
   test("alle gegateten Hooks no-open auf dem Minimal-Stack", async () => {
     const minCtx = {
-      db: minimal.db,
+      db: createTenantDb(minimal.db, TENANT_A, "tenant"),
       registry: minimal.registry,
       tenantId: TENANT_A,
       userId: "any-user",

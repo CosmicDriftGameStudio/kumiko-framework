@@ -71,8 +71,14 @@ const propertyTable = buildEntityTable("property", propertyEntity);
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
 // canonical setup. The host's anonymize hook NULLS inserted_by_id; the
 // custom-fields wiring contributes export only (#972).
+// fw#2914 — "property" is a managed r.entity table (EXECUTOR_ONLY-branded), so
+// TenantDb's typed write methods reject it; these host hooks need raw SQL,
+// still filtered by inserted_by_id + tenant_id.
+const HOST_HOOK_REASON =
+  "fw#2914 test fixture: host export/delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by inserted_by_id + tenant_id";
+
 const hostExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await asRawClient(ctx.db).unsafe(
+  const rows = await asRawClient(ctx.db.unsafeRaw(HOST_HOOK_REASON)).unsafe(
     `SELECT id, name FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
@@ -86,13 +92,13 @@ const hostExportHook: UserDataExportHook = async (ctx) => {
 
 const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy === "delete") {
-    await asRawClient(ctx.db).unsafe(
+    await asRawClient(ctx.db.unsafeRaw(HOST_HOOK_REASON)).unsafe(
       `DELETE FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
   } else {
     // anonymize: clear owner, keep row + customFields.
-    await asRawClient(ctx.db).unsafe(
+    await asRawClient(ctx.db.unsafeRaw(HOST_HOOK_REASON)).unsafe(
       `UPDATE read_t15c_properties SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
@@ -111,6 +117,7 @@ const propertyFeature = defineFeature("property-t15c", (r) => {
   r.useExtension(EXT_USER_DATA, "property", {
     export: hostExportHook,
     delete: hostDeleteHook,
+    escapeHatch: { reason: HOST_HOOK_REASON },
   });
 
   const { executor } = createEntityExecutor("property", propertyEntity);

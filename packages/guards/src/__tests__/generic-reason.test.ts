@@ -58,6 +58,7 @@ describe("literalReasonText", () => {
   });
 
   test("returns undefined for a template literal with a substitution", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: literal ${x} is the test fixture, not an interpolation mistake
     expect(firstArgOf("declare const x: string;\nf(`reason: ${x}`);")).toBe(undefined);
   });
 

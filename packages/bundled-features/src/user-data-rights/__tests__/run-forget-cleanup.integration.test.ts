@@ -20,7 +20,11 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  type JobContext,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -50,7 +54,7 @@ let stack: TestStack;
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 
 // Deterministische UUIDs fuer Tests — gleiche Helper wie in
 // user-data-rights-defaults.
@@ -318,6 +322,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
       }),
       registry: stack.registry,
       log,
+      systemUser: createSystemUser(TENANT_A),
     };
     await job?.handler({}, jobCtx as unknown as JobContext);
 
@@ -359,6 +364,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
           unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
         }),
         registry: stack.registry,
+        systemUser: createSystemUser(TENANT_A),
         log,
       } as unknown as JobContext);
     } finally {

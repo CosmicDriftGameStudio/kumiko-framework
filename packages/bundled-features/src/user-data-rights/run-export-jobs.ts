@@ -49,7 +49,11 @@ import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EscapeHatchAuditSink,
+  Registry,
+  TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createZipStream,
@@ -155,6 +159,11 @@ export interface RunExportJobsArgs {
    *  a URL fragment (not a query param — see issue #1271) and passes that
    *  Callback durch. Required wenn sendExportReadyEmail gesetzt. */
   readonly appExportDownloadUrl?: string;
+
+  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // systemUser.id); threaded into runUserExport's per-hook TenantDb.
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly actor?: string;
 }
 
 export interface ExportJobError {
@@ -219,6 +228,8 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
       buildStorageProvider,
       now,
       job,
+      escapeHatchAuditSink: args.escapeHatchAuditSink,
+      actor: args.actor,
     });
     if (outcome.kind === "done") {
       completedJobIds.push(job.id);
@@ -337,6 +348,8 @@ async function processJob(args: {
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
   now: Instant;
   job: JobRow;
+  escapeHatchAuditSink?: EscapeHatchAuditSink;
+  actor?: string;
 }): Promise<ProcessOutcome> {
   const { db, registry, buildStorageProvider, now, job } = args;
   const executor = createSystemUser(job.requestedFromTenantId);
@@ -381,6 +394,8 @@ async function processJob(args: {
       registry,
       userId: job.userId,
       now,
+      escapeHatchAuditSink: args.escapeHatchAuditSink,
+      actor: args.actor,
     });
 
     const profile = await resolveProfileForTenant({

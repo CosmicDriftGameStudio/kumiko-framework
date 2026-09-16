@@ -132,6 +132,8 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           now: T.Now.instant(),
           log: (message) => ctx.log?.warn(message),
           fileProviderResolver: ctx._fileProviderResolver,
+          escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          actor: ctx.systemUser.id,
         });
       },
     });

@@ -30,15 +30,19 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectEncryptedFieldNames,
   configuredEntityFieldEncryption,
+  createTenantDb,
   decryptEntityFieldValues,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  type EscapeHatchAuditSink,
   EXT_USER_DATA,
+  extensionUsageEscapeHatchReason,
   type Registry,
   type TenantId,
   type UserDataExportHook,
   type UserDataExportSnippet,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantMembershipsTable } from "../tenant";
 import { buildFileRefZipPath } from "./zip-path";
@@ -50,6 +54,11 @@ export interface RunUserExportArgs {
   readonly registry: Registry;
   readonly userId: string;
   readonly now: Instant;
+  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
+  // escapeHatch when its export hook calls ctx.db.unsafeRaw(reason).
+  readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly actor?: string;
 }
 
 export interface UserExportFileRef {
@@ -90,6 +99,26 @@ export interface UserExportBundle {
 interface HookEntry {
   readonly entityName: string;
   readonly exportHook: UserDataExportHook;
+  readonly escapeHatchReason: string | undefined;
+}
+
+function buildHookDb(
+  db: DbRunner,
+  tenantId: TenantId,
+  entry: HookEntry,
+  args: Pick<RunUserExportArgs, "escapeHatchAuditSink" | "actor">,
+) {
+  const report = createEscapeHatchReporter({
+    handler: `${EXT_USER_DATA}:${entry.entityName}`,
+    tenantId,
+    actor: args.actor ?? "system",
+    sink: args.escapeHatchAuditSink,
+  });
+  return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
+    unsafeRaw:
+      entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
+    report,
+  });
 }
 
 /**
@@ -137,7 +166,13 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   const hookEntries: HookEntry[] = usages
     .map((u): HookEntry | null => {
       const opts = (u.options ?? {}) as { export?: UserDataExportHook }; // @cast-boundary engine-payload
-      return opts.export ? { entityName: u.entityName, exportHook: opts.export } : null;
+      return opts.export
+        ? {
+            entityName: u.entityName,
+            exportHook: opts.export,
+            escapeHatchReason: extensionUsageEscapeHatchReason(u),
+          }
+        : null;
     })
     .filter((x): x is HookEntry => x !== null);
 
@@ -147,7 +182,12 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   for (const tenantId of tenantList) {
     const entities: UserDataExportSnippet[] = [];
     for (const entry of hookEntries) {
-      const rawSnippet = await entry.exportHook({ db, registry, tenantId, userId });
+      const rawSnippet = await entry.exportHook({
+        db: buildHookDb(db, tenantId, entry, args),
+        registry,
+        tenantId,
+        userId,
+      });
       if (rawSnippet === null) continue;
       const snippet = await decryptSnippetFields(registry, entry.entityName, rawSnippet);
       entities.push(snippet);
@@ -181,7 +221,7 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
     const orphanEntities: UserDataExportSnippet[] = [];
     for (const entry of hookEntries) {
       const rawSnippet = await entry.exportHook({
-        db,
+        db: buildHookDb(db, SYSTEM_TENANT_ID_FOR_ORPHANS, entry, args),
         registry,
         tenantId: SYSTEM_TENANT_ID_FOR_ORPHANS,
         userId,

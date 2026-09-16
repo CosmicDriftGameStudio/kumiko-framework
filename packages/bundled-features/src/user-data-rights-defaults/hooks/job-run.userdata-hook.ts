@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { jobRunsTable } from "../../jobs";
 import { featureMounted } from "./feature-mounted";
@@ -11,7 +10,7 @@ import { featureMounted } from "./feature-mounted";
 
 export const jobRunExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "jobs")) return null;
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, jobRunsTable, {
+  const rows = await ctx.db.selectMany<Record<string, unknown>>(jobRunsTable, {
     triggeredById: ctx.userId,
   });
   if (rows.length === 0) return null;

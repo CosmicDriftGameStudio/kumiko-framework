@@ -15,6 +15,7 @@ import {
   createTextField,
   defineFeature,
   EXT_USER_DATA,
+  SYSTEM_TENANT_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -32,7 +33,7 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
 
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const TENANT_A = "00000000-0000-4000-8000-0000000000f1";
 const ALICE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-0000000000f1";
@@ -53,9 +54,15 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 
+// fw#2914 — "note" is a managed r.entity table (EXECUTOR_ONLY-branded), so
+// TenantDb's typed write methods reject it; this delete is raw SQL, still
+// filtered by author_id + tenant_id.
+const HARD_DELETE_NOTE_REASON =
+  "fw#2914 test fixture: hard delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by author_id + tenant_id";
+
 const hardDeleteNoteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") return;
-  await asRawClient(ctx.db).unsafe(
+  await asRawClient(ctx.db.unsafeRaw(HARD_DELETE_NOTE_REASON)).unsafe(
     `DELETE FROM read_forget_purge_notes WHERE author_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
@@ -66,6 +73,7 @@ const noteFeature = defineFeature("forget-purge-notes", (r) => {
   r.useExtension(EXT_USER_DATA, "note", {
     export: async () => null,
     delete: hardDeleteNoteHook,
+    escapeHatch: { reason: HARD_DELETE_NOTE_REASON },
   });
 });
 

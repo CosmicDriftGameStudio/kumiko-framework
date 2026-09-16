@@ -7,8 +7,7 @@
 // replays via the event, a raw DELETE would be resurrected by a
 // projection rebuild).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -26,7 +25,7 @@ const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
 // tokenHash exclusion in user-data-rights-defaults). Just confirms
 // enrollment + when, which is what a data subject actually needs to see.
 export const userMfaExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await selectMany<{ id: string; enabledAt: unknown }>(ctx.db, userMfaTable, {
+  const rows = await ctx.db.selectMany<{ id: string; enabledAt: unknown }>(userMfaTable, {
     userId: ctx.userId,
     tenantId: ctx.tenantId,
   });
@@ -41,15 +40,14 @@ export const userMfaExportHook: UserDataExportHook = async (ctx) => {
 // secret can't be anonymized, and `personal: { of: "userId" }` already
 // means this row belongs to exactly one user (never shared tenant data).
 export const userMfaDeleteHook: UserDataDeleteHook = async (ctx) => {
-  const rows = await selectMany<{ id: string }>(ctx.db, userMfaTable, {
+  const rows = await ctx.db.selectMany<{ id: string }>(userMfaTable, {
     userId: ctx.userId,
     tenantId: ctx.tenantId,
   });
   // skip: nothing enrolled for this user — no row to erase
   if (rows.length === 0) return;
   const systemUser = createSystemUser(ctx.tenantId);
-  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
   for (const row of rows) {
-    assertErased(await executor.forget({ id: row.id }, systemUser, tdb), "user-mfa", row.id);
+    assertErased(await executor.forget({ id: row.id }, systemUser, ctx.db), "user-mfa", row.id);
   }
 };

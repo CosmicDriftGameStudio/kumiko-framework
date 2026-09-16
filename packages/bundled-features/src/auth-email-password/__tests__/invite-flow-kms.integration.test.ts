@@ -14,6 +14,7 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -319,7 +320,7 @@ describe("auth flows with active KMS + blind index", () => {
     expect(isPiiCiphertext(rawInvitation["email"])).toBe(true);
 
     const result = await tenantInvitationExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, TENANT_A_ID, "tenant"),
       registry: stack.registry,
       tenantId: TENANT_A_ID,
       userId: bobId,
@@ -347,7 +348,12 @@ describe("auth flows with active KMS + blind index", () => {
     expect(isPiiCiphertext(rawBefore["invited_by"])).toBe(true);
 
     await tenantInvitationDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: TENANT_A_ID, userId: aliceId },
+      {
+        db: createTenantDb(stack.db, TENANT_A_ID, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A_ID,
+        userId: aliceId,
+      },
       "delete",
     );
 

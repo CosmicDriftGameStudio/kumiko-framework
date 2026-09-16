@@ -7,15 +7,22 @@
 // + `resolveRetentionPolicy`, also kein Drift-Risiko.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRetentionOverrideOrNull } from "./_internal/parse-override";
 import type { RetentionPresetKey } from "./presets";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver";
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
 
+function isTenantDb(db: DbRunner | TenantDb): db is TenantDb {
+  return typeof (db as Partial<TenantDb>).unsafeRaw === "function";
+}
+
 export interface ResolveForTenantArgs {
-  readonly db: DbRunner;
+  // fw#2914 — a EXT_USER_DATA hook's ctx.db is a TenantDb (method-form);
+  // the cleanup cron's own db is still a raw DbRunner. Both are valid here —
+  // this lookup is a plain tenant-scoped read either way.
+  readonly db: DbRunner | TenantDb;
   readonly registry: Registry;
   readonly tenantId: TenantId;
   readonly entityName: string;
@@ -43,10 +50,15 @@ export async function resolveRetentionPolicyForTenant(
   const overrideRow =
     args.preloadedOverride !== undefined
       ? args.preloadedOverride
-      : ((await fetchOne(args.db, tenantRetentionOverrideTable, {
-          tenantId: args.tenantId,
-          entityName: args.entityName,
-        })) as { config: string | null } | null); // @cast-boundary db-runner
+      : isTenantDb(args.db)
+        ? ((await args.db.fetchOne<{ config: string | null }>(tenantRetentionOverrideTable, {
+            tenantId: args.tenantId,
+            entityName: args.entityName,
+          })) ?? null)
+        : ((await fetchOne(args.db, tenantRetentionOverrideTable, {
+            tenantId: args.tenantId,
+            entityName: args.entityName,
+          })) as { config: string | null } | null); // @cast-boundary db-runner
 
   const tenantOverride = parseRetentionOverrideOrNull(
     overrideRow?.config ?? null,

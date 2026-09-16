@@ -17,6 +17,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -402,7 +403,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
   test("multi-user tenant: no-op, rows survive", async () => {
     await seedOneFolderWithAssignment();
     const ctx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
@@ -417,7 +418,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
   test("anonymize strategy: no-op even on a single-user tenant", async () => {
     await seedOneFolderWithAssignment();
     const ctx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
@@ -432,7 +433,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
   test("single-user tenant + delete: rows are purged", async () => {
     await seedOneFolderWithAssignment();
     const ctx = {
-      db: stack.db,
+      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,

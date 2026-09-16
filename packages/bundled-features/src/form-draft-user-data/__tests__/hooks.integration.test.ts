@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -52,7 +53,7 @@ describe("formDraftExportHook", () => {
     );
 
     const snippet = await formDraftExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, owner.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: owner.tenantId,
       userId: owner.id,
@@ -88,7 +89,7 @@ describe("formDraftExportHook", () => {
     );
 
     const snippet = await formDraftExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, tenantATestTenantId, "tenant"),
       registry: stack.registry,
       tenantId: tenantATestTenantId,
       userId: sameIdTenantA.id,
@@ -101,7 +102,7 @@ describe("formDraftExportHook", () => {
   test("returns null when the user saved no drafts", async () => {
     const lurker = createTestUser({ id: 3, roles: ["TenantMember"] });
     const snippet = await formDraftExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, lurker.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: lurker.tenantId,
       userId: lurker.id,
@@ -126,7 +127,12 @@ describe("formDraftDeleteHook", () => {
     );
 
     await formDraftDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: alice.tenantId, userId: alice.id },
+      {
+        db: createTenantDb(stack.db, alice.tenantId, "tenant"),
+        registry: stack.registry,
+        tenantId: alice.tenantId,
+        userId: alice.id,
+      },
       "delete",
     );
 
@@ -138,7 +144,12 @@ describe("formDraftDeleteHook", () => {
     const lurker = createTestUser({ id: 13, roles: ["TenantMember"] });
     await expect(
       formDraftDeleteHook(
-        { db: stack.db, registry: stack.registry, tenantId: lurker.tenantId, userId: lurker.id },
+        {
+          db: createTenantDb(stack.db, lurker.tenantId, "tenant"),
+          registry: stack.registry,
+          tenantId: lurker.tenantId,
+          userId: lurker.id,
+        },
         "delete",
       ),
     ).resolves.toBeUndefined();

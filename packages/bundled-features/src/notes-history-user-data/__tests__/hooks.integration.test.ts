@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -78,7 +79,7 @@ describe("noteEntryExportHook", () => {
     );
 
     const snippet = await noteEntryExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, author.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: author.tenantId,
       userId: author.id,
@@ -95,7 +96,7 @@ describe("noteEntryExportHook", () => {
   test("returns null when the user authored no notes", async () => {
     const lurker = createTestUser({ id: 3, roles: ["TenantMember"] });
     const snippet = await noteEntryExportHook({
-      db: stack.db,
+      db: createTenantDb(stack.db, lurker.tenantId, "tenant"),
       registry: stack.registry,
       tenantId: lurker.tenantId,
       userId: lurker.id,
@@ -107,7 +108,12 @@ describe("noteEntryExportHook", () => {
 describe("noteEntryDeleteHook", () => {
   test("is a no-op — resolves without throwing", async () => {
     const result = await noteEntryDeleteHook(
-      { db: stack.db, registry: stack.registry, tenantId: author.tenantId, userId: author.id },
+      {
+        db: createTenantDb(stack.db, author.tenantId, "tenant"),
+        registry: stack.registry,
+        tenantId: author.tenantId,
+        userId: author.id,
+      },
       "delete",
     );
     expect(result).toBeUndefined();

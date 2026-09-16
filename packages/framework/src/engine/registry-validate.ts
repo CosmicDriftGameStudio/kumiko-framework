@@ -127,8 +127,9 @@ export function applyExtensionUsages(state: RegistryState): void {
     // to also be gated, store the registering-feature on
     // RegistrarExtensionRegistration and use that here.
     const extOwner = "*";
-    // Extensions have no declaration site for escapeHatch, so SYSTEM is always denied
-    // (system-identity-switch.ts) — bindHookEscapeHatchGrant(..., undefined) below.
+    // Unlike export/forget hooks (escapeHatch on r.useExtension(...)), these
+    // entity-lifecycle wrappers (postSave/preDelete/postDelete/preSave) have no
+    // escapeHatch declaration site, so SYSTEM stays denied here (system-identity-switch.ts).
     if (ext.hooks) {
       if (ext.hooks.postSave) {
         const wrapped = bindHookEscapeHatchGrant(

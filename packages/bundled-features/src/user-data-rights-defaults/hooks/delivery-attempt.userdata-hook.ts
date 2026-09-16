@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { deliveryAttemptsTable } from "../../delivery";
 import { featureMounted } from "./feature-mounted";
@@ -11,7 +10,7 @@ import { featureMounted } from "./feature-mounted";
 
 export const deliveryAttemptExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "delivery")) return null;
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, deliveryAttemptsTable, {
+  const rows = await ctx.db.selectMany(deliveryAttemptsTable, {
     tenantId: ctx.tenantId,
     recipientId: ctx.userId,
   });

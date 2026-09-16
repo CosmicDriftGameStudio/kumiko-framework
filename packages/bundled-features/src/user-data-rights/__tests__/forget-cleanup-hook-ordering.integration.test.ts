@@ -48,18 +48,26 @@ import {
 
 const TENANT = "00000000-0000-4000-8000-0000000000aa";
 
+// fw#2914 — both host entities are managed r.entity tables (EXECUTOR_ONLY-
+// branded), so TenantDb's typed write methods reject them; these hooks need
+// raw SQL, still filtered by inserted_by_id + tenant_id.
+const HOST_DELETE_REASON =
+  "fw#2914 test fixture: owner-nulling delete/anonymize against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by inserted_by_id + tenant_id";
+const REDACT_REASON =
+  "fw#2914 test fixture: jsonb key removal (custom_fields - 'ssn') is a raw SQL expression TenantDb's typed updateMany can't express; filtered by inserted_by_id + tenant_id";
+
 // Owner-nulling host anonymize hook (the canonical "anonymize keeps the row,
 // clears the owner" pattern — same shape as file-ref/user host hooks).
 function makeHostDeleteHook(tableName: string): UserDataDeleteHook {
   return async (ctx, strategy) => {
     if (strategy === "delete") {
-      await asRawClient(ctx.db).unsafe(
+      await asRawClient(ctx.db.unsafeRaw(HOST_DELETE_REASON)).unsafe(
         `DELETE FROM ${tableName} WHERE inserted_by_id = $1 AND tenant_id = $2`,
         [ctx.userId, ctx.tenantId],
       );
       return;
     }
-    await asRawClient(ctx.db).unsafe(
+    await asRawClient(ctx.db.unsafeRaw(HOST_DELETE_REASON)).unsafe(
       `UPDATE ${tableName} SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
@@ -72,7 +80,7 @@ function makeRedactHook(tableName: string): UserDataDeleteHook {
   return async (ctx, strategy) => {
     // skip: delete strategy removes rows wholesale — redaction N/A.
     if (strategy === "delete") return;
-    await asRawClient(ctx.db).unsafe(
+    await asRawClient(ctx.db.unsafeRaw(REDACT_REASON)).unsafe(
       `UPDATE ${tableName} SET custom_fields = custom_fields - 'ssn'
        WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
@@ -119,10 +127,12 @@ const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
     export: async () => null,
     delete: makeRedactHook(CF_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
+    escapeHatch: { reason: REDACT_REASON },
   });
   r.useExtension(EXT_USER_DATA, CF_FIRST.entityName, {
     export: async () => null,
     delete: makeHostDeleteHook(CF_FIRST.tableName),
+    escapeHatch: { reason: HOST_DELETE_REASON },
   });
 });
 
@@ -131,11 +141,13 @@ const hostFirstFeature = defineFeature(HOST_FIRST.featureName, (r) => {
   r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
     export: async () => null,
     delete: makeHostDeleteHook(HOST_FIRST.tableName),
+    escapeHatch: { reason: HOST_DELETE_REASON },
   });
   r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
     export: async () => null,
     delete: makeRedactHook(HOST_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
+    escapeHatch: { reason: REDACT_REASON },
   });
 });
 

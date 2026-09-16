@@ -240,9 +240,27 @@ export function buildUiExtensionsMethods<TName extends string>(
               const { name, entity, ...rest } = extensionNameOrDefinition;
               return [name, entity, rest] as const;
             })();
+      const resolvedEntityName = resolveName(resolvedEntityRef);
+      // fw#2914 — cross-cutting escapeHatch convention for hook-context db
+      // access (mirrors r.hook's validation above). Not part of a typed
+      // per-extension options shape: useExtension's bag stays generic, but
+      // this one key is validated for every extension the same way.
+      const escapeHatch = resolvedOptions?.["escapeHatch"];
+      if (escapeHatch !== undefined) {
+        const reason =
+          typeof escapeHatch === "object" && escapeHatch !== null
+            ? (escapeHatch as { reason?: unknown }).reason
+            : undefined;
+        if (typeof reason !== "string" || reason.trim().length === 0) {
+          throw new Error(
+            `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
+              `must be { reason: "<non-empty string>" } explaining why this usage needs unfiltered db access.`,
+          );
+        }
+      }
       state.extensionUsages.push({
         extensionName,
-        entityName: resolveName(resolvedEntityRef),
+        entityName: resolvedEntityName,
         options: resolvedOptions,
       });
     },

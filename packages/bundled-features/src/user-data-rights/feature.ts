@@ -610,6 +610,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           ...(opts.appExportDownloadUrl !== undefined && {
             appExportDownloadUrl: opts.appExportDownloadUrl,
           }),
+          escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          actor: ctx.systemUser.id,
         });
       },
     });
@@ -677,6 +679,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             handlerName: "user-data-rights:run-forget-cleanup",
           }),
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
+          escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          actor: ctx.systemUser.id,
         });
 
         // Persist each incomplete report on the job-run log (#1572). The write

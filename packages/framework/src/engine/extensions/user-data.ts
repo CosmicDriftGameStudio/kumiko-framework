@@ -1,19 +1,16 @@
-// Hook-Signatur-Types für die EXT_USER_DATA-Extension (DSGVO Art. 15+17+20).
+// Hook signature types for the EXT_USER_DATA extension (GDPR Art. 15+17+20).
 //
-// Sprint 1.9 Z1: Bisher gibt der Boot-Validator JEDES Hook-Shape durch
-// — useExtension(EXT_USER_DATA, "X", { export: ... }) wird nicht gegen
-// eine erwartete Signatur geprüft. Diese Types sind die canonical
-// Schema-Sicht; Sprint 2 user-data-rights wird sie via
-// `r.extendsRegistrar(EXT_USER_DATA, { hooks: ... })`-Doku exposen.
+// The boot validator does not check useExtension(EXT_USER_DATA, "X", { export: ... })
+// hook shapes against an expected signature — these types are the canonical
+// schema view; app authors get compile-time hints only, no runtime validation.
 //
-// Boot-Time-Schape-Check (Runtime) ist orthogonal und kommt in Sprint
-// 2 wenn die exportRunner-/forgetRunner-Pipelines stehen — bis dahin
-// sind diese Types Compile-Time-Hints für App-Authors, keine Runtime-
-// Validation.
+// The runner pipelines that consume these hooks are built and live: see
+// packages/bundled-features/src/user-data-rights/run-user-export.ts,
+// run-forget-cleanup.ts, run-export-jobs.ts.
 //
-// Siehe docs/plans/datenschutz/user-data-rights.md.
+// See docs/plans/datenschutz/user-data-rights.md.
 
-import type { DbRunner } from "../../db/connection";
+import type { TenantDb } from "../../db/tenant-db";
 import type { Registry, TenantId } from "../types";
 
 // SessionUser.id ist plattformweit `string` (kein Brand-Type). Wenn
@@ -49,13 +46,10 @@ export type UserDataDeleteStrategy = "delete" | "anonymize";
 export type TenantUserModel = "single-user" | "multi-user";
 
 /**
- * Context-Snapshot der dem Hook übergeben wird. Sprint 2 erweitert
- * das ggf. um cancel-/timeout-Marker; aktuell minimaler Schnitt.
- *
- * `db` ist `DbRunner` (DbConnection | DbTx) damit der Cleanup-Runner
- * (S2.U5b) den Hook in einer Per-User-Sub-Tx callen kann. Hooks die
- * raw-DB-Operationen machen funktionieren auf beiden Shapes via
- * Drizzle's polymorphem select/insert/update/delete-Chain.
+ * fw#2914 — `db` is a tenant-filtered `TenantDb`, bound to `tenantId`
+ * (or the per-user sub-tx in the forget path). Unfiltered access needs
+ * `escapeHatch: { reason }` on the `r.useExtension(...)` registration,
+ * then `ctx.db.unsafeRaw(reason)`.
  */
 /**
  * Minimal storage surface a file-aware forget hook needs to erase binaries.
@@ -73,7 +67,7 @@ export interface UserDataStorageProvider {
 }
 
 export interface UserDataHookCtx {
-  readonly db: DbRunner;
+  readonly db: TenantDb;
   /**
    * The app registry. A forget hook that must erase CHILD read-model rows past
    * the entity's own row — m:n join projections, per-parent detail projections —

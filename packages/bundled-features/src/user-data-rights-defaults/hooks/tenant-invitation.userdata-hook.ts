@@ -1,5 +1,4 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -41,7 +40,7 @@ const KMS_POOL_CONCURRENCY = 4;
 
 async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
   if (ctx.userEmailBeforeDelete) return ctx.userEmailBeforeDelete.toLowerCase();
-  const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
+  const row = (await ctx.db.fetchOne(userTable, { id: ctx.userId })) as {
     email: string;
   } | null; // @cast-boundary db-runner
   if (!row) return null;
@@ -57,7 +56,7 @@ export const tenantInvitationExportHook: UserDataExportHook = async (ctx) => {
   if (!email) return null;
   // Invitation emails are lowercase-normalized on insert, so an exact match
   // is a case-insensitive match.
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, tenantInvitationsTable, {
+  const rows = await ctx.db.selectMany<Record<string, unknown>>(tenantInvitationsTable, {
     tenantId: ctx.tenantId,
     email,
   });
@@ -88,11 +87,10 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
   // skip: tenant not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "tenant")) return;
   const systemUser = createSystemUser(ctx.tenantId);
-  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
 
   const email = await resolveUserEmail(ctx);
   if (email) {
-    const inviteeRows = await selectMany<Record<string, unknown>>(ctx.db, tenantInvitationsTable, {
+    const inviteeRows = await ctx.db.selectMany<Record<string, unknown>>(tenantInvitationsTable, {
       tenantId: ctx.tenantId,
       email,
     });
@@ -100,14 +98,14 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
       const id = row["id"]; // @cast-boundary db-row
       if (typeof id !== "string") continue;
       if (strategy === "delete") {
-        assertErased(await crud.forget({ id }, systemUser, tdb), "tenant-invitation", id);
+        assertErased(await crud.forget({ id }, systemUser, ctx.db), "tenant-invitation", id);
       } else {
         // Row-id in the pseudonym keeps the (tenantId, email) unique index
         // collision-free when a user has invitations in several states.
         await crud.update(
           { id, changes: { email: `forgotten-${id}@anonymized.invalid` } },
           systemUser,
-          tdb,
+          ctx.db,
           { skipOptimisticLock: true },
         );
       }
@@ -120,14 +118,14 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
   // without loading + decrypting every invitation in the tenant. See
   // tenant/handlers/invitations.query.ts for the same lookupable-filter
   // pattern on `email`.
-  const inviterRows = await selectMany<Record<string, unknown>>(ctx.db, tenantInvitationsTable, {
+  const inviterRows = await ctx.db.selectMany<Record<string, unknown>>(tenantInvitationsTable, {
     tenantId: ctx.tenantId,
     invitedBy: ctx.userId,
   });
   for (const row of inviterRows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    await crud.update({ id, changes: { invitedBy: INVITED_BY_ANONYMIZED } }, systemUser, tdb, {
+    await crud.update({ id, changes: { invitedBy: INVITED_BY_ANONYMIZED } }, systemUser, ctx.db, {
       skipOptimisticLock: true,
     });
   }

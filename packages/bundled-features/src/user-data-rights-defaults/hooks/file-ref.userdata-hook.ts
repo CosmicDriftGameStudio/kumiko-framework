@@ -1,9 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { derivativeListPrefix, isDerivativeKeyOf } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
@@ -69,7 +64,7 @@ const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName
 export const fileRefExportHook: UserDataExportHook = async (ctx) => {
   // isDeleted:false — soft-deleted (trashed) Files gehören nicht ins
   // Auskunfts-Bundle. Forget (delete-Hook unten) erfasst sie trotzdem.
-  const rawRows = await selectMany(ctx.db, fileRefsTable, {
+  const rawRows = await ctx.db.selectMany(fileRefsTable, {
     tenantId: ctx.tenantId,
     insertedById: ctx.userId,
     isDeleted: false,
@@ -218,8 +213,7 @@ async function severPersonLink(
 
 export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   const systemUser = createSystemUser(ctx.tenantId);
-  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
-  const rows = await selectMany<Record<string, unknown>>(ctx.db, fileRefsTable, {
+  const rows = await ctx.db.selectMany<Record<string, unknown>>(fileRefsTable, {
     tenantId: ctx.tenantId,
     insertedById: ctx.userId,
   });
@@ -227,7 +221,7 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") {
     // anonymize: insertedById=null, FileRef + binary bleiben. Use-case: shared
     // chat-Attachment im Multi-User-Channel — Author-ID raus, Datei bleibt sichtbar.
-    await severPersonLink(tdb, systemUser, rows);
+    await severPersonLink(ctx.db, systemUser, rows);
     // skip: anonymize is complete — the hard-delete path below runs only for strategy "delete".
     return;
   }
@@ -259,6 +253,6 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    assertErased(await crud.forget({ id }, systemUser, tdb), "fileRef", id);
+    assertErased(await crud.forget({ id }, systemUser, ctx.db), "fileRef", id);
   }
 };
