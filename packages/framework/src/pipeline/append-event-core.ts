@@ -47,7 +47,7 @@ function eventOwnerFeature(qualifiedName: string): string | undefined {
 // on the literal type-string. Apps cannot write into "kumiko:system:*"
 // directly — only framework step implementations call unsafeAppendEvent
 // with these types.
-const SYSTEM_EVENT_PREFIX = "kumiko:system:";
+export const SYSTEM_EVENT_PREFIX = "kumiko:system:";
 
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,

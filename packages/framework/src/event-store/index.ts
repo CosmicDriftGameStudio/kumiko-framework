@@ -31,6 +31,7 @@ export {
   streamAllEventsByType,
 } from "./event-store";
 export { createEventsTable, eventsTable } from "./events-schema";
+export { appendProvenanceEvent, type ProvenanceEventInput } from "./provenance-append";
 export {
   createRebuildDeadLetterTable,
   listRebuildDeadLetters,
