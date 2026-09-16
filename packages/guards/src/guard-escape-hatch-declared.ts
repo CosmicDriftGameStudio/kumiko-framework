@@ -359,13 +359,17 @@ function isEscapeHatchDeclaredFunction(fn: Node): boolean {
 // The bare-identifier `reason` PropertyAssignment on an object literal —
 // shared between the declareEscapeHatch statement check below and its R4
 // generic-reason collector, so both agree on what counts as the reason.
-function findReasonPropertyAssignment(obj: ObjectLiteralExpression): PropertyAssignment | undefined {
-  return obj.getProperties().find(
-    (prop): prop is PropertyAssignment =>
-      prop.isKind(SyntaxKind.PropertyAssignment) &&
-      prop.getNameNode().isKind(SyntaxKind.Identifier) &&
-      prop.getNameNode().getText() === "reason",
-  );
+function findReasonPropertyAssignment(
+  obj: ObjectLiteralExpression,
+): PropertyAssignment | undefined {
+  return obj
+    .getProperties()
+    .find(
+      (prop): prop is PropertyAssignment =>
+        prop.isKind(SyntaxKind.PropertyAssignment) &&
+        prop.getNameNode().isKind(SyntaxKind.Identifier) &&
+        prop.getNameNode().getText() === "reason",
+    );
 }
 
 // declareEscapeHatch({ reason: "..." }) as a direct-body statement of a
