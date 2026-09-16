@@ -115,7 +115,8 @@ function buildHookDb(
     sink: args.escapeHatchAuditSink,
   });
   return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
-    unsafeRaw: entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
+    unsafeRaw:
+      entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
     report,
   });
 }

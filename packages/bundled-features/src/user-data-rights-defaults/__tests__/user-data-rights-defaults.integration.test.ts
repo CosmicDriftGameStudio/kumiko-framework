@@ -204,7 +204,12 @@ describe("S2.H1 :: userDeleteHook", () => {
     await seedUser(uuid(1003));
 
     await userDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1003) },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: uuid(1003),
+      },
       "delete",
     );
 
@@ -223,7 +228,12 @@ describe("S2.H1 :: userDeleteHook", () => {
     await seedUser(uuid(1004));
 
     await userDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1004) },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: uuid(1004),
+      },
       "anonymize",
     );
 
@@ -239,7 +249,12 @@ describe("S2.H1 :: userDeleteHook", () => {
     await seedUser(uuid(1005));
 
     await userDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: uuid(1005),
+      },
       "delete",
     );
     const afterFirst = await fetchUser(uuid(1005));
@@ -248,7 +263,12 @@ describe("S2.H1 :: userDeleteHook", () => {
     // Zweiter Call: kein Crash + State unverändert
     await expect(
       userDeleteHook(
-        { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
+        {
+          db: createTenantDb(stack.db, TENANT_A, "tenant"),
+          registry: stack.registry,
+          tenantId: TENANT_A,
+          userId: uuid(1005),
+        },
         "delete",
       ),
     ).resolves.toBeUndefined();
@@ -300,7 +320,12 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(202), TENANT_A, "user-delete-files", "f2.pdf");
 
     await fileRefDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-delete-files" },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: "user-delete-files",
+      },
       "delete",
     );
 
@@ -312,7 +337,12 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(203), TENANT_A, "user-anon-files", "shared.pdf");
 
     await fileRefDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-anon-files" },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: "user-anon-files",
+      },
       "anonymize",
     );
 
@@ -330,7 +360,12 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     // Tenant A loescht alle Files von "shared-user"
     await fileRefDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "shared-user" },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: "shared-user",
+      },
       "delete",
     );
 
@@ -346,7 +381,12 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(401), TENANT_A, "user-idem-files", "f.pdf");
 
     await fileRefDeleteHook(
-      { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId: "user-idem-files",
+      },
       "delete",
     );
     const afterFirst = await fetchFileRefs(TENANT_A, "user-idem-files");
@@ -355,7 +395,12 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     // Zweiter Call: kein Crash + State weiter 0 Files
     await expect(
       fileRefDeleteHook(
-        { db: createTenantDb(stack.db, TENANT_A, "tenant"), registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
+        {
+          db: createTenantDb(stack.db, TENANT_A, "tenant"),
+          registry: stack.registry,
+          tenantId: TENANT_A,
+          userId: "user-idem-files",
+        },
         "delete",
       ),
     ).resolves.toBeUndefined();
