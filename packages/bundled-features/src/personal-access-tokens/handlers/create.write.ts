@@ -30,6 +30,7 @@ export type CreatePatOptions = {
   ) => Promise<PatMfaVerifyResult>;
 };
 
+// @wrapper-known error-helper
 function reauthFailed() {
   return writeFailure(
     new UnprocessableError(PatErrors.reauthRequired, {

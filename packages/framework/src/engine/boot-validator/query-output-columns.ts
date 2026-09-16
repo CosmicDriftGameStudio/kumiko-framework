@@ -118,6 +118,7 @@ function checkProjectionDetailOutputFields(
 ): void {
   const recordShape = getZodObjectShape(queryHandlers.get(screen.query)?.outputSchema);
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (projectionDetail)`;
+  // @wrapper-known semantic-alias
   const checkHeaderField = (part: "title" | "subtitle" | "status", field: string): void => {
     checkFieldExists(
       recordShape,
