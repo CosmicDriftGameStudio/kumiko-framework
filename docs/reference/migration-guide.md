@@ -2,7 +2,7 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-15
+verified: 2026-09-16
 ---
 
 # Migration Guide
@@ -11,14 +11,6 @@ This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
 ## 0.275.0
-
-### cap-counter
-
-**createStockCapGuard/checkStockCap/withStockCap resolve through the caller's TenantDb, not a raw DbRunner + explicit tenantId (fw#2854).**
-
-`createStockCapGuard`'s resolver is now `(db: TenantDb) => Promise<TCaps>` instead of `(db: DbRunner, tenantId: TenantId) => Promise<TCaps>`. `checkStockCap(db: TenantDb, spec)` drops the separate `tenantId` parameter — the tenant comes from `db.tenantId`, and the count runs through `TenantDb.count` instead of the raw `countWhere`. `StockCapSpec.table` is now typed `SchemaTable | EntityTableMeta` (matching `TenantDb.count`'s table parameter) instead of `Parameters<typeof countWhere>[1]`. `withStockCap` no longer declares an `escapeHatch` on the wrapped handler and no longer reads through `ctx.db.unsafeRaw(...)` — it calls `checkStockCap(ctx.db, spec)` directly, so a `TenantAdmin`-only handler with no `escapeHatch` can use it.
-
-**Migration:** `createStockCapGuard(async (db, tenantId) => ...)` → `createStockCapGuard(async (db) => ...)`, reading `db.tenantId` instead of the removed second argument. A direct `checkStockCap(runner, tenantId, spec)` call → `checkStockCap(tenantDb, spec)` with a `TenantDb` built via `createTenantDb(runner, tenantId)` (or `ctx.db` inside a handler). If your wrapped handler relied on `withStockCap`'s auto-added `escapeHatch` for some other reason, declare it explicitly on the handler instead — `withStockCap` no longer adds one.
 
 ### files-tenant-data
 
@@ -43,14 +35,6 @@ Job handlers no longer receive the unfiltered boot `DbConnection` as `ctx.db`. `
 JobContext.db is now a tenant-filtered TenantDb. Rotation re-encrypts every tenant's secrets, so the `rotate` registration declares `escapeHatch` and passes `ctx.db.unsafeRaw(reason)` to `rotateJob(payload, ctx, db)`.
 
 **Migration:** Direct callers of the exported `rotateJob` pass the raw `DbConnection` as the third argument. Apps that only mount the feature need no change.
-
-### tier-engine
-
-**createTierResolver's resolveTier/resolveTierCaps take only a TenantDb — no separate tenantId argument (fw#2854).**
-
-`resolveTier(db)` and `resolveTierCaps(db)` (from `createTierResolver`) now read the tenant from `db.tenantId` instead of taking a second `tenantId` parameter, so a caller can no longer pass a `TenantDb` for one tenant alongside a different `tenantId` and resolve a foreign tenant's tier.
-
-**Migration:** `resolveTier(ctx.db.raw|runner, tenantId)` → `resolveTier(ctx.db)` (same for `resolveTierCaps`). Outside a handler: `resolveTier(createTenantDb(runner, tenantId))`.
 
 ## 0.274.0
 
