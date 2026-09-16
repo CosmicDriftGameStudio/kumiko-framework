@@ -9,9 +9,10 @@
  * fails if any changelog entries are still pending — meaning the marker is
  * stale and the repo hasn't run the upgrade since.
  *
- * Single-repo only (`process.cwd()`), like `guard-upgrade-state.ts` in
- * infra/guards but without that package's multi-repo `resolveRepoRoots()`
- * scan loop. Repos without the marker file are `notApplicable` — this guard
+ * Single-repo only, like `guard-upgrade-state.ts` in infra/guards but
+ * without that package's multi-repo `resolveRepoRoots()` scan loop — this
+ * package's `resolveRepoRoots()` only ever resolves the one repo `roots[0]`
+ * sits in. Repos without the marker file are `notApplicable` — this guard
  * only fires once a repo has adopted the upgrade-state workflow at all.
  *
  * Usage:
@@ -174,12 +175,14 @@ async function runKumikoUpgrade(
 export const check: RepoCheck = {
   name: "Upgrade-State Guard",
   hint: "Marker is written by `kumiko-upgrade --apply` — run it once the pending changelog entries are handled.",
-  async run() {
-    const root = process.cwd();
-    if (!existsSync(join(root, MARKER_REL))) {
+  async run(roots) {
+    const root = roots[0];
+    if (!root) return { violations: [], matchedFiles: 0, notApplicable: true };
+    const rootAbsPath = root.absPath;
+    if (!existsSync(join(rootAbsPath, MARKER_REL))) {
       return { violations: [], matchedFiles: 0, notApplicable: true };
     }
-    const marker = readMarker(root);
+    const marker = readMarker(rootAbsPath);
     if ("error" in marker) {
       return {
         violations: [{ file: MARKER_REL, line: 1, message: marker.error }],
@@ -187,7 +190,7 @@ export const check: RepoCheck = {
         notApplicable: false,
       };
     }
-    const result = await runKumikoUpgrade(marker.version, root);
+    const result = await runKumikoUpgrade(marker.version, rootAbsPath);
     if (!result.ok) {
       return {
         violations: [{ file: MARKER_REL, line: 1, message: result.error }],

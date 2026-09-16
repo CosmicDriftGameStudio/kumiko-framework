@@ -38,16 +38,31 @@
 // `runtime-isolation-classify.ts` (unit-testable with an in-memory ts-morph
 // project) — this file only does the repo/glob resolution, ts-morph project
 // setup, and RepoCheck wiring.
+//
+// A file/import edge classified "client" importing "runtime" can be a real
+// finding this guard needs to see, but can also be a known, reviewed
+// exception (e.g. samples/recipes are worked examples, not the framework's
+// own production surface — see kumiko-framework#2337 for the one currently
+// frozen here). Exceptions are tracked via a per-repo baseline file
+// (`.kumiko-runtime-isolation-baseline.json`, same `baselineRatchet`
+// mechanism as check-complexity/guard-pii-annotations/etc.), not a
+// hardcoded list in this source file: a consumer repo can freeze or clear
+// its own findings the same way, with `--write-baseline`.
+//
+// Usage:
+//   bun packages/guards/src/check-runtime-isolation.ts
+//   bun packages/guards/src/check-runtime-isolation.ts --write-baseline
 
 import * as path from "node:path";
 import { Project } from "ts-morph";
 import {
+  baselineRatchet,
   type GuardViolation,
   type RepoCheck,
   reportResults,
   runRepoChecks,
 } from "./_lib/guard-kit";
-import { frameworkTsConfigPath } from "./_lib/roots";
+import { frameworkTsConfigPath, type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 import {
   classify,
@@ -58,97 +73,118 @@ import {
 } from "./runtime-isolation-classify";
 
 const SCAN: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };
+const BASELINE_FILE = ".kumiko-runtime-isolation-baseline.json";
 
-// A file/import edge classified "client" importing "runtime" here is a real
-// finding this guard needs to see — but samples/recipes are worked
-// examples, not the framework's own production surface, and one of them
-// deliberately re-exports a handful of isomorphic factory functions through
-// the same barrel as the engine's server-only DB/event-store code. Fixing
-// that needs an actual subpath split in the source package (tracked as
-// kumiko-framework#2337), not a broader classify() rule that would risk
-// hiding a future real violation of the exact same shape. Scoped to the one
-// file it applies to, not a directory-wide carve-out.
-const KNOWN_EXCEPTIONS: ReadonlySet<string> = new Set([
-  "samples/recipes/embedded-entity-form/src/entities/prospect.ts::@cosmicdrift/kumiko-framework/engine",
-]);
+type RawViolation = {
+  readonly file: string;
+  readonly line: number;
+  readonly fileRuntime: Runtime;
+  readonly importedSpec: string;
+  readonly importedRuntime: Runtime;
+};
 
-function printViolation(
-  v: {
-    file: string;
-    line: number;
-    fileRuntime: Runtime;
-    importedSpec: string;
-    importedRuntime: Runtime;
-  },
-  root: string,
-): void {
+function printViolation(v: RawViolation, root: string): void {
   const fileRel = path.relative(root, v.file);
   console.log(`  ${fileRel}:${v.line}`);
   console.log(`    [${v.fileRuntime}] imports [${v.importedRuntime}] "${v.importedSpec}"`);
+}
+
+function violationKey(rootAbsPath: string, v: RawViolation): string {
+  return `${path.relative(rootAbsPath, v.file)}::${v.importedSpec}`;
+}
+
+function countByKey(
+  rootAbsPath: string,
+  violations: readonly RawViolation[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const v of violations) {
+    const key = violationKey(rootAbsPath, v);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function ratchetFor(rootAbsPath: string) {
+  return baselineRatchet({
+    file: path.join(rootAbsPath, BASELINE_FILE),
+    formatVersion: 1,
+    unit: "runtime-isolation violation(s)",
+  });
+}
+
+function scanRoot(root: RepoRoot): {
+  allViolations: readonly RawViolation[];
+  outsideRoot: readonly string[];
+  scannedFiles: number;
+} {
+  const tsConfigFilePath = frameworkTsConfigPath();
+  const project =
+    tsConfigFilePath !== undefined
+      ? new Project({
+          tsConfigFilePath,
+          skipAddingFilesFromTsConfig: true,
+          skipFileDependencyResolution: true,
+        })
+      : new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+
+  const paths = scanFiles(SCAN, [root]);
+  // Exact-path lookup, never a re-glob: `project.getSourceFiles(paths)`
+  // treats each array entry as a glob pattern — pathologically slow (and,
+  // for a bracketed filename like `[id].tsx`, a broken character class)
+  // over thousands of paths. `getSourceFile(path)` is an exact lookup.
+  const scannedFiles = paths
+    .map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p))
+    .filter((f) => {
+      const fp = f.getFilePath();
+      return !fp.includes("/node_modules/") && !fp.includes("/dist/");
+    });
+
+  const workspaceCache = new Map<string, Runtime | null>();
+  const clientReachable = computeClientReachablePaths(scannedFiles, (sf) => {
+    const rel = path.relative(root.absPath, sf.getFilePath());
+    if (isClientEntryPath(rel)) return true;
+    return classify(sf.getFilePath(), root.absPath, workspaceCache) === "client";
+  });
+
+  const { violations: allViolations, outsideRoot } = findRuntimeIsolationViolations(
+    scannedFiles,
+    root.absPath,
+    workspaceCache,
+    clientReachable,
+  );
+
+  return { allViolations, outsideRoot, scannedFiles: scannedFiles.length };
 }
 
 export const check: RepoCheck = {
   name: "Runtime-Isolation Check",
   hint:
     "runtime may import runtime/client only; client may import client only; " +
-    "dev/tooling/test are more permissive. See runtime-isolation-classify.ts for the compat matrix.",
+    "dev/tooling/test are more permissive. See runtime-isolation-classify.ts for the compat matrix. " +
+    "New, deliberate exception? `bun packages/guards/src/check-runtime-isolation.ts --write-baseline`",
   run(roots) {
     const root = roots[0];
     if (!root) return { violations: [], matchedFiles: 0, notApplicable: true };
-
-    const tsConfigFilePath = frameworkTsConfigPath();
-    const project =
-      tsConfigFilePath !== undefined
-        ? new Project({
-            tsConfigFilePath,
-            skipAddingFilesFromTsConfig: true,
-            skipFileDependencyResolution: true,
-          })
-        : new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
-
-    const paths = scanFiles(SCAN, roots);
-    // Exact-path lookup, never a re-glob: `project.getSourceFiles(paths)`
-    // treats each array entry as a glob pattern — pathologically slow (and,
-    // for a bracketed filename like `[id].tsx`, a broken character class)
-    // over thousands of paths. `getSourceFile(path)` is an exact lookup.
-    const scannedFiles = paths
-      .map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p))
-      .filter((f) => {
-        const fp = f.getFilePath();
-        return !fp.includes("/node_modules/") && !fp.includes("/dist/");
-      });
-
-    const workspaceCache = new Map<string, Runtime | null>();
-    const clientReachable = computeClientReachablePaths(scannedFiles, (sf) => {
-      const rel = path.relative(root.absPath, sf.getFilePath());
-      if (isClientEntryPath(rel)) return true;
-      return classify(sf.getFilePath(), root.absPath, workspaceCache) === "client";
-    });
-
-    const { violations: allViolations, outsideRoot } = findRuntimeIsolationViolations(
-      scannedFiles,
-      root.absPath,
-      workspaceCache,
-      clientReachable,
-    );
-
     const rootAbsPath = root.absPath;
-    function exceptionKey(v: (typeof allViolations)[number]): string {
-      return `${path.relative(rootAbsPath, v.file)}::${v.importedSpec}`;
-    }
-    const violations: GuardViolation[] = [];
-    for (const v of allViolations) {
-      if (KNOWN_EXCEPTIONS.has(exceptionKey(v))) {
-        printViolation(v, root.absPath);
-        console.log(`    (known exception — see KNOWN_EXCEPTIONS in check-runtime-isolation.ts)`);
-        continue;
-      }
-      violations.push({
-        file: path.relative(root.absPath, v.file),
-        line: v.line,
-        message: `[${v.fileRuntime}] imports [${v.importedRuntime}] "${v.importedSpec}"`,
-      });
-    }
+
+    const { allViolations, outsideRoot, scannedFiles } = scanRoot(root);
+    for (const v of allViolations) printViolation(v, rootAbsPath);
+
+    const counts = countByKey(rootAbsPath, allViolations);
+    const resolveLine = (key: string): number => {
+      const relFile = key.split("::")[0];
+      return allViolations.find((v) => path.relative(rootAbsPath, v.file) === relFile)?.line ?? 1;
+    };
+    const violations: GuardViolation[] = ratchetFor(rootAbsPath).check(
+      counts,
+      "runtime may import runtime/client only; client may import client only — see runtime-isolation-classify.ts for the compat matrix.",
+      {
+        formatDriftRemediation:
+          "Run `bun packages/guards/src/check-runtime-isolation.ts --write-baseline` once.",
+        resolveLine,
+      },
+    );
 
     if (outsideRoot.length > 0) {
       console.log(
@@ -156,11 +192,23 @@ export const check: RepoCheck = {
       );
     }
 
-    return { violations, matchedFiles: scannedFiles.length, notApplicable: false };
+    return { violations, matchedFiles: scannedFiles, notApplicable: false };
   },
 };
 
 if (import.meta.main) {
+  const args = process.argv.slice(2);
+  if (args.includes("--write-baseline")) {
+    const root = resolveRepoRoots()[0];
+    if (!root) {
+      console.error("No repo root resolved — nothing to baseline.");
+      process.exit(1);
+    }
+    const { allViolations } = scanRoot(root);
+    for (const v of allViolations) printViolation(v, root.absPath);
+    ratchetFor(root.absPath).write(countByKey(root.absPath, allViolations));
+    process.exit(0);
+  }
   const failed = reportResults(await runRepoChecks([check]));
   process.exit(failed > 0 ? 1 : 0);
 }
