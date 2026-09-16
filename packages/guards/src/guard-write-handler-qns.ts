@@ -34,12 +34,18 @@ const SCAN: ScanSpec = {
 const EXCLUDE = /(__tests__|\.test\.tsx$|\.integration\.tsx$|\/node_modules\/|\/dist\/)/;
 
 /**
- * Liest pro Repo-Root `feature-manifest.json` → Set der writeHandlers.
- * Stage-2-Match gilt nur innerhalb desselben Repos — verhindert false
- * positives wenn z.B. publicstatus gegen framework-Manifest gematcht wird.
+ * Reads writeHandlers per manifest found under each repo root, keyed by
+ * the manifest's own directory. Stage-2 matching is subtree-scoped to that
+ * directory — prevents cross-app false positives when a repo hosts several
+ * independent sample apps, each with its own (or no) manifest.
  */
-function loadKnownQnsByRepo(roots: ReadonlyArray<RepoRoot>): Map<string, Set<string>> {
-  const byRepo = new Map<string, Set<string>>();
+interface ManifestEntry {
+  readonly baseDir: string;
+  readonly known: Set<string>;
+}
+
+function loadKnownQnsByRepo(roots: ReadonlyArray<RepoRoot>): Map<string, ManifestEntry[]> {
+  const byRepo = new Map<string, ManifestEntry[]>();
 
   const manifestCandidates = [
     "feature-manifest.json",
@@ -47,7 +53,7 @@ function loadKnownQnsByRepo(roots: ReadonlyArray<RepoRoot>): Map<string, Set<str
   ];
 
   for (const repo of roots) {
-    const known = new Set<string>();
+    const entries: ManifestEntry[] = [];
     for (const rel of manifestCandidates) {
       const manifestPath = path.join(repo.absPath, rel);
       if (!existsSync(manifestPath)) continue;
@@ -59,18 +65,32 @@ function loadKnownQnsByRepo(roots: ReadonlyArray<RepoRoot>): Map<string, Set<str
           }>;
         };
         if (!manifest.features) continue;
+        const known = new Set<string>();
         for (const f of manifest.features) {
           if (f.writeHandlers) {
             for (const qn of f.writeHandlers) known.add(qn);
           }
         }
+        if (known.size > 0) {
+          entries.push({ baseDir: path.dirname(manifestPath), known });
+        }
       } catch (err) {
         console.warn(`[WARN] Manifest ${manifestPath} nicht lesbar: ${err}`);
       }
     }
-    if (known.size > 0) byRepo.set(repo.absPath, known);
+    if (entries.length > 0) byRepo.set(repo.absPath, entries);
   }
   return byRepo;
+}
+
+/** Picks the manifest whose base directory is the longest prefix of `filePath`. */
+function findKnownQns(filePath: string, entries: ReadonlyArray<ManifestEntry>): Set<string> {
+  let best: ManifestEntry | undefined;
+  for (const entry of entries) {
+    if (filePath !== entry.baseDir && !filePath.startsWith(`${entry.baseDir}${path.sep}`)) continue;
+    if (!best || entry.baseDir.length > best.baseDir.length) best = entry;
+  }
+  return best?.known ?? new Set<string>();
 }
 
 /**
@@ -179,7 +199,7 @@ export const guard: AstGuard = {
 
       const repo = roots.find((r) => filePath.startsWith(`${r.absPath}${path.sep}`));
       const knownQns = repo
-        ? (knownQnsByRepo.get(repo.absPath) ?? new Set<string>())
+        ? findKnownQns(filePath, knownQnsByRepo.get(repo.absPath) ?? [])
         : new Set<string>();
 
       for (const hit of scanDispatcherWriteCalls(sf)) {
