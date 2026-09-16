@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "version": "0.278.0",
+    "type": "improvement",
+    "title": "bookCapUsage/markCapSoftWarned/readRollingCapUsage — in-process calendar-cap booking bound to the caller's own tenant (fw#2854).",
+    "detail": "New helpers in `book-cap-usage.ts`: `bookCapUsage(ctx, options)` and `markCapSoftWarned(ctx, options)` run the calendar-counter create-or-update / soft-warn-flip logic in-process against `ctx.db`/`ctx.user`; `readRollingCapUsage(db, tenantId, options)` sums a rolling window without throwing and works as the `usage` callback for an existing rolling stream. `enforceCapAndMaybeNotify` and `withCapEnforcement` now call `bookCapUsage`/`markCapSoftWarned` in-process instead of dispatching the `SystemAdmin`-only `increment`/`mark-soft-warned` write-handlers through `ctx.write` — a plain `TenantAdmin` caller (no `SystemAdmin` role, no `escapeHatch`, no `ctx.writeAs` identity-switch) can now use calendar cap-enforcement end to end. `withRollingCapEnforcement` still books through the `SystemAdmin`-only `increment-rolling` write-handler via `ctx.write` — the framework's event-ownership rule rejects `unsafeAppendEvent` calls for a foreign feature made in-process, so rolling callers still need a `SystemAdmin` identity.",
+    "migration": "No action required for the call signatures — `enforceCapAndMaybeNotify`/`withCapEnforcement`/`withRollingCapEnforcement` keep their existing signatures and result shapes. An app that previously worked around the `SystemAdmin`-only calendar dispatch with its own `escapeHatch` + `ctx.writeAs(SystemAdmin, ...)` wrapper can remove that workaround for `withCapEnforcement`; `withRollingCapEnforcement` callers still need a `SystemAdmin` identity (role or `ctx.writeAs`)."
+  },
+  {
+    "version": "0.278.0",
+    "type": "breaking",
+    "title": "createStockCapGuard/checkStockCap/withStockCap resolve through the caller's TenantDb, not a raw DbRunner + explicit tenantId (fw#2854).",
+    "detail": "`createStockCapGuard`'s resolver is now `(db: TenantDb) => Promise<TCaps>` instead of `(db: DbRunner, tenantId: TenantId) => Promise<TCaps>`. `checkStockCap(db: TenantDb, spec)` drops the separate `tenantId` parameter — the tenant comes from `db.tenantId`, and the count runs through `TenantDb.count` instead of the raw `countWhere`. `StockCapSpec.table` is now typed `SchemaTable | EntityTableMeta` (matching `TenantDb.count`'s table parameter) instead of `Parameters<typeof countWhere>[1]`. `withStockCap` no longer declares an `escapeHatch` on the wrapped handler and no longer reads through `ctx.db.unsafeRaw(...)` — it calls `checkStockCap(ctx.db, spec)` directly, so a `TenantAdmin`-only handler with no `escapeHatch` can use it.",
+    "migration": "`createStockCapGuard(async (db, tenantId) => ...)` → `createStockCapGuard(async (db) => ...)`, reading `db.tenantId` instead of the removed second argument. A direct `checkStockCap(runner, tenantId, spec)` call → `checkStockCap(tenantDb, spec)` with a `TenantDb` built via `createTenantDb(runner, tenantId)` (or `ctx.db` inside a handler). If your wrapped handler relied on `withStockCap`'s auto-added `escapeHatch` for some other reason, declare it explicitly on the handler instead — `withStockCap` no longer adds one."
+  }
+]
