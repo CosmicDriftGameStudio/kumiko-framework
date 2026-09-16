@@ -29,6 +29,24 @@ describe("secretLiteralOnLine", () => {
   test("does not flag a trivial/short fallback literal", () => {
     expect(secretLiteralOnLine('const v = env.SECRET_VERSION ?? "1";')).toBeNull();
   });
+
+  test("does not flag a JSDoc block-comment line documenting the pattern", () => {
+    expect(
+      secretLiteralOnLine(' *   const s = env.JWT_SECRET ?? "hardcoded-prod-secret";'),
+    ).toBeNull();
+  });
+
+  test("flags the same code when it is not inside a comment", () => {
+    expect(secretLiteralOnLine('const s = env.JWT_SECRET ?? "hardcoded-prod-secret";')).toBe(
+      "hardcoded-prod-secret",
+    );
+  });
+
+  test("still flags a connection-string fallback with a trailing // in the literal", () => {
+    expect(
+      secretLiteralOnLine('const dbSecretUrl = env.DB_URL ?? "postgres://user:pass@host/db";'),
+    ).toBe("postgres://user:pass@host/db");
+  });
 });
 
 describe("Secret-Literal Guard (check.run)", () => {
