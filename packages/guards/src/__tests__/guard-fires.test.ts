@@ -109,6 +109,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'export const S = () => t("x:missing.key.that.does.not.exist");',
     expectedMessage: /"x:missing\.key\.that\.does\.not\.exist"/,
   },
+  "i18n-Locale-Terminology Guard": {
+    path: `${CWD}/packages/locale-de/src/strings.ts`,
+    code: 'export const localeDeBundle = { "x.y": "Bitte Tenant wählen" };',
+    expectedMessage: /verbotener Begriff "Tenant"/,
+  },
   "i18n-Locale-Mount Guard": {
     path: `${APP}/web/mount.tsx`,
     code: "createKumikoApp({ shell: X, clientFeatures: [] });",
@@ -159,6 +164,16 @@ const ENFORCING: Record<string, Violating> = {
     path: `${APP}/features/x/web/calc.tsx`,
     code: "export function paidFraction(principal: number, remaining: number): number {\n  if (principal <= 0) return 0;\n  return Math.max(0, Math.min(1, (principal - remaining) / principal));\n}",
     expectedMessage: /View logic "paidFraction" belongs in lib\//,
+  },
+  "App-Feature-Structure Guard (App-Repos)": {
+    path: `${FEAT}/x/web.tsx`,
+    code: "export const screens = {};",
+    expectedMessage: /web-Monolith am Feature-Root/,
+  },
+  "Lib-Test-Coverage Guard (App-Repos)": {
+    path: `${APP}/features/x/lib/calc.ts`,
+    code: "export function addFees(base: number): number { return base * 1.02; }",
+    expectedMessage: /Kein Test importiert dieses lib-Modul/,
   },
   "Raw-ClassName Guard (App-Repos)": {
     path: `${APP}/features/x/web/card.tsx`,
