@@ -75,7 +75,7 @@ function loadKnownQnsByRepo(roots: ReadonlyArray<RepoRoot>): Map<string, Manifes
           entries.push({ baseDir: path.dirname(manifestPath), known });
         }
       } catch (err) {
-        console.warn(`[WARN] Manifest ${manifestPath} nicht lesbar: ${err}`);
+        console.warn(`[WARN] Manifest ${manifestPath} not readable: ${err}`);
       }
     }
     if (entries.length > 0) byRepo.set(repo.absPath, entries);
@@ -182,7 +182,7 @@ export function scanDispatcherWriteCalls(
 export const guard: AstGuard = {
   name: "Write-Handler-QN Guard",
   scan: SCAN,
-  hint: "Tippfehler im Write-Handler-QN? Feature-Namen + Handler-Namen prüfen.",
+  hint: "Typo in the write-handler QN? Check feature name + handler name.",
   run(files) {
     const roots = resolveRepoRoots();
     const knownQnsByRepo = loadKnownQnsByRepo(roots);
@@ -208,7 +208,7 @@ export const guard: AstGuard = {
           violations.push({
             file: path.relative(ROOT, filePath),
             line: hit.line,
-            message: `ungültiges QN-Format: "${hit.qn}" — muss "<feature>:write:<handler>" entsprechen`,
+            message: `invalid QN format: "${hit.qn}" — must match "<feature>:write:<handler>"`,
           });
           continue;
         }
@@ -221,7 +221,7 @@ export const guard: AstGuard = {
           violations.push({
             file: path.relative(ROOT, filePath),
             line: hit.line,
-            message: `unbekannter Write-Handler: "${hit.qn}" — nicht in feature-manifest.json gefunden`,
+            message: `unknown write handler: "${hit.qn}" — not found in feature-manifest.json`,
           });
         }
       }
@@ -231,7 +231,7 @@ export const guard: AstGuard = {
     // der Guard läuft dann nur mit struktureller Prüfung.
     if (knownQnsByRepo.size === 0 && violations.length === 0) {
       console.warn(
-        "  [INFO] Kein feature-manifest.json mit writeHandlers gefunden — strukturelle Prüfung aktiv.",
+        "  [INFO] No feature-manifest.json with writeHandlers found — structural check only.",
       );
     }
 

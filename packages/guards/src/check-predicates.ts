@@ -168,22 +168,22 @@ export const guard: AstGuard = {
       shapeDups.push({ shape, sites: bucket });
     }
 
-    console.log(`Predicate-Extraction Check: ${scanned} Dateien gepruefft.`);
+    console.log(`Predicate-Extraction Check: ${scanned} files checked.`);
     console.log(
-      `  Fat Predicates (>=${OPERATOR_THRESHOLD} Ops oder >${LENGTH_THRESHOLD} Zeichen): ${fatSites.length}`,
+      `  Fat predicates (>=${OPERATOR_THRESHOLD} ops or >${LENGTH_THRESHOLD} chars): ${fatSites.length}`,
     );
-    console.log(`  Exakte Duplikate: ${textDups.length}`);
-    console.log(`  Strukturelle Duplikate (gleiches Muster, andere Namen): ${shapeDups.length}`);
+    console.log(`  Exact duplicates: ${textDups.length}`);
+    console.log(`  Structural duplicates (same pattern, different names): ${shapeDups.length}`);
 
     if (fatSites.length === 0 && textDups.length === 0 && shapeDups.length === 0) {
-      console.log("  Nichts zu beanstanden.");
+      console.log("  Nothing to report.");
       return { violations: [] };
     }
 
     const snip = (text: string): string => (text.length > 90 ? `${text.slice(0, 87)}...` : text);
 
     if (fatSites.length > 0) {
-      console.log(`\n  Fat-Predicate Kandidaten:`);
+      console.log(`\n  Fat-predicate candidates:`);
       for (const s of fatSites) {
         const hint = s.ands === 0 && s.ors >= 3 ? "  (Array.includes/Set?)" : "";
         console.log(`    ${s.file}:${s.line}  [${s.ands}&& ${s.ors}||]  ${snip(s.text)}${hint}`);
@@ -191,7 +191,7 @@ export const guard: AstGuard = {
     }
 
     if (textDups.length > 0) {
-      console.log(`\n  Exakte Duplikate:`);
+      console.log(`\n  Exact duplicates:`);
       for (const group of textDups) {
         const [first] = group;
         console.log(`    ${group.length}x  ${snip(first.text)}`);
@@ -200,7 +200,7 @@ export const guard: AstGuard = {
     }
 
     if (shapeDups.length > 0) {
-      console.log(`\n  Strukturelle Duplikate:`);
+      console.log(`\n  Structural duplicates:`);
       for (const { shape, sites } of shapeDups) {
         console.log(`    ${sites.length}x  shape: ${snip(shape)}`);
         for (const s of sites) console.log(`      - ${s.file}:${s.line}  ${snip(s.text)}`);
@@ -208,9 +208,9 @@ export const guard: AstGuard = {
     }
 
     console.log(
-      "\n  Regel: extrahiere als benannte Funktion (isX/hasY/canZ), wenn die Bedingung einen stabilen Namen hat.",
+      "\n  Rule: extract as a named function (isX/hasY/canZ) when the condition has a stable name.",
     );
-    console.log("  Warnung, kein Fail.");
+    console.log("  Warning, no fail.");
     return { violations: [] };
   },
 };

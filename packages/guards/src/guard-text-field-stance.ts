@@ -162,7 +162,7 @@ const BASELINE_FILE = ".kumiko-text-field-stance-baseline.json";
 const textFieldStanceBaseline = baselineRatchet({
   file: path.join(ROOT, BASELINE_FILE),
   formatVersion: 1,
-  unit: "Fund(e) ohne personal-Haltung",
+  unit: "finding(s) without personal stance",
 });
 
 // One place for "what goes into the baseline", used by both the compare and
@@ -177,9 +177,9 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
   const resolveLine = (file: string): number => local.find((f) => f.file === file)?.line ?? 1;
   return textFieldStanceBaseline.check(
     baselineCounts(findings),
-    `Aufruf annotieren (${VALID_PERSONAL_HINT}).`,
+    `Annotate the call (${VALID_PERSONAL_HINT}).`,
     {
-      formatDriftRemediation: `Einmalig \`bun guards/guard-text-field-stance.ts --write-baseline\` aufrufen.`,
+      formatDriftRemediation: `Run \`bun guards/guard-text-field-stance.ts --write-baseline\` once.`,
       resolveLine,
     },
   );
@@ -188,7 +188,7 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
 function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
   const { findings } = scan(files);
   if (!compareBaseline) {
-    console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+    console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
   return { violations: checkBaseline(findings) };
@@ -197,7 +197,7 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
 export const guard: AstGuard = {
   name: "Text-Field Personal-Stance Guard",
   scan: SCAN,
-  hint: "nach bewusster Annotation: `bun guards/guard-text-field-stance.ts --write-baseline`",
+  hint: "after a deliberate annotation: `bun guards/guard-text-field-stance.ts --write-baseline`",
   run: (files) => analyse(files, true),
 };
 

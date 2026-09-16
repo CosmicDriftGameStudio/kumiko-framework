@@ -168,7 +168,7 @@ export function baselineRatchet(args: {
       perFile,
     };
     writeFileSync(args.file, `${JSON.stringify(payload, null, 2)}\n`);
-    console.log(`  Baseline geschrieben: ${args.file} (total ${total})`);
+    console.log(`  Baseline written: ${args.file} (total ${total})`);
   };
   const check = (
     current: Readonly<Record<string, number>>,
@@ -180,7 +180,7 @@ export function baselineRatchet(args: {
   ): GuardViolation[] => {
     if (!existsSync(args.file)) {
       console.log(
-        `  Keine Baseline gefunden (${args.file}). Erst mit \`--write-baseline\` einfrieren — bis dahin Warnung, kein Fail.`,
+        `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,
       );
       return [];
     }
@@ -192,7 +192,7 @@ export function baselineRatchet(args: {
         {
           file: args.file,
           line: 1,
-          message: `Baseline-Datei nicht lesbar (kaputtes JSON, Merge-Marker, abgebrochener Write): ${e instanceof Error ? e.message : String(e)}. ${opts?.formatDriftRemediation ?? remediation}`,
+          message: `Baseline file unreadable (broken JSON, merge marker, aborted write): ${e instanceof Error ? e.message : String(e)}. ${opts?.formatDriftRemediation ?? remediation}`,
         },
       ];
     }
@@ -207,8 +207,8 @@ export function baselineRatchet(args: {
           line: 1,
           message:
             raw.format !== args.formatVersion
-              ? `Baseline-Format-Drift: erwartet format=${args.formatVersion}, gelesen format=${raw.format ?? "<missing>"}. ${opts?.formatDriftRemediation ?? remediation}`
-              : `Baseline-Datei hat kein gültiges "perFile"-Objekt. ${opts?.formatDriftRemediation ?? remediation}`,
+              ? `Baseline format drift: expected format=${args.formatVersion}, read format=${raw.format ?? "<missing>"}. ${opts?.formatDriftRemediation ?? remediation}`
+              : `Baseline file has no valid "perFile" object. ${opts?.formatDriftRemediation ?? remediation}`,
         },
       ];
     }
@@ -216,14 +216,14 @@ export function baselineRatchet(args: {
     const { regressions, reduced } = compareToBaseline(current, baseline.perFile);
     if (regressions.length === 0) {
       const total = Object.values(current).reduce((sum, count) => sum + count, 0);
-      console.log(`  ✓ Baseline (${baseline.total}) — aktuell ${total}`);
-      if (reduced > 0) console.log(`  ✓ ${reduced} ${args.unit} reduziert seit Baseline.`);
+      console.log(`  ✓ Baseline (${baseline.total}) — current ${total}`);
+      if (reduced > 0) console.log(`  ✓ ${reduced} ${args.unit} reduced since baseline.`);
       return [];
     }
     return regressions.map((regression) => ({
       file: regression.file,
       line: opts?.resolveLine?.(regression.file) ?? 1,
-      message: `${args.unit} über Baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
+      message: `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
     }));
   };
   const handleCli = (current: Readonly<Record<string, number>>): boolean => {
@@ -233,7 +233,7 @@ export function baselineRatchet(args: {
       return true;
     }
     if (cliArgs.includes("--no-baseline")) {
-      console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+      console.log("  Baseline comparison skipped (--no-baseline).");
       return true;
     }
     return false;
@@ -369,7 +369,7 @@ export type RepoCheck = {
 };
 
 const VACUOUS_MESSAGE =
-  "0 Dateien gescannt, obwohl die Ziel-Repos im Checkout liegen — die Globs greifen nicht.";
+  "0 files scanned even though the target repos are in the checkout — the globs are not matching.";
 
 /** Standalone-`main()` guards (their own scan/walk, no shared ts-morph project) run in-process through this. */
 export async function runRepoChecks(
@@ -442,7 +442,7 @@ export function explainGuards(
     for (const { root, source } of roots) {
       const rootScan = scanByAbsPath.get(root.absPath);
       if (!rootScan) {
-        lines.push(`  ${root.name} [${source}] — außerhalb kinds`);
+        lines.push(`  ${root.name} [${source}] — outside kinds`);
         continue;
       }
       // Exact-path lookup, never a re-glob: `project.getSourceFiles(globs)`
@@ -450,7 +450,7 @@ export function explainGuards(
       // `[id].tsx` is then a broken (or pathologically slow) character class.
       const fileCount = rootScan.files.filter((f) => project.getSourceFile(f) !== undefined).length;
       lines.push(
-        `  ${root.name} [${source}] ${fileCount} Dateien (Source-Surface ${rootScan.sourceSurface})`,
+        `  ${root.name} [${source}] ${fileCount} files (source surface ${rootScan.sourceSurface})`,
       );
     }
   }
@@ -538,11 +538,11 @@ export function reportResults(results: readonly RunResult[]): number {
       // Not applicable does not mean checked — that must stay visible,
       // otherwise a standalone run reads like a complete one.
       const scope = r.notApplicable
-        ? " — übersprungen, Ziel-Repos nicht im Checkout"
-        : ` (${r.matchedFiles ?? 0} Dateien)`;
+        ? " — skipped, target repos not in checkout"
+        : ` (${r.matchedFiles ?? 0} files)`;
       const frozen =
         r.frozenFindings && r.frozenFindings > 0
-          ? ` — ${r.frozenFindings} eingefrorene Security-Findings (Baseline)`
+          ? ` — ${r.frozenFindings} frozen security findings (baseline)`
           : "";
       console.log(`  ✓ ${r.name} (${r.ms}ms)${scope}${frozen}`);
       for (const w of r.warnings ?? []) {
@@ -562,14 +562,14 @@ export function reportResults(results: readonly RunResult[]): number {
     }
     if (r.violatingRoots && r.violatingRoots.length > 0) {
       console.error(
-        `    0 Quelldateien in: ${r.violatingRoots.join(", ")} — kumiko.json deklariert sourceRoots, der Scope "source" liefert dort nichts.`,
+        `    0 source files in: ${r.violatingRoots.join(", ")} — kumiko.json declares sourceRoots, scope "source" yields nothing there.`,
       );
       console.error(
-        "    Manifest (kumiko.json) oder Checkout prüfen; ohne Manifest gilt der abgeleitete Fallback packages/*/src bzw. src/.",
+        "    Check the manifest (kumiko.json) or the checkout; without a manifest the derived fallback packages/*/src or src/ applies.",
       );
     }
     if (r.security) {
-      console.error(`    [security] Funde ohne Baseline-Deckung sind immer FAIL.`);
+      console.error(`    [security] Findings without baseline coverage always FAIL.`);
     }
     for (const v of r.outcome?.violations ?? []) {
       console.error(`    ${v.file}:${v.line}  ${v.message}`);

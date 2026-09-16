@@ -50,7 +50,7 @@ const FORBIDDEN_TAGS: ReadonlyArray<{
   { tag: "td", counterpart: "<DataTable>" },
   { tag: "th", counterpart: "<DataTable>" },
   { tag: "form", counterpart: "<Form>" },
-  { tag: "input", counterpart: "<Input> (über <Field>)" },
+  { tag: "input", counterpart: "<Input> (via <Field>)" },
   { tag: "button", counterpart: "<Button>" },
   { tag: "select", counterpart: "<ComboboxInput>" },
   { tag: "textarea", counterpart: '<Input kind="textarea">' },
@@ -60,7 +60,7 @@ const FORBIDDEN_TAGS: ReadonlyArray<{
 const FORBIDDEN_CALLS: ReadonlyArray<{
   readonly call: string;
   readonly counterpart: string;
-}> = [{ call: "alert", counterpart: "<DefaultDialog> aus @cosmicdrift/kumiko-renderer-web" }];
+}> = [{ call: "alert", counterpart: "<DefaultDialog> from @cosmicdrift/kumiko-renderer-web" }];
 
 // Forbidden className tokens: an allowed tag (`<div>`), but the class gives
 // away hand-rolled primitive chrome. `bg-card` is the dedicated card-surface
@@ -263,7 +263,7 @@ function violationMessage(v: Violation): string {
 }
 
 const HINT =
-  "Migration: usePrimitives() in eine Custom-Screen-Komponente, oder schema-driven via EntityListScreenDefinition / EntityEditScreenDefinition wo möglich. Override pro Zeile: // kumiko-lint-ignore primitives-discipline <reason>";
+  "Migration: usePrimitives() in a custom screen component, or schema-driven via EntityListScreenDefinition / EntityEditScreenDefinition where possible. Per-line override: // kumiko-lint-ignore primitives-discipline <reason>";
 
 export const check: RepoCheck = {
   name: "Primitives-Discipline Guard",

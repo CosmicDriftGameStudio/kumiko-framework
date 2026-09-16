@@ -158,7 +158,7 @@ function hasLeadingSkipComment(site: SkipSite): boolean {
 export const guard: AstGuard = {
   name: "Silent-Skip Guard",
   scan: SCAN,
-  hint: "Nacktes `return;` braucht davor: Log-Call, `// skip: <grund>`-Kommentar, oder vorangehenden throw.",
+  hint: "A bare `return;` needs one of these before it: a log call, a `// skip: <reason>` comment, or a preceding throw.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

@@ -208,10 +208,10 @@ function scan(files: readonly SourceFile[]): {
 }
 
 function report(hotspots: readonly Hotspot[], scanned: number): void {
-  console.log(`Complexity Check: ${scanned} Dateien geprueft.`);
-  console.log(`  Hotspots (Komplexitaet >= ${COMPLEXITY_THRESHOLD}): ${hotspots.length}`);
+  console.log(`Complexity Check: ${scanned} files checked.`);
+  console.log(`  Hotspots (complexity >= ${COMPLEXITY_THRESHOLD}): ${hotspots.length}`);
   if (hotspots.length === 0) {
-    console.log("  Nichts zu beanstanden.");
+    console.log("  Nothing to report.");
     return;
   }
   const shown = hotspots.slice(0, MAX_REPORTED);
@@ -219,10 +219,10 @@ function report(hotspots: readonly Hotspot[], scanned: number): void {
     console.log(`    ${h.file}:${h.line}  ${h.name}()  complexity=${h.complexity}`);
   }
   if (hotspots.length > shown.length) {
-    console.log(`    ... ${hotspots.length - shown.length} weitere`);
+    console.log(`    ... ${hotspots.length - shown.length} more`);
   }
   console.log(
-    `\n  Regel: Funktion aufteilen oder mit "// ${BUDGET_TAG} <Grund>" bewusst freigeben.`,
+    `\n  Rule: split the function, or deliberately allow it with "// ${BUDGET_TAG} <reason>".`,
   );
 }
 
@@ -243,9 +243,9 @@ function checkBaseline(scanned: readonly Hotspot[]): GuardViolation[] {
   const hotspots = localHotspots(scanned);
   return complexityBaseline.check(
     countHotspotsByFile(hotspots),
-    `Funktion aufteilen oder mit "// ${BUDGET_TAG} <Grund>" freigeben.`,
+    `Split the function, or allow it with "// ${BUDGET_TAG} <reason>".`,
     {
-      formatDriftRemediation: `Einmalig \`bun guards/check-complexity.ts --write-baseline\` aufrufen.`,
+      formatDriftRemediation: `Run \`bun guards/check-complexity.ts --write-baseline\` once.`,
       resolveLine: (file) => resolveHotspotLine(hotspots, file),
     },
   );
@@ -255,7 +255,7 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
   const { hotspots, scanned } = scan(files);
   report(hotspots, scanned);
   if (!compareBaseline) {
-    console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+    console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
   return { violations: checkBaseline(hotspots) };
@@ -267,7 +267,7 @@ export const guard: AstGuard = {
   // Kein Remediation-Text hier: reportResults haengt hint an JEDEN Fail, auch
   // an Format-Drift, wo "Funktion aufteilen" in die Irre fuehrt. Der konkrete
   // Rat steht deshalb in der jeweiligen Violation-Message.
-  hint: "nach bewusster Verschiebung: `bun guards/check-complexity.ts --write-baseline`",
+  hint: "after a deliberate change: `bun guards/check-complexity.ts --write-baseline`",
   run: (files) => analyse(files, true),
 };
 

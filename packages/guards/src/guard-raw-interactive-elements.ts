@@ -104,7 +104,7 @@ const BASELINE_FILE = ".kumiko-raw-interactive-elements-baseline.json";
 const rawInteractiveElementsBaseline = baselineRatchet({
   file: path.join(ROOT, BASELINE_FILE),
   formatVersion: 1,
-  unit: "Fund(e) rohes interaktives HTML",
+  unit: "raw interactive HTML finding(s)",
 });
 
 const REMEDIATION =
@@ -114,14 +114,14 @@ const REMEDIATION =
 function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
   const findings = scan(files);
   if (!compareBaseline) {
-    console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+    console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
   return {
     violations: rawInteractiveElementsBaseline.check(baselineCounts(findings), REMEDIATION, {
       formatDriftRemediation:
-        "Einmalig `bun guards/guard-raw-interactive-elements.ts --write-baseline` aufrufen.",
+        "Run `bun guards/guard-raw-interactive-elements.ts --write-baseline` once.",
       resolveLine,
     }),
   };

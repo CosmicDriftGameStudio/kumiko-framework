@@ -85,7 +85,7 @@ export function createOpenToAllReasonGuard(opts: { root: string }): AstGuard {
     name: "Open-To-All-Reason Guard",
     scan: SCAN,
     security: true,
-    hint: 'openToAll: { reason: "<why any authenticated user may call this>" } angeben (+ personalData: "tenant-members" bei Write-Handlern mit nicht gebundenen Personendaten). Baseline nach bewusster Reduktion: `bun guards/run-guards.ts --write-security-baseline`',
+    hint: 'Provide openToAll: { reason: "<why any authenticated user may call this>" } (+ personalData: "tenant-members" for write handlers with unbound personal data). Baseline after a deliberate reduction: `bun guards/run-guards.ts --write-security-baseline`',
     run(files) {
       const violations: GuardViolation[] = [
         ...findGenericOpenToAllReasons(files, opts.root).map((f) => ({

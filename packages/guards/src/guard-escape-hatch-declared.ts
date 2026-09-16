@@ -500,7 +500,7 @@ export function createEscapeHatchGuard(opts: { root: string }): AstGuard {
     name: "Escape-Hatch-Declared Guard",
     scan: SCAN,
     security: true,
-    hint: 'Escape-Hatch deklarieren (r.systemScope() auf der Feature-Definition, .job.ts/r.job(...) fuer Jobs, oder { escapeHatch: { reason: "..." } } auf dem Handler oder Hook) oder den ctx.db.raw/unsafeRaw/queryAs|writeAs(system)/unsafeAllTenants-Zugriff entfernen. Baseline nach bewusster Reduktion: `bun guards/run-guards.ts --write-security-baseline`',
+    hint: 'Declare an escape hatch (r.systemScope() on the feature definition, .job.ts/r.job(...) for jobs, or { escapeHatch: { reason: "..." } } on the handler or hook), or remove the ctx.db.raw/unsafeRaw/queryAs|writeAs(system)/unsafeAllTenants access. Baseline after a deliberate reduction: `bun guards/run-guards.ts --write-security-baseline`',
     run(files) {
       const violations: GuardViolation[] = [
         ...findGenericReasonCalls(files, opts.root).map((f) => ({

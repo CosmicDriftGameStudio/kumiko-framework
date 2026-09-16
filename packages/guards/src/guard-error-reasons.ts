@@ -163,7 +163,7 @@ function checkReasonNode(node: Node | undefined): string | null {
 export const guard: AstGuard = {
   name: "Error-Reasons Guard",
   scan: SCAN,
-  hint: `reason-strings müssen ${REASON_RE} matchen (snake_case ASCII, optional dot-namespaced). Wiederverwendbar? Const in FrameworkReasons/<Feature>Reasons.`,
+  hint: `reason strings must match ${REASON_RE} (snake_case ASCII, optional dot-namespaced). Reusable? Add a const to FrameworkReasons/<Feature>Reasons.`,
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

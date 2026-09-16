@@ -112,7 +112,7 @@ function findRestrictedSymbolReferences(sf: SourceFile): Violation[] {
 export const guard: AstGuard = {
   name: "Restricted-Symbols Guard",
   scan: SCAN,
-  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} sind ein Existenz-Orakel für fremde Tenants — nur Seed-/System-interner Code darf sie referenzieren. Neuer Caller nötig? Allowlist in guard-restricted-symbols.ts erweitern, mit Begründung. Bekannte Lücke: `export * from "...event-store"` wird nicht erkannt (Named-Imports, Re-Exports und Namespace-Property-Access sind abgedeckt).',
+  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     const roots = resolveRepoRoots();

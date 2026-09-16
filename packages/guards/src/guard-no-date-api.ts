@@ -162,7 +162,7 @@ function findDateApiUsages(sf: SourceFile): Omit<Violation, "file">[] {
 export const guard: AstGuard = {
   name: "No-Date-API Guard",
   scan: SCAN,
-  hint: "Ersetze mit Temporal.Now.instant() / Temporal.Instant.from / .toString() / .epochMilliseconds — siehe docs/plans/architecture/timezones.md.",
+  hint: "Replace with Temporal.Now.instant() / Temporal.Instant.from / .toString() / .epochMilliseconds — see docs/plans/architecture/timezones.md.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

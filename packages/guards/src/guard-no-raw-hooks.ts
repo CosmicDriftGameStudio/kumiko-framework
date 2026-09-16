@@ -40,8 +40,8 @@ export const guard: AstGuard = {
   name: "No-Raw-Hooks Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Framework-Hook-Satz nutzen: useQuery (live: true für SSE), useMutation, useDisclosure. " +
-    `Echter Sonderfall (DOM-Integration o.ä.): // ${IGNORE_TAG} <Grund>`,
+    "Use the framework hook set: useQuery (live: true for SSE), useMutation, useDisclosure. " +
+    `Real special case (DOM integration or similar): // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
@@ -54,7 +54,7 @@ export const guard: AstGuard = {
           violations.push({
             file: sf.getFilePath(),
             line: call.getStartLineNumber(),
-            message: `${name} in App-Screen — Framework-Hooks nutzen (useQuery/useMutation/useDisclosure)`,
+            message: `${name} in App-Screen — use framework hooks (useQuery/useMutation/useDisclosure)`,
           });
           continue;
         }
@@ -64,7 +64,7 @@ export const guard: AstGuard = {
             file: sf.getFilePath(),
             line: call.getStartLineNumber(),
             message:
-              "fetch() in App-Screen — useQuery/useMutation bzw. einen Api-Client (*.ts) nutzen",
+              "fetch() in App-Screen — use useQuery/useMutation or an API client (*.ts)",
           });
         }
       }

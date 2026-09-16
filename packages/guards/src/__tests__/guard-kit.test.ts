@@ -74,7 +74,7 @@ describe("baselineRatchet", () => {
       {
         file: "a.ts",
         line: 42,
-        message: "hit(s) über Baseline: baseline=1 current=3 (+2). fix it",
+        message: "hit(s) over baseline: baseline=1 current=3 (+2). fix it",
       },
     ]);
   });

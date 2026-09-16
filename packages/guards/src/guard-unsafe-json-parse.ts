@@ -66,7 +66,7 @@ function scanFile(sf: SourceFile): UnsafeSite[] {
 export const guard: AstGuard = {
   name: "Unsafe-JSON-Parse Guard",
   scan: SCAN,
-  hint: "Nutze parseJsonSafe (Cache-Semantik) oder parseJsonOrThrow (Boundary-Semantik) aus utils/safe-json.",
+  hint: "Use parseJsonSafe (cache semantics) or parseJsonOrThrow (boundary semantics) from utils/safe-json.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

@@ -250,7 +250,7 @@ describe("reportResults — exit-code is the count of failed guards", () => {
       reportResults([{ name: "g", ok: false, ms: 1, violatingRoots: ["kumiko-studio"] }]);
     });
     expect(output).toContain("kumiko-studio");
-    expect(output).toContain("kumiko.json deklariert sourceRoots");
+    expect(output).toContain("kumiko.json declares sourceRoots");
   });
 });
 
@@ -385,7 +385,7 @@ describe("explainGuards — per guard and root: source, files, source surface", 
       "Repo: /ws/money-horse",
       "",
       "ok-guard — scope=source ext=ts",
-      "  money-horse [local] 2 Dateien (Source-Surface 2)",
+      "  money-horse [local] 2 files (source surface 2)",
     ]);
   });
 
@@ -395,7 +395,7 @@ describe("explainGuards — per guard and root: source, files, source surface", 
       scan: fixedScan([]),
       resolution: { roots: [{ root: local, source: "local" }] },
     });
-    expect(lines).toContain("  solon [local] — außerhalb kinds");
+    expect(lines).toContain("  solon [local] — outside kinds");
   });
 
   test("no repo found says so instead of printing an empty path", () => {

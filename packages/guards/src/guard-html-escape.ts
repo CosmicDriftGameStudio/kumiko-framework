@@ -325,7 +325,7 @@ function scanFile(sf: SourceFile): UnsafeSite[] {
 export const guard: AstGuard = {
   name: "HTML-Escape Guard",
   scan: SCAN,
-  hint: "Interpolation in HTML-Template-Literal escapen: escapeHtml()/escapeHtmlAttr() aus @cosmicdrift/kumiko-headless. Vorgerendertes HTML per `*Html`-Namen kennzeichnen; statische Copy-Tabellen `as const` typen; bewusste Ausnahme mit `// html-ok: <warum>`.",
+  hint: "Escape interpolation in an HTML template literal: escapeHtml()/escapeHtmlAttr() from @cosmicdrift/kumiko-headless. Mark pre-rendered HTML with a `*Html` name; type static copy tables `as const`; deliberate exception with `// html-ok: <why>`.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

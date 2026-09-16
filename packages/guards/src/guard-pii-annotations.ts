@@ -207,7 +207,7 @@ const BASELINE_FILE = ".kumiko-pii-annotations-baseline.json";
 const piiBaseline = baselineRatchet({
   file: path.join(ROOT, BASELINE_FILE),
   formatVersion: 1,
-  unit: "PII-Fund(e)",
+  unit: "PII finding(s)",
 });
 
 // One place for "what goes into the baseline", used by both the compare and
@@ -222,9 +222,9 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
   const resolveLine = (file: string): number => local.find((f) => f.file === file)?.line ?? 1;
   return piiBaseline.check(
     baselineCounts(findings),
-    `Feld annotieren ({ personal: ... } / { pii: true } / { userOwned: ... } / { tenantOwned: true } / { allowPlaintext: "..." }).`,
+    `Annotate the field ({ personal: ... } / { pii: true } / { userOwned: ... } / { tenantOwned: true } / { allowPlaintext: "..." }).`,
     {
-      formatDriftRemediation: `Einmalig \`bun guards/guard-pii-annotations.ts --write-baseline\` aufrufen.`,
+      formatDriftRemediation: `Run \`bun guards/guard-pii-annotations.ts --write-baseline\` once.`,
       resolveLine,
     },
   );
@@ -233,7 +233,7 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
 function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
   const { findings } = scan(files);
   if (!compareBaseline) {
-    console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+    console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
   return { violations: checkBaseline(findings) };
@@ -242,7 +242,7 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
 export const guard: AstGuard = {
   name: "PII-Annotations Guard",
   scan: SCAN,
-  hint: "nach bewusster Annotation: `bun guards/guard-pii-annotations.ts --write-baseline`",
+  hint: "after a deliberate annotation: `bun guards/guard-pii-annotations.ts --write-baseline`",
   run: (files) => analyse(files, true),
 };
 

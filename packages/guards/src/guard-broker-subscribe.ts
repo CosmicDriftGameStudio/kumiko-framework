@@ -78,7 +78,7 @@ export function collectBrokerSubscribeViolations(
 export const guard: AstGuard = {
   name: "No-Broker-Subscribe Guard",
   scan: SCAN,
-  hint: "Konsumiere Events über die Registrar-API (r.onEvent / r.job trigger.on), nicht direkt am Broker — siehe docs/plans/architecture/lint-rules.md (R8).",
+  hint: "Consume events through the registrar API (r.onEvent / r.job trigger.on), not directly on the broker — see docs/plans/architecture/lint-rules.md (R8).",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

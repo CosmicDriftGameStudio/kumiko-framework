@@ -279,7 +279,7 @@ describe("applySecurityBaseline", () => {
     expect(result.blocking).toHaveLength(2);
     expect(result.blocking[0]?.message).toContain("raw fetch A");
     expect(result.blocking[0]?.message).toContain(
-      "Security-Baseline money-horse: erlaubt=1, aktuell=2",
+      "security baseline money-horse: allowed=1, current=2",
     );
     expect(result.blocking[1]?.message).toContain("raw fetch B");
   });
@@ -401,7 +401,7 @@ describe("applySecurityBaseline", () => {
     });
     expect(result.blocking).toHaveLength(1);
     expect(result.blocking[0]?.message).toBe(
-      "raw fetch (Security-Baseline money-horse: Direct-Fetch Guard ist fertig migriert — keine Baseline-Toleranz)",
+      "raw fetch (security baseline money-horse: Direct-Fetch Guard finished migrating — no baseline tolerance)",
     );
     expect(result.frozen).toBe(0);
   });
@@ -428,7 +428,7 @@ describe("applySecurityBaseline strict mode", () => {
     });
     expect(strict.blocking).toHaveLength(1);
     expect(strict.blocking[0]?.message).toBe(
-      "Security-Baseline veraltet: money-horse/src/a.ts erlaubt 3, gefunden 1 — `--write-security-baseline` ausführen und committen, sonst deckt der Headroom neue Funde.",
+      "Security baseline stale: money-horse/src/a.ts allows 3, found 1 — run `--write-security-baseline` and commit, otherwise the headroom covers new findings.",
     );
 
     const lax = applySecurityBaseline({
@@ -459,7 +459,7 @@ describe("applySecurityBaseline strict mode", () => {
       strict: true,
     });
     expect(strict.blocking).toHaveLength(1);
-    expect(strict.blocking[0]?.message).toContain("erlaubt 2, gefunden 0");
+    expect(strict.blocking[0]?.message).toContain("allows 2, found 0");
 
     const lax = applySecurityBaseline({
       guardName: "Direct-Fetch Guard",
@@ -513,7 +513,7 @@ describe("applySecurityBaseline strict mode", () => {
       strict: true,
     });
     expect(strict.blocking).toHaveLength(2);
-    expect(strict.blocking.every((v) => !v.message.includes("Security-Baseline veraltet"))).toBe(
+    expect(strict.blocking.every((v) => !v.message.includes("Security baseline stale"))).toBe(
       true,
     );
   });

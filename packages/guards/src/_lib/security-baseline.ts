@@ -192,7 +192,7 @@ export function applySecurityBaseline(args: {
         {
           file: baseline.file,
           line: 1,
-          message: `Security-Baseline unlesbar oder ungültig: ${baseline.reason}. Datei reparieren; ein kaputter Baseline-Stand darf keine Funde freigeben.`,
+          message: `Security baseline unreadable or invalid: ${baseline.reason}. Fix the file; a broken baseline must not release any findings.`,
         },
       ]);
       for (const e of allEntries) blockingEntries.push([e.index, e.violation]);
@@ -204,7 +204,7 @@ export function applySecurityBaseline(args: {
           e.index,
           {
             ...e.violation,
-            message: `${e.violation.message} (Security-Baseline ${repo}: ${guardName} ist fertig migriert — keine Baseline-Toleranz)`,
+            message: `${e.violation.message} (security baseline ${repo}: ${guardName} finished migrating — no baseline tolerance)`,
           },
         ]);
       }
@@ -224,7 +224,7 @@ export function applySecurityBaseline(args: {
             e.index,
             {
               ...e.violation,
-              message: `${e.violation.message} (Security-Baseline ${repo}: erlaubt=${regression.baseline}, aktuell=${regression.current})`,
+              message: `${e.violation.message} (security baseline ${repo}: allowed=${regression.baseline}, current=${regression.current})`,
             },
           ]);
         }
@@ -247,7 +247,7 @@ export function applySecurityBaseline(args: {
           {
             file: baseline.file,
             line: 1,
-            message: `Security-Baseline unlesbar oder ungültig: ${baseline.reason}. Datei reparieren; ein kaputter Baseline-Stand darf keine Funde freigeben.`,
+            message: `Security baseline unreadable or invalid: ${baseline.reason}. Fix the file; a broken baseline must not release any findings.`,
           },
         ]);
         continue;
@@ -267,7 +267,7 @@ export function applySecurityBaseline(args: {
           {
             file: join(root.absPath, r.file),
             line: 1,
-            message: `Security-Baseline veraltet: ${root.name}/${r.file} erlaubt ${r.baseline}, gefunden ${r.current} — \`--write-security-baseline\` ausführen und committen, sonst deckt der Headroom neue Funde.`,
+            message: `Security baseline stale: ${root.name}/${r.file} allows ${r.baseline}, found ${r.current} — run \`--write-security-baseline\` and commit, otherwise the headroom covers new findings.`,
           },
         ]);
       }

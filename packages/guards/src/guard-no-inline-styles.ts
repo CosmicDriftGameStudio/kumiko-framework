@@ -20,8 +20,8 @@ export const guard: AstGuard = {
   name: "No-Inline-Styles Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "style=/CSSProperties in App-Code durch Widgets + Theme-Tokens ersetzen. " +
-    `Begründete Ausnahme (z.B. dynamische Breite aus Daten): // ${IGNORE_TAG} <Grund>`,
+    "Replace style=/CSSProperties in app code with widgets + theme tokens. " +
+    `Justified exception (e.g. dynamic width from data): // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
@@ -32,7 +32,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: attr.getStartLineNumber(),
-          message: "style=-Prop in App-Code (Theme-Tokens/Widgets nutzen)",
+          message: "style= prop in app code (use theme tokens/widgets)",
         });
       }
       // ponytail: name-text comparison doesn't tolerate aliased imports
@@ -47,7 +47,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: ref.getStartLineNumber(),
-          message: "CSSProperties-Style-Objekt in App-Code (Theme-Tokens/Widgets nutzen)",
+          message: "CSSProperties style object in app code (use theme tokens/widgets)",
         });
       }
     }

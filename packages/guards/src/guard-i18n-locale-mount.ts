@@ -246,7 +246,7 @@ function clientMountViolations(sf: SourceFile): GuardViolation[] {
       violations.push({
         file: sf.getFilePath(),
         line: call.getStartLineNumber(),
-        message: `Mount-Punkt "${call.getExpression().getText()}(...)" registriert kein deutsches Locale-Feature (localeDeClient() fehlt in clientFeatures) — Repo haengt von ${LOCALE_DE_DEP} ab.`,
+        message: `Mount point "${call.getExpression().getText()}(...)" does not register a German locale feature (localeDeClient() missing in clientFeatures) — repo depends on ${LOCALE_DE_DEP}.`,
       });
     }
   }
@@ -262,7 +262,7 @@ function clientMountViolations(sf: SourceFile): GuardViolation[] {
       violations.push({
         file: sf.getFilePath(),
         line: attr.getStartLineNumber(),
-        message: `<LocaleProvider fallbackBundles={...}> registriert kein deutsches Locale-Bundle ({ de: ... }) — Repo haengt von ${LOCALE_DE_DEP} ab.`,
+        message: `<LocaleProvider fallbackBundles={...}> does not register a German locale bundle ({ de: ... }) — repo depends on ${LOCALE_DE_DEP}.`,
       });
     }
   }
@@ -295,7 +295,7 @@ export function findViolations(files: readonly SourceFile[]): GuardViolation[] {
     violations.push({
       file: pkgPath,
       line: 1,
-      message: `Repo haengt von ${LOCALE_DE_DEP} ab, aber kein Server-seitiger localeDe()-Aufruf gefunden — deutsche Mail-Vorlagen (registerMailTranslations) werden nicht registriert.`,
+      message: `Repo depends on ${LOCALE_DE_DEP}, but no server-side localeDe() call was found — German mail templates (registerMailTranslations) are not registered.`,
     });
   }
 
@@ -305,7 +305,7 @@ export function findViolations(files: readonly SourceFile[]): GuardViolation[] {
 export const guard: AstGuard = {
   name: "i18n-Locale-Mount Guard",
   scan: SCAN,
-  hint: "Mount-Punkt (createKumikoApp/createPublicSurface/LocaleProvider) ohne deutsches Locale-Feature — localeDeClient() zu clientFeatures bzw. localeDe() zur Server-Feature-Liste ergaenzen.",
+  hint: "Mount point (createKumikoApp/createPublicSurface/LocaleProvider) without a German locale feature — add localeDeClient() to clientFeatures, or localeDe() to the server feature list.",
   run(files) {
     const violations = findViolations(files)
       .map((v) => ({ ...v, file: pathRelative(ROOT, v.file) }))

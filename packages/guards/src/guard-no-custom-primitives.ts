@@ -85,11 +85,11 @@ const BASELINE_PATH = path.join(ROOT, BASELINE_FILE);
 const rawFormHtmlBaseline = baselineRatchet({
   file: BASELINE_PATH,
   formatVersion: 1,
-  unit: "Fund(e) rohes Formular-HTML",
+  unit: "raw form HTML finding(s)",
 });
 const RAW_FORM_HTML_REMEDIATION =
-  "Framework-Widget nutzen (@cosmicdrift/kumiko-renderer-web: Field/Input, ComboboxInput, …) " +
-  `oder usePrimitives(). Echte Ausnahme: // ${IGNORE_TAG} <Grund>`;
+  "Use a framework widget (@cosmicdrift/kumiko-renderer-web: Field/Input, ComboboxInput, …) " +
+  `or usePrimitives(). Real exception: // ${IGNORE_TAG} <reason>`;
 
 // The rule is new: measured backlog is 0 in every locally checked repo
 // (infra#748). Without a baseline file, check fail-closed against an empty
@@ -105,12 +105,12 @@ function checkRawFormHtmlBaseline(findings: readonly RawFormFinding[]): GuardVio
     return regressions.map((r) => ({
       file: r.file,
       line: resolveLine(r.file),
-      message: `${r.current} Fund(e) rohes Formular-HTML (keine Baseline — Altbestand ist 0). ${RAW_FORM_HTML_REMEDIATION}`,
+      message: `${r.current} raw form HTML finding(s) (no baseline — existing backlog is 0). ${RAW_FORM_HTML_REMEDIATION}`,
     }));
   }
   return rawFormHtmlBaseline.check(current, RAW_FORM_HTML_REMEDIATION, {
     formatDriftRemediation:
-      "Einmalig `bun guards/guard-no-custom-primitives.ts --write-baseline` aufrufen.",
+      "Run `bun guards/guard-no-custom-primitives.ts --write-baseline` once.",
     resolveLine,
   });
 }
@@ -149,13 +149,13 @@ function analyse(
       violations.push({
         file: sf.getFilePath(),
         line: c.line,
-        message: `App-lokales UI-Primitive "${c.name}" — Framework-Widget/Primitive nutzen`,
+        message: `App-local UI primitive "${c.name}" — use a framework widget/primitive`,
       });
     }
     rawFormFindings.push(...collectRawFormHtml(sf));
   }
   if (!compareBaseline) {
-    console.log("  Baseline-Vergleich uebersprungen (--no-baseline).");
+    console.log("  Baseline comparison skipped (--no-baseline).");
   } else {
     violations.push(...checkRawFormHtmlBaseline(rawFormFindings));
   }
@@ -166,8 +166,8 @@ export const guard: AstGuard = {
   name: "No-Custom-Primitives Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Framework-Widget nutzen (@cosmicdrift/kumiko-renderer-web: StatCard, SectionCard, StatusBadge, QueryTable, Charts, …) " +
-    `oder usePrimitives(). Echte Domain-Komponente ohne Framework-Pendant: // ${IGNORE_TAG} <Grund>`,
+    "Use a framework widget (@cosmicdrift/kumiko-renderer-web: StatCard, SectionCard, StatusBadge, QueryTable, Charts, …) " +
+    `or usePrimitives(). Real domain component without a framework equivalent: // ${IGNORE_TAG} <reason>`,
   run: (files: readonly SourceFile[]) => analyse(files, true),
 };
 

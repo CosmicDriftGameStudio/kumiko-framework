@@ -406,7 +406,7 @@ function groupByCategory(all: readonly Site[]): Map<Category, Site[]> {
 
 function reportCasts(all: readonly Site[], scanned: number): void {
   const byCat = groupByCategory(all);
-  console.log(`as-Cast Audit: ${scanned} Dateien gepruefft, ${all.length} Casts total.\n`);
+  console.log(`as-Cast Audit: ${scanned} files checked, ${all.length} casts total.\n`);
   for (const c of CATS) {
     const count = byCat.get(c)?.length ?? 0;
     console.log(`  ${c.padEnd(18)} ${count}`);
@@ -416,7 +416,7 @@ function reportCasts(all: readonly Site[], scanned: number): void {
 
   // Aggregate suspect casts by target type — reveals bulk-refactor patterns
   // (e.g. "20x `as Record<string, unknown>`" → one DB-row helper fixes all).
-  console.log("\n  Suspect-Cast Top-Targets (>=3):");
+  console.log("\n  Suspect-cast top targets (>=3):");
   const byTarget = new Map<string, Site[]>();
   for (const s of all) {
     if (!s.category.startsWith("suspect-")) continue;
@@ -452,7 +452,7 @@ function reportCasts(all: readonly Site[], scanned: number): void {
   }
 
   console.log(
-    "\n  Regel: jeder suspect-Cast ist Kandidat fuer TypeGuard, Discriminated Union, oder bessere Typisierung an der Quelle.",
+    "\n  Rule: every suspect cast is a candidate for a TypeGuard, Discriminated Union, or better typing at the source.",
   );
 }
 
@@ -475,8 +475,8 @@ function reportUnknownReasons(all: readonly Site[]): void {
   for (const u of unknownReasons) {
     console.log(`    ${u.file}:${u.line}  reason=${u.reason}`);
   }
-  console.log(`\n  Bekannte Reasons: ${KNOWN_BOUNDARY_REASONS.join(", ")}`);
-  console.log("  Neue Reason? Eintrag in check-as-casts.ts → KNOWN_BOUNDARY_REASONS.");
+  console.log(`\n  Known reasons: ${KNOWN_BOUNDARY_REASONS.join(", ")}`);
+  console.log("  New reason? Add an entry in check-as-casts.ts → KNOWN_BOUNDARY_REASONS.");
 }
 
 const BASELINE_FORMAT_VERSION = 2;
@@ -539,8 +539,8 @@ function writeBaseline(all: readonly Site[]): void {
     ),
   };
   writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`);
-  console.log(`\n  Baseline geschrieben: ${baselinePath}`);
-  console.log(`  Total suspect: ${payload.totalSuspect} (repo-lokal)`);
+  console.log(`\n  Baseline written: ${baselinePath}`);
+  console.log(`  Total suspect: ${payload.totalSuspect} (repo-local)`);
 }
 
 // Per File:target: aktueller Count gegen baseline. Mehr → Regression.
@@ -552,7 +552,7 @@ function reportBaseline(all: readonly Site[]): void {
 
   if (!existsSync(baselinePath)) {
     console.log(
-      "\n  Keine Baseline gefunden. Erst mit `--write-baseline` einfrieren — bis dahin Warnung, kein Fail.",
+      "\n  No baseline found. Freeze one with `--write-baseline` first — warning, no fail until then.",
     );
     return;
   }
@@ -560,11 +560,9 @@ function reportBaseline(all: readonly Site[]): void {
   const rawBaseline = JSON.parse(readFileSync(baselinePath, "utf-8")) as Partial<Baseline>;
   if (rawBaseline.format !== BASELINE_FORMAT_VERSION) {
     console.log(
-      `\n  Baseline-Format-Drift: erwartet format=${BASELINE_FORMAT_VERSION}, gelesen format=${rawBaseline.format ?? "<missing>"}.`,
+      `\n  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${rawBaseline.format ?? "<missing>"}.`,
     );
-    console.log(
-      "  Einmalig `bun packages/guards/src/check-as-casts.ts --write-baseline` aufrufen.",
-    );
+    console.log("  Run `bun packages/guards/src/check-as-casts.ts --write-baseline` once.");
     return;
   }
   const baseline = rawBaseline as Baseline;
@@ -590,7 +588,7 @@ function reportBaseline(all: readonly Site[]): void {
 
   if (regressions.length > 0) {
     console.log(
-      `\n  REGRESSION: ${regressions.length} (file, target)-Pair(s) haben mehr suspect-Casts als Baseline:`,
+      `\n  REGRESSION: ${regressions.length} (file, target) pair(s) have more suspect casts than the baseline:`,
     );
     for (const r of regressions) {
       console.log(
@@ -598,19 +596,19 @@ function reportBaseline(all: readonly Site[]): void {
       );
     }
     console.log(
-      "\n  Neue Casts brauchen Begründung. Optionen:\n" +
-        "    1. Cast vermeiden (TypeGuard, Discriminated Union, bessere Source-Typisierung)\n" +
-        "    2. Wenn legit System-Boundary: `// @cast-boundary <reason>` Marker setzen\n" +
-        "    3. Wenn Cleanup-Reduktion in einem File aber Zuwachs in einem anderen: " +
-        "`bun packages/guards/src/check-as-casts.ts --write-baseline` nach Commit",
+      "\n  New casts need a justification. Options:\n" +
+        "    1. Avoid the cast (TypeGuard, Discriminated Union, better typing at the source)\n" +
+        "    2. If a legit system boundary: add a `// @cast-boundary <reason>` marker\n" +
+        "    3. If a cleanup reduction in one file offsets an increase in another: " +
+        "run `bun packages/guards/src/check-as-casts.ts --write-baseline` after committing",
     );
     return;
   }
 
-  console.log(`\n  ✓ Baseline (${baseline.totalSuspect}) — aktuell ${repoLocalTotal}`);
+  console.log(`\n  ✓ Baseline (${baseline.totalSuspect}) — current ${repoLocalTotal}`);
   if (reduced > 0) {
     console.log(
-      `  ✓ ${reduced} suspect-Cast(s) reduziert seit Baseline. Ggf. \`--write-baseline\` aufrufen.`,
+      `  ✓ ${reduced} suspect cast(s) reduced since baseline. Run \`--write-baseline\` if appropriate.`,
     );
   }
 }
@@ -620,7 +618,7 @@ function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): G
   reportCasts(all, scanned);
   reportUnknownReasons(all);
   if (compareBaseline) reportBaseline(all);
-  else console.log("\n  Baseline-Vergleich uebersprungen (--no-baseline).");
+  else console.log("\n  Baseline comparison skipped (--no-baseline).");
   // WARNUNG, kein Fail (coding-standards.md → "Type Assertions"): weder
   // unbekannte @cast-boundary-Reasons noch Baseline-Regression blocken.
   return { violations: [] };
