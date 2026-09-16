@@ -406,6 +406,32 @@ export async function loadSomething(passedCtx: typeof ctx) {
       "unsafe-raw-outside-system-scope",
     ]);
   });
+
+  test("flags an empty or whitespace-only declareEscapeHatch reason", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "" });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+      "/r/packages/bundled-features/src/foo/other-helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomethingElse(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "   " });
+	return passedCtx.systemDb.unsafeRaw("reads something else on behalf of the caller");
+}
+`,
+    });
+    const reasonFindings = findGenericReasonCalls(sfs, "/r");
+    expect(reasonFindings).toHaveLength(2);
+    for (const finding of reasonFindings) {
+      expect(finding.message).toMatch(/uses a placeholder reason/);
+    }
+  });
 });
 
 describe("R5: unsafe-all-tenants-outside-declared-scope", () => {
