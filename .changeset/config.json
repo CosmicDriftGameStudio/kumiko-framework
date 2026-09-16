@@ -14,7 +14,11 @@
       "@cosmicdrift/kumiko-renderer",
       "@cosmicdrift/kumiko-renderer-web",
       "@cosmicdrift/kumiko-locale-de",
-      "@cosmicdrift/kumiko-locale-es"
+      "@cosmicdrift/kumiko-locale-es",
+      "@cosmicdrift/kumiko-cli",
+      "create-kumiko-app",
+      "@cosmicdrift/kumiko-guards",
+      "@cosmicdrift/kumiko-repo-manifest"
     ]
   ],
   "linked": [],
@@ -23,6 +27,7 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "@cosmicdrift/kumiko-sample-*",
-    "@cosmicdrift/kumiko-marketing-demo"
+    "@cosmicdrift/kumiko-marketing-demo",
+    "@samples/workflow-engine"
   ]
 }
