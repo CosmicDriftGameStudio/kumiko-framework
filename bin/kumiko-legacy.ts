@@ -116,6 +116,7 @@ const BIN_PATH = (() => {
 const BIOME = join(BIN_PATH, "biome");
 const TSC = join(BIN_PATH, "tsc");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
+const GUARDS_RUNNER = resolvePath(import.meta.dir, "..", "packages", "guards", "src", "run-guards.ts");
 
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach Unit-Tests (+ Integration lokal, nicht in CI) an; `kumiko check:fast`
@@ -223,7 +224,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Der Runner baut das Project EINMAL (~6s) und lässt alle Guards seriell
   // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
   // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
-  steps.push({ name: "AST-Guards (shared runner)", cmd: "bunx kumiko-guards" });
+  steps.push({ name: "AST-Guards (shared runner)", cmd: `bun ${GUARDS_RUNNER}` });
   steps.push({ name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" });
   steps.push({
     name: "Primitives-Discipline Guard",

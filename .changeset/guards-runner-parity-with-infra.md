@@ -6,6 +6,6 @@ Add runner parity with the private infra/guards package: broker-subscribe, error
 
 <!-- kumiko-changes
 feature: guards
-type: feature
+type: improvement
 title: Add runner parity with the private infra/guards package
 -->
