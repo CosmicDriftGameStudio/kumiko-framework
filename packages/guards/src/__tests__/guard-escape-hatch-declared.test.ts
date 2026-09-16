@@ -387,6 +387,51 @@ export const h = defineWriteHandler({
     });
     expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
   });
+
+  test("flags a placeholder declareEscapeHatch reason, and the escalation it fails to cover", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "TODO" });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    const reasonFindings = findGenericReasonCalls(sfs, "/r");
+    expect(reasonFindings).toHaveLength(1);
+    expect(reasonFindings[0]?.message).toMatch(/uses a placeholder reason/);
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("flags an empty or whitespace-only declareEscapeHatch reason", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "" });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+      "/r/packages/bundled-features/src/foo/other-helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomethingElse(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "   " });
+	return passedCtx.systemDb.unsafeRaw("reads something else on behalf of the caller");
+}
+`,
+    });
+    const reasonFindings = findGenericReasonCalls(sfs, "/r");
+    expect(reasonFindings).toHaveLength(2);
+    for (const finding of reasonFindings) {
+      expect(finding.message).toMatch(/uses a placeholder reason/);
+    }
+  });
 });
 
 describe("R5: unsafe-all-tenants-outside-declared-scope", () => {
@@ -900,6 +945,103 @@ export const h = defineWriteHandler({
     expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
       "raw-outside-system-scope",
     ]);
+  });
+});
+
+describe("declareEscapeHatch (standalone function form)", () => {
+  test("flags unsafeRaw in a standalone function with no declareEscapeHatch", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("does not clear on declareEscapeHatch({}) — no reason at all", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({});
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("does not clear on a non-literal reason (declareEscapeHatch({ reason: someVar }))", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+declare const someVar: string;
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: someVar });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("a declareEscapeHatch in a nested function does not cover the outer function's escalation", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function outer(passedCtx: typeof ctx) {
+	const inner = () => {
+		declareEscapeHatch({ reason: "covers only the inner closure, not outer" });
+	};
+	inner();
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("clears unsafeRaw in a standalone function with a valid declareEscapeHatch", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "reads something on behalf of the caller" });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("clears queryAs(systemUser, ...) in a standalone function with a valid declareEscapeHatch (R3)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { queryAs: (...a: unknown[]) => unknown };
+async function loadValidatedUser(passedCtx: typeof ctx, systemUser: unknown, userId: string) {
+	declareEscapeHatch({ reason: "reads the user row on behalf of the caller's handler" });
+	return passedCtx.queryAs(systemUser, "qn", { id: userId });
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
   });
 });
 

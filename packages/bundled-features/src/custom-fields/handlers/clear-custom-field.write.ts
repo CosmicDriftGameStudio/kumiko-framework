@@ -39,7 +39,7 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
     const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
 
     const accessCheck = await checkFieldAccessForWrite(
-      ctx.db,
+      ctx.db.unsafeRaw(CLEAR_CUSTOM_FIELD_REASON),
       event.user.tenantId,
       payload.entityName,
       payload.fieldKey,

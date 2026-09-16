@@ -21,8 +21,9 @@
  *   2. `failUnprocessable(X, ...)` — same rule.
  *   3. Object literals containing `reason: "X"` — same rule for the X.
  *      Skips `openToAll: { reason: "..." }` / `escapeHatch: { reason: "..." }`
- *      — those are prose access-declaration justifications, enforced instead
- *      by guard-open-to-all-reason.ts / guard-escape-hatch-declared.ts.
+ *      and `declareEscapeHatch({ reason: "..." })` — those are prose
+ *      access-declaration justifications, enforced instead by
+ *      guard-open-to-all-reason.ts / guard-escape-hatch-declared.ts.
  *
  * Non-literal reasons (computed, template strings with interpolation,
  * identifier references) are assumed to be typed-from-a-const and pass.
@@ -134,14 +135,21 @@ function scanFile(sf: SourceFile): Violation[] {
 }
 
 // A `reason` PropertyAssignment whose object literal is the initializer of
-// an `openToAll` or `escapeHatch` PropertyAssignment is an access-declaration
+// an `openToAll` / `escapeHatch` PropertyAssignment, or the sole argument
+// object of a bare `declareEscapeHatch(...)` call, is an access-declaration
 // justification, not an error-reason code.
 export function isAccessDeclarationReason(prop: Node): boolean {
   const objectLiteral = prop.getParent();
   if (!objectLiteral?.isKind(SyntaxKind.ObjectLiteralExpression)) return false;
   const owner = objectLiteral.getParent();
-  if (!owner?.isKind(SyntaxKind.PropertyAssignment)) return false;
-  return ACCESS_DECLARATION_NAMES.has(owner.getName());
+  if (owner?.isKind(SyntaxKind.PropertyAssignment)) {
+    return ACCESS_DECLARATION_NAMES.has(owner.getName());
+  }
+  if (owner?.isKind(SyntaxKind.CallExpression)) {
+    const callee = owner.getExpression();
+    return callee.isKind(SyntaxKind.Identifier) && callee.getText() === "declareEscapeHatch";
+  }
+  return false;
 }
 
 // Returns the offending string if this node is a string literal that does

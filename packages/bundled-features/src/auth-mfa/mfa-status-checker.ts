@@ -1,6 +1,7 @@
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  declareEscapeHatch,
   type HandlerContext,
   type SessionUser,
   type TenantId,
@@ -38,6 +39,10 @@ export function createMfaStatusChecker(opts: {
   readonly challengeTokenSecret: string;
 }): MfaStatusChecker {
   return async (ctx, userId, tenantId, roles) => {
+    declareEscapeHatch({
+      reason:
+        "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant, on the caller's handler context; the calling handler declares its own escapeHatch",
+    });
     const scopedDb = createTenantDb(
       ctx.db.unsafeRaw(
         "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",

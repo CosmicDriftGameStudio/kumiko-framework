@@ -95,12 +95,9 @@ type AuthenticatableUserRow = AuthUserRow & { readonly passwordHash: string };
 
 /** Uniform response on any credential miss — burns argon2 cost (#774). */
 export async function gateResolveAuthUser(
-  ctx: HandlerContext,
-  systemUser: SessionUser,
-  email: string,
+  found: AuthUserRow | null,
   password: string,
 ): Promise<GateOutcome<AuthenticatableUserRow>> {
-  const found = parseAuthUserRow(await ctx.queryAs(systemUser, UserQueries.findForAuth, { email }));
   if (!found?.passwordHash || found.isDeleted) {
     await verifyDummyPassword(password);
     return reject(invalidCredentials());
@@ -176,15 +173,9 @@ export function gateEnforceAccountStatus(found: AuthUserRow): GateOutcome<undefi
 /** Pick membership (last-active preferred); merge global + tenant roles. */
 export async function gateResolveMembership(
   ctx: HandlerContext,
-  systemUser: SessionUser,
   found: AuthUserRow,
+  memberships: ReadonlyArray<Membership>,
 ): Promise<GateOutcome<{ readonly chosen: Membership; readonly mergedRoles: readonly string[] }>> {
-  // Still needed for candidate ORDER (preferred tenant first) — the actual
-  // active/blocked/teardown decision comes from ctx.resolveActiveMembership below.
-  const memberships = (await ctx.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
-    userId: found.id,
-  })) as Array<Membership>; // @cast-boundary db-runner
-
   if (memberships.length === 0) {
     return reject(noMembership());
   }
@@ -296,12 +287,10 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
     handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
-      const userGate = await gateResolveAuthUser(
-        ctx,
-        systemUser,
-        event.payload.email,
-        event.payload.password,
+      const foundRow = parseAuthUserRow(
+        await ctx.queryAs(systemUser, UserQueries.findForAuth, { email: event.payload.email }),
       );
+      const userGate = await gateResolveAuthUser(foundRow, event.payload.password);
       if (!userGate.ok) return userGate.result;
       const found = userGate.value;
 
@@ -323,7 +312,13 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const statusGate = gateEnforceAccountStatus(found);
       if (!statusGate.ok) return statusGate.result;
 
-      const membershipGate = await gateResolveMembership(ctx, systemUser, found);
+      // Still needed for candidate ORDER (preferred tenant first) — the actual
+      // active/blocked/teardown decision comes from ctx.resolveActiveMembership below.
+      const memberships = (await ctx.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
+        userId: found.id,
+      })) as Array<Membership>; // @cast-boundary db-runner
+
+      const membershipGate = await gateResolveMembership(ctx, found, memberships);
       if (!membershipGate.ok) return membershipGate.result;
       const { chosen, mergedRoles } = membershipGate.value;
 

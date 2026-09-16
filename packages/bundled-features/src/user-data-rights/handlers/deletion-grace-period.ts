@@ -1,5 +1,6 @@
 import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
-import { createSystemUser, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { decryptStoredPii } from "../../shared";
@@ -17,19 +18,23 @@ export type StartGracePeriodResult =
     }
   | { readonly ok: false; readonly error: UnprocessableError };
 
-// Flippt einen aktiven User auf DeletionRequested + setzt gracePeriodEnd aus
-// dem Compliance-Profile. Geteilt zwischen dem authentifizierten
-// request-deletion-Pfad (event.user) und dem anonymen confirm-by-token-Pfad
-// (userId aus verifiziertem Token) — eine Quelle für die Grace-Period-Logik.
+// Flips an active user to DeletionRequested and sets gracePeriodEnd from the
+// caller-supplied grace period. Shared between the authenticated
+// request-deletion path (event.user) and the anonymous confirm-by-token path
+// (userId from a verified token) — one source for the grace-period logic.
 //
-// `complianceTenantId`: Tenant dessen Compliance-Profile die Grace-Dauer
-// liefert. Authenticated = aktiver Tenant des Users; anonym = Dispatch-Tenant
-// der Apex-Surface. Die User-Row ist tenant-agnostisch (Account-weite
-// Löschung), nur die Grace-Dauer ist tenant-konfiguriert.
+// The user row is tenant-agnostic (account-wide deletion), so it is read via
+// ctx.db.global(userTable); only the grace period duration is tenant-configured.
+//
+// `gracePeriod` and `lifecycleRunner` are resolved by the caller: both
+// require an escalation (reading the tenant compliance profile, appending to
+// the SYSTEM_TENANT_ID user stream) that only the declaring handler's
+// escapeHatch covers.
 export async function startDeletionGracePeriod(
   ctx: HandlerContext,
   userId: string,
-  complianceTenantId: string,
+  gracePeriod: DurationSpec,
+  lifecycleRunner: DbRunner,
 ): Promise<StartGracePeriodResult> {
   const userRow = await ctx.db
     .global(userTable)
@@ -51,26 +56,13 @@ export async function startDeletionGracePeriod(
     };
   }
 
-  // @cast-boundary engine-payload — queryAs liefert unknown, narrow auf den
-  // effektiven Profile-Shape (siehe request-deletion-Original).
-  const profile = (await ctx.queryAs(
-    createSystemUser(complianceTenantId),
-    "compliance-profiles:query:for-tenant",
-    {},
-  )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
-
-  const gracePeriod = profile.profile.userRights.gracePeriod;
   const T = getTemporal();
   const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
 
-  await updateUserLifecycle(
-    ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
-    userId,
-    {
-      status: USER_STATUS.DeletionRequested,
-      gracePeriodEnd,
-    },
-  );
+  await updateUserLifecycle(lifecycleRunner, userId, {
+    status: USER_STATUS.DeletionRequested,
+    gracePeriodEnd,
+  });
 
   return {
     ok: true,
