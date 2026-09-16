@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.282.0",
+    "type": "fix",
+    "title": "kumiko-guards bin now passes flags through to the guards, ui, and checks subcommands",
+    "detail": "The bin's `guards` subcommand called run-guards.ts's suite runner directly, skipping the `--explain`/`--write-security-baseline`/`--strict-security-baseline` handling that only existed in run-guards.ts's own `if (import.meta.main)` block — a consumer running `bunx @cosmicdrift/kumiko-guards guards --write-security-baseline` got a normal guard run with the flag silently dropped. Each suite (guards, ui, checks) now exports a `run*Cli(argv)` function that validates argv against that suite's known flags and applies them; both the bin and the suite's own direct-invocation entry point call the same function, so they cannot drift apart again. Validation matches each arg exactly against the known list (not just a `--`-prefix check), so a single-dash typo or a stray positional also exits 1 with the flags that subcommand accepts, rather than passing through unnoticed."
+  },
+  {
+    "version": "0.282.0",
+    "type": "improvement",
+    "title": "kumiko-guards list prints the registration inventory as JSON"
+  },
+  {
+    "version": "0.282.0",
+    "type": "improvement",
+    "title": "Port the upgrade-state and runtime-isolation guards",
+    "detail": "guard-upgrade-state and check-runtime-isolation ported from the private infra/guards package into the public @cosmicdrift/kumiko-guards package, rebuilt onto the public RepoCheck pattern with single-repo root resolution. guard-app-dockerfile, guard-doc-status, check-licenses, and check-security stay in infra/guards as CDGS-specific house rules (private registry scope, CDGS doc taxonomy, and CDGS license/security exception files with no equivalent consumer-facing mechanism in the public package) — they were deliberately not ported, not forgotten."
+  },
+  {
     "version": "0.3.0",
     "type": "improvement",
     "title": "Add a consumer CLI entry so bunx @cosmicdrift/kumiko-guards runs all three suites"

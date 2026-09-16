@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.282.0
+
+### Minor Changes
+
+- 73b5efe: New `kumiko-guards list` subcommand prints the registration inventory (which guards/checks are registered, under which names, in which suite) as JSON, without scanning or running anything. The public package has one bin with `guards|ui|checks` subcommands instead of a bin per guard, so a consumer's CI can no longer check "does this binary exist" per guard — `list` is what it checks against instead, e.g. `bunx kumiko-guards list | jq '.suites.guards.count'`.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: kumiko-guards list prints the registration inventory as JSON
+  -->
+
+- 7681005: Port the upgrade-state and runtime-isolation guards
+
+  guard-upgrade-state and check-runtime-isolation ported from the private infra/guards package into the public @cosmicdrift/kumiko-guards package, rebuilt onto the public RepoCheck pattern with single-repo root resolution. guard-app-dockerfile, guard-doc-status, check-licenses, and check-security stay in infra/guards as CDGS-specific house rules (private registry scope, CDGS doc taxonomy, and CDGS license/security exception files with no equivalent consumer-facing mechanism in the public package) — they were deliberately not ported, not forgotten.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Port the upgrade-state and runtime-isolation guards
+  -->
+
+### Patch Changes
+
+- a5965ff: `kumiko-guards guards` now accepts `--explain`, `--write-security-baseline`, and `--strict-security-baseline`
+
+  The `kumiko-guards` bin's `guards` subcommand only ran `process.argv[2]` for the subcommand name and never passed the rest of `argv` into the suite it dispatched to, so `--write-security-baseline` and the other run-guards.ts flags were silently ignored when invoked through the published bin — the only way to reach them was a direct `node_modules/@cosmicdrift/kumiko-guards/src/run-guards.ts` file-path call. Each suite's flag handling now lives in one `run*Cli(argv)` function shared by the bin and the suite's own direct-invocation block, and any argument that isn't an exact match for that subcommand's known flags — a single-dash typo, a stray positional, anything — fails with the flags that subcommand actually understands instead of being ignored.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: kumiko-guards bin now passes flags through to the guards, ui, and checks subcommands
+  detail: The bin's `guards` subcommand called run-guards.ts's suite runner directly, skipping the `--explain`/`--write-security-baseline`/`--strict-security-baseline` handling that only existed in run-guards.ts's own `if (import.meta.main)` block — a consumer running `bunx @cosmicdrift/kumiko-guards guards --write-security-baseline` got a normal guard run with the flag silently dropped. Each suite (guards, ui, checks) now exports a `run*Cli(argv)` function that validates argv against that suite's known flags and applies them; both the bin and the suite's own direct-invocation entry point call the same function, so they cannot drift apart again. Validation matches each arg exactly against the known list (not just a `--`-prefix check), so a single-dash typo or a stray positional also exits 1 with the flags that subcommand accepts, rather than passing through unnoticed.
+  -->
+
+  - @cosmicdrift/kumiko-repo-manifest@0.282.0
+
 ## 0.281.0
 
 ### Patch Changes
