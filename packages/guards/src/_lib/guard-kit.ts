@@ -522,6 +522,47 @@ export function printGuardKitBanner(
   if (project) console.log(`Project: ${project.getSourceFiles().length} files`);
 }
 
+export type SuiteInventory = {
+  readonly count: number;
+  readonly names: readonly string[];
+};
+
+export type GuardKitInventory = {
+  readonly version: string;
+  readonly total: number;
+  readonly suites: {
+    readonly guards: SuiteInventory;
+    readonly ui: SuiteInventory;
+    readonly checks: SuiteInventory;
+  };
+};
+
+function suiteInventory(items: readonly { readonly name: string }[]): SuiteInventory {
+  const names = items.map((item) => item.name);
+  return { count: names.length, names };
+}
+
+/**
+ * Static registration inventory for the three suites — reads each array's
+ * `.name` only, no scan/project/guard.run(). What a consumer's CI checks
+ * against instead of running the guards, e.g. so a guard dropped from a
+ * suite's array is missing here too, not just silently absent from a run.
+ */
+export function buildGuardKitInventory(args: {
+  readonly guards: readonly { readonly name: string }[];
+  readonly uiGuards: readonly { readonly name: string }[];
+  readonly checks: readonly { readonly name: string }[];
+}): GuardKitInventory {
+  const guards = suiteInventory(args.guards);
+  const ui = suiteInventory(args.uiGuards);
+  const checks = suiteInventory(args.checks);
+  return {
+    version: guardKitVersion(),
+    total: guards.count + ui.count + checks.count,
+    suites: { guards, ui, checks },
+  };
+}
+
 /**
  * Vacuity floor for guards with their own `main()`.
  *

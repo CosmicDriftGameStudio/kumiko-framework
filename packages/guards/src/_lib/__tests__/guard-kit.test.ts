@@ -6,6 +6,7 @@ import type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
 import { Project } from "ts-morph";
 import {
   type AstGuard,
+  buildGuardKitInventory,
   checkRootFloor,
   explainGuards,
   guardKitPreflightError,
@@ -362,6 +363,55 @@ describe("runGuards — security guards apply the baseline (infra#787)", () => {
     });
     expect(result?.ok).toBe(false);
     expect(result?.frozenFindings).toBeUndefined();
+  });
+});
+
+// One bin with `guards|ui|checks` subcommands replaced a bin per guard, so
+// CI can no longer check "does this binary exist" per guard.
+// buildGuardKitInventory is the replacement: a no-scan/no-project read of
+// the registration arrays' names.
+describe("buildGuardKitInventory — the registration inventory, not a scan", () => {
+  test("lists each suite's registered names and totals them", () => {
+    const inventory = buildGuardKitInventory({
+      guards: [okGuard, throwingGuard],
+      uiGuards: [okGuard],
+      checks: [{ name: "check-a" }],
+    });
+    expect(inventory.suites.guards).toEqual({
+      count: 2,
+      names: ["ok-guard", "throwing-guard"],
+    });
+    expect(inventory.suites.ui).toEqual({ count: 1, names: ["ok-guard"] });
+    expect(inventory.suites.checks).toEqual({ count: 1, names: ["check-a"] });
+    expect(inventory.total).toBe(4);
+  });
+
+  // The behavior this exists for: a guard dropped from a suite's array must
+  // go missing from the inventory too, not stay listed from a stale source.
+  test("a guard removed from the registration array is missing from the inventory", () => {
+    const before = buildGuardKitInventory({
+      guards: [okGuard, throwingGuard],
+      uiGuards: [],
+      checks: [],
+    });
+    expect(before.suites.guards.names).toContain("throwing-guard");
+
+    const after = buildGuardKitInventory({
+      guards: [okGuard],
+      uiGuards: [],
+      checks: [],
+    });
+    expect(after.suites.guards.names).not.toContain("throwing-guard");
+    expect(after.suites.guards.count).toBe(1);
+    expect(after.total).toBe(before.total - 1);
+  });
+
+  test("empty suites report zero counts and empty name lists, not an error", () => {
+    const inventory = buildGuardKitInventory({ guards: [], uiGuards: [], checks: [] });
+    expect(inventory.suites.guards).toEqual({ count: 0, names: [] });
+    expect(inventory.suites.ui).toEqual({ count: 0, names: [] });
+    expect(inventory.suites.checks).toEqual({ count: 0, names: [] });
+    expect(inventory.total).toBe(0);
   });
 });
 
