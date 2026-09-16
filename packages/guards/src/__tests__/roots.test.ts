@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gitEnv } from "../_lib/git-env";
 import { findLocalRepo, frameworkPackageTsConfigPath } from "../_lib/roots";
 import { writeRepo } from "./parent-workspace-fixture";
 
@@ -148,13 +149,10 @@ describe("resolveRepoRoots — real git worktree integration", () => {
     // GIT_CEILING_DIRECTORIES stops repo discovery from climbing past the
     // workspace root even if init misbehaves.
     const env: Record<string, string> = {
+      ...gitEnv(),
       GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_CEILING_DIRECTORIES: ws,
     };
-    for (const key of ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "USER", "LOGNAME"] as const) {
-      const v = process.env[key];
-      if (v !== undefined) env[key] = v;
-    }
     const git = (args: string[]) => Bun.spawnSync(["git", "-C", canonical, ...args], { env });
     expect(git(["init", "-q", "-b", "main"]).success).toBe(true);
     git(["config", "user.email", "t@e.com"]);

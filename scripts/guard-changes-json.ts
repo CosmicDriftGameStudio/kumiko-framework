@@ -14,6 +14,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
+import { gitEnv } from "../packages/guards/src/_lib/git-env";
 import {
   compareVersions,
   parseFeatureChangelog,
@@ -34,6 +35,7 @@ function changedFiles(
   if (!env["GITHUB_BASE_SHA"] && baseRef) {
     const fetched = Bun.spawnSync(["git", "fetch", "--no-tags", "--depth=1", "origin", baseRef], {
       cwd: repoRoot,
+      env: gitEnv(),
     });
     if (fetched.exitCode !== 0) {
       const detail = new TextDecoder().decode(fetched.stderr).trim();
@@ -43,6 +45,7 @@ function changedFiles(
   }
   const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", base, "HEAD"], {
     cwd: repoRoot,
+    env: gitEnv(),
   });
   if (result.exitCode !== 0) {
     const detail = new TextDecoder().decode(result.stderr).trim();

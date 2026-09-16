@@ -8,6 +8,7 @@
 import { $ } from "bun";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { gitEnv } from "../packages/guards/src/_lib/git-env";
 
 const ROOT = join(import.meta.dir, "..");
 
@@ -336,7 +337,7 @@ async function harvestFromGit(ref: string, locale: string): Promise<Record<strin
   const out: Record<string, string> = {};
   for (const file of i18nFiles()) {
     const rel = relative(ROOT, file);
-    const proc = await $`git -C ${ROOT} show ${`${ref}:${rel}`}`.quiet().nothrow();
+    const proc = await $`git -C ${ROOT} show ${`${ref}:${rel}`}`.env(gitEnv()).quiet().nothrow();
     if (proc.exitCode !== 0) continue;
     Object.assign(out, harvestFromSource(proc.stdout.toString(), locale));
   }

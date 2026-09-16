@@ -1,8 +1,21 @@
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gitEnv } from "../packages/guards/src/_lib/git-env";
 import { findChangelogViolations, findChangesetViolations, isReleaseBranch } from "./guard-changes-json";
+
+// Fixture git spawns get gitEnv() (never inherited GIT_DIR/GIT_WORK_TREE) plus
+// GIT_CEILING_DIRECTORIES/GIT_CONFIG_GLOBAL pinned to the fixture tree, so a
+// run triggered by this very repo's pre-push hook can never touch the real
+// repo even if a fixture command itself is spawned with a leaked env — see #2951.
+function fixtureGitEnv(ceilingDir: string): Record<string, string> {
+  return {
+    ...gitEnv(),
+    GIT_CEILING_DIRECTORIES: ceilingDir,
+    GIT_CONFIG_GLOBAL: "/dev/null",
+  };
+}
 
 function buildFixtureRoot(features: readonly [relDir: string, entries: unknown][]): string {
   const root = mkdtempSync(join(tmpdir(), "changes-json-"));
@@ -202,6 +215,7 @@ describe("findChangesetViolations", () => {
     const runGit = (args: string[], cwd: string): void => {
       const result = Bun.spawnSync(["git", ...args], {
         cwd,
+        env: fixtureGitEnv(root),
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -236,6 +250,119 @@ describe("findChangesetViolations", () => {
       expect(violations).toEqual([
         { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
       ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not leak GIT_DIR/GIT_WORK_TREE into a parent repo (regression #2951)", () => {
+    // In-process `process.env.GIT_DIR = …` mutation does NOT reach
+    // Bun.spawnSync's default (omitted-env) inheritance — verified: Bun
+    // snapshots the real OS environ at process start, not the live JS
+    // `process.env` object, for that path. A real Husky pre-push hook sets
+    // GIT_DIR/GIT_WORK_TREE in its actual OS environ and then execs
+    // `bun run …`, which genuinely inherits it. So this test spawns a real
+    // child `bun` process with GIT_DIR/GIT_WORK_TREE in ITS environment —
+    // that process then calls `findChangesetViolations` and every git spawn
+    // nested inside it inherits the leak exactly like the real incident did.
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-leak-"));
+    const remote = join(root, "remote.git");
+    const repo = join(root, "repo");
+    const parent = join(root, "parent");
+    const harnessPath = join(root, "harness.ts");
+
+    const runGit = (args: string[], cwd: string): void => {
+      const result = Bun.spawnSync(["git", ...args], {
+        cwd,
+        env: fixtureGitEnv(root),
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (result.exitCode !== 0) {
+        throw new Error(`${args.join(" ")}: ${result.stderr.toString()}`);
+      }
+    };
+    const capture = (args: string[], cwd: string): string => {
+      const result = Bun.spawnSync(["git", ...args], { cwd, env: fixtureGitEnv(root) });
+      return result.stdout.toString().trim();
+    };
+
+    try {
+      // Target repo: what the guard is told to operate on (repoRoot).
+      mkdirSync(repo, { recursive: true });
+      runGit(["init", "--bare", remote], root);
+      runGit(["init", "-q", repo], root);
+      runGit(["config", "user.email", "test@example.com"], repo);
+      runGit(["config", "user.name", "test"], repo);
+      writeFileSync(join(repo, "README.md"), "base\n");
+      runGit(["add", "README.md"], repo);
+      runGit(["commit", "-q", "-m", "base"], repo);
+      runGit(["branch", "-M", "main"], repo);
+      runGit(["remote", "add", "origin", remote], repo);
+      runGit(["push", "-q", "-u", "origin", "main"], repo);
+      runGit(["switch", "-q", "-c", "feature"], repo);
+      mkdirSync(join(repo, ".changeset"));
+      writeFileSync(join(repo, ".changeset", "missing.md"), "Plain note.\n");
+      runGit(["add", ".changeset/missing.md"], repo);
+      runGit(["commit", "-q", "-m", "changeset"], repo);
+
+      // Parent repo: simulates the real, shared checkout a Husky pre-push
+      // hook is running in. It shares the same origin, so a leaked fetch
+      // would succeed against it (not just fail loudly).
+      mkdirSync(parent, { recursive: true });
+      runGit(["init", "-q", parent], root);
+      runGit(["config", "user.email", "parent@example.com"], parent);
+      runGit(["config", "user.name", "parent"], parent);
+      writeFileSync(join(parent, "PARENT.md"), "parent\n");
+      runGit(["add", "PARENT.md"], parent);
+      runGit(["commit", "-q", "-m", "parent initial"], parent);
+      runGit(["remote", "add", "origin", remote], parent);
+
+      const parentHeadBefore = capture(["rev-parse", "HEAD"], parent);
+      const parentBranchBefore = capture(["rev-parse", "--abbrev-ref", "HEAD"], parent);
+      const parentCommitCountBefore = capture(["rev-list", "--count", "HEAD"], parent);
+      expect(existsSync(join(parent, ".git", "FETCH_HEAD"))).toBe(false);
+
+      const guardPath = join(import.meta.dir, "guard-changes-json.ts");
+      writeFileSync(
+        harnessPath,
+        [
+          `import { findChangesetViolations } from ${JSON.stringify(guardPath)};`,
+          `const violations = findChangesetViolations(${JSON.stringify(repo)}, undefined, { GITHUB_BASE_REF: "", GITHUB_EVENT_NAME: "push" });`,
+          "console.log(JSON.stringify(violations));",
+        ].join("\n"),
+      );
+
+      // The Husky pre-push hook's own environment: GIT_DIR/GIT_WORK_TREE
+      // point at the PARENT repo, while the guard is told (via its own
+      // repoRoot argument, baked into the harness above) to operate on `repo`.
+      const hookEnv: Record<string, string> = {
+        ...gitEnv(),
+        GIT_DIR: join(parent, ".git"),
+        GIT_WORK_TREE: parent,
+      };
+      const harnessResult = Bun.spawnSync(["bun", harnessPath], {
+        cwd: repo,
+        env: hookEnv,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (harnessResult.exitCode !== 0) {
+        throw new Error(`harness failed: ${harnessResult.stderr.toString()}`);
+      }
+      const violations = JSON.parse(harnessResult.stdout.toString().trim());
+
+      // The guard must still report on `repo`'s own diff, not the parent's.
+      expect(violations).toEqual([
+        { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
+      ]);
+
+      // The parent repo must be byte-for-byte untouched: no fetch landed
+      // there, no branch got renamed, no foreign commit appeared.
+      expect(existsSync(join(parent, ".git", "FETCH_HEAD"))).toBe(false);
+      expect(capture(["rev-parse", "HEAD"], parent)).toBe(parentHeadBefore);
+      expect(capture(["rev-parse", "--abbrev-ref", "HEAD"], parent)).toBe(parentBranchBefore);
+      expect(capture(["rev-list", "--count", "HEAD"], parent)).toBe(parentCommitCountBefore);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
