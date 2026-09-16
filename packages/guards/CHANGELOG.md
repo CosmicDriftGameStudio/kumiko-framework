@@ -1,5 +1,47 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.3.0
+
+### Minor Changes
+
+- c74f155: `bunx @cosmicdrift/kumiko-guards` is now runnable: a new `src/cli.ts` entry runs all three suites (guards, UI guards, repo checks) in one process and exits 1 if any of them reports a violation, or runs a single suite via `kumiko-guards guards|ui|checks`. `package.json`'s `bin` field now points at this new entry instead of `run-guards.ts` alone, so a plain `bunx`/`kumiko-guards` call covers every guard, not just the AST-guard suite.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Add a consumer CLI entry so bunx @cosmicdrift/kumiko-guards runs all three suites
+  -->
+
+- 7bc2dd6: Port the last five infra/guards guards
+
+  app-feature-structure, lib-test-coverage, i18n-locale-terminology, feature-integration-tests, and test-stack-drift ported from the private infra/guards package into the public @cosmicdrift/kumiko-guards package. The latter two were rebuilt from ad-hoc infra scripts onto the public RepoCheck pattern; the other three are literal AstGuard ports.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Port the last five infra/guards guards
+  -->
+
+- 6314249: The shared runners (run-guards, run-ui-guards, run-repo-checks) now print a one-line banner before the first guard result (version, guard count, resolved roots, and — where a shared ts-morph project exists — the scanned file count), and abort with a clear error and exit code 1 when zero repo roots resolve or the guard array is empty, instead of silently reporting green. A single guard finding no target repos still only produces its existing per-guard `skipped` line. All remaining German user-visible guard output (console messages, finding messages, remediation hints) across packages/guards/src is now English; comments were left untouched.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Add startup banner, fail-closed on zero roots/guards, and finish English output
+  -->
+
+### Patch Changes
+
+- 989c3ba: Fix two false-positive findings in the Secret-Literal and Thin-Wrappers guards
+
+  The Secret-Literal Guard flagged secret-fallback patterns documented inside comments: only line-start `//` comments were skipped, so a block-comment line (JSDoc-style `*`, `/*`, `*/`) explaining the rule tripped the guard on its own documentation. Block-comment lines are now recognized as comments too. The Thin-Wrappers Guard misread `/regex/.test(x)` as a call to a function literally named `test`, reporting the enclosing function as a thin wrapper around it. That misclassification no longer fires.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Fix two false-positive findings in the Secret-Literal and Thin-Wrappers guards
+  -->
+
 ## 0.2.0
 
 ### Minor Changes
