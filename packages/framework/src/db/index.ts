@@ -157,5 +157,4 @@ export {
   createTenantDb,
   createUncheckedSystemDb,
   SYSTEM_SCOPE_CHECK_BRAND,
-  withUnsafeRawGrant,
 } from "./tenant-db";
