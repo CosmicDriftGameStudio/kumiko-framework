@@ -43,12 +43,7 @@ function fakeClient(failures: Error[], row: Record<string, unknown>): FakeClient
 describe("custom-fields db/queries — closed-connection retry (#2323)", () => {
   test("selectSerializedFieldDefinition retries once through db.unsafeRaw and returns the row", async () => {
     const raw = fakeClient([closedConnectionError()], { serialized_field: "sf1" });
-    const result = await selectSerializedFieldDefinition(
-      { unsafeRaw: () => raw } as never,
-      "t1",
-      "entity",
-      "field",
-    );
+    const result = await selectSerializedFieldDefinition(raw, "t1", "entity", "field");
     expect(result).toBe("sf1");
     expect(raw.calls).toBe(2);
   });
@@ -90,9 +85,9 @@ describe("custom-fields db/queries — closed-connection retry (#2323)", () => {
     const raw = fakeClient([closedConnectionError(), closedConnectionError()], {
       serialized_field: "sf1",
     });
-    await expect(
-      selectSerializedFieldDefinition({ unsafeRaw: () => raw } as never, "t1", "entity", "field"),
-    ).rejects.toThrow("connection was closed");
+    await expect(selectSerializedFieldDefinition(raw, "t1", "entity", "field")).rejects.toThrow(
+      "connection was closed",
+    );
     expect(raw.calls).toBe(2);
   });
 });

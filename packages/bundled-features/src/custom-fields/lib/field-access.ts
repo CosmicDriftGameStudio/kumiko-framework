@@ -2,7 +2,7 @@
 // Plus single-fetch loader so set-custom-field can run access-check AND
 // value-validation off one DB read (no double fetch).
 
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { selectSerializedFieldDefinition } from "../db/queries/field-access";
 import { parseSerializedField, type SerializedFieldShape } from "./parse-serialized-field";
 
@@ -22,12 +22,12 @@ export type LoadedFieldDefinition =
   | { found: true; field: SerializedFieldShape | null };
 
 export async function loadFieldDefinition(
-  db: TenantDb,
+  runner: DbRunner,
   tenantId: string,
   entityName: string,
   fieldKey: string,
 ): Promise<LoadedFieldDefinition> {
-  const serialized = await selectSerializedFieldDefinition(db, tenantId, entityName, fieldKey);
+  const serialized = await selectSerializedFieldDefinition(runner, tenantId, entityName, fieldKey);
   if (serialized === null) return { found: false };
   // parseSerializedField throws on a #972 legacy `sensitive` definition —
   // that's a corrupt/unprocessable row from this write-gate's perspective,
@@ -57,13 +57,13 @@ export function fieldWriteAccessDeniedRoles(
 // Convenience wrapper retained for clear-custom-field (no value-validation
 // needed there) — does the load + access-check in one call.
 export async function checkFieldAccessForWrite(
-  db: TenantDb,
+  runner: DbRunner,
   tenantId: string,
   entityName: string,
   fieldKey: string,
   userRoles: ReadonlyArray<string>,
 ): Promise<FieldAccessCheckResult> {
-  const loaded = await loadFieldDefinition(db, tenantId, entityName, fieldKey);
+  const loaded = await loadFieldDefinition(runner, tenantId, entityName, fieldKey);
   if (!loaded.found) return { ok: false, reason: "field_definition_not_found" };
   if (loaded.field === null) return { ok: false, reason: "field_definition_corrupt" };
 
