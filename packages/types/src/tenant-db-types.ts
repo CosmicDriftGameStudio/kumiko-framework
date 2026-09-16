@@ -74,6 +74,7 @@ export type TenantDb = {
     table: SchemaTable | EntityTableMeta,
     where: WhereObject,
   ): Promise<T | undefined>;
+  count(table: SchemaTable | EntityTableMeta, where?: WhereObject): Promise<number>;
   insertOne<T = Record<string, unknown>>(
     table: WritableTable,
     values: Record<string, unknown>,

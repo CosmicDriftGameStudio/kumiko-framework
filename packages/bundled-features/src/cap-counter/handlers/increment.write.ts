@@ -1,10 +1,6 @@
-import { createEntityExecutor, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { Temporal } from "temporal-polyfill";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { capCounterAggregateId } from "../aggregate-id";
-import { capCounterEntity } from "../entity";
-
-const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
+import { bookCapUsage } from "../book-cap-usage";
 
 const incrementSchema = z.object({
   /** App-defined cap-name. e.g. "platform-mails", "ai-tokens-7day". */
@@ -47,46 +43,10 @@ export const incrementCapHandler: WriteHandlerDef = {
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const payload = event.payload as IncrementPayload; // @cast-boundary engine-payload
-    const aggregateId = capCounterAggregateId(
-      event.user.tenantId,
-      payload.capName,
-      payload.periodStartIso,
-    );
-
-    // Read existing aggregate's projection-row to decide create vs update.
-    // ctx.db is auto-tenant-scoped — id-lookup is unique per tenant.
-    const existing = await ctx.db.selectMany(table, { id: aggregateId }, { limit: 1 });
-
-    if (existing.length === 0) {
-      return executor.create(
-        {
-          id: aggregateId,
-          capName: payload.capName,
-          value: payload.amount,
-          periodStart: Temporal.Instant.from(payload.periodStartIso),
-          lastSoftWarnedAt: null,
-        },
-        event.user,
-        ctx.db,
-      );
-    }
-
-    const currentRow = existing[0];
-    if (!currentRow) {
-      // Defensive — length-check above means this is unreachable. Throws
-      // clearer than a possibly-null deref later.
-      throw new Error("cap-counter:increment: row vanished between length-check and read");
-    }
-    const currentValue = currentRow["value"] as number; // @cast-boundary db-row
-    const currentVersion = currentRow["version"] as number; // @cast-boundary db-row
-    return executor.update(
-      {
-        id: aggregateId,
-        version: currentVersion,
-        changes: { value: currentValue + payload.amount },
-      },
-      event.user,
-      ctx.db,
-    );
+    return bookCapUsage(ctx, {
+      capName: payload.capName,
+      periodStartIso: payload.periodStartIso,
+      amount: payload.amount,
+    });
   },
 };

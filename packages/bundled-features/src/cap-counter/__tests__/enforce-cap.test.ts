@@ -296,25 +296,22 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  test("soft-hit, crossed=true → notifier mit info-payload + ctx.write markSoftWarned", async () => {
+  // markCapSoftWarned (fw#2854) now runs the real event-store executor
+  // against ctx.db instead of a mockable ctx.write call — this pure-mock
+  // ctx.db can't satisfy that, so it throws after notify() already fired.
+  // The DB flag-flip itself is covered by cap-counter.integration.test.ts's
+  // real-stack "scenario 6" test.
+  test("soft-hit, crossed=true → notifier fires with the info-payload", async () => {
     const ctx = stubCalendarCtx([{ value: 1100, lastSoftWarnedAt: null }]);
-    const write = mock(async () => ({ isSuccess: true, data: {} }));
-    (ctx as unknown as { write: typeof write }).write = write;
     const notify = mock();
 
-    const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
-    expect(result.state).toBe("soft-hit");
+    await expect(enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify })).rejects.toThrow();
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith({
       capName: "mails-per-month",
       value: 1100,
       limit: 1000,
       tenantId: "tenant-test",
-    });
-    expect(write).toHaveBeenCalledTimes(1);
-    expect(write).toHaveBeenCalledWith("cap-counter:write:mark-soft-warned", {
-      capName: "mails-per-month",
-      periodStartIso: PERIOD,
     });
   });
 

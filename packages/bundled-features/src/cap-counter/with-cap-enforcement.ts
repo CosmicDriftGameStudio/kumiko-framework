@@ -1,5 +1,5 @@
 // withCapEnforcement / withRollingCapEnforcement — handler-wrapper die
-// pre-call enforceCap-And-Notify + post-call increment um den
+// pre-call enforceCap-And-Notify + post-call booking um den
 // gewrappten Handler legen.
 //
 // **Warum Wrapper statt manuelle Calls im Handler:**
@@ -8,22 +8,20 @@
 // pre-call zu machen — beides ist atomic-mit-dem-Handler-zusammen.
 // Wrapper macht das Pattern explizit + co-located.
 //
-// **Atomicity-Vorbehalt:** Pre-enforce + Handler + Post-Increment
-// laufen in DREI getrennten Transaktionen (Dispatcher öffnet jede
-// ctx.write-call eine eigene). Bei einem Crash zwischen Handler-
-// Success und Post-Increment kommt der Counter unter — Tenant
-// kriegt 1-2 Mails extra. Akzeptabel weil Cap-Toleranzen (110/120%)
-// genau für solche Drift-Fälle gebaut sind.
+// **Atomicity caveat:** calendar booking runs in-process via bookCapUsage
+// (see book-cap-usage.ts). Rolling booking still dispatches the
+// SystemAdmin-only increment-rolling handler (event ownership), so rolling
+// callers need a SystemAdmin identity.
 //
-// **Kein automatic markSoftWarned:** das passiert in
-// enforceCapAndMaybeNotify drin (siehe enforce-cap.ts). Wrapper ruft
-// nur den Helper, der den write dispatched.
+// No automatic markSoftWarned here — that's inside enforceCapAndMaybeNotify
+// (enforce-cap.ts).
 
 import type {
   HandlerContext,
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { bookCapUsage } from "./book-cap-usage";
 import { CapCounterHandlers } from "./constants";
 import {
   type CapToleranceProfileName,
@@ -103,7 +101,7 @@ export function withCapEnforcement(
       // Post-success increment. Skip on failure so a failed write
       // doesn't burn cap-quota. amount default 1.
       if (result.isSuccess) {
-        await ctx.write(CapCounterHandlers.increment, {
+        await bookCapUsage(ctx, {
           capName: cap.capName,
           amount: cap.amount ?? 1,
           periodStartIso: cap.periodStartIso,

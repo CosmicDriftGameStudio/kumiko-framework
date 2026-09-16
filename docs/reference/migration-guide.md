@@ -2,7 +2,7 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-14
+verified: 2026-09-16
 ---
 
 # Migration Guide

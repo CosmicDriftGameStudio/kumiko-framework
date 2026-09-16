@@ -2,6 +2,14 @@
 
 export { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id";
 export {
+  type BookCapUsageOptions,
+  bookCapUsage,
+  type MarkCapSoftWarnedOptions,
+  markCapSoftWarned,
+  type ReadRollingCapUsageOptions,
+  readRollingCapUsage,
+} from "./book-cap-usage";
+export {
   CAP_COUNTER_FEATURE,
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
   CapCounterHandlers,
