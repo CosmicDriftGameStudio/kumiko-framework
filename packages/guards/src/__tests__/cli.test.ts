@@ -91,7 +91,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     const { exitCode, stderr } = await runCli(["guards", "--bogus-flag"]);
 
     expect(exitCode).toBe(1);
-    expect(stderr).toContain('Unknown flag for "guards": --bogus-flag');
+    expect(stderr).toContain('Unknown argument for "guards": --bogus-flag');
     expect(stderr).toContain("--explain");
     expect(stderr).toContain("--write-security-baseline");
     expect(stderr).toContain("--strict-security-baseline");
@@ -101,7 +101,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     const { exitCode, stderr } = await runCli(["ui", "--bogus-flag"]);
 
     expect(exitCode).toBe(1);
-    expect(stderr).toContain('Unknown flag for "ui": --bogus-flag');
+    expect(stderr).toContain('Unknown argument for "ui": --bogus-flag');
     expect(stderr).toContain("(none)");
   });
 
@@ -109,7 +109,22 @@ describe("cli.ts — real process runs, no mocks", () => {
     const { exitCode, stderr } = await runCli(["checks", "--bogus-flag"]);
 
     expect(exitCode).toBe(1);
-    expect(stderr).toContain('Unknown flag for "checks": --bogus-flag');
+    expect(stderr).toContain('Unknown argument for "checks": --bogus-flag');
     expect(stderr).toContain("(none)");
+  });
+
+  test("a single-dash typo (-strict-security-baseline) is rejected instead of silently running a non-strict guard pass", async () => {
+    const { exitCode, stderr } = await runCli(["guards", "-strict-security-baseline"]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Unknown argument for "guards": -strict-security-baseline');
+    expect(stderr).toContain("--strict-security-baseline");
+  });
+
+  test("a stray positional argument for guards exits 1 instead of being silently ignored", async () => {
+    const { exitCode, stderr } = await runCli(["guards", "foo"]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Unknown argument for "guards": foo');
   });
 });
