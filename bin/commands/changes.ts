@@ -68,6 +68,35 @@ function readPackageName(packageDir: string): string | null {
   }
 }
 
+function isFrameworkRepo(repoRoot: string): boolean {
+  return existsSync(join(repoRoot, "packages/framework"));
+}
+
+// Standalone framework tooling packages (guards, cli, dev-server, ...) live
+// directly under packages/<name> — they're not a bundled-features entry (no
+// packages/bundled-features/src/<name> nesting) and not the framework core
+// (already special-cased above). findFeaturesDirs skips the generic
+// packages/* walk entirely inside the framework repo (upgrade-cli.ts), so
+// they need their own lookup. "framework" and "bundled-features" are
+// excluded here: framework already resolves above, and bundled-features is
+// the container directory for the loop above, not a feature itself. A
+// packages/<name> without its own package.json (e.g. __tests__ fixtures) is
+// not a target.
+function resolveStandaloneFrameworkPackage(repoRoot: string, featureName: string): PackageTarget | null {
+  if (!isFrameworkRepo(repoRoot)) return null;
+  if (featureName === "framework" || featureName === "bundled-features") return null;
+  if (featureName === "" || featureName === "." || featureName === ".." || /[/\\]/.test(featureName)) return null;
+
+  const packageDir = join(repoRoot, "packages", featureName);
+  const packageName = readPackageName(packageDir);
+  if (!packageName) return null;
+
+  const srcLayout = join(packageDir, "src", "changes.json");
+  const flatLayout = join(packageDir, "changes.json");
+  const changelogPath = existsSync(srcLayout) || existsSync(join(packageDir, "src")) ? srcLayout : flatLayout;
+  return { packageName, changelogPath };
+}
+
 function resolveFeatureTarget(repoRoot: string, featureName: string): PackageTarget | null {
   if (featureName === "framework" || featureName === "framework-core" || featureName === "core") {
     const changelogPath = findCoreChangelogFile(repoRoot) ?? join(repoRoot, "packages/framework/src/changes.json");
@@ -90,7 +119,7 @@ function resolveFeatureTarget(repoRoot: string, featureName: string): PackageTar
     return { packageName, changelogPath };
   }
 
-  return null;
+  return resolveStandaloneFrameworkPackage(repoRoot, featureName);
 }
 
 function listAvailableFeatures(repoRoot: string): string[] {
@@ -100,6 +129,14 @@ function listAvailableFeatures(repoRoot: string): string[] {
     if (isNodeModulesDir(dir) || !existsSync(dir)) continue;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) names.add(entry.name);
+    }
+  }
+  if (isFrameworkRepo(repoRoot)) {
+    const packagesDir = join(repoRoot, "packages");
+    for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name === "framework" || entry.name === "bundled-features") continue;
+      if (readPackageName(join(packagesDir, entry.name))) names.add(entry.name);
     }
   }
   return [...names].sort();

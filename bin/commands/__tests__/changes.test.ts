@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { changesCommand } from "../changes";
 
@@ -27,6 +27,7 @@ const BUNDLED_FEATURES_PACKAGE = JSON.stringify({
   name: "@cosmicdrift/kumiko-bundled-features",
   version: "0.276.0",
 });
+const GUARDS_PACKAGE = JSON.stringify({ name: "@cosmicdrift/kumiko-guards", version: "0.34.1" });
 
 function frameworkFixture(): Record<string, string> {
   return {
@@ -103,6 +104,86 @@ describe("changes add", () => {
     expect(result.exit).toBe(1);
     expect(result.errs.join("\n")).toContain("requires --migration");
     expect(existsSync(join(cwd, ".changeset"))).toBe(false);
+  });
+
+  test("resolves a standalone framework package (packages/guards) as a feature target", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/guards/package.json": GUARDS_PACKAGE,
+    });
+
+    const result = await run(cwd, [
+      "add",
+      "--fix",
+      "--title",
+      "Spawned git calls no longer inherit GIT_DIR",
+      "--detail",
+      "Guards now pass an allowlisted environment to git.",
+      "--feature",
+      "guards",
+    ]);
+
+    expect(result.exit).toBe(0);
+    const path = result.logs[0]!;
+    expect(path).toContain(`${sep}.changeset${sep}guards-`);
+    expect(path).toEndWith(".md");
+    const written = readFileSync(path, "utf-8");
+    expect(written).toContain('"@cosmicdrift/kumiko-guards": patch');
+    expect(written).toContain("feature: guards");
+    // packages/guards has no changes.json yet — changes add must not create one
+    // (it's written by `changes fold` on first release, same as a bundled feature).
+    expect(existsSync(join(cwd, "packages/guards/src/changes.json"))).toBe(false);
+  });
+
+  function availableFeatures(errs: string[]): string[] {
+    const match = errs.join("\n").match(/Available: (.+)$/m);
+    if (!match?.[1]) throw new Error(`no "Available:" list in errors: ${errs.join("\n")}`);
+    return match[1].split(", ");
+  }
+
+  test("does not resolve packages/bundled-features itself as a feature target", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/bundled-features/package.json": BUNDLED_FEATURES_PACKAGE,
+      "packages/bundled-features/src/sessions/changes.json": "[]",
+      "packages/guards/package.json": GUARDS_PACKAGE,
+    });
+
+    const result = await run(cwd, ["add", "--fix", "--title", "x", "--feature", "bundled-features"]);
+
+    expect(result.exit).toBe(1);
+    expect(result.errs.join("\n")).toContain('Unknown feature "bundled-features"');
+    const available = availableFeatures(result.errs);
+    expect(available).not.toContain("bundled-features");
+    expect(available).toContain("sessions");
+    expect(available).toContain("guards");
+  });
+
+  test("does not resolve a packages/<name> directory without its own package.json", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/dist-only/README.md": "not a package",
+    });
+
+    const result = await run(cwd, ["add", "--fix", "--title", "x", "--feature", "dist-only"]);
+
+    expect(result.exit).toBe(1);
+    expect(result.errs.join("\n")).toContain('Unknown feature "dist-only"');
+    expect(availableFeatures(result.errs)).not.toContain("dist-only");
+  });
+
+  test("still resolves framework via its own special case when a standalone package also exists", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/guards/package.json": GUARDS_PACKAGE,
+    });
+
+    const result = await run(cwd, ["add", "--fix", "--title", "Framework-only change", "--feature", "framework"]);
+
+    expect(result.exit).toBe(0);
+    const written = readFileSync(result.logs[0]!, "utf-8");
+    expect(written).toContain('"@cosmicdrift/kumiko-framework": patch');
+    expect(written).toContain("feature: framework");
   });
 });
 
