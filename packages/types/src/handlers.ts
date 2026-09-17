@@ -984,6 +984,12 @@ export type AggregateStreamHandle = {
   // expectedVersion from the handle automatically. Multiple calls in a
   // row bump the handle's internal version and the events-table in order.
   readonly appendOne: (args: { readonly type: string; readonly payload: unknown }) => Promise<void>;
+  // Idempotency check against `events` (fetch-time snapshot only — an
+  // appendOne in the same handler isn't reflected). Guards a handler that
+  // may run twice against the same stream without risking a false
+  // "already succeeded" read that appendIfAbsent-style helpers would give
+  // on a genuine optimistic-concurrency conflict.
+  readonly hasEvent: (type: string) => boolean;
 };
 
 // --- Event Upcasters (schema migration) ---

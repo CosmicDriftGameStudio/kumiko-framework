@@ -14,7 +14,7 @@ import { asRawClient } from "../../db/query-api";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { loadAggregate } from "../../event-store";
+import { append, loadAggregate } from "../../event-store";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // --- Feature ---
@@ -105,6 +105,28 @@ const cartFeature = defineFeature("f4w", (r) => {
         payload: { totalCents: event.payload.totalCents },
       });
       return { isSuccess: true as const, data: {} };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Reports the raw event types + a hasEvent probe seen through the handle —
+  // lets a test assert on both aggregateType-scoping and idempotency-checks
+  // without adding another executor.
+  r.writeHandler(
+    "cart:fetch-info",
+    z.object({ id: z.uuid(), probeType: z.string() }),
+    async (event, ctx) => {
+      const stream = await ctx.fetchForWriting({
+        aggregateId: event.payload.id,
+        aggregateType: "f4wCart",
+      });
+      return {
+        isSuccess: true as const,
+        data: {
+          types: stream.events.map((e) => e.type),
+          hasProbe: stream.hasEvent(event.payload.probeType),
+        },
+      };
     },
     { access: { roles: ["Admin"] } },
   );
@@ -281,5 +303,62 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     expect(types).toContain("f4wCart.created");
     expect(types).toContain("f4w:event:checked-out");
     expect(types).not.toContain("f4w:event:item-added");
+  });
+
+  test("#2979: a foreign-type event planted on the same aggregateId is excluded from the handle", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "grace" },
+      admin,
+    );
+
+    // Solon-style id collision: another aggregateType lands its own event on
+    // the exact same aggregateId, outside the cart executor entirely.
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const info = await stack.http.writeOk<{ types: string[]; hasProbe: boolean }>(
+      "f4w:write:cart:fetch-info",
+      { id: created.id, probeType: "reservation:event:created" },
+      admin,
+    );
+
+    expect(info.types).toEqual(["f4wCart.created"]);
+    expect(info.hasProbe).toBe(false);
+  });
+
+  test("#2979: hasEvent reflects the fetch-time snapshot for the handle's own aggregateType", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "heidi" },
+      admin,
+    );
+
+    const before = await stack.http.writeOk<{ hasProbe: boolean }>(
+      "f4w:write:cart:fetch-info",
+      { id: created.id, probeType: "f4w:event:checked-out" },
+      admin,
+    );
+    expect(before.hasProbe).toBe(false);
+
+    await stack.http.writeOk(
+      "f4w:write:cart:checkout",
+      { id: created.id, totalCents: 1500 },
+      admin,
+    );
+
+    const after = await stack.http.writeOk<{ hasProbe: boolean }>(
+      "f4w:write:cart:fetch-info",
+      { id: created.id, probeType: "f4w:event:checked-out" },
+      admin,
+    );
+    expect(after.hasProbe).toBe(true);
   });
 });
