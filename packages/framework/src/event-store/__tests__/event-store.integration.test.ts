@@ -361,6 +361,97 @@ describe("event-store: tenant isolation", () => {
   });
 });
 
+describe("event-store: loadAggregate aggregateType filter (#2979)", () => {
+  test("without aggregateType, both types on one aggregateId are returned (no breaking change)", async () => {
+    const aggregateId = uuid();
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "cart",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "cart.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "reservation",
+      tenantId: tenantA,
+      expectedVersion: 1,
+      type: "reservation.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+
+    const events = await loadAggregate(testDb.db, aggregateId, tenantA);
+    expect(events.map((e) => e.type)).toEqual(["cart.created", "reservation.created"]);
+  });
+
+  test("with aggregateType, a foreign-type event on the same aggregateId is excluded (solon-style id collision)", async () => {
+    const aggregateId = uuid();
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "cart",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "cart.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "reservation",
+      tenantId: tenantA,
+      expectedVersion: 1,
+      type: "reservation.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "cart",
+      tenantId: tenantA,
+      expectedVersion: 2,
+      type: "cart.itemAdded",
+      payload: {},
+      metadata: { userId: userA },
+    });
+
+    const cartEvents = await loadAggregate(testDb.db, aggregateId, tenantA, {
+      aggregateType: "cart",
+    });
+    expect(cartEvents.map((e) => e.type)).toEqual(["cart.created", "cart.itemAdded"]);
+
+    const reservationEvents = await loadAggregate(testDb.db, aggregateId, tenantA, {
+      aggregateType: "reservation",
+    });
+    expect(reservationEvents.map((e) => e.type)).toEqual(["reservation.created"]);
+  });
+
+  test("aggregateType filter does not weaken tenant isolation", async () => {
+    const aggregateId = uuid();
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "cart",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "cart.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+
+    const crossTenant = await loadAggregate(testDb.db, aggregateId, tenantB, {
+      aggregateType: "cart",
+    });
+    expect(crossTenant).toHaveLength(0);
+
+    const sameTenant = await loadAggregate(testDb.db, aggregateId, tenantA, {
+      aggregateType: "cart",
+    });
+    expect(sameTenant).toHaveLength(1);
+  });
+});
+
 describe("event-store: requestId is a trace marker (no DB-level uniqueness)", () => {
   test("same (tenant, requestId) twice → both events persist, no collision", async () => {
     // Idempotency is an HTTP-level concern, handled via Redis in

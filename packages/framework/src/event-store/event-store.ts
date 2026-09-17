@@ -208,11 +208,17 @@ function buildStoredEvent(
 // { includeArchived: true } for ops tools / audit that must see the tail
 // of an archived aggregate. The archive check is a single indexed lookup —
 // negligible on the hot path.
+//
+// { aggregateType } is opt-in: without it, a stream is loaded by
+// aggregateId alone, matching prior behavior. Callers that share id
+// generation across multiple aggregate types on the same id (e.g. a solon-
+// style collision) must pass it to avoid folding a foreign type's events
+// into the loaded stream.
 export async function loadAggregate(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
-  options?: { readonly includeArchived?: boolean },
+  options?: { readonly includeArchived?: boolean; readonly aggregateType?: string },
 ): Promise<readonly StoredEvent[]> {
   if (!options?.includeArchived) {
     const archived = await isStreamArchived(db, tenantId, aggregateId);
@@ -221,7 +227,9 @@ export async function loadAggregate(
   const rows = await selectMany<SelectedEvent>(
     db,
     eventsTable,
-    { aggregateId, tenantId },
+    options?.aggregateType
+      ? { aggregateId, tenantId, aggregateType: options.aggregateType }
+      : { aggregateId, tenantId },
     { orderBy: { col: "version", direction: "asc" } },
   );
   return rows.map(toStoredEvent);

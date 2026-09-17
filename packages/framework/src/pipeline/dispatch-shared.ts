@@ -549,7 +549,9 @@ export async function buildHandlerContext(
       // when the caller just wants to append — but most callers also want
       // the events (business-rule checks), so fetch both in parallel.
       const [storedEvents, fetchedVersion] = await Promise.all([
-        loadAggregate(dbSource, args.aggregateId, user.tenantId),
+        loadAggregate(dbSource, args.aggregateId, user.tenantId, {
+          aggregateType: args.aggregateType,
+        }),
         getStreamVersion(dbSource, args.aggregateId, user.tenantId),
       ]);
       const events = await upcastStoredEvents(storedEvents, registry.getEventUpcasters(), {
@@ -596,6 +598,7 @@ export async function buildHandlerContext(
           return handleVersion;
         },
         appendOne,
+        hasEvent: (type: string) => events.some((e) => e.type === type),
       };
     },
     loadAggregate: async (
