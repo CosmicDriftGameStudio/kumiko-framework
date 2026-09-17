@@ -208,6 +208,26 @@ describe("kinds filter excludes roots (g)", () => {
     const scans = scanRoots(spec, [appRoot, libRoot]);
     expect(scans.map((s) => s.root.name)).toEqual(["lib-repo"]);
   });
+
+  test("a tooling root is dropped when kinds is omitted", () => {
+    const dir = tmpDir("scan-scope-tooling-");
+    writeManifest(dir, { kind: "tooling", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] });
+    writeFile(join(dir, "src/a.ts"));
+    const root = rootAt("tooling-repo", dir);
+
+    const spec: ScanSpec = { scope: "source", extensions: ["ts"] };
+    expect(scanRoots(spec, [root]).map((s) => s.root.name)).toEqual([]);
+  });
+
+  test("a tooling root is scanned once a guard names it in kinds", () => {
+    const dir = tmpDir("scan-scope-tooling-optin-");
+    writeManifest(dir, { kind: "tooling", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] });
+    writeFile(join(dir, "src/a.ts"));
+    const root = rootAt("tooling-repo", dir);
+
+    const spec: ScanSpec = { scope: "source", extensions: ["ts"], kinds: ["tooling"] };
+    expect(scanFiles(spec, [root])).toEqual([join(dir, "src/a.ts")]);
+  });
 });
 
 describe("D4 floor — a root with declared sourceRoots but no .ts/.tsx (h)", () => {
