@@ -9,7 +9,8 @@ export type ScanExtension = "ts" | "tsx";
 
 type ScanSpecBase = {
   readonly extensions: readonly ScanExtension[];
-  /** Manifest roles to scan; omitted = every root. */
+  /** Manifest roles to scan; omitted = every root except "tooling" — a guard
+   *  must opt in to scanning an infra/build-tooling root explicitly. */
   readonly kinds?: readonly RepoKind[];
   /** Repo-relative globs; in a kind "framework" root only files matching one of them are kept (replaces `within` there). */
   readonly frameworkWithin?: readonly string[];
@@ -141,10 +142,13 @@ function scanRoot(spec: ScanSpec, root: RepoRoot): RootScan {
   return { root, files, sourceSurface: sourceSurfaceHits.length };
 }
 
+function keepsRootKind(spec: ScanSpec, root: RepoRoot): boolean {
+  if (spec.kinds) return spec.kinds.includes(root.kind);
+  return root.kind !== "tooling";
+}
+
 export function scanRoots(spec: ScanSpec, roots: readonly RepoRoot[]): RootScan[] {
-  return roots
-    .filter((root) => !spec.kinds || spec.kinds.includes(root.kind))
-    .map((root) => scanRoot(spec, root));
+  return roots.filter((root) => keepsRootKind(spec, root)).map((root) => scanRoot(spec, root));
 }
 
 export function scanFiles(spec: ScanSpec, roots: readonly RepoRoot[]): string[] {
