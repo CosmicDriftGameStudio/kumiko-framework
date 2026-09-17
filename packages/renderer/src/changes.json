@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.283.0",
+    "type": "fix",
+    "title": "Fix projectionDetail detail screens dropping fields declared through groups",
+    "detail": "synthesizeProjectionDetailEntity/synthesizeProjectionDetailScreen only read section.fields, so a section that put its fields in groups instead lost them entirely, and any group field's own readOnly:false passed through unforced. Both helpers now read fields and groups together, and force readOnly:true on both."
+  }
+]
