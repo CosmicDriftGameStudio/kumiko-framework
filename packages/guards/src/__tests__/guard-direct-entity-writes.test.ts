@@ -316,9 +316,39 @@ describe("guard.run() :: entity-only repo (kein createEventStoreExecutor mehr)",
       `,
     });
     const outcome = guard.run(project.getSourceFiles());
-    expect(outcome.violations.some((v) => v.message.includes("BLOCKED: guard found no"))).toBe(
-      false,
-    );
+    expect(
+      outcome.violations.some((v) => v.message.includes("BLOCKED: guard found table writes")),
+    ).toBe(false);
     expect(outcome.violations.length).toBeGreaterThan(0);
+  });
+});
+
+describe("guard.run() :: empty esTables canary", () => {
+  test("BLOCK: table writes present but no ES tables resolvable — misconfiguration canary fires", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `
+        declare const someTable: unknown;
+        declare const db: { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } };
+        export async function write() {
+          await db.insert(someTable).values({ name: "x" });
+        }
+      `,
+    });
+    const outcome = guard.run(project.getSourceFiles());
+    expect(
+      outcome.violations.some((v) => v.message.includes("BLOCKED: guard found table writes")),
+    ).toBe(true);
+  });
+
+  test("ALLOW: no ES tables and no table writes at all — repo has no event store (kumiko-platform case)", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `
+        declare const fooTable: unknown;
+        declare function somethingElse(t: unknown): unknown;
+        export const x = somethingElse(fooTable);
+      `,
+    });
+    const outcome = guard.run(project.getSourceFiles());
+    expect(outcome.violations).toHaveLength(0);
   });
 });

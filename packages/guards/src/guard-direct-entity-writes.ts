@@ -287,6 +287,16 @@ function resolveWrite(
   return undefined;
 }
 
+function hasAnyTableWrite(files: readonly SourceFile[]): boolean {
+  for (const sf of files) {
+    if (EXCLUDE.test(sf.getFilePath())) continue;
+    for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      if (resolveWrite(call)) return true;
+    }
+  }
+  return false;
+}
+
 export function scanDirectWrites(
   sf: SourceFile,
   esTables: ReadonlySet<TableId>,
@@ -351,13 +361,16 @@ export const guard: AstGuard = {
       ...collectEntityProjectionTables(files),
     ]);
     if (esTables.size === 0) {
+      // An empty set means either the repo has no event store at all, or the
+      // scan lost the ES definitions while table writes are still present.
+      if (!hasAnyTableWrite(files)) return { violations: [] };
       return {
         violations: [
           {
             file: "<scan>",
             line: 0,
             message:
-              "BLOCKED: guard found no createEventStoreExecutor or r.entity projection tables — scan is probably misconfigured.",
+              "BLOCKED: guard found table writes but no createEventStoreExecutor or r.entity projection tables — scan is probably misconfigured.",
           },
         ],
       };
