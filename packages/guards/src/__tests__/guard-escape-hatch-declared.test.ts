@@ -1045,6 +1045,220 @@ async function loadValidatedUser(passedCtx: typeof ctx, systemUser: unknown, use
   });
 });
 
+describe("module-local const reason resolution (#2978)", () => {
+  test("resolves a module-local const reason and clears the escalation (AC1)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+const FORGET_CASCADE_RAW_REASON = "GDPR forget cascade needs a cross-tenant delete";
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: FORGET_CASCADE_RAW_REASON });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("a const reason resolving to a placeholder is still rejected (AC2)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+const PLACEHOLDER_REASON = "todo";
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: PLACEHOLDER_REASON });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+    const reasonFindings = findGenericReasonCalls(sfs, "/r");
+    expect(reasonFindings).toHaveLength(1);
+    expect(reasonFindings[0]?.message).toMatch(/uses a placeholder reason/);
+  });
+
+  test("a `let` reassignable binding never resolves, even with a concrete text", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+let mutableReason = "reads something on behalf of the caller";
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: mutableReason });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("rejects a reason imported from another module, and the message says why (AC3)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/reasons.ts": `
+export const SHARED_REASON = "reads something on behalf of the caller";
+`,
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+import { SHARED_REASON } from "./reasons";
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: SHARED_REASON });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    const found = findEscapeHatchFindings(sfs, "/r");
+    expect(found.map((f) => f.rule)).toEqual(["unsafe-raw-outside-system-scope"]);
+    expect(found[0]?.message).toMatch(
+      /reason is an import, a function call, or a template with substitutions/,
+    );
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("rejects a reason produced by a function call, and the message says why (AC3)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare function buildReason(): string;
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: buildReason() });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    const found = findEscapeHatchFindings(sfs, "/r");
+    expect(found.map((f) => f.rule)).toEqual(["unsafe-raw-outside-system-scope"]);
+    expect(found[0]?.message).toMatch(
+      /reason is an import, a function call, or a template with substitutions/,
+    );
+  });
+
+  test("rejects a template-with-substitution reason, and the message says why (AC3)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare const ctx: { queryAs: (...a: unknown[]) => unknown };
+declare const systemUser: unknown;
+declare const why: string;
+export async function loadUser(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: \`reads on behalf of \${why}\` });
+	return passedCtx.queryAs(systemUser, "qn", {});
+}
+`,
+    });
+    const found = findEscapeHatchFindings(sfs, "/r");
+    expect(found.map((f) => f.rule)).toEqual(["system-identity-outside-declared-scope"]);
+    expect(found[0]?.message).toMatch(
+      /reason is an import, a function call, or a template with substitutions/,
+    );
+  });
+
+  test("the main R2/R3 messages name declareEscapeHatch as an allowed path even with no nearby call (AC4)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+      "/r/packages/bundled-features/src/bar/helper.ts": `
+declare const ctx: { queryAs: (...a: unknown[]) => unknown };
+declare const systemUser: unknown;
+export async function loadUser(passedCtx: typeof ctx) {
+	return passedCtx.queryAs(systemUser, "qn", {});
+}
+`,
+    });
+    const found = findEscapeHatchFindings(sfs, "/r");
+    const r2 = found.find((f) => f.rule === "unsafe-raw-outside-system-scope");
+    const r3 = found.find((f) => f.rule === "system-identity-outside-declared-scope");
+    expect(r2?.message).toMatch(
+      /declareEscapeHatch\(\{ reason: "\.\.\." \}\) as a direct body statement of a named hook/,
+    );
+    expect(r3?.message).toMatch(
+      /declareEscapeHatch\(\{ reason: "\.\.\." \}\) as a direct body statement of a named hook/,
+    );
+    // No nearby declareEscapeHatch call → no "why" hint appended.
+    expect(r2?.message).not.toMatch(/A declareEscapeHatch\(\{ reason \}\) call was found here/);
+  });
+
+  test("resolves a shared const reason across arrow-const-assigned named hooks (AC5, publicstatus shape)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/user-data-hooks.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+type UserDataDeleteHook = (ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } }) => Promise<void>;
+const GDPR_CASCADE_REASON = "GDPR delete cascade needs a cross-tenant raw delete";
+
+export const deleteComponents: UserDataDeleteHook = async (ctx) => {
+	declareEscapeHatch({ reason: GDPR_CASCADE_REASON });
+	ctx.systemDb.unsafeRaw("delete components across tenants");
+};
+
+export const deleteAssets: UserDataDeleteHook = async (ctx) => {
+	declareEscapeHatch({ reason: GDPR_CASCADE_REASON });
+	ctx.systemDb.unsafeRaw("delete assets across tenants");
+};
+
+export const deleteBoards: UserDataDeleteHook = async (ctx) => {
+	declareEscapeHatch({ reason: GDPR_CASCADE_REASON });
+	ctx.systemDb.unsafeRaw("delete boards across tenants");
+};
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("acknowledgeCrossTenant resolves a module-local const reason too (all four call sites share the rule)", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
+declare const ctx: { systemDb: { acknowledgeCrossTenant: (reason: string) => unknown } };
+const REASON = "SystemAdmin lists tenants platform-wide";
+export const a = ctx.systemDb.acknowledgeCrossTenant(REASON);
+`,
+    });
+    expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("acknowledgeCrossTenant still flags a const reason resolving to a placeholder", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
+declare const ctx: { systemDb: { acknowledgeCrossTenant: (reason: string) => unknown } };
+const REASON = "todo";
+export const a = ctx.systemDb.acknowledgeCrossTenant(REASON);
+`,
+    });
+    const found = findGenericReasonCalls(sfs, "/r");
+    expect(found).toHaveLength(1);
+    expect(found[0]?.message).toMatch(/uses a placeholder reason/);
+  });
+
+  test("escapeHatch: { reason } property resolves a module-local const too", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
+declare function defineWriteHandler(cfg: unknown): unknown;
+const REASON = "todo";
+export const h = defineWriteHandler({
+	escapeHatch: { reason: REASON },
+	handler: async () => ({ isSuccess: true, data: {} }),
+});
+`,
+    });
+    const found = findGenericReasonCalls(sfs, "/r");
+    expect(found).toHaveLength(1);
+    expect(found[0]?.message).toMatch(/uses a placeholder reason/);
+  });
+});
+
 describe("systemScopeDirs", () => {
   test("ignores systemScope() calls with an argument", () => {
     const sfs = files({

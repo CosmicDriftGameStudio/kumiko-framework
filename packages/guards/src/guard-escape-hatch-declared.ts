@@ -34,18 +34,24 @@
  * declaration) is additionally recognized when a statement in its own direct
  * body — not a nested function's, not inside an `if` — calls the bare
  * identifier `declareEscapeHatch` with exactly one object-literal argument
- * carrying a literal, non-placeholder `reason` (from
+ * carrying a non-placeholder `reason` (from
  * `@cosmicdrift/kumiko-framework/engine`'s `declareEscapeHatch`: a helper
  * that escalates on a `HandlerContext` handed to it by its caller, rather
- * than a `HandlerContext` from its own registration). The declaration does
- * not propagate upward: it covers escalations inside that function's own
- * body, not the function it is nested inside. This detection is purely
+ * than a `HandlerContext` from its own registration). `reason` may be a
+ * string/template literal or an Identifier resolving to a module-local
+ * `const` with such an initializer (`_lib/generic-reason.ts`'s
+ * `resolveReasonText`, shared by R2/R3/R4's four call sites) — so one shared
+ * constant covers several declarations without repeating the literal text.
+ * An import, a function call, or a template with substitutions stays
+ * unresolved and the R2/R3 finding names that explicitly. The declaration
+ * does not propagate upward: it covers escalations inside that function's
+ * own body, not the function it is nested inside. This detection is purely
  * lexical — the guard matches on the name `declareEscapeHatch`, not on where
  * it was imported from, so a same-named local function clears just as well;
  * consistent with `escapeHatch:` itself, which is likewise never checked for
  * origin. Referenced-by-variable functions, spread options, computed/string
- * keys, and non-literal escapeHatch/reason values are conservatively not
- * recognized (miss, don't falsely clear).
+ * keys, and a non-literal, non-module-local-const `escapeHatch`/`reason`
+ * value are conservatively not recognized (miss, don't falsely clear).
  *
  * Empty reasons, `openToAll.personalData` and PII are the framework boot validator's
  * job (access-declarations.ts), not this guard's — except a `declareEscapeHatch`
@@ -72,7 +78,7 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { isGenericReason, literalReasonText } from "./_lib/generic-reason";
+import { isGenericReason, resolveReasonText } from "./_lib/generic-reason";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const SCAN: ScanSpec = {
@@ -208,7 +214,8 @@ function findUnsafeRawFindings(
       line: call.getStartLineNumber(),
       rule: "unsafe-raw-outside-system-scope",
       message:
-        'unsafeRaw(...) used outside a systemScope feature and outside a handler/hook declaring escapeHatch — declare { escapeHatch: { reason: "..." } } on the handler or hook, declare the feature systemScope, or use ctx.systemDb.acknowledgeCrossTenant(reason) for a scoped read.',
+        'unsafeRaw(...) used outside a systemScope feature and outside a handler/hook declaring escapeHatch — declare { escapeHatch: { reason: "..." } } on the handler or hook, declare the feature systemScope, call declareEscapeHatch({ reason: "..." }) as a direct body statement of a named hook, or use ctx.systemDb.acknowledgeCrossTenant(reason) for a scoped read.' +
+        unresolvableDeclareEscapeHatchHint(call),
     });
   }
   return out;
@@ -372,25 +379,82 @@ function findReasonPropertyAssignment(
     );
 }
 
+// Syntactic extraction only — shared by the clearance check below and by
+// the "why" hint on R2/R3, which needs the reason node even when it turns
+// out not to resolve.
+function declareEscapeHatchReasonNode(stmt: Node): Node | undefined {
+  if (!stmt.isKind(SyntaxKind.ExpressionStatement)) return undefined;
+  const expr = stmt.getExpression();
+  if (!expr.isKind(SyntaxKind.CallExpression)) return undefined;
+  const callee = expr.getExpression();
+  if (!callee.isKind(SyntaxKind.Identifier) || callee.getText() !== "declareEscapeHatch") {
+    return undefined;
+  }
+  const args = expr.getArguments();
+  const arg = args[0];
+  if (args.length !== 1 || !arg?.isKind(SyntaxKind.ObjectLiteralExpression)) return undefined;
+  return findReasonPropertyAssignment(arg)?.getInitializer();
+}
+
 // declareEscapeHatch({ reason: "..." }) as a direct-body statement of a
 // standalone function. No boot validator backs this form (unlike the
 // escapeHatch: {...} property, which access-declarations.ts checks at boot),
 // so an empty/placeholder reason is rejected here rather than left to it.
 function isValidDeclareEscapeHatchCall(stmt: Node): boolean {
-  if (!stmt.isKind(SyntaxKind.ExpressionStatement)) return false;
-  const expr = stmt.getExpression();
-  if (!expr.isKind(SyntaxKind.CallExpression)) return false;
-  const callee = expr.getExpression();
-  if (!callee.isKind(SyntaxKind.Identifier) || callee.getText() !== "declareEscapeHatch") {
-    return false;
-  }
-  const args = expr.getArguments();
-  const arg = args[0];
-  if (args.length !== 1 || !arg?.isKind(SyntaxKind.ObjectLiteralExpression)) return false;
-  const reasonProp = findReasonPropertyAssignment(arg);
-  if (!reasonProp) return false;
-  const reasonText = literalReasonText(reasonProp.getInitializer());
+  const reasonNode = declareEscapeHatchReasonNode(stmt);
+  if (!reasonNode) return false;
+  const reasonText = resolveReasonText(reasonNode);
   return reasonText !== undefined && !isGenericReason(reasonText);
+}
+
+// The three reason shapes the guard can name a concrete cause for: an
+// import, a function call, or a template with substitutions — none of
+// those are statically judgeable. An ambient/uninitialized identifier
+// (e.g. a `declare const` parameter) stays silently unresolved instead;
+// there is nothing more specific to say about it.
+function isExplicitlyUnresolvableReason(node: Node): boolean {
+  if (node.isKind(SyntaxKind.CallExpression)) return true;
+  if (node.isKind(SyntaxKind.TemplateExpression)) return true;
+  if (!node.isKind(SyntaxKind.Identifier)) return false;
+  const decls = node.getSymbol()?.getDeclarations() ?? [];
+  return decls.some(
+    (decl) =>
+      decl.isKind(SyntaxKind.ImportSpecifier) ||
+      decl.isKind(SyntaxKind.ImportClause) ||
+      decl.isKind(SyntaxKind.NamespaceImport),
+  );
+}
+
+const UNRESOLVABLE_REASON_HINT =
+  " A declareEscapeHatch({ reason }) call was found here, but its reason is an import, a function call, or a template with substitutions — none of those can be statically judged, so declareEscapeHatch needs a string literal or a module-local const instead.";
+
+// Walks the same ancestor chain as isInsideEscapeHatchDeclaredFunction, but
+// looks for a declareEscapeHatch statement whose reason is one of the three
+// explicitly-unresolvable shapes above, to explain a still-firing R2/R3
+// finding rather than leave the reader to guess why a visible
+// declareEscapeHatch call didn't clear it.
+function unresolvableDeclareEscapeHatchHint(node: Node): string {
+  let ancestor: Node | undefined = node.getParent();
+  while (ancestor) {
+    if (
+      ancestor.isKind(SyntaxKind.ArrowFunction) ||
+      ancestor.isKind(SyntaxKind.FunctionExpression) ||
+      ancestor.isKind(SyntaxKind.MethodDeclaration) ||
+      ancestor.isKind(SyntaxKind.FunctionDeclaration)
+    ) {
+      const body = ancestor.getBody();
+      if (body?.isKind(SyntaxKind.Block)) {
+        for (const stmt of body.getStatements()) {
+          const reasonNode = declareEscapeHatchReasonNode(stmt);
+          if (reasonNode && isExplicitlyUnresolvableReason(reasonNode)) {
+            return UNRESOLVABLE_REASON_HINT;
+          }
+        }
+      }
+    }
+    ancestor = ancestor.getParent();
+  }
+  return "";
 }
 
 // Only the function's own direct body — not a nested function's, not an
@@ -457,7 +521,9 @@ function findSystemIdentityFindings(
       file: path.relative(root, sf.getFilePath()),
       line: call.getStartLineNumber(),
       rule: "system-identity-outside-declared-scope",
-      message: `${methodName}(...) called with a system identity outside a declared scope — restrict to a systemScope feature, a .job.ts / r.job(...) job, or declare { escapeHatch: { reason: "..." } } on the handler or hook.`,
+      message:
+        `${methodName}(...) called with a system identity outside a declared scope — restrict to a systemScope feature, a .job.ts / r.job(...) job, declare { escapeHatch: { reason: "..." } } on the handler or hook, or call declareEscapeHatch({ reason: "..." }) as a direct body statement of a named hook.` +
+        unresolvableDeclareEscapeHatchHint(call),
     });
   }
   return out;
@@ -525,7 +591,7 @@ function findGenericReasonMethodCalls(sf: SourceFile, root: string): GenericReas
     if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) continue;
     const methodName = expr.getName();
     if (!GENERIC_REASON_METHODS.has(methodName)) continue;
-    const reasonText = literalReasonText(call.getArguments()[0]);
+    const reasonText = resolveReasonText(call.getArguments()[0]);
     if (reasonText === undefined || !isGenericReason(reasonText)) continue;
     out.push({
       file: path.relative(root, sf.getFilePath()),
@@ -554,7 +620,7 @@ function findGenericReasonDeclareEscapeHatchCalls(
     if (!arg?.isKind(SyntaxKind.ObjectLiteralExpression)) continue;
     const reasonProp = findReasonPropertyAssignment(arg);
     if (!reasonProp) continue;
-    const reasonText = literalReasonText(reasonProp.getInitializer());
+    const reasonText = resolveReasonText(reasonProp.getInitializer());
     if (reasonText === undefined || !isGenericReason(reasonText)) continue;
     out.push({
       file: path.relative(root, sf.getFilePath()),
@@ -579,7 +645,7 @@ function findGenericReasonObjectProperty(
     if (!init?.isKind(SyntaxKind.ObjectLiteralExpression)) continue;
     const reasonProp = init.getProperty("reason");
     if (!reasonProp?.isKind(SyntaxKind.PropertyAssignment)) continue;
-    const reasonText = literalReasonText(reasonProp.getInitializer());
+    const reasonText = resolveReasonText(reasonProp.getInitializer());
     if (reasonText === undefined) continue;
     // Empty/whitespace is the boot validator's job — no double-check.
     if (reasonText.trim() === "") continue;
