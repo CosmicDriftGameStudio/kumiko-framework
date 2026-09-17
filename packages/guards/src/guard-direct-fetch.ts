@@ -43,8 +43,8 @@ const EXCLUDE =
 // Prefixed by RepoRoot.name (not kind): kind "app" is shared across
 // unregistered repos (infra#560).
 
-// packages/framework/src/http/egress.ts IS the egress() implementation.
-const ALLOWLIST = [/^kumiko-framework\/packages\/framework\/src\/http\/egress\.ts$/];
+// packages/http/src/egress.ts IS the egress() implementation.
+const ALLOWLIST = [/^kumiko-framework\/packages\/http\/src\/egress\.ts$/];
 const ALLOW_MARKER = "guard-allow: same-origin fetch";
 
 interface Violation {

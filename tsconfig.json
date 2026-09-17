@@ -59,6 +59,9 @@
       "path": "./packages/types"
     },
     {
+      "path": "./packages/http"
+    },
+    {
       "path": "./packages/bundled-features"
     },
     {
