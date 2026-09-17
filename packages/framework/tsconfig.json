@@ -11,5 +11,5 @@
     "./src/__tests__/fixtures/migrate-open-to-all",
     "./src/__tests__/fixtures/migrate-cross-tenant"
   ],
-  "references": [{ "path": "../types" }]
+  "references": [{ "path": "../types" }, { "path": "../http" }]
 }

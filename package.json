@@ -31,6 +31,7 @@
   "workspaces": [
     "packages/framework",
     "packages/types",
+    "packages/http",
     "packages/bundled-features",
     "packages/cli",
     "packages/repo-manifest",

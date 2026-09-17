@@ -1,2 +1,2 @@
-export { egress } from "./egress";
-export type { EgressPolicy } from "./policy";
+export { egress } from "@cosmicdrift/kumiko-http";
+export type { EgressPolicy } from "@cosmicdrift/kumiko-http";
