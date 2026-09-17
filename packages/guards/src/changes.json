@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.284.0",
+    "type": "fix",
+    "title": "Fix Direct-Fetch Guard allowlist after egress moved to kumiko-http",
+    "detail": "The ALLOWLIST regex still pointed at the old packages/framework/src/http/egress.ts path; egress() now lives in packages/http/src/egress.ts (@cosmicdrift/kumiko-http), so the guard was about to self-flag its own allowed implementation as a raw-fetch violation."
+  },
+  {
     "version": "0.283.0",
     "type": "fix",
     "title": "Escape-Hatch-Declared Guard resolves a module-local const reason instead of forcing duplicate literals",
