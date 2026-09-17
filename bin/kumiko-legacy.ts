@@ -117,6 +117,7 @@ const BIOME = join(BIN_PATH, "biome");
 const TSC = join(BIN_PATH, "tsc");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 const GUARDS_RUNNER = resolvePath(import.meta.dir, "..", "packages", "guards", "src", "run-guards.ts");
+const GUARDS_CLI = resolvePath(import.meta.dir, "..", "packages", "guards", "src", "cli.ts");
 
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach Unit-Tests (+ Integration lokal, nicht in CI) an; `kumiko check:fast`
@@ -225,8 +226,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
   // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
   steps.push({ name: "AST-Guards (shared runner)", cmd: `bun ${GUARDS_RUNNER}` });
-  steps.push({ name: "Public repo checks", cmd: "bunx kumiko-guards checks" });
-  steps.push({ name: "Public guards", cmd: "bunx kumiko-guards guards" });
+  steps.push({ name: "Public repo checks", cmd: `bun ${GUARDS_CLI} checks` });
+  steps.push({ name: "Public guards", cmd: `bun ${GUARDS_CLI} guards` });
   // Warn-only (exit 0): run-config preset names vs composeStacks fingerprints.
   // Parent-workspace only until kumiko-guard-compose-stacks-parity is published.
   const composeStacksParityGuard = join(REPO_ROOT, "infra/guards/guard-compose-stacks-parity.ts");

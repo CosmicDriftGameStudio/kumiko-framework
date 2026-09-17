@@ -82,21 +82,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
 
-      - name: View-logic guard (samples)
-        # samples/apps must pass the same No-Logic-in-Views guard as the app
-        # repos. Framework doesn't use _app-test, hence this explicit step,
-        # scoped to the framework root via KUMIKO_GUARD_ROOTS since the public
-        # kumiko-guards CLI has no per-guard selection anymore. A missing
-        # binary fails hard instead of warning: a silent skip here would leave
-        # this architectural invariant unchecked exactly when the guard is gone.
-        run: |
-          if [ -e node_modules/@cosmicdrift/kumiko-guards ]; then
-            KUMIKO_GUARD_ROOTS=kumiko-framework bun kumiko-guards guards
-          else
-            echo "::error::@cosmicdrift/kumiko-guards (packages/guards) missing"
-            exit 1
-          fi
-
       - name: Run tests
         run: |
           # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
