@@ -21,6 +21,8 @@
 // Komponente.
 
 import type {
+  EditFieldSpec,
+  EditFieldsSection,
   EditLayout,
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -32,6 +34,16 @@ import {
   PROJECTION_DETAIL_ENTITY as PROJECTION_DETAIL_PSEUDO_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
+// The boot-validator treats `fields`/`groups` as mutually exclusive per
+// section, but this reads both anyway: an extra name the current section
+// shape can never carry is harmless, while a name computeEditViewModel does
+// reference and this shim omitted throws downstream ("references unknown
+// field ... on entity"). Union is strictly safer than picking one branch.
+function allFieldSpecs(section: EditFieldsSection): readonly EditFieldSpec[] {
+  const grouped = section.groups?.flatMap((group) => group.fields) ?? [];
+  return [...section.fields, ...grouped];
+}
+
 /** Minimale EntityDefinition aus den Layout-Feldern: jedes Feld ein Text-
  *  Feld — computeEditViewModel liest nur `fields[<f>].type`, Text reicht für
  *  eine reine Anzeige (kein Select/Number-spezifisches Rendering nötig). */
@@ -40,7 +52,7 @@ export function synthesizeProjectionDetailEntity(layout: EditLayout): EntityDefi
   for (const section of layout.sections) {
     // relatedList and extension sections carry no `fields` to synthesize.
     if (!isFieldsEditSection(section)) continue;
-    for (const spec of section.fields) {
+    for (const spec of allFieldSpecs(section)) {
       fields[normalizeEditField(spec).field] = { type: "text" };
     }
   }
@@ -52,12 +64,19 @@ export function synthesizeProjectionDetailEntity(layout: EditLayout): EntityDefi
 export function synthesizeProjectionDetailScreen(
   screen: ProjectionDetailScreenDefinition,
 ): EntityEditScreenDefinition {
+  const forceReadOnly = (spec: EditFieldSpec) => ({ ...normalizeEditField(spec), readOnly: true });
   const sections = screen.layout.sections.map((section) => {
     // relatedList and extension sections pass through unchanged.
     if (!isFieldsEditSection(section)) return section;
     return {
       ...section,
-      fields: section.fields.map((spec) => ({ ...normalizeEditField(spec), readOnly: true })),
+      fields: section.fields.map(forceReadOnly),
+      ...(section.groups !== undefined && {
+        groups: section.groups.map((group) => ({
+          ...group,
+          fields: group.fields.map(forceReadOnly),
+        })),
+      }),
     };
   });
   return {
