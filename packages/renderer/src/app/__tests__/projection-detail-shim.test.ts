@@ -148,4 +148,41 @@ describe("groups-sections (fw#2982)", () => {
     }
     expect(groupsSection.groups[0]?.fields).toEqual([{ field: "tenantName", readOnly: true }]);
   });
+
+  // The boot-validator rejects fields+groups both non-empty on one section at
+  // boot time, so an author can never actually ship this shape — but the shim
+  // is not itself a validation pass, and this pins the union, not the
+  // either/or a naive `groups !== undefined ? grouped : fields` would take.
+  test("a single section carrying both fields and groups resolves both, for both functions", () => {
+    const bothScreen: ProjectionDetailScreenDefinition = {
+      id: "invoice-detail",
+      type: "projectionDetail",
+      query: "invoices:query:invoice:detail",
+      layout: {
+        sections: [
+          {
+            title: "Mixed",
+            fields: [{ field: "amount", readOnly: false }],
+            groups: [{ title: "Tenant", fields: ["tenantName"] }],
+          },
+        ],
+      },
+    };
+
+    const entity = synthesizeProjectionDetailEntity(bothScreen.layout);
+    expect(entity.fields["amount"]).toEqual({ type: "text" });
+    expect(entity.fields["tenantName"]).toEqual({ type: "text" });
+
+    const result = synthesizeProjectionDetailScreen(bothScreen);
+    const [section] = result.layout.sections;
+    if (section === undefined || !("fields" in section) || "kind" in section) {
+      throw new Error("expected the section to stay a plain fields section");
+    }
+    expect(section.fields[0]).toMatchObject({ field: "amount", readOnly: true });
+
+    if (!("groups" in section) || section.groups === undefined) {
+      throw new Error("expected the section to keep its groups");
+    }
+    expect(section.groups[0]?.fields).toEqual([{ field: "tenantName", readOnly: true }]);
+  });
 });
