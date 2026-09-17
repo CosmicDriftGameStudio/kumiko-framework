@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-http
 
+## 0.285.0
+
 ## 0.284.0
 
 ### Minor Changes
