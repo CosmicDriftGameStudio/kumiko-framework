@@ -1,6 +1,7 @@
 import { qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition } from "../types";
 import type {
+  EditRelatedListSection,
   ProjectionDetailScreenDefinition,
   RowFieldExtractor,
   ScreenDefinition,
@@ -26,23 +27,29 @@ type NavigateActionLike = {
   readonly entityId?: string;
   readonly params?: RowFieldExtractor;
 };
-type NavigateActionWithParams = NavigateActionLike & { readonly params: RowFieldExtractor };
 type ScopedNavigateAction = {
   readonly action: NavigateActionLike;
   readonly sourceScreenEntity: string | undefined;
+  /** Used when the action itself declares no `params` — the field a
+   *  relatedList toolbarAction's parent id lands under at runtime
+   *  (RelatedListSection's `navigatePrefill`, related-list-section.tsx). */
+  readonly implicitParams?: RowFieldExtractor;
 };
 
 function isNavigateKind(action: NavigateActionLike): boolean {
   return action.kind === undefined || action.kind === "navigate";
 }
-function isNavigateWithParams(action: NavigateActionLike): action is NavigateActionWithParams {
-  return isNavigateKind(action) && action.params !== undefined;
-}
 function scopeActions(
   actions: readonly NavigateActionLike[] | undefined,
   sourceScreenEntity: string | undefined,
+  implicitParams?: RowFieldExtractor,
 ): ScopedNavigateAction[] {
-  return (actions ?? []).map((action) => ({ action, sourceScreenEntity }));
+  return (actions ?? []).map((action) => ({ action, sourceScreenEntity, implicitParams }));
+}
+// Same key the renderer falls back to when a relatedList toolbarAction has no
+// `params` of its own: `parentFilter.field`, else `parentParam`, else "id".
+function relatedListParentParamField(section: EditRelatedListSection): string {
+  return section.parentFilter?.field ?? section.parentParam ?? "id";
 }
 function projectionDetailNavigateActions(
   screen: ProjectionDetailScreenDefinition,
@@ -53,7 +60,11 @@ function projectionDetailNavigateActions(
       section.kind === "relatedList" ? scopeActions(section.rowActions, undefined) : [],
     ),
     ...screen.layout.sections.flatMap((section) =>
-      section.kind === "relatedList" ? scopeActions(section.toolbarActions, undefined) : [],
+      section.kind === "relatedList"
+        ? scopeActions(section.toolbarActions, undefined, {
+            pick: [relatedListParentParamField(section)],
+          })
+        : [],
     ),
     ...(screen.metrics ?? []).flatMap((metric) =>
       typeof metric === "string" || metric.navigate === undefined
@@ -77,25 +88,30 @@ function navigateActionsOf(screen: ScreenDefinition): ScopedNavigateAction[] {
   }
 }
 function toNavigateParamsSource(
-  action: NavigateActionWithParams,
+  action: NavigateActionLike,
+  params: RowFieldExtractor,
   sourceScreenEntity: string | undefined,
 ): NavigateParamsSource {
   return {
     ...(action.screen !== undefined && { screen: action.screen }),
     ...(action.entity !== undefined && { entity: action.entity }),
     ...(action.entityId !== undefined && { entityId: action.entityId }),
-    params: action.params,
+    params,
     sourceScreenEntity,
   };
 }
 
-// Every declarative navigate that writes `params` into the target's URL —
+// Every declarative navigate that writes params into the target's URL —
 // the same sources validateScreens pairs with validateRowActionNavigateParams,
-// plus projectionDetail metrics (runMetricNavigate), which reuse that shape.
+// plus projectionDetail metrics (runMetricNavigate), which reuse that shape —
+// plus a relatedList toolbarAction with no `params` of its own, which still
+// writes its implicit parent-id param at runtime (see `implicitParams`).
 function navigateParamsSources(screen: ScreenDefinition): NavigateParamsSource[] {
-  return navigateActionsOf(screen).flatMap(({ action, sourceScreenEntity }) =>
-    isNavigateWithParams(action) ? [toNavigateParamsSource(action, sourceScreenEntity)] : [],
-  );
+  return navigateActionsOf(screen).flatMap(({ action, sourceScreenEntity, implicitParams }) => {
+    if (!isNavigateKind(action)) return [];
+    const params = action.params ?? implicitParams;
+    return params === undefined ? [] : [toNavigateParamsSource(action, params, sourceScreenEntity)];
+  });
 }
 
 // Per target screen QN, the union of field names any navigate `params` may

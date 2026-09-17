@@ -93,6 +93,21 @@ const leasesFeature = defineFeature("leases", (r) => {
             },
           ],
         },
+        {
+          kind: "relatedList",
+          title: "Custom-key items",
+          query: "leases:query:lease:items",
+          columns: ["name"],
+          parentParam: "customParentId",
+          toolbarActions: [
+            {
+              kind: "navigate",
+              id: "silent-add-custom",
+              label: "Silent add",
+              screen: "item-toolbar-custom-parent",
+            },
+          ],
+        },
       ],
     },
     metrics: [
@@ -117,6 +132,12 @@ const leasesFeature = defineFeature("leases", (r) => {
   });
   r.screen({
     id: "item-toolbar-silent",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
+    id: "item-toolbar-custom-parent",
     type: "entityEdit",
     entity: "item",
     layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
@@ -191,7 +212,11 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
     expect(urlPrefillFieldsOf("leases", "item-toolbar-note")).toEqual(["leaseId"]);
   });
 
-  test("a relatedList toolbarAction without params contributes no fields — the allowlist stays an allowlist", () => {
-    expect(urlPrefillFieldsOf("leases", "item-toolbar-silent")).toEqual([]);
+  test("a relatedList toolbarAction without params still contributes the implicit parent-id field", () => {
+    expect(urlPrefillFieldsOf("leases", "item-toolbar-silent")).toEqual(["id"]);
+  });
+
+  test("a relatedList toolbarAction without params uses the section's own parentParam key", () => {
+    expect(urlPrefillFieldsOf("leases", "item-toolbar-custom-parent")).toEqual(["customParentId"]);
   });
 });
