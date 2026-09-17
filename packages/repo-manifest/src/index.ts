@@ -4,7 +4,8 @@ import { z } from "zod";
 
 export const REPO_MANIFEST_FILE = "kumiko.json";
 
-export const repoKindSchema = z.enum(["framework", "library", "app"]);
+// "tooling" is a repo with no product code (infra, Pulumi, build tooling) — guards default to skipping it, see scan-scope.ts.
+export const repoKindSchema = z.enum(["framework", "library", "app", "tooling"]);
 export type RepoKind = z.infer<typeof repoKindSchema>;
 
 const DRIVE_LETTER_RE = /^[A-Za-z]:/;
