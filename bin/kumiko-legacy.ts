@@ -162,6 +162,19 @@ function repoAbsPath(repoName: string): string {
   return sibling;
 }
 
+/**
+ * cwd for the guard runners: the pushed repo when the run is scoped to exactly
+ * one (the pre-push case), else kumiko-framework as the tooling anchor. Never
+ * the parent workspace — that resolves no repo root at all.
+ */
+function guardScanRoot(): string {
+  const scoped = SCOPED_CLI_REPOS && SCOPED_CLI_REPOS.size === 1 ? [...SCOPED_CLI_REPOS][0] : undefined;
+  const candidate = scoped !== undefined ? repoAbsPath(scoped) : undefined;
+  return candidate !== undefined && existsSync(candidate)
+    ? candidate
+    : repoAbsPath("kumiko-framework");
+}
+
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
   const steps: Array<{ name: string; cmd: string }> = [];
 
@@ -231,9 +244,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Der Runner baut das Project EINMAL (~6s) und lässt alle Guards seriell
   // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
   // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
-  steps.push({ name: "AST-Guards (shared runner)", cmd: `bun ${GUARDS_RUNNER}` });
-  steps.push({ name: "Public repo checks", cmd: `bun ${GUARDS_CLI} checks` });
-  steps.push({ name: "Public guards", cmd: `bun ${GUARDS_CLI} guards` });
+  // These three resolve their scan root from cwd (packages/guards/_lib/roots.ts).
+  // The parent workspace is no repo, so running them from there resolves zero
+  // roots — silently green before infra#2863, a hard preflight error since.
+  const guardCwd = guardScanRoot();
+  steps.push({ name: "AST-Guards (shared runner)", cmd: `cd ${guardCwd} && bun ${GUARDS_RUNNER}` });
+  steps.push({ name: "Public repo checks", cmd: `cd ${guardCwd} && bun ${GUARDS_CLI} checks` });
+  steps.push({ name: "Public guards", cmd: `cd ${guardCwd} && bun ${GUARDS_CLI} guards` });
   // Warn-only (exit 0): run-config preset names vs composeStacks fingerprints.
   // Parent-workspace only until kumiko-guard-compose-stacks-parity is published.
   const composeStacksParityGuard = join(REPO_ROOT, "infra/guards/guard-compose-stacks-parity.ts");
