@@ -24,6 +24,7 @@ import {
   createInMemoryFileProvider,
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import {
   createTestUser,
   setupTestStack,
@@ -43,7 +44,7 @@ import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { tenantMembershipsTable } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
-import { runExportJobs } from "../run-export-jobs";
+import { EXPORT_CLEANUP_BACKLOG_AGE_METRIC, runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
 import { hashDownloadToken } from "../token-helpers";
@@ -131,6 +132,20 @@ function buildProvider(tenantId: string): Promise<FileStorageProvider> {
     providerPerTenant.set(tenantId, p);
   }
   return Promise.resolve(p);
+}
+
+// Typed fake standing in for the ctx.meter-backed MetricsHandle feature.ts
+// builds for the real cron — records `set()` calls without a Meter/registry.
+function createRecordingMetricsHandle(): MetricsHandle & { readonly values: Map<string, number> } {
+  const values = new Map<string, number>();
+  return {
+    values,
+    inc: () => {},
+    observe: () => {},
+    set: (name, value) => {
+      values.set(name, value);
+    },
+  };
 }
 
 // Seedet einen pending Job via realen request-export-Handler — echter
@@ -441,6 +456,80 @@ describe("runExportJobs :: storage-cleanup", () => {
       downloadStorageKey: string | null;
     }>;
     expect(row?.downloadStorageKey).toBe(storageKey);
+  });
+});
+
+describe("runExportJobs :: export-cleanup backlog metric", () => {
+  test("done-Job mit abgelaufener TTL + weiterhin gesetztem downloadStorageKey → Metrik > 0", async () => {
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([7, 8, 9]));
+
+    await updateRows(
+      stack.db,
+      exportJobsTable,
+      {
+        status: EXPORT_JOB_STATUS.Done,
+        startedAt: longAgo,
+        completedAt: longAgo,
+        downloadStorageKey: storageKey,
+        expiresAt: longAgo,
+      },
+      { id: jobId },
+    );
+
+    const metrics = createRecordingMetricsHandle();
+    await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: async () => ({
+        ...provider,
+        delete: async () => {
+          throw new Error("synthetic storage delete failure");
+        },
+      }),
+      now: NOW(),
+      metrics,
+    });
+
+    expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBeGreaterThan(0);
+  });
+
+  test("done-Job wird erfolgreich cleaned → Metrik ist 0", async () => {
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([1, 2, 3]));
+
+    await updateRows(
+      stack.db,
+      exportJobsTable,
+      {
+        status: EXPORT_JOB_STATUS.Done,
+        startedAt: longAgo,
+        completedAt: longAgo,
+        downloadStorageKey: storageKey,
+        expiresAt: longAgo,
+      },
+      { id: jobId },
+    );
+
+    const metrics = createRecordingMetricsHandle();
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      metrics,
+    });
+
+    expect(result.cleanedJobIds).toContain(jobId);
+    expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBe(0);
   });
 });
 

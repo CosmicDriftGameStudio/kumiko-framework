@@ -7,6 +7,10 @@ import {
   i18nKey,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createMetricsHandle,
+  createNoopMetricsHandle,
+} from "@cosmicdrift/kumiko-framework/observability";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks";
 import {
   EXPORT_SECTION_EXTENSION_NAME,
@@ -49,6 +53,7 @@ import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver";
 import { resolveAppTenantModel } from "./lib/resolve-tenant-model";
 import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver";
 import {
+  EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
   runExportJobs,
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
@@ -528,6 +533,21 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       },
     });
 
+    // Surfaces a stalled export-cleanup cron: if the daily
+    // pass stops running, done-status export bundles keep sitting in
+    // storage past their TTL+grace with downloadStorageKey still set
+    // (unencrypted PII at rest). Emitted from the same job that cleans up
+    // (see handler below) — a dead cron makes the metric go stale too,
+    // which an `absent()` alert catches without a second liveness signal.
+    // Scope: Done-status bundles only — Failed-status cleanup candidates
+    // have no expiresAt/TTL (immediate cleanup, see storageCleanupPass).
+    r.metric(EXPORT_CLEANUP_BACKLOG_AGE_METRIC, {
+      type: "gauge",
+      unit: "seconds",
+      description:
+        "Age in seconds of the oldest done-status export bundle whose expiresAt+grace has passed but downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog.",
+    });
+
     // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert.
     const RUN_EXPORT_JOBS_REASON = "processes pending export jobs across every tenant";
     r.job({
@@ -548,6 +568,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           RUN_EXPORT_JOBS_REASON,
         ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const exportRegistry = ctx.registry;
+        // JobContext carries ctx.meter (raw), not ctx.metrics — that bound
+        // handle only exists on HandlerContext (built per write/query call
+        // in dispatch-shared.ts). Build the same handle explicitly here.
+        const exportMetrics = ctx.meter
+          ? createMetricsHandle(ctx.meter, "user-data-rights")
+          : createNoopMetricsHandle();
 
         // C6 — ohne eigene send*Email-Opts aber mit gemountetem mail-transport
         // versendet der Cron die Export-Notifications selbst (Default-Templates).
@@ -612,6 +638,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
           actor: ctx.systemUser.id,
+          metrics: exportMetrics,
         });
       },
     });
