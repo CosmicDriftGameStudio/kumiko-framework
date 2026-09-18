@@ -1,6 +1,6 @@
 // Generic billing-info query-handler-config factory. Extracted from the
 // near-identical billing-info.query.ts app copies in show-pony and
-// publicstatus (infra#2999) — the only per-app variables were the
+// publicstatus (infra#446) — the only per-app variables were the
 // TTier union/resolver, the allowed roles, and how Stripe prices are read
 // off the app's extraContext.
 //
@@ -13,7 +13,7 @@
 // it into its own defineQueryHandler call, adding app-specific fields
 // (like `agent`) on top.
 
-import { SUBSCRIPTION_STRIPE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
+import { SUBSCRIPTION_STRIPE_FEATURE } from "../subscription-stripe/constants";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { QnTypes, qn, SYSTEM_TENANT_ID, toKebab } from "@cosmicdrift/kumiko-framework/engine";

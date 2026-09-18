@@ -1,7 +1,7 @@
 // Generic Redis-backed pre-activation token store: bidirectional
 // token↔subject mapping plus single-use burn/unburn semantics. Extracted
 // from auth-email-password/signup-token-store.ts and
-// auth-email-password/invite-token-store.ts (infra#2999) — both were the
+// auth-email-password/invite-token-store.ts (infra#446) — both were the
 // same Redis layout, differing only in their key prefixes and which field
 // (email vs. invitationId) plays the "subject" role.
 //

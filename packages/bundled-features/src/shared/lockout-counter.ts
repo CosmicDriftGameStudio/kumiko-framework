@@ -1,6 +1,6 @@
 // Generic Redis-backed failed-attempt counter with auto-expiring lockout.
 // Extracted from auth-email-password/lockout-store.ts and
-// auth-mfa/mfa-verify-attempts.ts (infra#2999) — both were byte-identical
+// auth-mfa/mfa-verify-attempts.ts (infra#446) — both were byte-identical
 // INCR/NX logic, differing only in their Redis key prefixes.
 
 import type Redis from "ioredis";
