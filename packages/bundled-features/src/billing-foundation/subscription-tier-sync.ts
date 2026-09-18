@@ -35,6 +35,12 @@ export type SubscriptionTierSyncDeps<TTier extends string> = {
   readonly tierAssignmentTable: EntityTable<EntityDefinition>;
   readonly isTierName: (value: string) => value is TTier;
   readonly defaultTier: TTier;
+  // "log" (default): sync failure only warns, the webhook still reports
+  // success — right when the caller has no idempotent retry to lean on.
+  // "fail-webhook": sync failure fails the webhook response too, so an
+  // idempotent caller (e.g. Stripe, whose retry re-runs the already-committed
+  // primary write as a no-op) gets a second attempt at the sync step itself.
+  readonly onSyncError?: "log" | "fail-webhook";
 };
 
 export function effectiveTierFromSubscription<TTier extends string>(
@@ -116,16 +122,15 @@ export function createSubscriptionTierSync<TTier extends string>(
           tenantId: targetTenantId,
         });
         if (!result.isSuccess) return result;
-        // The primary write already committed — a webhook caller (Stripe/
-        // PayPal) that sees isSuccess:false here retries the whole event,
-        // re-running an already-succeeded side effect. Log the tier-sync
-        // failure instead of masking the primary write's success.
         const syncError = await syncTierFromSubscription(targetTenantId);
         if (syncError) {
           // biome-ignore lint/suspicious/noConsole: operator visibility for a post-commit sync failure
           console.warn(
             `[subscription-tier-sync] tier sync failed for tenant ${targetTenantId} after successful webhook write: ${syncError.code} ${syncError.message}`,
           );
+          if (deps.onSyncError === "fail-webhook") {
+            return { isSuccess: false, error: syncError };
+          }
         }
         return result;
       },
