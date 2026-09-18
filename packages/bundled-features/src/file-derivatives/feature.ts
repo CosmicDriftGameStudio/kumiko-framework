@@ -9,6 +9,7 @@
 import { cachedResponse, computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
+  EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
   type FeatureDefinition,
@@ -78,7 +79,7 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
 
   return defineFeature(FEATURE_NAME, (r) => {
     r.describe(
-      "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name. The route's only rate-limit (`per: \"ip\"`) trusts the first `x-forwarded-for` hop — deployers must ensure their ingress overwrites rather than appends to that header, or the throttle is bypassable by rotating it.",
+      "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name. The route's only rate-limit (`per: \"ip\"`) trusts the first `x-forwarded-for` hop — deployers must ensure their ingress overwrites rather than appends to that header, or the throttle is bypassable by rotating it. Also declares the `derivativeOverlayResolver` extension point (`r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, '<entityType>', { resolve })`), used to turn a variant's `overlays[].dataToken` into the actual QR payload for that FileRef's entityType before the variant is rendered — a variant declaring a `qr` overlay throws at request-time if no resolver is registered for the FileRef's entityType.",
     );
     r.uiHints({
       displayLabel: "File Derivatives",
@@ -106,6 +107,13 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
         // No side-effects at register-time — resolution happens at
         // request-time in publicVariantQuery, keyed by the FileRef's
         // entityType.
+      },
+    });
+    r.extendsRegistrar(EXT_DERIVATIVE_OVERLAY_RESOLVER, {
+      onRegister: () => {
+        // No side-effects at register-time — resolution happens in
+        // variant(), keyed by the FileRef's entityType, before the spec
+        // hash is computed.
       },
     });
 

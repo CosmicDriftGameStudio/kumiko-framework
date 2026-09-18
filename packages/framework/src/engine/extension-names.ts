@@ -121,6 +121,23 @@ export const EXT_DERIVATIVE_RENDERER = "derivativeRenderer" as const;
 export const EXT_DERIVATIVE_PUBLIC_PREDICATE = "derivativePublicPredicate" as const;
 
 /**
+ * `derivativeOverlayResolver` — per-entityType "resolve this overlay
+ * dataToken to its real value" contract for `file-derivatives`' overlay
+ * compositing (QR codes on a public variant).
+ *
+ * Apps register via `r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER,
+ * "<entityType>", { resolve: (args) => string | Promise<string> })`. Missing
+ * registration, or a resolve() returning an empty string, both throw —
+ * unlike `derivativePublicPredicate`, there is no default-deny answer here:
+ * an image silently rendered without its QR would look correct while being
+ * wrong.
+ *
+ * Registered/consumed by: `file-derivatives`'s `variant()`
+ * (derivatives-context.ts), before the variant's spec hash is computed.
+ */
+export const EXT_DERIVATIVE_OVERLAY_RESOLVER = "derivativeOverlayResolver" as const;
+
+/**
  * `searchAdapter` — Search-Adapter-Forget-Hooks (Meilisearch-Index-Cleanup
  * bei User-Forget oder Tenant-Destroy).
  *

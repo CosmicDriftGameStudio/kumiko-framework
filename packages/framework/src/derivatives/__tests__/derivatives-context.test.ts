@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
+import type {
+  DerivativeRendererPlugin,
+  VariantSpec,
+} from "@cosmicdrift/kumiko-types/derivatives-types";
 import type { Registry } from "../../engine/types";
 import { InternalError } from "../../errors";
 import { createFileContext } from "../../files/file-handle";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider";
-import { createDerivativesContext, resolveRenderer } from "../derivatives-context";
+import {
+  createDerivativesContext,
+  type OverlayResolverPlugin,
+  resolveRenderer,
+} from "../derivatives-context";
 
 const FILE_REF_ID = "11111111-1111-4111-8111-111111111111";
 const TENANT_ID = "22222222-2222-4222-8222-222222222222";
@@ -39,9 +46,19 @@ function countingRenderer(): {
 // it: variant()'s two mandatory filters (tenantId, isDeleted) are real
 // integration-test territory, but a fake that returns the row unconditionally
 // would let those filters be deleted here without a single red test.
-function fakeDbWithFileRef(row: { storageKey: string; mimeType: string }): unknown {
+function fakeDbWithFileRef(row: {
+  storageKey: string;
+  mimeType: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  fieldName?: string | null;
+}): unknown {
   const canned: Record<string, unknown> = {
-    ...row,
+    storageKey: row.storageKey,
+    mimeType: row.mimeType,
+    entityType: row.entityType ?? null,
+    entityId: row.entityId ?? null,
+    fieldName: row.fieldName ?? null,
     id: FILE_REF_ID,
     tenantId: TENANT_ID,
     isDeleted: false,
@@ -212,5 +229,141 @@ describe("createDerivativesContext — variant()", () => {
     const result = await ctx.variant(FILE_REF_ID, {}, "thumb");
 
     expect(result.mimeType).toBe("image/jpeg");
+  });
+});
+
+describe("createDerivativesContext — variant() overlay token resolution", () => {
+  const QR_LAYER = {
+    kind: "qr",
+    dataToken: "public-url",
+    widthPct: 0.2,
+    gravity: "center",
+  } as const;
+
+  function specForwardingRenderer(): {
+    plugin: DerivativeRendererPlugin;
+    specs: () => VariantSpec[];
+  } {
+    const specs: VariantSpec[] = [];
+    const plugin: DerivativeRendererPlugin = {
+      render: async (_input, spec) => {
+        specs.push(spec);
+        return new Uint8Array([1]);
+      },
+    };
+    return { plugin, specs: () => specs };
+  }
+
+  async function setupWithOverlayResolver(resolve: OverlayResolverPlugin["resolve"]) {
+    const provider = createInMemoryFileProvider();
+    await provider.write("tenant/photo.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
+    const files = createFileContext(() => Promise.resolve(provider));
+    const { plugin: renderPlugin, specs } = specForwardingRenderer();
+    const registry = fakeRegistry([
+      { entityName: "image/*", options: renderPlugin },
+      { entityName: "vehicle", options: { resolve } },
+    ]);
+    const db = fakeDbWithFileRef({
+      storageKey: "tenant/photo.jpg",
+      mimeType: "image/jpeg",
+      entityType: "vehicle",
+      entityId: "vehicle-1",
+      fieldName: "publicImage",
+    });
+    const ctx = createDerivativesContext({ files, registry, db, tenantId: TENANT_ID });
+    return { ctx, specs };
+  }
+
+  test("a registered resolver's value lands in resolvedOverlays, never in overlays, before the renderer sees it", async () => {
+    const { ctx, specs } = await setupWithOverlayResolver(async (args) => {
+      expect(args).toEqual({
+        entityId: "vehicle-1",
+        tenantId: TENANT_ID,
+        fieldName: "publicImage",
+        dataToken: "public-url",
+      });
+      return "https://example.com/v/vehicle-1";
+    });
+
+    await ctx.variant(FILE_REF_ID, { overlays: [QR_LAYER] }, "card");
+
+    expect(specs()).toHaveLength(1);
+    expect(specs()[0]?.overlays).toBeUndefined();
+    expect(specs()[0]?.resolvedOverlays).toEqual([
+      { kind: "qr", data: "https://example.com/v/vehicle-1", widthPct: 0.2, gravity: "center" },
+    ]);
+  });
+
+  test("no resolver registered for the entityType throws InternalError instead of rendering without the QR", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("tenant/photo.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
+    const files = createFileContext(() => Promise.resolve(provider));
+    const { plugin: renderPlugin } = specForwardingRenderer();
+    const registry = fakeRegistry([{ entityName: "image/*", options: renderPlugin }]);
+    const db = fakeDbWithFileRef({
+      storageKey: "tenant/photo.jpg",
+      mimeType: "image/jpeg",
+      entityType: "vehicle",
+      entityId: "vehicle-1",
+      fieldName: "publicImage",
+    });
+    const ctx = createDerivativesContext({ files, registry, db, tenantId: TENANT_ID });
+
+    const err = await ctx.variant(FILE_REF_ID, { overlays: [QR_LAYER] }, "card").catch((e) => e);
+    expect(err).toBeInstanceOf(InternalError);
+    expect((err as InternalError).httpStatus).toBe(500);
+  });
+
+  test("a resolver returning an empty string throws instead of silently dropping the QR", async () => {
+    const { ctx } = await setupWithOverlayResolver(async () => "");
+
+    const err = await ctx.variant(FILE_REF_ID, { overlays: [QR_LAYER] }, "card").catch((e) => e);
+    expect(err).toBeInstanceOf(InternalError);
+  });
+
+  test("a qr overlay on a FileRef missing entityType/entityId/fieldName throws instead of skipping resolution", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("tenant/photo.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
+    const files = createFileContext(() => Promise.resolve(provider));
+    const { plugin: renderPlugin } = specForwardingRenderer();
+    const registry = fakeRegistry([{ entityName: "image/*", options: renderPlugin }]);
+    const db = fakeDbWithFileRef({ storageKey: "tenant/photo.jpg", mimeType: "image/jpeg" });
+    const ctx = createDerivativesContext({ files, registry, db, tenantId: TENANT_ID });
+
+    const err = await ctx.variant(FILE_REF_ID, { overlays: [QR_LAYER] }, "card").catch((e) => e);
+    expect(err).toBeInstanceOf(InternalError);
+  });
+
+  test("an image-only overlay list resolves without any entityType/entityId/fieldName", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("tenant/photo.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
+    const files = createFileContext(() => Promise.resolve(provider));
+    const { plugin: renderPlugin, specs } = specForwardingRenderer();
+    const registry = fakeRegistry([{ entityName: "image/*", options: renderPlugin }]);
+    const db = fakeDbWithFileRef({ storageKey: "tenant/photo.jpg", mimeType: "image/jpeg" });
+    const ctx = createDerivativesContext({ files, registry, db, tenantId: TENANT_ID });
+    const imageLayer = {
+      kind: "image",
+      imageBase64: "aGVsbG8=",
+      widthPct: 0.3,
+      gravity: "south-east",
+    } as const;
+
+    await ctx.variant(FILE_REF_ID, { overlays: [imageLayer] }, "card");
+
+    expect(specs()[0]?.resolvedOverlays).toEqual([imageLayer]);
+  });
+
+  test("overlays change the variant suffix without touching the source storage key", async () => {
+    const { ctx } = await setupWithOverlayResolver(async () => "https://example.com/v/vehicle-1");
+    const provider = createInMemoryFileProvider();
+    await provider.write("tenant/photo.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
+
+    const withOverlay = await ctx.variant(FILE_REF_ID, { overlays: [QR_LAYER] }, "card");
+    const withoutOverlay = await ctx.variant(FILE_REF_ID, {}, "card");
+
+    expect(withOverlay.storageKey).not.toBe(withoutOverlay.storageKey);
+    expect(withOverlay.storageKey.startsWith("tenant/photo.card-")).toBe(true);
+    expect(withoutOverlay.storageKey.startsWith("tenant/photo.card-")).toBe(true);
   });
 });

@@ -98,6 +98,7 @@ export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";
 export type { KumikoExtensionName } from "./extension-names";
 export {
+  EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
   EXT_EXTERNAL_RESOURCE,
