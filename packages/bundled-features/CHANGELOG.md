@@ -1,5 +1,105 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.287.0
+
+### Minor Changes
+
+- 89ba55f: Render overlay layers (QR codes, badge images) onto image variants
+
+  The sharp renderer composites resolved overlay layers after resize and before final encoding. Overlay bytes go through the same SVG rejection as the source image, with DoS caps on layer count, size, and QR data length enforced in assertRenderSpecBounds.
+
+  <!-- kumiko-changes
+  feature: derivatives-sharp
+  type: improvement
+  title: Render overlay layers (QR codes, badge images) onto image variants
+  -->
+
+- 89ba55f: Add overlay stage (QR codes, badge images) to derived image variants
+
+  VariantSpec now supports declarative overlay layers (qr via a resolver-token, or a base64 image) composited onto derived image variants. QR values are never free text — only a dataToken resolved server-side via a new extension point, keeping the anonymous derivative route from becoming an open image generator.
+
+  <!-- kumiko-changes
+  feature: file-derivatives
+  type: improvement
+  title: Add overlay stage (QR codes, badge images) to derived image variants
+  -->
+
+- 3ce01df: row-bound grants: one short-lived, single-use capability for anonymous writes on one row
+
+  `signed-token.ts` moves from `auth-email-password/` to `shared/` — the mechanism
+  was never email/password specific (user-data-rights already used it). The old
+  path re-exports it, so no importer breaks. New subpaths:
+  `./shared/signed-token` and `./shared/row-bound-grant`.
+
+  `shared/row-bound-grant.ts` is the new piece. It folds the row's _current_
+  anchor (a request id, a status, a version — anything that moves on when the row
+  is consumed) into the HMAC purpose on both mint and redeem, so a replayed token
+  stops working the moment the row moves on. Single-use semantics without a burn
+  key and without Redis. Minting and redeeming share one purpose-building
+  function, because an unanchored purpose silently degrades into a bearer token
+  valid for the whole TTL.
+
+  Anchoring alone only closes the replay window once the row has moved on, so
+  spending the anchor is part of the primitive, not homework for the caller:
+  `redeemRowBoundGrant` takes a mandatory `commitAnchor(subject, expectedAnchor)`
+  that must move the row on atomically (a conditional UPDATE) and report whether
+  this caller won. It runs strictly after verification, so nobody can invalidate a
+  row by naming it with a junk token, and the loser of a race gets the same
+  rejection as a forged grant. Skipping it is possible but has to be declared with
+  a reason (`{ unsafeSkip: { reason } }`), the way the framework handles
+  `escapeHatch` — an undeclared skip is how a single-use grant quietly becomes a
+  bearer token for the length of its TTL.
+
+  Every rejection returns a bare `{ ok: false }` with no reason, so a caller
+  cannot accidentally turn an anonymous endpoint into a row-existence oracle.
+
+  `user-data-rights`' deletion token now runs on the helper and its hand-rolled
+  `peekDeletionTokenUserId` is gone. The tokens stay byte-compatible — a test
+  pins the wire format against the pre-refactor formula. It declares an
+  `unsafeSkip` for the spend: `pendingDeletionRequestId` may only change through
+  `updateUserLifecycle`, so a conditional UPDATE there would lose the field on a
+  projection rebuild. Behaviour of that flow is unchanged.
+
+  Note for callers: the subject is not secret. `signToken` puts it in the token
+  body in the clear, so a grant on a row exposes that row's id to whoever holds
+  the link. Where the id itself must stay hidden, use an opaque handle
+  (`./shared/single-use-token-store`) instead.
+
+  <!-- kumiko-changes
+  feature: shared
+  type: improvement
+  title: row-bound grants: one short-lived, single-use capability for anonymous writes on one row
+  -->
+
+### Patch Changes
+
+- 7a60311: The `run-export-jobs` cron now reports a `export_cleanup_backlog_age` gauge after every storage-cleanup pass: seconds since the oldest done-status export bundle should have had its `downloadStorageKey` cleared (TTL+grace expired) but a `provider.delete` failure left it in place. 0 when the pass has no backlog. The metric is emitted from the same job that performs the cleanup, so a stalled cron makes the gauge go stale too, catchable with a plain `absent()` alert instead of a second liveness mechanism.
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: export-cleanup cron now emits an export_cleanup_backlog_age gauge to surface stalled runs
+  detail: storageCleanupPass deletes expired export bundles via provider.delete, but the storage provider only exposes list() (no timestamps), so a silent failure left unencrypted PII bundles sitting in the bucket with no signal. runExportJobs now accepts an optional MetricsHandle and, after the cleanup loop, reports the age in seconds of the oldest done-status job whose expiresAt+grace has passed while downloadStorageKey is still set (0 if none) via the new EXPORT_CLEANUP_BACKLOG_AGE_METRIC ("export_cleanup_backlog_age", a gauge — no _total/_seconds suffix per validateMetricName, unit: "seconds" carried in the r.metric() definition instead). feature.ts's job handler builds the handle itself with createMetricsHandle(ctx.meter, "user-data-rights") since JobContext has no bound ctx.metrics (that only exists on HandlerContext, built per write/query dispatch) — falls back to createNoopMetricsHandle() when ctx.meter is unset. Metric emission is wrapped in try/catch so an observability hiccup never fails an otherwise-successful cleanup pass. Scope is deliberately done-status only; failed-status cleanup candidates have no expiresAt/TTL.
+  -->
+
+- 3489874: `fileRefDeleteHook` (GDPR forget) previously selected file rows by `insertedById` (the uploader axis) and hard-deleted every one of them when the fileRef entity's strategy was "delete" — so forgetting an employee also destroyed the dealer's vehicle photos that employee had merely uploaded. File/image field types (`FileFieldDef`, `ImageFieldDef`, `FilesFieldDef`, `ImagesFieldDef`) can now carry the same `personal`/PII annotations as every other field type, and `fileRefDeleteHook` resolves each row's field annotation per row: only rows whose field is marked as PII of the person are hard-deleted (binary + derivatives + row); everything else (business/tenant data, no annotation, or a non-resolvable field) goes through `severPersonLink` instead, keeping the binary and only clearing the uploader link. The upload endpoint (`POST /files`) now also rejects an `entityType`/`fieldName` pair that doesn't resolve to a registered field, so a client can no longer attach an upload to a field the forget-hook can never look up.
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: GDPR forget only hard-deletes files that are PII of the forgotten person
+  detail: fileRefDeleteHook picked rows via insertedById (who uploaded the file) and treated every matched row the same on strategy="delete", so forgetting an uploader hard-deleted third-party business files they had merely uploaded (e.g. a dealer's vehicle photos uploaded by an employee). FileFieldDef/ImageFieldDef/FilesFieldDef/ImagesFieldDef now support "& ResolvedPiiFlags" like every other field type (createFileField/createImageField/createFilesField/createImagesField thread personal/reason through expandPersonalAnnotations), and fileRefDeleteHook's strategy="delete" branch splits rows per-row via the new isPersonalFileRow/isPersonalPiiField predicates: pii/userOwned/recordOwned fields take the existing hard-delete path (storageProvider.delete() + derivatives + row), every other row (explicit personal:false, tenantOwned, subjectRef, no annotation, or an unresolvable entity/field) goes through severPersonLink instead, same as the existing strategy="anonymize" path. Unattached uploads (no entityType/fieldName) still hard-delete. Derivatives have no own file_refs row, so they keep following their original's decision (the #2461 "GDPR derivatives survive forget" test stays green). POST /files now resolves entityType/fieldName against the registry and rejects the upload with 400 when they're set but don't resolve to a real field, closing the gap that let a client attach a file to a field the forget-hook could never look up; both unset (unattached upload) still passes. No new column or migration — the decision uses the entityType/fieldName file_refs already stores.
+  -->
+
+- Updated dependencies [3489874]
+- Updated dependencies [76f2631]
+  - @cosmicdrift/kumiko-framework@0.287.0
+  - @cosmicdrift/kumiko-renderer-web@0.287.0
+  - @cosmicdrift/kumiko-headless@0.287.0
+  - @cosmicdrift/kumiko-renderer@0.287.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.287.0
+  - @cosmicdrift/kumiko-types@0.287.0
+
 ## 0.286.0
 
 ### Minor Changes
