@@ -203,3 +203,110 @@ describe("buildStaticFallback hostDispatch", () => {
     expect(await res.text()).toContain("spa-shell");
   });
 });
+
+describe("buildStaticFallback resolvePageHead", () => {
+  let tmp = "";
+
+  const HTML = "<!doctype html><html><head><title>Offlot</title></head><body>shell</body></html>";
+
+  function stubDispatcher(): { query: () => Promise<unknown> } {
+    return { query: async () => ({}) };
+  }
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(join(tmpdir(), "kumiko-pagehead-"));
+    await writeFile(join(tmp, "tenant.html"), HTML);
+    await writeFile(join(tmp, "index.html"), HTML);
+  });
+
+  afterEach(async () => {
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  // Exercised through hostDispatch's "html" branch — that's the path
+  // offlot actually uses in production (createOfflotHostDispatch returns
+  // {kind:"html", ...} for every host), not the default single-app path.
+  test("resolver meta → og-tags appear in the hostDispatch HTML response", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      "{}",
+      () => ({ kind: "html", file: "tenant.html" }),
+      {
+        resolvePageHead: async () => ({
+          title: "Vehicle X",
+          description: "A car",
+          ogImage: "https://x/i.png",
+        }),
+        dispatcher: stubDispatcher(),
+      },
+    );
+    const res = await handler(new Request("http://t/"));
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain("<title>Vehicle X</title>");
+    expect(text).toContain('<meta property="og:image" content="https://x/i.png" />');
+  });
+
+  test("resolver throws → 200 with the unchanged shell", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      "{}",
+      () => ({ kind: "html", file: "tenant.html" }),
+      {
+        resolvePageHead: async () => {
+          throw new Error("boom");
+        },
+        dispatcher: stubDispatcher(),
+      },
+    );
+    const res = await handler(new Request("http://t/"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(HTML);
+  });
+
+  test("resolver never resolves → 200 with the unchanged shell after the timeout", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      "{}",
+      () => ({ kind: "html", file: "tenant.html" }),
+      {
+        resolvePageHead: () => new Promise(() => {}),
+        dispatcher: stubDispatcher(),
+      },
+    );
+    const res = await handler(new Request("http://t/"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(HTML);
+  }, 2000);
+
+  test("two paths with different resolved titles get different ETags", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      "{}",
+      () => ({ kind: "html", file: "tenant.html" }),
+      {
+        resolvePageHead: async ({ path }) => ({ title: `Title for ${path}` }),
+        dispatcher: stubDispatcher(),
+      },
+    );
+    const resA = await handler(new Request("http://t/a"));
+    const resB = await handler(new Request("http://t/b"));
+    expect(resA.headers.get("etag")).not.toBe(resB.headers.get("etag"));
+  });
+
+  test("no resolvePageHead configured → response is byte-identical to the no-resolver call", async () => {
+    const withoutPageHead = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      "{}",
+      () => ({ kind: "html", file: "tenant.html" }),
+    );
+    const res = await withoutPageHead(new Request("http://t/"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(HTML);
+  });
+});
