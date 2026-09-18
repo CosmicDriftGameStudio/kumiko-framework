@@ -2,6 +2,11 @@
 
 export { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id";
 export {
+  type BillingInfo,
+  type BillingInfoQueryDeps,
+  createBillingInfoQueryConfig,
+} from "./billing-info-query";
+export {
   BILLING_FOUNDATION_FEATURE,
   type BillingEventKind,
   BillingEventKinds,
