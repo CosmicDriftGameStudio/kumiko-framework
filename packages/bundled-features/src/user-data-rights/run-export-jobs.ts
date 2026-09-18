@@ -61,6 +61,7 @@ import {
   tenantExportPrefix,
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
+import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { decryptStoredPii } from "../shared";
@@ -72,6 +73,12 @@ import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/ex
 import { generateDownloadToken } from "./token-helpers";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
+
+// Gauge short name (feature.ts registers it via r.metric + resolves ctx.meter
+// into a MetricsHandle — jobs get no bound ctx.metrics, see feature.ts).
+// No "_seconds"/"_total" suffix: validateMetricName rejects both on a gauge.
+// Unit lives in the r.metric() `unit: "seconds"` declaration instead.
+export const EXPORT_CLEANUP_BACKLOG_AGE_METRIC = "export_cleanup_backlog_age";
 
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
@@ -165,6 +172,12 @@ export interface RunExportJobsArgs {
   // systemUser.id); threaded into runUserExport's per-hook TenantDb.
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly actor?: string;
+
+  /**
+   * Reports EXPORT_CLEANUP_BACKLOG_AGE_METRIC after the storage-cleanup
+   * pass. Optional so callers without an observability provider still work.
+   */
+  readonly metrics?: MetricsHandle;
 }
 
 export interface ExportJobError {
@@ -302,6 +315,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
     db,
     buildStorageProvider,
     now,
+    metrics: args.metrics,
   });
 
   return {
@@ -621,8 +635,9 @@ async function storageCleanupPass(args: {
   db: DbConnection;
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
   now: Instant;
+  metrics?: MetricsHandle;
 }): Promise<readonly string[]> {
-  const { db, buildStorageProvider, now } = args;
+  const { db, buildStorageProvider, now, metrics } = args;
 
   // Zwei Cleanup-Pfade:
   //
@@ -659,6 +674,13 @@ async function storageCleanupPass(args: {
   );
 
   const cleaned: string[] = [];
+  // Done-status candidates past expiresAt+grace, keyed by that due-instant —
+  // used below to report how far cleanup has fallen behind if a candidate
+  // is still standing (delete threw, or the version-checked null-out lost
+  // a race) once the pass is done. Failed-status jobs have no expiresAt
+  // (immediate cleanup, no TTL) so they're out of scope for this signal —
+  // see EXPORT_CLEANUP_BACKLOG_AGE_METRIC's r.metric() description.
+  const overdueDoneCleanupAfterMs = new Map<string, number>();
   for (const c of candidates) {
     if (!c.downloadStorageKey) continue;
 
@@ -674,6 +696,7 @@ async function storageCleanupPass(args: {
         c.expiresAt.epochMilliseconds +
         profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
       if (now.epochMilliseconds < cleanupAfter) continue;
+      overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
     }
     // Failed-Job-Branch: kein TTL-Check, sofort cleanup.
 
@@ -696,7 +719,52 @@ async function storageCleanupPass(args: {
     );
     if (result.isSuccess) cleaned.push(c.id);
   }
+
+  reportOldestOverdueAge(metrics, overdueDoneCleanupAfterMs, cleaned, now);
+
   return cleaned;
+}
+
+// Seconds since the longest-overdue Done-status bundle should have been
+// deleted (expiresAt+grace passed) but still isn't — 0 when the pass
+// cleaned everything that was due, or nothing was due.
+function oldestOverdueAgeSeconds(
+  overdueDoneCleanupAfterMs: ReadonlyMap<string, number>,
+  cleanedIds: readonly string[],
+  now: Instant,
+): number {
+  const cleaned = new Set(cleanedIds);
+  let oldestAgeSeconds = 0;
+  for (const [id, cleanupAfterMs] of overdueDoneCleanupAfterMs) {
+    if (cleaned.has(id)) continue;
+    const ageSeconds = (now.epochMilliseconds - cleanupAfterMs) / 1000;
+    if (ageSeconds > oldestAgeSeconds) oldestAgeSeconds = ageSeconds;
+  }
+  return oldestAgeSeconds;
+}
+
+// Best-effort like the email callbacks above: an observability hiccup
+// (metric not yet registered on this meter, provider misconfig) must not
+// fail a pass that otherwise cleaned up fine.
+function reportOldestOverdueAge(
+  metrics: MetricsHandle | undefined,
+  overdueDoneCleanupAfterMs: ReadonlyMap<string, number>,
+  cleanedIds: readonly string[],
+  now: Instant,
+): void {
+  // skip: no meter configured means there is nothing to report — the cleanup pass itself already ran to completion.
+  if (!metrics) return;
+  try {
+    metrics.set(
+      EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
+      oldestOverdueAgeSeconds(overdueDoneCleanupAfterMs, cleanedIds, now),
+    );
+  } catch (err) {
+    // biome-ignore lint/suspicious/noConsole: operator-visibility for observability-emit-failure
+    console.warn(
+      `[user-data-rights:run-export-jobs] metrics.set(${EXPORT_CLEANUP_BACKLOG_AGE_METRIC}) failed err=${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 // Wrapper: crud.update braucht TenantDb. ExportJob ist tenant-agnostisch
