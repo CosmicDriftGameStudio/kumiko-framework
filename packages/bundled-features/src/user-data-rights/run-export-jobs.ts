@@ -752,6 +752,7 @@ function reportOldestOverdueAge(
   cleanedIds: readonly string[],
   now: Instant,
 ): void {
+  // skip: no meter configured means there is nothing to report — the cleanup pass itself already ran to completion.
   if (!metrics) return;
   try {
     metrics.set(
