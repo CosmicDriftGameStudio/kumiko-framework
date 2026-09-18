@@ -58,6 +58,7 @@ import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createZipStream,
   type FileStorageProvider,
+  tenantExportPrefix,
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -709,9 +710,7 @@ function systemTenantDb(db: DbConnection, tenantId: TenantId) {
 }
 
 function buildExportStorageKey(job: JobRow): string {
-  // Fixed leading segment lets one S3 lifecycle rule with Prefix: "exports/"
-  // expire bundles across all tenants without ever matching a user upload.
-  return `exports/${job.requestedFromTenantId}/${job.id}.zip`;
+  return `${tenantExportPrefix(job.requestedFromTenantId)}${job.id}.zip`;
 }
 
 /**

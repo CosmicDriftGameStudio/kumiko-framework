@@ -174,3 +174,18 @@ export function buildStorageKey(
   const ext = /^[A-Za-z0-9]+$/.test(rawExt) ? rawExt.toLowerCase() : "bin";
   return `${tenantId}/${entityType}/${entityId}/${fieldName}/${uniqueId}.${ext}`;
 }
+
+/** Fixed leading segment so one S3 lifecycle rule (Prefix: "exports/") can expire export bundles for every tenant without matching a buildStorageKey() upload. */
+export function tenantExportPrefix(tenantId: TenantId): string {
+  return `exports/${tenantId}/`;
+}
+
+/**
+ * Every storage-key prefix a tenant's binaries can live under. A tenant-destroy
+ * prefix sweep must list ALL of these, not just buildStorageKey()'s
+ * `${tenantId}/` — new key layouts (like tenantExportPrefix) that don't put
+ * the tenant first need adding here too, or a sweep silently stops covering them.
+ */
+export function tenantStoragePrefixes(tenantId: TenantId): readonly string[] {
+  return [`${tenantId}/`, tenantExportPrefix(tenantId)];
+}
