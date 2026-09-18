@@ -28,6 +28,7 @@ export const bySlugQuery = defineQueryHandler({
     tenantIdOverride: z.string().min(1).optional(),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
   description:
     "Reads one text-block of a tenant by slug and locale together with its body and format; it is pinned to the text-block kind so mail templates and AI prompts in the same table stay unreachable through this anonymous-capable path.",
   handler: async (query, ctx) => {

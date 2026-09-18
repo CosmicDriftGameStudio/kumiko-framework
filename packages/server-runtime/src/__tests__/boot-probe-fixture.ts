@@ -34,6 +34,7 @@ export function makeProbeFeature(opts: {
       name: "ping",
       schema: z.object({}),
       access: { roles: ["anonymous"] },
+      rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
       handler: async () => ({ pong: true }),
     });
   });

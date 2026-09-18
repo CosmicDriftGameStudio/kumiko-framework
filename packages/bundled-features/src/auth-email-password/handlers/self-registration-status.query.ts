@@ -14,6 +14,7 @@ export const selfRegistrationStatusQuery = defineQueryHandler({
   name: "signup-registration-status",
   schema: z.object({}),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
+  rateLimit: { per: "ip", limit: 30, windowSeconds: 60 },
   description:
     "Reports whether self-registration is currently switched on, readable without signing in, so a signup page can hide its own form instead of collecting an address that would be silently ignored.",
   handler: async (_query, ctx) => {

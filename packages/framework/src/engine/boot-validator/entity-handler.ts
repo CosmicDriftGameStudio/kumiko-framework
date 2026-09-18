@@ -177,15 +177,21 @@ export function validateAnonymousRateLimit(
   access: NonNullable<FeatureDefinition["writeHandlers"][string]["access"]>,
   rateLimit: FeatureDefinition["writeHandlers"][string]["rateLimit"],
 ): void {
-  // skip: handler doesn't opt into rate-limit, no user-bucket risk
-  if (!rateLimit) return;
-  // skip: disabled declarations carry no `.per` to bucket on
-  if (isRateLimitDisabled(rateLimit)) return;
   // skip: openToAll handlers don't allow anonymous (hasAccess rejects), so
   // the user-bucket footgun doesn't apply
   if (!("roles" in access)) return;
   // skip: handler doesn't list anonymous, regular role-rate-limit is fine
   if (!access.roles.includes("anonymous")) return;
+  // skip: disabled declarations carry no `.per` to bucket on
+  if (isRateLimitDisabled(rateLimit)) return;
+  if (!rateLimit) {
+    throw new Error(
+      `${kind} handler "${featureName}:${kind}:${handlerName}" allows anonymous callers but declares no ` +
+        `rateLimit — an anonymous, internet-facing endpoint needs an upper bound. Set rateLimit: ` +
+        `{ per: "ip", limit: ..., windowSeconds: ... }, or the documented exception ` +
+        `rateLimit: { disabled: true, reason: "..." }.`,
+    );
+  }
   // skip: rate-limit is already keyed on something safe (ip / tenant)
   if (!USER_BUCKETED_RATE_LIMIT_PER.has(rateLimit.per)) return;
   throw new Error(
