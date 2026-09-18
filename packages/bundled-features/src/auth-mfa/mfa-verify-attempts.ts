@@ -13,78 +13,20 @@
 // This is INDEPENDENT of the AuthRoutesConfig.mfaVerifyRateLimit on the
 // framework route (IP-scoped abuse protection for the endpoint itself) —
 // both are needed, neither substitutes for the other.
+//
+// The counter mechanics (race-free INCR/NX, TTL rules, monotonic-counter
+// semantics) live in shared/lockout-counter.ts — this file only wires the
+// mfa-verify key prefixes onto it.
 
-import type Redis from "ioredis";
+import { createLockoutCounter, type LockoutCounterState } from "../shared";
 
-export type MfaVerifyLockoutState = {
-  readonly failureCount: number;
-  readonly lockedUntil: number | null;
-};
+export type MfaVerifyLockoutState = LockoutCounterState;
 
 const COUNT_KEY_PREFIX = "kumiko:auth:mfa-verify:count:";
 const UNTIL_KEY_PREFIX = "kumiko:auth:mfa-verify:until:";
 
-function countKey(userId: string): string {
-  return `${COUNT_KEY_PREFIX}${userId}`;
-}
-function untilKey(userId: string): string {
-  return `${UNTIL_KEY_PREFIX}${userId}`;
-}
+const counter = createLockoutCounter(COUNT_KEY_PREFIX, UNTIL_KEY_PREFIX);
 
-export async function getMfaVerifyLockoutState(
-  redis: Redis,
-  userId: string,
-): Promise<MfaVerifyLockoutState | null> {
-  const [countRaw, untilRaw] = await redis.mget(countKey(userId), untilKey(userId));
-  if (countRaw === null) return null;
-  const failureCount = Number(countRaw);
-  if (!Number.isFinite(failureCount)) return null;
-  const lockedUntil = untilRaw !== null ? Number(untilRaw) : null;
-  return {
-    failureCount,
-    lockedUntil: lockedUntil !== null && Number.isFinite(lockedUntil) ? lockedUntil : null,
-  };
-}
-
-// Race-free: INCR is atomic, NX on the until-key means only the attempt
-// that first crosses the threshold anchors the lock window — see
-// lockout-store.ts's recordFailedAttempt for the identical reasoning.
-export async function recordFailedMfaVerifyAttempt(
-  redis: Redis,
-  userId: string,
-  maxAttempts: number,
-  lockoutMinutes: number,
-): Promise<MfaVerifyLockoutState> {
-  const lockDurationMs = lockoutMinutes * 60 * 1000;
-  const ttlSec = Math.max(lockoutMinutes * 60, 24 * 3600);
-
-  const count = await redis.incr(countKey(userId));
-  if (count === 1) {
-    await redis.expire(countKey(userId), ttlSec);
-  }
-
-  let lockedUntil: number | null = null;
-  if (count >= maxAttempts) {
-    const computedUntil = Date.now() + lockDurationMs;
-    const setOk = await redis.set(
-      untilKey(userId),
-      String(computedUntil),
-      "PX",
-      lockDurationMs,
-      "NX",
-    );
-    if (setOk === "OK") {
-      lockedUntil = computedUntil;
-    } else {
-      const existing = await redis.get(untilKey(userId));
-      lockedUntil = existing !== null ? Number(existing) : null;
-    }
-  }
-
-  return { failureCount: count, lockedUntil };
-}
-
-// Called on a successful verify. The only path that resets the streak.
-export async function clearMfaVerifyAttempts(redis: Redis, userId: string): Promise<void> {
-  await redis.del(countKey(userId), untilKey(userId));
-}
+export const getMfaVerifyLockoutState = counter.getState;
+export const recordFailedMfaVerifyAttempt = counter.recordFailedAttempt;
+export const clearMfaVerifyAttempts = counter.clearState;
