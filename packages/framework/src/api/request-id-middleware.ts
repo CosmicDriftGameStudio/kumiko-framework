@@ -16,43 +16,47 @@ function sanitizeClientId(value: string | undefined): string | undefined {
   return value !== undefined && SAFE_ID_RE.test(value) ? value : undefined;
 }
 
+// Request.headers.get() returns `string | null` (Fetch API); Hono's
+// c.req.header() normalizes that to `string | undefined`. Match Hono's
+// contract here so both builders return the exact same RequestContextData
+// shape regardless of which one a call-site uses.
+function header(req: Request, name: string): string | undefined {
+  return req.headers.get(name) ?? undefined;
+}
+
 /**
- * Builds the RequestContextData record for a Hono request — requestId
+ * Builds the RequestContextData record for a raw Fetch Request — requestId
  * (client-supplied + sanitized, or generated), correlationId (mirrors
  * requestId unless the client set its own), the underlying abort signal,
- * and the client IP/User-Agent. Extracted out of `requestIdMiddleware` so
- * call-sites that invoke a handler outside that middleware's `next()`
- * chain (e.g. server.ts's httpRoute→systemQuery mount) can still populate
- * the same AsyncLocalStorage record via `requestContext.run(...)`.
+ * and the client IP/User-Agent. Extracted out of `buildRequestContextData`
+ * so call-sites that only have a `Request` (no Hono `Context`) — e.g.
+ * server-runtime's static-fallback page-head resolver, which runs outside
+ * Hono's router entirely — can still populate the same AsyncLocalStorage
+ * record via `requestContext.run(...)`.
  */
-export function buildRequestContextData(c: Context): RequestContextData {
-  const requestId =
-    sanitizeClientId(c.req.header(REQUEST_ID_HEADER)) ?? requestContext.generateId();
-  const correlationId = sanitizeClientId(c.req.header(CORRELATION_ID_HEADER)) ?? requestId;
+export function buildRequestContextDataFromRequest(req: Request): RequestContextData {
+  const requestId = sanitizeClientId(header(req, REQUEST_ID_HEADER)) ?? requestContext.generateId();
+  const correlationId = sanitizeClientId(header(req, CORRELATION_ID_HEADER)) ?? requestId;
 
-  // Hono exposes the underlying Fetch Request — its `signal` aborts
-  // when the client disconnects (mobile back-press, tab close). We
-  // propagate it through requestContext so framework internals can
-  // honour cancellation at long-running checkpoints. Older Hono /
-  // adapter combos may not populate `c.req.raw.signal`; conditional
-  // spread keeps `signal: undefined` out of the stored record so
-  // downstream `signal?` checks behave as if no signal exists.
-  const signal = c.req.raw?.signal;
+  // The Fetch Request's `signal` aborts when the client disconnects (mobile
+  // back-press, tab close). We propagate it through requestContext so
+  // framework internals can honour cancellation at long-running checkpoints.
+  const signal = req.signal;
   // Client IP for per-IP rate limiting. Trust `x-forwarded-for` when
   // present (proxy/CDN) — first hop is the originating client. Adapter-
   // specific socket-address fallback (bun, node) is not standardized
   // in Hono; deployments behind a proxy should always set xff. Without
   // either we leave `ip` undefined and skip ip-bucketed checks rather
   // than fabricate one.
-  const xff = c.req.header("x-forwarded-for");
+  const xff = header(req, "x-forwarded-for");
   const ip = xff?.split(",")[0]?.trim();
-  const userAgent = c.req.header("user-agent");
+  const userAgent = header(req, "user-agent");
   // Runs before auth-middleware, so this reaches public routes too (e.g.
   // signup-request) — that's the whole point: the active UI locale must
   // survive to anonymous callers, not just authenticated ones.
   const locale = resolveHeaderLocale({
-    headerLocale: c.req.header(LOCALE_HEADER_NAME),
-    acceptLanguage: c.req.header("accept-language"),
+    headerLocale: header(req, LOCALE_HEADER_NAME),
+    acceptLanguage: header(req, "accept-language"),
   });
 
   return {
@@ -63,6 +67,23 @@ export function buildRequestContextData(c: Context): RequestContextData {
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(locale !== undefined ? { locale } : {}),
   };
+}
+
+/**
+ * Builds the RequestContextData record for a Hono request. Thin wrapper
+ * around `buildRequestContextDataFromRequest(c.req.raw)` — kept as its own
+ * export because most call-sites (server.ts's httpRoute→systemQuery mount,
+ * `requestIdMiddleware` below) already hold a Hono `Context`.
+ */
+export function buildRequestContextData(c: Context): RequestContextData {
+  // Older Hono / adapter combos may leave c.req.raw unset even though it's
+  // typed as Request — degrade to a bare id pair (no signal/ip/ua/locale)
+  // instead of letting req.headers.get() throw on every request.
+  if (!c.req.raw) {
+    const requestId = requestContext.generateId();
+    return { requestId, correlationId: requestId };
+  }
+  return buildRequestContextDataFromRequest(c.req.raw);
 }
 
 /**

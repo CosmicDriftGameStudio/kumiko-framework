@@ -98,6 +98,7 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type TenantId,
   type TierResolverPlugin,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -430,6 +431,34 @@ export type HostDispatchFn = (req: {
   readonly search: string;
 }) => HostDispatchResult;
 
+/** Per-request head metadata (Open-Graph/title/description) for the
+ *  static-fallback HTML shell. Only `title` is required; everything else
+ *  falls back to no tag rather than a placeholder. */
+export type PageHeadMeta = {
+  readonly title: string;
+  readonly description?: string;
+  readonly ogImage?: string;
+  readonly canonicalUrl?: string;
+  readonly siteName?: string;
+  readonly locale?: string;
+};
+
+// Matches bundled-features' shared/system-query.ts SystemQueryFn shape
+// (non-generic, Promise<unknown>) rather than a generic <T> signature —
+// that's the convention every other systemQuery caller in the framework
+// already follows (r.httpRoute handlers, seo/managed-pages features).
+export type PageHeadSystemQuery = (
+  type: string,
+  payload: unknown,
+  tenantId: TenantId,
+) => Promise<unknown>;
+
+export type PageHeadResolver = (input: {
+  readonly path: string;
+  readonly host: string;
+  readonly systemQuery: PageHeadSystemQuery;
+}) => Promise<PageHeadMeta | null>;
+
 export type RunProdAppOptions = {
   /** App-specific features. config/user/tenant/auth-email-password are
    *  auto-mixed when `auth:` is set — don't add them yourself. */
@@ -475,6 +504,16 @@ export type RunProdAppOptions = {
    *  werden. CSP-Header pro Host können zusätzlich Asset-Pfade
    *  einschränken. */
   readonly hostDispatch?: HostDispatchFn;
+  /** Per-request head-metadata resolver (Open-Graph/title/description) for
+   *  the static-fallback HTML shell — see `PageHeadResolver`. Consulted on
+   *  the same two HTML-serving paths as `hostDispatch` (host-dispatched
+   *  HTML + the default single-app index.html), right before the response
+   *  is sent. On error, `null`, or a resolve time over 300ms, the shell
+   *  ships unchanged with status 200 — this must never turn into a 500 or
+   *  a blank page. `systemQuery` inside the resolver runs as the
+   *  anonymous role (not system) — the resolver is reachable by any
+   *  public visitor, same access gate as a real anonymous request. */
+  readonly resolvePageHead?: PageHeadResolver;
   /** Pfad zu kumiko/migrations für den Boot-Gate. Default "./kumiko/
    *  migrations" relativ zum process-cwd (wo die App gestartet wird —
    *  bei Container-Deploys typischerweise der App-Workspace-Root, weil
@@ -1271,6 +1310,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           options.staticDir,
           appSchemaJson,
           options.hostDispatch,
+          options.resolvePageHead
+            ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }
+            : undefined,
         )
       : // No staticDir (split-deploy / API-only container) → app.fetch's
         // response goes straight to the client, bypassing buildStaticFallback

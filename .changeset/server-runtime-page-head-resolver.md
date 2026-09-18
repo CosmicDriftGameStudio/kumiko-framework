@@ -1,0 +1,13 @@
+---
+"@cosmicdrift/kumiko-server-runtime": minor
+"@cosmicdrift/kumiko-framework": patch
+---
+
+`runProdApp` gains an optional `resolvePageHead` option so an app can inject per-request Open-Graph/title/description metadata into the static-fallback HTML shell — the framework building block behind fixing empty link previews for shared pages (the app-side provider ships separately). A resolver runs on both HTML-serving paths (`hostDispatch` and the default single-app `index.html`), capped at 300ms; on error, `null`, or timeout the shell ships unchanged with status 200. Head tags render via `renderApexHeadTags` from `@cosmicdrift/kumiko-headless/apex` (the same renderer apex marketing pages already use), a new `@cosmicdrift/kumiko-server-runtime` dependency, instead of a duplicate renderer. `@cosmicdrift/kumiko-framework/api` also exports `buildRequestContextDataFromRequest`, extracted from the existing Hono-`Context`-based `buildRequestContextData` so a caller with only a raw `Request` (no Hono `Context`) — like this new resolver path, which runs outside Hono's router — can still populate `requestContext` for per-IP rate limiting.
+
+<!-- kumiko-changes
+feature: server-runtime
+type: improvement
+title: runProdApp gains resolvePageHead for per-request Open-Graph/title/description metadata
+detail: New PageHeadResolver/PageHeadMeta types and a resolvePageHead option on RunProdAppOptions. buildStaticFallback's static-files module resolves the metadata on both HTML-serving paths (hostDispatch and the default index.html), timing the resolver out at 300ms via Promise.race and always falling back to the unchanged 200 shell on error/null/timeout. Head tags render via renderApexHeadTags from the new @cosmicdrift/kumiko-headless dependency (ApexHead built from PageHeadMeta, lang derived from meta.locale's language subtag, default "en"; og:type is hardcoded "website" by the renderer, so PageHeadMeta has no ogType field), injected idempotently via a marker comment in render-head-tags.ts's injectPageHead, same pattern as inject-schema.ts. A strong ETag is recomputed over the final bytes whenever head tags are actually injected, so two requests with different resolved metadata never collide on one ETag. systemQuery inside the resolver dispatches as createAnonymousUser (not createSystemUser) wrapped in requestContext.run, using the new buildRequestContextDataFromRequest(req: Request) extracted from @cosmicdrift/kumiko-framework/api's existing buildRequestContextData(c: Context) — needed because this resolver runs outside Hono's router and only has a raw Request. No behavior change for apps that don't set resolvePageHead.
+-->

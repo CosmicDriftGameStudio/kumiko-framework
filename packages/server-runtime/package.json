@@ -82,6 +82,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
     "temporal-polyfill": "^0.3.2"
   },
   "publishConfig": {

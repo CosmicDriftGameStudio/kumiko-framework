@@ -1,12 +1,22 @@
 import {
+  buildRequestContextDataFromRequest,
   type CachePolicy,
   cachedResponse,
   computeStrongEtag,
   computeWeakEtag,
+  requestContext,
 } from "@cosmicdrift/kumiko-framework/api";
+import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { type ApexHead, renderApexHeadTags } from "@cosmicdrift/kumiko-headless/apex";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { injectSchema } from "./inject-schema";
-import type { HostDispatchFn } from "./run-prod-app";
+import { injectPageHead } from "./render-head-tags";
+import type {
+  HostDispatchFn,
+  PageHeadMeta,
+  PageHeadResolver,
+  PageHeadSystemQuery,
+} from "./run-prod-app";
 import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first";
 
 // Static-asset + SPA-fallback serving for runProdApp's HTTP handler. Split
@@ -110,11 +120,28 @@ export function mimeTypeFor(filePath: string): string {
   }
 }
 
+// Minimal structural shape of the dispatcher buildStaticFallback needs —
+// not the full Dispatcher type, so this file doesn't have to import the
+// pipeline package just to type one param.
+type QueryDispatcher = {
+  readonly query: (type: string, payload: unknown, user: SessionUser) => Promise<unknown>;
+};
+
+export type PageHeadOptions = {
+  readonly resolvePageHead: PageHeadResolver;
+  readonly dispatcher: QueryDispatcher;
+};
+
+// Resolver runs alongside the request, never gates it: a slow, throwing, or
+// null-returning resolver must never turn a 200 shell into a 500 or a stall.
+const PAGE_HEAD_TIMEOUT_MS = 300;
+
 export function buildStaticFallback(
   apiHandler: (req: Request) => Response | Promise<Response>,
   staticDir: string,
   appSchemaJson: string,
   hostDispatch?: HostDispatchFn,
+  pageHead?: PageHeadOptions,
 ): (req: Request) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
 
@@ -166,6 +193,81 @@ export function buildStaticFallback(
     });
   }
 
+  // ApexHead.lang is required (html lang="..."); PageHeadMeta only carries
+  // og:locale-shaped strings ("de_DE", "en-US") since that's all og:locale
+  // needs. Take the language subtag before the region separator; default to
+  // "en" when there's no locale to derive one from.
+  function apexLangFromLocale(locale: string | undefined): string {
+    return locale?.split(/[_-]/)[0]?.toLowerCase() || "en";
+  }
+
+  function toApexHead(meta: PageHeadMeta): ApexHead {
+    return {
+      lang: apexLangFromLocale(meta.locale),
+      title: meta.title,
+      description: meta.description ?? "",
+      ...(meta.canonicalUrl !== undefined ? { canonicalUrl: meta.canonicalUrl } : {}),
+      ...(meta.ogImage !== undefined ? { ogImage: meta.ogImage } : {}),
+      ...(meta.siteName !== undefined ? { siteName: meta.siteName } : {}),
+      ...(meta.locale !== undefined ? { locale: meta.locale } : {}),
+    };
+  }
+
+  // Resolves per-request head metadata, capped at PAGE_HEAD_TIMEOUT_MS.
+  // Never throws — a failing/slow/absent resolver just means "no head
+  // metadata this request", not a broken response.
+  async function resolvePageHeadMeta(req: Request): Promise<PageHeadMeta | null> {
+    if (!pageHead) return null;
+    const url = new URL(req.url);
+    const host = req.headers.get("host") ?? url.host;
+    const systemQuery: PageHeadSystemQuery = (type, payload, tenantId) =>
+      requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
+        pageHead.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+      );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timedOut = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), PAGE_HEAD_TIMEOUT_MS);
+      });
+      // .catch on the resolver's own promise (not just the outer try/catch)
+      // so a rejection arriving AFTER the timeout already won the race
+      // doesn't surface as an unhandled rejection.
+      const resolved = pageHead
+        .resolvePageHead({ path: url.pathname, host, systemQuery })
+        .catch(() => null);
+      return await Promise.race([resolved, timedOut]);
+    } catch {
+      return null;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  // Injects resolved head metadata into an already-read HTML payload, right
+  // before it's served. Recomputes a strong etag over the final bytes so
+  // two requests with different head metadata never collide on one etag
+  // (see computeStrongEtag usage in readHtmlFile above for the same
+  // requirement on schema-injection). No resolvePageHead configured, no
+  // meta resolved, or nothing actually changed (e.g. no `</head>` to
+  // inject into) → the original html object is returned untouched.
+  async function applyPageHead(
+    req: Request,
+    html: { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number },
+  ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number }> {
+    const meta = await resolvePageHeadMeta(req);
+    if (!meta) return html;
+    const text = new TextDecoder().decode(html.bytes);
+    const injected = injectPageHead(text, renderApexHeadTags(toApexHead(meta)));
+    if (injected === text) return html;
+    const encoded = new TextEncoder().encode(injected);
+    return {
+      bytes: encoded.buffer as ArrayBuffer,
+      mime: html.mime,
+      etag: computeStrongEtag(encoded),
+      mtimeMs: html.mtimeMs,
+    };
+  }
+
   // hostDispatch konsultieren wenn gesetzt UND der Request auf den
   // HTML-Fallback fällt (Root oder SPA-Route). Returnt entweder die
   // resolved Response (redirect/404/html) oder null wenn der Default-
@@ -196,7 +298,8 @@ export function buildStaticFallback(
     // sonst darf ein Shared-Cache Tenant-As Schema an Tenant B liefern.
     const extraHeaders: Record<string, string> = { vary: "Host" };
     if (result.csp) extraHeaders["content-security-policy"] = result.csp;
-    return serveHtmlFile(req, "/index.html", html, extraHeaders);
+    const withHead = await applyPageHead(req, html);
+    return serveHtmlFile(req, "/index.html", withHead, extraHeaders);
   }
 
   return async (req: Request): Promise<Response> => {
@@ -249,7 +352,8 @@ export function buildStaticFallback(
     // Default Single-App-Pfad: index.html, schema injected.
     const index = await readHtmlFile(indexHtml, true);
     if (index) {
-      return serveHtmlFile(req, "/index.html", index);
+      const withHead = await applyPageHead(req, index);
+      return serveHtmlFile(req, "/index.html", withHead);
     }
 
     // Kein Hono-Match, keine Disk-Datei, kein index.html → liefer den

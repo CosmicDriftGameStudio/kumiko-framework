@@ -44,7 +44,10 @@ export { patAllows, qnMatches } from "./pat-scope";
 export type { RedisSseBroker, RedisSseBrokerOptions } from "./redis-sse-broker";
 export { createDefaultSseBroker, createRedisSseBroker, isRedisSseBroker } from "./redis-sse-broker";
 export { type RequestContextData, requestContext } from "./request-context";
-export { requestIdMiddleware } from "./request-id-middleware";
+export {
+  buildRequestContextDataFromRequest,
+  requestIdMiddleware,
+} from "./request-id-middleware";
 export { createApiRoutes } from "./routes";
 export type { KumikoServer, ServerOptions } from "./server";
 export { buildServer } from "./server";
