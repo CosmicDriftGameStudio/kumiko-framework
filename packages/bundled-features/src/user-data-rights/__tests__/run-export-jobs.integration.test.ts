@@ -183,13 +183,13 @@ describe("runExportJobs :: happy path", () => {
       bytesWritten: number | null;
     }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Done);
-    expect(row?.downloadStorageKey).toBe(`${tenantA}/exports/${jobId}.zip`);
+    expect(row?.downloadStorageKey).toBe(`exports/${tenantA}/${jobId}.zip`);
     expect(row?.expiresAt).not.toBeNull();
     expect(row?.bytesWritten).toBeGreaterThan(0);
 
     // ZIP wirklich im Storage
     const provider = await buildProvider(tenantA);
-    expect(await provider.exists(`${tenantA}/exports/${jobId}.zip`)).toBe(true);
+    expect(await provider.exists(`exports/${tenantA}/${jobId}.zip`)).toBe(true);
   });
 
   test("ZIP ist real entpackbar via Info-ZIP + enthaelt bundle.json", async () => {
@@ -203,7 +203,7 @@ describe("runExportJobs :: happy path", () => {
     });
 
     const provider = await buildProvider(tenantA);
-    const zipBytes = await provider.read(`${tenantA}/exports/${jobId}.zip`);
+    const zipBytes = await provider.read(`exports/${tenantA}/${jobId}.zip`);
 
     // Real-Decoder-Roundtrip via Info-ZIP unzip
     const dir = await mkdtemp(join(tmpdir(), "kumiko-worker-test-"));
@@ -291,7 +291,7 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
-    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
 
     // Simuliert real-Pfad: claim-update hatte status=running + storageKey
     // gesetzt + ZIP geschrieben. Worker dann gecrashed (kein done-flip).
@@ -335,7 +335,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     const longAgo = T.Instant.fromEpochMilliseconds(
       Date.now() - 365 * 24 * 60 * 60 * 1000, // 1 Jahr ago
     );
-    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
 
@@ -374,7 +374,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const oneHourAgo = T.Instant.fromEpochMilliseconds(Date.now() - 60 * 60 * 1000);
-    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([4, 5, 6]));
 
@@ -406,7 +406,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([7, 8, 9]));
 
@@ -505,11 +505,11 @@ describe("runExportJobs :: concurrency", () => {
     }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]?.status).toBe(EXPORT_JOB_STATUS.Done);
-    expect(rows[0]?.downloadStorageKey).toBe(`${tenantA}/exports/${jobId}.zip`);
+    expect(rows[0]?.downloadStorageKey).toBe(`exports/${tenantA}/${jobId}.zip`);
 
     // Storage hat genau ein ZIP — kein Race-induziertes Doppel-Schreiben
     const provider = await buildProvider(tenantA);
-    expect(await provider.exists(`${tenantA}/exports/${jobId}.zip`)).toBe(true);
+    expect(await provider.exists(`exports/${tenantA}/${jobId}.zip`)).toBe(true);
   });
 });
 
@@ -875,7 +875,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // Storage-Cleanup-Pass fuer failed-Jobs: sofort ZIP loeschen (kein
     // Grace), DB-Spalte nullen.
     const jobId = await seedPendingJob();
-    const storageKey = `${tenantA}/exports/${jobId}.zip`;
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
 
     // ZIP in storage seeden + Job manuell auf failed mit storageKey
     // (simuliert orphan-state nach Worker-crash).
@@ -1050,7 +1050,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
 
     // ZIP entpacken + file-bytes verifizieren
     const provider = await buildProvider(tenantA);
-    const zipBytes = await provider.read(`${tenantA}/exports/${jobId}.zip`);
+    const zipBytes = await provider.read(`exports/${tenantA}/${jobId}.zip`);
     const dir = await mkdtemp(join(tmpdir(), "kumiko-3c-test-"));
     try {
       const zipPath = join(dir, "out.zip");
@@ -1155,7 +1155,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     expect(result.completedJobIds).toContain(jobId);
 
     const provider = await buildProvider(tenantA);
-    const zipBytes = await provider.read(`${tenantA}/exports/${jobId}.zip`);
+    const zipBytes = await provider.read(`exports/${tenantA}/${jobId}.zip`);
     const dir = await mkdtemp(join(tmpdir(), "kumiko-3c-malicious-"));
     try {
       const zipPath = join(dir, "out.zip");

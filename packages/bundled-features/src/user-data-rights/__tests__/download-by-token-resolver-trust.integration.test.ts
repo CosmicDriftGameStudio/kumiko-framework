@@ -141,7 +141,7 @@ describe("download-by-token under resolverTrust: authoritative, no defaultTenant
     );
     const jobId = requestRes.jobId;
     const provider = await buildProvider(jobTenant);
-    await provider.write(`${jobTenant}/exports/${jobId}.zip`, new Uint8Array([1, 2, 3]));
+    await provider.write(`exports/${jobTenant}/${jobId}.zip`, new Uint8Array([1, 2, 3]));
 
     const result = await runExportJobs({
       db: stack.db,
@@ -164,6 +164,6 @@ describe("download-by-token under resolverTrust: authoritative, no defaultTenant
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data?: { url?: string } };
     expect(body.data?.url).toMatch(/^memory:\/\//);
-    expect(body.data?.url).toContain(`${jobTenant}/exports/${jobId}.zip`);
+    expect(body.data?.url).toContain(`exports/${jobTenant}/${jobId}.zip`);
   });
 });

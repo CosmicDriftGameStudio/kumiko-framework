@@ -34,6 +34,13 @@ export type {
   SignedUrlOptions,
   WriteStreamOptions,
 } from "./types";
-export { assertSafeStorageKey, buildStorageKey, parseMaxSize, validateFile } from "./types";
+export {
+  assertSafeStorageKey,
+  buildStorageKey,
+  parseMaxSize,
+  tenantExportPrefix,
+  tenantStoragePrefixes,
+  validateFile,
+} from "./types";
 export type { ZipEntry } from "./zip-stream";
 export { createZipStream } from "./zip-stream";

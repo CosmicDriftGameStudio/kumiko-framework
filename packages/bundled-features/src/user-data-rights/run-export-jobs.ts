@@ -58,6 +58,7 @@ import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createZipStream,
   type FileStorageProvider,
+  tenantExportPrefix,
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -709,9 +710,7 @@ function systemTenantDb(db: DbConnection, tenantId: TenantId) {
 }
 
 function buildExportStorageKey(job: JobRow): string {
-  // Tenant-prefix damit der Storage-Layout pro-Tenant separat liegt.
-  // job.id ist UUID → URL-safe.
-  return `${job.requestedFromTenantId}/exports/${job.id}.zip`;
+  return `${tenantExportPrefix(job.requestedFromTenantId)}${job.id}.zip`;
 }
 
 /**

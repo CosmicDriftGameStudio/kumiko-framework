@@ -24,6 +24,7 @@ import {
   fileRefEntity,
   fileRefsTable,
   type InMemoryFileProvider,
+  tenantExportPrefix,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -203,10 +204,15 @@ describe("files-tenant-data :: tenant destroy", () => {
     );
     const derivativeKeyA = `${originalKeyA.replace(/\.jpg$/, "")}.thumb-0123456789abcdef.jpg`;
     const unrelatedKeyA = `${tenantA.tenantId}/some-other-file.bin`;
+    // Export ZIPs live under exports/{tenantId}/, not {tenantId}/ — a
+    // regression here would leave a tenant's decrypted GDPR export bundle
+    // behind after destroy (#3003 review finding).
+    const exportKeyA = `${tenantExportPrefix(tenantA.tenantId)}job-1.zip`;
     const { id: fileRefIdA } = await seedFileRef(tenantA.tenantId, originalKeyA);
     await provider.write(originalKeyA, new Uint8Array([1]));
     await provider.write(derivativeKeyA, new Uint8Array([2]));
     await provider.write(unrelatedKeyA, new Uint8Array([3]));
+    await provider.write(exportKeyA, new Uint8Array([5]));
 
     const originalKeyB = buildStorageKey(
       tenantB.tenantId,
@@ -233,6 +239,9 @@ describe("files-tenant-data :: tenant destroy", () => {
     // Storage wipe (EXT_STORAGE_PROVIDER "files" stage) — every key under the
     // tenant's prefix is gone, including the unrelated non-fileRef-tracked key.
     expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
+    // The export prefix is a separate top-level sweep, not covered by
+    // `${tenantId}/` — proves fileRefStorageDestroyHook sweeps it too.
+    expect(await provider.exists(exportKeyA)).toBe(false);
 
     // Tenant B's fileRef row and storage key are completely untouched.
     const rowsB = await selectMany(db, fileRefsTable, { tenantId: tenantB.tenantId });
