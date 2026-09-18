@@ -187,14 +187,9 @@ export async function isPublicHost(
   raw: string,
   lookupFn: typeof lookup = lookup,
 ): Promise<boolean> {
-  let url: URL;
   try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  try {
+    const url = new URL(raw);
+    assertHttpScheme(url);
     await resolvePublicHost(url, lookupFn);
     return true;
   } catch {
