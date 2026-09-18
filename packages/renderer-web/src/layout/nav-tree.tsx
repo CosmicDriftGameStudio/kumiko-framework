@@ -970,7 +970,10 @@ export function buildNavRegistrySliceForApp(
   };
 }
 
-function qualifyNavId(feature: string, id: string): string {
+// Exported (not part of the package's public index.ts surface) so other
+// modules under layout/ — e.g. filter-app-schema-navs.ts — qualify nav ids
+// the same way instead of keeping a second copy in sync.
+export function qualifyNavId(feature: string, id: string): string {
   return id.includes(":nav:") ? id : `${feature}:nav:${id}`;
 }
 

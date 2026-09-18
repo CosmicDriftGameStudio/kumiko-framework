@@ -48,6 +48,44 @@ const SETTINGS_HUB_AUDIENCE_NAV_QN_SET: ReadonlySet<string> = new Set(
   SETTINGS_HUB_AUDIENCE_NAV_QNS,
 );
 
+// fw#3019: apps that assign navs to workspaces via `r.workspace({ nav })`
+// or `r.nav({ workspaces })` never pass an explicit navAllowlist (solon#113)
+// — without this, warnOnUnreachableNavScreens never runs for them. Both
+// `WorkspaceDefinition.nav` and `NavDefinition.workspaces` already hold
+// fully-qualified QNs (validateWorkspaces/validateNavs compare them
+// directly against allNavQns/allWorkspaceQns), so no re-qualification is
+// needed here.
+export function deriveNavAllowlistFromWorkspaces(
+  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+  allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
+): ReadonlySet<string> {
+  const allowlist = new Set<string>();
+  for (const wsDef of allWorkspaceQns.values()) {
+    for (const navQn of wsDef.nav ?? []) {
+      allowlist.add(navQn);
+    }
+  }
+  for (const [navQn, navDef] of allNavQns) {
+    if (navDef.workspaces !== undefined && navDef.workspaces.length > 0) {
+      allowlist.add(navQn);
+    }
+  }
+  return allowlist;
+}
+
+// App-provided navAllowlist always wins (app knowledge beats derivation).
+// Falling back to derivation only when the app has workspaces at all avoids
+// flagging every nav as unreachable in a workspace-free app.
+export function resolveNavAllowlist(
+  explicitAllowlist: ReadonlySet<string> | undefined,
+  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
+  allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
+): ReadonlySet<string> | undefined {
+  if (explicitAllowlist !== undefined) return explicitAllowlist;
+  if (allWorkspaceQns.size === 0) return undefined;
+  return deriveNavAllowlistFromWorkspaces(allNavQns, allWorkspaceQns);
+}
+
 // Single-default rule across the entire app. Mirrors how createApp validates
 // roles up front — a second `default: true` is a configuration error, not a
 // runtime fallback. Apps without any default fall back to "first workspace
