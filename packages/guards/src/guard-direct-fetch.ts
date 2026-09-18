@@ -92,7 +92,7 @@ function isSameOriginLiteralArg(expr: CallExpression): boolean {
 
 function isGlobalFetchAccess(callee: Node): boolean {
   const pae = callee.asKind(SyntaxKind.PropertyAccessExpression);
-  if (!pae || pae.getName() !== "fetch") return false;
+  if (pae?.getName() !== "fetch") return false;
   const receiver = pae.getExpression();
   return (
     receiver.getKind() === SyntaxKind.Identifier && GLOBAL_FETCH_RECEIVERS.has(receiver.getText())

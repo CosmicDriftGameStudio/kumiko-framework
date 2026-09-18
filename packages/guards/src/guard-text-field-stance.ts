@@ -82,7 +82,7 @@ function hasSpreadProperty(obj: ObjectLiteralExpression): boolean {
 // for it) — except `undefined`/`null`, which never answered the question.
 function hasPersonalStance(obj: ObjectLiteralExpression): boolean {
   const prop = obj.getProperty("personal");
-  if (!prop || !prop.isKind(SyntaxKind.PropertyAssignment)) return false;
+  if (!prop?.isKind(SyntaxKind.PropertyAssignment)) return false;
   const init: Node | undefined = prop.getInitializer();
   return (
     init !== undefined &&
