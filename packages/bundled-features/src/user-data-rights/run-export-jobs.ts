@@ -709,9 +709,9 @@ function systemTenantDb(db: DbConnection, tenantId: TenantId) {
 }
 
 function buildExportStorageKey(job: JobRow): string {
-  // Tenant-prefix damit der Storage-Layout pro-Tenant separat liegt.
-  // job.id ist UUID → URL-safe.
-  return `${job.requestedFromTenantId}/exports/${job.id}.zip`;
+  // Fixed leading segment lets one S3 lifecycle rule with Prefix: "exports/"
+  // expire bundles across all tenants without ever matching a user upload.
+  return `exports/${job.requestedFromTenantId}/${job.id}.zip`;
 }
 
 /**
