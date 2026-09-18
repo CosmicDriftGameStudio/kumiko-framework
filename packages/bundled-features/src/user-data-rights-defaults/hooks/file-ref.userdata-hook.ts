@@ -293,6 +293,7 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     await severPersonLink(ctx.db, systemUser, businessRows);
   }
 
+  // skip: nothing left to hard-delete — businessRows above already had their person link severed via severPersonLink.
   if (personalRows.length === 0) return;
 
   const storageProvider = await resolveProvider(ctx);
