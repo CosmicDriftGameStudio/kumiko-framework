@@ -20,8 +20,17 @@ import { readFile, realpath, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AuthRoutesConfig,
+  buildRequestContextDataFromRequest,
+  generateToken,
+  requestContext,
+} from "@cosmicdrift/kumiko-framework/api";
+import {
+  buildAppSchema,
+  createAnonymousUser,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   pushEntityProjectionTables,
@@ -30,6 +39,11 @@ import {
   type TestStackOptions,
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  type PageHeadResolver,
+  type PageHeadSystemQuery,
+  resolveAndInjectPageHead,
+} from "@cosmicdrift/kumiko-headless/apex";
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
 import { buildBunServeOptions } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
 import {
@@ -209,6 +223,16 @@ export type CreateKumikoServerOptions = {
    *  /og-image, …) Vorrang vor dem Dev-Asset-Pfad haben. `deps` statt
    *  `ctx` weil dies kein HandlerContext ist — kein user/tenant. */
   readonly extraRoutes?: (app: import("hono").Hono, deps: ExtraRoutesSystemDeps) => void;
+  /** Per-request head-metadata resolver (Open-Graph/title/description) —
+   *  same option, same `PageHeadResolver` signature, and same shared
+   *  resolve+inject call (`resolveAndInjectPageHead`) as `runProdApp`'s
+   *  `resolvePageHead`, so dev and e2e exercise the exact code prod does
+   *  (kumiko-framework#3026). Consulted for every templated HTML response
+   *  (the default single-entry shell and a host-dispatched `"html"` entry),
+   *  right before it's served. On error, `null`, or a timeout, the shell
+   *  ships unchanged with status 200 — never a 500. `systemQuery` inside
+   *  the resolver runs as the anonymous role, same as prod. */
+  readonly resolvePageHead?: PageHeadResolver;
 };
 
 export type KumikoServerHandle = {
@@ -918,7 +942,15 @@ export async function createKumikoServer(
   // bestimmt nachdem er hostDispatch evaluiert hat. Ohne hostDispatch
   // ist es immer "client" mit Schema-Inject true (Single-Entry-Default
   // damit der Client TypeScript-Schemas findet).
-  const htmlResponse = async (entryName: string, doInjectSchema: boolean): Promise<Response> => {
+  //
+  // resolvePageHead goes through the same headless resolveAndInjectPageHead
+  // that runProdApp uses, so dev and e2e exercise the one timeout and
+  // fallback path instead of a second copy of it (#3026).
+  const htmlResponse = async (
+    entryName: string,
+    doInjectSchema: boolean,
+    req: Request,
+  ): Promise<Response> => {
     const template = htmlTemplates.get(entryName) ?? defaultTemplate;
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
@@ -931,6 +963,19 @@ export async function createKumikoServer(
     let html = injectReload(template);
     if (stylesheetPath !== undefined) html = injectStylesheet(html);
     if (doInjectSchema) html = injectSchema(html, appSchemaJson);
+    if (options.resolvePageHead !== undefined) {
+      const url = new URL(req.url);
+      const host = req.headers.get("host") ?? url.host;
+      const systemQuery: PageHeadSystemQuery = (type, payload, tenantId) =>
+        requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
+          stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+        );
+      html = await resolveAndInjectPageHead(html, options.resolvePageHead, {
+        path: url.pathname,
+        host,
+        systemQuery,
+      });
+    }
     return new Response(html, { headers });
   };
 
@@ -1058,9 +1103,9 @@ export async function createKumikoServer(
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }
-        return htmlResponse(dispatch.entryName, dispatch.injectSchema ?? true);
+        return htmlResponse(dispatch.entryName, dispatch.injectSchema ?? true, req);
       }
-      return htmlResponse("client", true);
+      return htmlResponse("client", true, req);
     }
 
     // Static assets under public/ — see tryServePublicAsset's own comment

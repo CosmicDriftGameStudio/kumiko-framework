@@ -74,6 +74,7 @@ import {
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
+import type { PageHeadResolver } from "@cosmicdrift/kumiko-headless/apex";
 import { applyBootSeeds } from "@cosmicdrift/kumiko-server-runtime/boot/apply-boot-seeds";
 import { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
 import {
@@ -187,6 +188,11 @@ export type RunDevAppOptions = {
    *  geforderten — sonst weiß der Server nicht welche HTML er liefern
    *  soll. */
   readonly hostDispatch?: CreateKumikoServerOptions["hostDispatch"];
+  /** Per-request head-metadata resolver — same option, same signature as
+   *  `runProdApp`'s `resolvePageHead`, so `bun dev` and every e2e that boots
+   *  through `runDevApp` show the same resolved head prod does. See
+   *  `CreateKumikoServerOptions.resolvePageHead` for the full contract. */
+  readonly resolvePageHead?: PageHeadResolver;
   /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer-web/styles.css`
    *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
   readonly stylesheet?: string | false;
@@ -482,6 +488,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
     ...(options.clientEntries !== undefined && { clientEntries: options.clientEntries }),
     ...(options.hostDispatch !== undefined && { hostDispatch: options.hostDispatch }),
+    ...(options.resolvePageHead !== undefined && { resolvePageHead: options.resolvePageHead }),
     ...(options.stylesheet !== undefined && { stylesheet: options.stylesheet }),
     ...(options.htmlPath !== undefined && { htmlPath: options.htmlPath }),
     ...(options.port !== undefined && { port: options.port }),
