@@ -419,22 +419,32 @@ export function createLocatedTimestampField<R extends true | false = false>(
   } as LocatedTimestampFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
-export function createFileField(overrides?: Partial<Omit<FileFieldDef, "type">>): FileFieldDef {
-  return { type: "file", ...overrides };
+export function createFileField(
+  overrides?: Partial<Omit<FileFieldDef, "type" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind,
+): FileFieldDef {
+  return { type: "file", ...expandPersonalAnnotations(overrides) };
 }
 
-export function createImageField(overrides?: Partial<Omit<ImageFieldDef, "type">>): ImageFieldDef {
-  return { type: "image", ...overrides };
+export function createImageField(
+  overrides?: Partial<Omit<ImageFieldDef, "type" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind,
+): ImageFieldDef {
+  return { type: "image", ...expandPersonalAnnotations(overrides) };
 }
 
-export function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type">>): FilesFieldDef {
-  return { type: "files", ...overrides };
+export function createFilesField(
+  overrides?: Partial<Omit<FilesFieldDef, "type" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind,
+): FilesFieldDef {
+  return { type: "files", ...expandPersonalAnnotations(overrides) };
 }
 
 export function createImagesField(
-  overrides?: Partial<Omit<ImagesFieldDef, "type">>,
+  overrides?: Partial<Omit<ImagesFieldDef, "type" | keyof ResolvedPiiFlags>> &
+    PersonalAnnotationsNoFind,
 ): ImagesFieldDef {
-  return { type: "images", ...overrides };
+  return { type: "images", ...expandPersonalAnnotations(overrides) };
 }
 
 // `F` läuft OHNE Constraint im Generic-Param damit TS die literal-types
