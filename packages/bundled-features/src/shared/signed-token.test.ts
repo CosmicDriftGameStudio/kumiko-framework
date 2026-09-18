@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { signToken, TokenPurpose, verifyToken } from "../signed-token";
+import { signToken, TokenPurpose, verifyToken } from "./signed-token";
 
 const SECRET = "test-hmac-secret-32-bytes-minimum!!";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
