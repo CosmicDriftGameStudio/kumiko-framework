@@ -104,6 +104,20 @@ describe("resolvePublicHost", () => {
     expect(calls).toEqual(["rebinding.example"]); // exactly one resolution
   });
 
+  test("prefers IPv4 when DNS returns both public address families", async () => {
+    const fakeLookup = (async () => [
+      { address: "2606:4700:4700::1111", family: 6 },
+      { address: "93.184.216.34", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(
+      resolvePublicHost(new URL("http://dual-stack.example/"), fakeLookup),
+    ).resolves.toEqual({
+      address: "93.184.216.34",
+      family: 4,
+    });
+  });
+
   test("rejects when any address in the resolution is private, even if another is public", async () => {
     const fakeLookup = (async () => [
       { address: "203.0.113.5", family: 4 },

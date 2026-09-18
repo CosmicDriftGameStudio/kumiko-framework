@@ -206,9 +206,7 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
       const summaryLine = output
         .split("\n")
         .find((line) => line.startsWith("Ran ") && line.includes(" tests"));
-      if (summaryLine !== undefined) {
-        console.log(`  ${summaryLine.trim()}`);
-      }
+      if (summaryLine !== undefined) console.log(`  ${summaryLine.trim()}`);
     }
 
     if (output.includes("The following filters did not match any test files")) {

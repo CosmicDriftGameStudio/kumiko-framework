@@ -171,7 +171,7 @@ export async function resolvePublicHost(
   if (blocked) {
     throw new Error(`egress: host resolves to a non-public address: ${host} -> ${blocked.address}`);
   }
-  const [chosen] = addresses;
+  const chosen = addresses.find((address) => address.family === 4) ?? addresses[0];
   if (!chosen) {
     throw new Error(`egress: DNS resolution returned no records for host: ${host}`);
   }

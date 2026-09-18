@@ -22,7 +22,18 @@ import { RenderField, type RenderFieldProps } from "../render-field";
 
 let captured: EmbeddedListInputProps | undefined;
 const captureEmbeddedListInput: ComponentType<EmbeddedListInputProps> = (props) => {
-  captured = props;
+  captured = {
+    ...props,
+    onCellChange: (...args) => act(() => props.onCellChange(...args)),
+    onAddRow: () => act(() => props.onAddRow()),
+    onRemoveRow: (rowIndex) => act(() => props.onRemoveRow(rowIndex)),
+    onDuplicateRow: (rowIndex) => act(() => props.onDuplicateRow(rowIndex)),
+    onMoveRow: (fromIndex, toIndex) => act(() => props.onMoveRow(fromIndex, toIndex)),
+    ...(props.onPasteCells !== undefined && {
+      onPasteCells: (...args: Parameters<NonNullable<EmbeddedListInputProps["onPasteCells"]>>) =>
+        act(() => props.onPasteCells?.(...args)),
+    }),
+  };
   return null;
 };
 const noop = (): ReactNode => null;
@@ -112,12 +123,12 @@ function invoiceLinesField(overrides: Partial<EditFieldViewModel> = {}): EditFie
   };
 }
 
-function renderEmbeddedListField(
+async function renderEmbeddedListField(
   field: EditFieldViewModel,
   onChange: (v: unknown) => void,
   allIssues: Readonly<Record<string, readonly FieldIssue[]>> = {},
   productRows: readonly ProductRow[] = [],
-): void {
+): Promise<void> {
   captured = undefined;
   render(
     <LocaleProvider
@@ -137,13 +148,14 @@ function renderEmbeddedListField(
       </DispatcherProvider>
     </LocaleProvider>,
   );
+  await act(async () => {});
 }
 
 describe("EmbeddedListField — cell change recomputes derived", () => {
-  test("changing quantity updates the cell and recomputes amount in the same row", () => {
+  test("changing quantity updates the cell and recomputes amount in the same row", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 2, unitPrice: 500, amount: 1000 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     captured?.onCellChange(0, "quantity", 4);
@@ -152,10 +164,10 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
     ]);
   });
 
-  test("a fractional product on the money-typed amount cell shows the rounded live preview, not the raw fraction", () => {
+  test("a fractional product on the money-typed amount cell shows the rounded live preview, not the raw fraction", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 2, unitPrice: 923, amount: 1846 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     // 2.5 * 923 = 2307.5 — a fractional minor-unit amount the money target
@@ -177,7 +189,7 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
   // frozen `source` snapshot, same as the server. Two field configs with
   // "net"/"gross" declared in opposite key order must therefore produce the
   // identical, order-independent result.
-  test("chained derived cells (gross depends on net) recompute the same value regardless of the derived-map's key order", () => {
+  test("chained derived cells (gross depends on net) recompute the same value regardless of the derived-map's key order", async () => {
     const cells: EditFieldViewModel["embeddedListCells"] = [
       { field: "qty", label: "Qty", type: "number", required: true },
       { field: "price", label: "Price", type: "number", required: true },
@@ -194,7 +206,7 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
     const expected = { qty: 4, price: 3, tax: 1, net: 12, gross: 7 };
 
     let netFirstResult: unknown;
-    renderEmbeddedListField(
+    await renderEmbeddedListField(
       {
         ...invoiceLinesField({ value: rows }),
         embeddedListCells: cells,
@@ -210,7 +222,7 @@ describe("EmbeddedListField — cell change recomputes derived", () => {
     captured?.onCellChange(0, "qty", 4);
 
     let grossFirstResult: unknown;
-    renderEmbeddedListField(
+    await renderEmbeddedListField(
       {
         ...invoiceLinesField({ value: rows }),
         embeddedListCells: cells,
@@ -236,45 +248,45 @@ describe("EmbeddedListField — row operations", () => {
     { product: "p2", unit: "hours", quantity: 2, unitPrice: 200, amount: 400 },
   ];
 
-  test("onAddRow appends an empty row with derived recomputed", () => {
+  test("onAddRow appends an empty row with derived recomputed", async () => {
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     captured?.onAddRow();
     expect(lastValue).toEqual([...rows, { amount: undefined }]);
   });
 
-  test("onRemoveRow removes exactly the targeted row", () => {
+  test("onRemoveRow removes exactly the targeted row", async () => {
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     captured?.onRemoveRow(0);
     expect(lastValue).toEqual([rows[1]]);
   });
 
-  test("onDuplicateRow inserts a copy right after the source row", () => {
+  test("onDuplicateRow inserts a copy right after the source row", async () => {
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     captured?.onDuplicateRow(0);
     expect(lastValue).toEqual([rows[0], rows[0], rows[1]]);
   });
 
-  test("onDuplicateRow is a no-op for an out-of-range index", () => {
+  test("onDuplicateRow is a no-op for an out-of-range index", async () => {
     let called = false;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {
       called = true;
     });
     captured?.onDuplicateRow(99);
     expect(called).toBe(false);
   });
 
-  test("onMoveRow moves an element from one index to another, immutably", () => {
+  test("onMoveRow moves an element from one index to another, immutably", async () => {
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     captured?.onMoveRow(1, 0);
@@ -286,9 +298,9 @@ describe("EmbeddedListField — row operations", () => {
     ]);
   });
 
-  test("onMoveRow is a no-op for an out-of-range target index", () => {
+  test("onMoveRow is a no-op for an out-of-range target index", async () => {
     let called = false;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {
       called = true;
     });
     captured?.onMoveRow(0, 5);
@@ -297,10 +309,10 @@ describe("EmbeddedListField — row operations", () => {
 });
 
 describe("EmbeddedListField — paste coercion", () => {
-  test("pastes number/money/select cells with correct coercion per column type", () => {
+  test("pastes number/money/select cells with correct coercion per column type", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     // Columns in order: product, unit, quantity, unitPrice, amount.
@@ -315,10 +327,10 @@ describe("EmbeddedListField — paste coercion", () => {
   // the typed-in path's currencyDecimals-based scaling for any non-2-decimal
   // currency — JPY (0 decimals) pasted "1234" would have landed on 123400
   // (100x too large) instead of 1234.
-  test("pastes a money cell for a zero-decimal currency (JPY) without the paste-path ×100 bug", () => {
+  test("pastes a money cell for a zero-decimal currency (JPY) without the paste-path ×100 bug", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 0, amount: 0 }];
     let lastValue: unknown;
-    renderEmbeddedListField(
+    await renderEmbeddedListField(
       invoiceLinesField({ value: rows, embeddedListCurrency: "JPY" }),
       (v) => {
         lastValue = v;
@@ -331,12 +343,15 @@ describe("EmbeddedListField — paste coercion", () => {
     expect(result[0]?.["unitPrice"]).toBe(1234);
   });
 
-  test("paste beyond the current rows appends new rows but never past maxItems", () => {
+  test("paste beyond the current rows appends new rows but never past maxItems", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows, embeddedListMaxItems: 2 }), (v) => {
-      lastValue = v;
-    });
+    await renderEmbeddedListField(
+      invoiceLinesField({ value: rows, embeddedListMaxItems: 2 }),
+      (v) => {
+        lastValue = v;
+      },
+    );
     captured?.onPasteCells?.(0, 2, [
       ["1", "100"],
       ["2", "200"],
@@ -348,7 +363,10 @@ describe("EmbeddedListField — paste coercion", () => {
 
   test("paste beyond maxItems surfaces a listIssue with the dropped-row count", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
-    renderEmbeddedListField(invoiceLinesField({ value: rows, embeddedListMaxItems: 2 }), () => {});
+    await renderEmbeddedListField(
+      invoiceLinesField({ value: rows, embeddedListMaxItems: 2 }),
+      () => {},
+    );
     act(() => {
       captured?.onPasteCells?.(0, 2, [
         ["1", "100"],
@@ -371,7 +389,7 @@ describe("EmbeddedListField — paste coercion", () => {
   test("a select paste value with no matching option leaves the cell unchanged and surfaces a listIssue", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     // Columns in order: product, unit, quantity, unitPrice, amount. Column
@@ -396,10 +414,10 @@ describe("EmbeddedListField — paste coercion", () => {
   // kumiko-framework#1838: a naive `replace(",", ".")` on a DE-locale paste
   // with a thousands separator turned "1.234,56" into "1.234.56" → NaN →
   // the cell silently cleared instead of keeping the pasted amount.
-  test("pastes a DE-locale money value with a thousands separator (1.234,56)", () => {
+  test("pastes a DE-locale money value with a thousands separator (1.234,56)", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     // Column index 3 = "unitPrice".
@@ -408,10 +426,10 @@ describe("EmbeddedListField — paste coercion", () => {
     expect(result[0]?.["unitPrice"]).toBe(123456);
   });
 
-  test("pastes an en-US-locale money value with a thousands separator (1,234.56)", () => {
+  test("pastes an en-US-locale money value with a thousands separator (1,234.56)", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     captured?.onPasteCells?.(0, 3, [["1,234.56"]]);
@@ -422,7 +440,7 @@ describe("EmbeddedListField — paste coercion", () => {
   test("an unparseable money paste leaves the cell unchanged and surfaces a listIssue instead of clearing it", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     let lastValue: unknown;
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), (v) => {
       lastValue = v;
     });
     act(() => {
@@ -445,7 +463,7 @@ describe("EmbeddedListField — paste coercion", () => {
 
 describe("EmbeddedListField — reference column populated via useQuery", () => {
   test("referenceOptions come from the product list query", async () => {
-    renderEmbeddedListField(invoiceLinesField({ value: [] }), () => {}, {}, [
+    await renderEmbeddedListField(invoiceLinesField({ value: [] }), () => {}, {}, [
       { id: "p1", name: "Widget A" },
     ]);
     await waitFor(() => {
@@ -456,10 +474,10 @@ describe("EmbeddedListField — reference column populated via useQuery", () => 
 });
 
 describe("EmbeddedListField — issue grouping wiring", () => {
-  test("a lines.0.amount issue is routed as a cellIssue at 0.amount", () => {
+  test("a lines.0.amount issue is routed as a cellIssue at 0.amount", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     const issue: FieldIssue = { path: "lines.0.amount", code: "custom", i18nKey: "Bad amount" };
-    renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {}, {
+    await renderEmbeddedListField(invoiceLinesField({ value: rows }), () => {}, {
       "lines.0.amount": [issue],
     });
     expect(captured?.cellIssues?.["0.amount"]).toEqual([issue]);
@@ -467,19 +485,19 @@ describe("EmbeddedListField — issue grouping wiring", () => {
     expect(captured?.listIssues ?? []).toEqual([]);
   });
 
-  test("a lines-level issue is routed as a listIssue", () => {
+  test("a lines-level issue is routed as a listIssue", async () => {
     const issue: FieldIssue = { path: "lines", code: "custom", i18nKey: "Too few lines" };
-    renderEmbeddedListField(invoiceLinesField({ value: [] }), () => {}, {
+    await renderEmbeddedListField(invoiceLinesField({ value: [] }), () => {}, {
       lines: [issue],
     });
     expect(captured?.listIssues).toEqual([issue]);
   });
 });
 
-function renderFieldWithEmbeddedList(
+async function renderFieldWithEmbeddedList(
   field: EditFieldViewModel,
   allIssues: RenderFieldProps["allIssues"],
-): void {
+): Promise<void> {
   captured = undefined;
   render(
     <LocaleProvider
@@ -498,13 +516,14 @@ function renderFieldWithEmbeddedList(
       </DispatcherProvider>
     </LocaleProvider>,
   );
+  await act(async () => {});
 }
 
 describe("RenderField — routes embedded-list fields to EmbeddedListField (plumbing)", () => {
-  test("field.embeddedListCells set → RenderField mounts EmbeddedListField, allIssues propagate", () => {
+  test("field.embeddedListCells set → RenderField mounts EmbeddedListField, allIssues propagate", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
     const issue: FieldIssue = { path: "lines.0.amount", code: "custom", i18nKey: "Bad amount" };
-    renderFieldWithEmbeddedList(invoiceLinesField({ value: rows }), {
+    await renderFieldWithEmbeddedList(invoiceLinesField({ value: rows }), {
       "lines.0.amount": [issue],
     });
     expect(captured?.cellIssues?.["0.amount"]).toEqual([issue]);
