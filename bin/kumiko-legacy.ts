@@ -164,15 +164,15 @@ function repoAbsPath(repoName: string): string {
 
 /**
  * cwd for the guard runners: the pushed repo when the run is scoped to exactly
- * one (the pre-push case), else kumiko-framework as the tooling anchor. Never
- * the parent workspace — that resolves no repo root at all.
+ * one (the pre-push case), else this framework checkout as the tooling anchor.
+ * Never the parent workspace — that resolves no repo root at all.
  */
 function guardScanRoot(): string {
   const scoped = SCOPED_CLI_REPOS && SCOPED_CLI_REPOS.size === 1 ? [...SCOPED_CLI_REPOS][0] : undefined;
   const candidate = scoped !== undefined ? repoAbsPath(scoped) : undefined;
-  return candidate !== undefined && existsSync(candidate)
-    ? candidate
-    : repoAbsPath("kumiko-framework");
+  // The anchor comes from import.meta, not repoAbsPath: the latter resolves
+  // siblings of this checkout, which under .wt/ is the worktree dir.
+  return candidate !== undefined && existsSync(candidate) ? candidate : resolvePath(import.meta.dir, "..");
 }
 
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
