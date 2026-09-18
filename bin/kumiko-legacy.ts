@@ -267,14 +267,15 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // regenerated with `--write-baseline` from framework repo after validation.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   // Feature-CHANGELOG guard: breaking changes must have migration field.
-  // Cross-repo scan (guard file lives in infra/guards) — loud-skip standalone,
-  // same pattern as Semantic-Duplicates/Secret-Literal Guard further below.
+  // Scans this repo's own packages/bundled-features, so the published binary
+  // from @cosmicdriftgamestudio/kumiko-guards covers the standalone checkout.
   const featureChangelogGuard = join(REPO_ROOT, "infra/guards/guard-feature-changelog.ts");
-  if (existsSync(featureChangelogGuard)) {
-    steps.push({ name: "Feature-Changelog Guard", cmd: `bun ${featureChangelogGuard}` });
-  } else {
-    console.log("Feature-Changelog Guard skipped: infra/guards not in workspace (CI-standalone).");
-  }
+  steps.push({
+    name: "Feature-Changelog Guard",
+    cmd: existsSync(featureChangelogGuard)
+      ? `bun "${featureChangelogGuard}"`
+      : "bunx kumiko-guard-feature-changelog",
+  });
   // App-Dockerfile Guard needs the app-repo siblings in the parent workspace,
   // hence loud-skip in a standalone checkout (infra#514).
   const appDockerfileGuard = join(REPO_ROOT, "infra/guards/guard-app-dockerfile.ts");
