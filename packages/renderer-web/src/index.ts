@@ -112,6 +112,8 @@ export type { DefaultAppShellProps } from "./layout/default-app-shell";
 export { DefaultAppShell } from "./layout/default-app-shell";
 export type { EditorPanelProps, ResolverComponent } from "./layout/editor-panel";
 export { EditorPanel } from "./layout/editor-panel";
+export type { NavReparentOverride } from "./layout/filter-app-schema-navs";
+export { filterAppSchemaNavsByAllowlist } from "./layout/filter-app-schema-navs";
 export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher";
 export { LanguageSwitcher } from "./layout/language-switcher";
 export type { NavTreeProps } from "./layout/nav-tree";

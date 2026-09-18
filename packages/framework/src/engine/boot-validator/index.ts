@@ -46,6 +46,7 @@ import {
   validateNavCycles,
   validateNavs,
   warnOnNavAccessInversion,
+  warnOnUnreachableNavScreens,
 } from "./nav";
 import { collectClaimKeys, validateOwnershipRules } from "./ownership";
 import { validateParentRefs } from "./parent-ref";
@@ -85,6 +86,15 @@ export type ValidateBootOptions = {
    *  prod warning that nobody can silence per-role isn't worth the noise
    *  it generates on every boot. */
   readonly warnOnUniqueAccessRoles?: boolean;
+  /** QNs the app's sidebar allowlist admits. When set, every declared nav
+   *  whose screen isn't reachable from any allowlisted nav entry gets a
+   *  boot-time warning — that screen would otherwise be silently
+   *  unreachable via the sidebar (fw#3019). */
+  readonly navAllowlist?: ReadonlySet<string>;
+  /** Nav QNs deliberately left out of the sidebar allowlist because their
+   *  screen is reachable another way (e.g. as a sub-page of a generated
+   *  settings hub). Suppresses the navAllowlist warning for these QNs. */
+  readonly navAllowlistExempt?: ReadonlySet<string>;
 };
 
 /**
@@ -226,6 +236,9 @@ export function validateBoot(
 
   validateNavCycles(allNavQns);
   warnOnNavAccessInversion(allNavQns);
+  if (options?.navAllowlist !== undefined) {
+    warnOnUnreachableNavScreens(allNavQns, options.navAllowlist, options.navAllowlistExempt);
+  }
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
