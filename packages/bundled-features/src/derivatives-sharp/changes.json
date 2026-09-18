@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.287.0",
+    "type": "improvement",
+    "title": "Render overlay layers (QR codes, badge images) onto image variants",
+    "detail": "The sharp renderer composites resolved overlay layers after resize and before final encoding. Overlay bytes go through the same SVG rejection as the source image, with DoS caps on layer count, size, and QR data length enforced in assertRenderSpecBounds."
+  }
+]
