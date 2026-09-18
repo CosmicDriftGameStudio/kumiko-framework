@@ -11,12 +11,12 @@
 //     tenant has no "restore from trash" future.
 //   - fileRefStorageDestroyHook ("files" stage, EXT_STORAGE_PROVIDER): wipes
 //     every BINARY (original + derivatives + anything else) under the
-//     tenant's storage prefix. A full `${tenantId}/` prefix sweep, not a
-//     per-row derivative lookup — buildStorageKey always puts tenantId first,
-//     so this needs only the tenantId, stays correct even though the "files"
-//     stage runs after "app-data" already forgot the rows, and can never
-//     cross into another tenant's keys (the provider's own list() prefix
-//     already scopes it).
+//     tenant's storage prefixes. A full prefix sweep per tenantStoragePrefixes()
+//     entry, not a per-row derivative lookup — not every layout puts tenantId
+//     first (see tenantExportPrefix), so this must sweep every known prefix,
+//     stays correct even though the "files" stage runs after "app-data"
+//     already forgot the rows, and can never cross into another tenant's keys
+//     (the provider's own list() prefix already scopes it).
 
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -28,6 +28,7 @@ import {
   assertSafeStorageKey,
   fileRefEntity,
   fileRefsTable,
+  tenantStoragePrefixes,
 } from "@cosmicdrift/kumiko-framework/files";
 
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
@@ -83,9 +84,11 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
   // the "files" stage throws, tenant-lifecycle's retry/abandon handling sees
   // it, and the next sweep tick retries (list+delete are idempotent, so this
   // converges rather than double-deleting or erroring on a missing key).
-  const keys = await provider.list(`${tenantId}/`);
-  for (const key of keys) {
-    assertSafeStorageKey(key);
-    await provider.delete(key);
+  for (const prefix of tenantStoragePrefixes(tenantId)) {
+    const keys = await provider.list(prefix);
+    for (const key of keys) {
+      assertSafeStorageKey(key);
+      await provider.delete(key);
+    }
   }
 };

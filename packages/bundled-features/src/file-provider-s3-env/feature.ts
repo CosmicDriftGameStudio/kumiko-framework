@@ -10,8 +10,8 @@
 // buckets, admin-seeded). This `"s3-env"` provider reads one credential set
 // from env and serves every tenant from one bucket — the
 // Hetzner-Object-Storage / single-bucket deploy case. Tenant isolation
-// still holds: file keys are tenant-prefixed (export ZIPs:
-// `<tenantId>/exports/<jobId>.zip`) or globally-unique UUIDs (fileRefs).
+// still holds: file keys carry the tenant (export ZIPs:
+// `exports/<tenantId>/<jobId>.zip`) or are globally-unique UUIDs (fileRefs).
 //
 // **Pattern-Vorbild:** mirrors file-provider-inmemory (zero admin seeding,
 // only the file-foundation plugin-point required).

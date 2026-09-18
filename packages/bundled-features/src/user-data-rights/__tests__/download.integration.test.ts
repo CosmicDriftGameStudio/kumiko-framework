@@ -211,7 +211,7 @@ async function seedDoneJobWithToken(): Promise<{ jobId: string; plainToken: stri
 
   // 2. seed in-memory ZIP file at path that worker would write
   const provider = await buildProvider(tenantA);
-  const storageKey = `${tenantA}/exports/${jobId}.zip`;
+  const storageKey = `exports/${tenantA}/${jobId}.zip`;
   await provider.write(storageKey, new Uint8Array([1, 2, 3]));
 
   // 3. Run worker → done-flip + Token-Create
@@ -250,7 +250,7 @@ describe("download-by-token :: happy path", () => {
     const result = body.data;
 
     expect(result.url).toMatch(/^memory:\/\//);
-    expect(result.url).toContain(`${tenantA}/exports/${jobId}.zip`);
+    expect(result.url).toContain(`exports/${tenantA}/${jobId}.zip`);
     expect(result.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
     // Audit-Update: useCount=1, lastUsedAt set, IP+UA persistiert
