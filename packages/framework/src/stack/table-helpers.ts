@@ -146,6 +146,12 @@ export async function resetEventStore(
   stack: { db: unknown; eventDispatcher?: EventDispatcher },
   extraTables: readonly (unknown | string)[] = [],
 ): Promise<void> {
+  // A pass the dispatcher's own timer/LISTEN already started (from a
+  // preceding test) may still be writing into the tables truncated below —
+  // drain it first so the TRUNCATE never races a write it didn't cause.
+  if (stack.eventDispatcher) {
+    await stack.eventDispatcher.drain();
+  }
   const frameworkTables = [
     "kumiko_events",
     "kumiko_event_consumers",
