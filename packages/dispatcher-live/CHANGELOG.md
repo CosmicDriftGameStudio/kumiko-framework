@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-dispatcher-live
 
+## 0.286.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-headless@0.286.0
+
 ## 0.285.2
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.286.0",
+    "type": "improvement",
+    "title": "lockout-store and signup/invite-token-store now delegate to shared/lockout-counter and shared/single-use-token-store",
+    "detail": "No behavior change — same exported function/type names and Redis key prefixes as before the extraction."
+  },
+  {
     "version": "0.218.0",
     "type": "improvement",
     "title": "Self-signup provisions TenantAdmin on the new tenant",
