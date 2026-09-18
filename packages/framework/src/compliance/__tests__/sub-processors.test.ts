@@ -113,6 +113,16 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           "sccRequired": false,
           "status": "active",
         },
+        {
+          "appliesTo": [
+            "all-tiers",
+          ],
+          "name": "Scaleway SAS",
+          "optInOnly": false,
+          "region": "EU (France)",
+          "sccRequired": false,
+          "status": "active",
+        },
       ]
     `);
   });

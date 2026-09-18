@@ -132,6 +132,15 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     appliesTo: ["all-tiers"],
     status: "active",
   },
+  {
+    name: "Scaleway SAS",
+    purpose: "Offsite Backup Storage (encrypted second-site copy of platform backups)",
+    region: "EU (France)",
+    dpa: "https://www.scaleway.com/en/contracts/",
+    addedAt: "2026-09-18",
+    appliesTo: ["all-tiers"],
+    status: "active",
+  },
 ];
 
 /**
