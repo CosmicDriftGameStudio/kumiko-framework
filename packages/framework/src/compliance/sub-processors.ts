@@ -5,9 +5,9 @@
 //   /api/compliance/sub-processors        (JSON, Sprint 1)
 //   /api/compliance/sub-processors.rss    (RSS, Sprint 1)
 //
-// Getrennt von der oeffentlichen Marketing-Uebersicht (kumiko.rocks/
-// subprocessors), die separat aus templates/legal/_shared/subprocessors/
-// catalog.*.md kompiliert wird. Kein Sync zwischen den beiden Listen.
+// Separate from the public marketing overview (kumiko.rocks/subprocessors),
+// which is compiled independently from templates/legal/_shared/subprocessors/
+// catalog.*.md. The two lists are not synced.
 //
 // Tenant-Admins muessen ueber Add/Change/Remove informiert werden mit
 // Lead-Time aus dem Compliance-Profile (typisch 30d). Cron-Job kommt
@@ -137,7 +137,8 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
   },
   {
     name: "Scaleway SAS",
-    purpose: "Offsite Backup Mirror (Object Storage); planned: platform key custody (Key Manager) and Transactional Email",
+    purpose:
+      "Offsite Backup Mirror (Object Storage); planned: platform key custody (Key Manager) and Transactional Email",
     region: "EU (France)",
     dpa: "https://www.scaleway.com/en/contracts/",
     addedAt: "2026-09-18",
