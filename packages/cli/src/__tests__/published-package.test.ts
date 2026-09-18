@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -16,10 +17,25 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const PACKAGE_ROOT = resolve(import.meta.dir, "../..");
-const REPO_ROOT = resolve(PACKAGE_ROOT, "../..");
+
+// Workspace hoisting installs @cosmicdrift/* into the parent workspace's
+// node_modules, not this repo's, so a fixed `<repo>/node_modules` path is
+// only right for a standalone clone (#3021). Walk up like node's resolver.
+function installedPackageDir(name: string): string {
+  let dir = PACKAGE_ROOT;
+  for (;;) {
+    const candidate = join(dir, "node_modules", name);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new Error(`no node_modules above ${PACKAGE_ROOT} contains ${name} — run bun install`);
+    }
+    dir = parent;
+  }
+}
 
 const PEER_PACKAGES = ["kumiko-framework", "kumiko-bundled-features", "kumiko-dev-server"] as const;
 
@@ -63,11 +79,11 @@ beforeAll(() => {
 
   for (const name of PEER_PACKAGES) {
     symlinkSync(
-      join(REPO_ROOT, "node_modules", "@cosmicdrift", name),
+      installedPackageDir(`@cosmicdrift/${name}`),
       join(installRoot, "node_modules", "@cosmicdrift", name),
     );
   }
-  symlinkSync(join(REPO_ROOT, "node_modules", "zod"), join(installRoot, "node_modules", "zod"));
+  symlinkSync(installedPackageDir("zod"), join(installRoot, "node_modules", "zod"));
 
   manifest = JSON.parse(
     readFileSync(join(installedPkgRoot, "package.json"), "utf-8"),
@@ -198,7 +214,7 @@ export default { features: [feature] };
       const packageName = hasSubpath ? specifier.slice(0, slashIndex) : specifier;
       const subpath = hasSubpath ? `.${specifier.slice(slashIndex)}` : ".";
 
-      const pkgJsonPath = join(REPO_ROOT, "node_modules", packageName, "package.json");
+      const pkgJsonPath = join(installedPackageDir(packageName), "package.json");
       const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as {
         readonly exports: Record<string, unknown>;
       };
