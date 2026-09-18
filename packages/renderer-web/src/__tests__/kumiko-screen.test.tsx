@@ -20,7 +20,15 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils";
+import {
+  act,
+  createMockDispatcher,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "./test-utils";
 
 const taskEntity = {
   fields: {
@@ -68,7 +76,10 @@ async function clickSubmitOnceEnabled(): Promise<void> {
     const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
     expect(button.disabled).toBe(false);
   });
-  fireEvent.click(screen.getByTestId("render-edit-submit"));
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {

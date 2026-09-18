@@ -26,6 +26,12 @@ const FAST_POOL =
 import {
   INTEGRATION_RUNNER,
 } from "./_lib/integration-test";
+import {
+  findOutputDiagnostics,
+  formatCompactFailure,
+  formatCompactSuccess,
+  isCI,
+} from "./_lib/ci-output";
 
 // NODE_OPTIONS removed after bun cutover — no longer needed
 
@@ -691,7 +697,7 @@ const commands = {
       // Integration-Tests lokal in `check`, in CI skip (brauchen Docker-Stack).
       for (const step of UNIT_TEST_STEPS) {
         logBoth(`--- ${step.name} ---`, logPath);
-        const code = await runWithTee(step.cmd, logPath);
+        const code = await runWithTee(step.cmd, logPath, step.name);
         results.push({ name: step.name, ok: code === 0 });
         logBoth("", logPath);
       }
@@ -701,7 +707,7 @@ const commands = {
       } else {
         for (const step of INTEGRATION_TEST_STEPS) {
           logBoth(`--- ${step.name} ---`, logPath);
-          const code = await runWithTee(step.cmd, logPath);
+          const code = await runWithTee(step.cmd, logPath, step.name);
           results.push({ name: step.name, ok: code === 0 });
           logBoth("", logPath);
         }
@@ -1457,7 +1463,13 @@ async function runPoolBuffered(
   poolSize: number,
   logPath: string,
 ): Promise<Array<{ name: string; ok: boolean }>> {
-  type Result = { name: string; ok: boolean; output: string; durationMs: number };
+  type Result = {
+    name: string;
+    ok: boolean;
+    output: string;
+    durationMs: number;
+    exitCode: number;
+  };
   const results: Array<Result | undefined> = new Array(steps.length);
   let next = 0;
 
@@ -1481,6 +1493,7 @@ async function runPoolBuffered(
       ok: code === 0,
       output: stdoutBuf + stderrBuf,
       durationMs,
+      exitCode: code,
     };
     process.stdout.write(`  ${code === 0 ? "✓" : "✗"} ${step.name} (${durationMs}ms)\n`);
   };
@@ -1513,36 +1526,83 @@ async function runPoolBuffered(
       // log is best effort
     }
     if (!r.ok) {
-      process.stdout.write(`\n--- ${r.name} (FAILED, ${r.durationMs}ms) ---\n${r.output}\n`);
+      process.stdout.write(
+        isCI()
+          ? `\n${formatCompactFailure(r.name, r.exitCode, r.output)}`
+          : `\n--- ${r.name} (FAILED, ${r.durationMs}ms) ---\n${r.output}\n`,
+      );
+    } else if (isCI()) {
+      const diagnostics = findOutputDiagnostics(r.output);
+      if (diagnostics.total > 0) {
+        process.stdout.write(
+          `  ! ${r.name}: ${diagnostics.total} unique warning/error line(s) emitted\n` +
+            diagnostics.lines.map((line) => `    ${line}`).join("\n") +
+            (diagnostics.total > diagnostics.lines.length
+              ? `\n    … ${diagnostics.total - diagnostics.lines.length} more`
+              : "") +
+            "\n",
+        );
+      }
     }
   }
   return final;
 }
 
-async function runWithTee(cmd: string, logPath: string): Promise<number> {
+async function runWithTee(cmd: string, logPath: string, label: string): Promise<number> {
   const proc = Bun.spawn(["sh", "-c", cmd], {
     stdout: "pipe",
     stderr: "pipe",
     env: process.env,
   });
   const logStream = createWriteStream(logPath, { flags: "a" });
+  const compact = isCI();
+  // Buffered per stream (not decoded per chunk) so a multi-byte UTF-8
+  // character split across two reads doesn't get corrupted mid-sequence.
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
 
   const pump = async (
     stream: ReadableStream<Uint8Array>,
-    sink: NodeJS.WriteStream,
+    sink: NodeJS.WriteStream | undefined,
+    chunks: Buffer[],
   ): Promise<void> => {
     const reader = stream.getReader();
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      sink.write(value);
+      sink?.write(value);
       logStream.write(value);
+      if (compact) chunks.push(Buffer.from(value));
     }
   };
 
-  await Promise.all([pump(proc.stdout, process.stdout), pump(proc.stderr, process.stderr)]);
+  // Compact mode buffers everything until the process exits, so a hang would
+  // otherwise print nothing at all until the job's own timeout kills it.
+  const heartbeatStart = Date.now();
+  const heartbeat = compact
+    ? setInterval(
+        () => process.stdout.write(`  … ${label} still running (${Math.round((Date.now() - heartbeatStart) / 1000)}s)\n`),
+        30_000,
+      )
+    : undefined;
+
+  try {
+    await Promise.all([
+      pump(proc.stdout, compact ? undefined : process.stdout, stdoutChunks),
+      pump(proc.stderr, compact ? undefined : process.stderr, stderrChunks),
+    ]);
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
+  }
   const code = await proc.exited;
   await new Promise<void>((resolve) => logStream.end(resolve));
+  if (compact) {
+    const captured =
+      Buffer.concat(stdoutChunks).toString("utf8") + Buffer.concat(stderrChunks).toString("utf8");
+    process.stdout.write(
+      code === 0 ? formatCompactSuccess(label, captured) : `\n${formatCompactFailure(label, code, captured)}`,
+    );
+  }
   return code;
 }
 

@@ -49,9 +49,11 @@ const fallbackReportWindow = createEscapeHatchReportWindow();
 const consoleLogger: Logger = {
   info() {},
   warn(msg, data) {
+    // biome-ignore lint/suspicious/noConsole: this is the final fallback when no logger is wired
     console.warn(msg, data);
   },
   error(msg, data) {
+    // biome-ignore lint/suspicious/noConsole: this is the final fallback when no logger is wired
     console.error(msg, data);
   },
   debug() {},

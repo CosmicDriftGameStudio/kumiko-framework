@@ -235,9 +235,9 @@ function getSingleDirectCallee(node: FnNode): string | null {
       : node.getBody();
 
   // Concise arrow: `x => someCall(x)` — body IS the expression
-  if (!rawBody || !rawBody.isKind(SyntaxKind.Block)) {
+  if (!rawBody?.isKind(SyntaxKind.Block)) {
     const body = node.getBody();
-    if (!body || !body.isKind(SyntaxKind.CallExpression)) return null;
+    if (!body?.isKind(SyntaxKind.CallExpression)) return null;
     // Method chains (A.from(x).toMethod(y)) have 2 call expressions — not a thin wrapper
     const conciseCallees = new Set<string>();
     node.forEachDescendant((n) => {

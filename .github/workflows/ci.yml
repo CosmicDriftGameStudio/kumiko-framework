@@ -80,7 +80,7 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Run tests
         run: |
@@ -150,10 +150,10 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Run TZ-sensitive tests
-        run: bun test packages/framework/src/time/ packages/framework/src/db/__tests__/
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run TZ-sensitive tests" -- bun test packages/framework/src/time/ packages/framework/src/db/__tests__/
 
   use-all-bundled-smoke:
     # C1 Sprint 9.8 Phase C, M4: canonical smoke-gate. Bootet
@@ -183,7 +183,7 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
       - name: Verify generate.ts is idempotent
         # Re-run and assert kein Diff. Wenn jemand das schema.generated.ts
         # ändert ohne generate.ts re-runned zu haben → CI fail.
@@ -204,13 +204,13 @@ jobs:
         # Diffs bundled-features exports gegen FEATURE_IMPORT_REGISTRY +
         # known held-back. Fail wenn ein neuer feature-export ohne mount
         # oder ein stale registry-entry.
-        run: bun samples/apps/use-all-bundled/scripts/check-coverage.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Coverage lint (M5)" -- bun samples/apps/use-all-bundled/scripts/check-coverage.ts
 
       - name: Schema check (Empfehlung 3)
         # kumiko-schema-check diff't mounted features (runtime) gegen
         # FEATURE_IMPORT_REGISTRY (statisch). Studio's 9.8-Drama:
         # registry 18 features hinter APP_FEATURES → migrations fehlten.
-        run: bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/schema/generate.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema check (Empfehlung 3)" -- bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/schema/generate.ts
 
       - name: Schema validate (migration content)
         # kumiko-schema validate: entity↔snapshot + validateBoot + SQL-replay
@@ -219,7 +219,7 @@ jobs:
         working-directory: samples/apps/use-all-bundled
         env:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-        run: bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (migration content)" -- bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
 
       - name: Schema validate (demo)
         # demo/ has no schema/generate.ts registry (schema-check needs one),
@@ -227,7 +227,7 @@ jobs:
         # SQL-replay↔snapshot against demo/kumiko/migrations. Without this,
         # demo/ silently re-drifts on the next entity change (kumiko-framework#2309).
         working-directory: demo
-        run: bun ../packages/dev-server/bin/kumiko-schema.ts validate
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (demo)" -- bun ../packages/dev-server/bin/kumiko-schema.ts validate
 
       - name: Boot smoke (demo)
         # kumiko-schema validate never touches bin/main.ts, so it can't catch
@@ -248,7 +248,7 @@ jobs:
           PLATFORM_KEK: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
           KUMIKO_BLIND_INDEX_KEY: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
           SUBJECT_KEYS_DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
-        run: bun bin/main.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Boot smoke (demo)" -- bun bin/main.ts
 
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
@@ -266,7 +266,7 @@ jobs:
           STRIPE_API_KEY: sk_test_smoke
           STRIPE_WEBHOOK_SECRET: whsec_smoke
           MOLLIE_API_KEY: test_smoke
-        run: bun samples/apps/use-all-bundled/bin/main.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Boot smoke (no DB)" -- bun samples/apps/use-all-bundled/bin/main.ts
 
       - name: Bundle smoke (Empfehlung 4)
         # Builds use-all-bundled via kumiko-build, boots dist-server/server.js.
@@ -281,7 +281,7 @@ jobs:
           STRIPE_API_KEY: sk_test_smoke
           STRIPE_WEBHOOK_SECRET: whsec_smoke
           MOLLIE_API_KEY: test_smoke
-        run: bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Bundle smoke (Empfehlung 4)" -- bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
   # Non-blocking: nicht in release.needs, nicht in Branch-Protection → der
   # required `test`-Check bleibt unberührt. Fährt die ~213
@@ -318,7 +318,7 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Start services
         run: |
@@ -364,17 +364,17 @@ jobs:
           # job misconfiguration, not a real absence; fail loud instead of
           # the live adapter suite silently skipping (kumiko-framework#1124).
           REQUIRE_MEILI: "1"
-        run: bun run test:integration
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration tests" -- bun run test:integration
 
       # Split (#1940): rebuildProjection flakes under load in THIS job (bulk
       # suite runs immediately above); stream-version/pipeline don't, so they stay hard-blocking here.
       - name: Run integration perf gates (stream-version, pipeline — hard-blocking)
-        run: bun run test:integration:perf:strict
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (stream-version, pipeline — hard-blocking)" -- bun run test:integration:perf:strict
 
       # Advisory — must not redden the integration job.
       - name: Run integration perf gates (rebuildProjection — advisory, flaky under load)
         continue-on-error: true
-        run: bun run test:integration:perf:flaky
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (rebuildProjection — advisory, flaky under load)" -- bun run test:integration:perf:flaky
 
       - name: Integration coverage pass
         # Re-runs the same integration files per-directory (like the
@@ -393,7 +393,7 @@ jobs:
         # #1144 — perf-gate flake skipped this step entirely).
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
         continue-on-error: true
-        run: bun scripts/run-coverage-integration.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Integration coverage pass" -- bun scripts/run-coverage-integration.ts
 
       - name: Upload integration coverage
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
@@ -436,7 +436,7 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       # #2798: this container only exists to be measured and thrown away —
       # durability guarantees buy nothing here but add write-path variance
@@ -466,7 +466,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://kumiko:kumiko@127.0.0.1:15432/kumiko_dev
           TEST_DATABASE_URL: postgresql://kumiko:kumiko@127.0.0.1:15432/kumiko_test
-        run: bun run test:integration:perf:eventstore
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run event-store perf gate" -- bun run test:integration:perf:eventstore
 
       - name: Stop postgres
         if: always()
@@ -501,11 +501,11 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Install Playwright Chromium
         timeout-minutes: 6
-        run: bunx playwright install chromium
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install Playwright Chromium" -- bunx playwright install chromium
 
       - name: Start services
         run: |
@@ -562,7 +562,7 @@ jobs:
           failed=()
           for cfg in "${configs[@]}"; do
             echo "=== e2e: $cfg ==="
-            bunx playwright test --config="$cfg"
+            bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
             code=$?
             if [ $code -ne 0 ]; then failed+=("$cfg"); fi
           done
@@ -634,7 +634,7 @@ jobs:
           path: coverage/dom
 
       - name: Compute badge
-        run: bun scripts/coverage-badge.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Compute badge" -- bun scripts/coverage-badge.ts
 
       - name: Publish to badges branch
         run: |
@@ -691,7 +691,7 @@ jobs:
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       # OIDC Trusted Publishing + Provenance via npm-CLI (bun pm publish kann
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
@@ -764,7 +764,7 @@ jobs:
             echo "released=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          bun install --frozen-lockfile
+          bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install (rescue-publish)" -- bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           new_tags="$(git tag --points-at "$GITHUB_SHA")"
           if [ -n "$new_tags" ]; then echo "released=true" >> "$GITHUB_OUTPUT"; else echo "released=false" >> "$GITHUB_OUTPUT"; fi
@@ -817,7 +817,7 @@ jobs:
         if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
         continue-on-error: true
         id: npm-visibility
-        run: bun scripts/wait-for-npm-visibility.ts
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Wait for npm packuments to catch up" -- bun scripts/wait-for-npm-visibility.ts
 
       - name: Create Renovate dispatch token
         id: renovate-dispatch-token

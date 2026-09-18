@@ -64,7 +64,7 @@ export function collectBrokerSubscribeViolations(
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
     const pae = callee.asKind(SyntaxKind.PropertyAccessExpression);
-    if (!pae || pae.getName() !== "subscribe") continue;
+    if (pae?.getName() !== "subscribe") continue;
     const recv = receiverName(pae.getExpression());
     if (!recv || !BROKER_RECEIVER.test(recv)) continue;
     hits.push({
