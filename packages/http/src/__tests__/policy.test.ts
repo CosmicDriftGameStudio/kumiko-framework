@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { lookup } from "node:dns/promises";
-import { assertAllowedHost, assertHttpScheme, isBlockedIp, resolvePublicHost } from "../policy";
+import {
+  assertAllowedHost,
+  assertHttpScheme,
+  isBlockedIp,
+  isPublicHost,
+  resolvePublicHost,
+} from "../policy";
 
 describe("isBlockedIp", () => {
   test.each([
@@ -121,5 +127,65 @@ describe("assertAllowedHost", () => {
     expect(() =>
       assertAllowedHost(new URL("http://other.local/"), ["internal-service.local"]),
     ).toThrow();
+  });
+});
+
+describe("isPublicHost", () => {
+  test("resolves true for a public IPv4 address via an injected lookupFn", async () => {
+    const fakeLookup = (async () => [
+      { address: "93.184.216.34", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(isPublicHost("https://example.com", fakeLookup)).resolves.toBe(true);
+  });
+
+  test.each([
+    ["10.0.0.1"], // private
+    ["127.0.0.1"], // loopback
+    ["169.254.169.254"], // link-local / cloud metadata
+  ])("resolves false for a blocked address %s via an injected lookupFn", async (address) => {
+    const fakeLookup = (async () => [{ address, family: 4 }]) as unknown as typeof lookup;
+
+    await expect(isPublicHost("https://internal.example", fakeLookup)).resolves.toBe(false);
+  });
+
+  test("resolves false when one of multiple A records is blocked", async () => {
+    const fakeLookup = (async () => [
+      { address: "203.0.113.5", family: 4 },
+      { address: "10.0.0.1", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(isPublicHost("https://multi.example", fakeLookup)).resolves.toBe(false);
+  });
+
+  test("resolves false for an IPv4-mapped IPv6 address on a private range", async () => {
+    const fakeLookup = (async () => [
+      { address: "::ffff:10.0.0.1", family: 6 },
+    ]) as unknown as typeof lookup;
+
+    await expect(isPublicHost("https://mapped.example", fakeLookup)).resolves.toBe(false);
+  });
+
+  test("resolves false for a URL with embedded credentials", async () => {
+    await expect(isPublicHost("https://user:pass@example.com")).resolves.toBe(false);
+  });
+
+  test("resolves false for an unparsable URL", async () => {
+    await expect(isPublicHost("not a url")).resolves.toBe(false);
+  });
+
+  test.each([["file:///etc/passwd"], ["ftp://x"]])(
+    "resolves false for a non-http(s) scheme %s",
+    async (raw) => {
+      await expect(isPublicHost(raw)).resolves.toBe(false);
+    },
+  );
+
+  test("resolves true for a public IP-literal host without any DNS lookup", async () => {
+    await expect(isPublicHost("http://8.8.8.8")).resolves.toBe(true);
+  });
+
+  test("resolves false for a private IP-literal host without any DNS lookup", async () => {
+    await expect(isPublicHost("http://127.0.0.1")).resolves.toBe(false);
   });
 });
