@@ -11,12 +11,16 @@ env:
   HUSKY: "0"
 
 on:
-  # No feature-branch push trigger: merging is PR-only, so the pull_request run
-  # is the one that gates merge. A push trigger on feat/fix/... only duplicated
-  # every run (same SHA fires push + pull_request:synchronize). Keep push for
-  # main (post-merge CI + release) and the changesets bot's version branch.
+  # No branch push trigger besides main: merging is PR-only, so the
+  # pull_request run is the one that gates merge. A push trigger on a branch
+  # that also has a PR only duplicated every run (same SHA fires push +
+  # pull_request:synchronize) — and the two land in different concurrency
+  # groups, because github.ref differs per event, so nothing dedupes them.
+  # That included the changesets bot's version branch, whose PR targets main.
+  # Every push-gated job additionally requires refs/heads/main, so the version
+  # branch's push run never did anything its PR run did not.
   push:
-    branches: [main, "changeset-release/**"]
+    branches: [main]
   pull_request:
     branches: [main, "feat/**", "fix/**", "chore/**", "docs/**"]
   workflow_dispatch:
