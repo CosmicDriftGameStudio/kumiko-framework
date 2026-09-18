@@ -7,7 +7,7 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { peekDeletionTokenUserId, verifyDeletionToken } from "../deletion-token";
+import { redeemDeletionToken } from "../deletion-token";
 import { startDeletionGracePeriod } from "./deletion-grace-period";
 
 export type ConfirmDeletionByTokenOptions = {
@@ -66,24 +66,14 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     agent: { expose: false },
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      if (!opts.deletionTokenSecret) return writeFailure(invalidToken());
-
-      const peekedUserId = peekDeletionTokenUserId(event.payload.token);
-      if (!peekedUserId) return writeFailure(invalidToken());
-
-      // Die requestId der Row ist Teil des Verify-Keys (HMAC-Purpose). Kein
-      // offener Antrag (null) → das Token gehört zu einem abgebrochenen Zyklus
-      // → Reject ohne weitere Signal-Preisgabe (gleicher generischer 422). Der
-      // peekedUserId ist unverifizierte Angreifer-Eingabe — ein Lookup-Fehler
-      // (z.B. typfremde id) wird zu demselben generischen 422, nie zu einem 500.
-      const requestId = await readPendingDeletionRequestId(ctx, peekedUserId);
-      if (!requestId) return writeFailure(invalidToken());
-
-      const verified = verifyDeletionToken(
-        event.payload.token,
-        requestId,
-        opts.deletionTokenSecret,
-      );
+      // Die requestId der Row ist Teil des Verify-Keys (HMAC-Purpose) — ein
+      // Token aus einem abgebrochenen oder überholten Zyklus fällt damit
+      // durch. Jeder Fehlerpfad endet im selben generischen 422.
+      const verified = await redeemDeletionToken({
+        token: event.payload.token,
+        secret: opts.deletionTokenSecret,
+        loadPendingRequestId: (userId) => readPendingDeletionRequestId(ctx, userId),
+      });
       if (!verified.ok) return writeFailure(invalidToken());
 
       // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
@@ -95,7 +85,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
       )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
       const res = await startDeletionGracePeriod(
         ctx,
-        verified.userId,
+        verified.subject,
         profile.profile.userRights.gracePeriod,
         ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
       );
