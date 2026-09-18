@@ -1,10 +1,15 @@
 import type {
   DerivativeRendererPlugin,
   DerivativesContext,
+  OverlayLayer,
+  ResolvedOverlayLayer,
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { type AnyDb, fetchOne } from "../bun-db/query";
-import { EXT_DERIVATIVE_RENDERER } from "../engine/extension-names";
+import {
+  EXT_DERIVATIVE_OVERLAY_RESOLVER,
+  EXT_DERIVATIVE_RENDERER,
+} from "../engine/extension-names";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError, NotFoundError } from "../errors";
 import type { FileContext } from "../files/file-handle";
@@ -60,13 +65,145 @@ export function resolveRenderer(
   return undefined;
 }
 
+export type OverlayResolverArgs = {
+  readonly entityId: string;
+  readonly tenantId: TenantId;
+  readonly fieldName: string;
+  readonly dataToken: string;
+};
+
+export type OverlayResolverPlugin = {
+  readonly resolve: (args: OverlayResolverArgs) => string | Promise<string>;
+};
+
+// extension-usage `options` is engine-payload (unknown) — structurally validate
+// instead of casting blind, same pattern as isDerivativeRendererPlugin.
+function isOverlayResolverPlugin(o: unknown): o is OverlayResolverPlugin {
+  return typeof o === "object" && o !== null && "resolve" in o && typeof o.resolve === "function";
+}
+
 type FileRefRow = {
   readonly storageKey: string;
   readonly mimeType: string;
+  readonly entityType: string | null;
+  readonly entityId: string | null;
+  readonly fieldName: string | null;
 };
 
 function isFileRefRow(row: Record<string, unknown>): row is FileRefRow {
-  return typeof row["storageKey"] === "string" && typeof row["mimeType"] === "string";
+  return (
+    typeof row["storageKey"] === "string" &&
+    typeof row["mimeType"] === "string" &&
+    (row["entityType"] === null || typeof row["entityType"] === "string") &&
+    (row["entityId"] === null || typeof row["entityId"] === "string") &&
+    (row["fieldName"] === null || typeof row["fieldName"] === "string")
+  );
+}
+
+// A qr overlay needs the FileRef's field identity to pick a resolver and to
+// hand the resolver something to look up — narrows the 3 nullable columns
+// together so the throw below can name whichever one is actually missing.
+type FieldIdentifiedFileRef = FileRefRow & {
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly fieldName: string;
+};
+
+function hasFieldIdentity(row: FileRefRow): row is FieldIdentifiedFileRef {
+  return row.entityType !== null && row.entityId !== null && row.fieldName !== null;
+}
+
+type QrOverlayContext = {
+  readonly row: FieldIdentifiedFileRef;
+  readonly plugin: OverlayResolverPlugin;
+};
+
+// Looks up the entityType's resolver once per variant() call (not once per
+// qr layer) and fails before any layer is touched — a spec with 3 qr layers
+// and no registration throws once, not on the first layer only.
+function resolveQrOverlayContext(row: FileRefRow, registry: Registry): QrOverlayContext {
+  if (!hasFieldIdentity(row)) {
+    throw new InternalError({
+      message:
+        "derivatives.variant: a qr overlay requires the FileRef's entityType/entityId/fieldName, but at least one is missing.",
+      details: { entityType: row.entityType, entityId: row.entityId, fieldName: row.fieldName },
+    });
+  }
+  const usage = registry
+    .getExtensionUsages(EXT_DERIVATIVE_OVERLAY_RESOLVER)
+    .find((u) => u.entityName === row.entityType);
+  if (!usage) {
+    throw new InternalError({
+      message: `derivatives.variant: no ${EXT_DERIVATIVE_OVERLAY_RESOLVER} registered for entityType "${row.entityType}".`,
+      details: { entityType: row.entityType },
+    });
+  }
+  if (!isOverlayResolverPlugin(usage.options)) {
+    throw new Error(
+      `derivatives.variant: "${usage.entityName}" registered ${EXT_DERIVATIVE_OVERLAY_RESOLVER} without a resolve(args) — extension options must be an OverlayResolverPlugin.`,
+    );
+  }
+  return { row, plugin: usage.options };
+}
+
+async function resolveQrLayer(
+  layer: Extract<OverlayLayer, { kind: "qr" }>,
+  context: QrOverlayContext,
+  tenantId: TenantId,
+): Promise<ResolvedOverlayLayer> {
+  const { dataToken, ...placement } = layer;
+  const data = await context.plugin.resolve({
+    entityId: context.row.entityId,
+    tenantId,
+    fieldName: context.row.fieldName,
+    dataToken,
+  });
+  if (!data) {
+    throw new InternalError({
+      message: `derivatives.variant: ${EXT_DERIVATIVE_OVERLAY_RESOLVER} resolved dataToken "${dataToken}" to an empty value for entityType "${context.row.entityType}".`,
+      details: { entityType: context.row.entityType, dataToken },
+    });
+  }
+  return { ...placement, data };
+}
+
+// A non-qr layer is already ResolvedOverlayLayer-shaped (see
+// ResolvedOverlayLayer's `image` member) — this only exists because TS can't
+// derive that from `layer.kind !== "qr"` across a Promise.all/map boundary.
+function resolveOverlayLayer(
+  layer: OverlayLayer,
+  qrContext: QrOverlayContext | undefined,
+  tenantId: TenantId,
+): Promise<ResolvedOverlayLayer> | ResolvedOverlayLayer {
+  if (layer.kind !== "qr") return layer;
+  if (!qrContext) {
+    throw new Error(
+      "derivatives.variant: unreachable — resolveOverlaySpec only omits a qr context when the spec has no qr layer.",
+    );
+  }
+  return resolveQrLayer(layer, qrContext, tenantId);
+}
+
+// Resolves every `qr` layer's dataToken to a concrete value and moves the
+// whole overlay list to `resolvedOverlays` — BEFORE variantSuffix() hashes
+// the spec, so a resolver whose target changes (e.g. a base-URL rotation)
+// invalidates the cache instead of serving a stale target under the old key.
+async function resolveOverlaySpec(
+  spec: VariantSpec,
+  row: FileRefRow,
+  registry: Registry,
+  tenantId: TenantId,
+): Promise<VariantSpec> {
+  if (!spec.overlays || spec.overlays.length === 0) return spec;
+
+  const qrContext = spec.overlays.some((layer) => layer.kind === "qr")
+    ? resolveQrOverlayContext(row, registry)
+    : undefined;
+
+  const resolvedOverlays = await Promise.all(
+    spec.overlays.map((layer) => resolveOverlayLayer(layer, qrContext, tenantId)),
+  );
+  return { ...spec, overlays: undefined, resolvedOverlays };
 }
 
 // sourceMimeType is client-controlled (it's `file.type` off the upload — see
@@ -144,16 +281,20 @@ export function createDerivativesContext(deps: DerivativesContextDeps): Derivati
         });
       }
 
+      // Resolves qr dataTokens to concrete values BEFORE the spec is hashed
+      // — see resolveOverlaySpec.
+      const resolvedSpec = await resolveOverlaySpec(spec, row, deps.registry, deps.tenantId);
+
       const src = deps.files.ref(row.storageKey);
       // ponytail: derived key keeps the source extension regardless of the
       // spec's format — widen deriveKey if a storage backend ever routes on
       // extension.
-      const target = src.derive(variantSuffix(name, spec));
+      const target = src.derive(variantSuffix(name, resolvedSpec));
       // Belt-and-suspenders: variantSuffix already rejects an unsafe name,
       // this catches a traversal segment reaching the key through any other
       // path (e.g. a future deriveKey change).
       assertSafeStorageKey(target.key);
-      const mimeType = outputMimeType(spec, row.mimeType);
+      const mimeType = outputMimeType(resolvedSpec, row.mimeType);
 
       // ponytail: exists→render→write is a TOCTOU window under concurrent
       // requests for the same variant (duplicate render + write). Ceiling:
@@ -168,7 +309,7 @@ export function createDerivativesContext(deps: DerivativesContextDeps): Derivati
       }
 
       const original = await src.read();
-      const result = await renderer.render(original, spec, row.mimeType);
+      const result = await renderer.render(original, resolvedSpec, row.mimeType);
       await target.write(result, mimeType);
       return {
         storageKey: target.key,

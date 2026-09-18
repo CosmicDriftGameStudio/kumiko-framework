@@ -2,7 +2,11 @@
 // `sharp({ create: {...} })` so every case decodes real bytes end-to-end.
 
 import { describe, expect, test } from "bun:test";
-import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
+import type {
+  ResolvedOverlayLayer,
+  VariantSpec,
+} from "@cosmicdrift/kumiko-types/derivatives-types";
+import jsQR from "jsqr";
 import sharp from "sharp";
 import { imageMetadata, renderImage } from "../render";
 
@@ -282,6 +286,247 @@ describe("renderImage — validation", () => {
     // an ignored quality keeps the full-color (non-palette) PNG.
     expect(withQualityMeta.format).toBe("png");
     expect(Buffer.compare(withQuality, withoutQuality)).toBe(0);
+  });
+});
+
+// jsQR needs a plain RGBA buffer, not sharp's own metadata/format handling —
+// this is the one test proving the AC ("readable with a phone camera") for
+// real: a pixel/byte-presence check would only prove placement, not that the
+// QR survives resize + a lossy re-encode.
+async function decodeQr(buffer: Uint8Array): Promise<string | null> {
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const result = jsQR(new Uint8ClampedArray(data), info.width, info.height);
+  return result?.data ?? null;
+}
+
+async function tinyImageOverlayBase64(
+  width: number,
+  height: number,
+  color: { r: number; g: number; b: number },
+): Promise<string> {
+  const buffer = await sharp({ create: { width, height, channels: 3, background: color } })
+    .png()
+    .toBuffer();
+  return buffer.toString("base64");
+}
+
+describe("renderImage — overlays", () => {
+  test("a qr overlay is actually scannable after resize + a lossy re-encode", async () => {
+    const input = await jpegFixture(800, 800);
+    const layer: ResolvedOverlayLayer = {
+      kind: "qr",
+      data: "https://example.com/v/abc123",
+      widthPct: 0.4,
+      gravity: "south-east",
+    };
+
+    const output = await renderImage(
+      input,
+      { maxEdge: 400, format: "webp", resolvedOverlays: [layer] },
+      "image/jpeg",
+    );
+
+    expect(await decodeQr(output)).toBe("https://example.com/v/abc123");
+  });
+
+  test("an unresolved `overlays` field is inert for the renderer — only `resolvedOverlays` composites", async () => {
+    const input = await jpegFixture(400, 400);
+    const spec: VariantSpec = {
+      overlays: [{ kind: "qr", dataToken: "vehicle-1", widthPct: 0.4, gravity: "center" }],
+    };
+
+    const output = await renderImage(input, spec, "image/jpeg");
+    const baseline = await renderImage(input, {}, "image/jpeg");
+    expect(Buffer.compare(output, baseline)).toBe(0);
+  });
+
+  test("the overlay width is the same fraction of the output at two different aspect ratios", async () => {
+    // PNG in and out (spec.format unset preserves the source format) — the
+    // fraction assertion below needs exact pixel equality, which a lossy
+    // jpeg re-encode wouldn't guarantee.
+    const input = await pngFixture(800, 800, { r: 250, g: 250, b: 250 });
+    const overlayColor = { r: 10, g: 200, b: 10 };
+    const imageBase64 = await tinyImageOverlayBase64(40, 40, overlayColor);
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64,
+      widthPct: 0.25,
+      gravity: "south-east",
+    };
+
+    async function overlayPixelWidth(width: number, height: number): Promise<number> {
+      const output = await renderImage(
+        input,
+        { size: { width, height }, fit: "cover", resolvedOverlays: [layer] },
+        "image/png",
+      );
+      const { data, info } = await sharp(output).raw().toBuffer({ resolveWithObject: true });
+      const y = height - 1;
+      for (let x = 0; x < width; x++) {
+        const offset = (y * info.width + x) * info.channels;
+        if (
+          data[offset] === overlayColor.r &&
+          data[offset + 1] === overlayColor.g &&
+          data[offset + 2] === overlayColor.b
+        ) {
+          return width - x;
+        }
+      }
+      throw new Error("overlay color not found in bottom row");
+    }
+
+    expect(await overlayPixelWidth(640, 360)).toBe(Math.round(640 * 0.25));
+    expect(await overlayPixelWidth(400, 400)).toBe(Math.round(400 * 0.25));
+  });
+
+  test("a square overlay on a wide output is clamped to the output height instead of overrunning it", async () => {
+    // widthPct alone would ask for an 800x800 layer (aspect-preserved from a
+    // square source) on a 1600x400 output — taller than the base image, which
+    // sharp's composite() rejects unless the resize also bounds height.
+    const outputWidth = 1600;
+    const outputHeight = 400;
+    const input = await pngFixture(outputWidth, outputHeight, { r: 250, g: 250, b: 250 });
+    const overlayColor = { r: 10, g: 200, b: 10 };
+    const imageBase64 = await tinyImageOverlayBase64(100, 100, overlayColor);
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64,
+      widthPct: 0.5,
+      gravity: "center",
+    };
+
+    const output = await renderImage(input, { resolvedOverlays: [layer] }, "image/png");
+    const { data, info } = await sharp(output).raw().toBuffer({ resolveWithObject: true });
+
+    const centerX = Math.floor(info.width / 2);
+    let minY = info.height;
+    let maxY = -1;
+    for (let y = 0; y < info.height; y++) {
+      const offset = (y * info.width + centerX) * info.channels;
+      if (
+        data[offset] === overlayColor.r &&
+        data[offset + 1] === overlayColor.g &&
+        data[offset + 2] === overlayColor.b
+      ) {
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+    }
+
+    expect(maxY).toBeGreaterThan(-1);
+    expect(maxY - minY + 1).toBeLessThanOrEqual(outputHeight);
+  });
+
+  test("an SVG overlay layer is rejected the same way a source SVG is", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64: Buffer.from(SVG_BYTES).toString("base64"),
+      widthPct: 0.3,
+      gravity: "center",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /svg/i,
+    );
+  });
+
+  test("more than MAX_OVERLAY_LAYERS throws instead of decoding+resizing each one", async () => {
+    const input = await jpegFixture(200, 200);
+    const overlays: ResolvedOverlayLayer[] = Array.from({ length: 9 }, () => ({
+      kind: "image",
+      imageBase64: "",
+      widthPct: 0.1,
+      gravity: "center",
+    }));
+
+    await expect(renderImage(input, { resolvedOverlays: overlays }, "image/jpeg")).rejects.toThrow(
+      /overlays has 9 entries/,
+    );
+  });
+
+  test("widthPct outside (0, 1] throws", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64: await tinyImageOverlayBase64(10, 10, { r: 1, g: 1, b: 1 }),
+      widthPct: 1.5,
+      gravity: "center",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /widthPct/,
+    );
+  });
+
+  test("marginPct outside [0, 0.5) throws", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64: await tinyImageOverlayBase64(10, 10, { r: 1, g: 1, b: 1 }),
+      widthPct: 0.2,
+      marginPct: 0.5,
+      gravity: "north-west",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /marginPct/,
+    );
+  });
+
+  test("a qr data length beyond MAX_QR_DATA_LENGTH throws", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = {
+      kind: "qr",
+      data: "x".repeat(1025),
+      widthPct: 0.3,
+      gravity: "center",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /qr overlay data length/,
+    );
+  });
+
+  test("an empty qr data throws instead of encoding an empty QR", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = { kind: "qr", data: "", widthPct: 0.3, gravity: "center" };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /qr overlay data length/,
+    );
+  });
+
+  test("an overlay image beyond MAX_OVERLAY_IMAGE_BYTES throws", async () => {
+    const input = await jpegFixture(200, 200);
+    const oversized = Buffer.alloc(513 * 1024, 1).toString("base64");
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64: oversized,
+      widthPct: 0.3,
+      gravity: "center",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /overlay image is/,
+    );
+  });
+
+  test("a qr overlay that would render below MIN_QR_PIXEL_WIDTH throws instead of caching an unscannable image", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = {
+      kind: "qr",
+      data: "https://example.com/v/abc123",
+      widthPct: 0.05,
+      gravity: "center",
+    };
+
+    await expect(
+      renderImage(input, { maxEdge: 200, resolvedOverlays: [layer] }, "image/jpeg"),
+    ).rejects.toThrow(/below the 160px minimum/);
   });
 });
 
