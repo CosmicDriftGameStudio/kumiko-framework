@@ -23,5 +23,6 @@ export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-ha
 export { sessionField } from "./session-field";
 export { sessionLocaleField } from "./session-locale-field";
 export { sessionTimezoneField } from "./session-timezone-field";
+export { createSingleUseTokenStore } from "./single-use-token-store";
 export type { SystemQueryFn } from "./system-query";
 export { type BurnResult, burnToken, unburnToken } from "./token-burn-store";

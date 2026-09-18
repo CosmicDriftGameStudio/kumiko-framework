@@ -93,6 +93,7 @@
     "./auth-email-password/seeding": "./src/auth-email-password/seeding.ts",
     "./auth-email-password/testing": "./src/auth-email-password/testing.ts",
     "./auth-email-password/web": "./src/auth-email-password/web/index.ts",
+    "./shared/single-use-token-store": "./src/shared/single-use-token-store.ts",
     "./delivery": "./src/delivery/index.ts",
     "./delivery/web": "./src/delivery/web/index.ts",
     "./channel-in-app": "./src/channel-in-app/index.ts",
