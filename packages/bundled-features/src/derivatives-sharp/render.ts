@@ -5,9 +5,12 @@
 import type {
   BlurRegion,
   DerivativeRendererPlugin,
+  OverlayGravity,
+  ResolvedOverlayLayer,
   VariantFit,
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
+import QRCode from "qrcode";
 import type { OverlayOptions, ResizeOptions, Sharp } from "sharp";
 import sharp from "sharp";
 
@@ -25,6 +28,16 @@ const MAX_OUTPUT_EDGE = 8192;
 // unbounded region list is a CPU/RAM-multiplying DoS knob independent of
 // output size.
 const MAX_BLUR_REGIONS = 64;
+// Every layer decodes and resizes separately before the composite — an
+// unbounded list is the same CPU/RAM multiplier MAX_BLUR_REGIONS caps.
+const MAX_OVERLAY_LAYERS = 8;
+// Layer bytes ride inside the spec, which is hashed on every variant() call.
+const MAX_OVERLAY_IMAGE_BYTES = 512 * 1024;
+const MAX_QR_DATA_LENGTH = 1024;
+// Below roughly this, a QR's modules land on too few pixels to survive
+// camera capture — the AC claims phone-scannable, so an under-sized layer
+// throws instead of caching a silently unusable image.
+const MIN_QR_PIXEL_WIDTH = 160;
 // sequentialRead trades random pixel access for lower peak memory on
 // streamed formats — applied at every decode entry point below since none
 // of them need non-sequential access to the *original* bytes (extract runs
@@ -37,6 +50,18 @@ function normalizeMimeType(mimeType: string): string {
 
 function clampSigma(sigma: number): number {
   return Math.min(MAX_SHARP_SIGMA, Math.max(MIN_SHARP_SIGMA, sigma));
+}
+
+// Shared trust boundary for every image byte source this renderer decodes —
+// the original upload (renderImage) and an overlay layer's bytes (applyOverlays)
+// alike: a base64 string in a field declaration isn't more trustworthy than
+// an upload just because it came from app code.
+function assertNotSvg(format: string | undefined): void {
+  if (format === "svg") {
+    throw new Error(
+      "derivatives-sharp: SVG is not supported — rendering untrusted SVG through libvips is a trust boundary this renderer doesn't need to cross.",
+    );
+  }
 }
 
 function assertValidRegion(region: BlurRegion): void {
@@ -84,6 +109,102 @@ async function applyBlurRegions(
 
   if (overlays.length === 0) return data;
   return sharp(data, SHARP_INPUT_OPTIONS).composite(overlays).toBuffer();
+}
+
+// Placement is anchored to the OUTPUT box (overlays run after resize, see
+// applyOverlays), then clamped the same way applyBlurRegions clamps its
+// region coordinates — a caller-declared marginPct can't push a layer
+// off-canvas.
+function overlayPosition(
+  gravity: OverlayGravity,
+  marginPx: number,
+  outputWidth: number,
+  outputHeight: number,
+  layerWidth: number,
+  layerHeight: number,
+): { left: number; top: number } {
+  let left: number;
+  let top: number;
+  switch (gravity) {
+    case "north-west":
+      left = marginPx;
+      top = marginPx;
+      break;
+    case "north-east":
+      left = outputWidth - layerWidth - marginPx;
+      top = marginPx;
+      break;
+    case "south-west":
+      left = marginPx;
+      top = outputHeight - layerHeight - marginPx;
+      break;
+    case "south-east":
+      left = outputWidth - layerWidth - marginPx;
+      top = outputHeight - layerHeight - marginPx;
+      break;
+    case "center":
+      left = (outputWidth - layerWidth) / 2;
+      top = (outputHeight - layerHeight) / 2;
+      break;
+    default:
+      throw new Error(`derivatives-sharp: unknown overlay gravity "${gravity satisfies never}".`);
+  }
+  const maxLeft = Math.max(0, outputWidth - layerWidth);
+  const maxTop = Math.max(0, outputHeight - layerHeight);
+  return {
+    left: Math.min(Math.max(Math.round(left), 0), maxLeft),
+    top: Math.min(Math.max(Math.round(top), 0), maxTop),
+  };
+}
+
+// Runs AFTER resize (see the AC in renderImage) so a layer sized as a
+// fraction of the output is a fraction of what the caller actually gets,
+// regardless of the source's own dimensions or `fit` crop.
+async function applyOverlays(
+  pipeline: Sharp,
+  layers: readonly ResolvedOverlayLayer[],
+): Promise<Sharp> {
+  const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+
+  const composites: OverlayOptions[] = [];
+  for (const layer of layers) {
+    const layerBytes =
+      layer.kind === "qr"
+        ? await QRCode.toBuffer(layer.data, { margin: 1, errorCorrectionLevel: "M" })
+        : Buffer.from(layer.imageBase64, "base64");
+
+    const layerMeta = await sharp(layerBytes, SHARP_INPUT_OPTIONS).metadata();
+    assertNotSvg(layerMeta.format);
+
+    const targetWidth = Math.max(1, Math.round(info.width * layer.widthPct));
+    if (layer.kind === "qr" && targetWidth < MIN_QR_PIXEL_WIDTH) {
+      throw new Error(
+        `derivatives-sharp: qr overlay would render at ${targetWidth}px wide, below the ${MIN_QR_PIXEL_WIDTH}px minimum a camera can reliably scan.`,
+      );
+    }
+
+    // PNG (not the layer's own format) to keep any alpha through the resize.
+    // height caps the other axis too — sharp's composite() rejects an input
+    // larger than the base image, which a tall/square layer would otherwise
+    // hit once widthPct alone drives its width past the output's height.
+    const resized = await sharp(layerBytes, SHARP_INPUT_OPTIONS)
+      .resize({ width: targetWidth, height: info.height, fit: "inside" })
+      .png()
+      .toBuffer({ resolveWithObject: true });
+
+    const marginPx = Math.round(info.width * (layer.marginPct ?? 0));
+    const { left, top } = overlayPosition(
+      layer.gravity,
+      marginPx,
+      info.width,
+      info.height,
+      resized.info.width,
+      resized.info.height,
+    );
+    composites.push({ input: resized.data, left, top });
+  }
+
+  return sharp(data, SHARP_INPUT_OPTIONS).composite(composites);
 }
 
 function buildResizeOptions(width: number, height: number, fit: VariantFit): ResizeOptions {
@@ -153,6 +274,51 @@ function applyEncoder(pipeline: Sharp, spec: VariantSpec, sourceMimeType: string
   return encode(pipeline, quality);
 }
 
+// Split out of assertRenderSpecBounds (not inlined there) purely to stay
+// under the AST-guard complexity budget — see assertRenderSpecBounds's own
+// comment. Still the single call site for every overlay bound.
+function assertOverlayLayerBounds(layer: ResolvedOverlayLayer): void {
+  if (!Number.isFinite(layer.widthPct) || layer.widthPct <= 0 || layer.widthPct > 1) {
+    throw new Error(
+      `derivatives-sharp: overlay widthPct ${layer.widthPct} is out of range — must be a finite number in (0, 1].`,
+    );
+  }
+  if (layer.marginPct !== undefined && (layer.marginPct < 0 || layer.marginPct >= 0.5)) {
+    throw new Error(
+      `derivatives-sharp: overlay marginPct ${layer.marginPct} is out of range — must be within [0, 0.5).`,
+    );
+  }
+  if (layer.kind === "qr") {
+    if (layer.data.length === 0 || layer.data.length > MAX_QR_DATA_LENGTH) {
+      throw new Error(
+        `derivatives-sharp: qr overlay data length ${layer.data.length} is out of range — must be 1–${MAX_QR_DATA_LENGTH} characters.`,
+      );
+    }
+    // skip: qr layers have no imageBase64 field to validate; this return also
+    // narrows the union below to the image variant without a cast.
+    return;
+  }
+  const byteLength = Buffer.byteLength(layer.imageBase64, "base64");
+  if (byteLength > MAX_OVERLAY_IMAGE_BYTES) {
+    throw new Error(
+      `derivatives-sharp: overlay image is ${byteLength} bytes, exceeding the limit of ${MAX_OVERLAY_IMAGE_BYTES}.`,
+    );
+  }
+}
+
+function assertOverlayBounds(layers: readonly ResolvedOverlayLayer[] | undefined): void {
+  // skip: no overlays configured for this variant, nothing to validate
+  if (!layers) return;
+  if (layers.length > MAX_OVERLAY_LAYERS) {
+    throw new Error(
+      `derivatives-sharp: overlays has ${layers.length} entries, exceeding the limit of ${MAX_OVERLAY_LAYERS} — each layer decodes and resizes separately before the composite.`,
+    );
+  }
+  for (const layer of layers) {
+    assertOverlayLayerBounds(layer);
+  }
+}
+
 // Input-validation for the DoS caps above — kept out of renderImage so the
 // complexity hotspot stays under the AST-guard budget.
 function assertRenderSpecBounds(spec: VariantSpec): void {
@@ -181,6 +347,7 @@ function assertRenderSpecBounds(spec: VariantSpec): void {
       );
     }
   }
+  assertOverlayBounds(spec.resolvedOverlays);
 }
 
 export const renderImage: DerivativeRendererPlugin["render"] = async (
@@ -194,11 +361,7 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
   // the SVG rejection from the actual bytes so a mislabeled upload can't
   // reach libvips as SVG.
   const sniffed = await sharp(input, SHARP_INPUT_OPTIONS).metadata();
-  if (sniffed.format === "svg") {
-    throw new Error(
-      "derivatives-sharp: SVG is not supported — rendering untrusted SVG through libvips is a trust boundary this renderer doesn't need to cross.",
-    );
-  }
+  assertNotSvg(sniffed.format);
 
   assertRenderSpecBounds(spec);
 
@@ -223,6 +386,10 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
 
   if (spec.blur !== undefined) {
     pipeline = pipeline.blur(spec.blur);
+  }
+
+  if (spec.resolvedOverlays && spec.resolvedOverlays.length > 0) {
+    pipeline = await applyOverlays(pipeline, spec.resolvedOverlays);
   }
 
   pipeline = applyEncoder(pipeline, spec, normalizedSource);

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.287.0",
+    "type": "improvement",
+    "title": "Add overlay stage (QR codes, badge images) to derived image variants",
+    "detail": "VariantSpec now supports declarative overlay layers (qr via a resolver-token, or a base64 image) composited onto derived image variants. QR values are never free text — only a dataToken resolved server-side via a new extension point, keeping the anonymous derivative route from becoming an open image generator."
+  },
+  {
     "version": "0.194.0",
     "type": "breaking",
     "title": "PRESET_VARIANT_NAMES removed from public exports; publicVariantQuery accepts any name.",

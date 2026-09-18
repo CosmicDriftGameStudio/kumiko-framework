@@ -16,6 +16,40 @@ export type BlurRegion = {
   readonly height: number;
 };
 
+export type OverlayGravity = "north-west" | "north-east" | "south-west" | "south-east" | "center";
+
+// Placement is relative to the OUTPUT box (after resize), so one declaration
+// covers every aspect ratio the same source is rendered into.
+type OverlayPlacement = {
+  // Layer width as a fraction (0…1) of the output width; height follows the
+  // layer's own aspect ratio.
+  readonly widthPct: number;
+  readonly gravity: OverlayGravity;
+  // Inset from the edges, fraction of output width. Ignored for "center".
+  readonly marginPct?: number;
+};
+
+export type OverlayLayer =
+  // `dataToken` is NOT the QR payload — it names a value an
+  // EXT_DERIVATIVE_OVERLAY_RESOLVER registration resolves per FileRef. A
+  // literal payload is deliberately not expressible: the public variant route
+  // is anonymous, so a caller-supplied target would make it an open image
+  // generator for arbitrary URLs.
+  | ({ readonly kind: "qr"; readonly dataToken: string } & OverlayPlacement)
+  // Caller-supplied raster (watermark/badge), base64 in the declaration.
+  // Swapping the image changes the spec hash and invalidates every derivative
+  // that used it — no extra bookkeeping.
+  | ({ readonly kind: "image"; readonly imageBase64: string } & OverlayPlacement);
+
+// Renderer-facing counterpart of OverlayLayer once derivatives-context has
+// resolved every `dataToken` — a `qr` layer carries the actual value to
+// encode instead of a name a resolver still has to look up. Keeping this a
+// distinct type (not a value-replacement on OverlayLayer itself) means a
+// renderer's input type structurally cannot hold an unresolved token.
+export type ResolvedOverlayLayer =
+  | ({ readonly kind: "qr"; readonly data: string } & OverlayPlacement)
+  | Extract<OverlayLayer, { kind: "image" }>;
+
 export type VariantSpec = {
   // Default "inside" when omitted (renderer-side default, Schnitt 2).
   readonly fit?: VariantFit;
@@ -27,6 +61,12 @@ export type VariantSpec = {
   // Whole-image blur radius.
   readonly blur?: number;
   readonly blurRegions?: readonly BlurRegion[];
+  // Composited AFTER resize, in array order (last layer on top).
+  readonly overlays?: readonly OverlayLayer[];
+  // Framework-internal: derivatives-context.ts fills this in from `overlays`
+  // once every dataToken is resolved. A renderer reads only this field, so a
+  // token can never reach it, even by accident.
+  readonly resolvedOverlays?: readonly ResolvedOverlayLayer[];
 };
 
 // A renderer turns the original bytes + a spec into the derived bytes for one

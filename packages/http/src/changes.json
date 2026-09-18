@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.287.0",
+    "type": "improvement",
+    "title": "export isPublicHost for create-time SSRF precheck without a real fetch",
+    "detail": "Adds `isPublicHost(raw: string, lookupFn?: typeof lookup): Promise<boolean>` to\n`@cosmicdrift/kumiko-http` (and re-exported from `@cosmicdrift/kumiko-framework/http`).\nIt runs the same range-table and DNS-rebinding-safe single-resolution check\n`egress()` uses internally via `resolvePublicHost`, but performs no connection —\nuseful for validating tenant-supplied URLs (e.g. webhook registration) up front.\nNever throws: parse failures, non-http(s) schemes, embedded credentials, DNS\nfailures, and blocked ranges all resolve to `false` rather than rejecting."
+  },
+  {
     "version": "0.284.0",
     "type": "improvement",
     "title": "Split egress into a standalone @cosmicdrift/kumiko-http package",

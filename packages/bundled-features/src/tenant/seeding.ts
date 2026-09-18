@@ -234,6 +234,10 @@ export async function seedTenant(
     tdb,
   );
   if (!result.isSuccess) {
+    // Same idempotency case as the stream-version check above, only detected
+    // one instruction later: a dispatcher cycle appended to the stream between
+    // that read and this create. Both paths return without firing postSave.
+    if (result.error.code === "version_conflict") return { id: options.id };
     throw new Error(
       `seedTenant failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );

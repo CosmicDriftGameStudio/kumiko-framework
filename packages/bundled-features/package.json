@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-bundled-features",
-  "version": "0.286.0",
+  "version": "0.288.0",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -94,6 +94,8 @@
     "./auth-email-password/testing": "./src/auth-email-password/testing.ts",
     "./auth-email-password/web": "./src/auth-email-password/web/index.ts",
     "./shared/single-use-token-store": "./src/shared/single-use-token-store.ts",
+    "./shared/signed-token": "./src/shared/signed-token.ts",
+    "./shared/row-bound-grant": "./src/shared/row-bound-grant.ts",
     "./delivery": "./src/delivery/index.ts",
     "./delivery/web": "./src/delivery/web/index.ts",
     "./channel-in-app": "./src/channel-in-app/index.ts",
@@ -165,6 +167,7 @@
   "devDependencies": {
     "@testing-library/user-event": "^14.6.1",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
-    "@cosmicdrift/kumiko-locale-es": "workspace:*"
+    "@cosmicdrift/kumiko-locale-es": "workspace:*",
+    "jsqr": "^1.4.0"
   }
 }

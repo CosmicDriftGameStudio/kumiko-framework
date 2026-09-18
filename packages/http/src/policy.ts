@@ -1,8 +1,9 @@
 // Egress trust boundary. `EgressPolicy` and the checks below back the single
-// exported way to speak outward, `egress()` in ./egress.ts — this module and
-// its exports stay off the package's public barrel (index.ts) on purpose:
-// call sites bind a policy once via `egress(policy)` and never see the range
-// table or the allowlist check directly.
+// exported way to speak outward, `egress()` in ./egress.ts. Only `isPublicHost`
+// reaches the package's public barrel (index.ts), as a boolean pre-check for
+// create-time validation — call sites otherwise bind a policy once via
+// `egress(policy)` and never see the range table or the allowlist check
+// directly.
 //
 // `external` and `tenant-supplied` resolve to the identical set of checks
 // below (deny private/reserved/link-local + no redirects). They stay
@@ -175,6 +176,25 @@ export async function resolvePublicHost(
     throw new Error(`egress: DNS resolution returned no records for host: ${host}`);
   }
   return { address: chosen.address, family: chosen.family === 6 ? 6 : 4 };
+}
+
+// Create-time validation for tenant-supplied URLs (e.g. webhook registration)
+// where rejecting at registration is better UX than failing later at fetch
+// time. Runs the same resolution as `egress()` without connecting anywhere,
+// and never throws — bad input (unparsable URL, non-http(s) scheme, embedded
+// credentials, DNS failure, blocked range) all just resolve to `false`.
+export async function isPublicHost(
+  raw: string,
+  lookupFn: typeof lookup = lookup,
+): Promise<boolean> {
+  try {
+    const url = new URL(raw);
+    assertHttpScheme(url);
+    await resolvePublicHost(url, lookupFn);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Explicit allowlist check for `internal` — the hostname (not the resolved
