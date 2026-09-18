@@ -17,6 +17,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { QnTypes, qn, SYSTEM_TENANT_ID, toKebab } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+// kumiko-lint-ignore cross-feature-import SUBSCRIPTION_STRIPE_FEATURE is a plain string const in constants.ts (no imports); the barrel import (../subscription-stripe) would create a module cycle with billing-foundation via feature.ts → verify-webhook.ts, because billing-foundation/index.ts now re-exports billing-info-query.ts.
 import { SUBSCRIPTION_STRIPE_FEATURE } from "../subscription-stripe/constants";
 import { subscriptionAggregateId } from "./aggregate-id";
 import { subscriptionsProjectionTable } from "./projection";

@@ -11,7 +11,7 @@
 // `signup:`-prefix.
 
 import type Redis from "ioredis";
-import { createSingleUseTokenStore } from "../shared/single-use-token-store";
+import { createSingleUseTokenStore } from "../shared";
 
 /** Email normalization — single source for every lookup layer (used
  *  internally by the store AND by callers that need a consistent form
