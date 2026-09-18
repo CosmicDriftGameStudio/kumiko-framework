@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.286.0",
+    "type": "improvement",
+    "title": "mfa-verify-attempts now delegates to shared/lockout-counter",
+    "detail": "No behavior change — same exported function/type names and Redis key prefixes as before the extraction."
+  },
+  {
     "version": "0.259.0",
     "type": "improvement",
     "title": "Declarative auth-mfa-disable and auth-mfa-regenerate-recovery screens (fw#2844).",
