@@ -6,7 +6,7 @@
 `validateBoot` now accepts an optional `navAllowlist` and warns at boot for every declared nav whose screen isn't reachable from any allowlisted nav entry, since such a screen was silently unreachable via the sidebar with no signal (fw#3019, hit twice: solon#113 and offlot's VIN screen). A new `navAllowlistExempt` option suppresses the warning for navs that are deliberately left out of the allowlist because their screen is reachable another way (e.g. a generated settings hub). When an app has no explicit `navAllowlist` but does have workspaces, the allowlist is now derived automatically from `r.workspace({ nav })` and `r.nav({ workspaces })` assignments — covering solon#113's case without requiring solon to pass anything. `filterAppSchemaNavsByAllowlist` and `NavReparentOverride`, previously duplicated per-app, are now exported from `@cosmicdrift/kumiko-renderer-web`.
 
 <!-- kumiko-changes
-feature: navigation
+feature: framework
 type: improvement
 title: boot-time reachability warning for nav entries outside the app's sidebar allowlist, filter helper moved into the framework
 detail: |
