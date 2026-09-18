@@ -30,9 +30,9 @@ const store = createSingleUseTokenStore({
   burnPrefix: "invite:burn:",
 });
 
-/** Speichert das Pair bidirektional und setzt TTL auf beiden Keys.
- *  Idempotent — re-write derselben Token-Invitation-Kombi ist OK
- *  (refresh TTL für Resend). */
+/** Stores the pair bidirectionally and sets TTL on both keys.
+ *  Idempotent — re-writing the same token-invitation pair is fine
+ *  (refreshes the TTL for resend). */
 export async function storeInviteToken(
   redis: Redis,
   args: { invitationId: string; token: string; ttlSeconds: number },
@@ -44,8 +44,8 @@ export async function storeInviteToken(
   });
 }
 
-/** Lookup: invitationId für Token. Null wenn Token nicht (mehr) existiert
- *  (abgelaufen, schon konsumiert, oder ungültig). */
+/** Lookup: invitationId for a token. Null if the token no longer exists
+ *  (expired, already consumed, or invalid). */
 export const getInvitationIdForToken = store.getSubjectForToken;
 
 /** Deletes a still-live invite token for this invitation, if one exists.
@@ -60,12 +60,12 @@ export async function invalidateExistingInviteToken(
   return store.invalidateExistingBySubject(redis, invitationId);
 }
 
-/** Single-Use-Burn. Wenn zwei Tabs gleichzeitig den Accept-Link klicken,
- *  gewinnt der erste, der zweite kriegt "already-used". TTL = 1h. */
+/** Single-use burn. If two tabs click the accept link at the same time,
+ *  the first one wins, the second gets "already-used". TTL = 1h. */
 export const burnInviteToken = store.burn;
 
-/** Cleanup nach erfolgreichem Accept ODER Cancel — beide Lookup-Keys
- *  löschen. Burn-Key bleibt für die restliche Burn-TTL als Replay-Schutz. */
+/** Cleanup after a successful accept OR cancel — deletes both lookup
+ *  keys. The burn key stays for the remaining burn TTL as replay protection. */
 export async function deleteInviteToken(
   redis: Redis,
   args: { invitationId: string; token: string },
@@ -73,6 +73,6 @@ export async function deleteInviteToken(
   return store.deleteBoth(redis, { subjectId: args.invitationId, token: args.token });
 }
 
-/** Burn-Release für Failed-Accept-Pfade (DB-Error etc.) damit ein
- *  legitimer Retry nicht durch einen stale Burn-Marker geblockt wird. */
+/** Burn release for failed-accept paths (DB error etc.) so a legitimate
+ *  retry isn't blocked by a stale burn marker. */
 export const unburnInviteToken = store.unburn;

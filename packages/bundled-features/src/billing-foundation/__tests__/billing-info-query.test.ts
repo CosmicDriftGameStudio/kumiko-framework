@@ -1,9 +1,9 @@
-// Unit-Tests für createBillingInfoQueryConfig — stub-ctx/deps statt echter
-// DB, siehe subscription-stripe/__tests__/runtime.test.ts für dasselbe
-// Stub-Pattern. Deckt die drei App-relevanten Verzweigungen ab: das
-// no-prices-early-return (kein Billing-Provider konfiguriert), dass die
-// Tier-Resolution unverändert durchgereicht wird, und die
-// Subscription-Shape-Validierung.
+// Unit tests for createBillingInfoQueryConfig — stub ctx/deps instead of a
+// real DB, see subscription-stripe/__tests__/runtime.test.ts for the same
+// stub pattern. Covers the three app-relevant branches: the
+// no-prices-early-return (no billing provider configured), that the
+// tier resolution is passed through unchanged, and the
+// subscription shape validation.
 
 import { describe, expect, mock, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";

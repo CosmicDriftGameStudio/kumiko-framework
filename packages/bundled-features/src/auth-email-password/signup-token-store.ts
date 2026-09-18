@@ -13,10 +13,10 @@
 import type Redis from "ioredis";
 import { createSingleUseTokenStore } from "../shared/single-use-token-store";
 
-/** Email-Normalisierung — single source für jede Lookup-Schicht (Store
- *  intern UND Caller die im Return-Body / Mail-Send eine konsistente
- *  Form brauchen). Vorher zwei Stellen mit `.toLowerCase()` — eine
- *  Quelle = kein Drift. */
+/** Email normalization — single source for every lookup layer (used
+ *  internally by the store AND by callers that need a consistent form
+ *  in the return body / mail send). Previously two places called
+ *  `.toLowerCase()` — one source means no drift. */
 export function normalizeEmail(email: string): string {
   return email.toLowerCase();
 }
@@ -27,8 +27,8 @@ const store = createSingleUseTokenStore({
   burnPrefix: "signup:burn:",
 });
 
-/** Speichert das Pair bidirektional und setzt TTL auf beiden Keys.
- *  Idempotent — re-write derselben Token-Email-Kombi ist OK. */
+/** Stores the pair bidirectionally and sets TTL on both keys.
+ *  Idempotent — re-writing the same token-email pair is fine. */
 export async function storeSignupToken(
   redis: Redis,
   args: { email: string; token: string; ttlSeconds: number },
@@ -40,8 +40,8 @@ export async function storeSignupToken(
   });
 }
 
-/** Lookup: Email für einen Token. Null wenn Token nicht (mehr) existiert
- *  (abgelaufen, schon konsumiert, oder ungültig). */
+/** Lookup: email for a token. Null if the token no longer exists
+ *  (expired, already consumed, or invalid). */
 export const getEmailForSignupToken = store.getSubjectForToken;
 
 /** Deletes a still-live signup token for this email, if one exists. Used
@@ -51,12 +51,12 @@ export async function invalidateExistingSignupToken(redis: Redis, email: string)
   return store.invalidateExistingBySubject(redis, normalizeEmail(email));
 }
 
-/** Single-Use-Burn: wenn zwei Tabs gleichzeitig den Confirm-Link klicken,
- *  gewinnt der erste, der zweite kriegt "already-used". */
+/** Single-use burn: if two tabs click the confirm link at the same time,
+ *  the first one wins, the second gets "already-used". */
 export const burnSignupToken = store.burn;
 
-/** Cleanup nach erfolgreichem Confirm — beide Lookup-Keys löschen.
- *  Burn-Key bleibt (verhindert Replay innerhalb der Burn-TTL). */
+/** Cleanup after a successful confirm — deletes both lookup keys.
+ *  The burn key stays (prevents replay within the burn TTL). */
 export async function deleteSignupToken(
   redis: Redis,
   args: { email: string; token: string },
@@ -64,6 +64,6 @@ export async function deleteSignupToken(
   return store.deleteBoth(redis, { subjectId: normalizeEmail(args.email), token: args.token });
 }
 
-/** Burn-Release für Failed-Confirm-Pfade (DB-Error etc.) damit ein
- *  legitimer Retry nicht durch einen stale Burn-Marker geblockt wird. */
+/** Burn release for failed-confirm paths (DB error etc.) so a legitimate
+ *  retry isn't blocked by a stale burn marker. */
 export const unburnSignupToken = store.unburn;
