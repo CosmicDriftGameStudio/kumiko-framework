@@ -509,6 +509,83 @@ describe("createKumikoServer — hot-reload broadcast", () => {
   });
 });
 
+// kumiko-framework#3026: runDevApp gains resolvePageHead parity with
+// runProdApp — both now call the same @cosmicdrift/kumiko-headless/apex
+// resolveAndInjectPageHead, so a resolver produces the same tags in the
+// same order under dev as under prod (see run-prod-app-static-files.test.ts's
+// "resolver meta → og-tags appear" case for the prod-side equivalent). The
+// real 300ms-timeout path is covered once, in headless's own unit test for
+// resolveAndInjectPageHead (same shared function) — no need to re-run a slow
+// timeout wait here too.
+describe("createKumikoServer resolvePageHead", () => {
+  test("resolver meta → head tags injected, same tags + order as runProdApp", async () => {
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      resolvePageHead: async () => ({
+        title: "Vehicle X",
+        description: "A car",
+        ogImage: "https://x/i.png",
+      }),
+    });
+    const res = await handle.fetch(new Request("http://localhost/"));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).not.toContain("<title>Kumiko</title>");
+    expect((body.match(/kumiko-page-head/g) ?? []).length).toBe(1);
+    expect(body).toContain("<title>Vehicle X</title>");
+    expect(body).toContain('<meta name="description" content="A car" />');
+    expect(body).toContain('<meta property="og:title" content="Vehicle X" />');
+    expect(body).toContain('<meta property="og:description" content="A car" />');
+    expect(body).toContain('<meta property="og:image" content="https://x/i.png" />');
+
+    const titleIdx = body.indexOf("<title>Vehicle X</title>");
+    const descIdx = body.indexOf('<meta name="description"');
+    const ogTitleIdx = body.indexOf('<meta property="og:title"');
+    const ogDescIdx = body.indexOf('<meta property="og:description"');
+    const ogImageIdx = body.indexOf('<meta property="og:image"');
+    expect(titleIdx).toBeLessThan(descIdx);
+    expect(descIdx).toBeLessThan(ogTitleIdx);
+    expect(ogTitleIdx).toBeLessThan(ogDescIdx);
+    expect(ogDescIdx).toBeLessThan(ogImageIdx);
+  });
+
+  test("resolver throws → 200 with the unchanged default shell, not a 500", async () => {
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      resolvePageHead: async () => {
+        throw new Error("boom");
+      },
+    });
+    const res = await handle.fetch(new Request("http://localhost/"));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).not.toContain("kumiko-page-head");
+    expect(body).toMatch(/<div id="root">/);
+  });
+
+  test("resolver returns null → 200 with the unchanged default shell", async () => {
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      resolvePageHead: async () => null,
+    });
+    const res = await handle.fetch(new Request("http://localhost/"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).not.toContain("kumiko-page-head");
+  });
+
+  test("no resolvePageHead configured → no page-head marker in the response", async () => {
+    const h = await boot();
+    const res = await h.fetch(new Request("http://localhost/"));
+    expect(await res.text()).not.toContain("kumiko-page-head");
+  });
+});
+
 // kumiko-framework#2435: tryHonoFirst used to decide "no route matched"
 // purely from the status code — a matched httpRoute answering 404 on
 // purpose (e.g. default-deny reads) was indistinguishable from an

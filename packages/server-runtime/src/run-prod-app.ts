@@ -98,7 +98,6 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
-  type TenantId,
   type TierResolverPlugin,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -137,6 +136,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
+import type {
+  PageHeadMeta,
+  PageHeadResolver,
+  PageHeadSystemQuery,
+} from "@cosmicdrift/kumiko-headless/apex";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { resolveBootCrypto } from "./boot/boot-crypto";
@@ -431,33 +435,13 @@ export type HostDispatchFn = (req: {
   readonly search: string;
 }) => HostDispatchResult;
 
-/** Per-request head metadata (Open-Graph/title/description) for the
- *  static-fallback HTML shell. Only `title` is required; everything else
- *  falls back to no tag rather than a placeholder. */
-export type PageHeadMeta = {
-  readonly title: string;
-  readonly description?: string;
-  readonly ogImage?: string;
-  readonly canonicalUrl?: string;
-  readonly siteName?: string;
-  readonly locale?: string;
-};
-
-// Matches bundled-features' shared/system-query.ts SystemQueryFn shape
-// (non-generic, Promise<unknown>) rather than a generic <T> signature —
-// that's the convention every other systemQuery caller in the framework
-// already follows (r.httpRoute handlers, seo/managed-pages features).
-export type PageHeadSystemQuery = (
-  type: string,
-  payload: unknown,
-  tenantId: TenantId,
-) => Promise<unknown>;
-
-export type PageHeadResolver = (input: {
-  readonly path: string;
-  readonly host: string;
-  readonly systemQuery: PageHeadSystemQuery;
-}) => Promise<PageHeadMeta | null>;
+// PageHeadMeta/PageHeadResolver/PageHeadSystemQuery moved to
+// @cosmicdrift/kumiko-headless/apex (kumiko-framework#3026) — runDevApp needs
+// the same types and the same resolve+inject function runProdApp uses, and
+// headless is where renderApexHeadTags already lives. Re-exported here so
+// existing subpath-imports (`@cosmicdrift/kumiko-server-runtime/run-prod-app`)
+// keep working unchanged.
+export type { PageHeadMeta, PageHeadResolver, PageHeadSystemQuery };
 
 export type RunProdAppOptions = {
   /** App-specific features. config/user/tenant/auth-email-password are

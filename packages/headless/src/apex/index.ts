@@ -4,6 +4,7 @@
 // brand tokens (brand.tokensCss) and content. Server-side, zero React, one
 // cacheable HTTP response. See APEX_STRUCTURAL_CSS for the CSS contract.
 
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { escapeHtml } from "../format";
 import { APEX_STRUCTURAL_CSS } from "./css";
 import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
@@ -549,4 +550,118 @@ export function renderApexPage(page: ApexPage): string {
     ${APEX_LIGHTBOX_SCRIPT}
   </body>
 </html>`;
+}
+
+/** Per-request head metadata (Open-Graph/title/description) for a
+ *  server-rendered HTML shell. Only `title` is required; everything else
+ *  falls back to no tag rather than a placeholder. */
+export type PageHeadMeta = {
+  readonly title: string;
+  readonly description?: string;
+  readonly ogImage?: string;
+  readonly canonicalUrl?: string;
+  readonly siteName?: string;
+  readonly locale?: string;
+};
+
+// Matches bundled-features' shared/system-query.ts SystemQueryFn shape
+// (non-generic, Promise<unknown>) rather than a generic <T> signature —
+// that's the convention every other systemQuery caller in the framework
+// already follows (r.httpRoute handlers, seo/managed-pages features).
+export type PageHeadSystemQuery = (
+  type: string,
+  payload: unknown,
+  tenantId: TenantId,
+) => Promise<unknown>;
+
+export type PageHeadResolver = (input: {
+  readonly path: string;
+  readonly host: string;
+  readonly systemQuery: PageHeadSystemQuery;
+}) => Promise<PageHeadMeta | null>;
+
+const HEAD_TAGS_MARKER = "<!-- kumiko-page-head -->";
+const TITLE_TAG_RE = /<title\b[^>]*>[\s\S]*?<\/title>/i;
+
+// Idempotent by marker (repeated calls, e.g. hostDispatch + default path
+// both hitting the same request, never double-inject) and safe on a
+// head-less document (nothing to splice into). `tagsHtml` is pre-rendered
+// HTML from a caller (renderApexHeadTags) — this function only owns
+// placement + the original <title> removal, not escaping.
+export function injectPageHead(html: string, tagsHtml: string): string {
+  if (html.includes(HEAD_TAGS_MARKER)) return html;
+  if (!html.includes("</head>")) return html;
+  const withoutTitle = html.replace(TITLE_TAG_RE, "");
+  return withoutTitle.replace("</head>", () => `${HEAD_TAGS_MARKER}\n${tagsHtml}\n</head>`);
+}
+
+// Resolver runs alongside the request, never gates it: a slow, throwing, or
+// null-returning resolver must never turn a 200 shell into a 500 or a
+// stall. One constant shared by runProdApp and runDevApp so both time out
+// on the same value (kumiko-framework#3026).
+const PAGE_HEAD_TIMEOUT_MS = 300;
+
+async function resolvePageHeadWithTimeout(
+  resolvePageHead: PageHeadResolver,
+  input: {
+    readonly path: string;
+    readonly host: string;
+    readonly systemQuery: PageHeadSystemQuery;
+  },
+): Promise<PageHeadMeta | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timedOut = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), PAGE_HEAD_TIMEOUT_MS);
+    });
+    // .catch on the resolver's own promise (not just the outer try/catch)
+    // so a rejection arriving AFTER the timeout already won the race
+    // doesn't surface as an unhandled rejection.
+    const resolved = resolvePageHead(input).catch(() => null);
+    return await Promise.race([resolved, timedOut]);
+  } catch {
+    return null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+// ApexHead.lang is required (html lang="..."); PageHeadMeta only carries
+// og:locale-shaped strings ("de_DE", "en-US") since that's all og:locale
+// needs. Take the language subtag before the region separator; default to
+// "en" when there's no locale to derive one from.
+function apexLangFromLocale(locale: string | undefined): string {
+  return locale?.split(/[_-]/)[0]?.toLowerCase() || "en";
+}
+
+function toApexHead(meta: PageHeadMeta): ApexHead {
+  return {
+    lang: apexLangFromLocale(meta.locale),
+    title: meta.title,
+    description: meta.description ?? "",
+    ...(meta.canonicalUrl !== undefined ? { canonicalUrl: meta.canonicalUrl } : {}),
+    ...(meta.ogImage !== undefined ? { ogImage: meta.ogImage } : {}),
+    ...(meta.siteName !== undefined ? { siteName: meta.siteName } : {}),
+    ...(meta.locale !== undefined ? { locale: meta.locale } : {}),
+  };
+}
+
+/** Resolves per-request head metadata and splices it into `html`, capped at
+ *  the shared timeout. Never throws and never changes `html` on a resolver
+ *  error, a `null` resolve, or a timeout — the caller's shell always ships
+ *  unchanged. runProdApp and runDevApp both call this single function, so a
+ *  future change to timeout or fallback semantics has one place to land
+ *  (kumiko-framework#3026). */
+export async function resolveAndInjectPageHead(
+  html: string,
+  resolvePageHead: PageHeadResolver,
+  input: {
+    readonly path: string;
+    readonly host: string;
+    readonly systemQuery: PageHeadSystemQuery;
+  },
+): Promise<string> {
+  const meta = await resolvePageHeadWithTimeout(resolvePageHead, input);
+  if (!meta) return html;
+  return injectPageHead(html, renderApexHeadTags(toApexHead(meta)));
 }
