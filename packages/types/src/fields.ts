@@ -752,7 +752,7 @@ export type FileFieldDef = {
   readonly maxSize?: string;
   readonly accept?: readonly string[];
   readonly access?: FieldAccess;
-};
+} & ResolvedPiiFlags;
 
 export type ImageFieldDef = {
   readonly type: "image";
@@ -768,7 +768,7 @@ export type ImageFieldDef = {
    *  camera instead of the file picker. */
   readonly capture?: "environment" | "user";
   readonly access?: FieldAccess;
-};
+} & ResolvedPiiFlags;
 
 export type FilesFieldDef = {
   readonly type: "files";
@@ -777,7 +777,7 @@ export type FilesFieldDef = {
   readonly accept?: readonly string[];
   readonly maxCount?: number;
   readonly access?: FieldAccess;
-};
+} & ResolvedPiiFlags;
 
 export type ImagesFieldDef = {
   readonly type: "images";
@@ -787,7 +787,7 @@ export type ImagesFieldDef = {
   readonly maxCount?: number;
   readonly variants?: Readonly<Record<string, VariantSpec>>;
   readonly access?: FieldAccess;
-};
+} & ResolvedPiiFlags;
 
 export type FieldDefinition =
   | TextFieldDef

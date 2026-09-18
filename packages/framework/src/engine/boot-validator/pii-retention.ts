@@ -56,11 +56,11 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
     const fieldsByName = entity.fields;
 
     for (const [fieldName, field] of Object.entries(fieldsByName)) {
-      // ResolvedPiiFlags-Properties sind type-level optional. Auf Field-
-      // Defs die nicht via "& ResolvedPiiFlags" erweitert sind (Boolean,
-      // Money, Reference, Embedded, Tz, LocatedTimestamp, File*, Image*)
-      // liefert property-access undefined zur Runtime. Die TS-Compile-
-      // Time-Validation hat dort schon abgelehnt → Cast ist safe.
+      // ResolvedPiiFlags properties are type-level optional. On field defs
+      // not extended via "& ResolvedPiiFlags" (Boolean, Money, Reference,
+      // Embedded), property access returns undefined at runtime. TS
+      // compile-time validation already rejected that case elsewhere →
+      // the cast is safe.
       const annot = field as ResolvedPiiFlags; // @cast-boundary schema-walk
 
       const hasPii = Boolean(annot.pii);
@@ -195,7 +195,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         } else if (PII_USER_REFERENCE_NAME_HINTS.has(lower) && !annot.subjectRef) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) — without the hook the V3 boot guard throws. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
           );
         }
       }

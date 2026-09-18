@@ -14,6 +14,7 @@ import { createEventStoreExecutor } from "../db/event-store-executor";
 import { createTenantDb } from "../db/tenant-db";
 import { createDerivativesContext, resolveFieldVariant, resolveRenderer } from "../derivatives";
 import {
+  type FieldDefinition,
   isFileField,
   isUuid,
   type Registry,
@@ -100,6 +101,29 @@ function createDefaultGuard(privilegedRoles: readonly string[]): FileAccessGuard
   };
 }
 
+type AttachedFieldResolution =
+  | { readonly kind: "unattached" }
+  | { readonly kind: "resolved"; readonly fieldDef: FieldDefinition }
+  | { readonly kind: "unresolvable" };
+
+// entityType/fieldName drive the GDPR-forget decision downstream
+// (fileRefDeleteHook resolves the field's PII annotation from exactly this
+// pairing) — attaching to a field nobody can resolve would leave that
+// decision hanging on an unverified client string. Either both are omitted
+// (unattached upload, allowed) or both must resolve to a real registered
+// field.
+function resolveAttachedField(
+  registry: Registry | undefined,
+  entityType: string | undefined,
+  fieldName: string | undefined,
+): AttachedFieldResolution {
+  if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
+  const entity = entityType !== undefined ? registry?.getEntity(entityType) : undefined;
+  const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
+  if (!entityType || !fieldName || !entity || !fieldDef) return { kind: "unresolvable" };
+  return { kind: "resolved", fieldDef };
+}
+
 export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
@@ -171,15 +195,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     let maxSize = options.maxUploadSize ?? "10mb";
     let accept: readonly string[] | undefined;
 
-    if (options.registry && entityType && fieldName) {
-      const entity = options.registry.getEntity(entityType);
-      if (entity) {
-        const fieldDef = entity.fields[fieldName];
-        if (isFileField(fieldDef)) {
-          if (fieldDef.maxSize) maxSize = fieldDef.maxSize;
-          if (fieldDef.accept) accept = fieldDef.accept;
-        }
-      }
+    const attachedField = resolveAttachedField(options.registry, entityType, fieldName);
+    if (attachedField.kind === "unresolvable") {
+      return c.json(
+        {
+          error:
+            "unresolvable_field: entityType/fieldName must resolve to a registered entity field, or both must be omitted for an unattached upload",
+        },
+        400,
+      );
+    }
+    if (attachedField.kind === "resolved" && isFileField(attachedField.fieldDef)) {
+      if (attachedField.fieldDef.maxSize) maxSize = attachedField.fieldDef.maxSize;
+      if (attachedField.fieldDef.accept) accept = attachedField.fieldDef.accept;
     }
 
     const validationError = validateFile(

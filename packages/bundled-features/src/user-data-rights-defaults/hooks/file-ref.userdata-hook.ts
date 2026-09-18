@@ -2,6 +2,8 @@ import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-fra
 import { derivativeListPrefix, isDerivativeKeyOf } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
+  type FieldDefinition,
+  type Registry,
   type SessionUser,
   type UserDataDeleteHook,
   type UserDataExportHook,
@@ -28,10 +30,18 @@ const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName
 // NICHT direkt — sie werden via signed-Download-URLs separat ins ZIP
 // gepackt (S2.U3 Export-Job-Pipeline orchestriert das).
 //
-// Delete-Hook entfernt FileRef-Zeile + Binary:
-//   "delete":    storageProvider.delete() pro File + Row hard-delete
-//   "anonymize": insertedById=null, Row + binary bleiben (FK-Refs
-//                koennen weiter zeigen; Personenbezug raus)
+// Delete-hook removes the fileRef row + binary:
+//   "delete":    storageProvider.delete() per file + row hard-delete — but
+//                ONLY for rows whose field is marked as PII of the person
+//                (isPersonalFileRow, #3005). All other rows (business/
+//                tenant data, no resolvable field, no annotation) go
+//                through severPersonLink instead, even when the entity
+//                strategy is "delete" — the uploader axis (insertedById) is
+//                not the subject axis.
+//   "anonymize": insertedById=null, row + binary survive (FK refs can still
+//                point at it; person-link removed) — applies to ALL rows
+//                when the entity strategy itself is already anonymize (e.g.
+//                blockDelete retention), regardless of the field.
 //
 // **Provider-Resolution:** der Provider kommt zur Lauf-Zeit aus
 // `ctx.buildStorageProvider(ctx.tenantId)` — der Forget-Orchestrator
@@ -122,6 +132,46 @@ async function resolveProvider(ctx: UserDataHookCtx): Promise<UserDataStoragePro
     // delete; the warn below gives operator visibility, boot guard catches it.
     return undefined;
   }
+}
+
+// Per-row Art.17 decision (kumiko-framework#3005): whether THIS file's field
+// carries personal data of the forgotten person, or is business/tenant data
+// that merely loses its uploader-attribution. insertedById names who
+// UPLOADED the file, not whose data it is — a dealer's vehicle photo
+// uploaded by an employee is the dealer's business data, not the employee's
+// PII. The field's own personal-annotation decides:
+//   - pii / userOwned / recordOwned → the field's content IS personal data
+//     of a person (self, owner-referenced, or the record's own subject) →
+//     hard-delete path.
+//   - anything else (explicit `personal: false`, `tenantOwned`,
+//     `subjectRef`, or no annotation at all) → not personal-to-a-person
+//     content → sever the uploader link only, keep row + binary.
+function isPersonalPiiField(field: FieldDefinition | undefined): boolean {
+  if (!field) return false;
+  return (
+    ("pii" in field && field.pii === true) ||
+    ("userOwned" in field && field.userOwned !== undefined) ||
+    ("recordOwned" in field && field.recordOwned === true)
+  );
+}
+
+// Three cases the field-lookup itself can't resolve (issue #3005's rule for
+// the non-resolvable cases):
+//   1. Unattached upload (entityType/fieldName both null) → hard-delete: a
+//      file with no entity binding belongs to nobody but its uploader.
+//   2. Field exists but carries no PII annotation → anonymize (the
+//      conservative path); the boot-validator warns on a PII-typical field
+//      name so this stays visible and quiet-fixable via `personal`.
+//   3. Entity or field not resolvable (upload hardening in file-routes.ts
+//      should prevent this from ever being written; theoretical remainder
+//      only) → anonymize, never a silent hard-delete.
+function isPersonalFileRow(registry: Registry, row: Record<string, unknown>): boolean {
+  const entityType = row["entityType"]; // @cast-boundary db-row
+  const fieldName = row["fieldName"]; // @cast-boundary db-row
+  if (entityType === null && fieldName === null) return true;
+  if (typeof entityType !== "string" || typeof fieldName !== "string") return false;
+  const fieldDef = registry.getEntity(entityType)?.fields[fieldName];
+  return isPersonalPiiField(fieldDef);
 }
 
 // Derivatives (thumbnails/resized variants — see derivatives-context.ts) are
@@ -221,14 +271,34 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") {
     // anonymize: insertedById=null, FileRef + binary bleiben. Use-case: shared
     // chat-Attachment im Multi-User-Channel — Author-ID raus, Datei bleibt sichtbar.
+    // Applies to ALL rows — the entity strategy comes from a retention
+    // policy (e.g. blockDelete) and overrides the per-field decision below,
+    // which only applies for strategy="delete".
     await severPersonLink(ctx.db, systemUser, rows);
     // skip: anonymize is complete — the hard-delete path below runs only for strategy "delete".
     return;
   }
 
+  // strategy="delete" decides PER ROW based on the field, not uniformly
+  // (#3005): only rows whose field is marked as PII of the person (or
+  // unattached, see isPersonalFileRow) take the hard path. Everything else
+  // only loses the uploader link.
+  const personalRows: Record<string, unknown>[] = [];
+  const businessRows: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    (isPersonalFileRow(ctx.registry, row) ? personalRows : businessRows).push(row);
+  }
+
+  if (businessRows.length > 0) {
+    await severPersonLink(ctx.db, systemUser, businessRows);
+  }
+
+  // skip: nothing left to hard-delete — businessRows above already had their person link severed via severPersonLink.
+  if (personalRows.length === 0) return;
+
   const storageProvider = await resolveProvider(ctx);
   if (storageProvider) {
-    const failedKeys = await deleteBinaries(rows, storageProvider);
+    const failedKeys = await deleteBinaries(personalRows, storageProvider);
     if (failedKeys.length > 0) {
       throw new Error(
         `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
@@ -250,7 +320,7 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   // auto-verb, the erasure replays on rebuild (created → forgotten → row gone).
   // The old hard deleteMany was resurrected on rebuild; this closes that Art.17
   // hole without a direct write.
-  for (const row of rows) {
+  for (const row of personalRows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
     assertErased(await crud.forget({ id }, systemUser, ctx.db), "fileRef", id);

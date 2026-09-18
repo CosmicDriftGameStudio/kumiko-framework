@@ -731,6 +731,45 @@ describe("error handling", () => {
     expect(body.error).toContain("invalid_fieldName");
   });
 
+  // #3005: fileRefDeleteHook's GDPR-forget decision resolves entityType/
+  // fieldName against the registry — an attachment nobody can resolve must
+  // be rejected at upload, not silently accepted and left to the forget
+  // hook's conservative fallback.
+  test("upload with an entityType not registered in the registry is rejected", async () => {
+    const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
+      entityType: "no-such-entity",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("unresolvable_field");
+  });
+
+  test("upload with a fieldName not declared on the resolved entity is rejected", async () => {
+    const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "no-such-field",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("unresolvable_field");
+  });
+
+  test("upload with only entityType set (no fieldName) is rejected, not silently treated as unattached", async () => {
+    const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("unresolvable_field");
+  });
+
   test("upload without auth returns 401", async () => {
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array(10)], "test.png", { type: "image/png" }));

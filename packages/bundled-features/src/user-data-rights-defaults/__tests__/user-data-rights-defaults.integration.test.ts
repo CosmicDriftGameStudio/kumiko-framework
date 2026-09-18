@@ -15,7 +15,13 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createFileField,
+  createImageField,
+  defineFeature,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   deriveKey,
@@ -29,7 +35,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { createConfigFeature } from "../../config";
 import { createDataRetentionFeature } from "../../data-retention";
+import { fileFoundationFeature } from "../../file-foundation";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature } from "../../sessions";
 import {
@@ -46,15 +54,50 @@ import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } 
 
 let stack: TestStack;
 
+// #3005 fixture: a business entity with file fields covering the three
+// field-annotation shapes fileRefDeleteHook must branch on — explicitly
+// non-personal (dealer's own business data), personal (self), and no
+// annotation at all (the conservative "no annotation" case).
+const vehicleEntity = createEntity({
+  table: "test_vehicles",
+  fields: {
+    dealerPhoto: createImageField({
+      personal: false,
+      reason: "dealer_business_data_test_fixture",
+    }),
+    driverSelfie: createImageField({ personal: "self" }),
+    unannotatedDoc: createFileField(),
+  },
+});
+
+const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
+  r.entity("vehicle", vehicleEntity);
+});
+
+// The vehicle fixture's image/file fields make server.ts's boot guard require
+// a mounted file-storage provider (registryDeclaresFileFields). The hook
+// tests below never resolve a provider through the registry — each passes
+// its own `buildStorageProvider` directly — so this one only exists to
+// satisfy that boot check.
+const bootGuardFileProvider = createInMemoryFileProvider();
+const testFileProviderFeature = defineFeature("testFileProviderBootGuard", (r) => {
+  r.requires("file-foundation");
+  r.useExtension("fileProvider", "test", { build: async () => bootGuardFileProvider });
+});
+
 const features = [
   createUserFeature(),
+  createConfigFeature(),
   createFilesFeature(),
+  fileFoundationFeature,
+  testFileProviderFeature,
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
   authFoundationFeature,
   createSessionsFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
+  vehicleFeature,
 ];
 
 beforeAll(async () => {
@@ -116,6 +159,35 @@ async function seedFileRef(
     ON CONFLICT (id) DO NOTHING
   `,
     [id, tenantId, `storage/${id}`, fileName, insertedById],
+  );
+}
+
+// #3005: seeds a fileRef attached to an entity/field, for testing the
+// per-row PII-vs-business-data decision in fileRefDeleteHook.
+async function seedFileRefWithField(
+  id: string,
+  tenantId: string,
+  insertedById: string,
+  entityType: string | null,
+  fieldName: string | null,
+  fileName: string,
+): Promise<void> {
+  await asRawClient(stack.db).unsafe(
+    `
+    INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, entity_type, entity_id, field_name, inserted_by_id)
+    VALUES ($1, $2, $3, $4, 'image/jpeg', 1024, $5, $6, $7, $8)
+    ON CONFLICT (id) DO NOTHING
+  `,
+    [
+      id,
+      tenantId,
+      `storage/${id}`,
+      fileName,
+      entityType,
+      entityType !== null ? "1" : null,
+      fieldName,
+      insertedById,
+    ],
   );
 }
 
@@ -406,6 +478,131 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     ).resolves.toBeUndefined();
     const afterSecond = await fetchFileRefs(TENANT_A, "user-idem-files");
     expect(afterSecond).toHaveLength(0);
+  });
+});
+
+describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", () => {
+  test('strategy="delete" — field explicitly non-personal (dealer business data): binary + row survive, insertedById=null', async () => {
+    const userId = "user-dealer-photo";
+    await seedFileRefWithField(
+      uuid(601),
+      TENANT_A,
+      userId,
+      "vehicle",
+      "dealerPhoto",
+      "vehicle-front.jpg",
+    );
+
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+
+    const ownedAfter = await fetchFileRefs(TENANT_A, userId);
+    expect(ownedAfter).toHaveLength(0);
+    const anonymized = await fetchFileRefs(TENANT_A, null);
+    const row = anonymized.find((f: { id: string }) => f.id === uuid(601));
+    expect(row).toBeDefined();
+    expect(row.inserted_by_id).toBeNull();
+  });
+
+  test('strategy="delete" — field marked personal (self): binary + row are gone', async () => {
+    const userId = "user-driver-selfie";
+    await seedFileRefWithField(
+      uuid(602),
+      TENANT_A,
+      userId,
+      "vehicle",
+      "driverSelfie",
+      "selfie.jpg",
+    );
+
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+
+    const remaining = await fetchFileRefs(TENANT_A);
+    expect(remaining.find((f: { id: string }) => f.id === uuid(602))).toBeUndefined();
+  });
+
+  test('strategy="delete" — unattached upload (entityType/fieldName both null): hard-deleted', async () => {
+    const userId = "user-unattached-hard";
+    await seedFileRefWithField(uuid(603), TENANT_A, userId, null, null, "loose-file.pdf");
+
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+
+    const remaining = await fetchFileRefs(TENANT_A);
+    expect(remaining.find((f: { id: string }) => f.id === uuid(603))).toBeUndefined();
+  });
+
+  test('strategy="delete" — field exists but carries no annotation: anonymized, not hard-deleted', async () => {
+    const userId = "user-unannotated-field";
+    await seedFileRefWithField(uuid(604), TENANT_A, userId, "vehicle", "unannotatedDoc", "doc.pdf");
+
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+
+    const ownedAfter = await fetchFileRefs(TENANT_A, userId);
+    expect(ownedAfter).toHaveLength(0);
+    const anonymized = await fetchFileRefs(TENANT_A, null);
+    const row = anonymized.find((f: { id: string }) => f.id === uuid(604));
+    expect(row).toBeDefined();
+    expect(row.inserted_by_id).toBeNull();
+  });
+
+  test('strategy="delete" — entityType not resolvable in the registry: anonymized, never a silent hard-delete', async () => {
+    const userId = "user-unresolvable-entity";
+    await seedFileRefWithField(
+      uuid(605),
+      TENANT_A,
+      userId,
+      "no-such-entity",
+      "somefield",
+      "orphaned.pdf",
+    );
+
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+
+    const ownedAfter = await fetchFileRefs(TENANT_A, userId);
+    expect(ownedAfter).toHaveLength(0);
+    const anonymized = await fetchFileRefs(TENANT_A, null);
+    const row = anonymized.find((f: { id: string }) => f.id === uuid(605));
+    expect(row).toBeDefined();
+    expect(row.inserted_by_id).toBeNull();
   });
 });
 

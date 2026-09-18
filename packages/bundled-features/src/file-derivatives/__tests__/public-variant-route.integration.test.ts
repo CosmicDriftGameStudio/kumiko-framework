@@ -77,9 +77,23 @@ const widgetEntity = createEntity({
   },
 });
 
+// Registered as a real entity (so upload's registry-hardening resolves it)
+// but with no EXT_DERIVATIVE_PUBLIC_PREDICATE registration — the "no
+// predicate registered for this entityType" default-deny case below needs
+// an entity that upload can attach to, distinct from "the entityType string
+// isn't registered at all" (which upload now rejects before the file ever
+// reaches file_refs, see kumiko-framework#3005).
+const noPredicateEntity = createEntity({
+  table: "public_variant_no_predicate",
+  fields: {
+    img: createImageField({ variants: { thumb: { maxEdge: 160, format: "webp" } } }),
+  },
+});
+
 let predicateCalls = 0;
 const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
   r.entity("widget", widgetEntity);
+  r.entity("nopredicate", noPredicateEntity);
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "widget", {
     isPublic: (args: DerivativePublicPredicateArgs) => {
       predicateCalls++;
@@ -161,7 +175,7 @@ async function uploadFile(
 
 describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   test("no predicate registered for the FileRef's entityType → 404", async () => {
-    const fileId = await uploadFile(userA, { entityType: "unregistered-type", entityId: "x" });
+    const fileId = await uploadFile(userA, { entityType: "nopredicate", entityId: "x" });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
