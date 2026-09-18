@@ -63,7 +63,10 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
     "product:list",
     z.object({}),
     async (_event, ctx) => ctx.db.selectMany(productTable),
-    { access: { roles: [...access.anonymous, "User", "Admin"] } },
+    {
+      access: { roles: [...access.anonymous, "User", "Admin"] },
+      rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
+    },
   );
 
   // Authenticated-only listing — same data, different access rule. The

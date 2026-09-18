@@ -87,12 +87,14 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     name: "ping",
     schema: z.object({}),
     access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
     handler: async () => ({ pong: true }),
   });
   r.queryHandler({
     name: "kms-probe",
     schema: z.object({}),
     access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
     handler: async (_event, ctx) => ({ hasKms: ctx.kms !== undefined }),
   });
   // SystemAdmin-gated write — Ziel des extraRoutes.dispatchSystemWrite-
