@@ -39,6 +39,12 @@ const {
 	GIT_ALTERNATE_OBJECT_DIRECTORIES,
 	GIT_CONFIG,
 	GIT_CONFIG_GLOBAL,
+	// The hook sets these itself when it re-execs the scoped check; inherited
+	// from a run under this repo's own pre-push they would leak into the
+	// fixture and break assertions like `KUMIKO_CLI_SCOPE=<unset>`.
+	KUMIKO_CLI_SCOPE,
+	KUMIKO_PUSH_REPO_ROOT,
+	PRE_PUSH_SKIP,
 	...INHERITED_ENV
 } = process.env;
 
