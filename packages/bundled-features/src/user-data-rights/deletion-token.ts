@@ -44,6 +44,17 @@ export function redeemDeletionToken(args: {
     purpose: DELETION_REQUEST_PURPOSE,
     secret: args.secret,
     loadAnchor: args.loadPendingRequestId,
+    commitAnchor: {
+      unsafeSkip: {
+        reason:
+          "pendingDeletionRequestId may only be changed through updateUserLifecycle — a " +
+          "conditional UPDATE would bypass the user.updated event and lose the field on a " +
+          "projection rebuild (see update-user-lifecycle.ts). The concurrent-redeem window " +
+          "this leaves open predates row-bound grants: startDeletionGracePeriod already " +
+          "read-then-writes the Active check. Closing it needs an atomic lifecycle " +
+          "transition, which is its own change.",
+      },
+    },
     now: args.now,
   });
 }

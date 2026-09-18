@@ -12,6 +12,17 @@
 // coupling is the whole point of this module, since an unanchored purpose
 // silently degrades to a bearer token valid for the full TTL.
 //
+// Anchoring alone closes the replay window only AFTER the row has moved on.
+// Two requests redeeming the same grant simultaneously both read the live
+// anchor and both verify, so spending it is a separate, mandatory step:
+// `commitAnchor` must move the row on atomically (a conditional update on
+// the anchor) and report whether this caller was the one who did. Skipping
+// it is possible but has to be declared with a reason, the way the framework
+// handles escapeHatch — an undeclared skip is how a single-use grant quietly
+// becomes a bearer token for the length of its TTL. Put the actual write into
+// the same statement that spends the anchor: a write issued after `ok: true`
+// can lose its work to a crash while the grant is already burned.
+//
 // The subject is NOT secret: signToken puts it in the token body in the
 // clear. A grant on a row therefore exposes that row's id to whoever holds
 // the link. Where the id itself must stay hidden, use an opaque handle
@@ -23,6 +34,14 @@ import { peekTokenSubject, signToken, verifyToken } from "./signed-token";
 export type RowBoundGrantResult =
   | { readonly ok: true; readonly subject: string; readonly expiresAtMs: number }
   | { readonly ok: false };
+
+// Atomically spends the anchor: must return true only for the single caller
+// that moved the row on from `expectedAnchor`, false for everyone else. A
+// plain "read, check, then write" is not enough — two requests redeeming the
+// same grant at once both read the live anchor and both pass.
+export type AnchorCommit =
+  | ((subject: string, expectedAnchor: string) => Promise<boolean>)
+  | { readonly unsafeSkip: { readonly reason: string } };
 
 const FAILED: RowBoundGrantResult = { ok: false };
 
@@ -56,6 +75,7 @@ export async function redeemRowBoundGrant(args: {
   readonly purpose: string;
   readonly secret: string | undefined;
   readonly loadAnchor: (subject: string) => Promise<string | null>;
+  readonly commitAnchor: AnchorCommit;
   readonly now?: Temporal.Instant;
 }): Promise<RowBoundGrantResult> {
   if (!args.secret) return FAILED;
@@ -81,6 +101,15 @@ export async function redeemRowBoundGrant(args: {
     args.now,
   );
   if (!verified.ok) return FAILED;
+
+  // Spending happens after verification, never before: a caller that burned
+  // the anchor on an unverified token could invalidate any row it can name.
+  if (typeof args.commitAnchor === "function") {
+    const spent = await args.commitAnchor(subject, anchor);
+    if (!spent) return FAILED;
+  } else if (!args.commitAnchor.unsafeSkip.reason.trim()) {
+    throw new Error("row-bound grant: unsafeSkip needs a non-empty reason");
+  }
 
   return { ok: true, subject, expiresAtMs: verified.expiresAtMs };
 }

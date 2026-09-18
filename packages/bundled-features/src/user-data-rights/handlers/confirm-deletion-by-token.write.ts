@@ -66,9 +66,9 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     agent: { expose: false },
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      // Die requestId der Row ist Teil des Verify-Keys (HMAC-Purpose) — ein
-      // Token aus einem abgebrochenen oder überholten Zyklus fällt damit
-      // durch. Jeder Fehlerpfad endet im selben generischen 422.
+      // The row's requestId is part of the verify key, so a token from a
+      // cancelled or superseded cycle fails. Every error path ends in the same
+      // generic 422.
       const verified = await redeemDeletionToken({
         token: event.payload.token,
         secret: opts.deletionTokenSecret,

@@ -22,6 +22,22 @@ function anchorIs(anchor: string | null): (subject: string) => Promise<string | 
   return async () => anchor;
 }
 
+const SKIP_COMMIT = { unsafeSkip: { reason: "test covers verification only" } } as const;
+
+// Stands in for a conditional UPDATE ... WHERE anchor = expected: the first
+// caller to spend the live anchor wins, everyone after it gets false.
+function spendableAnchor(initial: string) {
+  let current: string | null = initial;
+  return {
+    load: async () => current,
+    commit: async (_subject: string, expected: string) => {
+      if (current !== expected) return false;
+      current = null;
+      return true;
+    },
+  };
+}
+
 describe("redeemRowBoundGrant", () => {
   test("accepts a grant whose row still carries the anchor it was minted for", async () => {
     const result = await redeemRowBoundGrant({
@@ -29,6 +45,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -47,6 +64,7 @@ describe("redeemRowBoundGrant", () => {
         seen.push(subject);
         return "pending";
       },
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -61,6 +79,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
     const replayed = await redeemRowBoundGrant({
@@ -68,6 +87,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("enriched"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -81,6 +101,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs(null),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -95,6 +116,7 @@ describe("redeemRowBoundGrant", () => {
       loadAnchor: async () => {
         throw new Error("invalid input syntax for type uuid");
       },
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -107,6 +129,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW.add({ minutes: 31 }),
     });
 
@@ -119,6 +142,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: "waitlist-delete",
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -133,6 +157,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -154,6 +179,7 @@ describe("redeemRowBoundGrant", () => {
       purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -171,6 +197,7 @@ describe("redeemRowBoundGrant", () => {
         looked = true;
         return "pending";
       },
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
@@ -189,10 +216,79 @@ describe("redeemRowBoundGrant", () => {
         looked = true;
         return "pending";
       },
+      commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
 
     expect(result.ok).toBe(false);
     expect(looked).toBe(false);
+  });
+
+  test("only one of two simultaneous redemptions of the same grant wins", async () => {
+    const row = spendableAnchor("pending");
+    const token = grantFor("pending");
+    const redeem = () =>
+      redeemRowBoundGrant({
+        token,
+        purpose: PURPOSE,
+        secret: SECRET,
+        loadAnchor: row.load,
+        commitAnchor: row.commit,
+        now: NOW,
+      });
+
+    const [first, second] = await Promise.all([redeem(), redeem()]);
+
+    expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
+  });
+
+  test("does not spend the anchor for a token that fails verification", async () => {
+    const row = spendableAnchor("pending");
+
+    const rejected = await redeemRowBoundGrant({
+      token: grantFor("some-other-anchor"),
+      purpose: PURPOSE,
+      secret: SECRET,
+      loadAnchor: row.load,
+      commitAnchor: row.commit,
+      now: NOW,
+    });
+    const legitimate = await redeemRowBoundGrant({
+      token: grantFor("pending"),
+      purpose: PURPOSE,
+      secret: SECRET,
+      loadAnchor: row.load,
+      commitAnchor: row.commit,
+      now: NOW,
+    });
+
+    expect(rejected.ok).toBe(false);
+    expect(legitimate.ok).toBe(true);
+  });
+
+  test("refuses an unsafeSkip without a reason", async () => {
+    const redeem = redeemRowBoundGrant({
+      token: grantFor("pending"),
+      purpose: PURPOSE,
+      secret: SECRET,
+      loadAnchor: anchorIs("pending"),
+      commitAnchor: { unsafeSkip: { reason: "  " } },
+      now: NOW,
+    });
+
+    expect(redeem).rejects.toThrow(/non-empty reason/);
+  });
+
+  test("rejects when the anchor can no longer be spent", async () => {
+    const result = await redeemRowBoundGrant({
+      token: grantFor("pending"),
+      purpose: PURPOSE,
+      secret: SECRET,
+      loadAnchor: anchorIs("pending"),
+      commitAnchor: async () => false,
+      now: NOW,
+    });
+
+    expect(result.ok).toBe(false);
   });
 });
