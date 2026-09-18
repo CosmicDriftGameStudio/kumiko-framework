@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { signToken } from "../../shared/signed-token";
+import { signToken } from "../../shared";
 import { redeemDeletionToken, signDeletionToken } from "../deletion-token";
 
 const SECRET = "deletion-token-compat-secret";
