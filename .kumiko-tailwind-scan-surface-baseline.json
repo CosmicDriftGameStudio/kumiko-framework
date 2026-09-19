@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "generated": "2026-09-19",
+  "total": 45,
+  "perFile": {
+    "packages/bundled-features/src/auth-email-password/web/auth-form-primitives.tsx": 1,
+    "packages/bundled-features/src/auth-email-password/web/confirm-account-unlock-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/forgot-password-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/invite-accept-screen.tsx": 2,
+    "packages/bundled-features/src/auth-email-password/web/login-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/request-account-unlock-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/reset-password-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/signup-complete-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/signup-screen.tsx": 3,
+    "packages/bundled-features/src/auth-email-password/web/tenant-switcher.tsx": 2,
+    "packages/bundled-features/src/auth-email-password/web/user-menu.tsx": 2,
+    "packages/bundled-features/src/auth-email-password/web/verify-email-screen.tsx": 3,
+    "packages/bundled-features/src/auth-mfa/web/mfa-setup-preauth-screen.tsx": 1,
+    "packages/bundled-features/src/auth-mfa/web/mfa-verify-screen.tsx": 1,
+    "packages/bundled-features/src/folders/web/folder-manager.tsx": 4,
+    "packages/bundled-features/src/notes-history/web/notes-section.tsx": 2,
+    "packages/bundled-features/src/tags/web/tag-manager.tsx": 1,
+    "packages/bundled-features/src/user-data-rights/web/confirm-deletion-screen.tsx": 2,
+    "packages/bundled-features/src/user-data-rights/web/request-deletion-screen.tsx": 3
+  }
+}
