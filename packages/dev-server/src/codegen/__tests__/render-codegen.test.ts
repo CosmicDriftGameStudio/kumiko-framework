@@ -90,4 +90,11 @@ describe("renderWriteHandlerTypes", () => {
     expect(out).toContain("export type WriteHandlerQn =");
     expect(out).toContain('| "tenant:write:create"');
   });
+
+  test("output does not depend on input order", () => {
+    const out = renderWriteHandlerTypes(["a:write:x", "b:write:y"]);
+
+    expect(renderWriteHandlerTypes(["b:write:y", "a:write:x"])).toBe(out);
+    expect(out.indexOf('| "a:write:x"')).toBeLessThan(out.indexOf('| "b:write:y"'));
+  });
 });

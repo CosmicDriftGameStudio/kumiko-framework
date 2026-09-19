@@ -296,7 +296,9 @@ export function renderDefineFile(handlerQns: readonly string[] = []): string {
 export function renderWriteHandlerTypes(handlerQns: readonly string[]): string {
   if (handlerQns.length === 0) return "";
 
-  const lines = handlerQns.map((qn) => `  | "${qn}"`);
+  // Stable order — callers pass registration order (dev-server) or manifest
+  // order (CLI); bare sort keeps both byte-identical.
+  const lines = [...handlerQns].sort().map((qn) => `  | "${qn}"`);
   return ["", WRITE_HANDLER_QN_MARKER, `export type WriteHandlerQn =`, ...lines, ";", ""].join(
     "\n",
   );
