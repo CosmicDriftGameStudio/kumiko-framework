@@ -133,6 +133,12 @@ async function seedFileRef(tenantId: TenantId, storageKey: string) {
   return { id: result.data.id };
 }
 
+// Stands in for a tenant-handover claim (kumiko-framework#3035): the row's
+// tenantId moves, the storageKey — and the bytes behind it — do not.
+async function handOverFileRef(fileRefId: string, toTenantId: TenantId): Promise<void> {
+  await updateRows(db, fileRefsTable, { tenantId: toTenantId }, { id: fileRefId });
+}
+
 // Sidesteps the `request-destruction` write handler (needs user/auth/sessions
 // features wired) by seeding the same "destroying" state it would produce —
 // same pattern as tenant-lifecycle's own poison-pill destroy tests.
@@ -278,5 +284,82 @@ describe("files-tenant-data :: tenant destroy", () => {
     // that must degrade gracefully (not fail-closed), same as the per-user
     // forget hook's resolution-failure stance.
     expect(await provider.exists(originalKeyA)).toBe(true);
+  });
+
+  // kumiko-framework#3035 — tenant-handover leaves a fileRef row's tenantId
+  // pointing at a NEW tenant while its storageKey (and the bytes behind it)
+  // stay under the tenant that originally uploaded it.
+  describe("after a tenant-handover", () => {
+    test("the destination tenant's destroy deletes the handed-over binary even though it lives outside its own prefix", async () => {
+      await seedTenant(tenantA);
+      await seedTenant(tenantB);
+
+      const handedOverKey = buildStorageKey(
+        tenantA.tenantId,
+        "fileRef",
+        1,
+        "attachment",
+        "photo.jpg",
+        "u1",
+      );
+      const { id: fileRefId } = await seedFileRef(tenantA.tenantId, handedOverKey);
+      await provider.write(handedOverKey, new Uint8Array([1]));
+
+      await handOverFileRef(fileRefId, tenantB.tenantId);
+
+      await seedDestroyingTenant(tenantB.tenantId);
+      const finalStatus = await driveDestructionToCompletion(
+        tenantB.tenantId,
+        async () => provider,
+      );
+      expect(finalStatus).toBe("destroyed");
+
+      const rowsB = await selectMany(db, fileRefsTable, { tenantId: tenantB.tenantId });
+      expect(rowsB).toHaveLength(0);
+      expect(await provider.exists(handedOverKey)).toBe(false);
+    });
+
+    test("the SOURCE tenant's destroy does not delete a file — or its derivative — a foreign tenant claimed, but still sweeps a true orphan", async () => {
+      await seedTenant(tenantA);
+      await seedTenant(tenantB);
+
+      const originalKey = buildStorageKey(
+        tenantA.tenantId,
+        "fileRef",
+        1,
+        "attachment",
+        "photo.jpg",
+        "u1",
+      );
+      const derivativeKey = `${originalKey.replace(/\.jpg$/, "")}.medium.jpg`;
+      const orphanKey = `${tenantA.tenantId}/some-other-file.bin`;
+      const { id: fileRefId } = await seedFileRef(tenantA.tenantId, originalKey);
+      await provider.write(originalKey, new Uint8Array([1]));
+      await provider.write(derivativeKey, new Uint8Array([2]));
+      await provider.write(orphanKey, new Uint8Array([3]));
+
+      await handOverFileRef(fileRefId, tenantB.tenantId);
+
+      await seedDestroyingTenant(tenantA.tenantId);
+      const finalStatus = await driveDestructionToCompletion(
+        tenantA.tenantId,
+        async () => provider,
+      );
+      expect(finalStatus).toBe("destroyed");
+
+      // A's own app-data stage never even sees this row — by the time it ran,
+      // the handover had already moved it to B.
+      const rowsB = await selectMany(db, fileRefsTable, { tenantId: tenantB.tenantId });
+      expect(rowsB).toHaveLength(1);
+
+      // The silent-data-loss case the whole handover design exists to
+      // prevent: A's storage-prefix sweep must not delete bytes a foreign
+      // tenant's surviving row still references — original AND derivative.
+      expect(await provider.exists(originalKey)).toBe(true);
+      expect(await provider.exists(derivativeKey)).toBe(true);
+      // A true orphan (no fileRef row anywhere) is still swept — the
+      // exception above is narrow, not a general retreat from the sweep.
+      expect(await provider.exists(orphanKey)).toBe(false);
+    });
   });
 });
