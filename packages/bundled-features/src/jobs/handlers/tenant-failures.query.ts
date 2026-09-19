@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { tenantJobFailuresTable } from "../tenant-job-failure-table";
 
@@ -26,8 +27,9 @@ function subjectKey(subject: Record<string, string | number | boolean | null>): 
 
 function parseSubject(stored: string | null): Record<string, unknown> | null {
   if (stored === null) return null;
-  // @cast-boundary stored-json — written by jobSubjectKey as an entry array
-  return Object.fromEntries(JSON.parse(stored) as [string, unknown][]);
+  // A corrupt subject must not fail the whole list — the record still tells
+  // the tenant which job failed and why.
+  return Object.fromEntries(parseJsonSafe<[string, unknown][]>(stored, []));
 }
 
 export const tenantFailuresQuery = defineQueryHandler({
