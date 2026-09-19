@@ -37,7 +37,7 @@ function memoEntity(access: Parameters<typeof createEntity>[0]["access"]) {
   return createEntity({
     table: "fwbootguard_memos",
     fields: {
-      ownerId: createTextField({ required: true }),
+      ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
       title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     },
     ...(access ? { access } : {}),

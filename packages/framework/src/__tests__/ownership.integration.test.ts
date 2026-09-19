@@ -37,7 +37,7 @@ const contractEntity = createEntity({
   softDelete: true,
   fields: {
     teamId: createTextField({ personal: false, reason: "test_fixture", required: true }),
-    assigneeId: createTextField(),
+    assigneeId: createTextField({ personal: false, reason: "test_fixture" }),
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     // propA: public on read + write
     propA: createTextField({ personal: false, reason: "test_fixture" }),

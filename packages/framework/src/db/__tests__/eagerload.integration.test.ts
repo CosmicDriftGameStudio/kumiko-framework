@@ -50,7 +50,12 @@ const contactEntity = createEntity({
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     email: createTextField({ required: true, personal: "tenant", find: "none" }),
-    iban: createTextField({ required: true, encrypted: true }),
+    iban: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      encrypted: true,
+    }),
   },
 });
 const leadEntity = createEntity({
@@ -72,7 +77,12 @@ const ownedContactEntity = createEntity({
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     email: createTextField({ required: true, personal: "tenant", find: "none" }),
-    iban: createTextField({ required: true, encrypted: true }),
+    iban: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      encrypted: true,
+    }),
   },
   access: { read: { admin: from("user:id", "ownerId") } },
 });

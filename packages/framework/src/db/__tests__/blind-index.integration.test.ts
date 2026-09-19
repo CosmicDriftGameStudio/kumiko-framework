@@ -37,7 +37,7 @@ const personEntity = createEntity({
   table: "read_bidx_persons",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
-    firstName: createTextField(),
+    firstName: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
 const personFeature = defineFeature("bidxtest", (r) => {

@@ -16,7 +16,7 @@ describe("event-store-executor-context — encryptForStorage/decryptForRead laye
   const entity = createEntity({
     table: "pii_roundtrip_test",
     fields: {
-      userId: createTextField({ required: true }),
+      userId: createTextField({ personal: false, reason: "test_fixture", required: true }),
       // Both markers at once — the auth-mfa.totpSecret/recoveryCodes shape
       // that first surfaced the ordering bug (pii-subject-encryption
       // integration test).

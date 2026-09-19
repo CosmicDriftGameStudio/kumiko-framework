@@ -62,7 +62,7 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
   });
 
   test("no PII field → boot succeeds even without the companion", () => {
-    const noPiiFields = { text: createTextField() };
+    const noPiiFields = { text: createTextField({ personal: false, reason: "test_fixture" }) };
     const noPii = defineFeature("prompt-store-no-pii", (r) => {
       r.entity("note", createEntity({ fields: noPiiFields }));
       r.bootCheck(({ features }) => {

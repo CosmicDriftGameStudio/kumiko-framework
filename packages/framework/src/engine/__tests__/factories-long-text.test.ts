@@ -41,7 +41,12 @@ describe("createLongTextField — runtime shape", () => {
   });
 
   test("encrypted + sensitive flags type-allowed", () => {
-    const f = createLongTextField({ encrypted: true, sensitive: true });
+    const f = createLongTextField({
+      personal: false,
+      reason: "test_fixture",
+      encrypted: true,
+      sensitive: true,
+    });
     expect(f.encrypted).toBe(true);
     expect(f.sensitive).toBe(true);
   });

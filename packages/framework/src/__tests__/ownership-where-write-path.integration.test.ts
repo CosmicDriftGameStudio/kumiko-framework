@@ -45,7 +45,7 @@ const memoEntity = createEntity({
   table: "fw2626_memos",
   softDelete: true,
   fields: {
-    ownerId: createTextField({ required: true }),
+    ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   access: {

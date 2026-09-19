@@ -26,10 +26,14 @@ import {
 const employeeEntity = createEntity({
   table: "fa_employees",
   fields: {
-    email: createTextField({ required: true }),
-    firstName: createTextField(),
+    email: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    firstName: createTextField({ personal: false, reason: "test_fixture" }),
     salary: createNumberField({ access: { read: ["Admin", "Accounting"], write: ["Admin"] } }),
-    notes: createTextField({ access: { read: ["Admin"], write: ["Admin"] } }),
+    notes: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      access: { read: ["Admin"], write: ["Admin"] },
+    }),
   },
 });
 

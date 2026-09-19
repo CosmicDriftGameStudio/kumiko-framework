@@ -227,8 +227,10 @@ describe("event-store-executor write-verbs — restore without softDelete", () =
 const ownedFieldEntity = createEntity({
   table: "read_es_write_owned_field",
   fields: {
-    authorId: createTextField({ required: true }),
+    authorId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     note: createTextField({
+      personal: false,
+      reason: "test_fixture",
       access: { write: { Admin: "all", User: from("user:id", "authorId") } },
     }),
   },
