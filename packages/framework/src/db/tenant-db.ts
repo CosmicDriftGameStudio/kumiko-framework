@@ -25,7 +25,7 @@ import {
   type WhereObject,
 } from "../db/query";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
-import { AccessDeniedError, InternalError } from "../errors";
+import { AccessDeniedError, InternalError, memberResolutionReadOnlyDenied } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import { fallbackEscapeHatchReporter } from "../observability/escape-hatch-report";
 import type { DbRunner } from "./connection";
@@ -202,6 +202,9 @@ export type TenantDbGrants = {
   readonly globalWrites?: EscapeHatchDeclaration;
   readonly unsafeRaw?: EscapeHatchDeclaration;
   readonly report?: EscapeHatchReporter;
+  // Set for a resolved member principal (ctx.queryAsMember): no raw DbRunner leaves
+  // this TenantDb, so no handler can COMMIT/RELEASE SAVEPOINT out of the READ ONLY scope.
+  readonly memberReadOnly?: boolean;
 };
 
 const unsafeRawRebinders = new WeakMap<
@@ -418,6 +421,10 @@ export function createTenantDb(
   function grantedUnsafeRawRunner(reason: string): DbRunner {
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
+    }
+    // Ahead of the grant check: a declared escapeHatch must not buy a raw runner here either.
+    if (grants?.memberReadOnly) {
+      throw memberResolutionReadOnlyDenied();
     }
     if (!hasGrant(grants?.unsafeRaw)) {
       throw new AccessDeniedError({

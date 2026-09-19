@@ -104,6 +104,9 @@ const TRIES_UNSAFE_RAW_WRITE_QN = "queryasmemberprobe:query:tries-unsafe-raw-wri
 const TRIES_READ_WRITE_RESET_QN = "queryasmemberprobe:query:tries-read-write-reset";
 const NESTED_DB_WRITE_QN = "queryasmemberprobe:query:nested-db-write";
 const TRIES_SELECT_FOR_UPDATE_QN = "queryasmemberprobe:query:tries-select-for-update";
+const TRIES_COMMIT_THEN_WRITE_QN = "queryasmemberprobe:query:tries-commit-then-write";
+const TRIES_RAW_SELECT_QN = "queryasmemberprobe:query:tries-raw-select";
+const NESTED_RAW_SELECT_QN = "queryasmemberprobe:query:nested-raw-select";
 const TRIES_QUERY_AS_QN = "queryasmemberprobe:query:tries-query-as";
 const READ_AS_MEMBER_QUERY_QN = "queryasmemberprobe:query:read-as-member-query";
 const SYSTEM_SCOPE_READ_AS_MEMBER_QN = "queryasmembersystemscope:write:read-as-member";
@@ -239,6 +242,42 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       access: { roles: ["Admin", "User"] },
       escapeHatch: { reason: "test: select-for-update probe" },
     },
+  );
+  // Transaction control, not a write: COMMIT ends the read-only scope, the
+  // UPDATE afterwards runs in a fresh, writable implicit transaction.
+  r.queryHandler(
+    "tries-commit-then-write",
+    z.object({}),
+    async (_query, ctx) => {
+      const raw = asRawClient(ctx.db.unsafeRaw("test: commit-then-write probe"));
+      await raw.unsafe("COMMIT");
+      await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
+      return { ok: true };
+    },
+    {
+      access: { roles: ["Admin", "User"] },
+      escapeHatch: { reason: "test: commit-then-write probe" },
+    },
+  );
+  r.queryHandler(
+    "tries-raw-select",
+    z.object({}),
+    async (_query, ctx) => {
+      const rows = await asRawClient(ctx.db.unsafeRaw("test: raw select probe")).unsafe(
+        "SELECT 1 AS one",
+      );
+      return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
+    },
+    {
+      access: { roles: ["Admin", "User"] },
+      escapeHatch: { reason: "test: raw select probe" },
+    },
+  );
+  r.queryHandler(
+    "nested-raw-select",
+    z.object({}),
+    async (_query, ctx) => ctx.query(TRIES_RAW_SELECT_QN, {}),
+    { access: { roles: ["Admin", "User"] } },
   );
   r.queryHandler(
     "tries-query-as",
@@ -951,9 +990,10 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     await addMembership(userId, TENANT_A);
     await createNote(userId, "note-1");
 
-    // SQLSTATE 25001, not 25006 — surfaces as internal_error rather than member_resolution_read_only.
+    // Denied at ctx.db.unsafeRaw, before the SET TRANSACTION READ WRITE reaches Postgres.
     const err = await readAsMemberErr(userId, TRIES_READ_WRITE_RESET_QN);
-    expect(err.code).toBe("internal_error");
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
   });
 
@@ -964,7 +1004,8 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     await createNote(userId, "note-1");
 
     const err = await readAsMemberViaQueryErr(userId, TRIES_READ_WRITE_RESET_QN);
-    expect(err.code).toBe("internal_error");
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
   });
 
@@ -1046,5 +1087,71 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("j1) tries-commit-then-write via a write-caller (savepoint path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("committhenwrite-write@example.com", "pw-long-enough-36");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberErr(userId, TRIES_COMMIT_THEN_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("j2) tries-commit-then-write via a query-caller (pool path) is denied, notes unchanged", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("committhenwrite-query@example.com", "pw-long-enough-37");
+    await addMembership(userId, TENANT_A);
+    await createNote(userId, "note-1");
+
+    const err = await readAsMemberViaQueryErr(userId, TRIES_COMMIT_THEN_WRITE_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    expect(await readNoteBodies()).toEqual(["note-1"]);
+  });
+
+  test("k1) tries-raw-select via a write-caller is denied — no raw handle, not even for reads", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("rawselect-write@example.com", "pw-long-enough-38");
+    await addMembership(userId, TENANT_A);
+
+    const err = await readAsMemberErr(userId, TRIES_RAW_SELECT_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
+  test("k2) tries-raw-select via a query-caller (pool path) is denied", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("rawselect-query@example.com", "pw-long-enough-39");
+    await addMembership(userId, TENANT_A);
+
+    const err = await readAsMemberViaQueryErr(userId, TRIES_RAW_SELECT_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
+  test("l) nested-raw-select: a ctx.query hop inside a member read stays without a raw handle", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("nestedrawselect@example.com", "pw-long-enough-40");
+    await addMembership(userId, TENANT_A);
+
+    const err = await readAsMemberErr(userId, NESTED_RAW_SELECT_QN);
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
+  test("m) tries-raw-select via the normal dispatch path (no queryAsMember) still works", async () => {
+    await createTenant(TENANT_A);
+
+    const result = await stack.http.queryOk<{ ok: boolean; count: number }>(
+      TRIES_RAW_SELECT_QN,
+      {},
+      admin,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.count).toBe(1);
   });
 });

@@ -27,6 +27,7 @@ export {
 } from "./classes";
 export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error";
 export { isKumikoError, KumikoError } from "./kumiko-error";
+export { memberResolutionReadOnlyDenied } from "./member-resolution";
 export type { AgentReason, FrameworkReason } from "./reasons";
 export { AgentReasons, FrameworkReasons } from "./reasons";
 export type { ErrorLogEntry, ErrorResponseBody } from "./serialize";

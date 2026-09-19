@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { EscapeHatchKind } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { AccessDeniedError, InternalError } from "../../errors";
+import { AccessDeniedError, FrameworkReasons, InternalError } from "../../errors";
 import { testTenantId } from "../../stack";
 import type { DbRunner } from "../connection";
 import {
+  acknowledgeConventionCrossTenant,
   createTenantDb,
   createUncheckedSystemDb,
   unsafeRawForDeclaredStep,
@@ -100,5 +101,63 @@ describe("unsafeRawForDeclaredStep", () => {
     const regranted = withUnsafeRawGrant(tdb, { reason: "rebind grant" });
 
     expect(unsafeRawForDeclaredStep(regranted, REASON)).toBe(runner);
+  });
+});
+
+describe("memberReadOnly grant", () => {
+  function memberReadOnlyDb(report?: (kind: EscapeHatchKind, reason: string) => void): TenantDb {
+    return createTenantDb(fakeRunner(), tenantId, "tenant", undefined, undefined, undefined, {
+      unsafeRaw: { reason: "handler declared unsafeRaw" },
+      memberReadOnly: true,
+      ...(report && { report }),
+    });
+  }
+
+  function deniedReason(run: () => unknown): unknown {
+    try {
+      run();
+    } catch (e) {
+      if (!(e instanceof AccessDeniedError)) return e;
+      const details: unknown = e.details;
+      return typeof details === "object" && details !== null && "reason" in details
+        ? details.reason
+        : details;
+    }
+    return "no throw";
+  }
+
+  test("denies unsafeRaw even with a declared escapeHatch, without reporting", () => {
+    const reports: Array<{ kind: EscapeHatchKind; reason: string }> = [];
+    const tdb = memberReadOnlyDb((kind, reason) => {
+      reports.push({ kind, reason });
+    });
+
+    expect(deniedReason(() => tdb.unsafeRaw(REASON))).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
+    expect(reports).toEqual([]);
+  });
+
+  test("denies the declared-step path and survives a withUnsafeRawGrant rebind", () => {
+    const tdb = memberReadOnlyDb();
+    const regranted = withUnsafeRawGrant(tdb, { reason: "hook re-grant" });
+
+    expect(deniedReason(() => unsafeRawForDeclaredStep(tdb, REASON))).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
+    expect(deniedReason(() => regranted.unsafeRaw(REASON))).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
+    expect(deniedReason(() => unsafeRawForDeclaredStep(regranted, REASON))).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
+  });
+
+  test("survives the acknowledgeConventionCrossTenant rebind", () => {
+    const crossTenant = acknowledgeConventionCrossTenant(memberReadOnlyDb(), "test: cross-tenant");
+
+    expect(deniedReason(() => crossTenant.unsafeRaw(REASON))).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
   });
 });

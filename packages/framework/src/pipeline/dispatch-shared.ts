@@ -31,10 +31,9 @@ import type {
 import { isRateLimitDisabled } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 import {
-  AccessDeniedError,
   FeatureDisabledError,
-  FrameworkReasons,
   InternalError,
+  memberResolutionReadOnlyDenied,
   VersionConflictError,
   type WriteErrorInfo,
 } from "../errors";
@@ -176,7 +175,7 @@ async function appendDomainEvent(
   callerFeature: string | undefined,
 ): Promise<void> {
   // Sink behind every append surface, so a resolved member stays read-only even via fetchForWriting handles.
-  if (user.origin === "member-resolution") throw memberResolutionReadOnlyDenied();
+  if (isMemberResolutionPrincipal(user)) throw memberResolutionReadOnlyDenied();
   const { registry } = ctx;
   const dbSource = resolveDbSource(ctx, tx);
   if (!dbSource) {
@@ -222,12 +221,8 @@ function createSystemScopedDbGuard(
   });
 }
 
-export function memberResolutionReadOnlyDenied(cause?: unknown): AccessDeniedError {
-  return new AccessDeniedError({
-    message: "a resolved member principal (ctx.queryAsMember) cannot write — read-only",
-    details: { reason: FrameworkReasons.memberResolutionReadOnly },
-    ...(cause instanceof Error && { cause }),
-  });
+export function isMemberResolutionPrincipal(user: SessionUser): boolean {
+  return user.origin === "member-resolution";
 }
 
 async function denyMemberResolutionWrite(): Promise<never> {
@@ -249,7 +244,8 @@ function denyingJobRunnerProxy(): JobRunnerRef {
 export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
-    // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY transaction.
+    // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY
+    // transaction, and its `memberReadOnly` grant denies every raw-runner handout.
     dbOutsideTransaction: undefined,
     write: denyMemberResolutionWrite,
     writeAs: denyMemberResolutionWrite,
@@ -319,7 +315,12 @@ export async function buildHandlerContext(
       context.tracer,
       context.meter,
       signal,
-      { globalWrites: writeEscapeHatch, unsafeRaw: handlerEscapeHatch, report: reportEscapeHatch },
+      {
+        globalWrites: writeEscapeHatch,
+        unsafeRaw: handlerEscapeHatch,
+        report: reportEscapeHatch,
+        memberReadOnly: isMemberResolutionPrincipal(user),
+      },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip
@@ -865,7 +866,7 @@ export async function buildHandlerContext(
   } as HandlerContext; // @cast-boundary engine-bridge
 
   // A resolved member principal is read-only by construction.
-  return user.origin === "member-resolution"
+  return isMemberResolutionPrincipal(user)
     ? applyMemberResolutionReadOnly(handlerContext)
     : handlerContext;
 }
