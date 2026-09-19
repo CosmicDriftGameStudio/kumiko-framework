@@ -350,7 +350,10 @@ function clientFaultLoggingEnabled(): boolean {
 // external call that 422s was invisible before (offlot#117). Status, error
 // code and duration only: message/details/stack can carry submitted values.
 function logClientFault(err: KumikoError, requestId: string | undefined, type?: string): void {
-  if (!clientFaultLoggingEnabled()) return;
+  if (!clientFaultLoggingEnabled()) {
+    // skip: LOG_LEVEL silences the 4xx tier — the deployment opted out of client-fault volume
+    return;
+  }
   const startedAt = requestContext.get()?.startedAt;
   createFallbackLogger("api").warn("handler rejected", {
     requestId,
@@ -370,6 +373,7 @@ function logClientFault(err: KumikoError, requestId: string | undefined, type?: 
 function logServerFault(err: KumikoError, requestId: string | undefined, type?: string): void {
   if (err.httpStatus < 500) {
     logClientFault(err, requestId, type);
+    // skip: 4xx already logged on warn by logClientFault — the error level stays 5xx-only
     return;
   }
   const cause = err.cause;
