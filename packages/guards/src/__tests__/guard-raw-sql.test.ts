@@ -43,7 +43,7 @@ describe("scanRepo — layout-aware scan dirs", () => {
       "packages/ignored/index.ts": 'await client.unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.scannedFiles).toBe(2);
       expect(report.summary.disallowed).toBe(2);
     } finally {
@@ -57,7 +57,7 @@ describe("scanRepo — layout-aware scan dirs", () => {
       "src/ignored.ts": 'await client.unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "multi-package");
+      const report = await scanRepo(root, ["packages", "samples", "scripts", "bin"]);
       expect(report.scannedFiles).toBe(1);
       expect(report.summary.disallowed).toBe(1);
     } finally {
@@ -74,7 +74,7 @@ describe("unsafe pattern — generic-typed call form", () => {
         'await client.unsafe<{ a: Map<string, number> }>("SELECT 2");\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.summary.byKind.unsafe).toBe(2);
       expect(report.summary.disallowed).toBe(2);
     } finally {
@@ -89,7 +89,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
       "src/x.ts": 'await asRawClient(tx).unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.summary.disallowed).toBeGreaterThan(0);
       expect(report.summary.byBucket.marker).toBe(0);
     } finally {
@@ -103,7 +103,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
         'await asRawClient(tx).unsafe("SELECT 1"); // kumiko-lint-ignore raw-sql PII re-encryption\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.summary.disallowed).toBe(0);
       expect(report.summary.byBucket.marker).toBeGreaterThan(0);
     } finally {
@@ -117,7 +117,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
         '// kumiko-lint-ignore raw-sql PII re-encryption, see #1263\nawait asRawClient(tx).unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.summary.disallowed).toBe(0);
       expect(report.summary.byBucket.marker).toBeGreaterThan(0);
     } finally {
@@ -130,7 +130,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
       "src/x.ts": '// kumiko-lint-ignore raw-sql\nawait asRawClient(tx).unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.summary.disallowed).toBeGreaterThan(0);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -143,7 +143,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
         'await asRawClient(tx).unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "multi-package");
+      const report = await scanRepo(root, ["packages", "samples", "scripts", "bin"]);
       expect(report.summary.byBucket.allowed).toBeGreaterThan(0);
       expect(report.summary.disallowed).toBe(0);
     } finally {
@@ -157,7 +157,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
         '// kumiko-lint-ignore raw-sql justified\nawait asRawClient(tx).unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "multi-package");
+      const report = await scanRepo(root, ["packages", "samples", "scripts", "bin"]);
       // Allowlist precedence: hit is "allowed", not "marker".
       expect(report.summary.byBucket.allowed).toBeGreaterThan(0);
       expect(report.summary.byBucket.marker).toBe(0);
@@ -172,7 +172,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
       "src/__tests__/x.ts": 'await asRawClient(tx).unsafe("SELECT 1");\n',
     });
     try {
-      const report = await scanRepo(root, "flat");
+      const report = await scanRepo(root, ["src", "bin"]);
       expect(report.summary.disallowed).toBe(0);
       expect(report.summary.byBucket.tests).toBeGreaterThan(0);
     } finally {
@@ -186,7 +186,7 @@ describe("kumiko-lint-ignore raw-sql marker", () => {
 // the repo cwd sits in) — covered instead by deterministic tmp-repo
 // RepoCheck fixtures below, at the same seam `kumiko check` (PR3) uses.
 describe("check.run — RepoCheck seam", () => {
-  test("kumiko-platform (sqlScanLayoutFor === 'none') is skipped, not vacuous", async () => {
+  test("kumiko-platform (sqlScanDirsFor === []) is skipped, not vacuous", async () => {
     const root = fixtureRoot("kumiko-platform", "/nonexistent", {
       kind: "app",
       sourceRoots: ["src"],

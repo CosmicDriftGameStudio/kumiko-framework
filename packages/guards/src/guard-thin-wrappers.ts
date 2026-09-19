@@ -39,7 +39,7 @@ import {
 } from "ts-morph";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { frameworkTsConfigPath } from "./_lib/roots";
-import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
+import { type ScanSpec, scanFiles, scanRoots } from "./_lib/scan-scope";
 
 const ROOT = process.cwd();
 
@@ -385,6 +385,13 @@ const SCAN: ScanSpec = {
 export const check: RepoCheck = {
   name: "Thin-Wrappers Guard",
   run(roots) {
+    // The kind filter (scan-scope.ts keepsRootKind) excludes "tooling" roots by
+    // default — that's a deliberate scope choice, not a vacuous scan, so it must
+    // report notApplicable instead of matchedFiles: 0.
+    if (scanRoots(SCAN, roots).length === 0) {
+      return { violations: [], matchedFiles: 0, notApplicable: true };
+    }
+
     const project = new Project({
       tsConfigFilePath: frameworkTsConfigPath(),
       skipAddingFilesFromTsConfig: true,
@@ -416,7 +423,7 @@ export const check: RepoCheck = {
       violations: [],
       warnings: warnings.length > 0 ? warnings : undefined,
       matchedFiles: scanned,
-      notApplicable: roots.length === 0,
+      notApplicable: false,
     };
   },
 };

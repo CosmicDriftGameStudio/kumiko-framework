@@ -77,7 +77,7 @@ describe("Secret-Literal Guard (check.run)", () => {
     try {
       const repoRoot = fixtureRoot("fixture-app", root, {
         kind: "app",
-        sourceRoots: ["src"],
+        sourceRoots: ["src", "bin"],
         testGlobs: ["src/**/*.test.ts"],
       });
       const outcome = await check.run([repoRoot]);
