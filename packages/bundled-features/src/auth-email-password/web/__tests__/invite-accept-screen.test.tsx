@@ -91,6 +91,53 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     });
   });
 
+  test("branch 1: loggedInHref-Function bekommt die Rolle aus der invite-accept-Response", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({ tenantId: "tenant-new", role: "Dealer", alreadyMember: false }),
+          { status: 200 },
+        ),
+    ) as unknown as typeof fetch;
+    const assign = mock<(url: string) => void>();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { href: originalLocation.href, search: originalLocation.search, assign },
+    });
+
+    renderWithProviders(
+      <InviteAcceptScreen
+        token="tok-123"
+        loggedInHref={({ tenantId, roles }) =>
+          roles.includes("SystemAdmin") ? "/a/waitlist-list" : `/${tenantId}/vehicle-start`
+        }
+      />,
+      { session: makeSessionApi({ status: "authenticated" }) },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("/tenant-new/vehicle-start");
+    });
+  });
+
+  test("String-Form bleibt unverändert gültig", async () => {
+    const assign = mock<(url: string) => void>();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { href: originalLocation.href, search: originalLocation.search, assign },
+    });
+
+    renderWithProviders(<InviteAcceptScreen token="tok-123" loggedInHref="/fixed-landing" />, {
+      session: makeSessionApi({ status: "authenticated" }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("/fixed-landing");
+    });
+  });
+
   test("accept logged-in failure shows invalidInviteToken banner", async () => {
     globalThis.fetch = mock(
       async () => new Response(null, { status: 422 }),
@@ -152,6 +199,79 @@ describe("InviteAcceptScreen — anonymous branches", () => {
         }),
       );
     });
+  });
+
+  test("branch 2/3: die Session-Rollen aus user.roles schlagen die Invitation-Rolle", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            token: "jwt",
+            user: { id: "u1", tenantId: "t1", roles: ["Dealer"] },
+            tenantId: "t1",
+            role: "SystemAdmin",
+          }),
+          { status: 200 },
+        ),
+    ) as unknown as typeof fetch;
+    const assign = mock<(url: string) => void>();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { href: originalLocation.href, search: originalLocation.search, assign },
+    });
+
+    render(
+      <PrimitivesProvider value={defaultPrimitives}>
+        <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
+          <InviteAcceptScreen
+            token="tok-123"
+            loggedInHref={({ tenantId, roles }) => `/${tenantId}/${roles.join("+")}`}
+          />
+        </LocaleProvider>
+      </PrimitivesProvider>,
+    );
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("/t1/Dealer");
+    });
+  });
+
+  test("MFA-Challenge (200 ohne Rollen) liefert eine leere Rollenliste statt undefined", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(JSON.stringify({ mfaRequired: true, challengeToken: "ch" }), { status: 200 }),
+    ) as unknown as typeof fetch;
+    const assign = mock<(url: string) => void>();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { href: originalLocation.href, search: originalLocation.search, assign },
+    });
+    const seen: (readonly string[])[] = [];
+
+    render(
+      <PrimitivesProvider value={defaultPrimitives}>
+        <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
+          <InviteAcceptScreen
+            token="tok-123"
+            loggedInHref={({ roles }) => {
+              seen.push(roles);
+              return "/";
+            }}
+          />
+        </LocaleProvider>
+      </PrimitivesProvider>,
+    );
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalled();
+    });
+    expect(seen).toEqual([[]]);
   });
 
   test("anon failure shows invalidInviteToken banner", async () => {

@@ -19,20 +19,39 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client";
+import { resolveLoggedInHref } from "./auth-form-logic";
 import { AuthCard, useUrlToken } from "./auth-form-primitives";
 import { SessionContext, UNAUTHENTICATED } from "./session";
 
 export type InviteAcceptScreenProps = {
   readonly title?: string;
   readonly token?: string;
-  /** Where to redirect on success. Default "/" — Apps mit Multi-Tenant-
-   *  Routing können `(data) => "/${data.tenantId}/"` setzen. */
-  readonly loggedInHref?: string | ((args: { tenantId: string }) => string);
+  /** Where to redirect on success. Default "/" — multi-tenant apps can pass
+   *  `(data) => "/${data.tenantId}/"`. Function-form receives the roles this
+   *  flow grants in the target tenant; branch 1 reports the invitation's
+   *  role, which for an existing member is not their full role set there. */
+  readonly loggedInHref?:
+    | string
+    | ((args: { tenantId: string; roles: readonly string[] }) => string);
   /** Login-Href für "Mit anderem Account anmelden". Default "/login". */
   readonly loginHref?: string;
 };
 
 type Mode = "loggedin" | "anon-existing" | "anon-new";
+
+// All three accept routes answer 200 with tenantId + the invitation role;
+// the two session-minting branches additionally carry the stripped session
+// roles. An MFA challenge is also a 200 and carries none of them.
+type InviteAcceptResponse = {
+  readonly tenantId: string;
+  readonly role?: string;
+  readonly user?: { readonly roles?: readonly string[] };
+};
+
+function grantedRoles(data: InviteAcceptResponse): readonly string[] {
+  if (data.user?.roles !== undefined) return data.user.roles;
+  return data.role === undefined ? [] : [data.role];
+}
 
 export function InviteAcceptScreen({
   title,
@@ -70,12 +89,14 @@ export function InviteAcceptScreen({
     });
     setSubmitting(false);
     if (res.ok) {
-      const data = (await res.json()) as { tenantId: string };
-      const target =
-        typeof loggedInHref === "function"
-          ? loggedInHref({ tenantId: data.tenantId })
-          : loggedInHref;
-      window.location.assign(target);
+      // @cast-boundary engine-payload — auth route JSON
+      const data = (await res.json()) as InviteAcceptResponse;
+      window.location.assign(
+        resolveLoggedInHref(loggedInHref, {
+          tenantId: data.tenantId,
+          roles: grantedRoles(data),
+        }),
+      );
       return;
     }
     setError(t("auth.errors.invalidInviteToken"));
@@ -93,12 +114,14 @@ export function InviteAcceptScreen({
     });
     setSubmitting(false);
     if (res.ok) {
-      const data = (await res.json()) as { tenantId: string };
-      const target =
-        typeof loggedInHref === "function"
-          ? loggedInHref({ tenantId: data.tenantId })
-          : loggedInHref;
-      window.location.assign(target);
+      // @cast-boundary engine-payload — auth route JSON
+      const data = (await res.json()) as InviteAcceptResponse;
+      window.location.assign(
+        resolveLoggedInHref(loggedInHref, {
+          tenantId: data.tenantId,
+          roles: grantedRoles(data),
+        }),
+      );
       return;
     }
     setError(t("auth.errors.invalidInviteToken"));
@@ -116,12 +139,14 @@ export function InviteAcceptScreen({
     });
     setSubmitting(false);
     if (res.ok) {
-      const data = (await res.json()) as { tenantId: string };
-      const target =
-        typeof loggedInHref === "function"
-          ? loggedInHref({ tenantId: data.tenantId })
-          : loggedInHref;
-      window.location.assign(target);
+      // @cast-boundary engine-payload — auth route JSON
+      const data = (await res.json()) as InviteAcceptResponse;
+      window.location.assign(
+        resolveLoggedInHref(loggedInHref, {
+          tenantId: data.tenantId,
+          roles: grantedRoles(data),
+        }),
+      );
       return;
     }
     setError(t("auth.errors.invalidInviteToken"));
