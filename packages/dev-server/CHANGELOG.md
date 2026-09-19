@@ -1,5 +1,48 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.291.0
+
+### Minor Changes
+
+- 32a1ce3: runProdApp, runDevApp and runWorkerApp forward validateBootOptions to validateBoot (fw#3080)
+
+  All three run-app entrypoints called `validateBoot(features)` without options, so only `createApp` could pass a `navAllowlist` or `warnOnUniqueAccessRoles` through. An app could declare the option, test it against `validateBoot` directly and see green — while the process it actually boots never received it. The three option types now carry an optional `validateBootOptions`, passed straight through in the same shape `createApp` already uses. `ValidateBootOptions` is exported from `@cosmicdrift/kumiko-framework/engine` so consumers can type the value. Omitting it leaves boot behaviour unchanged.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp, runDevApp and runWorkerApp forward validateBootOptions to validateBoot (fw#3080)
+  -->
+
+### Patch Changes
+
+- c061ac9: renderWriteHandlerTypes emits the WriteHandlerQn union in stable order
+
+  `renderWriteHandlerTypes` now sorts `handlerQns` before rendering, like its sibling renderers in the same file. The dev-server passes registration order (`collectWriteHandlerQns`) while the CLI/build path passes manifest order, so the same feature set produced a differently ordered `WriteHandlerQn` union in `.kumiko/define.ts` and `.kumiko/types.generated.d.ts` depending on which one ran last. Consumer apps that commit those generated files no longer get order-only diffs after a local `bun dev`.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: renderWriteHandlerTypes emits the WriteHandlerQn union in stable order
+  -->
+
+- Updated dependencies [1ae48cb]
+- Updated dependencies [0fa2da2]
+- Updated dependencies [ef54b65]
+- Updated dependencies [d47adef]
+- Updated dependencies [ca8d3e3]
+- Updated dependencies [53e20f4]
+- Updated dependencies [67a4227]
+- Updated dependencies [0621367]
+- Updated dependencies [0fd6bb5]
+- Updated dependencies [9331ec5]
+- Updated dependencies [229298b]
+- Updated dependencies [32a1ce3]
+  - @cosmicdrift/kumiko-bundled-features@0.291.0
+  - @cosmicdrift/kumiko-framework@0.291.0
+  - @cosmicdrift/kumiko-server-runtime@0.291.0
+  - @cosmicdrift/kumiko-headless@0.291.0
+
 ## 0.290.0
 
 ### Patch Changes

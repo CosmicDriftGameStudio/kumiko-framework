@@ -1,5 +1,117 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.291.0
+
+### Minor Changes
+
+- 1ae48cb: loggedInHref callbacks on SignupCompleteScreen and InviteAcceptScreen now receive the roles granted by the flow
+
+  Apps can route a freshly activated user to a screen their role can actually open, instead of a fixed path that may render Access denied. The string form of loggedInHref is unchanged; the function form gains a roles field next to the existing tenantKey/tenantId.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: loggedInHref callbacks on SignupCompleteScreen and InviteAcceptScreen now receive the roles granted by the flow
+  -->
+
+- ef54b65: Event-PII stops failing open without a subject KMS (fw#2776)
+
+  `defineEvent` has required an explicit PII stance since fw#2558, but a declared stance still did not guarantee ciphertext in `kumiko_events`. Two paths leaked silently and now fail closed.
+
+  Boot: `assertPiiBootInvariants` only looked at entity annotations, so an app whose PII lives exclusively in catalogued events booted without a `kms` adapter and wrote plaintext. It now collects events with a non-`"none"` stance alongside the PII entities — prod aborts, dev warns, `allowPlaintextPii: "<reason>"` acknowledges, same as for entities.
+
+  Append: `{ personal: { of: "<ownerField>" } }` skipped encryption whenever the owner field carried no id, so the same event type was ciphertext for user-triggered writes and plaintext for system-triggered ones with no signal. The stance now carries `whenAbsent`: `"tenant"` encrypts under the envelope tenant key, `"plaintext"` is an explicit acknowledgement that the value cannot be crypto-shredded. Registration rejects a nullable owner field without one, and an owner that is empty at append time with no declared fallback aborts the write instead of storing the value in the clear.
+
+  `delivery:event:attempt` declares `whenAbsent: "tenant"` — a send whose `recipientId` is null now stores the recipient address under the tenant key instead of in plaintext.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Declared event PII fails closed without a subject KMS (fw#2776)
+  migration: |
+    Three things can newly fail. (1) Boot aborts with `BOOT ABORTED — ... events
+    [...]` when a mounted feature declares a non-`"none"` `piiFields` stance and
+    `runProdApp`/`runWorkerApp` gets no `kms`. Pass
+    `kms: createPgKmsAdapter({ databaseUrl, platformKek })`, or acknowledge the
+    plaintext with `allowPlaintextPii: "<reason>"` until the KMS is provisioned;
+    `runDevApp` only warns. (2) Registration aborts when a
+    `{ personal: { of: "<ownerField>" } }` stance names an owner field the payload
+    schema allows to be null or undefined. Add `whenAbsent: "tenant"` to encrypt
+    those writes under the envelope tenant key, or `whenAbsent: "plaintext"` to
+    declare that the value ships unencrypted and is not crypto-shreddable. The
+    deprecated `{ subjectField: "<ownerField>" }` form cannot express `whenAbsent`
+    — move it to the canonical `{ personal: { of: ... } }` form. (3) `append()`
+    throws `SubjectResolutionError` when the owner field is empty at write time
+    and the event declared no `whenAbsent`. Registration catches this for
+    ZodObject payload schemas; a non-object schema surfaces it here. An owner
+    value that is not a non-empty string — a numeric id, an empty string — counts
+    as absent, so it takes the same path and needs the same declaration.
+    Separately, `delivery:event:attempt` rows written with a null `recipientId`
+    used to hold a plaintext recipient address in `kumiko_events` and in
+    `store_delivery_attempts`. New rows are tenant-subject ciphertext.
+    `delivery:query:log` decrypts either form, so the admin log view is unchanged;
+    tooling that reads `store_delivery_attempts.recipient_address` directly must
+    go through `decryptStoredPii`. Existing plaintext rows stay readable and are
+    re-encrypted by `backfillEventPiiEncryption`.
+  -->
+
+- 0621367: Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)
+
+  A fire-and-forget job that fails left the tenant's screen on a spinner that never ends — `jobs:query:list` is SystemAdmin and reads cross-tenant over `systemDb.unsafeRaw`, so a tenant could not see its own job failing. Apps worked around it with their own failure entity written in the job's catch.
+
+  A job now opts in declaratively: `r.job("generateTexts", { trigger: …, tenantVisibleFailure: { messageKey: "app:errors.generationFailed", subjectFields: ["campaignId"] } }, handler)`. When its last attempt fails, the run-logger records one row per tenant, job and subject in the new `store_tenant_job_failures` table, and the tenant reads it back through `jobs:query:failures` (every membership rank, own tenant only).
+
+  Only a translation key travels to the tenant: the thrown error's own `i18nKey` when it carries one, otherwise the declared `messageKey`. The provider's message stays on `store_job_runs.error` and in the run log, both SystemAdmin-only. Records are scoped to the run's tenant — a tenant-less run (cron, `SYSTEM_TENANT_ID`) records nothing.
+
+  Lifetime and retries: a record lives until the next successful run of the same job and subject deletes it; there is no acknowledgement step (tenant job administration stays out of scope). Only the final attempt records, so a job with `retries` that succeeds on a later attempt never shows the tenant a failure. The daily `retention-cleanup` job purges leftovers past `retentionDays`.
+
+  `jobs:query:list`, `jobs:query:details` and `jobs:query:retry` are unchanged. `JobRunnerOptions.onJobComplete`/`onJobFailed` gained an optional fifth `outcome` argument — existing four-argument callbacks keep working.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)
+  migration: New store table. Run `kumiko migrate generate` and apply the migration — `store_tenant_job_failures` is created empty and stays empty until a job declares `tenantVisibleFailure`. No change needed for apps that do not opt in.
+  -->
+
+- 9331ec5: `rate-limiting:query:status` scopes the caller-supplied bucket key to the caller's tenant (fw#3076)
+
+  The handler took an arbitrary bucket key and peeked it, so a tenant Admin who knew or guessed another tenant's key could read that bucket's counter. The key is now matched segment-exact against the caller: `tenant:`/`tenant+handler:` must carry the caller's own tenant id, `user:`/`user+handler:` the caller's own user id. Everything else — other tenants, other users, the global `ip:`, `l1:` and `l2:` middleware buckets, malformed keys — is `access_denied` (`bucket_outside_tenant`) unless the caller is SystemAdmin, whose access is unchanged. The check runs before the resolver-wiring check, so a denied caller learns nothing about the mount either.
+
+  <!-- kumiko-changes
+  feature: rate-limiting
+  type: breaking
+  title: `rate-limiting:query:status` only peeks buckets of the calling tenant (fw#3076)
+  migration: |
+    Only affects non-SystemAdmin callers of `rate-limiting:query:status`. A tenant
+    Admin keeps `tenant:<own>`, `tenant+handler:<own>:<handler>`, `user:<self>` and
+    `user+handler:<self>:<handler>`. Two reads it had before now need SystemAdmin:
+    another user's bucket inside the same tenant (the tenant is not part of a
+    `user:` key, so it cannot be verified without a membership lookup) and the
+    global `ip:`/`l1:`/`l2:` buckets, which are not tenant-owned. Ops tooling that
+    peeks those from a tenant Admin session has to run as SystemAdmin.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [0fa2da2]
+- Updated dependencies [ef54b65]
+- Updated dependencies [d47adef]
+- Updated dependencies [ca8d3e3]
+- Updated dependencies [53e20f4]
+- Updated dependencies [67a4227]
+- Updated dependencies [0621367]
+- Updated dependencies [0fd6bb5]
+- Updated dependencies [229298b]
+- Updated dependencies [4c06abc]
+- Updated dependencies [32a1ce3]
+  - @cosmicdrift/kumiko-framework@0.291.0
+  - @cosmicdrift/kumiko-types@0.291.0
+  - @cosmicdrift/kumiko-renderer@0.291.0
+  - @cosmicdrift/kumiko-headless@0.291.0
+  - @cosmicdrift/kumiko-renderer-web@0.291.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.291.0
+
 ## 0.290.0
 
 ### Patch Changes

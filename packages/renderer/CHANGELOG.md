@@ -1,5 +1,71 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.291.0
+
+### Minor Changes
+
+- 0fd6bb5: A `money` field on an entity-less form screen must declare its currency source (fw#2839)
+
+  `actionForm` and `secretMint` have no entity, so their money fields never received `entity.defaultCurrency`: an untouched one seeded a bare `0` that the handler's zod schema then rejected on submit. fw#2763 closed the prefill half of this; the default half stayed open. `MoneyCurrencySource` gains `{ kind: "literal", code }` next to the existing `{ kind: "tenant" }`, and the field maps of `actionForm`, `secretMint` and its `confirm` step are narrowed so a money field there requires `currency` — enforced by the compiler at bump time and by the boot validator for untyped callers. A literal code is checked against the app's `currencies` list, the same rule `entity.defaultCurrency` already follows. Entity fields, embedded-list money cells and `configEdit`'s plain-number contract are unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: money fields on actionForm/secretMint screens declare their currency source (fw#2839)
+  migration: |
+    Only affects entity-less form screens — `actionForm`, `secretMint` and a
+    secretMint's `confirm` step — that hold a `money` field. Entity money fields
+    are unchanged (`entity.defaultCurrency` is already boot-enforced for them),
+    as are embedded-list money cells (currency at the head, fw#2764) and
+    `configEdit`, which keeps its plain-number contract.
+    Add a `currency` to each money field in such a screen's `fields` map:
+    `currency: { kind: "literal", code: "EUR" }` for one fixed currency, or
+    `currency: { kind: "tenant" }` for the tenant's own currency.
+    A `literal` code must be in the app's `currencies` list (`createApp({ currencies })`,
+    which already includes the defaults). A `tenant`-declared field resolves through
+    the tenant-settings bundle and holds the form until the value has landed, so that
+    bundle has to be mounted. Missing declarations fail at compile time; an untyped
+    caller fails at boot with the screen and field name in the message.
+  -->
+
+- 229298b: Reference fields can source their picker from a query handler
+
+  `labelField` names one column of the referenced entity, so an entity whose identity is composed from joined rows — a lease identified by its tenant and unit, not by any column on the lease row — has no right answer, only a least-wrong one, and its picker lists raw dates or UUIDs. `ReferenceFieldDef.optionsQuery` (also on a reference sub-field of an embedded field) names a query handler that returns `{ rows: { id, label }[] }` and receives `{ limit, search? }` like the default list handler, so the app composes the label itself. The picker, the read-only display of a reference value and an embedded-list reference cell all read it; the QN is pinned at boot against the registered handlers, the same treatment `DashboardFilterDefinition.optionsQuery` gets.
+
+  It is additive, not a replacement: `labelField` keeps serving the paths a query handler cannot back, since list cells, `searchable` and `sortable` all resolve to an SQL column on the referenced table. A field without `optionsQuery` behaves exactly as before.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Reference fields can source their picker from a query handler
+  -->
+
+- 4c06abc: returnTo restores the host screen's search params and nests return chains
+
+  A `returnTo` value may now carry the host's search params as a nested query (`token-detail/abc?tab=keys&orders.sort=name`), so jumping back lands on the tab, filter and sort the user left — `use-list-url-state` keys and `layout.mode: "tabs"` included, with no per-key allowlist to keep in sync. The host's own `returnTo` travels inside that snapshot, so a chain (list → edit → action form → back → save) unwinds one level per jump instead of losing its tail. Two syntactic caps bound the URL: at most three screen levels per value, and a snapshot over 512 characters is dropped whole. Both degrade to the previous bare value rather than failing, and a value without a snapshot is byte-identical to before, so existing links keep working. Target validation is unchanged: `resolveReturnTarget` sees only the path part and still rejects anything that is not an accessible in-app screen.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: returnTo restores the host screen's search params and nests return chains
+  -->
+
+### Patch Changes
+
+- Updated dependencies [0fa2da2]
+- Updated dependencies [ef54b65]
+- Updated dependencies [d47adef]
+- Updated dependencies [ca8d3e3]
+- Updated dependencies [53e20f4]
+- Updated dependencies [67a4227]
+- Updated dependencies [0621367]
+- Updated dependencies [0fd6bb5]
+- Updated dependencies [229298b]
+- Updated dependencies [32a1ce3]
+  - @cosmicdrift/kumiko-framework@0.291.0
+  - @cosmicdrift/kumiko-types@0.291.0
+  - @cosmicdrift/kumiko-headless@0.291.0
+
 ## 0.290.0
 
 ### Patch Changes
