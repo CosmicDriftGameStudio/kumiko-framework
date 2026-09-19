@@ -13,6 +13,6 @@ It is additive, not a replacement: `labelField` keeps serving the paths a query 
 
 <!-- kumiko-changes
 feature: framework
-type: feature
+type: improvement
 title: Reference fields can source their picker from a query handler
 -->
