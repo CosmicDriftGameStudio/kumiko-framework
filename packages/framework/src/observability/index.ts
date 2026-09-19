@@ -54,6 +54,7 @@ export {
   emitEventConsumerRearmExhausted,
   emitEventDispatcherListenConnected,
   emitHttpRequest,
+  emitJobLastSuccess,
   emitJobQueueDepth,
   registerStandardMetrics,
   STANDARD_METRIC_DEFS,
