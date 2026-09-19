@@ -832,9 +832,7 @@ export type QualifiedEventName<
 > = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
 
 // PII payload fields on a custom event (#799): `field` is encrypted under
-// the DEK the subject spec names (crypto-shredding). A null owner-field
-// value leaves a `personal: { of }` field plaintext — there is no user key
-// to shred for system-triggered events.
+// the DEK the subject spec names (crypto-shredding).
 //
 // `{ personal: { of: "<ownerField>" } }` is the canonical user-subject form,
 // matching the entity-field `personal` vocabulary (see fields.ts).
@@ -842,8 +840,21 @@ export type QualifiedEventName<
 // (envelope.tenantId) or its own aggregate stream (envelope.aggregateType +
 // aggregateId) as the subject instead — resolved via `resolveEventSubject`
 // in `packages/framework/src/crypto/subject-resolver.ts` (fw#2801).
+//
+// `whenAbsent` decides what happens when the named owner field carries no
+// id (system- or cron-triggered writes): "tenant" re-targets the envelope
+// tenant key, "plaintext" is an explicit acknowledgement that the value
+// ships unencrypted and cannot be crypto-shredded. Undeclared is not a
+// third option — the append fails closed instead of leaking (fw#2776).
+export type EventPiiAbsentSubject = "plaintext" | "tenant";
+
 export type EventPiiSubject =
-  | { readonly personal: { readonly of: string } }
+  | {
+      readonly personal: {
+        readonly of: string;
+        readonly whenAbsent?: EventPiiAbsentSubject;
+      };
+    }
   | { readonly personal: "tenant" }
   | { readonly personal: "self" }
   | {
@@ -854,15 +865,21 @@ export type EventPiiSubject =
 export type EventPiiFields = Readonly<Record<string, EventPiiSubject>>;
 
 export type NormalizedEventPiiSubject =
-  | { readonly kind: "user"; readonly ownerField: string }
+  | {
+      readonly kind: "user";
+      readonly ownerField: string;
+      readonly whenAbsent: EventPiiAbsentSubject | undefined;
+    }
   | { readonly kind: "tenant" }
   | { readonly kind: "self" };
 
 export function normalizeEventPiiSubject(spec: EventPiiSubject): NormalizedEventPiiSubject {
-  if ("subjectField" in spec) return { kind: "user", ownerField: spec.subjectField };
+  if ("subjectField" in spec) {
+    return { kind: "user", ownerField: spec.subjectField, whenAbsent: undefined };
+  }
   if (spec.personal === "tenant") return { kind: "tenant" };
   if (spec.personal === "self") return { kind: "self" };
-  return { kind: "user", ownerField: spec.personal.of };
+  return { kind: "user", ownerField: spec.personal.of, whenAbsent: spec.personal.whenAbsent };
 }
 
 // The full set of PII stances a defineEvent() call may declare. "none" is a

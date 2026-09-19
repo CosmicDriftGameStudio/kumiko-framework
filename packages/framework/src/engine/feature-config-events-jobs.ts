@@ -30,6 +30,17 @@ import type {
   TranslationsDef,
 } from "./types";
 
+// A payload field that still holds null/undefined after parsing — the case
+// where an event-PII owner field yields no subject at append time (fw#2776).
+// A `.default(...)` accepts undefined but parses to a value, so it is not
+// absentable.
+function isAbsentable(field: ZodType): boolean {
+  return [null, undefined].some((candidate) => {
+    const parsed = field.safeParse(candidate);
+    return parsed.success && (parsed.data === null || parsed.data === undefined);
+  });
+}
+
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
@@ -129,6 +140,14 @@ export function buildConfigEventsJobsMethods<TName extends string>(
             `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
           );
         }
+      }
+      const owner = shape?.[normalized.ownerField];
+      if (normalized.whenAbsent === undefined && owner !== undefined && isAbsentable(owner)) {
+        throw new Error(
+          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${normalized.ownerField}", which the payload schema allows to be null/undefined. ` +
+            `Declare what happens then: { personal: { of: "${normalized.ownerField}", whenAbsent: "tenant" } } encrypts under the envelope tenant key, ` +
+            `whenAbsent: "plaintext" acknowledges that the value ships unencrypted and cannot be crypto-shredded (fw#2776).`,
+        );
       }
     }
   }

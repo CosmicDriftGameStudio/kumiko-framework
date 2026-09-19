@@ -617,6 +617,12 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // personal data (encrypted under that user's DEK, crypto-shredding #799),
   // or `"none"` to declare the payload holds no personal data. append()
   // enforces the resulting catalog on every write path.
+  //
+  // When the schema lets the owner field be null/undefined, the stance must
+  // also say what happens on those writes — `whenAbsent: "tenant"` encrypts
+  // under the envelope tenant key, `whenAbsent: "plaintext"` acknowledges an
+  // unshreddable value. Registration fails without one, and an owner that is
+  // empty at append time with no declared fallback aborts the write (fw#2776).
   defineEvent<const TInner extends string, TPayload>(
     name: TInner,
     schema: ZodType<TPayload>,

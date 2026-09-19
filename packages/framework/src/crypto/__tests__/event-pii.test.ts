@@ -30,6 +30,12 @@ const attemptSchema = z.object({
   status: z.string(),
 });
 
+const requiredOwnerSchema = z.object({
+  recipientId: z.string(),
+  recipientAddress: z.string().nullable(),
+  status: z.string(),
+});
+
 const EVENT_TYPE = "mailer:event:attempt";
 
 const ENVELOPE: EventSubjectEnvelope = {
@@ -54,18 +60,28 @@ describe("normalizeEventPiiSubject", () => {
     expect(normalizeEventPiiSubject({ personal: { of: "recipientId" } })).toEqual({
       kind: "user",
       ownerField: "recipientId",
+      whenAbsent: undefined,
     });
     expect(normalizeEventPiiSubject({ subjectField: "recipientId" })).toEqual({
       kind: "user",
       ownerField: "recipientId",
+      whenAbsent: undefined,
     });
+  });
+
+  test("whenAbsent rides along on the canonical form", () => {
+    expect(
+      normalizeEventPiiSubject({ personal: { of: "recipientId", whenAbsent: "tenant" } }),
+    ).toEqual({ kind: "user", ownerField: "recipientId", whenAbsent: "tenant" });
   });
 });
 
 describe("defineEvent piiFields validation", () => {
   test("valid piiFields land on the EventDef and in the registry catalog", () => {
+    // The deprecated subjectField form cannot express whenAbsent, so it only
+    // registers against a schema whose owner field is always populated.
     const feature = defineFeature("mailer", (r) => {
-      r.defineEvent("attempt", attemptSchema, {
+      r.defineEvent("attempt", requiredOwnerSchema, {
         piiFields: { recipientAddress: { subjectField: "recipientId" } },
       });
     });
@@ -108,12 +124,12 @@ describe("defineEvent piiFields validation", () => {
   test("valid canonical personal.of piiFields land on the EventDef and in the registry catalog", () => {
     const feature = defineFeature("mailer", (r) => {
       r.defineEvent("attempt", attemptSchema, {
-        piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
+        piiFields: { recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } } },
       });
     });
     createRegistry([feature]);
     expect(configuredEventPiiCatalog().get(EVENT_TYPE)).toEqual({
-      recipientAddress: { personal: { of: "recipientId" } },
+      recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } },
     });
   });
 
@@ -206,6 +222,41 @@ describe("defineEvent piiFields validation", () => {
       }),
     ).toThrow(/piiFields references "nope"/);
   });
+
+  test("a nullable owner field without a whenAbsent stance fails registration", () => {
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", attemptSchema, {
+          piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
+        });
+      }),
+    ).toThrow(/allows to be null\/undefined/);
+  });
+
+  test("a nullable owner field with a declared whenAbsent registers", () => {
+    const feature = defineFeature("mailer", (r) => {
+      r.defineEvent("attempt", attemptSchema, {
+        piiFields: { recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } } },
+      });
+    });
+    expect(feature.events["attempt"]?.piiFields).toEqual({
+      recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } },
+    });
+  });
+
+  test("a non-nullable owner field needs no whenAbsent", () => {
+    const required = z.object({
+      recipientId: z.string(),
+      recipientAddress: z.string(),
+    });
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", required, {
+          piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
+        });
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe("encryptEventPayloadPii", () => {
@@ -255,15 +306,65 @@ describe("encryptEventPayloadPii", () => {
     expect(String(canonical["recipientAddress"])).toContain("user:u-1");
   });
 
-  test("null subject field → value stays plaintext (no user key to shred)", async () => {
+  const systemPayload = {
+    recipientId: null,
+    recipientAddress: "ops@example.com",
+    status: "sent",
+  };
+
+  test("null subject field without a whenAbsent stance fails the append closed", async () => {
     catalogWithAttempt();
     configurePiiSubjectKms(new InMemoryKmsAdapter());
-    const systemPayload = {
-      recipientId: null,
-      recipientAddress: "ops@example.com",
-      status: "sent",
-    };
+    expect(encryptEventPayloadPii(EVENT_TYPE, systemPayload, ENVELOPE)).rejects.toThrow(
+      /carries no id and the event declares no whenAbsent fallback/,
+    );
+  });
+
+  test('null subject field with whenAbsent: "tenant" encrypts under the envelope tenant key', async () => {
+    configureEventPiiCatalog(
+      new Map([
+        [
+          EVENT_TYPE,
+          { recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } } },
+        ],
+      ]),
+    );
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+
+    const out = await encryptEventPayloadPii(EVENT_TYPE, systemPayload, ENVELOPE);
+    expect(isPiiCiphertext(out["recipientAddress"])).toBe(true);
+    expect(String(out["recipientAddress"])).toContain(`tenant:${ENVELOPE.tenantId}`);
+
+    const back = await decryptPiiFieldValues(out, ["recipientAddress"], kms, { requestId: "test" });
+    expect(back["recipientAddress"]).toBe("ops@example.com");
+  });
+
+  test('null subject field with whenAbsent: "plaintext" is an acknowledged passthrough', async () => {
+    configureEventPiiCatalog(
+      new Map([
+        [
+          EVENT_TYPE,
+          { recipientAddress: { personal: { of: "recipientId", whenAbsent: "plaintext" } } },
+        ],
+      ]),
+    );
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
     expect(await encryptEventPayloadPii(EVENT_TYPE, systemPayload, ENVELOPE)).toBe(systemPayload);
+  });
+
+  test('whenAbsent: "tenant" still prefers the user key when the owner field is populated', async () => {
+    configureEventPiiCatalog(
+      new Map([
+        [
+          EVENT_TYPE,
+          { recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } } },
+        ],
+      ]),
+    );
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    const out = await encryptEventPayloadPii(EVENT_TYPE, payload, ENVELOPE);
+    expect(String(out["recipientAddress"])).toContain("user:u-1");
   });
 
   test("null pii value passes through", async () => {

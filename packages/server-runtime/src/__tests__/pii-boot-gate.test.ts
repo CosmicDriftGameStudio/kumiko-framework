@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
 import { assertPiiBootInvariants } from "../pii-boot-gate";
 
 const piiFeature = defineFeature("gate-pii", (r) => {
@@ -20,6 +21,17 @@ const plainFeature = defineFeature("gate-plain", (r) => {
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
   );
+});
+
+// Entity-free features: the gate must react to the event stance on its own,
+// not ride along on an entity annotation (fw#2776).
+const piiEventFeature = defineFeature("gate-pii-event", (r) => {
+  r.defineEvent("attempt", z.object({ userId: z.string(), email: z.string() }), {
+    piiFields: { email: { personal: { of: "userId" } } },
+  });
+});
+const noneEventFeature = defineFeature("gate-none-event", (r) => {
+  r.defineEvent("ping", z.object({ at: z.string() }), { piiFields: "none" });
 });
 
 const kms = new InMemoryKmsAdapter();
@@ -56,6 +68,31 @@ describe("assertPiiBootInvariants — prod", () => {
   test("no PII entities → nothing to gate", () => {
     expect(() => assertPiiBootInvariants([plainFeature], { mode: "prod" })).not.toThrow();
   });
+
+  test('an entity-free feature with a non-"none" event stance aborts boot without a KMS', () => {
+    expect(() => assertPiiBootInvariants([piiEventFeature], { mode: "prod" })).toThrow(
+      /BOOT ABORTED.*gate-pii-event:event:attempt.*PLAINTEXT/s,
+    );
+  });
+
+  test('events declaring piiFields: "none" are not gated', () => {
+    expect(() => assertPiiBootInvariants([noneEventFeature], { mode: "prod" })).not.toThrow();
+  });
+
+  test("a KMS satisfies the event gate", () => {
+    expect(() =>
+      assertPiiBootInvariants([piiEventFeature], { mode: "prod", kms, blindIndexKey: KEY }),
+    ).not.toThrow();
+  });
+
+  test("allowPlaintextPii acknowledges the event gate too", () => {
+    expect(() =>
+      assertPiiBootInvariants([piiEventFeature], {
+        mode: "prod",
+        allowPlaintextPii: "kms rollout pending",
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe("assertPiiBootInvariants — dev", () => {
@@ -67,5 +104,9 @@ describe("assertPiiBootInvariants — dev", () => {
     expect(() => assertPiiBootInvariants([piiFeature], { mode: "dev", kms })).toThrow(
       /blindIndexKey/,
     );
+  });
+
+  test("a PII event without a KMS only warns in dev", () => {
+    expect(() => assertPiiBootInvariants([piiEventFeature], { mode: "dev" })).not.toThrow();
   });
 });

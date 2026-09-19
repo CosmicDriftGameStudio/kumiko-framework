@@ -163,6 +163,17 @@ encryptable and backfillable — see
 append (fw#2801)")` in `backfill-pii.integration.test.ts` for the regression
 coverage pinning the live/backfill parity down.
 
+A user subject whose owner field the payload schema allows to be null or
+undefined must also declare `whenAbsent` (fw#2776): `"tenant"` encrypts those
+writes under the envelope tenant key, `"plaintext"` acknowledges that the value
+ships unencrypted and cannot be crypto-shredded. Registration rejects the
+stance without it, and an owner that is empty at append time with no declared
+fallback aborts the write rather than storing plaintext. The matching boot
+gate lives in `assertPiiBootInvariants`
+(`packages/server-runtime/src/pii-boot-gate.ts`): a mounted feature with a
+non-`"none"` event stance and no `kms` adapter aborts `runProdApp`/
+`runWorkerApp` unless the operator passes `allowPlaintextPii: "<reason>"`.
+
 ## Operator runbook: an Art. 17 request the mentions never found
 
 A row's structured-mention forget hook (#2787, still open) will eventually
