@@ -99,6 +99,8 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<void> {
       }),
       registry: ctx.registry,
       tenantId: ctx.tenantId,
+      fileProviderResolver: ctx.fileProviderResolver,
+      log: ctx.log,
     };
     await destroy(hookCtx);
   }

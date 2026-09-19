@@ -1012,4 +1012,14 @@ export type EntityDefinition<
   readonly derivedFields?: DerivedFieldsMap;
   /** Optional free-text semantics for the AI agent manifest — see TextFieldDef.description. */
   readonly description?: string;
+  /**
+   * Opts this entity's rows into the `tenant-handover` bundled feature
+   * (kumiko-framework#3035): a row-bound-grant-legitimated ownership change
+   * from an anonymous/public tenant to a freshly signed-up account's tenant.
+   * An entity reachable from a transfer's root — the root itself, or any
+   * entity whose `parentRef` names the root's type — that is NOT declared
+   * `transferable: true` makes the whole transfer fail with a named error
+   * instead of silently leaving that entity's rows behind.
+   */
+  readonly transferable?: boolean;
 };

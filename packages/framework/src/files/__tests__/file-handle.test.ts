@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createFileContext, createFileHandle, deriveKey } from "../file-handle";
+import {
+  createFileContext,
+  createFileHandle,
+  deriveKey,
+  storageKeyStemPrefix,
+} from "../file-handle";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 
 describe("deriveKey", () => {
@@ -21,6 +26,28 @@ describe("deriveKey", () => {
 
   test("handles multi-dot filenames — splits on the final extension", () => {
     expect(deriveKey("tenant/my.photo.jpg", "thumb")).toBe("tenant/my.photo.thumb.jpg");
+  });
+});
+
+describe("storageKeyStemPrefix", () => {
+  test("matches the original key and every derived variant", () => {
+    const prefix = storageKeyStemPrefix("tenant/vehicle/1/photo/abc.jpg");
+    expect("tenant/vehicle/1/photo/abc.jpg".startsWith(prefix)).toBe(true);
+    expect(deriveKey("tenant/vehicle/1/photo/abc.jpg", "medium").startsWith(prefix)).toBe(true);
+    expect(deriveKey("tenant/vehicle/1/photo/abc.jpg", "thumb").startsWith(prefix)).toBe(true);
+  });
+
+  test("does not match an unrelated key with the same directory", () => {
+    const prefix = storageKeyStemPrefix("tenant/vehicle/1/photo/abc.jpg");
+    expect("tenant/vehicle/1/photo/abcdef.jpg".startsWith(prefix)).toBe(false);
+  });
+
+  test("appends a dot for a key without an extension", () => {
+    expect(storageKeyStemPrefix("tenant/bar")).toBe("tenant/bar.");
+  });
+
+  test("only splits on the last segment — earlier dots stay", () => {
+    expect(storageKeyStemPrefix("archive.v2/foo.jpg")).toBe("archive.v2/foo.");
   });
 });
 
