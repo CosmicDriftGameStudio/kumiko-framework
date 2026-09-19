@@ -63,6 +63,7 @@ import {
   type SessionUser,
   type TenantId,
   type TierResolverPlugin,
+  type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -171,6 +172,8 @@ export type RunDevAppOptions = {
    *  auth-email-password automatisch dazu gemischt — KEIN doppeltes
    *  manuelles Hinzufügen nötig. */
   readonly features: readonly FeatureDefinition[];
+  /** Opt-in boot-validator warnings — see ValidateBootOptions. */
+  readonly validateBootOptions?: ValidateBootOptions;
   /** Pfad zum Browser-Entry-Modul. Bun.build bündelt es zu /client.js.
    *  Mutually exclusive mit `clientEntries`. */
   readonly clientEntry?: string;
@@ -297,7 +300,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
   try {
-    validateBoot(features);
+    validateBoot(features, options.validateBootOptions);
   } finally {
     if (setFileStorageProviderEnv) delete process.env["FILE_STORAGE_PROVIDER"];
   }
