@@ -578,8 +578,57 @@ function validateFormFieldsMap(
           `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
       );
     }
+    if (ftype === "money") {
+      validateFormMoneyCurrency(featureName, screenId, context, fname, fdef);
+    }
   }
   return fieldNames;
+}
+
+// Fail-closed currency-source gate (fw#2839), the runtime half of the
+// narrowed `FormFieldDefinition` — an untyped JS consumer has no compiler to
+// stop it. An inline form screen has no entity, so a money field there can't
+// borrow `entity.defaultCurrency`: without a declared source the renderer
+// seeds a bare `0` and the handler's zod schema rejects the submit. Entity
+// money fields are exempt — create-app already refuses an entity that holds
+// money without a `defaultCurrency`.
+function validateFormMoneyCurrency(
+  featureName: string,
+  screenId: string,
+  context: string,
+  fieldName: string,
+  fdef: unknown,
+): void {
+  const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) money field "${fieldName}"`;
+  const validForms =
+    `Declare \`currency: { kind: "literal", code: "EUR" }\` for a fixed currency, or ` +
+    `\`currency: { kind: "tenant" }\` to take the tenant-settings bundle's per-tenant currency.`;
+  // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
+  const currency = (fdef as { currency?: { kind?: unknown; code?: unknown } | null }).currency;
+  if (currency === undefined) {
+    throw new Error(
+      `${where} must declare where its currency comes from — this screen has no entity whose ` +
+        `\`defaultCurrency\` it could inherit, so the form would seed a bare \`0\` that the ` +
+        `handler's schema rejects. ${validForms}`,
+    );
+  }
+  if (typeof currency !== "object" || currency === null) {
+    throw new Error(`${where} has a non-object \`currency\`. ${validForms}`);
+  }
+  const kind = currency.kind;
+  if (kind === "literal") {
+    const code = currency.code;
+    if (typeof code !== "string" || code.trim() === "") {
+      throw new Error(
+        `${where} declares \`currency: { kind: "literal" }\` with an empty or non-string \`code\`. ` +
+          `Pass the ISO code, e.g. { kind: "literal", code: "EUR" }.`,
+      );
+    }
+  } else if (kind !== "tenant") {
+    throw new Error(
+      `${where} declares an unknown currency kind ${JSON.stringify(kind)}. ${validForms}`,
+    );
+  }
 }
 
 // `allowEmptySections` mirrors `validateFormFieldsMap`'s `allowEmpty` — the

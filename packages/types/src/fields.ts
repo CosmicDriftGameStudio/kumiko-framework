@@ -445,12 +445,16 @@ export type DecimalFieldDef = {
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 
-/** Where a money field's currency comes from, for the fields that opt in.
- *  Discriminated union so #2839 can add `{ kind: "literal", code }` and
- *  `{ kind: "field", of }` variants without a breaking change. `"tenant"` is
- *  the tenant-settings bundle's per-tenant currency (`tenant-settings:config:
- *  currency`) — see kumiko-framework#2933. */
-export type MoneyCurrencySource = { readonly kind: "tenant" };
+/** Where a money field's currency comes from. `"tenant"` is the
+ *  tenant-settings bundle's per-tenant currency (`tenant-settings:config:
+ *  currency`, kumiko-framework#2933); `"literal"` names a fixed ISO code and
+ *  is checked against the app's `currencies` list at boot
+ *  (kumiko-framework#2839). Discriminated union so a `{ kind: "field", of }`
+ *  variant (amount and currency-picker side by side) can still be added
+ *  without a breaking change, once a multi-currency form actually exists. */
+export type MoneyCurrencySource =
+  | { readonly kind: "tenant" }
+  | { readonly kind: "literal"; readonly code: string };
 
 /** Qualified config key a `{ kind: "tenant" }` MoneyCurrencySource resolves
  *  against — the tenant-settings bundle's per-tenant currency. Lives here
@@ -831,6 +835,16 @@ export type FieldDefinition =
   | ImageFieldDef
   | FilesFieldDef
   | ImagesFieldDef;
+
+/** FieldDefinition as an entity-less inline form screen (actionForm,
+ *  secretMint) may declare it: a `money` field there has no entity to borrow
+ *  `defaultCurrency` from, so it must name its own currency source, or the
+ *  form seeds a bare `0` that the handler's zod schema then rejects
+ *  (kumiko-framework#2839). Entity fields keep the optional `currency` —
+ *  `entity.defaultCurrency` is already boot-enforced for them. */
+export type FormFieldDefinition =
+  | Exclude<FieldDefinition, MoneyFieldDef>
+  | (MoneyFieldDef & { readonly currency: MoneyCurrencySource });
 
 // Union of all field variants that represent uploaded files. They share
 // `maxSize` and `accept`, which is what upload validation cares about.

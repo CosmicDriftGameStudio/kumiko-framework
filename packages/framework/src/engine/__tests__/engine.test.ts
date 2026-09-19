@@ -1243,6 +1243,54 @@ describe("createApp", () => {
     );
   });
 
+  // fw#2839: a literal currency source is only meaningful for a code the app
+  // knows — a typo would otherwise render and submit an unformattable amount.
+  function literalCurrencyFeature(code: string) {
+    return defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          defaultCurrency: "EUR",
+          fields: { total: { type: "money", currency: { kind: "literal", code } } },
+        } as never),
+      );
+    });
+  }
+
+  test("rejects currency: { kind: 'literal' } with a code outside the currencies list", () => {
+    expect(() =>
+      createApp({ roles: ["Admin"], features: [literalCurrencyFeature("EURO")] }),
+    ).toThrow(/code: "EURO" \} which is not in the currencies list/);
+  });
+
+  test("accepts currency: { kind: 'literal' } with a code from the currencies list", () => {
+    expect(() =>
+      createApp({ roles: ["Admin"], features: [literalCurrencyFeature("EUR")] }),
+    ).not.toThrow();
+  });
+
+  test("rejects an unknown literal code on an actionForm screen field too", () => {
+    const feature = defineFeature("test", (r) => {
+      r.writeHandler({
+        name: "invoice:pay",
+        schema: { _type: "stub" } as never,
+        handler: async () => ({ isSuccess: true, data: {} }) as never,
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "invoice-pay",
+        type: "actionForm",
+        handler: "test:write:invoice:pay",
+        fields: { amount: { type: "money", currency: { kind: "literal", code: "EURO" } } } as never,
+        layout: { sections: [{ title: "Pay", fields: ["amount"] }] } as never,
+      });
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      /Screen "invoice-pay" in feature "test", money field "amount"/,
+    );
+  });
+
   // hasMoneyField used to only look at top-level fields, so an entity whose
   // only money lives inside an embedded-list sub-schema (e.g. invoice lines
   // with no top-level money field) slipped past this check — its cells and
