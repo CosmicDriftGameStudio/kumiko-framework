@@ -472,6 +472,8 @@ export function createEntity<F, const T extends EntityTenancy = "tenant">(def: {
   readonly retention?: RetentionDef;
   readonly derivedFields?: EntityDefinition["derivedFields"];
   readonly tenancy?: T;
+  /** See EntityDefinition.transferable. */
+  readonly transferable?: boolean;
 }): F extends FieldsMap ? EntityDefinition<F, T> : never {
   return {
     softDelete: false,

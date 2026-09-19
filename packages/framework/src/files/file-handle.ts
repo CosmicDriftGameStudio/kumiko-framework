@@ -49,16 +49,35 @@ export function createFileContext(resolve: () => Promise<FileStorageProvider>): 
   };
 }
 
+// Splits a key into the part before the last dot of its last path segment
+// (the "stem") and the extension including the dot. No dot in the last
+// segment: the whole key is the stem, extension is empty.
+function splitKeyExtension(key: string): { readonly stem: string; readonly ext: string } {
+  const lastSlash = key.lastIndexOf("/");
+  const lastSegment = lastSlash === -1 ? key : key.slice(lastSlash + 1);
+  const lastDot = lastSegment.lastIndexOf(".");
+  if (lastDot === -1) return { stem: key, ext: "" };
+  const stem = key.slice(0, key.length - lastSegment.length + lastDot);
+  const ext = lastSegment.slice(lastDot);
+  return { stem, ext };
+}
+
 // Inserts a suffix before the file extension. Keys without an extension get
 // the suffix appended with a dot: `foo/bar` + `"small"` → `foo/bar.small`.
 // Keys with a dot earlier in the path (e.g. `archive.v2/foo.jpg`) correctly
 // split on the LAST segment only.
 export function deriveKey(key: string, suffix: string): string {
-  const lastSlash = key.lastIndexOf("/");
-  const lastSegment = lastSlash === -1 ? key : key.slice(lastSlash + 1);
-  const lastDot = lastSegment.lastIndexOf(".");
-  if (lastDot === -1) return `${key}.${suffix}`;
-  const prefix = key.slice(0, key.length - lastSegment.length + lastDot);
-  const ext = lastSegment.slice(lastDot);
-  return `${prefix}.${suffix}${ext}`;
+  const { stem, ext } = splitKeyExtension(key);
+  return ext === "" ? `${key}.${suffix}` : `${stem}.${suffix}${ext}`;
+}
+
+// The prefix that covers a key AND every `derive()`d variant of it —
+// `foo/bar.jpg` → `foo/bar.`, matching `foo/bar.jpg` and `foo/bar.medium.jpg`
+// alike, since derive() only ever inserts a suffix between the stem and the
+// extension. Used by the tenant-handover destroy sweep (kumiko-framework#3035)
+// to reach a moved fileRef's original plus every already-rendered derivative,
+// none of which have their own `file_refs` row.
+export function storageKeyStemPrefix(key: string): string {
+  const { stem, ext } = splitKeyExtension(key);
+  return ext === "" ? `${key}.` : `${stem}.`;
 }

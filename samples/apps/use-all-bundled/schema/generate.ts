@@ -237,6 +237,14 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle",
     factory: "createTenantLifecycleFeature",
   },
+  // No r.entity of its own — it reads OTHER entities' `transferable`/
+  // `parentRef` declarations off the registry. generate.ts skips it
+  // silently; listed for schema-check ↔ mounted-set parity.
+  "tenant-handover": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/tenant-handover",
+    factory: "createTenantHandoverFeature",
+  },
   "data-retention": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/data-retention",

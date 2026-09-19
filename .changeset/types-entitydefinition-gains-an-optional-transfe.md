@@ -1,0 +1,13 @@
+---
+"@cosmicdrift/kumiko-types": minor
+---
+
+EntityDefinition gains an optional transferable flag
+
+Declares that an entity's rows can move to a different tenant via the tenant-handover bundled feature (kumiko-framework#3035): the root entity, or any parentRef-linked entity, that is NOT declared transferable makes a claim attempt fail with a named error instead of silently leaving its rows behind. Additive — every existing entity is unaffected (transferable defaults to unset/false).
+
+<!-- kumiko-changes
+feature: types
+type: improvement
+title: EntityDefinition gains an optional transferable flag
+-->

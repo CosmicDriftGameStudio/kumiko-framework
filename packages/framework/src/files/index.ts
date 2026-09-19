@@ -2,7 +2,7 @@ export { createFilesFeature } from "./feature";
 export type { FileContext, FileHandle } from "./file-handle";
 // `createFileHandle` is an implementation detail — construct handles via
 // `createFileContext(provider).ref(key)`, which is the AppContext surface.
-export { createFileContext, deriveKey } from "./file-handle";
+export { createFileContext, deriveKey, storageKeyStemPrefix } from "./file-handle";
 export { fileRefEntity } from "./file-ref-entity";
 export { fileRefsTable } from "./file-ref-table";
 export type {

@@ -76,6 +76,7 @@ import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { templateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
+import { createTenantHandoverFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-handover";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -106,6 +107,12 @@ const stubRenderer: NotificationRenderer = {
   name: "smoke",
   render: async () => "<smoke/>",
 };
+
+// Fixed dev-only signing key for the reset/verify/unlock magic-links (and,
+// below, tenant-handover's row-bound grant). The factory rejects anything
+// under 32 chars, and this sample never runs outside `bun dev` / CI boot —
+// no token minted here is ever trusted by a deployment.
+const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
 
 export const APP_FEATURES = [
   localeDe(),
@@ -245,6 +252,15 @@ export const APP_FEATURES = [
   createComplianceProfilesFeature(),
   complianceProfilesOpsFeature,
   createTenantLifecycleFeature(),
+  // tenant-handover: try-before-signup ownership handover (kumiko-
+  // framework#3035). No entities/mount-options of its own — it reads
+  // OTHER entities' `transferable`/`parentRef` declarations off the
+  // registry at claim time. This sample mounts no transferable entity, so
+  // the `claim` handler always rejects with entity_not_transferable — the
+  // same boot-only, never-actually-used-for-real-data posture as the
+  // managed-pages/seo smoke resolvers above. grantSecret reuses the same
+  // dev-only HMAC key the auth magic-links below use.
+  createTenantHandoverFeature({ grantSecret: SMOKE_HMAC_SECRET }),
   createDataRetentionFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
@@ -363,11 +379,6 @@ export const APP_FEATURES = [
   documentIngestFoundationFeature,
   createAgentToolsFeature(),
 ] as const;
-
-// Fixed dev-only signing key for the reset/verify/unlock magic-links. The
-// factory rejects anything under 32 chars, and this sample never runs outside
-// `bun dev` / CI boot — no token minted here is ever trusted by a deployment.
-const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
 
 // Smoke signup — enables createAuthSelfRegistrationToggleFeature via
 // composeFeatures when passed as authOptions (#1521 Option A). Same shape
