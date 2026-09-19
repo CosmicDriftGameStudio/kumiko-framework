@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
 import type { DbRunner } from "../db/connection";
-import { toKebab } from "../engine/qualified-name";
+import { qnScope, toKebab } from "../engine/qualified-name";
 import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
 import { InternalError, validationErrorFromZod } from "../errors";
 import { isStreamArchived } from "../event-store/archive";
@@ -32,15 +32,6 @@ export type AppendDomainEventCoreDeps = {
   readonly callerFeature?: string;
 };
 
-// Extract the owning feature from a qualified event name. Events are
-// registered as "<feature>:event:<short>" (see registry.ts qualify()) so the
-// prefix before the first ":" is the owner. Falls back to undefined if the
-// name isn't qualified — callers then skip the cross-feature check.
-function eventOwnerFeature(qualifiedName: string): string | undefined {
-  const idx = qualifiedName.indexOf(":");
-  return idx > 0 ? qualifiedName.slice(0, idx) : undefined;
-}
-
 // System-event prefix: events under this namespace bypass the registry +
 // ownership checks. Reserved for framework-internal coordination (step-
 // engine deferred dispatch, lifecycle signals). The matching MSP filters
@@ -71,7 +62,7 @@ export async function appendDomainEventCore(
   // into kebab-case for the event/handler names (pubsub-orders:event:…) — so
   // we compare the kebab form on both sides.
   if (deps.callerFeature && !isSystemEvent) {
-    const owner = eventOwnerFeature(args.type);
+    const owner = qnScope(args.type);
     const callerKebab = toKebab(deps.callerFeature);
     if (owner && owner !== callerKebab) {
       throw new InternalError({

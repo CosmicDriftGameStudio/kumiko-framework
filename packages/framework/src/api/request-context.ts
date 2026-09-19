@@ -38,6 +38,12 @@ export type RequestContextData = {
   // request-locale.ts. Undefined when neither header carried a valid tag;
   // callers fall back further (dispatch-shared.ts's ctx.locale chain).
   readonly locale?: string;
+  // Attribution of the currently executing scope (#3043): the feature that
+  // owns it and the qualified name of the handler / MSP-consumer / job
+  // inside it. event-store.append() reads both and stamps them onto every
+  // event written under this scope.
+  readonly feature?: string;
+  readonly handler?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
@@ -55,3 +61,25 @@ export const requestContext = {
     return generateId();
   },
 };
+
+// Enter a scope that attributes every event written inside it. Keeps the
+// surrounding request's ids so correlation survives, and mints fresh ones
+// when there is no surrounding request (job-runner, event-dispatcher) —
+// requestId/correlationId are mandatory, `get()` may be undefined.
+export function runWithOrigin<T>(
+  origin: { readonly feature?: string; readonly handler?: string },
+  fn: () => T,
+): T {
+  const current = requestContext.get();
+  const requestId = current?.requestId ?? requestContext.generateId();
+  return requestContext.run(
+    {
+      ...current,
+      requestId,
+      correlationId: current?.correlationId ?? requestId,
+      feature: origin.feature,
+      handler: origin.handler,
+    },
+    fn,
+  );
+}

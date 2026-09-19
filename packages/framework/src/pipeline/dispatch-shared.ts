@@ -1,4 +1,4 @@
-import { requestContext } from "../api/request-context";
+import { requestContext, runWithOrigin } from "../api/request-context";
 import type { SseBroker } from "../api/sse-broker";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { runInSavepoint, selectMany } from "../db/query";
@@ -907,7 +907,12 @@ export async function runHandlerInstrumented<T>(
       },
       async (span) => {
         try {
-          const result = await inner();
+          // #3043 — everything the handler writes, including entity-executor
+          // writes below it, is attributed to this handler.
+          const result = await runWithOrigin(
+            { handler: type, feature: registry.getHandlerFeature(type) },
+            inner,
+          );
           if (operation === "write" && isFailedWriteResult(result)) {
             success = false;
             errorClass = result.error?.code ?? "UnknownError";
@@ -963,11 +968,18 @@ export async function* runStreamInstrumented<T>(
     attributes: dispatcherSpanAttributes(type, "stream", user, registry.getHandlerFeature(type)),
   });
   const it = inner();
+  // Each pull re-enters both scopes: AsyncLocalStorage does not survive a
+  // generator suspension, so wrapping inner() once would leave every event a
+  // stream writes unattributed.
+  const inScope = <R>(fn: () => R): R =>
+    runWithOrigin({ handler: type, feature: registry.getHandlerFeature(type) }, () =>
+      observabilityContext.run({ activeSpan: span }, fn),
+    );
   try {
-    let next = await observabilityContext.run({ activeSpan: span }, () => it.next());
+    let next = await inScope(() => it.next());
     while (!next.done) {
       yield next.value;
-      next = await observabilityContext.run({ activeSpan: span }, () => it.next());
+      next = await inScope(() => it.next());
     }
     completedNormally = true;
     return next.value;
@@ -980,7 +992,7 @@ export async function* runStreamInstrumented<T>(
   } finally {
     // forward close so inner()'s finally still fires — yield* did this for free
     try {
-      await observabilityContext.run({ activeSpan: span }, () => it.return?.(undefined));
+      await inScope(() => it.return?.(undefined));
     } catch (closeError) {
       // Only fold this in when nothing has already failed — a close-time
       // error while an earlier error is in flight would mask the real

@@ -37,7 +37,20 @@ export type EventMetadata = {
   // app reads them when filtering/auditing. Keep values JSON-primitive
   // (string|number|boolean) so JSON serialization stays bulletproof.
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
+  // Feature that owned the execution scope which wrote this event, and the
+  // qualified name of the handler/consumer/job inside it. Derived in
+  // event-store.append() from the ambient request scope, never passed in by
+  // the writer — attribution handed over can lie, attribution derived cannot.
+  // Optional so rows written before #3043 stay readable without a backfill;
+  // every new row carries both, falling back to UNATTRIBUTED_ORIGIN.
+  readonly feature?: string;
+  readonly handler?: string;
 };
+
+// Stamped when an append runs outside any attributed scope (seed scripts,
+// tests, direct event-store use). A distinct value, not an omission —
+// omitted would be indistinguishable from a pre-#3043 row.
+export const UNATTRIBUTED_ORIGIN = "unknown";
 
 // Generic over the payload shape. Default = Record<string, unknown> keeps
 // all existing consumers backwards-compatible; annotate `StoredEvent<MyEventPayload>`
