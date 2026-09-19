@@ -1,5 +1,37 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.289.0
+
+### Patch Changes
+
+- 8b14589: fix(renderer-web): timestamp input emits seconds
+
+  `inputValueToTimestamp` assembled the Z-instant from hours and minutes and
+  left the seconds off (`2026-09-01T10:00Z`). Write schemas validate
+  `timestamp` fields without `locatedBy` using `z.iso.datetime()`, which
+  requires `HH:mm:ssZ`.
+
+  Externally visible: a required `timestamp` field without `locatedBy` could
+  never be saved through the web UI — every save ended in `422 invalid_format`
+  on that field. The Bug-Bash-2 regression test (`timestamp-input.test.tsx`)
+  already covered the case and was red; back then the missing `Z` was added,
+  the seconds were not.
+
+  The emitted seconds are always `00` in practice, because
+  `timestampToInputValue` truncates inbound values to minutes. That truncation
+  is pre-existing and untouched here.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: timestamp input emits seconds
+  -->
+
+- Updated dependencies [a200a5c]
+  - @cosmicdrift/kumiko-headless@0.289.0
+  - @cosmicdrift/kumiko-renderer@0.289.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.289.0
+
 ## 0.288.0
 
 ### Patch Changes

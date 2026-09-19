@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.289.0",
+    "type": "fix",
+    "title": "timestamp input emits seconds",
+    "detail": "`inputValueToTimestamp` assembled the Z-instant from hours and minutes and\nleft the seconds off (`2026-09-01T10:00Z`). Write schemas validate\n`timestamp` fields without `locatedBy` using `z.iso.datetime()`, which\nrequires `HH:mm:ssZ`.\nExternally visible: a required `timestamp` field without `locatedBy` could\nnever be saved through the web UI — every save ended in `422 invalid_format`\non that field. The Bug-Bash-2 regression test (`timestamp-input.test.tsx`)\nalready covered the case and was red; back then the missing `Z` was added,\nthe seconds were not.\nThe emitted seconds are always `00` in practice, because\n`timestampToInputValue` truncates inbound values to minutes. That truncation\nis pre-existing and untouched here."
+  }
+]

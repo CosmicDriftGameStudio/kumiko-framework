@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.289.0
+
+### Minor Changes
+
+- a200a5c: headless gains resolveAndInjectPageHead/injectPageHead for per-request head injection
+
+  New apex exports: PageHeadMeta/PageHeadResolver/PageHeadSystemQuery types, injectPageHead (idempotent marker-based </head> splice), and resolveAndInjectPageHead (resolves a PageHeadResolver with a shared 300ms timeout, converts to ApexHead, renders via renderApexHeadTags, injects). Moved out of @cosmicdrift/kumiko-server-runtime (kumiko-framework#3026) so runDevApp and runProdApp share one resolve+inject call instead of two copies of the timeout/fallback logic; server-runtime re-exports the three types unchanged for existing consumers.
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: headless gains resolveAndInjectPageHead/injectPageHead for per-request head injection
+  -->
+
+### Patch Changes
+
+- Updated dependencies [78f9c42]
+- Updated dependencies [efac5bb]
+- Updated dependencies [20853fa]
+- Updated dependencies [1e5a8e0]
+- Updated dependencies [f01015e]
+- Updated dependencies [a84d3cb]
+- Updated dependencies [dea8ea0]
+- Updated dependencies [2e868a7]
+- Updated dependencies [253ade3]
+  - @cosmicdrift/kumiko-framework@0.289.0
+
 ## 0.288.0
 
 ### Patch Changes
