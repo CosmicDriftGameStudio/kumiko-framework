@@ -11,7 +11,7 @@
  * I/O: Bun.Glob + Bun.file; directoryExists uses node:fs (same as roots.ts).
  */
 import { existsSync, statSync } from "node:fs";
-import type { RepoRoot } from "./roots";
+import { type RepoRoot, sourceRootDirs } from "./roots";
 
 /** POSIX path join without Node path module. */
 function joinPath(base: string, ...segments: string[]): string {
@@ -107,20 +107,10 @@ export const BLOCKING_SQL_KINDS: ReadonlyArray<SqlInventoryKind> = ["unsafe", "a
 
 const TS_GLOB = new Bun.Glob("**/*.{ts,tsx}");
 
-export type SqlScanLayout = "multi-package" | "flat" | "none";
-
-// kumiko-platform deliberately returns "none" (0 files) — its docs-samples tree needs its own allowlist review before this guard scans it (follow-up issue).
-export function sqlScanLayoutFor(root: Pick<RepoRoot, "name" | "kind">): SqlScanLayout {
-  if (root.name === "kumiko-platform") return "none";
-  if (root.kind === "framework" || root.kind === "library") return "multi-package";
-  return "flat";
-}
-
-/** Scan dirs per repo layout — multi-package keeps the packages/samples/scripts/bin layout, flat is a bare src/ + bin/. */
-function scanDirsFor(layout: SqlScanLayout): readonly string[] {
-  if (layout === "multi-package") return ["packages", "samples", "scripts", "bin"];
-  if (layout === "none") return [];
-  return ["src", "bin"];
+// kumiko-platform deliberately returns no scan dirs (0 files) — its docs-samples tree needs its own allowlist review before this guard scans it (follow-up issue).
+export function sqlScanDirsFor(root: RepoRoot): readonly string[] {
+  if (root.name === "kumiko-platform") return [];
+  return sourceRootDirs(root).map((dir) => dir.slice(root.absPath.length).replace(/^\/+/, ""));
 }
 
 function normalizePathForMatch(filePath: string): string {
@@ -155,9 +145,9 @@ function directoryExists(path: string): boolean {
   }
 }
 
-async function collectTsFiles(repoRoot: string, layout: SqlScanLayout): Promise<string[]> {
+async function collectTsFiles(repoRoot: string, scanDirs: readonly string[]): Promise<string[]> {
   const out: string[] = [];
-  for (const sub of scanDirsFor(layout)) {
+  for (const sub of scanDirs) {
     const cwd = joinPath(repoRoot, sub);
     if (!directoryExists(cwd)) continue;
     for await (const rel of TS_GLOB.scan({ cwd, onlyFiles: true })) {
@@ -226,9 +216,9 @@ function scanFileText(relPath: string, text: string, hits: SqlInventoryHit[]): v
 
 export async function scanRepo(
   repoRoot: string,
-  layout: SqlScanLayout,
+  scanDirs: readonly string[],
 ): Promise<SqlInventoryReport> {
-  const relFiles = await collectTsFiles(repoRoot, layout);
+  const relFiles = await collectTsFiles(repoRoot, scanDirs);
   const hits: SqlInventoryHit[] = [];
 
   for (const rel of relFiles) {

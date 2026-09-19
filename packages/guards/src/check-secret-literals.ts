@@ -28,13 +28,12 @@ import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 import { scanLinesForPredicate } from "./_lib/scan-lines";
 
-// Server-side only: apps/server (not apps/mobile — client code, no server secrets).
-const SCAN_PATTERNS: ReadonlyArray<string> = [
-  "bin/**/*.ts",
-  "src/**/*.ts",
-  "apps/server/src/**/*.ts",
-  "packages/*/src/**/*.ts",
-];
+// Server-side only: a declared sourceRoot under a mobile/client app has no server secrets to leak.
+const CLIENT_SOURCE_ROOT = /(?:^|\/)mobile(?:\/|$)/;
+
+function serverSourceRoots(root: RepoRoot): readonly string[] {
+  return root.manifest.sourceRoots.filter((sourceRoot) => !CLIENT_SOURCE_ROOT.test(sourceRoot));
+}
 
 const EXCLUDE_DIR = /(?:^|\/)(?:node_modules|dist|__tests__)\//;
 const IS_TEST = /\.(?:test|integration)\.tsx?$/;
@@ -75,8 +74,8 @@ async function scanRoot(
 ): Promise<{ readonly findings: SecretLiteralFinding[]; readonly scannedFiles: number }> {
   const findings: SecretLiteralFinding[] = [];
   let scannedFiles = 0;
-  for (const pattern of SCAN_PATTERNS) {
-    for (const rel of new Glob(pattern).scanSync({ cwd: root.absPath })) {
+  for (const sourceRoot of serverSourceRoots(root)) {
+    for (const rel of new Glob(`${sourceRoot}/**/*.ts`).scanSync({ cwd: root.absPath })) {
       if (EXCLUDE_DIR.test(`/${rel}`) || IS_TEST.test(rel) || DEV_ENTRYPOINT.test(rel)) {
         continue;
       }

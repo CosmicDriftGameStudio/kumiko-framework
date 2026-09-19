@@ -14,7 +14,7 @@
 
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
-import { BLOCKING_SQL_KINDS, scanRepo, sqlScanLayoutFor } from "./_lib/sql-inventory";
+import { BLOCKING_SQL_KINDS, scanRepo, sqlScanDirsFor } from "./_lib/sql-inventory";
 
 export type RawSqlFinding = {
   readonly repo: string;
@@ -32,7 +32,7 @@ async function scanAllRepos(roots: readonly RepoRoot[]): Promise<{
   let scannedFiles = 0;
 
   for (const root of roots) {
-    const report = await scanRepo(root.absPath, sqlScanLayoutFor(root));
+    const report = await scanRepo(root.absPath, sqlScanDirsFor(root));
     scannedFiles += report.scannedFiles;
 
     for (const hit of report.hits) {
@@ -66,7 +66,7 @@ export const check: RepoCheck = {
     "// kumiko-lint-ignore raw-sql <reason> on the line or the line above.",
   async run(roots) {
     // kumiko-platform's deliberate empty scan-dir list must not read as vacuous (infra#610).
-    const applicableRoots = roots.filter((r) => sqlScanLayoutFor(r) !== "none");
+    const applicableRoots = roots.filter((r) => sqlScanDirsFor(r).length > 0);
     if (applicableRoots.length === 0) {
       return { violations: [], matchedFiles: 0, notApplicable: true };
     }
