@@ -62,6 +62,7 @@ export function buildRequestContextDataFromRequest(req: Request): RequestContext
   return {
     requestId,
     correlationId,
+    startedAt: performance.now(),
     ...(signal ? { signal } : {}),
     ...(ip && ip.length > 0 ? { ip } : {}),
     ...(userAgent !== undefined ? { userAgent } : {}),
@@ -81,7 +82,7 @@ export function buildRequestContextData(c: Context): RequestContextData {
   // instead of letting req.headers.get() throw on every request.
   if (!c.req.raw) {
     const requestId = requestContext.generateId();
-    return { requestId, correlationId: requestId };
+    return { requestId, correlationId: requestId, startedAt: performance.now() };
   }
   return buildRequestContextDataFromRequest(c.req.raw);
 }
