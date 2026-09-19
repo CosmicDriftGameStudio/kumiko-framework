@@ -22,6 +22,7 @@ import { createFileContext } from "../files/file-handle";
 import { createFallbackLogger } from "../logging";
 import type { Logger } from "../logging/types";
 import {
+  emitJobLastSuccess,
   emitJobQueueDepth,
   getFallbackTracer,
   type Meter,
@@ -676,6 +677,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           },
           () => jobDef.handler(payload, jobContext),
         );
+        // Stamped before the observer hook: a throwing onJobComplete must not
+        // make a run that actually succeeded look dead to the liveness alert.
+        if (context.meter) emitJobLastSuccess(context.meter, jobName);
         const duration = Date.now() - startTime;
         await options.onJobComplete?.(jobName, jobId, duration, logs);
       } catch (err) {

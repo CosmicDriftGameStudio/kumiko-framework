@@ -123,6 +123,19 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
     description: "BullMQ job counts per lane and state.",
     labels: ["lane", "state"],
   },
+  // Dead-man for in-process jobs: the k8s CronJob alerts never fire for them
+  // (no CronJob object exists), and a gauge the job itself sets freezes on its
+  // last value when the job dies, so neither `absent()` nor a threshold
+  // catches a silently stopped cron. This one is stamped by the runner, so
+  // `time() - kumiko_job_last_success_timestamp_seconds{job="…"} > interval`
+  // is a true liveness check. Absent until the first success after a restart —
+  // see docs/reference/job-liveness-metric.md for the `for:` that implies.
+  {
+    name: "kumiko_job_last_success_timestamp_seconds",
+    type: "gauge",
+    description: "Unix timestamp of the last successful run, per registered job.",
+    labels: ["job"],
+  },
 ] as const;
 
 export function registerStandardMetrics(meter: Meter): void {
@@ -272,4 +285,11 @@ export function emitJobQueueDepth(
   for (const [state, count] of Object.entries(counts)) {
     meter.gauge("kumiko_job_queue_depth").set(count, { lane, state });
   }
+}
+
+// `job` is the registry-declared job name — handleJob rejects an unknown name
+// before it can reach here, so the label set is bounded by the app's r.job
+// registrations and carries no tenant or user input.
+export function emitJobLastSuccess(meter: Meter, job: string): void {
+  meter.gauge("kumiko_job_last_success_timestamp_seconds").set(Date.now() / 1000, { job });
 }
