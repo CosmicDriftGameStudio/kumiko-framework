@@ -669,6 +669,7 @@ async function main(): Promise<void> {
 
   if (process.argv.includes("--report-stance")) {
     reportStance(rootDir);
+    // skip: report mode never rewrites, so the transform path below must not run
     return;
   }
 
