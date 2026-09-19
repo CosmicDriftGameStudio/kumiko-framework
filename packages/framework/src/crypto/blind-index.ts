@@ -106,9 +106,16 @@ async function blindIndexForValue(
   if (typeof value !== "string" || value === PII_ERASED_SENTINEL) return null;
   if (!isPiiCiphertext(value)) return computeBlindIndex(key, value);
   const kms = configuredPiiSubjectKms();
-  // Ciphertext without a KMS can't be decrypted here; the same read would
-  // also surface raw ciphertext — misconfiguration is caught at boot.
-  if (kms === undefined) return null;
+  // Ciphertext without a KMS can't be decrypted here — unlike the plaintext
+  // path, silently returning null would write NULL into the bidx column
+  // instead of the real index (fw#3091), so this fails loud instead.
+  if (kms === undefined) {
+    throw new Error(
+      `Blind-index for field "${field}" found PII ciphertext but no PII-subject KMS is configured — ` +
+        "cannot decrypt to compute the HMAC over plaintext. Configure the PII-subject KMS before this " +
+        "apply/rebuild runs (fw#3091).",
+    );
+  }
   const decrypted = await decryptPiiFieldValues({ [field]: value }, [field], kms, {
     requestId: requestContext.get()?.requestId ?? "blind-index",
   });

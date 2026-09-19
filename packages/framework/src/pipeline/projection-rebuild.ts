@@ -1,3 +1,4 @@
+import { configuredBlindIndexKey } from "../crypto/blind-index";
 import type { DbConnection, DbTx } from "../db/connection";
 import {
   countSubscribedEvents,
@@ -222,6 +223,19 @@ export async function rebuildProjection(
   }
 
   const meta = rebuildMetaOrThrow(projection.table, projectionName);
+
+  // Bidx columns are computed from plaintext during apply (blind-index.ts). No
+  // key configured → computeBlindIndexValues silently returns {}, so a rebuild
+  // would write NULL into every bidx column instead of failing loud (fw#3091).
+  const bidxColumns = meta.columns.filter((c) => c.name.endsWith("_bidx")).map((c) => c.name);
+  if (bidxColumns.length > 0 && configuredBlindIndexKey() === undefined) {
+    throw new Error(
+      `Projection "${projectionName}" table "${meta.tableName}" has blind-index column(s) ` +
+        `[${bidxColumns.join(", ")}] but no blind-index key is configured. Rebuilding now would ` +
+        "silently null out those columns, breaking equality lookups on encrypted rows. Set " +
+        "KUMIKO_BLIND_INDEX_KEY before rebuilding (fw#3091).",
+    );
+  }
 
   const sources = Array.isArray(projection.source) ? projection.source : [projection.source];
   const sourcesList = [...sources, ...(projection.extraSources ?? [])];

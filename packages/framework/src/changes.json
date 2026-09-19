@@ -1,6 +1,13 @@
 [
   {
     "version": "0.290.0",
+    "type": "breaking",
+    "title": "Blind-index rebuild/apply now fails loud instead of silently writing NULL (fw#3091)",
+    "detail": "rebuildProjection computes *_bidx columns via applyEntityEvent -> computeBlindIndexValues, which silently returns {} when no blind-index key is configured — a rebuild wrote NULL into every bidx column instead of failing, breaking equality lookups on encrypted rows. rebuildProjection now throws before the first batch when the target table has a *_bidx column and configuredBlindIndexKey() is undefined. blindIndexForValue had the same silent-NULL failure mode for ciphertext values without a configured PII-subject KMS — it now throws too. kumiko schema apply (the migrate-db initContainer, standalone from runProdApp/runDevApp) now wires KUMIKO_BLIND_INDEX_KEY/PLATFORM_KEK/SUBJECT_KEYS_DATABASE_URL from process.env via resolveKmsWiringAsync before running queued rebuilds.",
+    "migration": "Any app with lookupable fields that relies on kumiko schema apply for projection rebuilds must have KUMIKO_BLIND_INDEX_KEY (and, if PII is encrypted, PLATFORM_KEK/SUBJECT_KEYS_DATABASE_URL) present in the migrate-db initContainer's env, not just the app server's. Deploy order matters: the crypto env must land in the init container's env before or together with this framework bump, otherwise a rebuild that previously ran silently-wrong now aborts the init container and blocks the rollout. No action needed for apps with no lookupable fields."
+  },
+  {
+    "version": "0.290.0",
     "type": "improvement",
     "title": "Event-Attribution: metadata.feature + metadata.handler auf jedem Event",
     "detail": "event-store.append() stempelt Feature und Handler-Namen aus dem Ausfuehrungsscope (requestContext) auf jedes geschriebene Event. Dispatch-Handler, Entity-Executor-Writes, MSP-Applies und Jobs sind damit ohne Signaturaenderung attribuiert; Appends ausserhalb eines Scopes tragen UNATTRIBUTED_ORIGIN. appendRaw/appendRawBatch bleiben unveraendert."

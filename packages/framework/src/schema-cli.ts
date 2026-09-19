@@ -11,6 +11,12 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  type KmsWiring,
+  resolveKmsWiringAsync,
+} from "./crypto";
+import {
   assertValidMigrationName,
   baselineMigrations,
   createDbConnection,
@@ -316,6 +322,7 @@ export async function runSchemaCli(
         return 1;
       }
       const { db, close } = createDbConnection(dbUrl);
+      let wiring: KmsWiring | undefined;
       try {
         const result = await runMigrationsFromDir(db, migrationsDir);
         // Framework-Infra-Tabellen (event-store + pipeline-state) — die erfasst
@@ -346,6 +353,19 @@ export async function runSchemaCli(
         // retry it — otherwise a failed rebuild is silently never retried,
         // since the migration itself is already tracked applied (#2464).
         if (options.features) {
+          // A rebuild replays applyEntityEvent, which computes bidx columns from
+          // configureBlindIndexKey/configurePiiSubjectKms — both boot-injected by
+          // run{Prod,Dev}App but never by this standalone CLI (the migrate-db
+          // initContainer). Without wiring them here, a rebuild would silently
+          // null out bidx columns and, for ciphertext, throw only once it hits
+          // the row (fw#3091).
+          wiring = await resolveKmsWiringAsync(process.env, {
+            logPrefix: "[kumiko schema apply]",
+          });
+          if ("kms" in wiring) {
+            configurePiiSubjectKms(wiring.kms);
+            configureBlindIndexKey(wiring.blindIndexKey);
+          }
           const thisRunTables = await queueRebuildsFromMarkers(db, {
             migrationsDir,
             appliedIds: result.applied,
@@ -376,6 +396,7 @@ export async function runSchemaCli(
         out.err("");
         return 1;
       } finally {
+        await wiring?.close();
         await close();
       }
     }

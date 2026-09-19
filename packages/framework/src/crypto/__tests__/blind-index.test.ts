@@ -107,6 +107,24 @@ describe("computeBlindIndexValues", () => {
     expect(out["emailBidx"]).toBe(computeBlindIndex(TEST_KEY, "marc@example.com"));
   });
 
+  test("ciphertext value without a configured PII-subject KMS → throws (fw#3091)", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    configureBlindIndexKey(TEST_KEY_B64);
+    const stored = await encryptPiiFieldValues(
+      { id: UUID_A, email: "marc@example.com" },
+      userLikeEntity,
+      ["email"],
+      kms,
+      { requestId: "test" },
+      { entityName: "bidx-user" },
+    );
+    resetPiiSubjectKmsForTests();
+    await expect(computeBlindIndexValues({ email: stored["email"] }, ["email"])).rejects.toThrow(
+      /PII-subject KMS is configured/,
+    );
+  });
+
   test("erased subject → NULL bidx (lookup stops matching)", async () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);
