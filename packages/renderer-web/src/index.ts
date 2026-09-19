@@ -104,6 +104,8 @@ export { KumikoLink, useBrowserNavApi } from "./app/nav";
 export { PlainContentEditor } from "./app/plain-content-editor";
 export { useResolvers } from "./app/resolvers-context";
 export { RichContentEditor } from "./app/rich-content-editor";
+export type { NavIconKey } from "./icons";
+export { Icon } from "./icons";
 export type { AppLayoutProps } from "./layout/app-layout";
 export { AppLayout } from "./layout/app-layout";
 export type { AvatarProps, AvatarSize } from "./layout/avatar";
