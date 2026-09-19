@@ -7,6 +7,7 @@ import type {
   EntityDefinition,
   FeatureDefinition,
   MultiSelectFieldDef,
+  QueryHandlerDef,
 } from "../types";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
@@ -429,13 +430,16 @@ function isValidEmbeddedDecimalScale(scale: number): boolean {
 //   3) Query handler `<feature>:query:<entity>:list` is registered — the
 //      renderer fires it on Combobox open, so a missing handler crashes the
 //      Combobox at runtime.
+//   4) optionsQuery (if set) names a registered query handler.
 function validateReferenceTarget(
   entityName: string,
   fieldPath: string,
   refString: string,
   labelField: string | undefined,
+  optionsQuery: string | undefined,
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
 ): void {
   const target = parseRefTarget(refString, feature.name);
   const targetFeature = featureMap.get(target.featureName);
@@ -489,6 +493,40 @@ function validateReferenceTarget(
         `different label/entity.`,
     );
   }
+  // The check above still applies when optionsQuery is set: optionsQuery only
+  // replaces the picker's option list, while list cells keep resolving the
+  // UUID through `<targetFeature>:query:<targetEntity>:list`
+  // (use-reference-lookup).
+  validateReferenceOptionsQuery(entityName, fieldPath, optionsQuery, feature, queryHandlers);
+}
+
+// fw#2780: the picker may source its options from a query handler instead of
+// the referenced entity's table. A typo'd QN would only surface as a 404 on
+// first Combobox open, so it is pinned at boot — same treatment as
+// `DashboardFilterDefinition.optionsQuery` (boot-validator/query-refs.ts).
+function validateReferenceOptionsQuery(
+  entityName: string,
+  fieldPath: string,
+  optionsQuery: string | undefined,
+  feature: FeatureDefinition,
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+): void {
+  // skip: a field without optionsQuery keeps the entity-table option source.
+  if (optionsQuery === undefined) return;
+  if (optionsQuery.length === 0) {
+    throw new Error(
+      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+        `has an empty optionsQuery. Drop the property or name a query handler.`,
+    );
+  }
+  if (!queryHandlers.has(optionsQuery)) {
+    throw new Error(
+      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" ` +
+        `declares optionsQuery "${optionsQuery}" which is not a registered query-handler. ` +
+        `Check the QN spelling (expected "<feature>:query:<short>") and that the handler ` +
+        `is declared via r.queryHandler(...).`,
+    );
+  }
 }
 
 // Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef validation for top-level
@@ -498,6 +536,7 @@ function validateReferenceTarget(
 export function validateReferenceFields(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
 ): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
@@ -507,8 +546,10 @@ export function validateReferenceFields(
         fieldName,
         field.entity,
         field.labelField,
+        field.optionsQuery,
         feature,
         featureMap,
+        queryHandlers,
       );
     }
   }
@@ -517,6 +558,7 @@ export function validateReferenceFields(
 export function validateEmbeddedFields(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
 ): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
@@ -554,8 +596,10 @@ export function validateEmbeddedFields(
             `${fieldName}.${subName}`,
             subField.entity,
             subField.labelField,
+            subField.optionsQuery,
             feature,
             featureMap,
+            queryHandlers,
           );
         }
       }

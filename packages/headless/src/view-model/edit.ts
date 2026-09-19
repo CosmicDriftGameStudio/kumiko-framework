@@ -52,6 +52,7 @@ type EmbeddedSubFieldShape = {
   readonly options?: readonly string[];
   readonly entity?: string;
   readonly labelField?: string;
+  readonly optionsQuery?: string;
   readonly scale?: number;
 };
 
@@ -283,13 +284,17 @@ export function computeEditViewModel<
           : fieldDef.type === "reference"
             ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
             : undefined;
-      // Declared reference metadata has no `multiple` concept (it targets
-      // row-meta/derived fields, always single-valued) — only a real
-      // ReferenceFieldDef carries it.
-      const refMultiple =
+      // Declared reference metadata has no `multiple` or `optionsQuery`
+      // concept (it targets row-meta/derived fields, always single-valued and
+      // resolved through the target entity) — only a real ReferenceFieldDef
+      // carries them.
+      const ownReferenceDef =
         declaredRefTarget === undefined && fieldDef.type === "reference"
-          ? ((fieldDef as unknown as { multiple?: boolean }).multiple ?? false)
+          ? (fieldDef as unknown as { multiple?: boolean; optionsQuery?: string })
           : undefined;
+      const refOptionsQuery = ownReferenceDef?.optionsQuery;
+      const refMultiple =
+        ownReferenceDef === undefined ? undefined : (ownReferenceDef.multiple ?? false);
       // file/image: accept/maxSize ins ViewModel + entityType/fieldName für
       // den Upload-POST (Endpoint validiert gegen die richtige Field-Def).
       const isFileType =
@@ -356,9 +361,10 @@ export function computeEditViewModel<
                       cellOptions,
                     )
                   : undefined;
+              const cellRef = subField.type === "reference" ? subField : undefined;
               const cellRefTarget =
-                subField.type === "reference" && subField.entity !== undefined
-                  ? parseRefTarget(subField.entity, featureName)
+                cellRef?.entity !== undefined
+                  ? parseRefTarget(cellRef.entity, featureName)
                   : undefined;
               const cell: EmbeddedListCellViewModel = {
                 field: subFieldName,
@@ -369,8 +375,10 @@ export function computeEditViewModel<
                 ...(cellOptionLabels !== undefined && { optionLabels: cellOptionLabels }),
                 ...(cellRefTarget !== undefined && { refEntity: cellRefTarget.entityName }),
                 ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
-                ...(subField.type === "reference" &&
-                  subField.labelField !== undefined && { refLabelField: subField.labelField }),
+                ...(cellRef?.labelField !== undefined && { refLabelField: cellRef.labelField }),
+                ...(cellRef?.optionsQuery !== undefined && {
+                  refOptionsQuery: cellRef.optionsQuery,
+                }),
                 ...(subField.type === "decimal" &&
                   subField.scale !== undefined && { scale: subField.scale }),
               };
@@ -401,6 +409,7 @@ export function computeEditViewModel<
         ...(refEntity !== undefined && { refEntity }),
         ...(refFeature !== undefined && { refFeature }),
         ...(refLabelField !== undefined && { refLabelField }),
+        ...(refOptionsQuery !== undefined && { refOptionsQuery }),
         ...(refMultiple !== undefined && { refMultiple }),
         ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
         ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),

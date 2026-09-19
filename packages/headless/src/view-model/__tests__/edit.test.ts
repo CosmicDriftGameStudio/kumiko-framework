@@ -424,6 +424,31 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
       refFeature: "orders",
       refLabelField: "name",
     });
+    expect(byField["product"]?.refOptionsQuery).toBeUndefined();
+  });
+
+  test("a reference sub-field's optionsQuery reaches the cell view-model (fw#2780)", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity({
+        schema: {
+          ...lineFieldSchema,
+          product: {
+            type: "reference",
+            entity: "product",
+            labelField: "name",
+            optionsQuery: "orders:query:product:options",
+          },
+        },
+      }),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+
+    const cells = asFields(vm.sections[0]).fields[0]?.embeddedListCells;
+    const product = (cells ?? []).find((cell) => cell.field === "product");
+    expect(product?.refOptionsQuery).toBe("orders:query:product:options");
   });
 
   test("minItems/maxItems/derived/totals pass through onto the field view-model when set", () => {
@@ -718,6 +743,34 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
       refLabelField: "displayName",
     });
     expect(field?.refMultiple).toBeUndefined();
+  });
+
+  test("a reference field's optionsQuery reaches the field view-model, labelField untouched (fw#2780)", () => {
+    const entity = {
+      fields: {
+        leaseId: {
+          type: "reference",
+          entity: "lease",
+          labelField: "startDate",
+          optionsQuery: "deposits:query:lease:options",
+        },
+      },
+    } as unknown as EntityDefinition;
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ fields: ["leaseId"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "deposits",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field).toMatchObject({
+      type: "reference",
+      refEntity: "lease",
+      refLabelField: "startDate",
+      refOptionsQuery: "deposits:query:lease:options",
+    });
   });
 
   test("non-regression: a projectionDetail field without refEntity metadata stays 'text', unchanged (fw#2662)", () => {

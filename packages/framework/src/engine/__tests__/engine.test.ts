@@ -909,6 +909,45 @@ describe("createRegistry", () => {
     ]);
   });
 
+  test("optionsQuery leaves searchable/sortable on the labelField column (fw#2780)", () => {
+    const feature = defineFeature("crm", (r) => {
+      r.entity(
+        "customer",
+        createEntity({
+          table: "Customers",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.queryHandler("customer:options", z.object({}), async () => [], {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.entity(
+        "order",
+        createEntity({
+          table: "Orders",
+          fields: {
+            customerId: {
+              type: "reference",
+              entity: "customer",
+              labelField: "name",
+              optionsQuery: "crm:query:customer:options",
+              searchable: true,
+              sortable: true,
+            },
+          },
+        }),
+      );
+    });
+
+    const registry = createRegistry([feature]);
+    expect(registry.getSortableReferences("order")).toEqual([
+      { fieldName: "customerId", targetEntityName: "customer", labelField: "name" },
+    ]);
+    expect(registry.getSearchableReferences("order")).toEqual([
+      { fieldName: "customerId", targetEntityName: "customer", labelField: "name" },
+    ]);
+  });
+
   test("throws at boot when a sortable reference field has no explicit labelField (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
       r.entity(

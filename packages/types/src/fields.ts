@@ -513,6 +513,25 @@ export type ReferenceFieldDef = {
    *  boot validator rejects it otherwise, since ordering by a UUID produces a
    *  sequence that looks meaningful to the user but is arbitrary. */
   readonly sortable?: true;
+  /** Fill the picker from this query handler instead of the referenced
+   *  entity's own list handler (fw#2780) — for targets whose identity is
+   *  composed from joined rows, where no single column of the referenced
+   *  entity is a readable label. Fully-qualified QN
+   *  ("<feature>:query:<short>"), boot-validated against the registered
+   *  handlers; result contract `{ rows: { id, label }[] }`, called with
+   *  `{ limit, search? }` like the default list handler. `id` rather than the
+   *  `{ value, label }` of `DashboardFilterDefinition.optionsQuery`, because
+   *  the stored value here IS the referenced row's id.
+   *
+   *  Additive to `labelField`, which keeps serving the paths a query handler
+   *  cannot back: list cells, `searchable` and `sortable` all resolve to an
+   *  SQL column on the referenced table.
+   *
+   *  The handler must return the row for an id that is already stored, even
+   *  when it otherwise curates its result (say, to active records only) —
+   *  the read-only display resolves a stored value against these rows and
+   *  falls back to the raw id for one it does not find. */
+  readonly optionsQuery?: string;
 } & ResolvedPiiFlags;
 
 // --- Currency ---
@@ -568,6 +587,8 @@ export type EmbeddedSubFieldDef =
       readonly type: "reference";
       readonly entity: string;
       readonly labelField?: string;
+      /** Same contract as `ReferenceFieldDef.optionsQuery` (fw#2780). */
+      readonly optionsQuery?: string;
     });
 
 /** A cell computed from other cells of the same row. `from` names the

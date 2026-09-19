@@ -52,6 +52,7 @@ import { collectClaimKeys, validateOwnershipRules } from "./ownership";
 import { validateParentRefs } from "./parent-ref";
 import { validatePiiAndRetention } from "./pii-retention";
 import {
+  buildQueryHandlerMap,
   validateProjectionListScreens,
   validateRelatedListSectionQueries,
 } from "./projection-list-screens";
@@ -187,6 +188,10 @@ export function validateBoot(
     }
   }
 
+  // Registered query-handler QNs, built once for the per-feature reference
+  // checks below (a reference field's `optionsQuery` may target any feature).
+  const queryHandlerQns = buildQueryHandlerMap(features);
+
   let hasEncryptedFields = false;
   let hasFileFields = false;
 
@@ -197,10 +202,10 @@ export function validateBoot(
     validatePiiAndRetention(feature);
     validateRecordOwnedSubjects(feature);
     validateApiExposureMatching(feature, allExposedApis, featureMap);
-    validateEmbeddedFields(feature, featureMap);
+    validateEmbeddedFields(feature, featureMap, queryHandlerQns);
     validateMultiSelectFields(feature);
     validateImageVariants(feature);
-    validateReferenceFields(feature, featureMap);
+    validateReferenceFields(feature, featureMap, queryHandlerQns);
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
