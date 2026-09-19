@@ -259,8 +259,10 @@ export async function assertNoBlindIndexLoss(
   meta: EntityTableMeta,
   projectionName: string,
 ): Promise<void> {
+  // skip: a key is configured — the replay recomputes every bidx column with it
   if (configuredBlindIndexKey() !== undefined) return;
   const bidxCols = meta.columns.filter((c) => c.name.endsWith("_bidx"));
+  // skip: no blind-index column on this table — nothing the rebuild could lose
   if (bidxCols.length === 0) return;
   const t = quoteTableIdent(tableName);
   const raw = asRawClient(tx);
