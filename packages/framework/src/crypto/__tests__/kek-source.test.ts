@@ -95,9 +95,51 @@ describe("resolvePlatformKeks", () => {
 
   test("throws without the token in the message when a ciphertext has no token", async () => {
     const { fetch } = trackedFetch([]);
-    const env: KekSourceEnv = { PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A, PLATFORM_KEK_KMS_KEY_ID: "key-1" };
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: undefined,
+    };
 
     await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/all-or-none/);
+    await expect(resolvePlatformKeks(env, { fetch })).rejects.not.toThrow(new RegExp(TOKEN));
+  });
+
+  test("retries a network failure and succeeds on the next attempt", async () => {
+    const calls: string[] = [];
+    let attempt = 0;
+    const fetch = (async (url: string | URL) => {
+      calls.push(String(url));
+      attempt++;
+      if (attempt === 1) throw new TypeError("fetch failed");
+      return jsonResponse(200, { plaintext: PLAINTEXT_A });
+    }) as typeof globalThis.fetch;
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    const result = await resolvePlatformKeks(env, { fetch });
+
+    expect(result.PLATFORM_KEK).toBe(PLAINTEXT_A);
+    expect(calls.length).toBe(2);
+  });
+
+  test("gives up after the last attempt when every call fails at the network level", async () => {
+    const calls: string[] = [];
+    const fetch = (async (url: string | URL): Promise<Response> => {
+      calls.push(String(url));
+      throw new TypeError("fetch failed");
+    }) as typeof globalThis.fetch;
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/network error or timeout/);
+    expect(calls.length).toBe(3);
   });
 
   test("rejects a previous ciphertext with no previous version", async () => {
