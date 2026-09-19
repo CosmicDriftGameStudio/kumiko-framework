@@ -1,4 +1,10 @@
-import { fetchOne, insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  deleteMany,
+  fetchOne,
+  insertMany,
+  insertOne,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
@@ -8,12 +14,18 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
+import type {
+  JobLogEntry,
+  JobMeta,
+  JobOutcomeMeta,
+  JobRunnerOptions,
+} from "@cosmicdrift/kumiko-framework/jobs";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { mapWithConcurrency } from "../shared";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { parseJobInstant } from "./job-instant";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
+import { tenantJobFailuresTable } from "./tenant-job-failure-table";
 
 // Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
 // bounds concurrent getOrCreateDek calls so a large log batch doesn't claim
@@ -138,6 +150,54 @@ async function encryptStartedPayload(
   return encryptOrSentinel(kms, triggeredById, payload, "payload");
 }
 
+// fw#3079 — which row the tenant-visible failure record lives in: one per
+// (tenant, job, subject), so the next outcome of the same work replaces or
+// clears it. `subject` is null for a job that declares no subjectFields.
+// Null target = nothing to write or clear: the job did not opt in, the run
+// was tenant-less (cron resolves to SYSTEM_TENANT_ID, where no tenant-scoped
+// query could ever read the row), or the caller predates fw#3079 and passes
+// no outcome at all.
+function tenantJobFailureTarget(
+  jobName: string,
+  outcome: JobOutcomeMeta | undefined,
+): Record<string, unknown> | null {
+  if (!outcome?.tenantVisible || outcome.tenantId === SYSTEM_TENANT_ID) return null;
+  return { tenantId: outcome.tenantId, jobName, subject: outcome.tenantVisible.subject };
+}
+
+async function recordTenantJobFailure(
+  db: DbConnection,
+  jobName: string,
+  outcome: JobOutcomeMeta | undefined,
+): Promise<void> {
+  const where = tenantJobFailureTarget(jobName, outcome);
+  const messageKey = outcome?.tenantVisible?.messageKey;
+  // skip: no tenant-visible target, or an attempt BullMQ may still retry — a
+  // non-final failure must not show the tenant a failure the next attempt
+  // may still resolve.
+  if (!where || !messageKey || outcome?.finalAttempt !== true) return;
+  // ponytail: delete-then-insert instead of an upsert — two runs of the same
+  // key finishing at once can leave two rows, and the query returns the
+  // newest. Add a unique index + ON CONFLICT if that ever matters.
+  await deleteMany(db, tenantJobFailuresTable, where);
+  await insertOne(db, tenantJobFailuresTable, {
+    ...where,
+    messageKey,
+    failedAt: Temporal.Now.instant(),
+  });
+}
+
+async function clearTenantJobFailure(
+  db: DbConnection,
+  jobName: string,
+  outcome: JobOutcomeMeta | undefined,
+): Promise<void> {
+  const where = tenantJobFailureTarget(jobName, outcome);
+  // skip: no tenant-visible target — nothing was ever recorded
+  if (!where) return;
+  await deleteMany(db, tenantJobFailuresTable, where);
+}
+
 export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
   const { db } = opts;
 
@@ -241,11 +301,16 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     },
 
     onJobComplete: async (
-      _jobName: string,
+      jobName: string,
       bullJobId: string,
       duration: number,
       logs: JobLogEntry[],
+      outcome?: JobOutcomeMeta,
     ) => {
+      // Before the run-row write and independent of it: a successful run
+      // clears the tenant's failure record even when the run row itself is
+      // unreachable (the state-loss return below).
+      await clearTenantJobFailure(db, jobName, outcome);
       const resolved = await resolveRun(bullJobId);
       // skip: state loss between start + complete (worker restart, cache
       // evicted AND DB has no matching bull_job_id). Rare edge case; we
@@ -297,11 +362,15 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     },
 
     onJobFailed: async (
-      _jobName: string,
+      jobName: string,
       bullJobId: string,
       error: string,
       logs: JobLogEntry[],
+      outcome?: JobOutcomeMeta,
     ) => {
+      // Mirror of onJobComplete: recorded independently of the run row, so a
+      // tenant still learns their job failed if the row is unreachable.
+      await recordTenantJobFailure(db, jobName, outcome);
       const resolved = await resolveRun(bullJobId);
       // skip: same rare state-loss case as in onJobComplete — drop the
       // failure write rather than forge a run row from scratch.

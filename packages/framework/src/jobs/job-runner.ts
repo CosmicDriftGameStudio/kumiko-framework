@@ -18,6 +18,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "../engine/types";
+import { isKumikoError } from "../errors/kumiko-error";
 import { createFileContext } from "../files/file-handle";
 import { createFallbackLogger } from "../logging";
 import type { Logger } from "../logging/types";
@@ -140,6 +141,55 @@ export type JobMeta = {
   priority?: number | undefined;
 };
 
+// What a finished run tells the run-logger about the tenant-visible failure
+// record (`JobDefinition.tenantVisibleFailure`). `tenantVisible` is set only
+// when the job opted in; `messageKey` is null on the success path, where the
+// record is cleared rather than written.
+export type JobOutcomeMeta = {
+  readonly tenantId: string;
+  readonly finalAttempt: boolean;
+  readonly tenantVisible?:
+    | { readonly subject: string | null; readonly messageKey: string | null }
+    | undefined;
+};
+
+// Stable identity for the declared payload fields: sorted keys, so two runs
+// with the same subject values produce the same string and the later one
+// replaces the earlier record. Non-primitives would serialize into something
+// no caller can reconstruct for a lookup, so they fail the run loudly.
+function jobSubjectKey(
+  jobName: string,
+  payload: Record<string, unknown>,
+  fields: readonly string[] | undefined,
+): string | null {
+  if (fields === undefined || fields.length === 0) return null;
+  const entries: [string, string | number | boolean | null][] = [];
+  for (const field of [...fields].sort()) {
+    const value = payload[field] ?? null;
+    if (value !== null && typeof value === "object") {
+      throw new Error(
+        `Job "${jobName}": tenantVisibleFailure.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
+      );
+    }
+    entries.push([field, value as string | number | boolean | null]);
+  }
+  return JSON.stringify(entries);
+}
+
+// Only a translation key ever travels to the tenant: the thrown error's own
+// i18nKey when it carries one, otherwise the key declared at the job. The
+// error message itself can echo provider or payload content and stays on the
+// run row and in the run log.
+function tenantFailureMessageKey(
+  err: unknown,
+  declaration: JobDefinition["tenantVisibleFailure"],
+): string | null {
+  // skip: job did not opt in — nothing tenant-visible to record
+  if (!declaration) return null;
+  if (isKumikoError(err) && err.i18nKey.length > 0) return err.i18nKey;
+  return declaration.messageKey;
+}
+
 export type JobRunner = {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -177,8 +227,20 @@ export type JobRunnerOptions = {
   bootRedisTimeoutMs?: number | undefined;
   getActiveTenantIds?: () => Promise<TenantId[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
-  onJobComplete?: (jobName: string, jobId: string, duration: number, logs: JobLogEntry[]) => void;
-  onJobFailed?: (jobName: string, jobId: string, error: string, logs: JobLogEntry[]) => void;
+  onJobComplete?: (
+    jobName: string,
+    jobId: string,
+    duration: number,
+    logs: JobLogEntry[],
+    outcome?: JobOutcomeMeta,
+  ) => void;
+  onJobFailed?: (
+    jobName: string,
+    jobId: string,
+    error: string,
+    logs: JobLogEntry[],
+    outcome?: JobOutcomeMeta,
+  ) => void;
 };
 
 // Serialized trace context lives under this key in the BullMQ job data.
@@ -528,6 +590,24 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       SYSTEM_TENANT_ID;
     const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null; // @cast-boundary dynamic-key
 
+    // Tenant-visible failure record (JobDefinition.tenantVisibleFailure). The
+    // subject is read from the handler payload, so it is resolved here where
+    // the payload is built, not in the callbacks.
+    const tenantVisibleDecl = jobDef.tenantVisibleFailure;
+    const tenantVisibleSubject = tenantVisibleDecl
+      ? jobSubjectKey(jobName, payload, tenantVisibleDecl.subjectFields)
+      : null;
+    // BullMQ stops retrying once attemptsMade reaches the configured attempts
+    // (`retries + 1`), so this is the attempt whose failure is final.
+    const finalAttempt = bullJob.attemptsMade + 1 >= (jobDef.retries ?? 0) + 1;
+    const outcomeMeta = (messageKey: string | null): JobOutcomeMeta => ({
+      tenantId,
+      finalAttempt,
+      ...(tenantVisibleDecl && {
+        tenantVisible: { subject: tenantVisibleSubject, messageKey },
+      }),
+    });
+
     // Carry `_triggerName` from rawData when set — handleEvent injects it on
     // multi-trigger dispatch; exposed as jobContext.triggerName so handlers
     // don't dig through the raw payload themselves.
@@ -681,11 +761,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // make a run that actually succeeded look dead to the liveness alert.
         if (context.meter) emitJobLastSuccess(context.meter, jobName);
         const duration = Date.now() - startTime;
-        await options.onJobComplete?.(jobName, jobId, duration, logs);
+        await options.onJobComplete?.(jobName, jobId, duration, logs, outcomeMeta(null));
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         logs.push({ level: "error", message: errorMsg, timestamp: Temporal.Now.instant() });
-        await options.onJobFailed?.(jobName, jobId, errorMsg, logs);
+        await options.onJobFailed?.(
+          jobName,
+          jobId,
+          errorMsg,
+          logs,
+          outcomeMeta(tenantFailureMessageKey(err, tenantVisibleDecl)),
+        );
         throw err;
       }
     };
