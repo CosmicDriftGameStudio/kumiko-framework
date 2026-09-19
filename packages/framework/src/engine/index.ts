@@ -266,6 +266,7 @@ export {
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
+  sectionFieldSpecs,
 } from "./screen-helpers";
 export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";

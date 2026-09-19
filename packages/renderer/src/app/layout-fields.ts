@@ -2,7 +2,11 @@ import type {
   EditFieldSpec,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isFieldsEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  isFieldsEditSection,
+  normalizeEditField,
+  sectionFieldSpecs,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Normalized field specs actually rendered by the screen's layout, extension
 // (and relatedList) sections skipped. Both this and `layoutFieldNames` key
@@ -15,7 +19,7 @@ export function layoutEditFields(
   const specs: Exclude<EditFieldSpec, string>[] = [];
   for (const section of screen.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
-    for (const spec of section.fields) {
+    for (const spec of sectionFieldSpecs(section)) {
       specs.push(normalizeEditField(spec));
     }
   }

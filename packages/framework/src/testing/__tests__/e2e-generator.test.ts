@@ -97,6 +97,56 @@ describe("generateE2ESpec", () => {
     ]);
   });
 
+  test("groups-only sections liefern Required-Felder, Fill-Ops und Text-Assertion", () => {
+    const feature = defineFeature("tasks", (r) => {
+      r.systemScope();
+      r.entity("task", taskEntity);
+      r.writeHandler(
+        defineEntityCreateHandler("task", taskEntity, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        }),
+      );
+      r.screen({
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title", "status", "done"],
+      });
+      r.screen({
+        id: "task-edit",
+        type: "entityEdit",
+        entity: "task",
+        layout: {
+          sections: [
+            {
+              title: "tasks:section.basics",
+              fields: [],
+              groups: [
+                { title: "tasks:group.core", fields: ["title", "status"] },
+                { title: "tasks:group.state", fields: ["done"] },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    const specs = generateE2ESpec(createRegistry([feature]));
+    const editSpecs = specs.filter((s) => s.screenQn === "tasks:screen:task-edit");
+
+    const validates = editSpecs.find((s) => s.kind === "edit-validates-required");
+    if (validates?.kind !== "edit-validates-required") throw new Error("unreachable");
+    expect(validates.requiredFields).toEqual(["title"]);
+
+    const persists = editSpecs.find((s) => s.kind === "edit-save-persists");
+    if (persists?.kind !== "edit-save-persists") throw new Error("unreachable");
+    expect(persists.fills).toEqual([
+      { kind: "fill", field: "title", value: "e2e title" },
+      { kind: "select", field: "status", value: "todo" },
+      { kind: "check", field: "done", value: true },
+    ]);
+    expect(persists.identifyingField).toBe("title");
+  });
+
   test("date emittiert fill, timestamp wird übersprungen (zwei Inputs seit #369)", () => {
     const entity = createEntity({
       table: "events",

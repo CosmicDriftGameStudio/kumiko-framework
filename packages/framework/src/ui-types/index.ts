@@ -25,6 +25,7 @@ export type { DerivedCellRoundingTarget } from "../engine/embedded-derived";
 export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived";
 export type { ParsedRefTarget } from "../engine/parse-ref-target";
 export { parseRefTarget } from "../engine/parse-ref-target";
+export type { FieldsOrGroupsSection } from "../engine/screen-helpers";
 export {
   evalFieldCondition,
   explicitListScreenId,
@@ -35,6 +36,7 @@ export {
   normalizeEditField,
   normalizeListColumn,
   resolveNavParentScreen,
+  sectionFieldSpecs,
 } from "../engine/screen-helpers";
 // Entity + field types. EntityDefinition is the canonical shape that
 // view-model builders iterate; FieldDefinition is the per-field union

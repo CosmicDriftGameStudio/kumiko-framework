@@ -36,6 +36,7 @@ import {
   parseQn,
   qn,
   type Registry,
+  sectionFieldSpecs,
   toKebab,
 } from "../engine";
 
@@ -249,7 +250,7 @@ function collectRequiredEditFields(
   const out: string[] = [];
   for (const section of screen.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
-    for (const rawField of section.fields) {
+    for (const rawField of sectionFieldSpecs(section)) {
       const { field } = normalizeEditField(rawField);
       const def = entity.fields[field];
       if (def && "required" in def && def.required === true) {
@@ -287,7 +288,7 @@ function buildEditFillOps(
   const ops: EditFillOp[] = [];
   for (const section of screen.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
-    for (const raw of section.fields) {
+    for (const raw of sectionFieldSpecs(section)) {
       const { field } = normalizeEditField(raw);
       const def = entity.fields[field];
       if (!def) continue;
@@ -335,7 +336,7 @@ function pickIdentifyingForEdit(
 
   for (const section of editScreen.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
-    for (const rawField of section.fields) {
+    for (const rawField of sectionFieldSpecs(section)) {
       const { field } = normalizeEditField(rawField);
       if (entity.fields[field]?.type !== "text") continue;
       if (columns && !columns.has(field)) continue;
