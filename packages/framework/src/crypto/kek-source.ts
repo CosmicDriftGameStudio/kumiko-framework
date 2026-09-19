@@ -23,6 +23,8 @@ export type KekSourceEnv = {
 export type KekSourceOptions = {
   readonly fetch?: typeof globalThis.fetch;
   readonly logPrefix?: string;
+  /** Where the boot line naming the KEK source goes. Defaults to `console.info`. */
+  readonly log?: (message: string) => void;
 };
 
 function isRetryableStatus(status: number): boolean {
@@ -116,6 +118,25 @@ async function resolveSlot(
   return decryptCiphertext(ciphertext, keyId, token, region, fetchImpl, options.logPrefix);
 }
 
+// A leftover plaintext beside a ciphertext boots green while nothing was
+// migrated, which is indistinguishable from a finished cutover unless the
+// boot says which source won. Never carries a key value, only its origin.
+function describeKekSource(
+  name: string,
+  plaintext: string | undefined,
+  ciphertext: string | undefined,
+  env: KekSourceEnv,
+): string | undefined {
+  if (plaintext) {
+    return ciphertext
+      ? `${name} source=plaintext-env (ciphertext present and ignored)`
+      : `${name} source=plaintext-env`;
+  }
+  if (!ciphertext) return undefined;
+  const region = env.PLATFORM_KEK_KMS_REGION ?? DEFAULT_REGION;
+  return `${name} source=key-manager keyId=${env.PLATFORM_KEK_KMS_KEY_ID} region=${region}`;
+}
+
 // Each slot resolves independently so a rollback that clears one slot's
 // plaintext (leaving its ciphertext/_VERSION behind or gone) never blocks the
 // other slot's fallback path — the trio check downstream still applies.
@@ -140,8 +161,22 @@ export async function resolvePlatformKeks(
     fetchImpl,
   );
 
+  const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
+  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
+  const log = options.log ?? console.info;
+  for (const line of [
+    describeKekSource("PLATFORM_KEK", env.PLATFORM_KEK, env.PLATFORM_KEK_CIPHERTEXT, env),
+    describeKekSource(
+      "PLATFORM_KEK_PREVIOUS",
+      env.PLATFORM_KEK_PREVIOUS,
+      env.PLATFORM_KEK_PREVIOUS_CIPHERTEXT,
+      env,
+    ),
+  ]) {
+    if (line) log(`${prefix}${line}`);
+  }
+
   if (previous && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
-    const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
     throw new Error(
       `${prefix}PLATFORM_KEK_PREVIOUS_VERSION must be set when PLATFORM_KEK_PREVIOUS is set.`,
     );
