@@ -8,7 +8,7 @@ Export `Icon` and `NavIconKey` from the package root so consumers can render a d
 
 <!-- kumiko-changes
 feature: renderer-web
-type: feat
+type: improvement
 title: Export Icon and NavIconKey from the package root
 -->
 
