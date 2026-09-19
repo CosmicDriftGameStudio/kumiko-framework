@@ -1,29 +1,9 @@
 {
   "format": 1,
-  "generated": "2026-09-12",
-  "total": 54,
+  "generated": "2026-09-19",
+  "total": 2,
   "perFile": {
-    "packages/framework/src/__tests__/field-access.integration.test.ts": 3,
-    "packages/framework/src/__tests__/ownership-where-write-path.integration.test.ts": 1,
-    "packages/framework/src/__tests__/ownership.integration.test.ts": 1,
-    "packages/framework/src/crypto/__tests__/blind-index.test.ts": 1,
-    "packages/framework/src/crypto/__tests__/pii-field-encryption.test.ts": 2,
-    "packages/framework/src/crypto/__tests__/subject-resolver.test.ts": 2,
-    "packages/framework/src/db/__tests__/blind-index.integration.test.ts": 1,
-    "packages/framework/src/db/__tests__/eagerload.integration.test.ts": 2,
-    "packages/framework/src/db/__tests__/entity-field-encryption.test.ts": 2,
-    "packages/framework/src/db/__tests__/event-store-executor-context.pii-roundtrip.test.ts": 1,
-    "packages/framework/src/db/__tests__/event-store-executor-money-rehydrate.integration.test.ts": 2,
-    "packages/framework/src/db/__tests__/event-store-executor-write-verbs.integration.test.ts": 2,
-    "packages/framework/src/db/__tests__/event-store-executor.integration.test.ts": 5,
-    "packages/framework/src/db/__tests__/list-filter-field-access.integration.test.ts": 4,
-    "packages/framework/src/engine/__tests__/boot-validator-boot-check.test.ts": 1,
-    "packages/framework/src/engine/__tests__/boot-validator-pii-retention.test.ts": 15,
-    "packages/framework/src/engine/__tests__/entity-presave-wiring.integration.test.ts": 2,
-    "packages/framework/src/engine/__tests__/factories-long-text.test.ts": 2,
-    "packages/framework/src/engine/__tests__/factories-personal.test.ts": 1,
-    "packages/framework/src/engine/boot-validator/__tests__/record-owned.test.ts": 1,
-    "packages/framework/src/event-store/__tests__/backfill-pii.integration.test.ts": 2,
-    "packages/framework/src/stack/__tests__/ownership-boot-guard.integration.test.ts": 1
+    "packages/framework/src/engine/__tests__/factories-long-text.test.ts": 1,
+    "packages/framework/src/engine/__tests__/factories-personal.test.ts": 1
   }
 }

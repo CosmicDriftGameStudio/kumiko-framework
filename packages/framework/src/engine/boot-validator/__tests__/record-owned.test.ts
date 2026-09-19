@@ -7,8 +7,18 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature } from "../../define-feature";
 import { createEntity, createTextField } from "../../factories";
-import type { FeatureDefinition } from "../../types";
+import type { FeatureDefinition, TextFieldDef } from "../../types";
 import { validateRecordOwnedSubjects } from "../record-owned";
+
+// Presence/absence of the annotation is the test variable here; after #2810
+// the factory can no longer produce the unannotated shape.
+const unannotatedText: TextFieldDef = {
+  type: "text",
+  maxLength: 200,
+  required: false,
+  searchable: false,
+  sortable: false,
+};
 
 function featureWith(
   idType: "serial" | "uuid" | undefined,
@@ -23,7 +33,7 @@ function featureWith(
         fields: {
           body: withRecordOwnedField
             ? createTextField({ personal: { of: "id" }, find: "none" })
-            : createTextField(),
+            : { ...unannotatedText },
         },
       }),
     );

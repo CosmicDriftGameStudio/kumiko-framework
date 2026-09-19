@@ -11,7 +11,7 @@ import {
 const userLikeEntity = createEntity({
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
-    role: createTextField(),
+    role: createTextField({ personal: false, reason: "test_fixture" }),
   },
   table: "resolver_users",
   idType: "uuid",
@@ -23,7 +23,7 @@ const commentEntity = createEntity({
       personal: { of: "authorId" },
       find: "none",
     }),
-    authorId: createTextField({ required: true }),
+    authorId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   table: "resolver_comments",
 });

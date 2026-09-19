@@ -25,7 +25,7 @@ const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);
 const userLikeEntity = createEntity({
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
-    role: createTextField(),
+    role: createTextField({ personal: false, reason: "test_fixture" }),
   },
   table: "bidx_users",
 });

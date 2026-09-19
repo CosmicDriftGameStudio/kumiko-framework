@@ -13,8 +13,8 @@ describe("entity-field-encryption", () => {
   const entity = createEntity({
     table: "read_enc_test",
     fields: {
-      email: createTextField({ required: true }),
-      secretNote: createTextField({ encrypted: true }),
+      email: createTextField({ personal: false, reason: "test_fixture", required: true }),
+      secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
     },
   });
   const encryptedFields = collectEncryptedFieldNames(entity);

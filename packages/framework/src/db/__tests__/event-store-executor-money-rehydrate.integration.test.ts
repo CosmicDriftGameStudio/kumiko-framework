@@ -34,9 +34,14 @@ const cipher = createTestEnvelopeCipher(TEST_KEY);
 const entity = createEntity({
   table: "read_money_orders",
   fields: {
-    ownerId: createTextField({ required: true }),
+    ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     grossTotal: createMoneyField(),
-    billingIban: createTextField({ required: true, encrypted: true }),
+    billingIban: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      encrypted: true,
+    }),
   },
   // A non-"all" read rule forces buildOwnershipClause into the
   // ownership.kind==="sql" raw-SQL branch that list()/detail() read through.

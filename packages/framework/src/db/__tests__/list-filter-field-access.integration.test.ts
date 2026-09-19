@@ -17,14 +17,18 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 const filterNoteEntity = createEntity({
   table: "fa_filter_notes",
   fields: {
-    title: createTextField({ required: true }),
-    ownerId: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     secret: createTextField({
+      personal: false,
+      reason: "test_fixture",
       filterable: true,
       sortable: true,
       access: { read: { Admin: "all" } },
     }),
     ownedNote: createTextField({
+      personal: false,
+      reason: "test_fixture",
       filterable: true,
       access: { read: { Admin: "all", User: from("user:id", "ownerId") } },
     }),

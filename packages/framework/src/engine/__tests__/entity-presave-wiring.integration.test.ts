@@ -20,8 +20,12 @@ const contactEntity = createEntity({
     // hook) writes it. secretNote's ownership rule checks authorId, so
     // create only succeeds if the hook ran BEFORE the field-ownership check
     // (kumiko-framework#1672 — see also event-store-executor-write.ts).
-    authorId: createTextField(),
-    secretNote: createTextField({ access: { write: { User: from("user:id", "authorId") } } }),
+    authorId: createTextField({ personal: false, reason: "test_fixture" }),
+    secretNote: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      access: { write: { User: from("user:id", "authorId") } },
+    }),
   },
 });
 

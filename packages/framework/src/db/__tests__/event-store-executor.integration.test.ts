@@ -139,8 +139,18 @@ const sensitiveEntity = createEntity({
   table: "read_es_exec_sensitive",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
-    passwordHash: createTextField({ sensitive: true, encrypted: true }),
-    apiToken: createTextField({ sensitive: true, encrypted: true }),
+    passwordHash: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      sensitive: true,
+      encrypted: true,
+    }),
+    apiToken: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      sensitive: true,
+      encrypted: true,
+    }),
   },
   softDelete: true,
 });
@@ -343,7 +353,7 @@ const encryptedEntity = createEntity({
   table: "read_es_exec_encrypted",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
-    secretNote: createTextField({ encrypted: true }),
+    secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
 });
 const encryptedTable = buildEntityTable("esExecEncrypted", encryptedEntity);
@@ -352,7 +362,7 @@ const encryptedSoftDeleteEntity = createEntity({
   table: "read_es_exec_enc_soft",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
-    secretNote: createTextField({ encrypted: true }),
+    secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
   softDelete: true,
 });
@@ -703,7 +713,7 @@ const piiEntity = createEntity({
       personal: { of: "authorId" },
       find: "none",
     }),
-    authorId: createTextField(),
+    authorId: createTextField({ personal: false, reason: "test_fixture" }),
     plain: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });

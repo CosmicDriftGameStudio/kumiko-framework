@@ -42,7 +42,7 @@ const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");
 const contactEntity = createEntity({
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
-    displayName: createTextField(),
+    displayName: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
 const contactTable = buildEntityTable("contact", contactEntity);
@@ -82,7 +82,7 @@ const signalsFeature = defineFeature("signals", (r) => {
 // absent from an old event's payload, unlike contact.email (self-subject via row id).
 const noteEntity = createEntity({
   fields: {
-    authorId: createTextField(),
+    authorId: createTextField({ personal: false, reason: "test_fixture" }),
     body: createTextField({ personal: { of: "authorId" }, find: "none" }),
   },
 });

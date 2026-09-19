@@ -40,6 +40,17 @@ import type { LongTextFieldDef, TextFieldDef } from "../types";
 const rawField = <T>(f: T) => f as unknown as TextFieldDef;
 const rawLongTextField = <T>(f: T) => f as unknown as LongTextFieldDef;
 
+// The heuristics under test only fire without a personal stance; after #2810
+// the factories can no longer produce that shape.
+const unannotatedText: TextFieldDef = {
+  type: "text",
+  maxLength: 200,
+  required: false,
+  searchable: false,
+  sortable: false,
+};
+const unannotatedLongText: LongTextFieldDef = { type: "longText", required: false };
+
 // Stubt einen leeren `<entity>:list`-Query-Handler damit der reference-
 // Field-Boot-Validator den Audit-Fix-#2-Check durchläßt. Wird gebraucht
 // wenn ein Test ein reference-Feld benutzt — sonst liefert der validator
@@ -136,7 +147,7 @@ describe("validateBoot — PII annotations", () => {
         createEntity({
           fields: {
             confused: rawField({
-              ...createTextField(),
+              ...unannotatedText,
               pii: true,
               tenantOwned: true,
             }),
@@ -153,7 +164,7 @@ describe("validateBoot — PII annotations", () => {
         "vault",
         createEntity({
           fields: {
-            apiToken: createTextField({ sensitive: true }),
+            apiToken: { ...unannotatedText, sensitive: true },
           },
         }),
       );
@@ -188,7 +199,7 @@ describe("validateBoot — PII annotations", () => {
           "vault",
           createEntity({
             fields: {
-              apiToken: createTextField({ sensitive: true, encrypted: true }),
+              apiToken: { ...unannotatedText, sensitive: true, encrypted: true },
             },
           }),
         );
@@ -228,7 +239,7 @@ describe("validateBoot — PII annotations", () => {
               personal: { of: "authorId" },
               find: "none",
             }),
-            authorId: createTextField(),
+            authorId: { ...unannotatedText },
           },
         }),
       );
@@ -258,7 +269,7 @@ describe("validateBoot — PII annotations", () => {
 
   test("userOwned.ownerField referencing non-user entity warns", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("employee", createEntity({ fields: { name: createTextField() } }));
+      r.entity("employee", createEntity({ fields: { name: { ...unannotatedText } } }));
       stubListHandler(r, "employee");
       r.entity(
         "personalNote",
@@ -286,7 +297,7 @@ describe("validateBoot — PII annotations", () => {
         "thing",
         createEntity({
           fields: {
-            email: createTextField(),
+            email: { ...unannotatedText },
           },
         }),
       );
@@ -304,7 +315,7 @@ describe("validateBoot — PII annotations", () => {
         "thing",
         createEntity({
           fields: {
-            body: createLongTextField(),
+            body: { ...unannotatedLongText },
           },
         }),
       );
@@ -322,7 +333,7 @@ describe("validateBoot — PII annotations", () => {
         "thing",
         createEntity({
           fields: {
-            authorId: createTextField(),
+            authorId: { ...unannotatedText },
           },
         }),
       );
@@ -563,7 +574,7 @@ describe("validateBoot — PII annotations", () => {
         "product",
         createEntity({
           fields: {
-            name: createTextField(),
+            name: { ...unannotatedText },
           },
         }),
       );
@@ -581,7 +592,7 @@ describe("validateBoot — PII annotations", () => {
         "person",
         createEntity({
           fields: {
-            displayName: createTextField(),
+            displayName: { ...unannotatedText },
           },
         }),
       );
@@ -626,7 +637,7 @@ describe("validateBoot — retention", () => {
         "auditEvent",
         createEntity({
           fields: {
-            note: createTextField(),
+            note: { ...unannotatedText },
           },
           retention: { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
         }),
@@ -641,7 +652,7 @@ describe("validateBoot — retention", () => {
         "thing",
         createEntity({
           fields: {
-            note: createTextField(),
+            note: { ...unannotatedText },
           },
           retention: { keepFor: "30d", strategy: "hardDelete", reference: "ghostField" },
         }),
@@ -852,7 +863,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         createEntity({
           fields: {
             slug: rawField({
-              ...createTextField(),
+              ...unannotatedText,
               lookupable: true,
             }),
           },
@@ -872,7 +883,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
               ...createLongTextField({ personal: { of: "ownerId" }, find: "none" }),
               lookupable: true,
             }),
-            ownerId: createTextField({ required: true }),
+            ownerId: { ...unannotatedText, required: true },
           },
         }),
       );
@@ -922,7 +933,7 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         createEntity({
           fields: {
             passwordHash: rawField({
-              ...createTextField(),
+              ...unannotatedText,
               pii: true,
               sensitive: true,
               searchable: true,
