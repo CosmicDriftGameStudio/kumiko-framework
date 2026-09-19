@@ -46,7 +46,9 @@ export function inputValueToTimestamp(raw: string, wallClock: boolean): string |
   // (ES2020+) — genau die Semantik die datetime-local liefert.
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return undefined;
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z`;
+  // Seconds are mandatory: write schemas validate offset-bearing timestamps
+  // with z.iso.datetime(), which requires `HH:mm:ssZ`.
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
 }
 
 export type TimestampInputProps = {
