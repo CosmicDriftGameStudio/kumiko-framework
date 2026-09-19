@@ -83,6 +83,23 @@ const tokenEditScreen: ScreenDefinition = {
   type: "entityEdit",
   entity: "token",
   layout: { sections: [{ fields: ["name"] }] },
+  actions: [{ kind: "navigate", id: "edit-action", label: "edit-action", screen: "token-action" }],
+};
+
+// Tabs-mode detail screen — its `?tab=` is the host state a returnTo jump
+// has to bring back.
+const tokenTabsScreen: ScreenDefinition = {
+  id: "token-tabs",
+  type: "projectionDetail",
+  query: "tokens:query:token:detail",
+  layout: {
+    mode: "tabs",
+    sections: [
+      { id: "overview", title: "Overview", fields: ["name"] },
+      { id: "keys", title: "Keys", fields: ["name"] },
+    ],
+  },
+  actions: [{ kind: "navigate", id: "tabs-action", label: "tabs-action", screen: "token-action" }],
 };
 
 // A second, distinct record screen for the same entity/id — lets returnTo
@@ -144,6 +161,7 @@ const schema: FeatureSchema = {
     tokenActionScreen,
     tokenOpenScreen,
     tokenEditScreen,
+    tokenTabsScreen,
     tokenDetailScreen,
     tokenStatsScreen,
     adminOnlyScreen,
@@ -547,5 +565,111 @@ describe("returnTo", () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.get("returnTo")).toBe("token-detail/tok-1");
     expect(params.get("id")).toBe("tok-1");
+  });
+  test("21. projectionDetail ?tab=keys → header action → cancel returns to the same tab", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/token-tabs/tok-1?tab=keys");
+    renderApp();
+
+    await user.click(await screen.findByTestId("render-edit-action-tabs-action"));
+
+    expect(window.location.pathname).toBe("/token-action");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(
+      "token-tabs/tok-1?tab=keys",
+    );
+
+    await user.click(await screen.findByTestId("render-edit-cancel"));
+
+    expect(window.location.pathname).toBe("/token-tabs/tok-1");
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe("keys");
+  });
+
+  test("22. list with sort in the URL → create → save restores the sort", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/token-list?token-list.sort=name&token-list.dir=desc");
+    renderApp();
+
+    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await user.click(screen.getByTestId("render-list-create"));
+
+    expect(window.location.pathname).toBe("/token-edit");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(
+      "token-list?token-list.sort=name&token-list.dir=desc",
+    );
+
+    const input = await screen.findByTestId("field-name");
+    fireEvent.change(input.querySelector("input") as HTMLInputElement, {
+      target: { value: "New Token" },
+    });
+    await user.click(await waitForEnabled("render-edit-submit"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/token-list"));
+    const restored = new URLSearchParams(window.location.search);
+    expect(restored.get("token-list.sort")).toBe("name");
+    expect(restored.get("token-list.dir")).toBe("desc");
+    expect(restored.get("returnTo")).toBeNull();
+  });
+
+  test("23. chain: edit(returnTo=settings) → action form → cancel → edit → save → settings", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/token-edit/tok-1?returnTo=settings");
+    renderApp();
+
+    await user.click(await screen.findByTestId("render-edit-action-edit-action"));
+
+    expect(window.location.pathname).toBe("/token-action/tok-1");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(
+      "token-edit/tok-1?returnTo=settings",
+    );
+
+    await user.click(await screen.findByTestId("render-edit-cancel"));
+
+    expect(window.location.pathname).toBe("/token-edit/tok-1");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe("settings");
+
+    const input = await screen.findByTestId("field-name");
+    await waitFor(() =>
+      expect((input.querySelector("input") as HTMLInputElement).value).toBe("Token 1"),
+    );
+    fireEvent.change(input.querySelector("input") as HTMLInputElement, {
+      target: { value: "Renamed" },
+    });
+    await user.click(await waitForEnabled("render-edit-submit"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/settings"));
+  });
+
+  test("24. a chain already at the depth cap loses its nested part, not the jump", async () => {
+    const user = userEvent.setup();
+    const nested = `token-list?returnTo=${encodeURIComponent("token-detail?returnTo=settings")}`;
+    window.history.replaceState(
+      null,
+      "",
+      `/token-edit/tok-1?returnTo=${encodeURIComponent(nested)}`,
+    );
+    renderApp();
+
+    await user.click(await screen.findByTestId("render-edit-action-edit-action"));
+
+    expect(window.location.pathname).toBe("/token-action/tok-1");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe("token-edit/tok-1");
+
+    await user.click(await screen.findByTestId("render-edit-cancel"));
+    expect(window.location.pathname).toBe("/token-edit/tok-1");
+  });
+
+  test("25. an over-long host state is dropped, the jump still works", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", `/token-tabs/tok-1?tab=keys&note=${"x".repeat(600)}`);
+    renderApp();
+
+    await user.click(await screen.findByTestId("render-edit-action-tabs-action"));
+
+    expect(window.location.pathname).toBe("/token-action");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe("token-tabs/tok-1");
+
+    await user.click(await screen.findByTestId("render-edit-cancel"));
+    expect(window.location.pathname).toBe("/token-tabs/tok-1");
+    expect(window.location.search).toBe("");
   });
 });

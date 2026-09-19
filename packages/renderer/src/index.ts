@@ -82,12 +82,15 @@ export {
   useNavigateWithInitialValues,
 } from "./app/nav";
 export { lastSegment } from "./app/qn";
-export type { ReturnHost } from "./app/return-to";
+export type { ReturnHost, ReturnTo } from "./app/return-to";
 export {
+  navigateToReturn,
+  navigateToReturnOr,
   navigateWithReturnTo,
   RETURN_TO_PARAM,
   ReturnHostProvider,
   resolveReturnTarget,
+  splitReturnTo,
   useReturnHost,
   useReturnTarget,
 } from "./app/return-to";

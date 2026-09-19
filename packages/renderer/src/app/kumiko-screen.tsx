@@ -82,6 +82,8 @@ import { lastSegment, toKebab } from "./qn";
 import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
 import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge";
 import {
+  navigateToReturn,
+  navigateToReturnOr,
   navigateWithReturnTo,
   type ReturnHost,
   ReturnHostProvider,
@@ -900,7 +902,7 @@ function EntityEditCreateBody({
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleCancel = useCallback(
-    () => navigateToReturnTargetOr(nav, returnTarget, navigateToList),
+    () => navigateToReturnOr(nav, returnTarget, navigateToList),
     [nav, returnTarget, navigateToList],
   );
   // Create's write-handler success payload doesn't flatly expose a parent FK
@@ -916,7 +918,7 @@ function EntityEditCreateBody({
       const redirect = screen.redirect;
       if (redirect !== undefined) {
         if (returnToWinsOverRedirect(returnTarget, redirect, schema, appFeatures)) {
-          nav.navigate(returnTarget);
+          navigateToReturn(nav, returnTarget);
         } else if (typeof redirect === "string") {
           // String form unchanged: always carries the newly created
           // record's own id, regardless of the target screen's type. The
@@ -938,7 +940,7 @@ function EntityEditCreateBody({
           nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         }
       } else {
-        navigateToReturnTargetOr(nav, returnTarget, navigateToList);
+        navigateToReturnOr(nav, returnTarget, navigateToList);
         onSaved?.();
       }
     },
@@ -1311,7 +1313,7 @@ function EntityEditUpdateForm({
       const redirect = screen.redirect;
       if (redirect !== undefined) {
         if (returnToWinsOverRedirect(returnTarget, redirect, schema, appFeatures)) {
-          nav.navigate(returnTarget);
+          navigateToReturn(nav, returnTarget);
         } else if (typeof redirect === "string") {
           // String form unchanged: navigates without an entityId, same as
           // before the object form existed. The object form resolves like
@@ -1334,14 +1336,14 @@ function EntityEditUpdateForm({
           });
         }
       } else {
-        navigateToReturnTargetOr(nav, returnTarget, navigateToList);
+        navigateToReturnOr(nav, returnTarget, navigateToList);
         onSaved?.();
       }
     },
     [nav, screen.redirect, schema, appFeatures, record, navigateToList, onSaved, returnTarget],
   );
   const handleCancel = useCallback(
-    () => navigateToReturnTargetOr(nav, returnTarget, navigateToList),
+    () => navigateToReturnOr(nav, returnTarget, navigateToList),
     [nav, returnTarget, navigateToList],
   );
   const handleDelete = useCallback(async () => {
@@ -1349,7 +1351,7 @@ function EntityEditUpdateForm({
     if (res.isSuccess) {
       // Never return onto the just-deleted record.
       const target = returnTarget?.entityId !== entityId ? returnTarget : undefined;
-      navigateToReturnTargetOr(nav, target, navigateToList);
+      navigateToReturnOr(nav, target, navigateToList);
       onDeleted?.();
     }
   }, [dispatcher, deleteCommand, entityId, navigateToList, onDeleted, returnTarget, nav]);
@@ -3281,7 +3283,7 @@ function redirectTargetsRecord(
 }
 
 // Type-guard form narrows `returnTarget` for the caller's subsequent
-// nav.navigate(returnTarget) call.
+// navigateToReturn(nav, returnTarget) call.
 function returnToWinsOverRedirect(
   returnTarget: ScreenTarget | undefined,
   redirect: string | ActionFormRedirect,
@@ -3289,18 +3291,6 @@ function returnToWinsOverRedirect(
   appFeatures: readonly FeatureSchema[],
 ): returnTarget is ScreenTarget {
   return returnTarget !== undefined && !redirectTargetsRecord(redirect, schema, appFeatures);
-}
-
-function navigateToReturnTargetOr(
-  nav: NavApi,
-  returnTarget: ScreenTarget | undefined,
-  fallback: () => void,
-): void {
-  if (returnTarget !== undefined) {
-    nav.navigate(returnTarget);
-  } else {
-    fallback();
-  }
 }
 
 // Resolves an object-form redirect to a nav target — shared by
@@ -3403,7 +3393,7 @@ function ActionFormBody({
       // navigation, and never one to a record screen (see redirectTargetsRecord).
       if (screen.redirect !== undefined) {
         if (returnToWinsOverRedirect(returnTarget, screen.redirect, schema, appFeatures)) {
-          nav.navigate(returnTarget);
+          navigateToReturn(nav, returnTarget);
         } else {
           const { screenId, entityId } = resolveRedirectTarget(
             screen.redirect,
@@ -3428,7 +3418,8 @@ function ActionFormBody({
       screen.cancelTarget ??
       (screen.redirect !== undefined ? redirectScreenTarget(screen.redirect) : undefined);
     if (target === undefined || target === false) return undefined;
-    return () => nav.navigate(returnTarget ?? { screenId: lastSegment(target) });
+    return () =>
+      navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
   }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride, returnTarget]);
   return (
     <RenderEdit

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "../feature-schema";
-import { resolveReturnTarget, returnToParams } from "../return-to";
+import { formatReturnTo, resolveReturnTarget, returnToParams, splitReturnTo } from "../return-to";
 
 function schemaWith(featureName: string, screens: readonly ScreenDefinition[]): FeatureSchema {
   return { featureName, entities: {}, screens };
@@ -156,10 +156,35 @@ describe("resolveReturnTarget", () => {
     ).toBeUndefined();
   });
 
-  test("rejects entityId with '?'", () => {
+  test("rejects an entityId whose decoded form carries '?'", () => {
     expect(
-      resolveReturnTarget("token-edit/abc?x=1", "token-create", features, undefined),
+      resolveReturnTarget("token-edit/abc%3Fx=1", "token-create", features, undefined),
     ).toBeUndefined();
+  });
+
+  test("a trailing host-state query resolves to the bare target", () => {
+    expect(
+      resolveReturnTarget("token-edit/abc?tab=keys", "token-create", features, undefined),
+    ).toEqual({ screenId: "token-edit", entityId: "abc" });
+  });
+
+  test("a host-state query does not loosen validation", () => {
+    expect(
+      resolveReturnTarget("https://evil.com?tab=keys", "token-create", features, undefined),
+    ).toBeUndefined();
+    expect(
+      resolveReturnTarget("//evil.com?tab=keys", "token-create", features, undefined),
+    ).toBeUndefined();
+    expect(
+      resolveReturnTarget("token-edit/..?tab=keys", "token-create", features, undefined),
+    ).toBeUndefined();
+    expect(
+      resolveReturnTarget("unknown-screen?tab=keys", "token-create", features, undefined),
+    ).toBeUndefined();
+    expect(
+      resolveReturnTarget("admin-only?tab=keys", "token-create", features, undefined),
+    ).toBeUndefined();
+    expect(resolveReturnTarget("?tab=keys", "token-create", features, undefined)).toBeUndefined();
   });
 
   test("rejects entityId with '#'", () => {
@@ -251,5 +276,63 @@ describe("returnToParams", () => {
     expect(
       returnToParams({ screenId: "token-edit", entityId: "abc" }, { screenId: "token-create" }),
     ).toEqual({ returnTo: "token-edit/abc" });
+  });
+});
+
+describe("formatReturnTo / splitReturnTo", () => {
+  test("no host params formats exactly like before the snapshot existed", () => {
+    expect(formatReturnTo({ screenId: "token-list" })).toBe("token-list");
+    expect(formatReturnTo({ screenId: "token-list" }, {})).toBe("token-list");
+    expect(formatReturnTo({ screenId: "token-edit", entityId: "abc" })).toBe("token-edit/abc");
+  });
+
+  test("host params round-trip through the value", () => {
+    const raw = formatReturnTo(
+      { screenId: "token-detail", entityId: "abc" },
+      { tab: "keys", "orders.sort": "name", "orders.dir": "asc" },
+    );
+    expect(splitReturnTo(raw)).toEqual({
+      path: "token-detail/abc",
+      state: { tab: "keys", "orders.sort": "name", "orders.dir": "asc" },
+    });
+  });
+
+  test("empty param values are left out of the snapshot", () => {
+    expect(formatReturnTo({ screenId: "token-list" }, { q: "", tab: "keys" })).toBe(
+      "token-list?tab=keys",
+    );
+  });
+
+  test("two nesting levels round-trip one level per split", () => {
+    const inner = formatReturnTo({ screenId: "token-list" }, { returnTo: "settings" });
+    const outer = formatReturnTo({ screenId: "token-edit", entityId: "abc" }, { returnTo: inner });
+
+    const first = splitReturnTo(outer);
+    expect(first.path).toBe("token-edit/abc");
+    expect(first.state["returnTo"]).toBe("token-list?returnTo=settings");
+
+    const second = splitReturnTo(first.state["returnTo"] as string);
+    expect(second.path).toBe("token-list");
+    expect(second.state).toEqual({ returnTo: "settings" });
+  });
+
+  test("a fourth level is dropped, the rest of the snapshot survives", () => {
+    const level3 = formatReturnTo(
+      { screenId: "token-list" },
+      { returnTo: formatReturnTo({ screenId: "token-detail" }, { returnTo: "settings" }) },
+    );
+    const level4 = formatReturnTo({ screenId: "token-edit" }, { returnTo: level3, tab: "keys" });
+
+    expect(splitReturnTo(level4)).toEqual({ path: "token-edit", state: { tab: "keys" } });
+  });
+
+  test("an over-long snapshot degrades to the bare target", () => {
+    expect(formatReturnTo({ screenId: "token-list" }, { q: "x".repeat(600) })).toBe("token-list");
+  });
+
+  test("returnToParams carries the host snapshot", () => {
+    expect(
+      returnToParams({ screenId: "token-list" }, { screenId: "token-create" }, { tab: "keys" }),
+    ).toEqual({ returnTo: "token-list?tab=keys" });
   });
 });
