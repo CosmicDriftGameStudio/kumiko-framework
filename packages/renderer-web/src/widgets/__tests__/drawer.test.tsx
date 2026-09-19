@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen } from "../../__tests__/test-utils";
+import { act, fireEvent, render, screen } from "../../__tests__/test-utils";
 import { Drawer } from "../drawer";
 
 describe("Drawer", () => {
@@ -713,6 +713,88 @@ describe("Drawer", () => {
       const content = screen.getByTestId("drawer");
       expect(content.style.width).toBe("400px");
       expect(screen.getByRole("separator")).toBeTruthy();
+    });
+  });
+
+  describe("modal", () => {
+    function queryOverlay(): Element | null {
+      return document.querySelector('[data-slot="sheet-overlay"]');
+    }
+
+    // Two Radix details make the naive version silently pass: the outside-
+    // pointerdown listener is registered inside a setTimeout(0), and a
+    // left-button pointerdown only arms the dismissal — the following click
+    // fires it. Without both, no outside click would ever dismiss and the
+    // modal={false} assertion would hold for the wrong reason.
+    async function clickOutside(): Promise<void> {
+      const pageBehind = document.createElement("div");
+      document.body.appendChild(pageBehind);
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      await act(async () => {
+        fireEvent.pointerDown(pageBehind);
+        fireEvent.click(pageBehind);
+      });
+      pageBehind.remove();
+    }
+
+    test("default (no modal prop): overlay element present, page behind locked", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(queryOverlay()).not.toBeNull();
+      expect(document.body.style.pointerEvents).toBe("none");
+    });
+
+    test("modal={false}: no overlay element, page behind stays selectable", () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} title="Mail" testId="drawer" modal={false}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(queryOverlay()).toBeNull();
+      expect(screen.getByText("Body")).toBeTruthy();
+      // The overlay element is only half of it — what actually stops the
+      // text behind the drawer from being selected and copied is Radix
+      // locking the body's pointer events, so assert the lock is absent
+      // rather than just the element.
+      expect(document.body.style.pointerEvents).not.toBe("none");
+    });
+
+    test("modal={false}: Escape still closes", () => {
+      const onOpenChange = mock((_open: boolean) => {});
+      render(
+        <Drawer open={true} onOpenChange={onOpenChange} title="Mail" testId="drawer" modal={false}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      fireEvent.keyDown(screen.getByTestId("drawer"), { key: "Escape" });
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    test("default: a click beside the drawer closes it", async () => {
+      const onOpenChange = mock((_open: boolean) => {});
+      render(
+        <Drawer open={true} onOpenChange={onOpenChange} title="Mail" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      await clickOutside();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    test("modal={false}: a click beside the drawer does NOT close it", async () => {
+      const onOpenChange = mock((_open: boolean) => {});
+      render(
+        <Drawer open={true} onOpenChange={onOpenChange} title="Mail" testId="drawer" modal={false}>
+          <div>Body</div>
+        </Drawer>,
+      );
+      await clickOutside();
+      expect(onOpenChange).not.toHaveBeenCalled();
     });
   });
 });

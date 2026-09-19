@@ -53,11 +53,21 @@ export type DrawerProps = {
     readonly maxWidthPx?: number;
   };
   /** Backdrop behind the panel. A drawer exists so the content behind it
-   *  stays readable, so the blur is off by default. */
+   *  stays readable, so the blur is off by default. Ignored when
+   *  `modal={false}` — there is no overlay to style then. */
   readonly backdrop?: {
     readonly blurPx?: number;
     readonly dimPercent?: number;
   };
+  /** `false` runs the drawer as a panel beside the page instead of over it:
+   *  no overlay, no focus trap, and the page behind stays interactive, so
+   *  text there can be selected and copied. Escape closes in both modes, a
+   *  click beside the panel only in the modal one — the non-modal case
+   *  exists to be used next to the page content, where a stray click must
+   *  not dismiss it. With `showCloseButton={false}` and no footer action
+   *  that leaves Escape as the only way out, so keep one of the two.
+   *  Default `true`. */
+  readonly modal?: boolean;
 };
 
 const MIN_WIDTH_PX = 320;
@@ -160,6 +170,7 @@ export function Drawer({
   width,
   resize,
   backdrop,
+  modal = true,
 }: DrawerProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
@@ -242,11 +253,15 @@ export function Drawer({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
       <DrawerSheetContent
         side={side}
         data-testid={testId}
         overlayStyle={overlayStyle}
+        // Radix already drops the overlay and the focus trap for a
+        // non-modal Root; only the dismiss-on-outside-interaction is left
+        // to suppress, so a click into the page behind keeps the panel open.
+        onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
         showCloseButton={showCloseButton}
         className={sidePanelClass(side, narrow, variant, belowHeader)}
         style={{
