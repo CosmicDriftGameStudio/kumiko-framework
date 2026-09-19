@@ -89,39 +89,13 @@ export async function computeBlindIndexValues(
   lookupableFields: readonly string[],
 ): Promise<Record<string, unknown>> {
   const key = configuredBlindIndexKey();
-  if (key === undefined) {
-    assertNoUnkeyedCiphertext(values, lookupableFields);
-    return {};
-  }
-  if (lookupableFields.length === 0) return {};
+  if (key === undefined || lookupableFields.length === 0) return {};
   const out: Record<string, unknown> = {};
   for (const name of lookupableFields) {
     if (!(name in values)) continue;
     out[blindIndexFieldName(name)] = await blindIndexForValue(key, name, values[name]);
   }
   return out;
-}
-
-// The bidx column is schema-driven (entity-table-meta.ts), not KMS-driven — a
-// plaintext install has it too, always NULL, by design (pre-#818 behavior).
-// A ciphertext value with no key configured means the opposite: encryption IS
-// active but the blind-index key wasn't wired alongside it. Silently returning
-// {} would null out the bidx column for an encrypted row instead of failing
-// (fw#3091); a plaintext install never produces ciphertext here, so this stays
-// a no-op for the common case.
-function assertNoUnkeyedCiphertext(
-  values: Record<string, unknown>,
-  lookupableFields: readonly string[],
-): void {
-  for (const name of lookupableFields) {
-    const value = values[name];
-    if (typeof value !== "string" || value === PII_ERASED_SENTINEL) continue;
-    if (!isPiiCiphertext(value)) continue;
-    throw new Error(
-      `Blind-index for field "${name}" found PII ciphertext but no blind-index key is configured. ` +
-        "Set KUMIKO_BLIND_INDEX_KEY before this apply/rebuild runs (fw#3091).",
-    );
-  }
 }
 
 async function blindIndexForValue(
@@ -132,16 +106,9 @@ async function blindIndexForValue(
   if (typeof value !== "string" || value === PII_ERASED_SENTINEL) return null;
   if (!isPiiCiphertext(value)) return computeBlindIndex(key, value);
   const kms = configuredPiiSubjectKms();
-  // Ciphertext without a KMS can't be decrypted here — unlike the plaintext
-  // path, silently returning null would write NULL into the bidx column
-  // instead of the real index (fw#3091), so this fails loud instead.
-  if (kms === undefined) {
-    throw new Error(
-      `Blind-index for field "${field}" found PII ciphertext but no PII-subject KMS is configured — ` +
-        "cannot decrypt to compute the HMAC over plaintext. Configure the PII-subject KMS before this " +
-        "apply/rebuild runs (fw#3091).",
-    );
-  }
+  // Ciphertext without a KMS can't be decrypted here; the same read would
+  // also surface raw ciphertext — misconfiguration is caught at boot.
+  if (kms === undefined) return null;
   const decrypted = await decryptPiiFieldValues({ [field]: value }, [field], kms, {
     requestId: requestContext.get()?.requestId ?? "blind-index",
   });

@@ -18,6 +18,7 @@
 // expressed in meta (hand-added in a migration) is not reconstructed, and a
 // partial index whose WHERE the renderer can't express is rejected up-front.
 
+import { configuredBlindIndexKey } from "../../crypto";
 import type { DbConnection, DbTx } from "../connection";
 import type { EntityTableMeta } from "../entity-table-meta";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query";
@@ -244,6 +245,38 @@ export async function assertNoUnreachableLiveRows(
       `without emitting a .created event. Fix: register the table with r.storeTable(meta, ` +
       `{ reason }) to opt out of rebuild, or emit the missing events. See ` +
       `docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.`,
+  );
+}
+
+// The bidx column is schema-driven, not key-driven: it exists NULL in a
+// plaintext install and in the fw#1610 case (KMS configured, no index key),
+// both of which are correct as-is. Only a POPULATED column with no key
+// configured in THIS process means the rebuild is about to overwrite proof
+// of a real index with NULL — that's the one provable data-loss case.
+export async function assertNoBlindIndexLoss(
+  tx: AnyDb,
+  tableName: string,
+  meta: EntityTableMeta,
+  projectionName: string,
+): Promise<void> {
+  if (configuredBlindIndexKey() !== undefined) return;
+  const bidxCols = meta.columns.filter((c) => c.name.endsWith("_bidx"));
+  if (bidxCols.length === 0) return;
+  const t = quoteTableIdent(tableName);
+  const raw = asRawClient(tx);
+  const where = bidxCols.map((c) => `${quoteTableIdent(c.name)} IS NOT NULL`).join(" OR ");
+  const rows = await raw.unsafe<{ total: string }>(
+    `SELECT count(*)::text AS total FROM public.${t} WHERE ${where}`,
+  );
+  const count = Number(rows[0]?.total ?? "0");
+  // skip: every bidx column is already NULL — nothing for the rebuild to lose
+  if (count === 0) return;
+  throw new Error(
+    `projection-rebuild "${projectionName}": "${tableName}" has ${count} row(s) with a populated ` +
+      `blind-index column, but KUMIKO_BLIND_INDEX_KEY is not configured in this process. The rebuild ` +
+      `would recompute those columns to NULL, and equality lookups on that field (login, password ` +
+      `reset) would stop matching afterward. Configure the blind-index key before this apply/rebuild ` +
+      `runs. See fw#3091. Rebuild aborted; live table untouched.`,
   );
 }
 
