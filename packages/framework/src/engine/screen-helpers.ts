@@ -112,6 +112,7 @@ export type FieldsOrGroupsSection = {
 // one runs after the fields-XOR-groups check, collectors run without it and must
 // not drop a source (fw#2986).
 export function sectionFieldSpecs(section: FieldsOrGroupsSection): readonly EditFieldSpec[] {
+  // kumiko-lint-ignore section-fields-raw this IS the union reader — the groups source is added on the same line
   return [...section.fields, ...(section.groups?.flatMap((group) => group.fields) ?? [])];
 }
 

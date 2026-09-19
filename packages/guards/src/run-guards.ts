@@ -44,6 +44,7 @@ import { guard as piiAnnotations } from "./guard-pii-annotations";
 import { guard as preEsPatterns } from "./guard-pre-es-patterns";
 import { guard as restrictedSymbols } from "./guard-restricted-symbols";
 import { guard as screenConventions } from "./guard-screen-conventions";
+import { guard as sectionFieldsRaw } from "./guard-section-fields-raw";
 import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tableDdl } from "./guard-table-ddl";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
@@ -79,6 +80,7 @@ export const GUARDS = [
   complexity,
   predicateExtraction,
   screenConventions,
+  sectionFieldsRaw,
   writeHandlerQns,
   asCasts,
   loadallEvents,

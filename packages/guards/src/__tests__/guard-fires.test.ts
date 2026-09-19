@@ -48,6 +48,11 @@ const FEAT = `${CWD}/packages/bundled-features/src`;
 const APP = `${CWD}/packages/app/src`;
 
 const ENFORCING: Record<string, Violating> = {
+  "Raw section.fields Guard": {
+    path: `${PKG}/engine/reader.ts`,
+    code: "declare const section: { fields: { field: string }[] };\nfor (const rawField of section.fields) { void rawField; }",
+    expectedMessage: /raw section\.fields read\(s\) over baseline/,
+  },
   "Pre-ES-Patterns Guard": {
     path: `${PKG}/features/x/log.ts`,
     code: 'import { createEventLog } from "k";\nexport const l = createEventLog("x");',
