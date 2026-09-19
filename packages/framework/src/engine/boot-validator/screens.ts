@@ -1265,6 +1265,7 @@ export function validateScreens(
                 `(writeForm) has zero fields — drop the section or add fields to it.`,
             );
           }
+          // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
             const fieldName = normalizeEditField(f).field;
             if (section.fieldDefs[fieldName] === undefined) {

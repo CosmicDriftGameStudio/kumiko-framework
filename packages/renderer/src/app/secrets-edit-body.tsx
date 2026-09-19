@@ -118,6 +118,7 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
           key={section.title ?? `section-${index}`}
           {...(section.title !== undefined && { title: effectiveTranslate(section.title) })}
         >
+          {/* kumiko-lint-ignore section-fields-raw secretsEdit section fields are field-id strings, not EditFieldSpec */}
           {section.fields.map((fieldId) => {
             const qualified = screen.secretKeys[fieldId];
             if (qualified === undefined) return null;
