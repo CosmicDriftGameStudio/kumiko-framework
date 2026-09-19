@@ -95,6 +95,7 @@ import {
   type FeatureDefinition,
   findTierResolverUsage,
   type TierResolverPlugin,
+  type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -443,6 +444,8 @@ export type RunProdAppOptions = {
   /** App-specific features. config/user/tenant/auth-email-password are
    *  auto-mixed when `auth:` is set — don't add them yourself. */
   readonly features: readonly FeatureDefinition[];
+  /** Opt-in boot-validator warnings — see ValidateBootOptions. */
+  readonly validateBootOptions?: ValidateBootOptions;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
   /** Auth-mode: standard features + routes wired, admin seeded. */
@@ -815,7 +818,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
-  validateBoot(features);
+  validateBoot(features, options.validateBootOptions);
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   assertPiiBootInvariants(features, {

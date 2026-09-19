@@ -3,7 +3,7 @@
 // exits BEFORE any connection, and the KMS health gate runs BEFORE
 // createDbConnection/new Redis(...) — so neither path needs real infra.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { runWorkerApp } from "../run-worker-app";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
@@ -95,5 +95,41 @@ describe("runWorkerApp boot-mode", () => {
       console.log = originalLog;
     }
     expect(healthChecked).toBe(true);
+  });
+
+  test("validateBootOptions reaches validateBoot — an opt-in warning fires only when passed", async () => {
+    // Reach-the-boot proof, not an acceptance proof: the probe feature's
+    // single "anonymous" handler makes warnOnUniqueAccessRoles emit a
+    // warning naming that role, and validateBoot emits it only when the
+    // option arrives (fw#3080).
+    const originalLog = console.log;
+    console.log = () => {};
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const roleWarnings = (): string[] =>
+      warnSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes('Access role "anonymous"'));
+    try {
+      const withOption = await runWorkerApp({
+        features: [probeFeature],
+        migrations: false,
+        validateBootOptions: { warnOnUniqueAccessRoles: true },
+        envSource: { ...DUMMY_ENV, KUMIKO_DRY_RUN_ENV: "boot" },
+      });
+      await withOption.stop();
+      expect(roleWarnings().length).toBeGreaterThan(0);
+
+      warnSpy.mockClear();
+      const withoutOption = await runWorkerApp({
+        features: [probeFeature],
+        migrations: false,
+        envSource: { ...DUMMY_ENV, KUMIKO_DRY_RUN_ENV: "boot" },
+      });
+      await withoutOption.stop();
+      expect(roleWarnings()).toEqual([]);
+    } finally {
+      warnSpy.mockRestore();
+      console.log = originalLog;
+    }
   });
 });

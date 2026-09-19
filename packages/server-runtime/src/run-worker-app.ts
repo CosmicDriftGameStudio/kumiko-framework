@@ -33,6 +33,7 @@ import {
   findTierResolverUsage,
   type Registry,
   type TierResolverPlugin,
+  type ValidateBootOptions,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -87,6 +88,8 @@ export type RunWorkerAppOptions = {
   /** App-specific features — same array as in the API/all-in-one process,
    *  so the registry + schema stay identical across processes. */
   readonly features: readonly FeatureDefinition[];
+  /** Opt-in boot-validator warnings — see ValidateBootOptions. */
+  readonly validateBootOptions?: ValidateBootOptions;
   /** Mount the auto-mixed config/user/tenant/auth-email-password features —
    *  MUST match the API process's `includeBundled` value, otherwise API
    *  and worker run with a diverging registry topology. Also controls
@@ -177,7 +180,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   const features = composeFeatures(options.features, {
     includeBundled: !!options.includeBundled,
   });
-  validateBoot(features);
+  validateBoot(features, options.validateBootOptions);
   warnIfNonUtcServerTimeZone();
   assertPiiBootInvariants(features, {
     kms: options.kms,
