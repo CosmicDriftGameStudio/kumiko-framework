@@ -63,7 +63,9 @@ async function decryptCiphertext(
         await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 0);
         continue;
       }
-      throw new Error(`${prefix}Key Manager decrypt failed for key ${keyId}: network error or timeout`);
+      throw new Error(
+        `${prefix}Key Manager decrypt failed for key ${keyId}: network error or timeout`,
+      );
     }
 
     if (!response.ok) {
@@ -71,14 +73,18 @@ async function decryptCiphertext(
         await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 0);
         continue;
       }
-      throw new Error(`${prefix}Key Manager decrypt failed for key ${keyId}: HTTP ${response.status}`);
+      throw new Error(
+        `${prefix}Key Manager decrypt failed for key ${keyId}: HTTP ${response.status}`,
+      );
     }
 
     let body: { plaintext?: unknown };
     try {
       body = (await response.json()) as { plaintext?: unknown };
     } catch {
-      throw new Error(`${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`);
+      throw new Error(
+        `${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`,
+      );
     }
     if (typeof body.plaintext !== "string") {
       throw new Error(`${prefix}Key Manager decrypt for key ${keyId} returned no plaintext field`);
@@ -119,7 +125,13 @@ export async function resolvePlatformKeks(
 ): Promise<KekSourceEnv> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
 
-  const active = await resolveSlot(env.PLATFORM_KEK, env.PLATFORM_KEK_CIPHERTEXT, env, options, fetchImpl);
+  const active = await resolveSlot(
+    env.PLATFORM_KEK,
+    env.PLATFORM_KEK_CIPHERTEXT,
+    env,
+    options,
+    fetchImpl,
+  );
   const previous = await resolveSlot(
     env.PLATFORM_KEK_PREVIOUS,
     env.PLATFORM_KEK_PREVIOUS_CIPHERTEXT,
@@ -130,7 +142,9 @@ export async function resolvePlatformKeks(
 
   if (previous && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
     const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
-    throw new Error(`${prefix}PLATFORM_KEK_PREVIOUS_VERSION must be set when PLATFORM_KEK_PREVIOUS is set.`);
+    throw new Error(
+      `${prefix}PLATFORM_KEK_PREVIOUS_VERSION must be set when PLATFORM_KEK_PREVIOUS is set.`,
+    );
   }
 
   if (active === env.PLATFORM_KEK && previous === env.PLATFORM_KEK_PREVIOUS) {

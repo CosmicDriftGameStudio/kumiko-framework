@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildPgKmsOptions } from "../kms-wiring";
 import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source";
+import { buildPgKmsOptions } from "../kms-wiring";
 
 const TOKEN = "scw-secret-token";
 const CIPHERTEXT_A = Buffer.from("ciphertext-a").toString("base64");
@@ -10,7 +10,10 @@ const PLAINTEXT_A = Buffer.alloc(32, 1).toString("base64");
 type FetchCall = { readonly url: string; readonly init: RequestInit };
 
 function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 function trackedFetch(responses: ReadonlyArray<Response>): {
@@ -53,7 +56,7 @@ describe("resolvePlatformKeks", () => {
     expect(result.PLATFORM_KEK).toBe(PLAINTEXT_A);
     expect(calls.length).toBe(1);
     expect(calls[0]?.url).toContain("/keys/key-1/decrypt");
-    expect((calls[0]?.init.headers as Record<string, string>)["X-Auth-Token"]).toBe(TOKEN);
+    expect(new Headers(calls[0]?.init.headers).get("X-Auth-Token")).toBe(TOKEN);
   });
 
   test("decrypts both ciphertexts with two distinct requests", async () => {
@@ -80,7 +83,10 @@ describe("resolvePlatformKeks", () => {
 
   test("throws without the token in the message when a ciphertext has no key id", async () => {
     const { fetch } = trackedFetch([]);
-    const env: KekSourceEnv = { PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A, PLATFORM_KEK_KMS_TOKEN: TOKEN };
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
 
     try {
       await resolvePlatformKeks(env, { fetch });
@@ -150,7 +156,9 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/PLATFORM_KEK_PREVIOUS_VERSION must be set/);
+    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
+      /PLATFORM_KEK_PREVIOUS_VERSION must be set/,
+    );
   });
 
   test("returns env unchanged and calls fetch zero times when nothing is set", async () => {
@@ -164,7 +172,10 @@ describe("resolvePlatformKeks", () => {
   });
 
   test("retries once on HTTP 500 and succeeds on the second attempt", async () => {
-    const { fetch, calls } = trackedFetch([jsonResponse(500, {}), jsonResponse(200, { plaintext: PLAINTEXT_A })]);
+    const { fetch, calls } = trackedFetch([
+      jsonResponse(500, {}),
+      jsonResponse(200, { plaintext: PLAINTEXT_A }),
+    ]);
     const env: KekSourceEnv = {
       PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
       PLATFORM_KEK_KMS_KEY_ID: "key-1",
