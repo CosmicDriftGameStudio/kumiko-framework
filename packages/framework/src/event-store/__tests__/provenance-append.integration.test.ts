@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, transaction } from "../../db/query";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { InternalError } from "../../errors";
+import { AccessDeniedError, InternalError } from "../../errors";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import { createEventsTable, loadAggregate, VersionConflictError } from "../index";
@@ -12,6 +12,14 @@ let testDb: BunTestDb;
 let tdb: TenantDb;
 
 const tenantA = uuid();
+const tenantB = uuid();
+
+async function countAllEvents(): Promise<number> {
+  const rows = await asRawClient(testDb.db).unsafe<{ n: string }>(
+    "SELECT count(*)::text AS n FROM kumiko_events",
+  );
+  return Number(rows[0]?.n);
+}
 
 function provenanceEvent(overrides: Partial<ProvenanceEventInput>): ProvenanceEventInput {
   return {
@@ -105,5 +113,29 @@ describe("appendProvenanceEvent", () => {
 
     const events = await loadAggregate(testDb.db, event.aggregateId, tenantA);
     expect(events).toHaveLength(0);
+  });
+
+  test("a foreign event.tenantId is rejected and writes no row at all", async () => {
+    const event = provenanceEvent({ tenantId: tenantB });
+    const before = await countAllEvents();
+
+    await expect(appendProvenanceEvent(tdb, event)).rejects.toThrow(AccessDeniedError);
+    await expect(appendProvenanceEvent(tdb, event)).rejects.toThrow(
+      new RegExp(`"${tenantB}".+"${tenantA}"`),
+    );
+
+    expect(await countAllEvents()).toBe(before);
+    expect(await loadAggregate(testDb.db, event.aggregateId, tenantB)).toHaveLength(0);
+  });
+
+  test('a mode: "system" TenantDb is rejected for a foreign event.tenantId too', async () => {
+    const systemTdb = createTenantDb(testDb.db, tenantA, "system");
+    const event = provenanceEvent({ tenantId: tenantB });
+    const before = await countAllEvents();
+
+    await expect(appendProvenanceEvent(systemTdb, event)).rejects.toThrow(AccessDeniedError);
+
+    expect(await countAllEvents()).toBe(before);
+    expect(await loadAggregate(testDb.db, event.aggregateId, tenantB)).toHaveLength(0);
   });
 });

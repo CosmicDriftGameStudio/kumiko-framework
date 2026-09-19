@@ -1,7 +1,7 @@
 import { runInSavepointIfSupported } from "../db/query";
 import { type TenantDb, unsafeRawForDeclaredStep, withUnsafeRawGrant } from "../db/tenant-db";
 import type { TenantId } from "../engine/types";
-import { InternalError } from "../errors";
+import { AccessDeniedError, InternalError } from "../errors";
 import { SYSTEM_EVENT_PREFIX } from "../pipeline/append-event-core";
 import { append, type EventMetadata, getStreamVersion } from "./event-store";
 
@@ -38,6 +38,14 @@ export async function appendProvenanceEvent(
   }
   const granted = withUnsafeRawGrant(db, { reason: PROVENANCE_APPEND_REASON });
   const runner = unsafeRawForDeclaredStep(granted, PROVENANCE_APPEND_REASON);
+  // Unconditional, including mode "system": crossTenantRebinders keeps the
+  // original tenantId and only flips the mode, so a system-scoped db must not
+  // append for a foreign tenant either.
+  if (event.tenantId !== db.tenantId) {
+    throw new AccessDeniedError({
+      message: `appendProvenanceEvent: event tenant "${event.tenantId}" does not match the TenantDb's tenant "${db.tenantId}".`,
+    });
+  }
   // Bun.SQL/postgres.js abort the whole surrounding begin() on a statement
   // error (25P02) even when the caller's catch swallows it — the savepoint
   // confines that to this scope. Pool connections have no ambient tx to poison.

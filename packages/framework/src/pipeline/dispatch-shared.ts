@@ -246,7 +246,7 @@ function denyingJobRunnerProxy(): JobRunnerRef {
 
 // Every write/side-effect surface throws, so "no writeAsMember" holds even
 // if a handler tries ctx.write directly on a resolved member principal.
-function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
+export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
     // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY transaction.

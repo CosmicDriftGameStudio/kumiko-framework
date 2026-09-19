@@ -2,13 +2,23 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-16
+verified: 2026-09-19
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.289.0
+
+### framework-core
+
+**appendProvenanceEvent enforces event.tenantId === the passed TenantDb's tenantId**
+
+`appendProvenanceEvent(db, event)` (packages/framework/src/event-store/provenance-append.ts) checked the event type namespace but wrote `event.tenantId` unverified, while granting itself the framework-fixed unsafeRaw reason internally. Since `createLLMProviderForTenant(ctx, tenantId, …)` takes the tenantId as an argument, that made the entry point a cross-tenant write door with no escapeHatch declaration behind it. The check now runs after `unsafeRawForDeclaredStep` — so a holder not built by `createTenantDb` still fails closed with InternalError first — and before the savepoint, so a rejected append leaves no row. It is unconditional, including `mode: "system"`: `crossTenantRebinders` keeps the original tenantId and only flips the mode, so a system-scoped db must not append provenance for a foreign tenant either. `appendProvenanceEvent` deliberately keeps `withUnsafeRawGrant` + `unsafeRawForDeclaredStep` instead of resolving the runner through the ungated `tenantDbRunner`, because that grant path is the choke point the member-read lock in fw#2927 hooks into.
+
+**Migration:** `appendProvenanceEvent` rejects when `event.tenantId` does not match the `tenantId` of the passed TenantDb. Provenance for a foreign tenant has no path left — a caller that needs it declares its own escapeHatch path instead. Blast radius checked: every known call site in kumiko-enterprise passes `event.user.tenantId` through, so no call site changes.
 
 ## 0.281.0
 
