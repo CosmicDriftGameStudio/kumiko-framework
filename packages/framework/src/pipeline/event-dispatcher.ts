@@ -127,6 +127,13 @@ export type EventDispatcher = {
   // a full stop/start cycle. Production never needs this — start() runs
   // it once on boot and the rows survive dispatcher lifetime.
   ensureRegistered(): Promise<void>;
+  // Waits out a pass already in flight, without touching the timer or the
+  // LISTEN subscription — unlike stop(), the dispatcher keeps running
+  // afterwards. Test-teardown surface: a beforeEach/afterEach that resets
+  // the events table (TRUNCATE) must not race a pass this same dispatcher
+  // started (timer tick or NOTIFY wake-up) that is still writing into the
+  // tables the reset is about to wipe. No-op when nothing is in flight.
+  drain(): Promise<void>;
   // Read-only view of the consumers this dispatcher is wired with. Exists
   // for lane-filter assertions (Welle 2.6.b split-deploy tests) and for
   // the boot-validator (Welle 2.6.c coverage check: every registered MSP
@@ -252,6 +259,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // + any future explicit nudge). Mirrors outbox-poller's passInFlight
   // pattern so behaviour under races stays predictable.
   let passInFlight: Promise<DispatcherPassResult> | null = null;
+
+  async function drainPassInFlight(): Promise<void> {
+    if (passInFlight) {
+      await passInFlight.catch(() => {
+        // skip: errors already recorded per-consumer inside the pass
+      });
+    }
+  }
 
   async function runOnce(): Promise<DispatcherPassResult> {
     if (!preRegistered) {
@@ -529,11 +544,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       }
 
       // Drain any in-flight pass so shutdown observes consistent state.
-      if (passInFlight) {
-        await passInFlight.catch(() => {
-          // skip: errors already recorded per-consumer inside the pass
-        });
-      }
+      await drainPassInFlight();
       // preRegistered stays true — the rows survive stop(). runOnce()
       // after a stop() still works (tests stop the timer and then drain
       // deterministically).
@@ -543,6 +554,8 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       await preRegisterConsumers(db, consumers, options.instanceId);
       preRegistered = true;
     },
+
+    drain: drainPassInFlight,
 
     runOnce,
   };
