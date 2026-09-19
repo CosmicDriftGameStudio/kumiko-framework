@@ -9,7 +9,7 @@ API handler rejections (4xx) now leave a log line instead of being silently drop
 Consumers that set `LOG_LEVEL=error`, `fatal` or `silent` suppress the new 4xx lines; anything else (including the default) now logs them. Expect more log volume on routes with frequent client-side validation failures.
 
 <!-- kumiko-changes
-feature: api
+feature: framework
 type: fix
 title: API handler rejections (4xx) now leave a log line instead of being silently dropped
 -->
