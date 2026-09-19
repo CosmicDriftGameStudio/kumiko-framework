@@ -394,6 +394,22 @@ export type JobDefinition = {
   readonly runIn?: JobRunIn | undefined;
   // Grants `ctx.db.unsafeRaw(reason)` for this job, audited as `unsafe-raw`.
   readonly escapeHatch?: EscapeHatchDeclaration | undefined;
+  // Opt in to a tenant-visible failure record (`jobs:query:failures`). Only a
+  // translation key ever reaches the tenant: a thrown KumikoError's `i18nKey`
+  // when it carries one, otherwise `messageKey`. The provider's own message
+  // stays in the run log. Only the last attempt records, and a later
+  // successful run of the same job and subject clears the record.
+  // `subjectFields` names payload fields that scope the record (e.g.
+  // `["campaignId", "language"]`); each must hold a primitive or the run
+  // throws. Omit it for one record per job and tenant. Their values are
+  // stored in clear, unlike the encrypted run payload — never name a PII
+  // field here.
+  readonly tenantVisibleFailure?:
+    | {
+        readonly messageKey: string;
+        readonly subjectFields?: readonly string[] | undefined;
+      }
+    | undefined;
 };
 
 // --- Notifications ---

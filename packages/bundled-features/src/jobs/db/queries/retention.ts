@@ -13,12 +13,14 @@
 import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { jobRunLogsTable, jobRunsTable } from "../../job-run-table";
+import { tenantJobFailuresTable } from "../../tenant-job-failure-table";
 
 const RETENTION_DELETE_BATCH_SIZE = 500;
 
 export type JobRunRetentionResult = {
   readonly runsDeleted: number;
   readonly logsDeleted: number;
+  readonly tenantFailuresDeleted: number;
 };
 
 export async function deleteStaleJobRuns(
@@ -40,5 +42,19 @@ export async function deleteStaleJobRuns(
     { limit: RETENTION_DELETE_BATCH_SIZE },
   );
 
-  return { runsDeleted: runsResult.deleted, logsDeleted: logsResult.deleted };
+  // Same window for the tenant-visible failure records (fw#3079): the run
+  // they point at is gone by now, and a job whose subject never ran again
+  // would otherwise keep its record forever.
+  const tenantFailuresResult = await deleteManyBatched(
+    db,
+    tenantJobFailuresTable,
+    { failedAt: { lt: cutoff } },
+    { limit: RETENTION_DELETE_BATCH_SIZE },
+  );
+
+  return {
+    runsDeleted: runsResult.deleted,
+    logsDeleted: logsResult.deleted,
+    tenantFailuresDeleted: tenantFailuresResult.deleted,
+  };
 }

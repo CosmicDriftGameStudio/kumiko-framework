@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-12T06:54:41.905Z",
+  "generatedAt": "2026-09-19T18:00:36.225Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3134,7 +3134,8 @@
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["email", "displayName"]
+      "piiSubjectFields": ["email", "displayName"],
+      "tenancy": "global"
     },
     {
       "tableName": "store_api_tokens",
@@ -3326,7 +3327,8 @@
         }
       ],
       "indexes": [],
-      "source": "unmanaged"
+      "source": "unmanaged",
+      "tenancy": "global"
     },
     {
       "tableName": "store_job_run_logs",
@@ -3599,6 +3601,45 @@
           "columns": ["tenant_id"]
         }
       ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "store_tenant_job_failures",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "serial",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "job_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "message_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "failed_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [],
       "source": "unmanaged"
     },
     {

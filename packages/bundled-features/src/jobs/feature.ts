@@ -21,9 +21,11 @@ import {
   createStaleRunSweepJob,
   DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS,
 } from "./handlers/stale-run-sweep.job";
+import { tenantFailuresQuery } from "./handlers/tenant-failures.query";
 import { triggerWrite } from "./handlers/trigger.write";
 import { JOBS_I18N } from "./i18n";
 import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table";
+import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table";
 
 export type JobsFeatureOptions = {
   // How long a job run (and its logs) stays in store_job_runs/
@@ -42,7 +44,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
   const staleRunTimeoutHours = options.staleRunTimeoutHours ?? DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS;
   return defineFeature("jobs", (r) => {
     r.describe(
-      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI.",
+      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079).",
     );
     r.uiHints({
       displayLabel: "Jobs · Audit & Operator UI",
@@ -60,6 +62,9 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     });
     r.storeTable(jobRunLogsTableMeta, {
       reason: "read_side.job_run_logs",
+    });
+    r.storeTable(tenantJobFailuresTableMeta, {
+      reason: "direct_write.tenant_job_failures",
     });
 
     // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
@@ -112,6 +117,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       list: r.queryHandler(listQuery),
       detail: r.queryHandler(detailQuery),
       catalog: r.queryHandler(catalogQuery),
+      failures: r.queryHandler(tenantFailuresQuery),
     };
 
     const systemAdminAccess = { roles: ["SystemAdmin"] as const };
