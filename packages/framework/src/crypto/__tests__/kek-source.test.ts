@@ -253,4 +253,46 @@ describe("resolvePlatformKeks", () => {
     expect(result.PLATFORM_KEK_PREVIOUS).toBe("rolled-back-plaintext");
     expect(calls.length).toBe(0);
   });
+
+  test("names the ignored ciphertext when a leftover plaintext wins", async () => {
+    const { fetch } = trackedFetch([]);
+    const lines: string[] = [];
+    const env: KekSourceEnv = {
+      PLATFORM_KEK: PLAINTEXT_A,
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    await resolvePlatformKeks(env, { fetch, log: (line) => lines.push(line), logPrefix: "[ps]" });
+
+    expect(lines).toEqual([
+      "[ps] PLATFORM_KEK source=plaintext-env (ciphertext present and ignored)",
+    ]);
+  });
+
+  test("names the key id and region when the ciphertext is used, without the token or the key", async () => {
+    const { fetch } = trackedFetch([jsonResponse(200, { plaintext: PLAINTEXT_A })]);
+    const lines: string[] = [];
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    await resolvePlatformKeks(env, { fetch, log: (line) => lines.push(line) });
+
+    expect(lines).toEqual(["PLATFORM_KEK source=key-manager keyId=key-1 region=fr-par"]);
+    expect(lines.join("\n")).not.toContain(TOKEN);
+    expect(lines.join("\n")).not.toContain(PLAINTEXT_A);
+  });
+
+  test("says nothing when neither slot is configured", async () => {
+    const { fetch } = trackedFetch([]);
+    const lines: string[] = [];
+
+    await resolvePlatformKeks({}, { fetch, log: (line) => lines.push(line) });
+
+    expect(lines).toEqual([]);
+  });
 });
