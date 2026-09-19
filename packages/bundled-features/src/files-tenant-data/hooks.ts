@@ -110,6 +110,7 @@ async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string
     ctx.log?.(
       `[files-tenant-data] no fileProviderResolver wired — handed-over binary for ${storageKey} is NOT deleted`,
     );
+    // skip: no provider wired, so there is no store to delete from — logged above.
     return;
   }
   let provider: Awaited<ReturnType<NonNullable<TenantDataHookCtx["fileProviderResolver"]>>>;
@@ -119,6 +120,7 @@ async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string
     ctx.log?.(
       `[files-tenant-data] no file provider resolvable for tenant ${ctx.tenantId}: ${err instanceof Error ? err.message : String(err)} — handed-over binary for ${storageKey} NOT deleted`,
     );
+    // skip: provider resolution failed, so there is nothing this call can delete — logged above.
     return;
   }
   for (const key of await provider.list(storageKeyStemPrefix(storageKey))) {

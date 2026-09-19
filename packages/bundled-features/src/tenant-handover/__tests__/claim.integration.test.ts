@@ -29,6 +29,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { signTenantHandoverGrant } from "../grant";
 import { createTenantHandoverFeature } from "../index";
 
@@ -288,6 +289,24 @@ describe("tenant-handover :: claim", () => {
         `TRUNCATE kumiko_events, kumiko_snapshots, handover_run RESTART IDENTITY CASCADE`,
       );
     }
+  });
+
+  test("a caller without an allowed role is rejected before the handler body runs", async () => {
+    // "Driver" is a real role in this framework's test fixtures but is not
+    // in claim's access.roles list (Member/User/TenantAdmin/SystemAdmin) —
+    // role-gating rejects it at dispatch, before the handler ever reads
+    // event.payload, so a garbage token/entityType still proves the point.
+    const outsider = createTestUser({
+      id: nextUserId++,
+      tenantId: testTenantId(1),
+      roles: ["Driver"],
+    });
+    const err = await stack.http.writeErr(
+      CLAIM,
+      { token: "not.a.token", entityType: "run" },
+      outsider,
+    );
+    expectErrorIncludes(err, "access_denied");
   });
 
   test("an unregistered or not-declared-transferable entityType is rejected before the grant is even touched", async () => {

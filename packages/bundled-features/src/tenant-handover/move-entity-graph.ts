@@ -63,6 +63,9 @@ async function moveEventHistory(args: {
   readonly sourceTenantId: string;
   readonly destinationTenantId: string;
 }): Promise<void> {
+  // skip: an empty id list has nothing to move — both callers already
+  // filter to a non-empty list before calling, this only guards a future
+  // caller that forgets to.
   if (args.aggregateIds.length === 0) return;
   await executeRawQuery(
     args.db,
@@ -144,6 +147,9 @@ export async function moveTransferGraph(args: {
   const { db, registry, rootEntityName, rootRowId, sourceTenantId, destinationTenantId } = args;
   const movedCounts: Record<string, number> = { [rootEntityName]: 1 };
   const trackFileMove = (count: number) => {
+    // skip: nothing moved (this entity had no attached files) — the audit
+    // payload should list `fileRef` only when a file actually moved, not a
+    // stray zero entry for every root/child that happens to have none.
     if (count === 0) return;
     movedCounts["fileRef"] = (movedCounts["fileRef"] ?? 0) + count;
   };
