@@ -1,5 +1,105 @@
 # @cosmicdrift/kumiko-types
 
+## 0.291.0
+
+### Minor Changes
+
+- ef54b65: Event-PII stops failing open without a subject KMS (fw#2776)
+
+  `defineEvent` has required an explicit PII stance since fw#2558, but a declared stance still did not guarantee ciphertext in `kumiko_events`. Two paths leaked silently and now fail closed.
+
+  Boot: `assertPiiBootInvariants` only looked at entity annotations, so an app whose PII lives exclusively in catalogued events booted without a `kms` adapter and wrote plaintext. It now collects events with a non-`"none"` stance alongside the PII entities — prod aborts, dev warns, `allowPlaintextPii: "<reason>"` acknowledges, same as for entities.
+
+  Append: `{ personal: { of: "<ownerField>" } }` skipped encryption whenever the owner field carried no id, so the same event type was ciphertext for user-triggered writes and plaintext for system-triggered ones with no signal. The stance now carries `whenAbsent`: `"tenant"` encrypts under the envelope tenant key, `"plaintext"` is an explicit acknowledgement that the value cannot be crypto-shredded. Registration rejects a nullable owner field without one, and an owner that is empty at append time with no declared fallback aborts the write instead of storing the value in the clear.
+
+  `delivery:event:attempt` declares `whenAbsent: "tenant"` — a send whose `recipientId` is null now stores the recipient address under the tenant key instead of in plaintext.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Declared event PII fails closed without a subject KMS (fw#2776)
+  migration: |
+    Three things can newly fail. (1) Boot aborts with `BOOT ABORTED — ... events
+    [...]` when a mounted feature declares a non-`"none"` `piiFields` stance and
+    `runProdApp`/`runWorkerApp` gets no `kms`. Pass
+    `kms: createPgKmsAdapter({ databaseUrl, platformKek })`, or acknowledge the
+    plaintext with `allowPlaintextPii: "<reason>"` until the KMS is provisioned;
+    `runDevApp` only warns. (2) Registration aborts when a
+    `{ personal: { of: "<ownerField>" } }` stance names an owner field the payload
+    schema allows to be null or undefined. Add `whenAbsent: "tenant"` to encrypt
+    those writes under the envelope tenant key, or `whenAbsent: "plaintext"` to
+    declare that the value ships unencrypted and is not crypto-shreddable. The
+    deprecated `{ subjectField: "<ownerField>" }` form cannot express `whenAbsent`
+    — move it to the canonical `{ personal: { of: ... } }` form. (3) `append()`
+    throws `SubjectResolutionError` when the owner field is empty at write time
+    and the event declared no `whenAbsent`. Registration catches this for
+    ZodObject payload schemas; a non-object schema surfaces it here. An owner
+    value that is not a non-empty string — a numeric id, an empty string — counts
+    as absent, so it takes the same path and needs the same declaration.
+    Separately, `delivery:event:attempt` rows written with a null `recipientId`
+    used to hold a plaintext recipient address in `kumiko_events` and in
+    `store_delivery_attempts`. New rows are tenant-subject ciphertext.
+    `delivery:query:log` decrypts either form, so the admin log view is unchanged;
+    tooling that reads `store_delivery_attempts.recipient_address` directly must
+    go through `decryptStoredPii`. Existing plaintext rows stay readable and are
+    re-encrypted by `backfillEventPiiEncryption`.
+  -->
+
+- 0621367: Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)
+
+  A fire-and-forget job that fails left the tenant's screen on a spinner that never ends — `jobs:query:list` is SystemAdmin and reads cross-tenant over `systemDb.unsafeRaw`, so a tenant could not see its own job failing. Apps worked around it with their own failure entity written in the job's catch.
+
+  A job now opts in declaratively: `r.job("generateTexts", { trigger: …, tenantVisibleFailure: { messageKey: "app:errors.generationFailed", subjectFields: ["campaignId"] } }, handler)`. When its last attempt fails, the run-logger records one row per tenant, job and subject in the new `store_tenant_job_failures` table, and the tenant reads it back through `jobs:query:failures` (every membership rank, own tenant only).
+
+  Only a translation key travels to the tenant: the thrown error's own `i18nKey` when it carries one, otherwise the declared `messageKey`. The provider's message stays on `store_job_runs.error` and in the run log, both SystemAdmin-only. Records are scoped to the run's tenant — a tenant-less run (cron, `SYSTEM_TENANT_ID`) records nothing.
+
+  Lifetime and retries: a record lives until the next successful run of the same job and subject deletes it; there is no acknowledgement step (tenant job administration stays out of scope). Only the final attempt records, so a job with `retries` that succeeds on a later attempt never shows the tenant a failure. The daily `retention-cleanup` job purges leftovers past `retentionDays`.
+
+  `jobs:query:list`, `jobs:query:details` and `jobs:query:retry` are unchanged. `JobRunnerOptions.onJobComplete`/`onJobFailed` gained an optional fifth `outcome` argument — existing four-argument callbacks keep working.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)
+  migration: New store table. Run `kumiko migrate generate` and apply the migration — `store_tenant_job_failures` is created empty and stays empty until a job declares `tenantVisibleFailure`. No change needed for apps that do not opt in.
+  -->
+
+- 0fd6bb5: A `money` field on an entity-less form screen must declare its currency source (fw#2839)
+
+  `actionForm` and `secretMint` have no entity, so their money fields never received `entity.defaultCurrency`: an untouched one seeded a bare `0` that the handler's zod schema then rejected on submit. fw#2763 closed the prefill half of this; the default half stayed open. `MoneyCurrencySource` gains `{ kind: "literal", code }` next to the existing `{ kind: "tenant" }`, and the field maps of `actionForm`, `secretMint` and its `confirm` step are narrowed so a money field there requires `currency` — enforced by the compiler at bump time and by the boot validator for untyped callers. A literal code is checked against the app's `currencies` list, the same rule `entity.defaultCurrency` already follows. Entity fields, embedded-list money cells and `configEdit`'s plain-number contract are unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: money fields on actionForm/secretMint screens declare their currency source (fw#2839)
+  migration: |
+    Only affects entity-less form screens — `actionForm`, `secretMint` and a
+    secretMint's `confirm` step — that hold a `money` field. Entity money fields
+    are unchanged (`entity.defaultCurrency` is already boot-enforced for them),
+    as are embedded-list money cells (currency at the head, fw#2764) and
+    `configEdit`, which keeps its plain-number contract.
+    Add a `currency` to each money field in such a screen's `fields` map:
+    `currency: { kind: "literal", code: "EUR" }` for one fixed currency, or
+    `currency: { kind: "tenant" }` for the tenant's own currency.
+    A `literal` code must be in the app's `currencies` list (`createApp({ currencies })`,
+    which already includes the defaults). A `tenant`-declared field resolves through
+    the tenant-settings bundle and holds the form until the value has landed, so that
+    bundle has to be mounted. Missing declarations fail at compile time; an untyped
+    caller fails at boot with the screen and field name in the message.
+  -->
+
+- 229298b: Reference fields can source their picker from a query handler
+
+  `labelField` names one column of the referenced entity, so an entity whose identity is composed from joined rows — a lease identified by its tenant and unit, not by any column on the lease row — has no right answer, only a least-wrong one, and its picker lists raw dates or UUIDs. `ReferenceFieldDef.optionsQuery` (also on a reference sub-field of an embedded field) names a query handler that returns `{ rows: { id, label }[] }` and receives `{ limit, search? }` like the default list handler, so the app composes the label itself. The picker, the read-only display of a reference value and an embedded-list reference cell all read it; the QN is pinned at boot against the registered handlers, the same treatment `DashboardFilterDefinition.optionsQuery` gets.
+
+  It is additive, not a replacement: `labelField` keeps serving the paths a query handler cannot back, since list cells, `searchable` and `sortable` all resolve to an SQL column on the referenced table. A field without `optionsQuery` behaves exactly as before.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Reference fields can source their picker from a query handler
+  -->
+
 ## 0.290.0
 
 ### Minor Changes

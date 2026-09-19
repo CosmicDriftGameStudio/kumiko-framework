@@ -1,5 +1,188 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.291.0
+
+### Minor Changes
+
+- 0fa2da2: projection-rebuild aborts instead of silently NULLing populated blind-index columns (fw#3091)
+
+  `kumiko schema apply` rebuilds a projection through a fresh shadow table replay, and the shadow always recomputes every `<field>_bidx` column with whatever blind-index key is configured in the running process. A projection rebuilt in a process without `KUMIKO_BLIND_INDEX_KEY` set — most commonly the `migrate-db` init container that runs `kumiko schema apply` on deploy — silently swapped the live table for one where every bidx column had gone NULL, breaking equality lookups (login, password reset) with no error anywhere. `rebuildProjection` now checks, right before the swap, whether the live table already has populated bidx columns while no key is configured in this process; if so it throws and leaves the live table untouched instead of completing the swap.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: projection-rebuild aborts instead of silently NULLing populated blind-index columns (fw#3091)
+  migration: |
+    Plaintext installations and the fw#1610 case (KMS configured, no blind-index
+    key) are unaffected — their bidx columns are NULL already, so there is
+    nothing for the rebuild to lose. This only blocks a rebuild that would
+    otherwise destroy already-populated bidx columns: any process running
+    `kumiko schema apply` (or another projection rebuild) against a table with
+    live blind-index data must have `KUMIKO_BLIND_INDEX_KEY` set. Wire that env
+    var into the `migrate-db` init container (or wherever schema apply runs in
+    deploy) alongside the app's own KUMIKO_BLIND_INDEX_KEY, or the rebuild aborts
+    instead of quietly breaking equality lookups.
+  -->
+
+- ef54b65: Event-PII stops failing open without a subject KMS (fw#2776)
+
+  `defineEvent` has required an explicit PII stance since fw#2558, but a declared stance still did not guarantee ciphertext in `kumiko_events`. Two paths leaked silently and now fail closed.
+
+  Boot: `assertPiiBootInvariants` only looked at entity annotations, so an app whose PII lives exclusively in catalogued events booted without a `kms` adapter and wrote plaintext. It now collects events with a non-`"none"` stance alongside the PII entities — prod aborts, dev warns, `allowPlaintextPii: "<reason>"` acknowledges, same as for entities.
+
+  Append: `{ personal: { of: "<ownerField>" } }` skipped encryption whenever the owner field carried no id, so the same event type was ciphertext for user-triggered writes and plaintext for system-triggered ones with no signal. The stance now carries `whenAbsent`: `"tenant"` encrypts under the envelope tenant key, `"plaintext"` is an explicit acknowledgement that the value cannot be crypto-shredded. Registration rejects a nullable owner field without one, and an owner that is empty at append time with no declared fallback aborts the write instead of storing the value in the clear.
+
+  `delivery:event:attempt` declares `whenAbsent: "tenant"` — a send whose `recipientId` is null now stores the recipient address under the tenant key instead of in plaintext.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Declared event PII fails closed without a subject KMS (fw#2776)
+  migration: |
+    Three things can newly fail. (1) Boot aborts with `BOOT ABORTED — ... events
+    [...]` when a mounted feature declares a non-`"none"` `piiFields` stance and
+    `runProdApp`/`runWorkerApp` gets no `kms`. Pass
+    `kms: createPgKmsAdapter({ databaseUrl, platformKek })`, or acknowledge the
+    plaintext with `allowPlaintextPii: "<reason>"` until the KMS is provisioned;
+    `runDevApp` only warns. (2) Registration aborts when a
+    `{ personal: { of: "<ownerField>" } }` stance names an owner field the payload
+    schema allows to be null or undefined. Add `whenAbsent: "tenant"` to encrypt
+    those writes under the envelope tenant key, or `whenAbsent: "plaintext"` to
+    declare that the value ships unencrypted and is not crypto-shreddable. The
+    deprecated `{ subjectField: "<ownerField>" }` form cannot express `whenAbsent`
+    — move it to the canonical `{ personal: { of: ... } }` form. (3) `append()`
+    throws `SubjectResolutionError` when the owner field is empty at write time
+    and the event declared no `whenAbsent`. Registration catches this for
+    ZodObject payload schemas; a non-object schema surfaces it here. An owner
+    value that is not a non-empty string — a numeric id, an empty string — counts
+    as absent, so it takes the same path and needs the same declaration.
+    Separately, `delivery:event:attempt` rows written with a null `recipientId`
+    used to hold a plaintext recipient address in `kumiko_events` and in
+    `store_delivery_attempts`. New rows are tenant-subject ciphertext.
+    `delivery:query:log` decrypts either form, so the admin log view is unchanged;
+    tooling that reads `store_delivery_attempts.recipient_address` directly must
+    go through `decryptStoredPii`. Existing plaintext rows stay readable and are
+    re-encrypted by `backfillEventPiiEncryption`.
+  -->
+
+- d47adef: Boot warns for text/longText fields without a personal stance (fw#2918).
+
+  `validatePiiAndRetention` so far only warned when an unannotated field name hit one of the PII name heuristics. It now warns for every `text`/`longText` field that declares no stance at all — naming feature, entity, field and all valid stances verbatim — so consumers can work off their own baseline before fw#2810 turns the missing stance into a compile error and a throw. Annotated fields (including `personal: false` with a reason and `personal: "ref"`) stay silent, other field types are untouched.
+
+  A clean boot does not mean "ready for fw#2810": `validatePiiAndRetention` only walks `feature.entities[*].fields`, so embedded sub-schemas and call sites that never boot (fixtures, helper modules) produce no warning while still breaking later. The completeness instrument is and stays `guard-text-field-stance` — ready means a guard count of 0. The reverse does not hold either: the guard counts `createTextField()` call sites, the boot validator walks resolved field defs, so a raw field-def object literal warns at boot without ever showing up in the guard's baseline.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot warns for text/longText fields without a personal stance (fw#2918).
+  -->
+
+- 67a4227: Generic job-liveness metric `kumiko_job_last_success_timestamp_seconds{job}` (fw#3052).
+
+  The job-runner now stamps a standard gauge with the Unix timestamp of the last successful run of every job registered via `r.job`, so any consumer gets a real dead-man for all its crons with `time() - kumiko_job_last_success_timestamp_seconds{job="…"} > <interval + buffer>`. A failed run leaves the value untouched. The k8s CronJob alerts never covered these jobs — they run in-process in a long-lived pod and create no CronJob object. Note that the series is absent until the first success after a restart; `docs/reference/job-liveness-metric.md` explains the `for:` that implies for the alert side.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Generic job-liveness metric kumiko_job_last_success_timestamp_seconds{job} (fw#3052).
+  -->
+
+- 0621367: Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)
+
+  A fire-and-forget job that fails left the tenant's screen on a spinner that never ends — `jobs:query:list` is SystemAdmin and reads cross-tenant over `systemDb.unsafeRaw`, so a tenant could not see its own job failing. Apps worked around it with their own failure entity written in the job's catch.
+
+  A job now opts in declaratively: `r.job("generateTexts", { trigger: …, tenantVisibleFailure: { messageKey: "app:errors.generationFailed", subjectFields: ["campaignId"] } }, handler)`. When its last attempt fails, the run-logger records one row per tenant, job and subject in the new `store_tenant_job_failures` table, and the tenant reads it back through `jobs:query:failures` (every membership rank, own tenant only).
+
+  Only a translation key travels to the tenant: the thrown error's own `i18nKey` when it carries one, otherwise the declared `messageKey`. The provider's message stays on `store_job_runs.error` and in the run log, both SystemAdmin-only. Records are scoped to the run's tenant — a tenant-less run (cron, `SYSTEM_TENANT_ID`) records nothing.
+
+  Lifetime and retries: a record lives until the next successful run of the same job and subject deletes it; there is no acknowledgement step (tenant job administration stays out of scope). Only the final attempt records, so a job with `retries` that succeeds on a later attempt never shows the tenant a failure. The daily `retention-cleanup` job purges leftovers past `retentionDays`.
+
+  `jobs:query:list`, `jobs:query:details` and `jobs:query:retry` are unchanged. `JobRunnerOptions.onJobComplete`/`onJobFailed` gained an optional fifth `outcome` argument — existing four-argument callbacks keep working.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)
+  migration: New store table. Run `kumiko migrate generate` and apply the migration — `store_tenant_job_failures` is created empty and stays empty until a job declares `tenantVisibleFailure`. No change needed for apps that do not opt in.
+  -->
+
+- 0fd6bb5: A `money` field on an entity-less form screen must declare its currency source (fw#2839)
+
+  `actionForm` and `secretMint` have no entity, so their money fields never received `entity.defaultCurrency`: an untouched one seeded a bare `0` that the handler's zod schema then rejected on submit. fw#2763 closed the prefill half of this; the default half stayed open. `MoneyCurrencySource` gains `{ kind: "literal", code }` next to the existing `{ kind: "tenant" }`, and the field maps of `actionForm`, `secretMint` and its `confirm` step are narrowed so a money field there requires `currency` — enforced by the compiler at bump time and by the boot validator for untyped callers. A literal code is checked against the app's `currencies` list, the same rule `entity.defaultCurrency` already follows. Entity fields, embedded-list money cells and `configEdit`'s plain-number contract are unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: money fields on actionForm/secretMint screens declare their currency source (fw#2839)
+  migration: |
+    Only affects entity-less form screens — `actionForm`, `secretMint` and a
+    secretMint's `confirm` step — that hold a `money` field. Entity money fields
+    are unchanged (`entity.defaultCurrency` is already boot-enforced for them),
+    as are embedded-list money cells (currency at the head, fw#2764) and
+    `configEdit`, which keeps its plain-number contract.
+    Add a `currency` to each money field in such a screen's `fields` map:
+    `currency: { kind: "literal", code: "EUR" }` for one fixed currency, or
+    `currency: { kind: "tenant" }` for the tenant's own currency.
+    A `literal` code must be in the app's `currencies` list (`createApp({ currencies })`,
+    which already includes the defaults). A `tenant`-declared field resolves through
+    the tenant-settings bundle and holds the form until the value has landed, so that
+    bundle has to be mounted. Missing declarations fail at compile time; an untyped
+    caller fails at boot with the screen and field name in the message.
+  -->
+
+- 229298b: Reference fields can source their picker from a query handler
+
+  `labelField` names one column of the referenced entity, so an entity whose identity is composed from joined rows — a lease identified by its tenant and unit, not by any column on the lease row — has no right answer, only a least-wrong one, and its picker lists raw dates or UUIDs. `ReferenceFieldDef.optionsQuery` (also on a reference sub-field of an embedded field) names a query handler that returns `{ rows: { id, label }[] }` and receives `{ limit, search? }` like the default list handler, so the app composes the label itself. The picker, the read-only display of a reference value and an embedded-list reference cell all read it; the QN is pinned at boot against the registered handlers, the same treatment `DashboardFilterDefinition.optionsQuery` gets.
+
+  It is additive, not a replacement: `labelField` keeps serving the paths a query handler cannot back, since list cells, `searchable` and `sortable` all resolve to an SQL column on the referenced table. A field without `optionsQuery` behaves exactly as before.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Reference fields can source their picker from a query handler
+  -->
+
+- 32a1ce3: runProdApp, runDevApp and runWorkerApp forward validateBootOptions to validateBoot (fw#3080)
+
+  All three run-app entrypoints called `validateBoot(features)` without options, so only `createApp` could pass a `navAllowlist` or `warnOnUniqueAccessRoles` through. An app could declare the option, test it against `validateBoot` directly and see green — while the process it actually boots never received it. The three option types now carry an optional `validateBootOptions`, passed straight through in the same shape `createApp` already uses. `ValidateBootOptions` is exported from `@cosmicdrift/kumiko-framework/engine` so consumers can type the value. Omitting it leaves boot behaviour unchanged.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp, runDevApp and runWorkerApp forward validateBootOptions to validateBoot (fw#3080)
+  -->
+
+### Patch Changes
+
+- ca8d3e3: API handler rejections (4xx) now leave a log line instead of being silently dropped
+
+  `logServerFault` returned early for every `httpStatus < 500`, so a failing request (validation, unprocessable, rate-limited) left no log trace at all — a paid external call that 422'd was invisible end to end (offlot#117). 4xx now log on `warn` via the same fallback logger 5xx already used, with status, error code and duration only — no message, details, stack or cause, so submitted values never reach the log line. 5xx behavior on the `error` level is unchanged.
+
+  Consumers that set `LOG_LEVEL=error`, `fatal` or `silent` suppress the new 4xx lines; anything else (including the default) now logs them. Expect more log volume on routes with frequent client-side validation failures.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: API handler rejections (4xx) now leave a log line instead of being silently dropped
+  -->
+
+- 53e20f4: pii-personal-migration codemod: `--report-stance` mode (fw#2919)
+
+  `bun scripts/codemod/pii-personal-migration.ts <dir> --report-stance` scans every `createTextField`/`createLongTextField` call without a `personal` stance and classifies its field name against the `entity-handler.ts` PII name hints (direct/user-owned/user-reference/near-miss/unclassified) — no files are written.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: pii-personal-migration codemod gets a --report-stance mode (fw#2919)
+  -->
+
+- Updated dependencies [ef54b65]
+- Updated dependencies [0621367]
+- Updated dependencies [0fd6bb5]
+- Updated dependencies [229298b]
+  - @cosmicdrift/kumiko-types@0.291.0
+  - @cosmicdrift/kumiko-http@0.291.0
+
 ## 0.290.0
 
 ### Minor Changes

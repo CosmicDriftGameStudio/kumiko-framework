@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.291.0
+
+### Minor Changes
+
+- 229298b: Reference fields can source their picker from a query handler
+
+  `labelField` names one column of the referenced entity, so an entity whose identity is composed from joined rows — a lease identified by its tenant and unit, not by any column on the lease row — has no right answer, only a least-wrong one, and its picker lists raw dates or UUIDs. `ReferenceFieldDef.optionsQuery` (also on a reference sub-field of an embedded field) names a query handler that returns `{ rows: { id, label }[] }` and receives `{ limit, search? }` like the default list handler, so the app composes the label itself. The picker, the read-only display of a reference value and an embedded-list reference cell all read it; the QN is pinned at boot against the registered handlers, the same treatment `DashboardFilterDefinition.optionsQuery` gets.
+
+  It is additive, not a replacement: `labelField` keeps serving the paths a query handler cannot back, since list cells, `searchable` and `sortable` all resolve to an SQL column on the referenced table. A field without `optionsQuery` behaves exactly as before.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Reference fields can source their picker from a query handler
+  -->
+
+### Patch Changes
+
+- Updated dependencies [0fa2da2]
+- Updated dependencies [ef54b65]
+- Updated dependencies [d47adef]
+- Updated dependencies [ca8d3e3]
+- Updated dependencies [53e20f4]
+- Updated dependencies [67a4227]
+- Updated dependencies [0621367]
+- Updated dependencies [0fd6bb5]
+- Updated dependencies [229298b]
+- Updated dependencies [32a1ce3]
+  - @cosmicdrift/kumiko-framework@0.291.0
+
 ## 0.290.0
 
 ### Patch Changes

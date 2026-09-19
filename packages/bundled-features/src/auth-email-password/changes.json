@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.291.0",
+    "type": "improvement",
+    "title": "loggedInHref callbacks on SignupCompleteScreen and InviteAcceptScreen now receive the roles granted by the flow",
+    "detail": "Apps can route a freshly activated user to a screen their role can actually open, instead of a fixed path that may render Access denied. The string form of loggedInHref is unchanged; the function form gains a roles field next to the existing tenantKey/tenantId."
+  },
+  {
     "version": "0.286.0",
     "type": "improvement",
     "title": "lockout-store and signup/invite-token-store now delegate to shared/lockout-counter and shared/single-use-token-store",
