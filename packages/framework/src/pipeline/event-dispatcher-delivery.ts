@@ -14,6 +14,7 @@ import {
 } from "../db/queries/event-consumer";
 import { selectEventsHeadId } from "../db/queries/event-store";
 import { coerceRow, extractTableInfo, selectMany } from "../db/query";
+import { qnScope } from "../engine/qualified-name";
 import type { AppContext } from "../engine/types";
 import { eventsTable, toStoredEvent as rowToStoredEvent } from "../event-store";
 import {
@@ -240,9 +241,20 @@ export async function deliverEvents(
       const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
       const causationId = String(stored.id);
       const requestId = requestContext.generateId();
-      await requestContext.run({ requestId, correlationId, causationId }, async () => {
-        await consumer.handler(stored, context);
-      });
+      // #3043 — an event this apply writes is attributed to the consumer, not
+      // to whatever wrote the triggering event; causationId already links back.
+      await requestContext.run(
+        {
+          requestId,
+          correlationId,
+          causationId,
+          handler: consumer.name,
+          feature: consumer.featureName ?? qnScope(consumer.name),
+        },
+        async () => {
+          await consumer.handler(stored, context);
+        },
+      );
       cursor = row.id;
       attempts = 0;
       lastError = null;

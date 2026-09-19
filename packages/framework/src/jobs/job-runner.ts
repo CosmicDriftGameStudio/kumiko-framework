@@ -4,6 +4,7 @@ import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow } from "../db/connection";
 import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
+import { qnScope } from "../engine/qualified-name";
 import { createSystemUser } from "../engine/system-user";
 import {
   type AppContext,
@@ -665,8 +666,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     const runInSpan = async (): Promise<void> => {
       try {
-        await requestContext.run({ requestId: jobRequestId, correlationId: jobCorrelationId }, () =>
-          jobDef.handler(payload, jobContext),
+        await requestContext.run(
+          {
+            requestId: jobRequestId,
+            correlationId: jobCorrelationId,
+            // #3043 — events a job writes carry the job as their origin.
+            handler: jobName,
+            feature: qnScope(jobName),
+          },
+          () => jobDef.handler(payload, jobContext),
         );
         const duration = Date.now() - startTime;
         await options.onJobComplete?.(jobName, jobId, duration, logs);

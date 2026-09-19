@@ -1,4 +1,8 @@
-import type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
+import {
+  type EventMetadata,
+  type StoredEvent,
+  UNATTRIBUTED_ORIGIN,
+} from "@cosmicdrift/kumiko-types/event-store-types";
 // Value-only import, aliased to avoid shadowing the ambient global
 // `Temporal` TYPE this file's other Temporal.Instant annotations resolve
 // against (StoredEvent.createdAt et al. — importing the bare name here
@@ -6,6 +10,7 @@ import type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event
 // as a runtime value on globalThis, so the un-aliased call below crashed
 // with "Temporal is not defined" outside boot paths that install it (#1480).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
+import { requestContext } from "../api/request-context";
 import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
@@ -83,7 +88,7 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     aggregateType: event.aggregateType,
     aggregateId: event.aggregateId,
   });
-  const toStore = payload === event.payload ? event : { ...event, payload };
+  const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
 
@@ -114,6 +119,22 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     }
     throw e;
   }
+}
+
+// #3043 — attribution is derived from the execution scope, never taken from
+// the caller: a passed-in value can lie about who wrote the row, a derived
+// one cannot. Hence overwrite rather than merge. appendRaw/appendRawBatch
+// bypass this deliberately — they replay historical rows verbatim.
+function stampOrigin(event: EventToAppend): EventToAppend {
+  const origin = requestContext.get();
+  return {
+    ...event,
+    metadata: {
+      ...event.metadata,
+      feature: origin?.feature ?? UNATTRIBUTED_ORIGIN,
+      handler: origin?.handler ?? UNATTRIBUTED_ORIGIN,
+    },
+  };
 }
 
 type InsertReturn = { id: bigint; createdAt: Temporal.Instant };

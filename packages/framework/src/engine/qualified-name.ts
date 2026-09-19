@@ -130,6 +130,15 @@ export function isKebabSegment(name: string): boolean {
   return QN_SEGMENT.test(name);
 }
 
+// Owning scope of a qualified name — the segment before the first ":".
+// Deliberately lenient where parseQn() throws: callers here hold names that
+// may be unqualified (system consumers, ad-hoc jobs) and want undefined, not
+// an exception.
+export function qnScope(qualifiedName: string): string | undefined {
+  const idx = qualifiedName.indexOf(":");
+  return idx > 0 ? qualifiedName.slice(0, idx) : undefined;
+}
+
 // Build a fully-qualified entity name from a feature name + QN type + short
 // name, running both names through toKebab first. This is the canonical
 // "how the registry qualifies things" helper — both createRegistry and
