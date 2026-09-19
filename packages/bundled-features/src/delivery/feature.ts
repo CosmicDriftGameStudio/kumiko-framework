@@ -64,8 +64,13 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // apply-key is a registered domain-event (DELIVERY_ATTEMPT_EVENT).
     // recipientAddress is the real PII (email address); recipientId stays
     // plaintext — pseudonymous fk, same line as config.userId (#821).
+    // recipientId is nullable (system-triggered sends to non-users), so the
+    // address falls back to the tenant key instead of the plaintext it used
+    // to be — still shreddable, one tenant wide (fw#2776).
     r.defineEvent("attempt", deliveryAttemptSchema, {
-      piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
+      piiFields: {
+        recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } },
+      },
     });
 
     // Inline projection that materialises every delivery attempt into

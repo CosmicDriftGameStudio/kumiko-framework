@@ -154,14 +154,35 @@ describe("resolveEventSubject (fw#2801)", () => {
     expect(subject).toEqual({ kind: "user", userId: UUID_A });
   });
 
-  test("personal: { of } with a missing owner value → null, no throw (system-triggered event)", () => {
+  test("personal: { of } with a missing owner value and no whenAbsent → throws (fw#2776)", () => {
+    expect(() =>
+      resolveEventSubject(
+        "note",
+        { personal: { of: "authorId" } },
+        { authorId: null },
+        { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
+      ),
+    ).toThrow(/carries no id and the event declares no whenAbsent fallback/);
+  });
+
+  test('personal: { of, whenAbsent: "plaintext" } with a missing owner → null (fw#2776)', () => {
     const subject = resolveEventSubject(
       "note",
-      { personal: { of: "authorId" } },
+      { personal: { of: "authorId", whenAbsent: "plaintext" } },
       { authorId: null },
       { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
     );
     expect(subject).toBeNull();
+  });
+
+  test('personal: { of, whenAbsent: "tenant" } with a missing owner → envelope tenant (fw#2776)', () => {
+    const subject = resolveEventSubject(
+      "note",
+      { personal: { of: "authorId", whenAbsent: "tenant" } },
+      { authorId: null },
+      { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
+    );
+    expect(subject).toEqual({ kind: "tenant", tenantId: EVENT_TENANT });
   });
 
   test('personal: "tenant" → subject from the envelope tenantId', () => {

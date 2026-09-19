@@ -135,11 +135,19 @@ export interface EventSubjectEnvelope {
   readonly aggregateId: string;
 }
 
+function resolveEnvelopeTenant(fieldName: string, envelope: EventSubjectEnvelope): SubjectId {
+  if (nonEmptyString(envelope.tenantId) === null) {
+    throw new SubjectResolutionError(fieldName, "event envelope tenantId is empty");
+  }
+  return { kind: "tenant", tenantId: envelope.tenantId };
+}
+
 // Same resolver for the live-append path (encryptEventPayloadPii) and the
 // backfill catalog path (backfillEventPiiEncryption) — the reason the two
-// can never encrypt the same field under different subjects. "user" returns
-// null on a missing owner (no key to shred for system-triggered events);
-// "tenant"/"self" throw instead, since their envelope facts are structural.
+// can never encrypt the same field under different subjects. A "user"
+// subject whose owner field is empty falls back to the declared whenAbsent
+// stance and throws when none is declared (fw#2776); "tenant"/"self" throw
+// on an empty envelope, since their facts are structural.
 export function resolveEventSubject(
   fieldName: string,
   spec: EventPiiSubject,
@@ -150,14 +158,23 @@ export function resolveEventSubject(
 
   if (normalized.kind === "user") {
     const userId = nonEmptyString(payload[normalized.ownerField]);
-    return userId === null ? null : { kind: "user", userId };
+    if (userId !== null) return { kind: "user", userId };
+    if (normalized.whenAbsent === "tenant") return resolveEnvelopeTenant(fieldName, envelope);
+    if (normalized.whenAbsent === "plaintext") {
+      // skip: author declared whenAbsent: "plaintext" — value ships unencrypted by decision
+      return null;
+    }
+    throw new SubjectResolutionError(
+      fieldName,
+      `owner field "${normalized.ownerField}" carries no id and the event declares no whenAbsent fallback — ` +
+        `refusing to append plaintext PII. Declare { personal: { of: "${normalized.ownerField}", ` +
+        `whenAbsent: "tenant" } } to encrypt under the envelope tenant key, or whenAbsent: "plaintext" ` +
+        "to acknowledge that this value cannot be crypto-shredded (fw#2776).",
+    );
   }
 
   if (normalized.kind === "tenant") {
-    if (nonEmptyString(envelope.tenantId) === null) {
-      throw new SubjectResolutionError(fieldName, "event envelope tenantId is empty");
-    }
-    return { kind: "tenant", tenantId: envelope.tenantId };
+    return resolveEnvelopeTenant(fieldName, envelope);
   }
 
   if (normalized.kind === "self") {

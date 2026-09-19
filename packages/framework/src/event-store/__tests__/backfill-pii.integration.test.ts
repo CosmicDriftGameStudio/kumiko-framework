@@ -56,12 +56,20 @@ const crmFeature = defineFeature("crm", (r) => {
 // hand-written, so a camelCase event name (tenantNote → tenant-note) can
 // never drift from what the catalog is actually keyed by (fw#2801).
 let PING_EVENT_TYPE: string;
+let PING_TENANT_EVENT_TYPE: string;
+const pingSchema = z.object({
+  targetId: z.string().nullable(),
+  address: z.string().nullable(),
+});
 const mailerFeature = defineFeature("mailer", (r) => {
-  PING_EVENT_TYPE = r.defineEvent(
-    "ping",
-    z.object({ targetId: z.string().nullable(), address: z.string().nullable() }),
-    { piiFields: { address: { subjectField: "targetId" } } },
-  ).name;
+  // targetId is nullable, so the stance has to say what happens without an
+  // owner — the two events below cover both declarations (fw#2776).
+  PING_EVENT_TYPE = r.defineEvent("ping", pingSchema, {
+    piiFields: { address: { personal: { of: "targetId", whenAbsent: "plaintext" } } },
+  }).name;
+  PING_TENANT_EVENT_TYPE = r.defineEvent("pingTenant", pingSchema, {
+    piiFields: { address: { personal: { of: "targetId", whenAbsent: "tenant" } } },
+  }).name;
 });
 
 // fw#2801: custom events declaring a tenant/self subject — no entity,
@@ -272,12 +280,28 @@ describe("backfillEventPiiEncryption", () => {
     >;
     expect(erased["address"]).toBe(PII_ERASED_SENTINEL);
 
-    // No subject → no key to shred; stays plaintext (documented rollout gap).
+    // No subject and whenAbsent: "plaintext" → declared, stays plaintext.
     const system = (await loadAggregate(testDb.db, p3, TENANT))[0]?.payload as Record<
       string,
       unknown
     >;
     expect(system["address"]).toBe("ops@x.com");
+  });
+
+  test('an absent owner with whenAbsent: "tenant" backfills under the tenant key (fw#2776)', async () => {
+    const p4 = generateId();
+    await appendPlain(p4, "ping", PING_TENANT_EVENT_TYPE, {
+      targetId: null,
+      address: "ops@x.com",
+    });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(result.failures).toEqual([]);
+
+    const row = (await loadAggregate(testDb.db, p4, TENANT))[0]?.payload as Record<string, unknown>;
+    expect(isPiiCiphertext(row["address"])).toBe(true);
+    expect(String(row["address"])).toContain(`tenant:${TENANT}`);
   });
 
   test("idempotent: second run updates nothing; dryRun writes nothing", async () => {
