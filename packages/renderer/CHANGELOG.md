@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.290.0
+
+### Patch Changes
+
+- 9da6b5f: Layout field readers see groups[].fields
+
+  layoutEditFields flattens section.groups, so required fields inside a groups-only section are presence-validated by buildFormSchema and survive the renderableFields gate for search-param prefills.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Layout field readers see groups[].fields
+  -->
+
+- Updated dependencies [878d8b2]
+- Updated dependencies [9da6b5f]
+- Updated dependencies [fe23245]
+- Updated dependencies [878d8b2]
+  - @cosmicdrift/kumiko-framework@0.290.0
+  - @cosmicdrift/kumiko-types@0.290.0
+  - @cosmicdrift/kumiko-headless@0.290.0
+
 ## 0.289.0
 
 ### Patch Changes

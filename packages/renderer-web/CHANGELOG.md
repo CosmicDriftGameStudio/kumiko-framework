@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.290.0
+
+### Minor Changes
+
+- bcfbb28: Export Icon and NavIconKey from the package root
+
+  Export `Icon` and `NavIconKey` from the package root so consumers can render a decorative icon outside `Button`/`Input`.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Export Icon and NavIconKey from the package root
+  -->
+
+### Patch Changes
+
+- d2bd28d: DetailList sizes its label column from the container
+
+  DetailList now sizes its label column from its own container width instead of the viewport, so it stacks correctly in narrow panels regardless of screen size.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: DetailList sizes its label column from the container
+  -->
+
+- Updated dependencies [9da6b5f]
+  - @cosmicdrift/kumiko-renderer@0.290.0
+  - @cosmicdrift/kumiko-headless@0.290.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.290.0
+
 ## 0.289.0
 
 ### Patch Changes

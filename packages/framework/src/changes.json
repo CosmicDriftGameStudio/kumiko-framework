@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.290.0",
+    "type": "improvement",
+    "title": "Event-Attribution: metadata.feature + metadata.handler auf jedem Event",
+    "detail": "event-store.append() stempelt Feature und Handler-Namen aus dem Ausfuehrungsscope (requestContext) auf jedes geschriebene Event. Dispatch-Handler, Entity-Executor-Writes, MSP-Applies und Jobs sind damit ohne Signaturaenderung attribuiert; Appends ausserhalb eines Scopes tragen UNATTRIBUTED_ORIGIN. appendRaw/appendRawBatch bleiben unveraendert."
+  },
+  {
+    "version": "0.290.0",
+    "type": "fix",
+    "title": "Section readers see groups[].fields",
+    "detail": "Boot-guard and E2E-generator now flatten section.groups via sectionFieldSpecs instead of iterating section.fields only: a function renderer inside groups[].fields fails at boot, and generated E2E specs cover group fields (required fields, fill ops, text assertions)."
+  },
+  {
+    "version": "0.290.0",
+    "type": "improvement",
+    "title": "The tenant-teardown 410 gate is derived from the mounted tenantLifecycleStatus provider (fw#2881).",
+    "detail": "buildServer now resolves the EXT_TENANT_LIFECYCLE_STATUS extension point itself, so every server with tenant-lifecycle mounted rejects requests against a tenant in teardown with 410 tenant_unavailable — prod, dev and test stacks can no longer drift because one entrypoint forgot the wiring. An explicit auth.resolveTenantLifecycleStatus still takes precedence and stays the escape hatch. A mounted provider without context.db is a boot error instead of a silently skipped gate."
+  },
+  {
     "version": "0.289.0",
     "type": "breaking",
     "title": "appendProvenanceEvent enforces event.tenantId === db.tenantId",
