@@ -179,11 +179,11 @@ describe("anonymous deletion flow", () => {
     expect(second.status).toBe(422);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
-    // #354/2 + #3024: der anonyme Endpoint gibt für JEDEN Fehlerpfad denselben
-    // generischen reason zurück wie ein ungültiges Token — seit die Grace-
-    // Period-Transition in commitDeletion (dem Anker-Spend) aufgeht, gibt es
-    // keinen separaten res.ok-Zweig mehr, der den konkreten User-Status
-    // (currentStatus) leaken könnte.
+    // #354/2 + #3024: the anonymous endpoint returns the same generic reason
+    // for EVERY error path as an invalid token — since the grace-period
+    // transition now lives inside commitDeletion (the anchor spend), there is
+    // no separate res.ok branch left that could leak the concrete user status
+    // (currentStatus).
     const body = (await second.json()) as {
       error: { details?: { reason?: string } };
     };
@@ -194,9 +194,9 @@ describe("anonymous deletion flow", () => {
   });
 
   test("concurrent confirm-by-token (#3024): two simultaneous redemptions of the same token leave exactly one winner", async () => {
-    // Nebenläufigkeitsfall, echte HTTP-Calls über setupTestStack, kein Sleep —
-    // die Interleaving-Breite variiert zwischen Läufen, darum 20 Wiederholungen
-    // statt eines Einzeldurchlaufs (probabilistischer Test).
+    // Real concurrency case, real HTTP calls via setupTestStack, no sleep —
+    // the interleaving width varies between runs, hence 20 repetitions
+    // instead of a single run (probabilistic test).
     for (let i = 0; i < 20; i++) {
       await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
       await seedAlice();
@@ -213,8 +213,8 @@ describe("anonymous deletion flow", () => {
       ]);
 
       expect([first.status, second.status].sort()).toEqual([200, 422]);
-      // Genau EIN Lifecycle-Wechsel: die Row liegt bei DeletionRequested, nicht
-      // in einem last-write-wins-Zwischenzustand aus zwei angewandten Writes.
+      // Exactly ONE lifecycle transition: the row lands at DeletionRequested,
+      // not in a last-write-wins in-between state from two applied writes.
       expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
       const loser = first.status === 422 ? first : second;
