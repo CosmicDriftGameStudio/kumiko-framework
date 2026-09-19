@@ -197,6 +197,14 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
           );
+        } else if (!annot.subjectRef && (field.type === "text" || field.type === "longText")) {
+          // Deprecation step towards #2810, where a text field without a
+          // stance becomes a boot error. Only text/longText: the other field
+          // types keep `personal` optional.
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" (type "${field.type}") declares no personal stance. Text fields will require one — this warning becomes a boot error in a future release (#2810). Declare { personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false }; "false" additionally needs { reason: "..." } stating why the value is not personal data.`,
+          );
         }
       }
     }
