@@ -104,6 +104,7 @@ describe("job-runner — kumiko_job_last_success_timestamp_seconds", () => {
       await waitFor(() => (slotFor(meter, SUCCEEDS) as { value: number }).value > first, {
         delays: [250, 1000, 3000],
       });
+      expect((slotFor(meter, SUCCEEDS) as { value: number }).value).toBeGreaterThan(first);
     });
   });
 
