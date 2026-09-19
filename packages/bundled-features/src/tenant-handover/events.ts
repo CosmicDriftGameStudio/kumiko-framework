@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-// Audit trail for a completed claim (kumiko-framework#3035's "Audit-Eintrag
-// nennt Quell-Tenant, Ziel-Tenant, Entities und Anzahl"). Its own aggregate,
-// decoupled from the transferred root's stream — same reasoning as
+// Audit trail for a completed claim (kumiko-framework#3035's audit-entry
+// requirement: names the source tenant, destination tenant, entities and
+// their counts). Its own aggregate, decoupled from the transferred root's
+// stream — same reasoning as
 // sessions' SESSION_REVOKED_EVENT: a fresh aggregate id per occurrence needs
 // no predecessor version and can never conflict with a concurrent write on
 // the entity it describes.
