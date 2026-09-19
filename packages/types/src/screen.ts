@@ -1,5 +1,5 @@
 import type { FieldIconKey } from "./field-icon";
-import type { FieldDefinition } from "./fields";
+import type { FieldDefinition, FormFieldDefinition } from "./fields";
 import type { AccessRule, AgentHandlerHints } from "./handlers";
 import type { IconKey, NavIconKey } from "./nav-icon";
 
@@ -1180,8 +1180,11 @@ export type ActionFormScreenDefinition = {
   readonly handler: string;
   /** Form-Shape: Field-Map pro Name. Nutzt dieselben FieldDefinitions
    *  wie Entity-Felder. Mindestens ein Feld erforderlich (Boot-
-   *  Validator). */
-  readonly fields: Readonly<Record<string, FieldDefinition>>;
+   *  Validator).
+   *
+   *  A `money` field here must name its own currency source: this screen
+   *  has no entity whose `defaultCurrency` it could inherit (fw#2839). */
+  readonly fields: Readonly<Record<string, FormFieldDefinition>>;
   /** Layout analog zu EntityEditScreen: sections mit fields aus dem
    *  fields-Map oben. */
   readonly layout: EditLayout;
@@ -1272,7 +1275,7 @@ export type SecretRevealField = {
 export type SecretMintConfirmStep = {
   /** Write-handler QN dispatched when the confirm form is submitted. */
   readonly handler: string;
-  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  readonly fields: Readonly<Record<string, FormFieldDefinition>>;
   readonly layout: EditLayout;
   /** Mint success-payload fields merged into the confirm payload (e.g. a
    *  short-lived setup token). Held in component state only — never rendered,
@@ -1314,7 +1317,7 @@ export type SecretMintScreenDefinition = {
   readonly urlPrefillFields?: readonly string[];
   /** Write-handler QN dispatched on submit. */
   readonly handler: string;
-  readonly fields: Readonly<Record<string, FieldDefinition>>;
+  readonly fields: Readonly<Record<string, FormFieldDefinition>>;
   readonly layout: EditLayout;
   /** Navigate here after the reveal is confirmed. Short id (same-feature) or
    *  a fully-qualified cross-feature screen QN — no result-id navigation

@@ -10,7 +10,11 @@ import {
   synthesizeSecretMintConfirmScreen,
 } from "./action-form-shim";
 import type { FeatureSchema } from "./feature-schema";
-import { buildInitialValues, mergeSearchParamsIntoInitial } from "./kumiko-screen";
+import {
+  buildInitialValues,
+  literalCurrencyOverrides,
+  mergeSearchParamsIntoInitial,
+} from "./kumiko-screen";
 import { layoutFieldNames } from "./layout-fields";
 import { useInitialValuesHandoff, useNav } from "./nav";
 import { lastSegment } from "./qn";
@@ -71,6 +75,11 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         searchParams: nav.searchParams,
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
+        // A mint form has no entity either, so its money fields name their own
+        // currency source (fw#2839). Only the literal form is resolved here:
+        // `{ kind: "tenant" }` would need the config query this screen never
+        // runs, and a one-time secret mint has no money use case to justify it.
+        moneyCurrencyOverrides: literalCurrencyOverrides(screen.fields),
         ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
     [screen.fields, screen.urlPrefillFields, nav.searchParams, synthScreen, handoffValues],
@@ -91,7 +100,14 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     [screen, confirm],
   );
   const confirmInitial = useMemo(
-    () => (confirm !== undefined ? (buildInitialValues(confirm.fields) as FormValues) : undefined),
+    () =>
+      confirm !== undefined
+        ? (buildInitialValues(
+            confirm.fields,
+            undefined,
+            literalCurrencyOverrides(confirm.fields),
+          ) as FormValues)
+        : undefined,
     [confirm],
   );
 

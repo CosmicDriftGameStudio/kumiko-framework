@@ -1,6 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { mergeSearchParamsIntoInitial } from "../app/kumiko-screen";
+import {
+  buildInitialValues,
+  literalCurrencyOverrides,
+  mergeSearchParamsIntoInitial,
+} from "../app/kumiko-screen";
 import { layoutFieldNames } from "../app/layout-fields";
 
 type FieldDef = {
@@ -469,6 +473,53 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
         lines: JSON.stringify([{ accountId: "bank" }]),
       });
       expect(result["lines"]).toEqual([]);
+    });
+  });
+});
+
+// fw#2839: an entity-less form screen passes no `defaultCurrency`, so before
+// this the money branch fell through to a bare `0` the handler's zod schema
+// rejected. `literalCurrencyOverrides` resolves a declared literal source with
+// no query; configEdit's plain-number contract depends on getting neither.
+describe("money currency sources on an entity-less form (fw#2839)", () => {
+  const amountField = (currency?: unknown): Record<string, FieldDef> => ({
+    amount: { type: "money", ...(currency !== undefined && { currency }) } as FieldDef,
+  });
+
+  test("a literal source seeds { amount: 0, currency } without any defaultCurrency", () => {
+    const fields = amountField({ kind: "literal", code: "CHF" });
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: {},
+      urlPrefillFields: [],
+      moneyCurrencyOverrides: literalCurrencyOverrides(fields),
+    });
+    expect(result["amount"]).toEqual({ amount: 0, currency: "CHF" });
+  });
+
+  test("a literal source also carries into a URL-prefilled amount (fw#2763 path)", () => {
+    const fields = amountField({ kind: "literal", code: "CHF" });
+    const result = mergeSearchParamsIntoInitial(fields, {
+      searchParams: { amount: "42.50" },
+      urlPrefillFields: ["amount"],
+      moneyCurrencyOverrides: literalCurrencyOverrides(fields),
+    });
+    expect(result["amount"]).toEqual({ amount: 42.5, currency: "CHF" });
+  });
+
+  test("literalCurrencyOverrides ignores tenant-declared and undeclared money fields", () => {
+    expect(literalCurrencyOverrides(amountField({ kind: "tenant" }))).toEqual({});
+    expect(literalCurrencyOverrides(amountField())).toEqual({});
+  });
+
+  test("configEdit stays on the plain-number contract: no overrides, no currency wrapper", () => {
+    const fields = amountField({ kind: "literal", code: "CHF" });
+    expect(buildInitialValues(fields)["amount"]).toBe(0);
+  });
+
+  test("entityEdit is unchanged: defaultCurrency still wins where no source is declared", () => {
+    expect(buildInitialValues(amountField(), "USD")["amount"]).toEqual({
+      amount: 0,
+      currency: "USD",
     });
   });
 });

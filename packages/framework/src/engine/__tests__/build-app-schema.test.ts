@@ -644,6 +644,24 @@ describe("buildAppSchema", () => {
     expect(JSON.parse(JSON.stringify(projected))).toEqual(projected);
   });
 
+  test("money field's `currency: { kind: 'literal', code }` declaration survives the projection (fw#2839)", () => {
+    const entity = {
+      defaultCurrency: "USD",
+      fields: { price: { type: "money", currency: { kind: "literal", code: "USD" } } },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const projected = app.features[0]!.entities["thing"] as unknown as {
+      fields: Record<string, Record<string, unknown>>;
+    };
+
+    expect(projected.fields["price"]?.["currency"]).toEqual({ kind: "literal", code: "USD" });
+    expect(JSON.parse(JSON.stringify(projected))).toEqual(projected);
+  });
+
   test("text format, timestamp locatedBy, file accept/maxSize, image variants and decimal scale survive the projection", () => {
     // Regression: all of these are read by the edit view-model (password
     // masking, wall-clock input, upload constraints, preview variant, derived

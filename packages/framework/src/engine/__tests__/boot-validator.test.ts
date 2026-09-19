@@ -2506,6 +2506,116 @@ describe("boot-validator", () => {
       );
     });
 
+    // fw#2839: an actionForm has no entity, so a money field there can't
+    // inherit entity.defaultCurrency — undeclared, the renderer seeds a bare
+    // `0` and the handler's zod schema rejects the submit.
+    describe("money field currency source (fw#2839)", () => {
+      const moneyForm = (currency?: unknown) =>
+        makeFeature({
+          fields: { amount: { type: "money", ...(currency !== undefined && { currency }) } },
+          sections: [{ title: "Payment", fields: ["amount"] }],
+        });
+
+      test("money field ohne currency → Throw, nennt Screen und Feld", () => {
+        expect(() => validateBoot([moneyForm()])).toThrow(
+          /Screen "approve-invoice" \(actionForm\) money field "amount" must declare where its currency comes from/,
+        );
+      });
+
+      test("Fehlermeldung nennt beide gültigen Formen wörtlich", () => {
+        expect(() => validateBoot([moneyForm()])).toThrow(
+          /currency: \{ kind: "literal", code: "EUR" \}[\s\S]*currency: \{ kind: "tenant" \}/,
+        );
+      });
+
+      test("currency: { kind: 'literal', code } → kein Throw", () => {
+        expect(() => validateBoot([moneyForm({ kind: "literal", code: "EUR" })])).not.toThrow();
+      });
+
+      test("currency: { kind: 'tenant' } → kein Throw", () => {
+        expect(() => validateBoot([moneyForm({ kind: "tenant" })])).not.toThrow();
+      });
+
+      test("literal mit leerem code → Throw", () => {
+        expect(() => validateBoot([moneyForm({ kind: "literal", code: "  " })])).toThrow(
+          /empty or non-string `code`/,
+        );
+      });
+
+      test("unbekannter kind → Throw", () => {
+        expect(() => validateBoot([moneyForm({ kind: "entityDefault" })])).toThrow(
+          /unknown currency kind "entityDefault"/,
+        );
+      });
+
+      test("non-money Felder bleiben unberührt", () => {
+        expect(() => validateBoot([makeFeature()])).not.toThrow();
+      });
+
+      // The check sits in validateFormFieldsMap, the walk actionForm,
+      // secretMint and secretMint's confirm step all share.
+      function mintFeature(
+        fields: Record<string, unknown>,
+        confirmFields?: Record<string, unknown>,
+      ) {
+        return defineFeature("shop", (r) => {
+          r.writeHandler({
+            name: "token:mint",
+            schema: { _type: "stub" } as never,
+            handler: async () => ({ isSuccess: true, data: {} }) as never,
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.screen({
+            id: "mint-token",
+            type: "secretMint",
+            handler: "shop:write:token:mint",
+            fields: fields as never,
+            layout: { sections: [{ title: "Mint", fields: Object.keys(fields) }] as never },
+            reveal: { fields: [{ field: "token", label: "Token" }] },
+            ...(confirmFields !== undefined && {
+              confirm: {
+                handler: "shop:write:token:mint",
+                fields: confirmFields as never,
+                layout: {
+                  sections: [{ title: "Confirm", fields: Object.keys(confirmFields) }] as never,
+                },
+              },
+            }),
+          });
+        });
+      }
+
+      test("secretMint money field ohne currency → Throw", () => {
+        expect(() => validateBoot([mintFeature({ fee: { type: "money" } })])).toThrow(
+          /Screen "mint-token" \(secretMint\) money field "fee" must declare where its currency comes from/,
+        );
+      });
+
+      test("secretMint confirm-Step money field ohne currency → Throw", () => {
+        expect(() =>
+          validateBoot([
+            mintFeature(
+              { fee: { type: "money", currency: { kind: "literal", code: "EUR" } } },
+              { topUp: { type: "money" } },
+            ),
+          ]),
+        ).toThrow(
+          /Screen "mint-token" \(secretMint confirm\) money field "topUp" must declare where its currency comes from/,
+        );
+      });
+
+      test("secretMint mit deklarierten Quellen in beiden Steps → kein Throw", () => {
+        expect(() =>
+          validateBoot([
+            mintFeature(
+              { fee: { type: "money", currency: { kind: "literal", code: "EUR" } } },
+              { topUp: { type: "money", currency: { kind: "tenant" } } },
+            ),
+          ]),
+        ).not.toThrow();
+      });
+    });
+
     test("layout.sections leer → Throw", () => {
       expect(() => validateBoot([makeFeature({ sections: [] })])).toThrow(
         /has an empty sections list/,

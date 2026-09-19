@@ -1,3 +1,4 @@
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
 import { type ValidateBootOptions, validateBoot } from "./boot-validator";
 import { dedupeFeatures } from "./dedupe-features";
 import { createRegistry } from "./registry";
@@ -19,6 +20,37 @@ export type App = {
   softDeleteDefault: boolean;
   currencies: readonly string[];
 };
+
+// Every field map an entity-less inline form screen renders: actionForm's and
+// secretMint's own fields, plus a secretMint's separate `confirm` step.
+function inlineFormFieldMaps(
+  screen: ScreenDefinition,
+): readonly Readonly<Record<string, unknown>>[] {
+  if (screen.type === "actionForm") return [screen.fields];
+  if (screen.type !== "secretMint") return [];
+  return screen.confirm !== undefined ? [screen.fields, screen.confirm.fields] : [screen.fields];
+}
+
+// `currency: { kind: "literal", code }` (fw#2839) is only meaningful for a
+// code the app knows — a typo would otherwise render and submit amounts in a
+// currency no formatter or rate table covers.
+function validateLiteralCurrencyCode(
+  where: string,
+  field: unknown,
+  currencies: readonly string[],
+): void {
+  // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
+  const shape = field as { type?: unknown; currency?: { kind?: unknown; code?: unknown } };
+  if (shape.type === "money" && shape.currency?.kind === "literal") {
+    const code = shape.currency.code;
+    if (typeof code !== "string" || !currencies.includes(code)) {
+      throw new Error(
+        `${where} declares currency: { kind: "literal", code: ${JSON.stringify(code)} } which is ` +
+          `not in the currencies list. Available: ${currencies.join(", ")}`,
+      );
+    }
+  }
+}
 
 export function createApp(config: AppConfig): App {
   const features = dedupeFeatures(config.features);
@@ -107,6 +139,28 @@ export function createApp(config: AppConfig): App {
         throw new Error(
           `Entity "${entityName}" in feature "${feature.name}" has money fields but no defaultCurrency. Set defaultCurrency on the entity definition.`,
         );
+      }
+      for (const [fieldName, field] of Object.entries(entity.fields)) {
+        validateLiteralCurrencyCode(
+          `Entity "${entityName}" in feature "${feature.name}", money field "${fieldName}"`,
+          field,
+          currencies,
+        );
+      }
+    }
+    // A money field on an entity-less form screen names its own currency
+    // source (fw#2839) — a literal code has to be one the app actually knows,
+    // same rule the entity `defaultCurrency` check above applies.
+    for (const [screenId, screen] of Object.entries(feature.screens ?? {})) {
+      const inlineFields = inlineFormFieldMaps(screen);
+      for (const fields of inlineFields) {
+        for (const [fieldName, field] of Object.entries(fields)) {
+          validateLiteralCurrencyCode(
+            `Screen "${screenId}" in feature "${feature.name}", money field "${fieldName}"`,
+            field,
+            currencies,
+          );
+        }
       }
     }
   }

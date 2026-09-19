@@ -489,6 +489,63 @@ function resolveTenantCurrency(
   return { status: "ready", currency: typeof raw === "string" && raw !== "" ? raw : fallback };
 }
 
+// An entity-less form screen has no `entity.defaultCurrency` to fall back on,
+// so a tenant-declared field whose config query errors or returns no value
+// lands here — same last resort as the entityEdit path's `?? "EUR"`.
+const ACTION_FORM_CURRENCY_FALLBACK = "EUR";
+
+// A money field naming a fixed ISO code (`currency: { kind: "literal", code }`,
+// fw#2839) resolves with no query at all. Read structurally, same idiom as
+// tenantCurrencyMoneyFieldNames above.
+export function literalCurrencyOverrides(
+  fields: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const [name, def] of Object.entries(fields)) {
+    const shape = def as {
+      readonly type?: string;
+      readonly currency?: { readonly kind?: string; readonly code?: string };
+    };
+    const code = shape.currency?.code;
+    if (shape.type === "money" && shape.currency?.kind === "literal" && code !== undefined) {
+      out[name] = code;
+    }
+  }
+  return out;
+}
+
+// Per-field currency for the money fields that declare their own source: a
+// literal code resolves synchronously (fw#2839), a `{ kind: "tenant" }` field
+// needs the tenant-settings config query and makes the caller hold the form
+// until it lands (fw#2933) — seeding the fallback meanwhile would render, and
+// on a fast click submit, the wrong currency. Callers pass the tenant field
+// names themselves because an edit form only needs the fetch for fields the
+// record has no stored value for.
+function useMoneyCurrencyOverrides(
+  fields: Readonly<Record<string, unknown>>,
+  tenantFieldNames: readonly string[],
+  fallback: string,
+): {
+  readonly overrides: Readonly<Record<string, string>> | undefined;
+  readonly loading: boolean;
+} {
+  const query = useQuery<TenantConfigValuesResponse>(
+    "config:query:values",
+    {},
+    { enabled: tenantFieldNames.length > 0 },
+  );
+  const resolution = resolveTenantCurrency(tenantFieldNames, query, fallback);
+  const resolvedTenantCurrency = resolution.status === "ready" ? resolution.currency : undefined;
+  const overrides = useMemo(() => {
+    const out: Record<string, string> = { ...literalCurrencyOverrides(fields) };
+    if (resolvedTenantCurrency !== undefined) {
+      for (const name of tenantFieldNames) out[name] = resolvedTenantCurrency;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  }, [fields, tenantFieldNames, resolvedTenantCurrency]);
+  return { overrides, loading: resolution.status === "loading" };
+}
+
 function multiSelectOptionValues(shape: {
   readonly options?: readonly (string | { readonly value: string })[];
 }): ReadonlySet<string> | undefined {
@@ -859,25 +916,10 @@ function EntityEditCreateBody({
     () => tenantCurrencyMoneyFieldNames(entity.fields),
     [entity.fields],
   );
-  const needsTenantCurrency = tenantCurrencyFieldNames.length > 0;
-  const tenantCurrencyQuery = useQuery<TenantConfigValuesResponse>(
-    "config:query:values",
-    {},
-    { enabled: needsTenantCurrency },
-  );
-  const tenantCurrencyResolution = resolveTenantCurrency(
+  const { overrides: moneyCurrencyOverrides, loading: currencyLoading } = useMoneyCurrencyOverrides(
+    entity.fields,
     tenantCurrencyFieldNames,
-    tenantCurrencyQuery,
     entityDefaultCurrency,
-  );
-  const resolvedTenantCurrency =
-    tenantCurrencyResolution.status === "ready" ? tenantCurrencyResolution.currency : undefined;
-  const moneyCurrencyOverrides = useMemo(
-    () =>
-      resolvedTenantCurrency !== undefined
-        ? Object.fromEntries(tenantCurrencyFieldNames.map((name) => [name, resolvedTenantCurrency]))
-        : undefined,
-    [tenantCurrencyFieldNames, resolvedTenantCurrency],
   );
   const initial = useMemo(
     () =>
@@ -948,7 +990,7 @@ function EntityEditCreateBody({
   );
   // Never seed a tenant-declared money field with entityDefaultCurrency while
   // its real tenant currency is still in flight (fw#2933) — wait instead.
-  if (needsTenantCurrency && tenantCurrencyResolution.status === "loading") {
+  if (currencyLoading) {
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
         Loading…
@@ -1111,25 +1153,10 @@ function EntityEditUpdateForm({
       ),
     [entity.fields, record],
   );
-  const needsTenantCurrency = tenantCurrencyFieldNames.length > 0;
-  const tenantCurrencyQuery = useQuery<TenantConfigValuesResponse>(
-    "config:query:values",
-    {},
-    { enabled: needsTenantCurrency },
-  );
-  const tenantCurrencyResolution = resolveTenantCurrency(
+  const { overrides: moneyCurrencyOverrides, loading: currencyLoading } = useMoneyCurrencyOverrides(
+    entity.fields,
     tenantCurrencyFieldNames,
-    tenantCurrencyQuery,
     entityDefaultCurrency,
-  );
-  const resolvedTenantCurrency =
-    tenantCurrencyResolution.status === "ready" ? tenantCurrencyResolution.currency : undefined;
-  const moneyCurrencyOverrides = useMemo(
-    () =>
-      resolvedTenantCurrency !== undefined
-        ? Object.fromEntries(tenantCurrencyFieldNames.map((name) => [name, resolvedTenantCurrency]))
-        : undefined,
-    [tenantCurrencyFieldNames, resolvedTenantCurrency],
   );
   const initial = useMemo(() => {
     const out: Record<string, unknown> = {};
@@ -1360,7 +1387,7 @@ function EntityEditUpdateForm({
   // its real tenant currency is still in flight (fw#2933) — wait instead. A
   // stored (non-empty) value is unaffected — it never reaches this branch's
   // fallback because `initial` above already prefers `record[name]`.
-  if (needsTenantCurrency && tenantCurrencyResolution.status === "loading") {
+  if (currencyLoading) {
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
         Loading…
@@ -3357,6 +3384,7 @@ function ActionFormBody({
 }): ReactNode {
   const nav = useNav();
   const appFeatures = useAppFeatures();
+  const { Banner } = usePrimitives();
   // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
   const returnTarget = useReturnTarget(screen.id);
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
@@ -3364,12 +3392,27 @@ function ActionFormBody({
   const pendingHandoff = useInitialValuesHandoff(screen.id);
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
   const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
+  // This screen has no entity, so a money field here declares its own currency
+  // source (fw#2839, boot-enforced) — without one the form would seed a bare
+  // `0` the handler's schema rejects. ACTION_FORM_CURRENCY_FALLBACK only
+  // applies when a tenant-declared field's config query errors or holds no
+  // value, matching the entityEdit path's behaviour (fw#2937).
+  const tenantCurrencyFieldNames = useMemo(
+    () => tenantCurrencyMoneyFieldNames(screen.fields),
+    [screen.fields],
+  );
+  const { overrides: moneyCurrencyOverrides, loading: currencyLoading } = useMoneyCurrencyOverrides(
+    screen.fields,
+    tenantCurrencyFieldNames,
+    ACTION_FORM_CURRENCY_FALLBACK,
+  );
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(screen.fields, {
         searchParams: nav.searchParams,
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
+        ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
         ...(initialOverrides !== undefined && { drawerOverrides: initialOverrides }),
         ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
@@ -3378,6 +3421,7 @@ function ActionFormBody({
       screen.urlPrefillFields,
       nav.searchParams,
       synthScreen,
+      moneyCurrencyOverrides,
       initialOverrides,
       handoffValues,
     ],
@@ -3421,6 +3465,15 @@ function ActionFormBody({
     return () =>
       navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
   }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride, returnTarget]);
+  // Rendering the form before a tenant-declared currency lands would show the
+  // fallback and, on a fast click, submit it (fw#2933) — hold instead.
+  if (currencyLoading) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
   return (
     <RenderEdit
       screen={synthScreen}

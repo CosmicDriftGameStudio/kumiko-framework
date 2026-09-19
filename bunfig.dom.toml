@@ -55,4 +55,6 @@ pathIgnorePatterns = [
   "**/renderer-web/src/__tests__/return-to-singleton.test.tsx",
   # Same #457 pattern: entityEdit waits for an async load, then types and submits.
   "**/renderer-web/src/__tests__/kumiko-screen-money-tenant-currency.test.tsx",
+  # Same #457 pattern on the actionForm side of the same feature (fw#2839).
+  "**/renderer-web/src/__tests__/kumiko-screen-action-form-money-currency.test.tsx",
 ]
