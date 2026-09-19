@@ -15,6 +15,7 @@ export {
 } from "./event-pii";
 export { InMemoryKmsAdapter } from "./in-memory-kms-adapter";
 export { isSelfPiiField } from "./is-self-pii-field";
+export { type KekSourceEnv, type KekSourceOptions, resolvePlatformKeks } from "./kek-source";
 export {
   isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
@@ -46,7 +47,9 @@ export {
   type PgKmsRotationEnv,
   type PlaintextPiiWiring,
   requireKmsWiring,
+  requireKmsWiringAsync,
   resolveKmsWiring,
+  resolveKmsWiringAsync,
 } from "./kms-wiring";
 export {
   createPgKmsAdapter,
