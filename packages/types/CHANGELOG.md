@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-types
 
+## 0.290.0
+
+### Minor Changes
+
+- 878d8b2: EventMetadata: feature + handler + UNATTRIBUTED_ORIGIN
+
+  EventMetadata traegt zwei neue optionale Felder (feature, handler) und exportiert die Sentinel-Konstante UNATTRIBUTED_ORIGIN fuer Appends ausserhalb eines attribuierten Ausfuehrungsscopes. Additiv, bestehende Zeilen bleiben ohne Backfill lesbar.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EventMetadata: feature + handler + UNATTRIBUTED_ORIGIN
+  -->
+
 ## 0.289.0
 
 ### Minor Changes

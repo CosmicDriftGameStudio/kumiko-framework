@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.290.0",
+    "type": "fix",
+    "title": "Layout field readers see groups[].fields",
+    "detail": "layoutEditFields flattens section.groups, so required fields inside a groups-only section are presence-validated by buildFormSchema and survive the renderableFields gate for search-param prefills."
+  },
+  {
     "version": "0.283.0",
     "type": "fix",
     "title": "Fix projectionDetail detail screens dropping fields declared through groups",

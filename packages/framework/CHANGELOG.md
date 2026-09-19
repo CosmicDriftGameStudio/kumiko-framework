@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.290.0
+
+### Minor Changes
+
+- 878d8b2: Event-Attribution: metadata.feature + metadata.handler auf jedem Event
+
+  event-store.append() stempelt Feature und Handler-Namen aus dem Ausfuehrungsscope (requestContext) auf jedes geschriebene Event. Dispatch-Handler, Entity-Executor-Writes, MSP-Applies und Jobs sind damit ohne Signaturaenderung attribuiert; Appends ausserhalb eines Scopes tragen UNATTRIBUTED_ORIGIN. appendRaw/appendRawBatch bleiben unveraendert.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Event-Attribution: metadata.feature + metadata.handler auf jedem Event
+  -->
+
+- fe23245: The tenant-teardown 410 gate is derived from the mounted tenantLifecycleStatus provider (fw#2881).
+
+  buildServer now resolves the EXT_TENANT_LIFECYCLE_STATUS extension point itself, so every server with tenant-lifecycle mounted rejects requests against a tenant in teardown with 410 tenant_unavailable — prod, dev and test stacks can no longer drift because one entrypoint forgot the wiring. An explicit auth.resolveTenantLifecycleStatus still takes precedence and stays the escape hatch. A mounted provider without context.db is a boot error instead of a silently skipped gate.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: The tenant-teardown 410 gate is derived from the mounted tenantLifecycleStatus provider (fw#2881).
+  -->
+
+### Patch Changes
+
+- 9da6b5f: Section readers see groups[].fields
+
+  Boot-guard and E2E-generator now flatten section.groups via sectionFieldSpecs instead of iterating section.fields only: a function renderer inside groups[].fields fails at boot, and generated E2E specs cover group fields (required fields, fill ops, text assertions).
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Section readers see groups[].fields
+  -->
+
+- Updated dependencies [878d8b2]
+  - @cosmicdrift/kumiko-types@0.290.0
+  - @cosmicdrift/kumiko-http@0.290.0
+
 ## 0.289.0
 
 ### Minor Changes
