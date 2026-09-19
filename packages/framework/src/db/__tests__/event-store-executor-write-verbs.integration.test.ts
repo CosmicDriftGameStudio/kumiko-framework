@@ -386,6 +386,197 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
 });
 
 // =============================================================================
+// expect precondition (kumiko-framework#3024) — declarative "genau einmal"
+// guard on update(). The version_conflict describe above proves the pre-
+// existing stream-version race protection; these prove `expect:` closes the
+// gap that leaves open: a caller (like updateUserLifecycle) that opts out of
+// the optimistic lock entirely, so a "late" writer whose own version read is
+// fresh never trips version_conflict at all.
+// =============================================================================
+
+const expectEntity = createEntity({
+  table: "read_es_write_expect",
+  fields: {
+    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    status: createTextField({ personal: false, reason: "test_fixture" }),
+    note: createTextField({ personal: false, reason: "test_fixture" }),
+  },
+});
+const expectTable = buildEntityTable("esWriteExpect", expectEntity);
+
+describe("event-store-executor write-verbs — expect precondition (#3024)", () => {
+  const crud = createEventStoreExecutor(expectTable, expectEntity, {
+    entityName: "esWriteExpect",
+  });
+
+  beforeAll(async () => {
+    await unsafeCreateEntityTable(testDb.db, expectEntity, "esWriteExpect");
+  });
+
+  beforeEach(async () => {
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_write_expect RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  test("expect matching the fresh row → applies", async () => {
+    const created = await crud.create({ email: "match@test.de", status: "Active" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const result = await crud.update(
+      { id: created.data.id, changes: { status: "Requested" } },
+      admin,
+      tdb,
+      { skipOptimisticLock: true, expect: { status: "Active" } },
+    );
+    expect(result.isSuccess).toBe(true);
+  });
+
+  test("expect not matching the fresh row → precondition_failed, row unchanged", async () => {
+    const created = await crud.create({ email: "stale@test.de", status: "Requested" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const result = await crud.update(
+      { id: created.data.id, changes: { status: "Deleted" } },
+      admin,
+      tdb,
+      { skipOptimisticLock: true, expect: { status: "Active" } },
+    );
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.code).toBe("precondition_failed");
+
+    const row = await asRawClient(testDb.db).unsafe(
+      `SELECT status FROM read_es_write_expect WHERE id = $1`,
+      [created.data.id],
+    );
+    expect((row as unknown as { status: string }[])[0]?.status).toBe("Requested");
+  });
+
+  test("multiple expect fields, one mismatches → precondition_failed", async () => {
+    const created = await crud.create(
+      { email: "multi@test.de", status: "Active", note: "kept" },
+      admin,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("setup failed");
+
+    const result = await crud.update(
+      { id: created.data.id, changes: { status: "Requested" } },
+      admin,
+      tdb,
+      { skipOptimisticLock: true, expect: { status: "Active", note: "different" } },
+    );
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.code).toBe("precondition_failed");
+  });
+
+  test("expect: null matches a null field, rejects a non-null one", async () => {
+    const withNullNote = await crud.create({ email: "null-note@test.de" }, admin, tdb);
+    if (!withNullNote.isSuccess) throw new Error("setup failed");
+    const matched = await crud.update(
+      { id: withNullNote.data.id, changes: { note: "now set" } },
+      admin,
+      tdb,
+      { skipOptimisticLock: true, expect: { note: null } },
+    );
+    expect(matched.isSuccess).toBe(true);
+
+    const withNote = await crud.create(
+      { email: "present-note@test.de", note: "present" },
+      admin,
+      tdb,
+    );
+    if (!withNote.isSuccess) throw new Error("setup failed");
+    const rejected = await crud.update(
+      { id: withNote.data.id, changes: { note: "overwritten" } },
+      admin,
+      tdb,
+      { skipOptimisticLock: true, expect: { note: null } },
+    );
+    expect(rejected.isSuccess).toBe(false);
+  });
+
+  // The scenario version_conflict alone can't catch: both callers skip the
+  // optimistic lock (updateUserLifecycle's shape), so the second caller's own
+  // stream-version read is fresh and never collides — only the fresh expect
+  // re-read at write time sees that the first caller already moved the row on.
+  test("late writer: expect catches a precondition an earlier write already violated, with no version race", async () => {
+    const created = await crud.create({ email: "late@test.de", status: "Active" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+
+    const first = await crud.update({ id, changes: { status: "Requested" } }, admin, tdb, {
+      skipOptimisticLock: true,
+      expect: { status: "Active" },
+    });
+    expect(first.isSuccess).toBe(true);
+
+    const second = await crud.update({ id, changes: { status: "Requested" } }, admin, tdb, {
+      skipOptimisticLock: true,
+      expect: { status: "Active" },
+    });
+    expect(second.isSuccess).toBe(false);
+    if (second.isSuccess) return;
+    expect(second.error.code).toBe("precondition_failed");
+  });
+
+  // Wrapped in its own transaction per racer, like "two concurrent first-time
+  // creates ... inside a transaction" above — this is how the dispatcher
+  // always calls update() in production (the whole handler runs in one
+  // transaction), and it matters here: without it, a single writer's own
+  // event-append and projection-update commit as two SEPARATE, independently
+  // visible statements against the bare pool, so a second reader can
+  // observe "event committed, projection not yet" — a torn state that
+  // doesn't exist once both writes commit together as one transaction. The
+  // HTTP-level equivalent (anonymous-deletion.integration.test.ts, real
+  // dispatcher, real transaction) already covers the true production
+  // guarantee; this test pins the same guarantee at the executor level with
+  // an explicit transaction to match.
+  test("two concurrent updates with the same expect, both skipOptimisticLock → exactly one applies", async () => {
+    const created = await crud.create(
+      { email: "race-expect@test.de", status: "Active" },
+      admin,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+    const options = { skipOptimisticLock: true, expect: { status: "Active" } } as const;
+
+    const [a, b] = await Promise.all([
+      transaction(testDb.db, (tx) =>
+        crud.update(
+          { id, changes: { status: "Requested" } },
+          admin,
+          createTenantDb(tx, admin.tenantId),
+          options,
+        ),
+      ),
+      transaction(testDb.db, (tx) =>
+        crud.update(
+          { id, changes: { status: "Requested" } },
+          admin,
+          createTenantDb(tx, admin.tenantId),
+          options,
+        ),
+      ),
+    ]);
+
+    const results = [a, b];
+    expect(results.filter((r) => r.isSuccess)).toHaveLength(1);
+    const loser = results.find((r) => !r.isSuccess);
+    if (!loser || loser.isSuccess) throw new Error("expected exactly one loser");
+    expect(["precondition_failed", "version_conflict"]).toContain(loser.error.code);
+
+    const healthCheck = (await asRawClient(testDb.db).unsafe(`SELECT 1 AS ok`)) as Array<{
+      ok: number;
+    }>;
+    expect(healthCheck[0]?.ok).toBe(1);
+  });
+});
+
+// =============================================================================
 // Explicit-id create: cross-tenant isolation, no resurrection of a deleted row
 // =============================================================================
 

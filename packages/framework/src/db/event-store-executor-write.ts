@@ -8,6 +8,7 @@ import {
   IdempotentReplayError,
   InternalError,
   NotFoundError,
+  PreconditionFailedError,
   UnprocessableError,
   writeFailure,
 } from "../errors";
@@ -114,6 +115,7 @@ export function createWriteVerbs(
     stripSensitive,
     loadById,
     assertStreamWritable,
+    loadExpectSnapshot,
   } = ctx;
 
   return {
@@ -399,11 +401,46 @@ export function createWriteVerbs(
       // aggregate); a stale row.version here would make the next CRUD write
       // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
       // with version_conflict.
-      const currentVersion = await getStreamVersion(
-        runner,
-        String(payload.id),
-        streamTenantFor(user),
-      );
+      //
+      // `expect:` (#3024) reads this same authoritative version, but through
+      // loadExpectSnapshot's single combined query instead of a second,
+      // separate getStreamVersion() round-trip: two reads (in either order)
+      // leave a real gap — applyEntityEvent writes the projection in a
+      // SEPARATE statement after its event commits, so a second reader's
+      // version-read can land in that gap and see a fresh, non-conflicting
+      // version paired with a still-stale projection row (verified
+      // empirically: ~40% of genuinely concurrent runs slipped through with
+      // two round-trips). One query removes the gap. It also avoids trusting
+      // the row's own `version` column for the expectedVersion: that column
+      // is only in lock-step with the rest of the row for rows THIS executor
+      // wrote — a raw-seeded row (test fixture, or legacy pre-#762 data) can
+      // carry a default version with zero matching events, which would make
+      // the append below target a non-existent predecessor and fail outright.
+      let currentVersion: number;
+      if (updateOptions?.expect) {
+        const expectKeys = Object.keys(updateOptions.expect);
+        const snapshot = await loadExpectSnapshot(
+          db,
+          payload.id,
+          streamTenantFor(user),
+          expectKeys,
+        );
+        if (!snapshot.row) {
+          return writeFailure(new PreconditionFailedError({ entityId: payload.id, field: "id" }));
+        }
+        const mismatch = Object.entries(updateOptions.expect).find(
+          ([key, expected]) => snapshot.row?.[key] !== expected,
+        );
+        if (mismatch) {
+          return writeFailure(
+            new PreconditionFailedError({ entityId: payload.id, field: mismatch[0] }),
+          );
+        }
+        currentVersion = snapshot.streamVersion;
+      } else {
+        currentVersion = await getStreamVersion(runner, String(payload.id), streamTenantFor(user));
+      }
+
       if (!updateOptions?.skipOptimisticLock) {
         if (payload.version === undefined) {
           return writeFailure(

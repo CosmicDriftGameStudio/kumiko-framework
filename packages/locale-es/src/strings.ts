@@ -341,6 +341,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.feature.disabled": "Esta función no está disponible actualmente.",
   "errors.internal": "Algo salió mal. Inténtalo de nuevo más tarde.",
   "errors.notFound": "No encontrado.",
+  "errors.preconditionFailed": "El registro cambió mientras tanto. Recarga e inténtalo de nuevo.",
   "errors.rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo en breve.",
   "errors.unconfigured": "Esta función todavía no está configurada.",
   "errors.uniqueViolation": "Esta entrada ya existe.",

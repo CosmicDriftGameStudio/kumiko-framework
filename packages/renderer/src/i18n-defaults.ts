@@ -188,6 +188,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.notFound": "Not found.",
     "errors.conflict": "Conflict — the operation could not be completed.",
     "errors.versionConflict": "The record was modified in the meantime. Reload and try again.",
+    "errors.preconditionFailed": "The record changed in the meantime. Reload and try again.",
     "errors.uniqueViolation": "This entry already exists.",
     "errors.unprocessable": "The request could not be processed.",
     "errors.unconfigured": "This feature isn't configured yet.",

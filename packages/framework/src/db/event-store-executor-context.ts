@@ -175,6 +175,12 @@ export type ExecutorContext = {
       | { kind: "empty" }
       | { kind: "sql"; sqlText: string; params: readonly unknown[] },
   ) => Promise<Record<string, unknown>[]>;
+  readonly loadExpectSnapshot: (
+    db: TenantDb,
+    id: EntityId,
+    streamTenantId: TenantId,
+    expectKeys: readonly string[],
+  ) => Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }>;
   readonly encryptForStorage: (
     row: Record<string, unknown>,
     user: SessionUser,
@@ -411,6 +417,78 @@ export function buildExecutorContext(
     ];
   }
 
+  // Combined, atomic read for the `expect:` precondition (#3024): the
+  // projection row's expect-checked fields AND the events table's current
+  // MAX(version) for this aggregate, in ONE SQL statement.
+  //
+  // Two separate reads (loadById then getStreamVersion, in either order)
+  // leave a real gap: applyEntityEvent writes the projection in a SEPARATE
+  // statement AFTER its event commits, so a second reader can see a version
+  // that already reflects a concurrent writer's event while its OWN read of
+  // the expect fields still reflects the pre-write projection row — verified
+  // empirically: ~40% of genuinely concurrent update() calls slipped a stale
+  // precondition through with two round-trips, regardless of read order. One
+  // query removes the gap: Postgres executes it against a single consistent
+  // snapshot.
+  //
+  // This also sidesteps a correctness bug the row's own `version` column
+  // can't be trusted for: applyEntityEvent only keeps row.version in
+  // lock-step with the OTHER projection columns for rows this executor
+  // itself wrote. A row seeded directly (raw INSERT — test fixtures, or
+  // legacy pre-#762 data) can carry a default version (e.g. 1) with ZERO
+  // matching events. Deriving expectedVersion from such a row.version makes
+  // the append below target a non-existent predecessor and fail outright.
+  // The events table's MAX(version) (0 for such a row) is the only value
+  // append() can safely use as expectedVersion — exactly what
+  // getStreamVersion() already returns for every other (non-`expect`)
+  // caller; this reads it in the same statement as the expect columns
+  // instead of a second round-trip.
+  //
+  // Reads raw column values — no decryptForRead pass — so `expect:` only
+  // supports plain (non-pii, non-encrypted) columns: business-state fields
+  // like status flags or foreign-key ids, not PII.
+  async function loadExpectSnapshot(
+    db: TenantDb,
+    id: EntityId,
+    streamTenantId: TenantId,
+    expectKeys: readonly string[],
+  ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
+    const quote = (name: string): string => `"${name.replace(/"/g, '""')}"`;
+    const columnOf = (field: string): string =>
+      quote((table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field));
+    const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+
+    const selectCols = expectKeys.map((key) => `${columnOf(key)} AS ${quote(key)}`);
+    const whereParts: string[] = [`${columnOf("id")} = $1`];
+    const params: unknown[] = [id];
+    if (table["tenantId"] !== undefined && db.mode === "tenant") {
+      params.push(db.tenantId, SYSTEM_TENANT_ID);
+      whereParts.push(`${columnOf("tenantId")} IN ($${params.length - 1}, $${params.length})`);
+    }
+    params.push(String(id), streamTenantId);
+    const streamAggregateIdx = params.length - 1;
+    const streamTenantIdx = params.length;
+
+    const sqlText =
+      `SELECT ${selectCols.join(", ")}, ` +
+      `(SELECT MAX("version") FROM "kumiko_events" WHERE "aggregate_id" = $${streamAggregateIdx} ` +
+      `AND "tenant_id" = $${streamTenantIdx}) AS "__streamVersion" ` +
+      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+
+    const rows = await executeRawQueryRead<Record<string, unknown>>(
+      tenantDbRunner(db),
+      sqlText,
+      params,
+    );
+    const row = rows[0];
+    if (!row) return { row: null, streamVersion: 0 };
+    const { __streamVersion, ...fields } = row;
+    return {
+      row: fields,
+      streamVersion: typeof __streamVersion === "number" ? __streamVersion : 0,
+    };
+  }
+
   return {
     table,
     entity,
@@ -423,6 +501,7 @@ export function buildExecutorContext(
     loadById,
     assertStreamWritable,
     loadWithOwnership,
+    loadExpectSnapshot,
     encryptForStorage,
     decryptForRead,
     applyDefaults,

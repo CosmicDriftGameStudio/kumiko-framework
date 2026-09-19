@@ -37,7 +37,26 @@ export type EventStoreExecutor = {
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: { skipOptimisticLock?: boolean; skipUnchanged?: boolean; preSave?: PreSaveRunner },
+    options?: {
+      skipOptimisticLock?: boolean;
+      skipUnchanged?: boolean;
+      preSave?: PreSaveRunner;
+      // Declarative precondition for a "genau einmal"-transition (kumiko-
+      // framework#3024): field/value pairs the row must still hold at write
+      // time — a `null` expected value matches a null field. Re-read fresh,
+      // atomically with the write's stream version (not the payload's stale
+      // `previous`), so a concurrent writer that already moved the row on is
+      // caught even when it doesn't collide with the stream-version check.
+      // Mismatch fails the whole update with PreconditionFailedError instead
+      // of applying it.
+      // Scalars only (string/number/boolean/null) — the check is `!==`, so an
+      // object/Date/Instant value would compare by reference and silently
+      // never match; a timestamp precondition needs its own scalar mirror
+      // field to check against, not the compound value itself. Also plain
+      // columns only: the check reads raw column values (no decrypt pass),
+      // so a pii/encrypted field can't be used here.
+      expect?: Readonly<Record<string, string | number | boolean | null>>;
+    },
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (

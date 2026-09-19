@@ -25,6 +25,25 @@ export type StartGracePeriodResult =
 //
 // The user row is tenant-agnostic (account-wide deletion), so it is read via
 // ctx.db.global(userTable); only the grace period duration is tenant-configured.
+// That read only supplies email/locale for the caller's notification — it is
+// NOT the transition's guard. The guard is `expect: { status: Active }` on
+// the lifecycle write itself (#3024): the executor re-checks it against a
+// fresh row right before writing, so a concurrent caller that already moved
+// the user off Active is rejected even though this read saw Active.
+//
+// `additionalExpect` lets a caller fold its own precondition into the SAME
+// atomic write — the confirm-by-token path uses it to spend a row-bound
+// grant's anchor (pendingDeletionRequestId) in the same statement that flips
+// status, per shared/row-bound-grant.ts's "write in the same statement that
+// spends the anchor" contract. The write also always clears
+// pendingDeletionRequestId: a request-by-email token is meant for one
+// confirm only, and leaving the id in place would let it re-arm later if
+// something ever moves the user back to Active without going through
+// cancel-deletion's explicit null (restrict/lift-restriction can't today,
+// since status is a single field and Restricted/DeletionRequested are
+// mutually exclusive — but nulling it here doesn't depend on that staying
+// true). No-op for the authenticated request-deletion path, which never set
+// a pendingDeletionRequestId to begin with.
 //
 // `gracePeriod` and `lifecycleRunner` are resolved by the caller: both
 // require an escalation (reading the tenant compliance profile, appending to
@@ -35,6 +54,7 @@ export async function startDeletionGracePeriod(
   userId: string,
   gracePeriod: DurationSpec,
   lifecycleRunner: DbRunner,
+  additionalExpect?: Readonly<Record<string, string | number | boolean | null>>,
 ): Promise<StartGracePeriodResult> {
   const userRow = await ctx.db
     .global(userTable)
@@ -47,7 +67,17 @@ export async function startDeletionGracePeriod(
       }),
     };
   }
-  if (userRow["status"] !== USER_STATUS.Active) {
+
+  const T = getTemporal();
+  const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
+
+  const { applied } = await updateUserLifecycle(
+    lifecycleRunner,
+    userId,
+    { status: USER_STATUS.DeletionRequested, gracePeriodEnd, pendingDeletionRequestId: null },
+    { expect: { status: USER_STATUS.Active, ...additionalExpect } },
+  );
+  if (!applied) {
     return {
       ok: false,
       error: new UnprocessableError("user_not_in_active_state", {
@@ -55,14 +85,6 @@ export async function startDeletionGracePeriod(
       }),
     };
   }
-
-  const T = getTemporal();
-  const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
-
-  await updateUserLifecycle(lifecycleRunner, userId, {
-    status: USER_STATUS.DeletionRequested,
-    gracePeriodEnd,
-  });
 
   return {
     ok: true,

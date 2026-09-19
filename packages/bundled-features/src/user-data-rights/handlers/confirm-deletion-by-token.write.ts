@@ -40,17 +40,23 @@ async function readPendingDeletionRequestId(
   }
 }
 
-// Anonymer Apex-Flow Schritt 2: Verify-Link-Target. Verifiziert das
-// HMAC-Token, extrahiert die userId und startet die Grace-Period über die
-// geteilte Logik.
+// Anonymous apex flow step 2: verify-link target. Verifies the HMAC token,
+// extracts the userId, and flips the grace period through the shared logic —
+// in ONE atomic step with the anchor spend (#3024): commitDeletion carries
+// the actual grace-period transition, so a crash after the spend can no
+// longer lose the write step.
 //
-// Replay-Schutz (#354/1): die requestId der Row ist Teil des Verify-Keys. Wir
-// lesen sie über die (unverifizierte, nur-Lookup) userId aus dem Token, lehnen
-// einen fehlenden Eintrag ab und verifizieren das Token gegen die CURRENT
-// requestId. Ein zweites Confirm auf einen noch-pending User trifft zudem
-// non-active → cannot_process_deletion. Nach einem cancel-deletion (status →
-// Active, pendingDeletionRequestId → null) schlägt ein nachgespieltes Token an
-// der genullten/erneuerten requestId fehl — kein re-arm mehr.
+// Replay protection (#354/1): the row's requestId is part of the verify key.
+// We read it via the (unverified, lookup-only) userId from the token, reject
+// a missing entry, and verify the token against the CURRENT requestId. After
+// a cancel-deletion (status → Active, pendingDeletionRequestId → null), a
+// replayed token fails against the nulled/renewed requestId — no re-arm.
+//
+// Concurrency (#3024): two simultaneous confirms of the same token both read
+// the same requestId and both verify the HMAC — commitDeletion spends the
+// anchor AND writes the transition atomically (expect: status===Active &&
+// pendingDeletionRequestId===requestId), so exactly one wins. The loser gets
+// the same generic 422 as an invalid token — no status leak (#354/2).
 export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByTokenOptions = {}) {
   return defineWriteHandler({
     name: "confirm-deletion-by-token",
@@ -66,16 +72,6 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     agent: { expose: false },
     rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      // The row's requestId is part of the verify key, so a token from a
-      // cancelled or superseded cycle fails. Every error path ends in the same
-      // generic 422.
-      const verified = await redeemDeletionToken({
-        token: event.payload.token,
-        secret: opts.deletionTokenSecret,
-        loadPendingRequestId: (userId) => readPendingDeletionRequestId(ctx, userId),
-      });
-      if (!verified.ok) return writeFailure(invalidToken());
-
       // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
       // the compliance-profile shape.
       const profile = (await ctx.queryAs(
@@ -83,26 +79,40 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
         "compliance-profiles:query:for-tenant",
         {},
       )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
-      const res = await startDeletionGracePeriod(
-        ctx,
-        verified.subject,
-        profile.profile.userRights.gracePeriod,
-        ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
-      );
-      if (!res.ok) {
-        // Generischer 422 statt res.error: dieser Endpoint ist anonym-öffentlich,
-        // res.error trägt den konkreten User-Status (currentStatus aus
-        // user_not_in_active_state) und würde einem Token-Inhaber das Proben des
-        // Account-Status erlauben (#354/2). Der authentifizierte request-deletion-
-        // Pfad zeigt dem User legitim seinen eigenen Status.
-        return writeFailure(new UnprocessableError("cannot_process_deletion"));
-      }
+
+      let gracePeriodEndIso: string | undefined;
+
+      // The row's requestId is part of the verify key, so a token from a
+      // cancelled or superseded cycle fails. Every error path ends in the same
+      // generic 422 — commitDeletion folding the grace-period write into the
+      // anchor-spend means there's no separate res.ok branch left to leak a
+      // concrete status through.
+      const verified = await redeemDeletionToken({
+        token: event.payload.token,
+        secret: opts.deletionTokenSecret,
+        loadPendingRequestId: (userId) => readPendingDeletionRequestId(ctx, userId),
+        commitDeletion: async (userId, requestId) => {
+          const res = await startDeletionGracePeriod(
+            ctx,
+            userId,
+            profile.profile.userRights.gracePeriod,
+            ctx.db.unsafeRaw(
+              "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream",
+            ),
+            { pendingDeletionRequestId: requestId },
+          );
+          if (!res.ok) return false;
+          gracePeriodEndIso = res.gracePeriodEnd.toString();
+          return true;
+        },
+      });
+      if (!verified.ok || gracePeriodEndIso === undefined) return writeFailure(invalidToken());
 
       return {
         isSuccess: true as const,
         data: {
           status: USER_STATUS.DeletionRequested,
-          gracePeriodEnd: res.gracePeriodEnd.toString(),
+          gracePeriodEnd: gracePeriodEndIso,
         },
       };
     },
