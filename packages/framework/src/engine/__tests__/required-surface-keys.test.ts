@@ -3,10 +3,12 @@ import {
   ACTION_FORM_ENTITY,
   CONFIG_EDIT_ENTITY,
   fieldLabelKey,
+  PROJECTION_DETAIL_ENTITY,
   requiredKeysFromNav,
   requiredKeysFromScreen,
   requiredKeysFromWorkspace,
   screenTitleKey,
+  WRITE_FORM_SECTION_ENTITY,
 } from "../../i18n/required-surface-keys";
 import { i18nKey } from "../i18n-key";
 import type {
@@ -277,5 +279,199 @@ describe("dot-form label opt-in (fw#2313)", () => {
   test("i18nKey()-marked nav label is required", () => {
     const nav = { id: "fw2313-nav", label: i18nKey("fw2313.optin.nav.beta") };
     expect(requiredKeysFromNav(nav)).toContain("fw2313.optin.nav.beta");
+  });
+});
+
+describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
+  test("entityEdit: group fields and group titles, override honored", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "component-edit",
+      type: "entityEdit",
+      entity: "component",
+      fieldLabels: { name: "publicstatus:override.name" },
+      layout: {
+        sections: [
+          {
+            title: "publicstatus:section.basics",
+            fields: [],
+            groups: [
+              { title: "publicstatus:group.identity", fields: ["name"] },
+              { title: "publicstatus:group.state", fields: [{ field: "status" }] },
+            ],
+          },
+        ],
+      },
+    };
+    const keys = requiredKeysFromScreen("publicstatus", screen);
+    expect(keys).toContain("publicstatus:section.basics");
+    expect(keys).toContain("publicstatus:group.identity");
+    expect(keys).toContain("publicstatus:group.state");
+    expect(keys).toContain("publicstatus:override.name");
+    expect(keys).not.toContain(fieldLabelKey("publicstatus", "component", "name"));
+    expect(keys).toContain(fieldLabelKey("publicstatus", "component", "status"));
+  });
+
+  test("entityEdit: a section with fields AND groups yields the union of both", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "component-edit",
+      type: "entityEdit",
+      entity: "component",
+      layout: {
+        sections: [
+          {
+            fields: ["name"],
+            groups: [{ title: "publicstatus:group.state", fields: ["status"] }],
+          },
+        ],
+      },
+    };
+    const keys = requiredKeysFromScreen("publicstatus", screen);
+    expect(keys).toContain(fieldLabelKey("publicstatus", "component", "name"));
+    expect(keys).toContain(fieldLabelKey("publicstatus", "component", "status"));
+  });
+
+  test("actionForm: group fields and group titles", () => {
+    const keys = requiredKeysFromScreen("publicstatus", {
+      id: "incident-open-form",
+      type: "actionForm",
+      handler: "publicstatus:write:incident:open",
+      fields: { title: { type: "text" }, note: { type: "text" } },
+      fieldLabels: { title: "publicstatus:override.title" },
+      layout: {
+        sections: [
+          {
+            fields: [],
+            groups: [{ title: "publicstatus:group.body", fields: ["title", "note"] }],
+          },
+        ],
+      },
+    });
+    expect(keys).toContain("publicstatus:group.body");
+    expect(keys).toContain("publicstatus:override.title");
+    expect(keys).toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "note"));
+  });
+
+  test("secretMint: group fields and group titles in mint and confirm layout", () => {
+    const keys = requiredKeysFromScreen("publicstatus", {
+      id: "token-mint",
+      type: "secretMint",
+      handler: "publicstatus:write:token:mint",
+      fields: { label: { type: "text" } },
+      layout: {
+        sections: [
+          {
+            fields: [],
+            groups: [{ title: "publicstatus:group.mint", fields: ["label"] }],
+          },
+        ],
+      },
+      reveal: { fields: [{ field: "token", label: "publicstatus:reveal.token" }] },
+      confirm: {
+        handler: "publicstatus:write:token:confirm",
+        fields: { ack: { type: "boolean" } },
+        layout: {
+          sections: [
+            {
+              fields: [],
+              groups: [{ title: "publicstatus:group.confirm", fields: ["ack"] }],
+            },
+          ],
+        },
+      },
+    });
+    expect(keys).toContain("publicstatus:group.mint");
+    expect(keys).toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "label"));
+    expect(keys).toContain("publicstatus:group.confirm");
+    expect(keys).toContain(fieldLabelKey("publicstatus", ACTION_FORM_ENTITY, "ack"));
+  });
+
+  test("configEdit: group fields and group titles, override honored", () => {
+    const screen: ConfigEditScreenDefinition = {
+      id: "settings-retention",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: {
+        days: "publicstatus:config:retentionDays",
+        mode: "publicstatus:config:mode",
+      },
+      fieldLabels: { days: "publicstatus:override.retentionDays" },
+      fields: { days: { type: "number" }, mode: { type: "text" } },
+      layout: {
+        sections: [
+          {
+            fields: [],
+            groups: [{ title: "publicstatus:group.retention", fields: ["days", "mode"] }],
+          },
+        ],
+      },
+    };
+    const keys = requiredKeysFromScreen("publicstatus", screen);
+    expect(keys).toContain("publicstatus:group.retention");
+    expect(keys).toContain("publicstatus:override.retentionDays");
+    expect(keys).toContain(fieldLabelKey("publicstatus", CONFIG_EDIT_ENTITY, "mode"));
+  });
+
+  test("configEdit: dot-form group titles need treatDotFormAsKey, like section titles", () => {
+    const screen: ConfigEditScreenDefinition = {
+      id: "settings-retention",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: { days: "publicstatus:config:retentionDays" },
+      fields: { days: { type: "number" } },
+      layout: {
+        sections: [
+          {
+            fields: [],
+            groups: [{ title: "publicstatus.group.retention", fields: ["days"] }],
+          },
+        ],
+      },
+    };
+    expect(requiredKeysFromScreen("publicstatus", screen)).not.toContain(
+      "publicstatus.group.retention",
+    );
+    expect(requiredKeysFromScreen("publicstatus", screen, { treatDotFormAsKey: true })).toContain(
+      "publicstatus.group.retention",
+    );
+  });
+
+  test("projectionDetail: group fields and group titles, override honored", () => {
+    const keys = requiredKeysFromScreen("publicstatus", {
+      id: "incident-detail",
+      type: "projectionDetail",
+      query: "publicstatus:query:incident:detail",
+      fieldLabels: { severity: "publicstatus:override.severity" },
+      layout: {
+        sections: [
+          {
+            fields: [],
+            groups: [{ title: "publicstatus:group.facts", fields: ["severity", "openedAt"] }],
+          },
+        ],
+      },
+    });
+    expect(keys).toContain("publicstatus:group.facts");
+    expect(keys).toContain("publicstatus:override.severity");
+    expect(keys).toContain(fieldLabelKey("publicstatus", PROJECTION_DETAIL_ENTITY, "openedAt"));
+  });
+
+  test("projectionDetail: writeForm sections keep the WRITE_FORM_SECTION_ENTITY namespace", () => {
+    const keys = requiredKeysFromScreen("publicstatus", {
+      id: "incident-detail",
+      type: "projectionDetail",
+      query: "publicstatus:query:incident:detail",
+      layout: {
+        sections: [
+          {
+            kind: "writeForm",
+            title: "publicstatus:section.comment",
+            handler: "publicstatus:write:incident:comment",
+            fieldDefs: { body: { type: "text" } },
+            fields: ["body"],
+          },
+        ],
+      },
+    });
+    expect(keys).toContain(fieldLabelKey("publicstatus", WRITE_FORM_SECTION_ENTITY, "body"));
   });
 });

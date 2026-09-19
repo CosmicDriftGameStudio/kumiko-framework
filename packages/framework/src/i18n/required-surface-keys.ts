@@ -1,8 +1,10 @@
 import { isExplicitDotFormKey } from "../engine/i18n-key";
+import type { FieldsOrGroupsSection } from "../engine/screen-helpers";
 import {
   isExtensionEditSection,
   isWriteFormEditSection,
   normalizeListColumn,
+  sectionFieldSpecs,
 } from "../engine/screen-helpers";
 import type {
   ActionFormScreenDefinition,
@@ -80,6 +82,16 @@ function pushKey(out: Set<string>, value: string | undefined, treatAsKey = false
 
 function editFieldName(f: string | { readonly field: string }): string {
   return typeof f === "string" ? f : f.field;
+}
+
+// Group titles are translated exactly like the section title (computeEditViewModel).
+function pushSectionTitles(
+  out: Set<string>,
+  section: { readonly title?: string } & FieldsOrGroupsSection,
+  treatAsKey = false,
+): void {
+  pushKey(out, section.title, treatAsKey);
+  for (const group of section.groups ?? []) pushKey(out, group.title, treatAsKey);
 }
 
 function pushRowActionKeys(out: Set<string>, action: RowAction): void {
@@ -182,8 +194,8 @@ export function requiredKeysFromScreen(
           continue;
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushKey(out, section.title);
-        for (const f of section.fields) {
+        pushSectionTitles(out, section);
+        for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           const override = edit.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);
@@ -206,8 +218,8 @@ export function requiredKeysFromScreen(
           continue;
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushKey(out, section.title);
-        for (const f of section.fields) {
+        pushSectionTitles(out, section);
+        for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           const override = form.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);
@@ -230,8 +242,8 @@ export function requiredKeysFromScreen(
           continue;
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushKey(out, section.title);
-        for (const f of section.fields) {
+        pushSectionTitles(out, section);
+        for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
         }
@@ -254,8 +266,8 @@ export function requiredKeysFromScreen(
             continue;
           }
           if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-          pushKey(out, section.title);
-          for (const f of section.fields) {
+          pushSectionTitles(out, section);
+          for (const f of sectionFieldSpecs(section)) {
             const fieldName = editFieldName(f);
             out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
           }
@@ -277,8 +289,8 @@ export function requiredKeysFromScreen(
           continue;
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushKey(out, section.title, treatDotFormAsKey);
-        for (const f of section.fields) {
+        pushSectionTitles(out, section, treatDotFormAsKey);
+        for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           const override = config.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
@@ -322,8 +334,8 @@ export function requiredKeysFromScreen(
           }
           continue;
         }
-        pushKey(out, section.title);
-        for (const f of section.fields) {
+        pushSectionTitles(out, section);
+        for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           const override = detail.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);

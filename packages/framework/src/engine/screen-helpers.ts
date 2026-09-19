@@ -98,6 +98,23 @@ export function isWriteFormEditSection(section: EditSectionSpec): section is Edi
   return section.kind === "writeForm";
 }
 
+/** Structural shape of every section that can carry `fields` and/or `groups` —
+ *  matches EditWriteFormSection (no `groups`) too, so callers need no narrowing. */
+export type FieldsOrGroupsSection = {
+  readonly fields: readonly EditFieldSpec[];
+  readonly groups?: readonly {
+    readonly title: string;
+    readonly fields: readonly EditFieldSpec[];
+  }[];
+};
+
+// Union of both sources, unlike the boot-validator's either-or flattening: that
+// one runs after the fields-XOR-groups check, collectors run without it and must
+// not drop a source (fw#2986).
+export function sectionFieldSpecs(section: FieldsOrGroupsSection): readonly EditFieldSpec[] {
+  return [...section.fields, ...(section.groups?.flatMap((group) => group.fields) ?? [])];
+}
+
 // Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer
 // authors who branch on the three FieldRenderer variants without manual
 // "format" in renderer checks.
