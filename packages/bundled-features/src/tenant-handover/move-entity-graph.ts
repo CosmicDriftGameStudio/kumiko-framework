@@ -98,6 +98,12 @@ async function moveFileRefs(args: {
   return rows.length;
 }
 
+// `idCol` is a `parentRef.entityIdField` — by convention a text column (see
+// tags' tag-assignment entity: "Host entity ids are uuid/text; 128 covers
+// uuid plus non-uuid text keys"), never enforced as a type. A future
+// uuid-typed entityIdField would need the same CASE-guarded comparison
+// parent-ref-clause.ts uses for reads, to avoid a 22P02 on a non-uuid value
+// instead of silently matching zero rows.
 async function moveChildRows(args: {
   readonly db: DbRunner;
   readonly tableName: string;

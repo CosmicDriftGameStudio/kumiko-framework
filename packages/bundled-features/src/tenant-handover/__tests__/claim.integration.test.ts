@@ -187,11 +187,17 @@ async function readTenantId(table: string, id: string): Promise<string | undefin
 }
 
 describe("tenant-handover :: claim", () => {
-  test("claims the root, its parentRef-linked child, and both attached files into the caller's tenant", async () => {
+  test("claims the root, its parentRef-linked child, and both attached files into the caller's tenant, leaving an unrelated run of the same type untouched", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const photoId = await seedPhoto(SOURCE_TENANT, runId, "front");
     await seedFileRef(SOURCE_TENANT, "run", runId);
     await seedFileRef(SOURCE_TENANT, "photo", photoId);
+
+    // A second, unrelated run of the SAME entity type, still in the source
+    // tenant — proves the claim moves only the identified run's rows, not
+    // every "run" row that happens to share the type.
+    const otherRunId = await seedRun(SOURCE_TENANT, "someone else's run");
+    const otherPhotoId = await seedPhoto(SOURCE_TENANT, otherRunId, "side");
 
     const dest = destinationUser(1);
     const data = await stack.http.writeOk<{
@@ -242,6 +248,10 @@ describe("tenant-handover :: claim", () => {
     // Nothing is left behind under the source tenant.
     const eventsUnderSource = await loadAggregate(stack.db, runId, SOURCE_TENANT);
     expect(eventsUnderSource).toHaveLength(0);
+
+    // The unrelated run (same entity type, different row) never moved.
+    expect(await readTenantId("handover_run", otherRunId)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_photo", otherPhotoId)).toBe(SOURCE_TENANT);
   });
 
   test("replaying the same grant fails the same way an invalid one would, and changes nothing", async () => {
