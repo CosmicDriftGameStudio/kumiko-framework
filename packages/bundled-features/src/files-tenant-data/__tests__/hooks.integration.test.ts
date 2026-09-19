@@ -12,7 +12,11 @@ import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  type EntityId,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
   createEventsTable,
@@ -135,8 +139,8 @@ async function seedFileRef(tenantId: TenantId, storageKey: string) {
 
 // Stands in for a tenant-handover claim (kumiko-framework#3035): the row's
 // tenantId moves, the storageKey — and the bytes behind it — do not.
-async function handOverFileRef(fileRefId: string, toTenantId: TenantId): Promise<void> {
-  await updateRows(db, fileRefsTable, { tenantId: toTenantId }, { id: fileRefId });
+async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promise<void> {
+  await updateRows(db, fileRefsTable, { tenantId: toTenantId }, { id: String(fileRefId) });
 }
 
 // Sidesteps the `request-destruction` write handler (needs user/auth/sessions

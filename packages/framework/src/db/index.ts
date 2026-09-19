@@ -148,6 +148,7 @@ export {
   buildEntityTable,
   declareGlobalTenancy,
   type EntityTable,
+  physicalColumnName,
   toSnakeCase,
   toTableName,
 } from "./table-builder";
