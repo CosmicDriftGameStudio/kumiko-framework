@@ -77,6 +77,32 @@ describe("computeBlindIndexValues", () => {
     expect(out).toEqual({});
   });
 
+  test("no key configured + PII ciphertext value → throws (fw#3091)", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    const stored = await encryptPiiFieldValues(
+      { id: UUID_A, email: "marc@example.com" },
+      userLikeEntity,
+      ["email"],
+      kms,
+      { requestId: "test" },
+      { entityName: "bidx-user" },
+    );
+    await expect(computeBlindIndexValues({ email: stored["email"] }, ["email"])).rejects.toThrow(
+      /no blind-index key is configured/,
+    );
+  });
+
+  test("no key configured + erased sentinel → empty, does not throw", async () => {
+    const out = await computeBlindIndexValues({ email: PII_ERASED_SENTINEL }, ["email"]);
+    expect(out).toEqual({});
+  });
+
+  test("no key configured + non-string value → empty, does not throw", async () => {
+    const out = await computeBlindIndexValues({ email: 42 }, ["email"]);
+    expect(out).toEqual({});
+  });
+
   test("plaintext value → HMAC over the value itself", async () => {
     configureBlindIndexKey(TEST_KEY_B64);
     const out = await computeBlindIndexValues({ email: "a@b.c" }, ["email"]);
