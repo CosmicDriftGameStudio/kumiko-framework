@@ -21,10 +21,10 @@ export function retryAfterMinutes(retryAfterSeconds?: number): number | undefine
   return Math.ceil(retryAfterSeconds / 60);
 }
 
-/** Resolves post-login redirect: string template or function of tenantKey. */
-export function resolveLoggedInHref(
-  href: string | ((args: { readonly tenantKey: string }) => string),
-  tenantKey: string,
+/** Resolves post-login redirect: string template or function of the screen's args. */
+export function resolveLoggedInHref<Args>(
+  href: string | ((args: Args) => string),
+  args: Args,
 ): string {
-  return typeof href === "function" ? href({ tenantKey }) : href;
+  return typeof href === "function" ? href(args) : href;
 }

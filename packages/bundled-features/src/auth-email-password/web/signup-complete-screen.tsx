@@ -25,8 +25,11 @@ export type SignupCompleteScreenProps = {
   readonly title?: string;
   /** Override for the URL token — server-rendered apps can pass it. Default: `?token=...`. */
   readonly token?: string;
-  /** Where to send the user after activation. Function-form receives the tenantKey. Default "/". */
-  readonly loggedInHref?: string | ((args: { tenantKey: string }) => string);
+  /** Where to send the user after activation. Function-form receives the tenantKey and the
+   *  roles granted by this flow in that tenant — for role-dependent landing targets. Default "/". */
+  readonly loggedInHref?:
+    | string
+    | ((args: { tenantKey: string; roles: readonly string[] }) => string);
   /** Href for the "already have an account?" link when the token is missing. Default "/login". */
   readonly loginHref?: string;
 };
@@ -64,7 +67,12 @@ export function SignupCompleteScreen({
       // Cookies are already set (auto-login). Show a confirmation with an
       // explicit continue button instead of navigating away silently —
       // the user otherwise gets no signal that activation worked.
-      setContinueHref(resolveLoggedInHref(loggedInHref, res.data.tenantKey));
+      setContinueHref(
+        resolveLoggedInHref(loggedInHref, {
+          tenantKey: res.data.tenantKey,
+          roles: res.data.user.roles,
+        }),
+      );
       return;
     }
     if (res.error.reason === "invalid_signup_token") {

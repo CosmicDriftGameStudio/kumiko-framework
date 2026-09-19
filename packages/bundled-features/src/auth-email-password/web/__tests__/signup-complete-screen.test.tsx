@@ -107,6 +107,78 @@ describe("SignupCompleteScreen", () => {
     }
   });
 
+  test("loggedInHref-Function bekommt die Rollen aus der signup-confirm-Response", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            user: { id: "u1", tenantId: "t1", roles: ["Dealer"] },
+            tenantKey: "acme",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    renderWithProviders(
+      <SignupCompleteScreen
+        token="abc-token"
+        loggedInHref={({ tenantKey, roles }) =>
+          roles.includes("SystemAdmin") ? "/a/waitlist-list" : `/${tenantKey}/vehicle-start`
+        }
+      />,
+    );
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe(
+        "/acme/vehicle-start",
+      );
+    });
+  });
+
+  test("gleiche Function, SystemAdmin-Rolle → anderes Ziel", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            user: { id: "u1", tenantId: "t1", roles: ["SystemAdmin"] },
+            tenantKey: "acme",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    renderWithProviders(
+      <SignupCompleteScreen
+        token="abc-token"
+        loggedInHref={({ tenantKey, roles }) =>
+          roles.includes("SystemAdmin") ? "/a/waitlist-list" : `/${tenantKey}/vehicle-start`
+        }
+      />,
+    );
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe(
+        "/a/waitlist-list",
+      );
+    });
+  });
+
+  test("String-Form bleibt unverändert gültig und ignoriert die Rollen", async () => {
+    renderWithProviders(<SignupCompleteScreen token="abc-token" loggedInHref="/fixed-landing" />);
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe(
+        "/fixed-landing",
+      );
+    });
+  });
+
   test("mismatch → client-side error, kein fetch-Call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
