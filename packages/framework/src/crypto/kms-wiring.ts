@@ -8,6 +8,7 @@
 // is wrong), `resolveKmsWiring` is the boot entry point that also constructs
 // the adapter.
 
+import { type KekSourceOptions, resolvePlatformKeks } from "./kek-source";
 import { createPgKmsAdapter, type PgKmsAdapter, type PgKmsAdapterOptions } from "./pg-kms-adapter";
 
 // The index signature is what lets callers pass `process.env` directly. Without
@@ -185,4 +186,23 @@ export function requireKmsWiring(
     );
   }
   return wiring;
+}
+
+/** Same as `resolveKmsWiring`, but resolves `PLATFORM_KEK`/`PLATFORM_KEK_PREVIOUS`
+ *  from a Key Manager ciphertext first when no plaintext is set — see
+ *  `resolvePlatformKeks`. The validation stays in the sync function; this only
+ *  adds the KEK-fetching step in front of it. */
+export async function resolveKmsWiringAsync(
+  env: KmsWiringEnv,
+  options: KmsWiringOptions & KekSourceOptions = {},
+): Promise<KmsWiring> {
+  return resolveKmsWiring(await resolvePlatformKeks(env, options), options);
+}
+
+/** Async counterpart to `requireKmsWiring`, KEK-resolving like `resolveKmsWiringAsync`. */
+export async function requireKmsWiringAsync(
+  env: KmsWiringEnv,
+  options: KmsWiringOptions & KekSourceOptions = {},
+): Promise<ActiveKmsWiring> {
+  return requireKmsWiring(await resolvePlatformKeks(env, options), options);
 }
