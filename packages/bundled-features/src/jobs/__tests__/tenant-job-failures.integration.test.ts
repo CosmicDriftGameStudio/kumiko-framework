@@ -10,7 +10,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
@@ -258,5 +258,18 @@ describe("jobs:query:failures (fw#3079)", () => {
     // is an addition, it takes nothing away from the SystemAdmin view.
     expect(JSON.parse(raw).data.rows).toHaveLength(3);
     expect(raw).toContain(PROVIDER_MESSAGE);
+  });
+  test("a corrupt stored subject degrades to null instead of failing the list", async () => {
+    await insertOne(db, tenantJobFailuresTable, {
+      tenantId: tenantB,
+      jobName: "app:job:corrupt",
+      subject: '{"campaignId":"not-an-entry-array"}',
+      messageKey: DECLARED_KEY,
+      failedAt: Temporal.Now.instant(),
+    });
+
+    const rows = await failures(userB, { jobName: "app:job:corrupt" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.subject).toBeNull();
   });
 });
