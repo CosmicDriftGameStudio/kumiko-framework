@@ -97,6 +97,8 @@ import {
 import type { ReactNode } from "react";
 import { cn } from "./lib/cn";
 
+export type { NavIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+
 export const NAV_ICONS = {
   dashboard: LayoutDashboard,
   "layout-grid": LayoutGrid,
