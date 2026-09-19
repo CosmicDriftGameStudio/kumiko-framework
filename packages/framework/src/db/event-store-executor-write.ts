@@ -115,6 +115,7 @@ export function createWriteVerbs(
     stripSensitive,
     loadById,
     assertStreamWritable,
+    loadExpectSnapshot,
   } = ctx;
 
   return {
@@ -395,65 +396,47 @@ export function createWriteVerbs(
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user));
 
-      // Stream-version is authoritative, not row.version, for every OTHER
-      // caller: `ctx.appendEvent` can bump the stream between CRUD writes
-      // (domain event on the same aggregate) without this row necessarily
-      // moving, and a stale row.version here would make the next CRUD write
-      // trip `events_aggregate_version_uq` with a spurious version_conflict.
+      // Stream-version is authoritative, not row.version. `ctx.appendEvent`
+      // can bump the stream between CRUD writes (domain event on the same
+      // aggregate); a stale row.version here would make the next CRUD write
+      // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
+      // with version_conflict.
       //
-      // `expect:` (#3024) is the one exception, and reads its own version
-      // instead: a separate getStreamVersion() call here would open exactly
-      // the check-then-act gap `expect` exists to close — applyEntityEvent
-      // writes the projection row in a SEPARATE statement after its event
-      // commits (tested empirically: reading version and `expect` fields as
-      // two round-trips lets a second writer's version-read land in that gap
-      // and see a fresh, non-conflicting version paired with a still-stale
-      // projection row). Reading `version` and the `expect` fields off the
-      // SAME row in ONE query closes it: table-builder.ts guarantees every
-      // entity table carries `version`, kept in lock-step with every other
-      // projection column by applyEntityEvent, so this row's own version is
-      // exactly as fresh as the fields `expect` just checked. Any writer
-      // whose event commits after this read still bumps the stream version,
-      // so this writer's append below (expectedVersion = this row's version)
-      // correctly conflicts instead of silently overwriting it.
-      //
-      // PRECONDITION this trades for that guarantee: `expect:` only stays
-      // correct on an entity whose stream carries EXCLUSIVELY this executor's
-      // own auto-verb events (create/update/delete/forget/restore) — i.e. no
-      // handler ever calls `ctx.appendEvent`/`r.step.aggregate.appendEvent`
-      // with a raw domain event on the same aggregateId. Such an event bumps
-      // the stream without ever touching this row's `version` column, so
-      // row.version silently lags the true stream head and every future
-      // `expect:`-guarded update on that row wedges on version_conflict
-      // (indistinguishable from a losing concurrent writer) until some
-      // non-`expect` write on the row resyncs it via getStreamVersion. There
-      // is no raw appendEvent on the "user" aggregate anywhere in this
-      // repo's bundled-features today (verified via `git grep appendEvent`)
-      // — if that ever changes, `expect:` on user-lifecycle transitions must
-      // be revisited together with it.
+      // `expect:` (#3024) reads this same authoritative version, but through
+      // loadExpectSnapshot's single combined query instead of a second,
+      // separate getStreamVersion() round-trip: two reads (in either order)
+      // leave a real gap — applyEntityEvent writes the projection in a
+      // SEPARATE statement after its event commits, so a second reader's
+      // version-read can land in that gap and see a fresh, non-conflicting
+      // version paired with a still-stale projection row (verified
+      // empirically: ~40% of genuinely concurrent runs slipped through with
+      // two round-trips). One query removes the gap. It also avoids trusting
+      // the row's own `version` column for the expectedVersion: that column
+      // is only in lock-step with the rest of the row for rows THIS executor
+      // wrote — a raw-seeded row (test fixture, or legacy pre-#762 data) can
+      // carry a default version with zero matching events, which would make
+      // the append below target a non-existent predecessor and fail outright.
       let currentVersion: number;
       if (updateOptions?.expect) {
-        const freshRow = await loadById(payload.id, db);
-        if (!freshRow) {
+        const expectKeys = Object.keys(updateOptions.expect);
+        const snapshot = await loadExpectSnapshot(
+          db,
+          payload.id,
+          streamTenantFor(user),
+          expectKeys,
+        );
+        if (!snapshot.row) {
           return writeFailure(new PreconditionFailedError({ entityId: payload.id, field: "id" }));
         }
         const mismatch = Object.entries(updateOptions.expect).find(
-          ([key, expected]) => freshRow[key] !== expected,
+          ([key, expected]) => snapshot.row?.[key] !== expected,
         );
         if (mismatch) {
           return writeFailure(
             new PreconditionFailedError({ entityId: payload.id, field: mismatch[0] }),
           );
         }
-        const rowVersion = freshRow["version"];
-        if (typeof rowVersion !== "number" || !Number.isInteger(rowVersion)) {
-          return writeFailure(
-            new InternalError({
-              message: `entity ${entityName} row ${payload.id} has a non-numeric version column`,
-            }),
-          );
-        }
-        currentVersion = rowVersion;
+        currentVersion = snapshot.streamVersion;
       } else {
         currentVersion = await getStreamVersion(runner, String(payload.id), streamTenantFor(user));
       }

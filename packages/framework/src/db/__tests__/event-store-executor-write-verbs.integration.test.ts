@@ -522,6 +522,18 @@ describe("event-store-executor write-verbs — expect precondition (#3024)", () 
     expect(second.error.code).toBe("precondition_failed");
   });
 
+  // Wrapped in its own transaction per racer, like "two concurrent first-time
+  // creates ... inside a transaction" above — this is how the dispatcher
+  // always calls update() in production (the whole handler runs in one
+  // transaction), and it matters here: without it, a single writer's own
+  // event-append and projection-update commit as two SEPARATE, independently
+  // visible statements against the bare pool, so a second reader can
+  // observe "event committed, projection not yet" — a torn state that
+  // doesn't exist once both writes commit together as one transaction. The
+  // HTTP-level equivalent (anonymous-deletion.integration.test.ts, real
+  // dispatcher, real transaction) already covers the true production
+  // guarantee; this test pins the same guarantee at the executor level with
+  // an explicit transaction to match.
   test("two concurrent updates with the same expect, both skipOptimisticLock → exactly one applies", async () => {
     const created = await crud.create(
       { email: "race-expect@test.de", status: "Active" },
@@ -533,8 +545,22 @@ describe("event-store-executor write-verbs — expect precondition (#3024)", () 
     const options = { skipOptimisticLock: true, expect: { status: "Active" } } as const;
 
     const [a, b] = await Promise.all([
-      crud.update({ id, changes: { status: "Requested" } }, admin, tdb, options),
-      crud.update({ id, changes: { status: "Requested" } }, admin, tdb, options),
+      transaction(testDb.db, (tx) =>
+        crud.update(
+          { id, changes: { status: "Requested" } },
+          admin,
+          createTenantDb(tx, admin.tenantId),
+          options,
+        ),
+      ),
+      transaction(testDb.db, (tx) =>
+        crud.update(
+          { id, changes: { status: "Requested" } },
+          admin,
+          createTenantDb(tx, admin.tenantId),
+          options,
+        ),
+      ),
     ]);
 
     const results = [a, b];
