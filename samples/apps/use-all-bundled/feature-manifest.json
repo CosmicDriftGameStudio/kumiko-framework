@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 73,
+  "featureCount": 74,
   "features": [
     {
       "name": "admin-shell",
@@ -2482,6 +2482,27 @@
         "displayLabel": "Multi-Tenant Core",
         "category": "identity",
         "recommended": true
+      }
+    },
+    {
+      "name": "tenant-handover",
+      "description": "Try-before-signup ownership handover: claims the rows of a declared-transferable entity graph (root plus its parentRef-linked children) from an anonymous/public tenant into the caller's own tenant, legitimized by a row-bound grant the anonymous flow minted. Idempotent, audited via a `<entityType>.tenantHandover` domain event.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "tenant-handover:write:claim"
+      ],
+      "uiHints": {
+        "displayLabel": "Tenant Handover",
+        "category": "identity",
+        "recommended": false
       }
     },
     {
