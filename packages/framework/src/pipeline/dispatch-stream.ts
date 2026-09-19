@@ -1,13 +1,18 @@
 import { hasAccess } from "../engine/access";
 import type { SessionUser } from "../engine/types";
-import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors";
+import {
+  AccessDeniedError,
+  memberResolutionReadOnlyDenied,
+  NotFoundError,
+  validationErrorFromZod,
+} from "../errors";
 import { assertNoSecretLeak } from "../secrets";
 import {
   buildHandlerContext,
   type DispatchContext,
   enforceRateLimit,
   ensureFeatureEnabled,
-  memberResolutionReadOnlyDenied,
+  isMemberResolutionPrincipal,
   runStreamInstrumented,
 } from "./dispatch-shared";
 
@@ -38,7 +43,7 @@ async function* executeStreamInner(
 
   // A resolved member principal (ctx.queryAsMember) is read-only — streams
   // are excluded the same way executeWriteInner excludes writes.
-  if (user.origin === "member-resolution") {
+  if (isMemberResolutionPrincipal(user)) {
     throw memberResolutionReadOnlyDenied();
   }
 

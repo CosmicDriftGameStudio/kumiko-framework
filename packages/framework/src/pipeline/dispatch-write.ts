@@ -15,6 +15,7 @@ import {
   FrameworkReasons,
   InternalError,
   isKumikoError,
+  memberResolutionReadOnlyDenied,
   NotFoundError,
   ValidationError,
   validationErrorFromZod,
@@ -28,7 +29,7 @@ import {
   CONFIG_WRITE_SET_TYPE,
   checkFeatureEnabled,
   enforceRateLimit,
-  memberResolutionReadOnlyDenied,
+  isMemberResolutionPrincipal,
   resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
@@ -371,7 +372,7 @@ async function executeWriteInner(
 
   // Defense in depth — covers runBatch and a spread-copied user that kept
   // `origin`, beyond buildHandlerContext's own ctx.write replacement.
-  if (user.origin === "member-resolution") {
+  if (isMemberResolutionPrincipal(user)) {
     return writeFailure(memberResolutionReadOnlyDenied());
   }
 
