@@ -1,5 +1,62 @@
 [
   {
+    "version": "0.289.0",
+    "type": "breaking",
+    "title": "appendProvenanceEvent enforces event.tenantId === db.tenantId",
+    "detail": "`appendProvenanceEvent(db, event)` checked the event type namespace but wrote `event.tenantId` unverified while granting itself the framework-fixed unsafeRaw reason internally. Since `createLLMProviderForTenant(ctx, tenantId, …)` takes the tenantId as an argument, that made the entry point a cross-tenant write door with no escapeHatch declaration behind it.\nThe check now runs after `unsafeRawForDeclaredStep` — so a holder not built by `createTenantDb` still fails closed with `InternalError` first — and before the savepoint, so a rejected append leaves no row. It is unconditional, including `mode: \"system\"`: `crossTenantRebinders` keeps the original tenantId and only flips the mode, so a system-scoped db must not append provenance for a foreign tenant either.\n`appendProvenanceEvent` deliberately keeps `withUnsafeRawGrant` + `unsafeRawForDeclaredStep` instead of resolving the runner through the ungated `tenantDbRunner`, because that grant path is the choke point the member-read lock in kumiko-framework#2927 hooks into.",
+    "migration": "appendProvenanceEvent rejects with AccessDeniedError when event.tenantId does not match the tenantId of the passed TenantDb. Provenance for a foreign tenant has no path left through this entry point — a caller that needs it declares its own escapeHatch path instead. Blast radius checked: every known call site in kumiko-enterprise passes event.user.tenantId through, so no call site changes."
+  },
+  {
+    "version": "0.289.0",
+    "type": "breaking",
+    "title": "Boot fails when an anonymous-accessible handler declares no rateLimit",
+    "detail": "validateAnonymousRateLimit (packages/framework/src/engine/boot-validator/entity-handler.ts) previously returned early when a handler declared no rateLimit at all, so an anonymous, internet-facing handler with zero throttling passed boot silently while one with a merely wrong bucket (rateLimit.per=\"user\") was rejected. The check now runs for every handler whose access.roles includes \"anonymous\": it still skips openToAll handlers (they never admit anonymous) and rateLimit: { disabled: true, reason } declarations, but a handler with access.roles including \"anonymous\" and no rateLimit at all now throws at boot, naming the handler.",
+    "migration": "Every handler whose access.roles includes \"anonymous\" needs a rateLimit declaration: either rateLimit: { per: \"ip\" | \"ip+handler\", limit, windowSeconds } (per must not be \"user\"/\"user+handler\" — anonymous callers share user.id=\"anonymous\", so a user-keyed bucket is a single global tap), or the documented exception rateLimit: { disabled: true, reason: \"...\" } for a handler that must not be rate-limited. This PR fixes the eight bundled-features handlers that tripped this at authoring time: compliance-profiles:query:sub-processors, template-resolver:query:by-slug, template-resolver:query:by-tenant, managed-pages:query:by-slug, managed-pages:query:by-tenant-published, managed-pages:query:branding, auth-email-password:query:signup-registration-status, seo:query:config."
+  },
+  {
+    "version": "0.289.0",
+    "type": "breaking",
+    "title": "ctx.db.unsafeRaw is denied under ctx.queryAsMember",
+    "migration": "Query handlers reached through ctx.queryAsMember can no longer call ctx.db.unsafeRaw — not even for reads. Move them to the ctx.db query APIs, or stop calling them via queryAsMember. Consequence for kumiko-enterprise: ai-call provenance writes under queryAsMember now fail closed; withProvenance swallows the error and counts provenance_drop_total."
+  },
+  {
+    "version": "0.289.0",
+    "type": "improvement",
+    "title": "Drawer gains a modal prop for non-modal side panels",
+    "detail": "Drawer accepts modal (default true, behavior unchanged). With modal={false} the overlay and the focus trap are gone, so the page behind stays interactive and its text can be selected and copied; Escape still closes, a click beside the panel does not."
+  },
+  {
+    "version": "0.289.0",
+    "type": "improvement",
+    "title": "Entity graph traversal helpers for cross-tenant ownership changes",
+    "detail": "physicalColumnName is now exported from @cosmicdrift/kumiko-framework/db (was framework-internal). storageKeyStemPrefix (files/file-handle.ts) gives the prefix that covers a stored file's key plus every derive()d variant. StorageProviderHookCtx (EXT_STORAGE_PROVIDER destroy hooks) gains db: DbRunner — the tenant-destroy stage runner already carried it for this hook family unconditionally, this only widens the declared type to match. TenantDataHookCtx (EXT_TENANT_DATA destroy hooks) gains fileProviderResolver and log, threaded through from the same stage runner. Built for the tenant-handover bundled feature (kumiko-framework#3035); no behavior change for existing hook implementations that don't read the new fields."
+  },
+  {
+    "version": "0.289.0",
+    "type": "fix",
+    "title": "EventDispatcher gains drain() for race-free test teardown",
+    "detail": "New `EventDispatcher.drain(): Promise<void>` waits out a pass already in flight (the timer tick or LISTEN/NOTIFY wake-up a suite's own `.start()` triggered) without touching the timer or the LISTEN subscription — unlike `stop()`, the dispatcher keeps running afterwards. `stack/table-helpers.ts`'s `resetEventStore` now calls it before truncating `kumiko_events` and the other framework tables, so a beforeEach/afterEach reset can no longer race a pass this same dispatcher started (kumiko-framework#3017): every suite that calls `resetEventStore` after starting the dispatcher (directly or via `jobs`) inherits the fix automatically. No behavior change for suites that never start the dispatcher — `drain()` is then a no-op, since nothing is ever in flight."
+  },
+  {
+    "version": "0.289.0",
+    "type": "improvement",
+    "title": "Event-store executor writes accept a declarative `expect:` precondition",
+    "detail": "`expect: { field: value }` on an executor write applies the change only if those fields still hold at write time, turning a check-then-act sequence into one step. Values are scalars (string/number/boolean/null) compared with strict equality; several fields mean AND, and the first mismatch names its field. A failed precondition raises the new `PreconditionFailedError` instead of writing.\nThe precondition fields and the `version` used for the append are read in one query, so a concurrent writer cannot slip between the check and the append — reading them separately reproduced a ~40% failure rate under real concurrency. The version is taken from the event stream itself, not from the projection row: a projection `version` is only in step for rows the executor wrote, so a row seeded directly would otherwise be checked against a predecessor that never existed."
+  },
+  {
+    "version": "0.289.0",
+    "type": "improvement",
+    "title": "PLATFORM_KEK can now be resolved from a Key Manager ciphertext at boot",
+    "detail": "New `resolvePlatformKeks` (packages/framework/src/crypto/kek-source.ts) decrypts `PLATFORM_KEK_CIPHERTEXT` / `PLATFORM_KEK_PREVIOUS_CIPHERTEXT` through Scaleway Key Manager when the matching plaintext (`PLATFORM_KEK` / `PLATFORM_KEK_PREVIOUS`) is absent, so the KEK no longer has to sit in the pod env in the clear. Each slot resolves independently: a plaintext value always wins over its ciphertext sibling with no request made, which keeps a KEK rollback bootable without a network call. `resolveKmsWiringAsync` and `requireKmsWiringAsync` wrap the existing sync `resolveKmsWiring` / `requireKmsWiring` with this resolution step; the sync functions and every other exported signature are unchanged. `PLATFORM_KEK` plaintext stays fully valid and keeps precedence — this is purely additive. Boot now logs one line per configured slot naming the source it used (`source=plaintext-env`, `source=key-manager keyId=… region=…`, and explicitly `(ciphertext present and ignored)` when a leftover plaintext wins), because a half-finished cutover otherwise boots green and looks exactly like a finished one. The line carries no key material and no token; `options.log` redirects it, the default is `console.info`."
+  },
+  {
+    "version": "0.289.0",
+    "type": "breaking",
+    "title": "requiredKeysFromScreen reads section.groups — group field labels and group titles are i18n-required",
+    "detail": "`requiredKeysFromScreen` (packages/framework/src/i18n/required-surface-keys.ts) read only `section.fields` in all six `EditFieldsSection` branches (`entityEdit`, `actionForm`, `secretMint` mint + confirm layout, `configEdit`, `projectionDetail`), so a field declared through `section.groups` never reached the required-key set and `groups[].title` was never required at all — while `computeEditViewModel` translates a group title exactly like a section title. `validateI18nSurfaceKeys` therefore let a screen boot with untranslated group field labels and group titles, the one error class that guard exists for.\nThe new `sectionFieldSpecs` in packages/framework/src/engine/screen-helpers.ts returns the union of `section.fields` and `section.groups[].fields` (a union, unlike the boot-validator's either-or `flattenFieldsOrGroups`, which runs after the fields-XOR-groups check) and is used at all six branches; each branch now also pushes every `groups[].title` alongside `section.title`, honoring the same `treatDotFormAsKey` option. The `writeForm` branch in `projectionDetail` is unchanged — `EditWriteFormSection` has no `groups`.",
+    "migration": "The i18n boot guard now demands translations it silently skipped before. An app whose entityEdit/actionForm/secretMint/configEdit/projectionDetail screens declare fields through `layout.sections[].groups` can newly fail boot with `required translation key missing: \"<feature>:entity:<entity>:field:<name>\"`. Add the missing field-label keys (or a `fieldLabels` override, where that screen type supports one) for every field declared under `groups[].fields`. Colon-form `groups[].title` values are now required too — add the key, or keep the title as literal display text (no colon, no `i18nKey()`) if it is not meant to be translated. Dot-form group titles behave exactly like dot-form section titles: only required when the caller passes `treatDotFormAsKey`."
+  },
+  {
     "version": "0.287.0",
     "type": "improvement",
     "title": "boot-time reachability warning for nav entries outside the app's sidebar allowlist, filter helper moved into the framework",

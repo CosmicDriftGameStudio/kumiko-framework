@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.289.0
+
+### Minor Changes
+
+- a200a5c: runDevApp gains resolvePageHead for dev/e2e parity with runProdApp
+
+  RunDevAppOptions/CreateKumikoServerOptions gain resolvePageHead, same PageHeadResolver signature as RunProdAppOptions. Applied to every templated HTML response (default single-entry shell and a host-dispatched "html" entry) via the shared @cosmicdrift/kumiko-headless/apex resolveAndInjectPageHead — same 300ms timeout, same error/null/timeout-falls-back-to-unchanged-200-shell semantics as prod (kumiko-framework#3026). The dev-only static-html hostDispatch kind (raw file passthrough, no bundle/schema injection either) is unaffected. No behavior change for apps that don't set resolvePageHead.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp gains resolvePageHead for dev/e2e parity with runProdApp
+  -->
+
+### Patch Changes
+
+- Updated dependencies [dea8ea0]
+- Updated dependencies [78f9c42]
+- Updated dependencies [efac5bb]
+- Updated dependencies [20853fa]
+- Updated dependencies [1e5a8e0]
+- Updated dependencies [f01015e]
+- Updated dependencies [a84d3cb]
+- Updated dependencies [dea8ea0]
+- Updated dependencies [2e868a7]
+- Updated dependencies [253ade3]
+- Updated dependencies [a200a5c]
+- Updated dependencies [a200a5c]
+- Updated dependencies [f01015e]
+  - @cosmicdrift/kumiko-bundled-features@0.289.0
+  - @cosmicdrift/kumiko-framework@0.289.0
+  - @cosmicdrift/kumiko-headless@0.289.0
+  - @cosmicdrift/kumiko-server-runtime@0.289.0
+
 ## 0.288.0
 
 ### Patch Changes

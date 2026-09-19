@@ -1,5 +1,37 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.289.0
+
+### Minor Changes
+
+- a200a5c: PageHeadMeta/PageHeadResolver/PageHeadSystemQuery now importable from the server-runtime barrel
+
+  The three resolvePageHead types moved to @cosmicdrift/kumiko-headless/apex (kumiko-framework#3026) and are re-exported unchanged from run-prod-app.ts, so the existing @cosmicdrift/kumiko-server-runtime/run-prod-app subpath import keeps working. New: the main @cosmicdrift/kumiko-server-runtime barrel now also exports all three, closing the gap where a consumer had to use the subpath just to type a resolver. render-head-tags.ts (internal-only, not a public subpath) is removed; injectPageHead now lives in headless.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: PageHeadMeta/PageHeadResolver/PageHeadSystemQuery now importable from the server-runtime barrel
+  -->
+
+### Patch Changes
+
+- Updated dependencies [dea8ea0]
+- Updated dependencies [78f9c42]
+- Updated dependencies [efac5bb]
+- Updated dependencies [20853fa]
+- Updated dependencies [1e5a8e0]
+- Updated dependencies [f01015e]
+- Updated dependencies [a84d3cb]
+- Updated dependencies [dea8ea0]
+- Updated dependencies [2e868a7]
+- Updated dependencies [253ade3]
+- Updated dependencies [a200a5c]
+- Updated dependencies [f01015e]
+  - @cosmicdrift/kumiko-bundled-features@0.289.0
+  - @cosmicdrift/kumiko-framework@0.289.0
+  - @cosmicdrift/kumiko-headless@0.289.0
+
 ## 0.288.0
 
 ### Patch Changes

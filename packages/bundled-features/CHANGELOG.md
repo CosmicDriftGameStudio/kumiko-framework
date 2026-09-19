@@ -1,5 +1,54 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.289.0
+
+### Minor Changes
+
+- dea8ea0: Deletion tokens are genuinely single-use, and a losing redeem no longer leaks status
+
+  `redeemDeletionToken` previously carried an `unsafeSkip` and a separate status check before the lifecycle write, so two concurrent redemptions of the same token could both get through. The lifecycle transition now rides the executor's `expect:` precondition inside the anchor spend, so exactly one redemption wins.
+
+  Externally visible: the loser of a concurrent redeem now receives the same generic `invalid_or_expired_token` reason on the anonymous path as an unknown token, instead of `cannot_process_deletion`. That was the point — the old reason distinguished "known token, wrong state" from "unknown token" to an unauthenticated caller. Integrators matching on the old string on that endpoint should expect the generic one.
+
+  `pendingDeletionRequestId` is now cleared on confirm as well, closing a pre-existing gap. `skipOptimisticLock: true` stays in the lifecycle path and now carries the reason it is correct there: callers structurally never hold a row version to pass through.
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Deletion tokens are genuinely single-use, and a losing redeem no longer leaks status
+  -->
+
+- f01015e: tenant-handover: try-before-signup ownership handover
+
+  New bundled feature: claims an anonymous run's declared-transferable entity graph (root plus parentRef-linked children) into a freshly signed-up account's tenant, legitimized by a row-bound grant. EntityDefinition gains an optional transferable flag; files-tenant-data's tenant-destroy hooks learn to handle handed-over fileRef rows (their bytes stay under the source tenant's storage prefix by design) on both sides.
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: improvement
+  title: tenant-handover: try-before-signup ownership handover
+  -->
+
+### Patch Changes
+
+- Updated dependencies [78f9c42]
+- Updated dependencies [efac5bb]
+- Updated dependencies [20853fa]
+- Updated dependencies [1e5a8e0]
+- Updated dependencies [f01015e]
+- Updated dependencies [a84d3cb]
+- Updated dependencies [dea8ea0]
+- Updated dependencies [2e868a7]
+- Updated dependencies [253ade3]
+- Updated dependencies [a200a5c]
+- Updated dependencies [8b14589]
+- Updated dependencies [f01015e]
+  - @cosmicdrift/kumiko-framework@0.289.0
+  - @cosmicdrift/kumiko-headless@0.289.0
+  - @cosmicdrift/kumiko-renderer-web@0.289.0
+  - @cosmicdrift/kumiko-types@0.289.0
+  - @cosmicdrift/kumiko-renderer@0.289.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.289.0
+
 ## 0.288.0
 
 ### Minor Changes
