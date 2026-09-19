@@ -33,6 +33,7 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import type {
   Payment as MolliePayment,
@@ -42,6 +43,7 @@ import { Hono } from "hono";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { createSubscriptionMollieFeature } from "../feature";
 import type { MollieClientShape } from "../verify-webhook";
@@ -150,6 +152,7 @@ beforeAll(async () => {
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantEntity);
 
   webhookApp = new Hono();
   webhookApp.post(

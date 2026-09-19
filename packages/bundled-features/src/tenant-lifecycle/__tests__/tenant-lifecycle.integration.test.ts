@@ -469,3 +469,111 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
     expect(eventsB.some((e) => e.type.endsWith("tenant-destruction-stage-succeeded"))).toBe(true);
   });
 });
+
+// No authConfig here on purpose: buildServer derives the 410 gate from the
+// mounted tenantLifecycleStatus provider. The stacks above keep the explicit
+// auth.resolveTenantLifecycleStatus override covered.
+describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () => {
+  let derivedStack: TestStack;
+
+  beforeAll(async () => {
+    const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ cipher: encryption });
+    derivedStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        authFoundationFeature,
+        createSessionsFeature(),
+        createTenantLifecycleFeature(),
+      ],
+      extraContext: { configResolver: resolver, configEncryption: encryption },
+    });
+    await unsafeCreateEntityTable(derivedStack.db, tenantEntity);
+    await unsafeCreateEntityTable(derivedStack.db, userSessionEntity);
+    await unsafeCreateEntityTable(derivedStack.db, tenantComplianceProfileEntity);
+    await unsafeCreateEntityTable(derivedStack.db, tenantMembershipEntity);
+    await createEventsTable(derivedStack.db);
+    await unsafePushTables(derivedStack.db, { configValuesTable });
+  });
+
+  afterAll(async () => {
+    await derivedStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    derivedStack.events.reset();
+    resetTenantLifecycleGateCacheForTests();
+    await resetTestTables(derivedStack.db, [
+      tenantTable,
+      tenantComplianceProfileTable,
+      userSessionTable,
+      tenantMembershipsTable,
+      eventsTable,
+    ]);
+    await derivedStack.http.writeOk(
+      TenantHandlers.create,
+      { id: tenantAdmin.tenantId, key: "acme", name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await derivedStack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
+  });
+
+  async function rejectionCode(res: Response): Promise<string | undefined> {
+    const body = (await res.json()) as { error?: { code?: string } };
+    return body.error?.code;
+  }
+
+  test("active tenant passes the gate", async () => {
+    const res = await derivedStack.http.query(TenantQueries.me, {}, tenantAdmin);
+    expect(res.status).toBe(200);
+  });
+
+  test("destroyRequested tenant gets 410 tenant_unavailable without any hand-wiring", async () => {
+    await derivedStack.http.writeOk(REQUEST, {}, tenantAdmin);
+    resetTenantLifecycleGateCacheForTests();
+
+    const res = await derivedStack.http.query(TenantQueries.me, {}, tenantAdmin);
+    expect(res.status).toBe(410);
+    expect(await rejectionCode(res)).toBe("tenant_unavailable");
+  });
+
+  test("cancel-destruction stays exempt while destroyRequested", async () => {
+    await derivedStack.http.writeOk(REQUEST, {}, tenantAdmin);
+    resetTenantLifecycleGateCacheForTests();
+
+    const cancelled = await derivedStack.http.writeOk<{ status: string }>(CANCEL, {}, tenantAdmin);
+    expect(cancelled.status).toBe("active");
+  });
+
+  test("batch mixing cancel-destruction with another write gets 410", async () => {
+    await derivedStack.http.writeOk(REQUEST, {}, tenantAdmin);
+    resetTenantLifecycleGateCacheForTests();
+
+    const res = await derivedStack.http.batch(
+      [
+        { type: CANCEL, payload: {} },
+        { type: SET_PROFILE, payload: { profileKey: "eu-dsgvo" } },
+      ],
+      tenantAdmin,
+    );
+    expect(res.status).toBe(410);
+    expect(await rejectionCode(res)).toBe("tenant_unavailable");
+  });
+
+  test("destroying tenant has no cancel exemption", async () => {
+    await updateRows(
+      derivedStack.db,
+      tenantTable,
+      { status: "destroying" },
+      { id: tenantAdmin.tenantId },
+    );
+    resetTenantLifecycleGateCacheForTests();
+
+    const res = await derivedStack.http.write(CANCEL, {}, tenantAdmin);
+    expect(res.status).toBe(410);
+    expect(await rejectionCode(res)).toBe("tenant_unavailable");
+  });
+});

@@ -30,6 +30,7 @@ import {
 } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import type { TierMap } from "../../tier-engine/compose-app";
 import { TierEngineHandlers } from "../../tier-engine/constants";
@@ -112,6 +113,7 @@ beforeAll(async () => {
     ],
   });
   await createEventsTable(stack.db);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { tier_assignments: tierAssignmentTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());

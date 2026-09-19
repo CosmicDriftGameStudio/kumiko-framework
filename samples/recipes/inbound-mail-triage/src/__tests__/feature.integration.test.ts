@@ -28,7 +28,7 @@ import {
   syncCursorEntity,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { inboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
-import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { createAllInOneEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
@@ -61,6 +61,7 @@ beforeAll(async () => {
   await createEventConsumerStateTable(testDb.db);
   // Entity-/Projection-Tables des Flows — der Entrypoint pusht (anders
   // als setupTestStack) keine Tabellen.
+  await unsafeCreateEntityTable(testDb.db, tenantEntity);
   await unsafeCreateEntityTable(testDb.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(testDb.db, mailAccountEntity);
   await unsafeCreateEntityTable(testDb.db, inboundMessageEntity);

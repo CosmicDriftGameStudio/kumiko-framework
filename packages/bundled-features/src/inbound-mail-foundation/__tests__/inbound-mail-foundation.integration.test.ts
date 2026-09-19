@@ -46,6 +46,7 @@ import {
 import { createConfigFeature } from "../../config";
 import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants";
@@ -83,6 +84,7 @@ beforeAll(async () => {
   });
   db = stack.db;
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   // Unmanaged direct-write stores — kein r.entity, kein Auto-Push.
   await unsafeCreateEntityTable(db, syncCursorEntity);

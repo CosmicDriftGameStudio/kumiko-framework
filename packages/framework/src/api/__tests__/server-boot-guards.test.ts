@@ -10,6 +10,7 @@ import {
   defineFeature,
   defineQueryHandler,
   EXT_PRINCIPAL_STATUS,
+  EXT_TENANT_LIFECYCLE_STATUS,
 } from "../../engine";
 import { createInMemorySearchAdapter } from "../../search";
 import { buildServer } from "../server";
@@ -259,6 +260,47 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
         context: {},
         jwtSecret: JWT_SECRET,
         auth: { membershipQuery: MEMBERSHIP_QN },
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("buildServer — tenant-lifecycle gate derivation", () => {
+  const lifecyclePlugin = { resolveStatus: async () => null };
+  const providerFeature = defineFeature("lifecycle-provider", (r) => {
+    r.extendsRegistrar(EXT_TENANT_LIFECYCLE_STATUS, {});
+    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "lifecycle-provider", lifecyclePlugin);
+  });
+  const secondProviderFeature = defineFeature("lifecycle-provider-2", (r) => {
+    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "lifecycle-provider-2", lifecyclePlugin);
+  });
+
+  test("throws when a lifecycle provider is mounted but context.db is missing", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([providerFeature]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      }),
+    ).toThrow(/tenantLifecycleStatus provider is mounted .* but context\.db is missing/);
+  });
+
+  test("throws when two lifecycle providers are registered", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([providerFeature, secondProviderFeature]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      }),
+    ).toThrow(/multiple "tenantLifecycleStatus" providers registered/);
+  });
+
+  test("no provider mounted leaves the gate unwired", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([]),
+        context: {},
+        jwtSecret: JWT_SECRET,
       }),
     ).not.toThrow();
   });

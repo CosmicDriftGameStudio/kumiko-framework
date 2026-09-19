@@ -29,6 +29,7 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
@@ -45,6 +46,7 @@ import {
   tenantSecretsTable,
 } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { createSubscriptionStripeFeature } from "../feature";
 
@@ -115,6 +117,7 @@ beforeAll(async () => {
   // gepusht (r.projection mit `table`-Property → auto-push). config +
   // secrets brauchen ihre Tabellen explizit.
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantEntity);
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
   // Standalone-secrets-context (gleiche KEK) zum direkten Seeden +
   // als systemSecrets für die zweite webhook-app.
@@ -504,6 +507,7 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
       }),
     });
     await createEventsTable(gateStack.db);
+    await unsafeCreateEntityTable(gateStack.db, tenantEntity);
     await unsafePushTables(gateStack.db, {
       configValuesTable,
       tenant_secrets: tenantSecretsTable,
