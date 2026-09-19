@@ -112,6 +112,7 @@ export type EmbeddedListCellViewModel = {
   readonly refEntity?: string;
   readonly refFeature?: string;
   readonly refLabelField?: string;
+  readonly refOptionsQuery?: string;
   /** Only for `type: "decimal"`. */
   readonly scale?: number;
 };
@@ -190,6 +191,11 @@ export type EditFieldViewModel = {
   /** Nur bei `type: "reference"` gesetzt — Welches Feld der referenced
    *  Entity als Display-Label im Dropdown erscheint. Default: "id". */
   readonly refLabelField?: string;
+  /** Only for `type: "reference"` — query handler QN the picker sources its
+   *  options from (fw#2780), replacing the referenced entity's list handler.
+   *  Rows carry `{ id, label }`; `refLabelField` is then unused for the
+   *  picker but still drives list cells. */
+  readonly refOptionsQuery?: string;
   /** Nur bei `type: "reference"` — Multi-Mode (Tier 2.7e-Multi):
    *  Wert ist UUID-Array, Renderer mountet Multi-Combobox mit Tags. */
   readonly refMultiple?: boolean;

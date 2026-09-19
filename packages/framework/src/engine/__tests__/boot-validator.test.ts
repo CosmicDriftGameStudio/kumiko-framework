@@ -3846,6 +3846,122 @@ describe("boot-validator", () => {
       );
     });
 
+    test("reference optionsQuery naming a registered handler → kein Throw (fw#2780)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "customer",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
+          stubListHandler(r, "customer");
+          r.queryHandler({
+            name: "customer:options",
+            schema: z.object({}),
+            handler: async () => ({ rows: [] }) as never,
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: {
+                  type: "reference",
+                  entity: "customer",
+                  optionsQuery: "shop:query:customer:options",
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("reference optionsQuery auf unregistrierten Handler → Throw (fw#2780)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "customer",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
+          stubListHandler(r, "customer");
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: {
+                  type: "reference",
+                  entity: "customer",
+                  optionsQuery: "shop:query:customer:typo",
+                },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /Reference field "customerId" on entity "order" declares optionsQuery "shop:query:customer:typo" which is not a registered query-handler/,
+      );
+    });
+
+    test("leerer optionsQuery → Throw (fw#2780)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "customer",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
+          stubListHandler(r, "customer");
+          r.entity(
+            "order",
+            createEntity({
+              fields: {
+                customerId: { type: "reference", entity: "customer", optionsQuery: "" },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/has an empty optionsQuery/);
+    });
+
+    test("reference sub-field optionsQuery auf unregistrierten Handler → Throw mit parent.child-Pfad (fw#2780)", () => {
+      const features = [
+        defineFeature("shop", (r) => {
+          r.entity(
+            "product",
+            createEntity({
+              fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+            }),
+          );
+          stubListHandler(r, "product");
+          r.entity(
+            "invoice",
+            createEntity({
+              fields: {
+                lines: createEmbeddedListField({
+                  productId: {
+                    type: "reference",
+                    entity: "product",
+                    optionsQuery: "shop:query:product:typo",
+                  },
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        /Reference field "lines\.productId" on entity "invoice" declares optionsQuery "shop:query:product:typo"/,
+      );
+    });
+
     test("reference sub-field labelField referencing an unknown field → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {

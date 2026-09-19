@@ -151,7 +151,7 @@ export function EmbeddedListField({
   const referenceQueries = referenceCells.map((cell) => {
     const refFeature = cell.refFeature ?? featureName;
     const refEntity = cell.refEntity ?? "";
-    const qn = `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
+    const qn = cell.refOptionsQuery ?? `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
     // biome-ignore lint/correctness/useHookAtTopLevel: referenceCells comes from the entity-schema definition — fixed for the screen's lifetime, not a real conditional-hook risk.
     return useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(qn, {
       limit: REFERENCE_COMBOBOX_LIMIT,
@@ -165,10 +165,10 @@ export function EmbeddedListField({
     if (cell.type === "reference") {
       const idx = referenceCells.indexOf(cell);
       const query = referenceQueries[idx];
-      const labelField = cell.refLabelField ?? "id";
+      const labelKey = cell.refOptionsQuery !== undefined ? "label" : (cell.refLabelField ?? "id");
       const referenceOptions = (query?.data?.rows ?? []).map((row) => ({
         value: String(row["id"] ?? ""),
-        label: String(row[labelField] ?? row["id"] ?? ""),
+        label: String(row[labelKey] ?? row["id"] ?? ""),
       }));
       return {
         field: cell.field,

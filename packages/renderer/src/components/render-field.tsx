@@ -167,6 +167,24 @@ export function RenderField({
   );
 }
 
+// Where a reference field's option rows come from, and which of their keys
+// holds the display text — the entity's own list handler plus `refLabelField`
+// by default, or an author-supplied handler whose rows carry `label`
+// (fw#2780), for targets with no readable column of their own.
+function referenceOptionSource(
+  field: Pick<EditFieldViewModel, "refLabelField" | "refOptionsQuery">,
+  refFeature: string,
+  refEntity: string,
+): { readonly queryQn: string; readonly labelKey: string } {
+  if (field.refOptionsQuery !== undefined) {
+    return { queryQn: field.refOptionsQuery, labelKey: "label" };
+  }
+  return {
+    queryQn: `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`,
+    labelKey: field.refLabelField ?? "id",
+  };
+}
+
 // Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox
 // gefüllt aus einer Live-Query auf die referenced Entity. Default-
 // Limit: 200 — bei größeren Datasets fehlt der Tail im Dropdown
@@ -200,12 +218,13 @@ function ReferenceInput({
   const { Banner } = usePrimitives();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
-  const labelField = field.refLabelField ?? "id";
   const isMultiple = field.refMultiple === true;
   // Tier 2.7e Cross-Feature: refFeature kann ≠ featureName sein
   // (z.B. items.assignee → users:query:user:list). Default ist
   // same-feature, kommt aus dem ViewModel (parseRefTarget).
-  const queryQn = `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
+  // fw#2780: refOptionsQuery replaces that source with an author-supplied
+  // handler whose rows already carry a composed `label`.
+  const { queryQn, labelKey } = referenceOptionSource(field, refFeature, refEntity);
   // Issue #1681: "+ Neu" in der Combobox öffnet den Create-Screen der
   // referenced entity als Dialog, statt die aktuelle Form zu verlassen.
   // refFeature kann ein anderes Feature als das aktuell gerenderte sein
@@ -276,10 +295,10 @@ function ReferenceInput({
     const rows = queryResult.data?.rows ?? [];
     return rows.map((row) => {
       const idVal = String(row["id"] ?? "");
-      const label = String(row[labelField] ?? idVal);
+      const label = String(row[labelKey] ?? idVal);
       return { value: idVal, label };
     });
-  }, [queryResult.data, labelField]);
+  }, [queryResult.data, labelKey]);
   // Single: value ist String/null; Multi: Array. Coerce auf das was
   // der Combobox-Mode erwartet, damit Storage-Drift (Server liefert
   // alten String wo jetzt Array erwartet wird) keine Crash auslöst.
@@ -431,9 +450,8 @@ function ReadOnlyReferenceValue({
   const t = useTranslation();
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
-  const labelField = field.refLabelField ?? "id";
   const isMultiple = field.refMultiple === true;
-  const queryQn = `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
+  const { queryQn, labelKey } = referenceOptionSource(field, refFeature, refEntity);
   const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
     limit: REFERENCE_COMBOBOX_LIMIT,
   });
@@ -454,7 +472,7 @@ function ReadOnlyReferenceValue({
   const labels = ids.map((id) => {
     if (systemLabel !== undefined && id === systemLabel.id) return t(systemLabel.labelKey);
     const row = rows.find((r) => String(r["id"] ?? "") === id);
-    return row !== undefined ? String(row[labelField] ?? id) : id;
+    return row !== undefined ? String(row[labelKey] ?? id) : id;
   });
   return <Text testId={`field-value-${field.field}`}>{labels.join(", ")}</Text>;
 }

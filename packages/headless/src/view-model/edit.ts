@@ -52,6 +52,7 @@ type EmbeddedSubFieldShape = {
   readonly options?: readonly string[];
   readonly entity?: string;
   readonly labelField?: string;
+  readonly optionsQuery?: string;
   readonly scale?: number;
 };
 
@@ -283,6 +284,10 @@ export function computeEditViewModel<
           : fieldDef.type === "reference"
             ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
             : undefined;
+      const refOptionsQuery =
+        declaredRefTarget === undefined && fieldDef.type === "reference"
+          ? (fieldDef as unknown as { optionsQuery?: string }).optionsQuery
+          : undefined;
       // Declared reference metadata has no `multiple` concept (it targets
       // row-meta/derived fields, always single-valued) — only a real
       // ReferenceFieldDef carries it.
@@ -371,6 +376,10 @@ export function computeEditViewModel<
                 ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
                 ...(subField.type === "reference" &&
                   subField.labelField !== undefined && { refLabelField: subField.labelField }),
+                ...(subField.type === "reference" &&
+                  subField.optionsQuery !== undefined && {
+                    refOptionsQuery: subField.optionsQuery,
+                  }),
                 ...(subField.type === "decimal" &&
                   subField.scale !== undefined && { scale: subField.scale }),
               };
@@ -401,6 +410,7 @@ export function computeEditViewModel<
         ...(refEntity !== undefined && { refEntity }),
         ...(refFeature !== undefined && { refFeature }),
         ...(refLabelField !== undefined && { refLabelField }),
+        ...(refOptionsQuery !== undefined && { refOptionsQuery }),
         ...(refMultiple !== undefined && { refMultiple }),
         ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
         ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
