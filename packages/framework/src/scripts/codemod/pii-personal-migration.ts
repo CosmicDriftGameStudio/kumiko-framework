@@ -23,9 +23,11 @@
 //
 // Usage: bun scripts/codemod/pii-personal-migration.ts <targetDir> [--dry-run]
 
+import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { Glob } from "bun";
 import {
+  type CallExpression,
   Node,
   type ObjectLiteralExpression,
   Project,
@@ -33,6 +35,11 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
+import {
+  PII_DIRECT_NAME_HINTS,
+  PII_USER_OWNED_NAME_HINTS,
+  PII_USER_REFERENCE_NAME_HINTS,
+} from "../../engine/boot-validator/entity-handler";
 
 const SUBJECT_FLAG_NAMES = [
   "pii",
@@ -431,11 +438,242 @@ function findTargetFiles(rootDir: string): string[] {
   return files.sort();
 }
 
+export type StanceClass = "direct" | "user-owned" | "user-reference" | "near-miss" | "unclassified";
+
+export type StanceSite = {
+  readonly line: number;
+  readonly field: string;
+  readonly entity: string | null;
+  readonly callee: string;
+  readonly stance: StanceClass;
+  readonly hint: string | undefined;
+};
+
+const ALL_PII_NAME_HINTS: readonly string[] = [
+  ...PII_DIRECT_NAME_HINTS,
+  ...PII_USER_OWNED_NAME_HINTS,
+  ...PII_USER_REFERENCE_NAME_HINTS,
+];
+
+const REPORT_STANCE_CALLEES = new Set(["createTextField", "createLongTextField"]);
+
+// Mirrors guard-text-field-stance.ts's hasPersonalStance exactly.
+function reportStanceHasPersonalStance(obj: ObjectLiteralExpression): boolean {
+  const prop = obj.getProperty("personal");
+  if (!prop || !Node.isPropertyAssignment(prop)) return false;
+  const init = prop.getInitializer();
+  return (
+    init !== undefined &&
+    init.getKind() !== SyntaxKind.UndefinedKeyword &&
+    !(Node.isIdentifier(init) && init.getText() === "undefined") &&
+    init.getKind() !== SyntaxKind.NullKeyword
+  );
+}
+
+function reportStanceEnclosingFieldName(call: CallExpression): string | undefined {
+  let node = call.getParent();
+  while (node) {
+    if (Node.isPropertyAssignment(node)) return node.getName();
+    node = node.getParent();
+  }
+  return undefined;
+}
+
+function reportStanceResolveEntity(call: CallExpression): string | null {
+  let node: Node | undefined = call.getParent();
+  let entityCall: CallExpression | undefined;
+  while (node) {
+    if (Node.isCallExpression(node)) {
+      const expr = node.getExpression();
+      if (Node.isIdentifier(expr) && expr.getText() === "createEntity") {
+        entityCall = node;
+        break;
+      }
+    }
+    node = node.getParent();
+  }
+  if (!entityCall) return null;
+
+  const firstArg = entityCall.getArguments()[0];
+  if (firstArg && Node.isObjectLiteralExpression(firstArg)) {
+    const tableProp = firstArg.getProperty("table");
+    if (tableProp && Node.isPropertyAssignment(tableProp)) {
+      const init = tableProp.getInitializer();
+      if (init && Node.isStringLiteral(init)) return init.getLiteralText();
+    }
+  }
+  const varDecl = entityCall.getParentIfKind(SyntaxKind.VariableDeclaration);
+  return varDecl ? varDecl.getName() : null;
+}
+
+// A hint only counts at a segment boundary (index 0, an uppercase letter in
+// the original, or preceded by `_`) — otherwise a coincidental substring
+// like "text" inside "contextId" would false-positive.
+function hintOccursAtBoundary(fieldLower: string, fieldOriginal: string, hint: string): boolean {
+  let searchFrom = 0;
+  for (;;) {
+    const index = fieldLower.indexOf(hint, searchFrom);
+    if (index === -1) return false;
+    const atBoundary =
+      index === 0 || /[A-Z]/.test(fieldOriginal[index] ?? "") || fieldOriginal[index - 1] === "_";
+    if (atBoundary) return true;
+    searchFrom = index + 1;
+  }
+}
+
+function findLongestBoundaryHint(fieldLower: string, fieldOriginal: string): string | undefined {
+  let best: string | undefined;
+  for (const hint of ALL_PII_NAME_HINTS) {
+    if (best && hint.length <= best.length) continue;
+    if (hintOccursAtBoundary(fieldLower, fieldOriginal, hint)) best = hint;
+  }
+  return best;
+}
+
+function segmentAlignedSuffixes(fieldOriginal: string): string[] {
+  const fieldLower = fieldOriginal.toLowerCase();
+  const suffixes: string[] = [];
+  for (let index = 0; index < fieldOriginal.length; index++) {
+    const atBoundary =
+      index === 0 || /[A-Z]/.test(fieldOriginal[index] ?? "") || fieldOriginal[index - 1] === "_";
+    if (atBoundary) suffixes.push(fieldLower.slice(index));
+  }
+  return suffixes;
+}
+
+// The hint sets only carry exact full names, so a suffix variant of one
+// (e.g. "...UserId" of "assigneeUserId") otherwise slips through undetected.
+function findShortestHintContainingSuffix(fieldOriginal: string): string | undefined {
+  let best: string | undefined;
+  for (const suffix of segmentAlignedSuffixes(fieldOriginal)) {
+    if (suffix.length < 5) continue;
+    for (const hint of ALL_PII_NAME_HINTS) {
+      if (!hint.includes(suffix)) continue;
+      if (!best || hint.length < best.length) best = hint;
+    }
+  }
+  return best;
+}
+
+function classifyFieldStance(field: string): { stance: StanceClass; hint: string | undefined } {
+  const fieldLower = field.toLowerCase();
+  if (PII_DIRECT_NAME_HINTS.has(fieldLower)) return { stance: "direct", hint: fieldLower };
+  if (PII_USER_OWNED_NAME_HINTS.has(fieldLower)) return { stance: "user-owned", hint: fieldLower };
+  if (PII_USER_REFERENCE_NAME_HINTS.has(fieldLower))
+    return { stance: "user-reference", hint: fieldLower };
+  const containmentHint = findLongestBoundaryHint(fieldLower, field);
+  if (containmentHint) return { stance: "near-miss", hint: containmentHint };
+  const suffixHint = findShortestHintContainingSuffix(field);
+  if (suffixHint) return { stance: "near-miss", hint: suffixHint };
+  return { stance: "unclassified", hint: undefined };
+}
+
+export function reportStanceForSource(source: string, filePath: string): StanceSite[] {
+  const project = new Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true });
+  const sourceFile = project.createSourceFile(filePath, source);
+
+  const sites: StanceSite[] = [];
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const exprNode = call.getExpression();
+    if (!Node.isIdentifier(exprNode)) continue;
+    const callee = exprNode.getText();
+    if (!REPORT_STANCE_CALLEES.has(callee)) continue;
+
+    const args = call.getArguments();
+    if (args.length > 0) {
+      const options = args[0];
+      if (!options || !Node.isObjectLiteralExpression(options)) continue;
+      if (options.getProperties().some((p) => p.isKind(SyntaxKind.SpreadAssignment))) continue;
+      if (reportStanceHasPersonalStance(options)) continue;
+    }
+
+    const enclosingField = reportStanceEnclosingFieldName(call);
+    // A call with no enclosing field (e.g. a bare createTextField() at top
+    // level) has no real name to classify — `createTextField(...)` would
+    // otherwise false-positive as a near-miss on its own "Text".
+    const { stance, hint } = enclosingField
+      ? classifyFieldStance(enclosingField)
+      : { stance: "unclassified" as const, hint: undefined };
+
+    sites.push({
+      line: call.getStartLineNumber(),
+      field: enclosingField ?? `${callee}(...)`,
+      entity: reportStanceResolveEntity(call),
+      callee,
+      stance,
+      hint,
+    });
+  }
+  return sites;
+}
+
+function findReportStanceFiles(rootDir: string): string[] {
+  const glob = new Glob("**/*.{ts,tsx}");
+  const EXCLUDE = ["/node_modules/", "/dist/", "/build/"];
+  const files: string[] = [];
+  for (const file of glob.scanSync({ cwd: rootDir, dot: false })) {
+    if (file.endsWith(".d.ts")) continue;
+    const abs = resolve(rootDir, file);
+    if (EXCLUDE.some((p) => abs.includes(p))) continue;
+    files.push(abs);
+  }
+  return files.sort();
+}
+
+function reportStance(rootDir: string): void {
+  console.log(
+    `Scanning every .ts/.tsx under ${rootDir} except node_modules/dist/build/*.d.ts — guard-text-field-stance scans packages/*/src/** only, so counts can differ outside that scope.`,
+  );
+
+  const totals: Record<StanceClass, number> = {
+    direct: 0,
+    "user-owned": 0,
+    "user-reference": 0,
+    "near-miss": 0,
+    unclassified: 0,
+  };
+  let total = 0;
+
+  for (const file of findReportStanceFiles(rootDir)) {
+    const sites = reportStanceForSource(readFileSync(file, "utf8"), file);
+    if (sites.length === 0) continue;
+
+    console.log(`\n${relative(rootDir, file)}`);
+    for (const site of sites) {
+      totals[site.stance]++;
+      total++;
+      const entity = site.entity ?? "<unresolved>";
+      const hintSuffix = site.hint ? ` (hint: ${site.hint})` : "";
+      console.log(
+        `  ${site.line}  ${site.field}  entity=${entity}  ${site.callee}  ${site.stance}${hintSuffix}`,
+      );
+    }
+  }
+
+  console.log("\nBy stance:");
+  for (const [stance, count] of Object.entries(totals)) {
+    if (count > 0) console.log(`  ${stance}: ${count}`);
+  }
+  console.log(`Total: ${total}`);
+
+  if (totals["near-miss"] > 0) {
+    console.log(
+      "\nHint sets in entity-handler.ts are exact name matches — near-miss field names slip past the boot heuristic.",
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-  const dryRun = process.argv.includes("--dry-run");
   const rootDir = resolve(positional[0] ?? process.cwd());
 
+  if (process.argv.includes("--report-stance")) {
+    reportStance(rootDir);
+    // skip: report mode never rewrites, so the transform path below must not run
+    return;
+  }
+
+  const dryRun = process.argv.includes("--dry-run");
   const files = findTargetFiles(rootDir);
   const project = new Project({
     skipAddingFilesFromTsConfig: true,
@@ -477,4 +715,6 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}
