@@ -51,15 +51,30 @@ const { cleanup } = require("@testing-library/react/pure") as {
   cleanup: () => void;
 };
 
+const HTML_PRINT_LIMIT = 2000;
+
 // Pointer-Capture-APIs fehlen in happy-dom genauso wie in jsdom. Radix-UI
 // (DropdownMenu/Select/Popover-Triggers) ruft die — ohne Polyfill öffnet
 // sich nichts im Test.
 if (typeof globalThis.HTMLElement !== "undefined") {
-  const proto = globalThis.HTMLElement.prototype as unknown as Record<string, unknown>;
+  const proto = globalThis.HTMLElement.prototype as unknown as Record<string | symbol, unknown>;
   if (proto.hasPointerCapture === undefined) proto.hasPointerCapture = () => false;
   if (proto.setPointerCapture === undefined) proto.setPointerCapture = () => undefined;
   if (proto.releasePointerCapture === undefined) proto.releasePointerCapture = () => undefined;
   if (proto.scrollIntoView === undefined) proto.scrollIntoView = () => undefined;
+
+  // Without this, printing a happy-dom node walks its whole object graph —
+  // ownerDocument plus every React fiber property — which is 15 MB of string
+  // for a two-element tree and 0.5-1.7 s per call. A failed assertion inside
+  // waitFor pays that on every poll and blocks the loop long enough to starve
+  // React's commit and waitFor's own timeout (#3082).
+  const inspect = Symbol.for("nodejs.util.inspect.custom");
+  if (proto[inspect] === undefined) {
+    proto[inspect] = function (this: HTMLElement): string {
+      const html = this.outerHTML;
+      return html.length > HTML_PRINT_LIMIT ? `${html.slice(0, HTML_PRINT_LIMIT)}…` : html;
+    };
+  }
 }
 
 // Auto-Cleanup nach jedem Test (DOM-Pollution-Schutz):
