@@ -603,6 +603,128 @@ describe("validateBoot — PII annotations", () => {
     );
     expect(matchingWarn).toBeDefined();
   });
+
+  // --- #2918: deprecation warning for text fields without any stance ---
+
+  const NO_STANCE = "declares no personal stance";
+
+  test("text field without a personal stance warns, naming feature, entity and field", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          fields: {
+            externalRef: { ...unannotatedText },
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes(NO_STANCE),
+    );
+    expect(matchingWarn).toBeDefined();
+    const message = String((matchingWarn as unknown[])[0]);
+    expect(message).toContain("[Feature test]");
+    expect(message).toContain('Field "externalRef" on entity "invoice"');
+    expect(message).toContain('{ reason: "..." }');
+  });
+
+  test("longText field without a personal stance warns", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          fields: {
+            remarks: { ...unannotatedLongText },
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes(NO_STANCE),
+    );
+    expect(matchingWarn).toBeDefined();
+  });
+
+  test("personal: false with a reason silences the stance warning", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          fields: {
+            externalRef: createTextField({
+              personal: false,
+              reason: "is_business_data",
+            }),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes(NO_STANCE),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
+
+  test("personal: self silences the stance warning", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          fields: {
+            externalRef: createTextField({
+              personal: "self",
+              find: "none",
+            }),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes(NO_STANCE),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
+
+  test("personal: ref silences the stance warning", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          fields: {
+            ownerRef: createTextField({ personal: "ref" }),
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes(NO_STANCE),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
+
+  test("number field without a personal stance does not warn", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          fields: {
+            total: { type: "number", required: false },
+          },
+        }),
+      );
+    });
+    validateBoot([feature]);
+    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes(NO_STANCE),
+    );
+    expect(matchingWarn).toBeUndefined();
+  });
 });
 
 describe("validateBoot — retention", () => {
