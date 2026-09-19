@@ -563,6 +563,19 @@ async function readAsMemberErr(
   );
 }
 
+// The request-level teardown gate (auth-middleware) answers 410 before a
+// handler runs, so a teardown tenant can only be probed for the dispatcher's
+// own active-membership rejection through the stack's dispatcher.
+async function readAsMemberErrViaDispatcher(userId: string, targetQn: string) {
+  const result = await stack.dispatcher.write(
+    "queryasmemberprobe:write:read-as-member",
+    { userId, targetQn, payload: {} },
+    admin,
+  );
+  if (result.isSuccess) throw new Error("expected read-as-member to fail");
+  return result.error;
+}
+
 async function createNote(ownerId: string, body: string): Promise<void> {
   await stack.http.writeOk("queryasmemberprobe:write:note:create", { ownerId, body }, admin);
 }
@@ -693,7 +706,7 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
     await addMembership(userId, TENANT_A);
     await setTenantStatus(TENANT_A, "destroying");
 
-    const err = await readAsMemberErr(userId, WHOAMI_QN);
+    const err = await readAsMemberErrViaDispatcher(userId, WHOAMI_QN);
     expect(err.code).toBe("access_denied");
     expect(err.message).toBe(GENERIC_MESSAGE);
     expect(err.details).toEqual(GENERIC_DETAILS);
@@ -707,7 +720,7 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
     await addMembership(userId, TENANT_A);
     await setTenantStatus(TENANT_A, "destroyRequested");
 
-    const err = await readAsMemberErr(userId, WHOAMI_QN);
+    const err = await readAsMemberErrViaDispatcher(userId, WHOAMI_QN);
     expect(err.code).toBe("access_denied");
     expect(err.message).toBe(GENERIC_MESSAGE);
     expect(err.details).toEqual(GENERIC_DETAILS);

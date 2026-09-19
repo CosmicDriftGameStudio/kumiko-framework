@@ -44,6 +44,7 @@ import {
 } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id";
 import {
@@ -147,6 +148,7 @@ beforeAll(async () => {
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   // providerCustomerId/providerSubscriptionId are `personal: "tenant"`
   // PII-subject fields — no executor wires the KMS automatically here (raw r.projection,

@@ -33,6 +33,7 @@ import {
   seedInboundMessage,
 } from "../../inbound-provider-inmemory/feature";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import {
   createInboundMailSupervisor,
@@ -65,6 +66,7 @@ beforeAll(async () => {
   });
   db = stack.db;
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);

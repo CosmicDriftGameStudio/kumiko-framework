@@ -10,10 +10,16 @@ import {
   createInMemoryFileProvider,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { documentIngestFoundationFeature } from "../feature";
 
@@ -48,6 +54,7 @@ beforeAll(async () => {
     ],
     files: { storageProvider: provider },
   });
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
 });
 
 afterAll(async () => {

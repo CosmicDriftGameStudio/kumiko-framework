@@ -27,6 +27,7 @@ import {
 import { createConfigFeature } from "../../config";
 import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { inboundMessageAggregateId } from "../aggregate-id";
 import { InboundMailFoundationHandlers } from "../constants";
@@ -51,6 +52,7 @@ beforeAll(async () => {
   });
   db = stack.db;
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);

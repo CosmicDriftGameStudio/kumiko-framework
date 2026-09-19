@@ -19,6 +19,7 @@ import {
   registerStandardMetrics,
   wrapRedisClient,
 } from "../observability";
+import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
 import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher";
 import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state";
@@ -43,7 +44,12 @@ import {
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
 import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS } from "./api-constants";
-import { type AnonymousAccessResolved, authMiddleware, getUser } from "./auth-middleware";
+import {
+  type AnonymousAccessResolved,
+  authMiddleware,
+  getUser,
+  type TenantLifecycleStatusResolver,
+} from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
@@ -670,12 +676,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // a token (or, when anonymousAccess is wired, falls through as anonymous).
   // A session-checker is forwarded when the auth-config wires one, so the
   // middleware can reject revoked sids on every request.
+  // Mounting a tenantLifecycleStatus provider is what turns the 410 on, so no
+  // entrypoint can forget the wiring; `??` short-circuits, so an explicit
+  // auth.resolveTenantLifecycleStatus remains the override.
+  const tenantLifecycleResolver =
+    options.auth?.resolveTenantLifecycleStatus ??
+    deriveTenantLifecycleResolver(options.registry, baseDb);
   const jwtGuard = authMiddleware(jwt, {
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
     ...(options.auth?.tokenVerifier ? { tokenVerifier: options.auth.tokenVerifier } : {}),
-    ...(options.auth?.resolveTenantLifecycleStatus
-      ? { resolveTenantLifecycleStatus: options.auth.resolveTenantLifecycleStatus }
-      : {}),
+    ...(tenantLifecycleResolver ? { resolveTenantLifecycleStatus: tenantLifecycleResolver } : {}),
     ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
   });
   app.use("/api/*", async (c, next) => {
@@ -888,6 +898,22 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
   };
+}
+
+function deriveTenantLifecycleResolver(
+  registry: Registry,
+  db: DbConnection | undefined,
+): TenantLifecycleStatusResolver | undefined {
+  const plugin = resolveTenantLifecyclePlugin(registry, "buildServer");
+  if (!plugin) return undefined;
+  if (!db) {
+    throw new Error(
+      "[kumiko] a tenantLifecycleStatus provider is mounted (tenant-lifecycle) but context.db is " +
+        "missing — the request-level teardown gate needs a DbConnection. Pass context.db, or wire " +
+        "auth.resolveTenantLifecycleStatus explicitly.",
+    );
+  }
+  return (tenantId) => plugin.resolveStatus(tenantId, { db });
 }
 
 // Scans every feature's entities for a file/image/files/images field. Short-

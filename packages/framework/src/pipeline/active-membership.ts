@@ -97,18 +97,21 @@ export function resolvePrincipalPlugin(registry: Registry): PrincipalStatusPlugi
   return usage.options;
 }
 
-function resolveLifecyclePlugin(registry: Registry): TenantLifecycleStatusPlugin | undefined {
+export function resolveTenantLifecyclePlugin(
+  registry: Registry,
+  caller: string,
+): TenantLifecycleStatusPlugin | undefined {
   const usages = registry.getExtensionUsages(EXT_TENANT_LIFECYCLE_STATUS);
   if (usages.length > 1) {
     throw new InternalError({
-      message: `dispatcher.resolveActiveMembership: multiple "${EXT_TENANT_LIFECYCLE_STATUS}" providers registered — exactly one (or zero) is expected.`,
+      message: `${caller}: multiple "${EXT_TENANT_LIFECYCLE_STATUS}" providers registered — exactly one (or zero) is expected.`,
     });
   }
   const usage = usages[0];
   if (!usage) return undefined;
   if (!isTenantLifecycleStatusPlugin(usage.options)) {
     throw new InternalError({
-      message: `dispatcher.resolveActiveMembership: "${usage.entityName}" registered under "${EXT_TENANT_LIFECYCLE_STATUS}" without a resolveStatus(tenantId, {db}) — extension options must be a TenantLifecycleStatusPlugin.`,
+      message: `${caller}: "${usage.entityName}" registered under "${EXT_TENANT_LIFECYCLE_STATUS}" without a resolveStatus(tenantId, {db}) — extension options must be a TenantLifecycleStatusPlugin.`,
     });
   }
   return usage.options;
@@ -160,7 +163,10 @@ export async function resolveActiveMembershipFn(
     return { kind: "rejected", reason: "principal_blocked" };
   }
 
-  const lifecyclePlugin = resolveLifecyclePlugin(registry);
+  const lifecyclePlugin = resolveTenantLifecyclePlugin(
+    registry,
+    "dispatcher.resolveActiveMembership",
+  );
   if (lifecyclePlugin) {
     const lifecycle = await lifecyclePlugin.resolveStatus(tenantId, { db });
     if (isTeardownRejected(lifecycle, policy)) {

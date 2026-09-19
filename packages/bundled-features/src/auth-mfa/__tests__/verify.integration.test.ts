@@ -375,12 +375,16 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
     resetTenantLifecycleGateCacheForTests();
 
     try {
-      const err = await stack.http.writeErr(
+      // Via the dispatcher, not HTTP: the request-level teardown gate answers
+      // 410 before /api/write reaches the handler, and this test asserts the
+      // handler's own challenge-token gate.
+      const result = await stack.dispatcher.write(
         AuthMfaHandlers.verify,
         { challengeToken, code: currentTotpCode(secret) },
         GUEST,
       );
-      expectErrorIncludes(err, "invalid_challenge_token");
+      if (result.isSuccess) throw new Error("expected mfa verify to fail");
+      expectErrorIncludes(result.error, "invalid_challenge_token");
     } finally {
       await asRawClient(stack.db).unsafe(
         `UPDATE "${tenantTable.tableName}" SET status = $1 WHERE id = $2`,

@@ -45,10 +45,6 @@ import {
   SESSIONS_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import {
-  resolveTenantLifecycleGate,
-  TENANT_LIFECYCLE_FEATURE,
-} from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import type { SessionMetadata, TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import {
@@ -56,7 +52,6 @@ import {
   configurePiiSubjectKms,
   type KmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectWriteHandlerQns,
@@ -437,10 +432,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // needs the real db+registry (only concrete after setupTestStack). Wired
   // whenever a provider feature (personal-access-tokens today) is mounted.
   let tokenVerifier: TokenVerifier | undefined;
-  let lifecycleDb: DbConnection | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
-  const tenantLifecycleFeature = features.find((f) => f.name === TENANT_LIFECYCLE_FEATURE);
   const patAuthFragment = patFeature
     ? {
         tokenVerifier: (rawToken: string) => {
@@ -453,18 +446,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           const rl = patRateLimitFromFeature(patFeature);
           return createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs);
         })(),
-      }
-    : {};
-
-  const tenantLifecycleAuthFragment = tenantLifecycleFeature
-    ? {
-        resolveTenantLifecycleStatus: async (tenantId: string) => {
-          if (!lifecycleDb) {
-            throw new Error("[runDevApp] tenant-lifecycle gate accessed before onAfterSetup");
-          }
-          const gate = await resolveTenantLifecycleGate(lifecycleDb, tenantId);
-          return gate ? { status: gate.status } : null;
-        },
       }
     : {};
 
@@ -525,7 +506,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }),
         ...sessionAuthFragment,
         ...patAuthFragment,
-        ...tenantLifecycleAuthFragment,
         ...(mfaFeature && {
           mfaVerifyHandler: AuthMfaHandlers.verify,
           mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
@@ -565,7 +545,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       },
     }),
     onAfterSetup: async (stack) => {
-      lifecycleDb = stack.db;
       // Sprint-8a: build tier-resolver BEFORE any seeds so seeds can rely
       // on the resolver being live (e.g. seed that writes a SystemAdmin's
       // tier-assignment can immediately read tier-cuts).
