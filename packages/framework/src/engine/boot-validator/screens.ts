@@ -16,6 +16,7 @@ import {
   normalizeEditField,
   normalizeListColumn,
   resolveNavParentScreen,
+  sectionFieldSpecs,
 } from "../screen-helpers";
 import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
 import { metricField } from "../types";
@@ -608,15 +609,6 @@ function validateFieldsXorGroups(
   }
 }
 
-function flattenFieldsOrGroups(section: {
-  readonly fields: readonly EditFieldSpec[];
-  readonly groups?: readonly { readonly fields: readonly EditFieldSpec[] }[];
-}): readonly EditFieldSpec[] {
-  return section.groups !== undefined
-    ? section.groups.flatMap((group) => group.fields)
-    : section.fields;
-}
-
 function validateFormLayoutSections(
   featureName: string,
   screenId: string,
@@ -657,7 +649,7 @@ function validateFormLayoutSections(
       );
     }
     validateFieldsXorGroups(`[Feature ${featureName}] Screen "${screenId}" (${context})`, section);
-    for (const fieldSpec of flattenFieldsOrGroups(section)) {
+    for (const fieldSpec of sectionFieldSpecs(section)) {
       const normalized = normalizeEditField(fieldSpec);
       if (!fieldNames.has(normalized.field)) {
         throw new Error(
@@ -1420,7 +1412,7 @@ export function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (configEdit)`,
           section,
         );
-        for (const fieldSpec of flattenFieldsOrGroups(section)) {
+        for (const fieldSpec of sectionFieldSpecs(section)) {
           const normalized = normalizeEditField(fieldSpec);
           if (!fieldNames.has(normalized.field)) {
             throw new Error(
@@ -1837,7 +1829,7 @@ export function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (entityEdit)`,
           section,
         );
-        for (const fieldSpec of flattenFieldsOrGroups(section)) {
+        for (const fieldSpec of sectionFieldSpecs(section)) {
           const normalized = normalizeEditField(fieldSpec);
           if (!fieldNames.has(normalized.field)) {
             throw new Error(

@@ -229,6 +229,38 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/field "name" renderer is a function/);
   });
 
+  test("entityEdit field renderer as function inside groups → Throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.screen({
+        id: "product-edit",
+        type: "entityEdit",
+        entity: "product",
+        layout: {
+          sections: [
+            {
+              columns: 1,
+              fields: [],
+              groups: [
+                {
+                  title: "Basis",
+                  // biome-ignore lint/suspicious/noExplicitAny: intentional type violation under test
+                  fields: [{ field: "name", renderer: ((v: unknown) => String(v)) as any }],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/field "name" renderer is a function/);
+  });
+
   test("entityEdit field with declarative visible/readOnly/required → kein Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity(

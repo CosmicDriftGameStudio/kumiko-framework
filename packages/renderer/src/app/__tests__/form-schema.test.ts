@@ -41,6 +41,21 @@ describe("buildFormSchema", () => {
     }
   });
 
+  test("required field inside a groups-only section → presence issue", () => {
+    const entity = entityWith({ name: { type: "text", required: true } });
+    const screen: EntityEditScreenDefinition = {
+      id: "s",
+      type: "entityEdit",
+      entity: "e",
+      layout: { sections: [{ fields: [], groups: [{ title: "g", fields: ["name"] }] }] },
+    };
+
+    const result = buildFormSchema(entity, screen).safeParse({ name: "" });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0]?.path).toEqual(["name"]);
+  });
+
   test("required field missing → issue carries the required-field i18nKey override", () => {
     const entity = entityWith({ name: { type: "text", required: true } });
     const screen = screenWith(["name"]);

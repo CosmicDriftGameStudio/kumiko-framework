@@ -1,5 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { mergeSearchParamsIntoInitial } from "../app/kumiko-screen";
+import { layoutFieldNames } from "../app/layout-fields";
 
 type FieldDef = {
   type?: string;
@@ -186,6 +188,22 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     );
     expect(result["status"]).toBe("approved");
     expect(result["ownerId"]).toBe("");
+  });
+
+  test("renderableFields from a groups-only layout: searchParam on a group field is kept", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "s",
+      type: "entityEdit",
+      entity: "e",
+      layout: { sections: [{ fields: [], groups: [{ title: "g", fields: ["status"] }] }] },
+    };
+    const fields: Record<string, FieldDef> = { status: { type: "text", default: "draft" } };
+    const result = mergeWithAllFieldsUrlPrefillable(
+      fields,
+      { status: "approved" },
+      layoutFieldNames(screen),
+    );
+    expect(result["status"]).toBe("approved");
   });
 
   test("no renderableFields set given (undefined): behaves as before, all fields eligible", () => {

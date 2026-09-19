@@ -3,6 +3,7 @@ import {
   isFieldsEditSection,
   normalizeEditField,
   normalizeListColumn,
+  sectionFieldSpecs,
 } from "../screen-helpers";
 import type {
   EditFieldSpec,
@@ -125,7 +126,7 @@ function validateEditLayoutNoFunctions(
       continue;
     }
     if (!isFieldsEditSection(section)) continue;
-    for (const fieldSpec of section.fields) {
+    for (const fieldSpec of sectionFieldSpecs(section)) {
       validateEditFieldNoFunctions(featureName, screenId, screenType, fieldSpec);
     }
   }

@@ -12,6 +12,7 @@ import {
   isWriteFormEditSection,
   normalizeEditField,
   parseRefTarget,
+  sectionFieldSpecs,
   WRITE_FORM_SECTION_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
@@ -167,11 +168,7 @@ export function computeEditViewModel<
     }
     // `groups` flattens into the same per-field pipeline as plain `fields`;
     // the group structure below just re-groups the computed views by name.
-    const flatFieldSpecs =
-      sectionSpec.groups !== undefined
-        ? sectionSpec.groups.flatMap((group) => group.fields)
-        : sectionSpec.fields;
-    const fields: EditFieldViewModel[] = flatFieldSpecs.map((fieldSpec) => {
+    const fields: EditFieldViewModel[] = sectionFieldSpecs(sectionSpec).map((fieldSpec) => {
       const normalized = normalizeEditField(fieldSpec);
       const fieldDef = entity.fields[normalized.field];
       if (!fieldDef) {
