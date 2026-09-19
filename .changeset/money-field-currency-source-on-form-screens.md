@@ -18,12 +18,9 @@ migration: |
   are unchanged (`entity.defaultCurrency` is already boot-enforced for them),
   as are embedded-list money cells (currency at the head, fw#2764) and
   `configEdit`, which keeps its plain-number contract.
-
   Add a `currency` to each money field in such a screen's `fields` map:
-
-      currency: { kind: "literal", code: "EUR" }   // one fixed currency
-      currency: { kind: "tenant" }                 // the tenant's own currency
-
+  `currency: { kind: "literal", code: "EUR" }` for one fixed currency, or
+  `currency: { kind: "tenant" }` for the tenant's own currency.
   A `literal` code must be in the app's `currencies` list (`createApp({ currencies })`,
   which already includes the defaults). A `tenant`-declared field resolves through
   the tenant-settings bundle and holds the form until the value has landed, so that

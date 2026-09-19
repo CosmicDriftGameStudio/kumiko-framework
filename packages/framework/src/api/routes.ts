@@ -333,15 +333,47 @@ function assertPatAllowed(user: SessionUser, type: string): void {
   }
 }
 
+// Log levels that silence the 4xx tier. Checked here and not in the logger
+// because this module uses the console fallback, which pino's level never
+// reaches — LOG_LEVEL is the volume knob for client faults.
+const FAULT_LOG_SILENCED_LEVELS = new Set(["error", "fatal", "silent"]);
+
+// `type` is client-supplied on an unknown-handler 404, so cap it before it
+// reaches the log — an unbounded field would let a caller flood the sink.
+const MAX_LOGGED_TYPE_LENGTH = 120;
+
+function clientFaultLoggingEnabled(): boolean {
+  return !FAULT_LOG_SILENCED_LEVELS.has(process.env["LOG_LEVEL"] ?? "");
+}
+
+// A failing request must leave a trace even when it ends in 4xx — a paid
+// external call that 422s was invisible before (offlot#117). Status, error
+// code and duration only: message/details/stack can carry submitted values.
+function logClientFault(err: KumikoError, requestId: string | undefined, type?: string): void {
+  if (!clientFaultLoggingEnabled()) {
+    // skip: LOG_LEVEL silences the 4xx tier — the deployment opted out of client-fault volume
+    return;
+  }
+  const startedAt = requestContext.get()?.startedAt;
+  createFallbackLogger("api").warn("handler rejected", {
+    requestId,
+    type: type?.slice(0, MAX_LOGGED_TYPE_LENGTH),
+    status: err.httpStatus,
+    code: err.code,
+    ...(startedAt === undefined ? {} : { durationMs: Math.round(performance.now() - startedAt) }),
+  });
+}
+
 // Unexpected server faults (5xx) carry their diagnostic stack only on the
 // in-process error — serializeError strips cause/details from the wire body.
 // Without this a wrapped throw (InternalError{cause}) returns a 500 with zero
-// log lines, leaving ops nothing to debug (the bug this guards). 4xx are
-// expected client outcomes and stay unlogged. `type` is the only handler
+// log lines, leaving ops nothing to debug (the bug this guards). 4xx take the
+// redacted `warn` line above instead. `type` is the only handler
 // discriminator — every request hits the same /api/{query,command} path.
 function logServerFault(err: KumikoError, requestId: string | undefined, type?: string): void {
   if (err.httpStatus < 500) {
-    // skip: 4xx are expected client outcomes (not-found, validation, denied) — logging them is noise
+    logClientFault(err, requestId, type);
+    // skip: 4xx already logged on warn by logClientFault — the error level stays 5xx-only
     return;
   }
   const cause = err.cause;

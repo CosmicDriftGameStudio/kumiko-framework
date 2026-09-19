@@ -44,6 +44,9 @@ export type RequestContextData = {
   // event written under this scope.
   readonly feature?: string;
   readonly handler?: string;
+  // performance.now() at request entry, so a failing request can report how
+  // long it ran. Monotonic — a wall-clock step cannot make it negative.
+  readonly startedAt?: number;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();

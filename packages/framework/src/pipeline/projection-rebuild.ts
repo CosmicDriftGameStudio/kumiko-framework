@@ -9,6 +9,7 @@ import {
 import {
   assertLiveColumnsMatchMeta,
   assertLiveTableHasNoRowLevelSecurity,
+  assertNoBlindIndexLoss,
   assertNoUnreachableLiveRows,
   buildShadowTable,
   type ColumnDriftResult,
@@ -358,6 +359,12 @@ export async function rebuildProjection(
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, projectionName, skipped);
       }
+      // Guard the swap: abort if the process has no blind-index key configured
+      // but the live table already has populated bidx columns — the rebuild
+      // would otherwise silently null them out (fw#3091). Applies to every
+      // projection, not just implicit ones: the shadow always gets a fresh
+      // computeBlindIndexValues() pass regardless of projection kind.
+      await assertNoBlindIndexLoss(tx, meta.tableName, meta, projectionName);
       // Guard the swap: abort if the live table holds a row no event can
       // reconstruct (#498 ghost — direct-inserted without a .created event),
       // which the swap would silently drop. Implicit projections only.
