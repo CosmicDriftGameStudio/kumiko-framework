@@ -19,11 +19,11 @@ export function DetailList({
   readonly testId?: string;
 }): ReactNode {
   return (
-    <dl data-testid={testId} className="flex flex-col divide-y">
+    <dl data-testid={testId} className="@container flex flex-col divide-y">
       {rows.map((row) => (
         <div
           key={row.id ?? row.label}
-          className="grid grid-cols-1 gap-0.5 py-2.5 sm:grid-cols-[200px_1fr] sm:gap-4"
+          className="grid grid-cols-1 gap-0.5 py-2.5 @md:grid-cols-[200px_1fr] @md:gap-4"
         >
           <dt
             className={cn(
