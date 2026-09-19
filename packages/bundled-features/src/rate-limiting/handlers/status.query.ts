@@ -2,6 +2,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { RateLimitErrors } from "../constants";
+import { bucketAccessDenied } from "./bucket-access";
 
 // Ops-side bucket inspection. Pass the bucket key (e.g. "user:42",
 // "user+handler:42:orders:write:order:create") plus the limit/window the bucket
@@ -16,14 +17,15 @@ import { RateLimitErrors } from "../constants";
 // Bucket key format is owned by the framework (see rate-limit/bucket.ts);
 // callers pass the constructed key directly. We don't synthesize from
 // (per, user, handler) here — peeking is a low-level op, the lookup
-// surface stays small.
+// surface stays small. Because the key is caller-supplied, bucket-access.ts
+// restricts it to the caller's own tenant/user unless they are SystemAdmin.
 export const rateLimitStatus = defineQueryHandler({
   // Short name — the registry qualifies this to `rate-limiting:query:status`
   // when the feature is registered. Passing the qualified form here would
   // double-prefix it and the handler wouldn't be reachable.
   name: "status",
   description:
-    "Peeks at one rate-limit bucket and returns its remaining tokens, window and next reset without consuming a token; use it to explain why a caller is being throttled.",
+    "Peeks at one rate-limit bucket and returns its remaining tokens, window and next reset without consuming a token; use it to explain why a caller is being throttled. Non-SystemAdmin callers may only peek their own tenant's buckets (`tenant:`/`tenant+handler:`) and their own user buckets (`user:`/`user+handler:`); every other key, including the global `ip:`/`l1:`/`l2:` buckets, requires SystemAdmin.",
   schema: z.object({
     bucket: z.string().min(1),
     limit: z.number().int().positive(),
@@ -31,6 +33,10 @@ export const rateLimitStatus = defineQueryHandler({
   }),
   access: { roles: ["Admin", "SystemAdmin"] },
   handler: async (query, ctx) => {
+    // Before the resolver check, so a foreign-tenant caller learns nothing
+    // about the wiring either.
+    const denied = bucketAccessDenied(query.payload.bucket, ctx.user);
+    if (denied) throw denied;
     if (!ctx.rateLimit) {
       throw new UnprocessableError(RateLimitErrors.resolverUnavailable, {
         i18nKey: "rateLimiting.errors.resolverUnavailable",

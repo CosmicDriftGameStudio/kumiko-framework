@@ -7,7 +7,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  testTenantId,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { z } from "zod";
 import { createRateLimitingFeature } from "../feature";
 
@@ -91,5 +96,68 @@ describe("rate-limiting feature — status query", () => {
     );
     // Access-denied surfaces as 403 in the dispatcher's outer wrapper.
     expect(res.status).toBe(403);
+  });
+});
+
+// The bucket key is caller-supplied, so the tenant boundary has to be drawn
+// on it server-side. i18nKey is asserted alongside the code because a plain
+// 403 could also come from tenant resolution and would pass either way.
+const OUTSIDE_TENANT_KEY = "rateLimiting.errors.bucketOutsideTenant";
+
+describe("rate-limiting feature — bucket tenant scope", () => {
+  test("denies an admin the bucket of another tenant", async () => {
+    const err = await stack.http.queryErr(
+      "rate-limiting:query:status",
+      { bucket: `tenant:${testTenantId(2)}`, limit: 5, windowSeconds: 60 },
+      admin,
+    );
+    expect(err.code).toBe("access_denied");
+    expect(err.i18nKey).toBe(OUTSIDE_TENANT_KEY);
+    expect(err.httpStatus).toBe(403);
+  });
+
+  test("denies a key that only starts with the caller's tenant id", async () => {
+    const err = await stack.http.queryErr(
+      "rate-limiting:query:status",
+      { bucket: `tenant:${admin.tenantId}-other`, limit: 5, windowSeconds: 60 },
+      admin,
+    );
+    expect(err.i18nKey).toBe(OUTSIDE_TENANT_KEY);
+  });
+
+  test("denies another user's bucket and the global IP buckets", async () => {
+    for (const bucket of [`user:${TestUsers.user.id}`, "l1:203.0.113.5", "ip:203.0.113.5"]) {
+      const err = await stack.http.queryErr(
+        "rate-limiting:query:status",
+        { bucket, limit: 5, windowSeconds: 60 },
+        admin,
+      );
+      expect(err.i18nKey).toBe(OUTSIDE_TENANT_KEY);
+    }
+  });
+
+  test("allows the caller's own tenant and handler-scoped buckets", async () => {
+    for (const bucket of [
+      `tenant:${admin.tenantId}`,
+      `tenant+handler:${admin.tenantId}:rl-probe:query:ping`,
+      `user+handler:${admin.id}:rl-probe:query:ping`,
+    ]) {
+      const status = await stack.http.queryOk<{ bucket: string; remaining: number }>(
+        "rate-limiting:query:status",
+        { bucket, limit: 5, windowSeconds: 60 },
+        admin,
+      );
+      expect(status.bucket).toBe(bucket);
+      expect(status.remaining).toBe(5);
+    }
+  });
+
+  test("leaves SystemAdmin access to foreign buckets untouched", async () => {
+    const status = await stack.http.queryOk<{ bucket: string }>(
+      "rate-limiting:query:status",
+      { bucket: `tenant:${testTenantId(2)}`, limit: 5, windowSeconds: 60 },
+      TestUsers.systemAdmin,
+    );
+    expect(status.bucket).toBe(`tenant:${testTenantId(2)}`);
   });
 });

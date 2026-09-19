@@ -6,4 +6,5 @@ export const RateLimitQueries = {
 
 export const RateLimitErrors = {
   resolverUnavailable: "rate_limit_resolver_unavailable",
+  bucketOutsideTenant: "bucket_outside_tenant",
 } as const;
