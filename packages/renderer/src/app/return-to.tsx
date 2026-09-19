@@ -11,13 +11,72 @@ import { screenAccessAllows } from "./screen-access";
 // and a copied/shared URL.
 export const RETURN_TO_PARAM = "returnTo";
 
+// Screen levels one returnTo value may carry: the host itself plus its own
+// nested chain. Beyond that the host's returnTo is left out of the snapshot.
+const MAX_RETURN_DEPTH = 3;
+// Serialized host snapshot longer than this is dropped whole — the bare
+// target still resolves, only the restored state is lost.
+const MAX_RETURN_STATE_LENGTH = 512;
+
+const NO_RETURN_STATE: Readonly<Record<string, string>> = Object.freeze({});
+
 export type ReturnHost = {
   readonly screenId: string;
   readonly entityId?: string;
 };
 
-export function formatReturnTo(host: ReturnHost): string {
-  return host.entityId !== undefined ? `${host.screenId}/${host.entityId}` : host.screenId;
+export type ReturnTo = {
+  readonly path: string;
+  readonly state: Readonly<Record<string, string>>;
+};
+
+/** Splits `<screenId>[/<entityId>][?<host-params>]`. One `URLSearchParams`
+ *  pass per nesting level — a deeper level stays encoded inside a value and
+ *  is only decoded when that level is reached. */
+export function splitReturnTo(raw: string): ReturnTo {
+  const queryStart = raw.indexOf("?");
+  if (queryStart === -1) return { path: raw, state: NO_RETURN_STATE };
+  return {
+    path: raw.slice(0, queryStart),
+    state: Object.fromEntries(new URLSearchParams(raw.slice(queryStart + 1))),
+  };
+}
+
+// Saturates at MAX_RETURN_DEPTH — callers only ask whether the cap is
+// reached, and an unbounded walk would follow attacker-sized nesting.
+function returnToDepth(raw: string): number {
+  let depth = 1;
+  let current = raw;
+  while (depth < MAX_RETURN_DEPTH) {
+    const nested = splitReturnTo(current).state[RETURN_TO_PARAM];
+    if (nested === undefined) return depth;
+    depth += 1;
+    current = nested;
+  }
+  return depth;
+}
+
+// Both caps degrade to the pre-snapshot value instead of failing, so a value
+// that hits one still navigates.
+function returnStateSnapshot(hostParams: Readonly<Record<string, string>> | undefined): string {
+  if (hostParams === undefined) return "";
+  const snapshot = new URLSearchParams();
+  for (const [key, value] of Object.entries(hostParams)) {
+    if (value === "") continue;
+    if (key === RETURN_TO_PARAM && returnToDepth(value) >= MAX_RETURN_DEPTH) continue;
+    snapshot.set(key, value);
+  }
+  const serialized = snapshot.toString();
+  return serialized.length > MAX_RETURN_STATE_LENGTH ? "" : serialized;
+}
+
+export function formatReturnTo(
+  host: ReturnHost,
+  hostParams?: Readonly<Record<string, string>>,
+): string {
+  const path = host.entityId !== undefined ? `${host.screenId}/${host.entityId}` : host.screenId;
+  const state = returnStateSnapshot(hostParams);
+  return state === "" ? path : `${path}?${state}`;
 }
 
 // {} when target IS host — pushPath no-ops on the same path, so the param
@@ -25,12 +84,13 @@ export function formatReturnTo(host: ReturnHost): string {
 export function returnToParams(
   host: ReturnHost | undefined,
   target: ScreenTarget,
+  hostParams?: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string>> {
   if (host === undefined) return {};
   if (lastSegment(target.screenId) === host.screenId && target.entityId === host.entityId) {
     return {};
   }
-  return { [RETURN_TO_PARAM]: formatReturnTo(host) };
+  return { [RETURN_TO_PARAM]: formatReturnTo(host, hostParams) };
 }
 
 export function navigateWithReturnTo(
@@ -39,14 +99,40 @@ export function navigateWithReturnTo(
   host: ReturnHost | undefined,
   params?: Readonly<Record<string, string | null>>,
 ): void {
+  // Snapshot before navigating — nav.searchParams still describes the host.
+  const returnParams = returnToParams(host, target, nav.searchParams);
   nav.navigate(target);
   const merged: Record<string, string | null> = {
     ...(params ?? {}),
-    ...returnToParams(host, target),
+    ...returnParams,
   };
   if (Object.keys(merged).length > 0) {
     nav.setSearchParams(merged);
   }
+}
+
+/** Jumps back to an already-validated returnTo target and restores the host
+ *  search params carried in the same value. The host's own returnTo travels
+ *  with them, so a chain unwinds one level per jump. */
+export function navigateToReturn(nav: NavApi, target: ScreenTarget): void {
+  const raw = nav.searchParams[RETURN_TO_PARAM];
+  const state = raw === undefined ? NO_RETURN_STATE : splitReturnTo(raw).state;
+  nav.navigate(target);
+  // The explicit null drops this screen's own returnTo on nav impls whose
+  // navigate keeps the query.
+  nav.setSearchParams({ ...state, [RETURN_TO_PARAM]: state[RETURN_TO_PARAM] ?? null });
+}
+
+export function navigateToReturnOr(
+  nav: NavApi,
+  target: ScreenTarget | undefined,
+  fallback: () => void,
+): void {
+  if (target === undefined) {
+    fallback();
+    return;
+  }
+  navigateToReturn(nav, target);
 }
 
 // "%" is left alone — route entityIds come raw from the path and can carry it.
@@ -61,7 +147,7 @@ export function resolveReturnTarget(
   userRoles: readonly string[] | undefined,
 ): ScreenTarget | undefined {
   if (raw === undefined || raw === "") return undefined;
-  const segments = raw.split("/");
+  const segments = splitReturnTo(raw).path.split("/");
   if (segments.length !== 1 && segments.length !== 2) return undefined;
   if (segments.some((segment) => segment === "")) return undefined;
   const [screenId, entityId] = segments;

@@ -14,7 +14,7 @@ import { buildInitialValues, mergeSearchParamsIntoInitial } from "./kumiko-scree
 import { layoutFieldNames } from "./layout-fields";
 import { useInitialValuesHandoff, useNav } from "./nav";
 import { lastSegment } from "./qn";
-import { useReturnTarget } from "./return-to";
+import { navigateToReturnOr, useReturnTarget } from "./return-to";
 
 export type SecretMintBodyProps = {
   readonly schema: FeatureSchema;
@@ -114,7 +114,8 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const handleCancel = useMemo<(() => void) | undefined>(() => {
     const target = screen.cancelTarget ?? screen.redirect;
     if (target === undefined || target === false) return undefined;
-    return () => nav.navigate(returnTarget ?? { screenId: lastSegment(target) });
+    return () =>
+      navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
   }, [nav, screen.redirect, screen.cancelTarget, returnTarget]);
 
   // Ends the reveal phase for both paths (the bare acknowledge button, and a
@@ -125,8 +126,11 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const finishMint = useCallback(() => {
     setRevealed(null);
     carriedRef.current = {};
-    if (screen.redirect !== undefined) {
-      nav.navigate(returnTarget ?? { screenId: lastSegment(screen.redirect) });
+    const redirect = screen.redirect;
+    if (redirect !== undefined) {
+      navigateToReturnOr(nav, returnTarget, () =>
+        nav.navigate({ screenId: lastSegment(redirect) }),
+      );
     } else {
       setDone(true);
     }
