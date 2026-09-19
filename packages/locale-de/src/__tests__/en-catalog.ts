@@ -331,6 +331,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.feature.disabled": "This feature is currently unavailable.",
   "errors.internal": "Something went wrong. Please try again later.",
   "errors.notFound": "Not found.",
+  "errors.preconditionFailed": "The record changed in the meantime. Reload and try again.",
   "errors.rate_limited": "Too many requests. Please try again shortly.",
   "errors.unconfigured": "This feature isn't configured yet.",
   "errors.uniqueViolation": "This entry already exists.",

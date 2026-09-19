@@ -33,6 +33,14 @@ export function redeemDeletionToken(args: {
   readonly token: string;
   readonly secret: string | undefined;
   readonly loadPendingRequestId: (userId: string) => Promise<string | null>;
+  // Spends the anchor AND performs the actual lifecycle transition in one
+  // atomic step (#3024) — the caller (confirm-deletion-by-token) folds the
+  // Active→DeletionRequested write itself in here via `updateUserLifecycle`'s
+  // `expect: { status: Active, pendingDeletionRequestId }`, so a write issued
+  // after `ok: true` can't lose its work to a crash while the grant is
+  // already burned (see shared/row-bound-grant.ts). Returns whether this
+  // caller was the one who moved the row on.
+  readonly commitDeletion: (userId: string, requestId: string) => Promise<boolean>;
   readonly now?: Temporal.Instant;
 }): Promise<RowBoundGrantResult> {
   return redeemRowBoundGrant({
@@ -40,17 +48,7 @@ export function redeemDeletionToken(args: {
     purpose: DELETION_REQUEST_PURPOSE,
     secret: args.secret,
     loadAnchor: args.loadPendingRequestId,
-    commitAnchor: {
-      unsafeSkip: {
-        reason:
-          "pendingDeletionRequestId may only be changed through updateUserLifecycle — a " +
-          "conditional UPDATE would bypass the user.updated event and lose the field on a " +
-          "projection rebuild (see update-user-lifecycle.ts). The concurrent-redeem window " +
-          "this leaves open predates row-bound grants: startDeletionGracePeriod already " +
-          "read-then-writes the Active check. Closing it needs an atomic lifecycle " +
-          "transition, which is its own change.",
-      },
-    },
+    commitAnchor: args.commitDeletion,
     now: args.now,
   });
 }

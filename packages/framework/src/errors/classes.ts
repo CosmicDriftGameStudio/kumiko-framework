@@ -138,6 +138,30 @@ export class VersionConflictError extends ConflictError {
   }
 }
 
+// `update()`'s optional `expect:` precondition (kumiko-framework#3024) —
+// a freshly-read row no longer matches the caller's declared field values.
+// Distinct from VersionConflictError: that one guards the stream version,
+// this one guards an arbitrary business field a lifecycle transition
+// declared ("only from status Active"). Same 409 family: the client can
+// resolve it by re-checking the entity's current state.
+export type PreconditionFailedDetails = {
+  readonly entityId: number | string;
+  readonly field: string;
+};
+
+export class PreconditionFailedError extends ConflictError {
+  override readonly code: string = "precondition_failed";
+
+  constructor(details: PreconditionFailedDetails, opts?: Pick<ErrorOpts, "i18nKey" | "cause">) {
+    super({
+      message: `precondition failed for entity ${details.entityId}: field "${details.field}" no longer matches the expected value`,
+      i18nKey: opts?.i18nKey ?? "errors.preconditionFailed",
+      details,
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+  }
+}
+
 // The caller retried a write with an idempotencyKey it had already used —
 // the event-store's partial unique index on metadata.idempotencyKey caught
 // the duplicate. Distinct from unique_violation/version_conflict: this is

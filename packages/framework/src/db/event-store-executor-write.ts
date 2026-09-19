@@ -8,6 +8,7 @@ import {
   IdempotentReplayError,
   InternalError,
   NotFoundError,
+  PreconditionFailedError,
   UnprocessableError,
   writeFailure,
 } from "../errors";
@@ -394,16 +395,69 @@ export function createWriteVerbs(
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user));
 
-      // Stream-version is authoritative, not row.version. `ctx.appendEvent`
-      // can bump the stream between CRUD writes (domain event on the same
-      // aggregate); a stale row.version here would make the next CRUD write
-      // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
-      // with version_conflict.
-      const currentVersion = await getStreamVersion(
-        runner,
-        String(payload.id),
-        streamTenantFor(user),
-      );
+      // Stream-version is authoritative, not row.version, for every OTHER
+      // caller: `ctx.appendEvent` can bump the stream between CRUD writes
+      // (domain event on the same aggregate) without this row necessarily
+      // moving, and a stale row.version here would make the next CRUD write
+      // trip `events_aggregate_version_uq` with a spurious version_conflict.
+      //
+      // `expect:` (#3024) is the one exception, and reads its own version
+      // instead: a separate getStreamVersion() call here would open exactly
+      // the check-then-act gap `expect` exists to close — applyEntityEvent
+      // writes the projection row in a SEPARATE statement after its event
+      // commits (tested empirically: reading version and `expect` fields as
+      // two round-trips lets a second writer's version-read land in that gap
+      // and see a fresh, non-conflicting version paired with a still-stale
+      // projection row). Reading `version` and the `expect` fields off the
+      // SAME row in ONE query closes it: table-builder.ts guarantees every
+      // entity table carries `version`, kept in lock-step with every other
+      // projection column by applyEntityEvent, so this row's own version is
+      // exactly as fresh as the fields `expect` just checked. Any writer
+      // whose event commits after this read still bumps the stream version,
+      // so this writer's append below (expectedVersion = this row's version)
+      // correctly conflicts instead of silently overwriting it.
+      //
+      // PRECONDITION this trades for that guarantee: `expect:` only stays
+      // correct on an entity whose stream carries EXCLUSIVELY this executor's
+      // own auto-verb events (create/update/delete/forget/restore) — i.e. no
+      // handler ever calls `ctx.appendEvent`/`r.step.aggregate.appendEvent`
+      // with a raw domain event on the same aggregateId. Such an event bumps
+      // the stream without ever touching this row's `version` column, so
+      // row.version silently lags the true stream head and every future
+      // `expect:`-guarded update on that row wedges on version_conflict
+      // (indistinguishable from a losing concurrent writer) until some
+      // non-`expect` write on the row resyncs it via getStreamVersion. There
+      // is no raw appendEvent on the "user" aggregate anywhere in this
+      // repo's bundled-features today (verified via `git grep appendEvent`)
+      // — if that ever changes, `expect:` on user-lifecycle transitions must
+      // be revisited together with it.
+      let currentVersion: number;
+      if (updateOptions?.expect) {
+        const freshRow = await loadById(payload.id, db);
+        if (!freshRow) {
+          return writeFailure(new PreconditionFailedError({ entityId: payload.id, field: "id" }));
+        }
+        const mismatch = Object.entries(updateOptions.expect).find(
+          ([key, expected]) => freshRow[key] !== expected,
+        );
+        if (mismatch) {
+          return writeFailure(
+            new PreconditionFailedError({ entityId: payload.id, field: mismatch[0] }),
+          );
+        }
+        const rowVersion = freshRow["version"];
+        if (typeof rowVersion !== "number" || !Number.isInteger(rowVersion)) {
+          return writeFailure(
+            new InternalError({
+              message: `entity ${entityName} row ${payload.id} has a non-numeric version column`,
+            }),
+          );
+        }
+        currentVersion = rowVersion;
+      } else {
+        currentVersion = await getStreamVersion(runner, String(payload.id), streamTenantFor(user));
+      }
+
       if (!updateOptions?.skipOptimisticLock) {
         if (payload.version === undefined) {
           return writeFailure(

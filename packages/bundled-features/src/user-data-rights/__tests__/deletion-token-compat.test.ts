@@ -20,6 +20,7 @@ describe("deletion token wire format", () => {
       token: legacy,
       secret: SECRET,
       loadPendingRequestId: async () => REQUEST_ID,
+      commitDeletion: async () => true,
     });
 
     expect(result.ok).toBe(true);

@@ -179,16 +179,51 @@ describe("anonymous deletion flow", () => {
     expect(second.status).toBe(422);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
-    // #354/2: der anonyme Endpoint gibt einen generischen reason zurück und
-    // leakt NICHT den konkreten User-Status (currentStatus), den ein
-    // Token-Inhaber sonst proben könnte.
+    // #354/2 + #3024: der anonyme Endpoint gibt für JEDEN Fehlerpfad denselben
+    // generischen reason zurück wie ein ungültiges Token — seit die Grace-
+    // Period-Transition in commitDeletion (dem Anker-Spend) aufgeht, gibt es
+    // keinen separaten res.ok-Zweig mehr, der den konkreten User-Status
+    // (currentStatus) leaken könnte.
     const body = (await second.json()) as {
       error: { details?: { reason?: string } };
     };
-    expect(body.error.details?.reason).toBe("cannot_process_deletion");
+    expect(body.error.details?.reason).toBe("invalid_or_expired_token");
     const serialized = JSON.stringify(body.error);
     expect(serialized).not.toContain("currentStatus");
     expect(serialized).not.toContain(USER_STATUS.DeletionRequested);
+  });
+
+  test("concurrent confirm-by-token (#3024): two simultaneous redemptions of the same token leave exactly one winner", async () => {
+    // Nebenläufigkeitsfall, echte HTTP-Calls über setupTestStack, kein Sleep —
+    // die Interleaving-Breite variiert zwischen Läufen, darum 20 Wiederholungen
+    // statt eines Einzeldurchlaufs (probabilistischer Test).
+    for (let i = 0; i < 20; i++) {
+      await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+      await seedAlice();
+      verifyCalls.length = 0;
+      await stack.http.raw("POST", "/api/write", {
+        type: REQUEST_BY_EMAIL,
+        payload: { email: ALICE_EMAIL },
+      });
+      const token = tokenFromLastVerifyCall();
+
+      const [first, second] = await Promise.all([
+        stack.http.raw("POST", "/api/write", { type: CONFIRM_BY_TOKEN, payload: { token } }),
+        stack.http.raw("POST", "/api/write", { type: CONFIRM_BY_TOKEN, payload: { token } }),
+      ]);
+
+      expect([first.status, second.status].sort()).toEqual([200, 422]);
+      // Genau EIN Lifecycle-Wechsel: die Row liegt bei DeletionRequested, nicht
+      // in einem last-write-wins-Zwischenzustand aus zwei angewandten Writes.
+      expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
+
+      const loser = first.status === 422 ? first : second;
+      const body = (await loser.json()) as { error: { details?: { reason?: string } } };
+      expect(body.error.details?.reason).toBe("invalid_or_expired_token");
+      const serialized = JSON.stringify(body.error);
+      expect(serialized).not.toContain("currentStatus");
+      expect(serialized).not.toContain(USER_STATUS.DeletionRequested);
+    }
   });
 
   test("replay-after-cancel (#354/1): Token nach cancel-deletion re-armt NICHT → 422, bleibt Active", async () => {

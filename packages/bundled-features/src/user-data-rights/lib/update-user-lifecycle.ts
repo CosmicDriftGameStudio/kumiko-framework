@@ -21,30 +21,68 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 // kann abweichen).
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
+export type UpdateUserLifecycleOptions = {
+  // Declarative "genau einmal"-precondition (#3024): the update only applies
+  // if the row still holds these field values at write time. Forwarded
+  // as-is to the executor's `expect:` — see event-store-executor-write.ts
+  // for the atomicity story. Omitted: behaves exactly as before (unconditional
+  // overwrite, skipOptimisticLock). Scalars only — see the executor's
+  // `expect:` doc for why (`!==` comparison, no object/Date/Instant values).
+  readonly expect?: Readonly<Record<string, string | number | boolean | null>>;
+};
+
 // `conn` is ctx.db.unsafeRaw(reason) (regular handlers) or the open tx
 // (forget-cleanup sub-tx) — keeps the event append atomic with the write.
+//
+// Returns `{ applied: false }` instead of throwing only when `options.expect`
+// was set AND the executor rejected the write because the precondition no
+// longer held (precondition_failed) or a concurrent writer won the race on
+// the same stream version (version_conflict) — both mean "someone else's
+// transition already landed", the expected outcome for a caller that opted
+// into `expect`. Any other failure, or a failure with no `expect` set (every
+// pre-#3024 caller), still throws — those callers never checked a return
+// value, so silently dropping their write would be silent data loss.
 export async function updateUserLifecycle(
   conn: DbRunner,
   userId: string,
   changes: Record<string, unknown>,
-): Promise<void> {
+  options?: UpdateUserLifecycleOptions,
+): Promise<{ readonly applied: boolean }> {
   // user ist systemStream (#497): der Executor-Choke-Point addressiert den
   // Stream immer auf SYSTEM_TENANT_ID — ein Rescope auf die row-tenant_id
   // waere wirkungslos. "system"-Mode, damit loadById auch Legacy-Rows findet,
   // deren tenant_id noch vor dem #762-Backfill-Rebuild steht.
+  // skipOptimisticLock stays true (kept correct, not just carried over): it
+  // was set from this function's very first version (#494) because every
+  // caller here is a server-side business transition (restrict/lift-
+  // restriction/grace-period/cancel/forget), never a client edit-conflict UI
+  // round-trip — none of them read-then-hold a row version to pass as
+  // `payload.version`, so the executor's version gate would reject every
+  // call outright without it (`update()` requires `payload.version` unless
+  // skipOptimisticLock is set). #3024 replaces the safety that decision gave
+  // up with the purpose-built `expect:` precondition above, checked fresh at
+  // write time — the mechanism now genuinely matches the caller's shape
+  // (a business-field guard) instead of a repurposed version check.
   const tenantDb = createTenantDb(conn, SYSTEM_TENANT_ID, "system");
   const result = await userExecutor.update(
     { id: userId, changes },
     createSystemUser(SYSTEM_TENANT_ID),
     tenantDb,
-    { skipOptimisticLock: true },
+    { skipOptimisticLock: true, ...(options?.expect && { expect: options.expect }) },
   );
 
-  if (!result.isSuccess) {
-    throw new InternalError({
-      message: `user lifecycle update failed for ${userId}: ${result.error.code}`,
-    });
+  if (result.isSuccess) return { applied: true };
+
+  if (
+    options?.expect &&
+    (result.error.code === "precondition_failed" || result.error.code === "version_conflict")
+  ) {
+    return { applied: false };
   }
+
+  throw new InternalError({
+    message: `user lifecycle update failed for ${userId}: ${result.error.code}`,
+  });
 }
 
 // #494 Bestandsdaten-Reconcile: Rows, deren Lifecycle-State der alte
