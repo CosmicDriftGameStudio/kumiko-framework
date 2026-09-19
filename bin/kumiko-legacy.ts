@@ -213,24 +213,17 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
         name: `TypeScript (framework + samples)`,
         cmd: `cd ${absPath} && bun scripts/check-app-tsc.ts`,
       });
+    } else if (root.kind === "platform") {
+      // Nested workspaces plus generated Astro types: the repo's own script
+      // owns that layout and runs `astro sync` before tsc.
+      steps.push({
+        name: `TypeScript (${root.kind})`,
+        cmd: `cd ${absPath} && bun run typecheck`,
+      });
     } else if (existsSync(join(absPath, "tsconfig.json"))) {
       steps.push({
         name: `TypeScript (${root.kind})`,
         cmd: `cd ${absPath} && ${TSC} --noEmit`,
-      });
-    } else if (root.kind === "platform") {
-      // Platform has nested workspaces, call tsc directly to avoid yarn state issues
-      steps.push({
-        name: "TypeScript (platform/docs)",
-        cmd: `cd ${join(absPath, "apps/docs")} && ${TSC} --noEmit`,
-      });
-      steps.push({
-        name: "TypeScript (platform/marketing)",
-        cmd: `cd ${join(absPath, "apps/marketing")} && ${TSC} --noEmit`,
-      });
-      steps.push({
-        name: "TypeScript (platform/docgen)",
-        cmd: `cd ${join(absPath, "tools/docgen")} && ${TSC} --noEmit`,
       });
     }
   }
