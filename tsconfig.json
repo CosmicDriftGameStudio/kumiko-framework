@@ -92,6 +92,9 @@
       "path": "./packages/guards"
     },
     {
+      "path": "./packages/testing"
+    },
+    {
       "path": "./packages/create-kumiko-app"
     },
     {

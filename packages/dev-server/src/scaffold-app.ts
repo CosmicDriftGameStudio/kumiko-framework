@@ -12,7 +12,7 @@
 // Static files (package.json, tsconfig, .env, README) stay text-based.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import {
   collectTableMetas,
   generateMigration,
@@ -46,6 +46,20 @@ export type ScaffoldFeatureEntry = {
   readonly callArgs?: readonly unknown[];
 };
 
+// Structural twin of `ScaffoldTestSetup` from @cosmicdrift/kumiko-testing/scaffold —
+// dev-server cannot import that package (it depends on dev-server), callers pass it in.
+export type ScaffoldTestSetup = {
+  readonly files: Readonly<Record<string, string>>;
+  readonly scripts: Readonly<Record<string, string>>;
+  readonly devDependencies: Readonly<Record<string, string>>;
+  readonly rulesMarkdown: string;
+};
+
+export type ScaffoldTestSetupFactory = (input: {
+  readonly appName: string;
+  readonly frameworkVersion: string;
+}) => ScaffoldTestSetup;
+
 export type ScaffoldAppOptions = {
   /** kebab-case app name (e.g. "my-shop"). Becomes package-name + folder. */
   readonly name: string;
@@ -62,6 +76,10 @@ export type ScaffoldAppOptions = {
    *  (the historical foundation). create-kumiko-app passes the picker output
    *  here so the generated APP_FEATURES reflects the user's selection. */
   readonly features?: ReadonlyArray<ScaffoldFeatureEntry>;
+  /** Test wiring (bunfigs, scripts, example tests, e2e) — `renderTestSetup` from
+   *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the legacy
+   *  bunfig pair and no example tests. */
+  readonly testSetup?: ScaffoldTestSetupFactory;
 };
 
 export type ScaffoldAppResult = {
@@ -80,6 +98,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
     throw new Error(`scaffoldApp: ${destination} already exists — refusing to overwrite`);
   }
   const version = options.frameworkVersion ?? "*";
+  const testSetup = options.testSetup?.({ appName: options.name, frameworkVersion: version });
 
   mkdirSync(join(destination, "bin"), { recursive: true });
   mkdirSync(join(destination, "src"), { recursive: true });
@@ -87,7 +106,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   const files: string[] = [];
 
-  write(join(destination, "package.json"), renderPackageJson(options.name, version));
+  write(join(destination, "package.json"), renderPackageJson(options.name, version, testSetup));
   files.push("package.json");
 
   write(join(destination, "tsconfig.json"), renderTsconfig());
@@ -96,11 +115,13 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "biome.json"), renderBiomeJson());
   files.push("biome.json");
 
-  write(join(destination, "bunfig.toml"), renderBunfigToml());
-  files.push("bunfig.toml");
+  if (testSetup === undefined) {
+    write(join(destination, "bunfig.toml"), renderBunfigToml());
+    files.push("bunfig.toml");
 
-  write(join(destination, "bunfig.ci.toml"), renderBunfigCiToml());
-  files.push("bunfig.ci.toml");
+    write(join(destination, "bunfig.ci.toml"), renderBunfigCiToml());
+    files.push("bunfig.ci.toml");
+  }
 
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
@@ -154,7 +175,18 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
     }
   }
 
-  write(join(destination, "README.md"), renderReadme(options.name, options.features));
+  if (testSetup !== undefined) {
+    for (const [rel, content] of Object.entries(testSetup.files)) {
+      mkdirSync(dirname(join(destination, rel)), { recursive: true });
+      write(join(destination, rel), content);
+      files.push(rel);
+    }
+  }
+
+  write(
+    join(destination, "README.md"),
+    `${renderReadme(options.name, options.features)}${testSetup === undefined ? "" : `\n${testSetup.rulesMarkdown}`}`,
+  );
   files.push("README.md");
 
   return { destination, files, appName: options.name };
@@ -165,7 +197,11 @@ function write(path: string, content: string): void {
   writeFileSync(path, content);
 }
 
-function renderPackageJson(name: string, version: string): string {
+function renderPackageJson(
+  name: string,
+  version: string,
+  testSetup: ScaffoldTestSetup | undefined,
+): string {
   return `${JSON.stringify(
     {
       name,
@@ -179,7 +215,7 @@ function renderPackageJson(name: string, version: string): string {
         boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
         typecheck: "tsc --noEmit",
         lint: "biome check .",
-        test: "bun --config=bunfig.ci.toml test --dots",
+        ...(testSetup?.scripts ?? { test: "bun --config=bunfig.ci.toml test --dots" }),
         "schema:apply": "bun kumiko-schema apply",
         "schema:generate": "bun kumiko-schema generate",
       },
@@ -193,7 +229,7 @@ function renderPackageJson(name: string, version: string): string {
         "react-dom": "^19.2.6",
         zod: "^4.4.3",
       },
-      devDependencies: {
+      devDependencies: sortedByName({
         "@biomejs/biome": "^2.4.15",
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.0",
@@ -201,11 +237,16 @@ function renderPackageJson(name: string, version: string): string {
         "bun-types": "^1.4.0",
         tailwindcss: "^4.3.0",
         typescript: "^6.0.3",
-      },
+        ...testSetup?.devDependencies,
+      }),
     },
     null,
     2,
   )}\n`;
+}
+
+function sortedByName(record: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(Object.entries(record).sort(([a], [b]) => (a < b ? -1 : 1)));
 }
 
 function renderTsconfig(): string {
@@ -226,7 +267,7 @@ function renderTsconfig(): string {
         jsx: "react-jsx",
         noEmit: true,
       },
-      include: ["bin", "src", "kumiko"],
+      include: ["bin", "src", "kumiko", "e2e", "playwright.config.ts"],
     },
     null,
     2,
@@ -244,7 +285,15 @@ function renderBiomeJson(): string {
         defaultBranch: "main",
       },
       files: {
-        includes: ["src/**", "bin/**", "kumiko/**", "!**/dist", "!kumiko/migrations"],
+        includes: [
+          "src/**",
+          "bin/**",
+          "kumiko/**",
+          "e2e/**",
+          "playwright.config.ts",
+          "!**/dist",
+          "!kumiko/migrations",
+        ],
       },
       formatter: {
         enabled: true,

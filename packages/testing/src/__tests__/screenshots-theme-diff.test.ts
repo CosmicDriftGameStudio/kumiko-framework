@@ -4,12 +4,12 @@
 // overridden theme provider, since a valid PNG stays a valid PNG regardless
 // of which theme produced it).
 //
-// Lives outside samples/e2e/ on purpose — bunfig.toml excludes **/e2e/**
+// Lives outside src/e2e/ on purpose — bunfig.toml excludes **/e2e/**
 // from bun test (that tree is Playwright .spec.ts territory).
 
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { findIdenticalThemeScreenshots, type ThemeScreenshotDigest } from "../../e2e/screenshots";
+import { findIdenticalThemeScreenshots, type ThemeScreenshotDigest } from "../e2e/screenshots";
 
 function hashOf(bytes: string): string {
   return createHash("sha256").update(bytes).digest("hex");

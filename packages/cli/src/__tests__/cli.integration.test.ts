@@ -84,6 +84,23 @@ describe("kumiko cli", () => {
     expect(captured.logs.join("\n")).toContain("Scaffolded my-notes");
   });
 
+  test("new app writes the test template with a version-pinned testing devDependency", async () => {
+    const { out } = capture();
+    const code = await runCli({ argv: ["new", "app", "my-notes"], cwd: tmp, out });
+    expect(code).toBe(0);
+    const appRoot = join(tmp, "my-notes");
+    for (const f of ["playwright.config.ts", "e2e/smoke.spec.ts", "bunfig.integration.toml"]) {
+      expect(() => readFileSync(join(appRoot, f), "utf-8")).not.toThrow();
+    }
+    const pkg = JSON.parse(readFileSync(join(appRoot, "package.json"), "utf-8")) as {
+      scripts: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+    expect(pkg.scripts["e2e"]).toBeDefined();
+    expect(pkg.scripts["test:integration"]).toContain("--parallel");
+    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\^\d+\.\d+\.\d+/);
+  });
+
   test("new app rejects bad name", async () => {
     const { out, captured } = capture();
     const code = await runCli({ argv: ["new", "app", "My Notes"], cwd: tmp, out });

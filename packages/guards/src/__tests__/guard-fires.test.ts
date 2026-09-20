@@ -236,6 +236,8 @@ const WARNING_ONLY: Record<string, string> = {
     "same baseline-ratchet pattern as PII-Annotations Guard (kumiko-framework#2810) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Complexity Check":
     "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
+  "test-timeouts":
+    "same baseline-ratchet pattern as Complexity Check — only fails against a committed `.kumiko-test-timeouts-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline. Detection itself is proven in guard-test-timeouts.test.ts",
   "Predicate Extraction Check":
     "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
   "As-Casts Audit":

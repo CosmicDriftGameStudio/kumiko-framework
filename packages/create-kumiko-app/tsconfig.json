@@ -8,6 +8,10 @@
     "composite": true,
     "resolveJsonModule": true
   },
-  "references": [{ "path": "../dev-server" }, { "path": "../framework" }],
+  "references": [
+    { "path": "../dev-server" },
+    { "path": "../framework" },
+    { "path": "../testing" }
+  ],
   "include": ["./src", "./bin"]
 }

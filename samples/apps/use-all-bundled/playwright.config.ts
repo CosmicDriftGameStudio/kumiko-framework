@@ -1,17 +1,15 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+// @runtime test
 import { defineConfig, devices } from "@playwright/test";
+import "@cosmicdrift/kumiko-testing/preload/env";
+import { PLAYWRIGHT_DEMO_ENV, screenshotSpecsIgnore } from "@cosmicdrift/kumiko-testing/e2e";
 import { E2E_PORTS } from "../../e2e/e2e-ports";
-import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ENV_ARG = samplesEnvFileArg(HERE);
 
 const PORT = E2E_PORTS["framework/use-all-bundled"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: screenshotSpecsIgnore(),
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
   retries: 0,
@@ -34,16 +32,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
+    command: "bun run src/app/server.ts",
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" → ephemeral fresh kumiko_test_<random> DB pro Run.
-    env: {
-      PORT: String(PORT),
-      KUMIKO_DEV_DB_NAME: "",
-      // Same ephemeral master key as studio/mh/ps/show-pony Playwright boots.
-      KUMIKO_SECRETS_MASTER_KEY_V1: "a3VtaWtvLXNjcmVlbnNob3QtZGV2LW1hc3Rlci0zMmI=",
-      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
-    },
+    env: { ...PLAYWRIGHT_DEMO_ENV, PORT: String(PORT) },
     reuseExistingServer: false,
     timeout: 90_000,
     stdout: "pipe",

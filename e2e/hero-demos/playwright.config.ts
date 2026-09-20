@@ -21,6 +21,8 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: ".",
+  // The scaffolded hero-app lives in .tmp/ and ships its own bun:test and e2e files.
+  testIgnore: "**/.tmp/**",
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
   retries: 0,

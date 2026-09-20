@@ -19,7 +19,8 @@
       "@cosmicdrift/kumiko-cli",
       "create-kumiko-app",
       "@cosmicdrift/kumiko-guards",
-      "@cosmicdrift/kumiko-repo-manifest"
+      "@cosmicdrift/kumiko-repo-manifest",
+      "@cosmicdrift/kumiko-testing"
     ]
   ],
   "linked": [],

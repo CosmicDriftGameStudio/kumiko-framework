@@ -48,6 +48,7 @@ const PACKAGE_DIRS: Readonly<Record<string, string>> = {
   "@cosmicdrift/kumiko-renderer": "packages/renderer",
   "@cosmicdrift/kumiko-renderer-web": "packages/renderer-web",
   "@cosmicdrift/kumiko-server-runtime": "packages/server-runtime",
+  "@cosmicdrift/kumiko-testing": "packages/testing",
   "@cosmicdrift/kumiko-types": "packages/types",
   "create-kumiko-app": "packages/create-kumiko-app",
 };
@@ -62,16 +63,20 @@ function relinkCosmicDriftToWorkspace(appDir: string, repoRoot: string): void {
   const pkgPath = resolve(appDir, "package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
     dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
     overrides?: Record<string, string>;
   };
   const deps = pkg.dependencies ?? {};
+  const devDeps = pkg.devDependencies ?? {};
   const overrides: Record<string, string> = { ...(pkg.overrides ?? {}) };
   for (const [name, rel] of Object.entries(PACKAGE_DIRS)) {
     const pin = filePin(repoRoot, rel);
     if (deps[name] !== undefined) deps[name] = pin;
+    if (devDeps[name] !== undefined) devDeps[name] = pin;
     overrides[name] = pin;
   }
   pkg.dependencies = deps;
+  pkg.devDependencies = devDeps;
   pkg.overrides = overrides;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 }

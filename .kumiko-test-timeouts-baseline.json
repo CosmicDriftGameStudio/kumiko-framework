@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "generated": "2026-09-20",
+  "total": 15,
+  "perFile": {
+    "packages/bundled-features/src/audit/__tests__/escape-hatch-audit.integration.test.ts": 1,
+    "packages/bundled-features/src/delivery/__tests__/delivery.integration.test.ts": 1,
+    "packages/bundled-features/src/inbound-provider-imap/__tests__/plugin-mocked.test.ts": 1,
+    "packages/bundled-features/src/jobs/__tests__/projection-rebuild-job.integration.test.ts": 2,
+    "packages/dev-server/src/codegen/__tests__/watch.test.ts": 1,
+    "packages/framework/src/entrypoint/__tests__/split-deploy.integration.test.ts": 1,
+    "packages/framework/src/files/__tests__/write-stream.test.ts": 1,
+    "packages/framework/src/jobs/__tests__/jobs.integration.test.ts": 2,
+    "packages/framework/src/lifecycle/__tests__/signal-handlers.test.ts": 1,
+    "packages/framework/src/pipeline/__tests__/event-dispatcher-lifecycle.integration.test.ts": 1,
+    "packages/framework/src/pipeline/__tests__/event-dispatcher-second-audit.integration.test.ts": 1,
+    "packages/server-runtime/src/__tests__/run-prod-app.integration.test.ts": 1,
+    "packages/server-runtime/src/__tests__/run-worker-app.integration.test.ts": 1
+  }
+}

@@ -1,13 +1,8 @@
-import {
-  applyDefaultTheme,
-  DEFAULT_THEMES,
-  docsSampleDir,
-  runMatrix,
-} from "../../../e2e/screenshots";
+// @runtime test
+import { applyDefaultTheme, DEFAULT_THEMES, runMatrix } from "@cosmicdrift/kumiko-testing/e2e";
 import { SCENARIOS } from "./scenarios";
 
 runMatrix(SCENARIOS, {
-  baseDir: docsSampleDir(import.meta.dirname, "apps/showcase"),
   themes: DEFAULT_THEMES,
   applyTheme: applyDefaultTheme,
   locales: ["en"],

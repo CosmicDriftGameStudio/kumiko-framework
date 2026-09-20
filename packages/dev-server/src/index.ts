@@ -65,6 +65,7 @@ export type {
   FewShotEntry,
 } from "./few-shot-corpus";
 export { buildFewShotCorpus, pathToId } from "./few-shot-corpus";
+export { resolveFrameworkVersion } from "./framework-version";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
 export type {

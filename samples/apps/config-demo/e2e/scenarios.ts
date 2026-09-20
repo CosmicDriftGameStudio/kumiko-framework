@@ -1,5 +1,5 @@
+import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import type { Scenario } from "../../../e2e/screenshots";
 
 async function writeConfig(
   page: Page,
@@ -32,13 +32,11 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Auto-Hub Tenant-Screen im Ausgangszustand (Default-Badges)",
     url: "/config-demo-tenant",
     waitFor: "[data-testid='render-edit-form']",
-    settleMs: 500,
   },
   {
     name: "config-edit-override",
     description: "Auto-Hub Tenant-Screen mit Tenant/Default-Badges (Überschreibungskaskade)",
     waitFor: "[data-testid='render-edit-form']",
-    settleMs: 500,
     flow: async (page) => {
       // 1. Seite laden (Auto-Mint-JWT + CSRF-Cookies setzen)
       await page.goto("/config-demo-tenant");

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { scaffoldApp } from "../scaffold-app";
+import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app";
 
 const SCAFFOLD_FILES = [
   "package.json",
@@ -31,6 +31,17 @@ const SCAFFOLD_FILES = [
   "deploy/migrate-step.sh",
   "README.md",
 ] as const;
+
+const STUB_TEST_SETUP: ScaffoldTestSetup = {
+  files: {
+    "bunfig.toml": "# stub unit bunfig\n",
+    "e2e/smoke.spec.ts": "// stub spec\n",
+    "src/__tests__/stub.test.ts": "// stub test\n",
+  },
+  scripts: { test: "stub-unit", "test:integration": "stub-integration", e2e: "stub-e2e" },
+  devDependencies: { "@cosmicdrift/kumiko-testing": "stub-version", "@playwright/test": "^1.0.0" },
+  rulesMarkdown: "## Testing\n\n- stub rule\n",
+};
 
 describe("scaffoldApp", () => {
   let tmp: string;
@@ -72,6 +83,92 @@ describe("scaffoldApp", () => {
     expect(pkg.scripts["build"]).toBe("bun kumiko-build");
     expect(pkg.scripts["start"]).toBe("bun run bin/main.ts");
     expect(pkg.scripts["lint"]).toBe("biome check .");
+  });
+
+  test("without testSetup the scaffold keeps the legacy bunfig pair and test script", async () => {
+    const dest = join(tmp, "my-shop");
+    const result = await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8")) as {
+      scripts: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+    expect(pkg.scripts["test"]).toBe("bun --config=bunfig.ci.toml test --dots");
+    expect(Object.keys(pkg.scripts)).not.toContain("e2e");
+    expect(Object.keys(pkg.devDependencies)).not.toContain("@cosmicdrift/kumiko-testing");
+    expect(result.files).toContain("bunfig.ci.toml");
+    expect(existsSync(join(dest, "e2e"))).toBe(false);
+    expect(readFileSync(join(dest, "README.md"), "utf-8")).not.toContain("## Testing");
+  });
+
+  test("testSetup: factory gets name + version, files land (nested dirs) and are reported", async () => {
+    const dest = join(tmp, "my-shop");
+    let received: { appName: string; frameworkVersion: string } | undefined;
+    const result = await scaffoldApp({
+      name: "my-shop",
+      destination: dest,
+      frameworkVersion: "^0.13.0",
+      testSetup: (input) => {
+        received = input;
+        return STUB_TEST_SETUP;
+      },
+    });
+
+    expect(received).toEqual({ appName: "my-shop", frameworkVersion: "^0.13.0" });
+    for (const rel of Object.keys(STUB_TEST_SETUP.files)) {
+      expect(result.files).toContain(rel);
+      expect(readFileSync(join(dest, rel), "utf-8")).toBe(STUB_TEST_SETUP.files[rel] as string);
+    }
+    expect(existsSync(join(dest, "bunfig.ci.toml"))).toBe(false);
+    expect(result.files.filter((f) => f === "bunfig.toml")).toHaveLength(1);
+  });
+
+  test("testSetup: scripts replace test in place, devDependencies merge sorted, rules land in README", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest, testSetup: () => STUB_TEST_SETUP });
+
+    const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8")) as {
+      scripts: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+    expect(pkg.scripts["test"]).toBe("stub-unit");
+    expect(Object.keys(pkg.scripts)).toEqual([
+      "dev",
+      "build",
+      "start",
+      "boot",
+      "typecheck",
+      "lint",
+      "test",
+      "test:integration",
+      "e2e",
+      "schema:apply",
+      "schema:generate",
+    ]);
+    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toBe("stub-version");
+    const names = Object.keys(pkg.devDependencies);
+    expect(names).toEqual([...names].sort());
+    expect(names).toContain("@biomejs/biome");
+
+    const readme = readFileSync(join(dest, "README.md"), "utf-8");
+    expect(readme).toContain("## Architecture");
+    expect(readme.endsWith(STUB_TEST_SETUP.rulesMarkdown)).toBe(true);
+  });
+
+  test("tsconfig and biome cover the e2e sources", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest, testSetup: () => STUB_TEST_SETUP });
+
+    const tsconfig = JSON.parse(readFileSync(join(dest, "tsconfig.json"), "utf-8")) as {
+      include: string[];
+    };
+    expect(tsconfig.include).toEqual(expect.arrayContaining(["e2e", "playwright.config.ts"]));
+    const biome = JSON.parse(readFileSync(join(dest, "biome.json"), "utf-8")) as {
+      files: { includes: string[] };
+    };
+    expect(biome.files.includes).toEqual(
+      expect.arrayContaining(["e2e/**", "playwright.config.ts"]),
+    );
   });
 
   test("src/seed.ts bare return has a skip comment directly above it (kumiko-guard-silent-skip)", async () => {

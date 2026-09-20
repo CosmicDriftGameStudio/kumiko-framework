@@ -40,6 +40,7 @@
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
+    "@cosmicdrift/kumiko-testing": "workspace:*",
     "zod": "^4.4.3"
   },
   "publishConfig": {

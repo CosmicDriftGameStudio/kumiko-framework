@@ -1,14 +1,15 @@
+// @runtime test
 // The generated screens render their own testid markers; wait on those instead
 // of `networkidle`, which never fires against the dev-server's hot-reload
 // long-poll (#1176).
-import type { Page } from "@playwright/test";
+
 import {
   applyDefaultTheme,
   DEFAULT_THEMES,
-  docsSampleDir,
   runMatrix,
   type Scenario,
-} from "../../../e2e/screenshots";
+} from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const RENDER_MARKERS =
@@ -25,19 +26,16 @@ const SCENARIOS: readonly Scenario[] = [
     description: "Generated list screen",
     flow: open("/task-list"),
     waitFor: RENDER_MARKERS,
-    settleMs: 150,
   },
   {
     name: "task-edit",
     description: "Generated edit screen",
     flow: open("/task-edit"),
     waitFor: RENDER_MARKERS,
-    settleMs: 150,
   },
 ];
 
 runMatrix(SCENARIOS, {
-  baseDir: docsSampleDir(import.meta.dirname, "apps/ui-walkthrough"),
   themes: DEFAULT_THEMES,
   applyTheme: applyDefaultTheme,
   locales: ["en"],

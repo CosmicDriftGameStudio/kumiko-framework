@@ -15,7 +15,12 @@ linker = "hoisted"
 "@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
 
 [test]
-preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
+preload = [
+  "./test-setup/app-define-resolver.ts",
+  "@cosmicdrift/kumiko-testing/preload/temporal",
+  "@cosmicdrift/kumiko-testing/preload/scrub-env",
+  "./test-setup/dom.preload.ts",
+]
 concurrency = 1
 # No `timeout` key here: bun's bunfig parser has no such key in its [test]
 # section and ignores it silently (#3078, same as #2796 for the integration

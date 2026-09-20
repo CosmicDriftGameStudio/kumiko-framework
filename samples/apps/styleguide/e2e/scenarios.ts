@@ -1,4 +1,4 @@
-import type { Scenario } from "../../../e2e/screenshots";
+import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import { FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
 
 // Ein Eintrag = ein Styleguide-Block = ein Screenshot (×Locale×Theme×Viewport).
@@ -12,7 +12,6 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Foundations + Components: Colors, Typography, Buttons, Cards, Radius, Elevation",
     url: "/gallery",
     waitFor: "[data-testid='sg-colors']",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -20,7 +19,6 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Entity-Edit: Form in Card-Sections, alle Feldtypen, Buttons",
     url: "/item-edit",
     waitFor: "text=Text",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -28,7 +26,6 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Entity-Edit Update-Mode: Header-Actions (icon-only), gefüllte Felder",
     url: `/item-edit/${FIRST_STYLEGUIDE_ITEM_ID}`,
     waitFor: "text=Text",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -36,7 +33,6 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Entity-List: Toolbar, Rows, Row-Actions, Pagination, Sidebar-Nav",
     url: "/item-list",
     waitFor: "text=Demo item #1",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -44,7 +40,6 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Config-Stresstest: shadcn Shipping-Address aus dem Schema (flache Form)",
     url: "/shipping-edit",
     waitFor: "text=Shipping Address",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -52,7 +47,6 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Config-Stresstest: Profile mit Avatar-Image-Upload-Feld",
     url: "/profile-edit",
     waitFor: "[name='fullName']",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -61,7 +55,6 @@ export const SCENARIOS: readonly Scenario[] = [
       "Timezones-Recipe: locatedTimestamp-Picker (Wall-Clock + IANA-Zone) + date/timestamp/tz",
     url: "/delivery-edit",
     waitFor: "text=Located date-time",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -70,7 +63,6 @@ export const SCENARIOS: readonly Scenario[] = [
       "Form templates: CRM/maintenance/patient intake/incident log — SectionCard+Grid responsive across viewports",
     url: "/widgets-forms",
     waitFor: "[data-testid='form-examples-page']",
-    settleMs: 400,
     fullPage: true,
   },
   {
@@ -78,6 +70,5 @@ export const SCENARIOS: readonly Scenario[] = [
     description: "Widget-Katalog: jedes Widget auf einer Seite (Stats, Charts, Forms, Inbox)",
     url: "/widgets",
     waitFor: "[data-testid='widgets-page']",
-    settleMs: 400,
   },
 ];

@@ -1,6 +1,6 @@
 # Local dev stack for `kumiko dev` and integration tests.
-# Port defaults match test-setup/integration.preload.ts (high ports avoid
-# clashing with system Postgres/Redis installs).
+# Port defaults match packages/testing/src/preload/service-env-defaults.ts
+# (high ports avoid clashing with system Postgres/Redis installs).
 
 services:
   postgres:

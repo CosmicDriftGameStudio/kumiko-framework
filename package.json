@@ -36,6 +36,7 @@
     "packages/cli",
     "packages/repo-manifest",
     "packages/guards",
+    "packages/testing",
     "packages/create-kumiko-app",
     "packages/dev-server",
     "packages/server-runtime",

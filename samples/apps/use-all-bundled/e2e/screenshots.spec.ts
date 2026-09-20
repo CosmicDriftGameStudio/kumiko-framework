@@ -5,20 +5,12 @@
 // Switcher 1:1). Locale ist en — die Docs sind englisch; der Switcher schaltet
 // nur Theme + Viewport. Der Szenario-Name = der Feature-Name in den Docs.
 
-import { resolve } from "node:path";
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
+import { runMatrix, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { runMatrix, type Scenario } from "../../../e2e/screenshots";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
-
-const BASE_DIR =
-  process.env["SCREENSHOT_DIR"] ??
-  resolve(
-    import.meta.dirname,
-    "../../../../../kumiko-platform/apps/docs/public/screenshots/features",
-  );
 
 const THEMES = ["default-light", "default-dark"] as const;
 async function applyTheme(page: Page, theme: (typeof THEMES)[number]): Promise<void> {
@@ -168,26 +160,26 @@ const SCENARIOS: readonly Scenario[] = [
   // auth-email-password — Login-Surface, ausgeloggt.
   { name: "auth-login", url: "/", waitFor: "form" },
   // tenant — SystemAdmin entity-list (platform workspace nav).
-  { name: "tenant", flow: admin("/platform/tenant-list"), settleMs: 1000 },
+  { name: "tenant", flow: admin("/platform/tenant-list") },
   // user — SystemAdmin entity-list (not in admin-shell nav; tenant-admin prefix).
-  { name: "user", flow: admin("/tenant-admin/user-list"), settleMs: 1000 },
+  { name: "user", flow: admin("/tenant-admin/user-list") },
   // admin-shell — landing pages for the tenant and platform workspaces.
-  { name: "tenant-overview", flow: admin("/tenant-admin/tenant-overview"), settleMs: 1000 },
-  { name: "platform-overview", flow: admin("/platform/platform-overview"), settleMs: 1000 },
+  { name: "tenant-overview", flow: admin("/tenant-admin/tenant-overview") },
+  { name: "platform-overview", flow: admin("/platform/platform-overview") },
   // tier-engine — manueller Tier-Grant (platform workspace nav).
-  { name: "tier-engine", flow: admin("/platform/tier-admin"), settleMs: 1000 },
+  { name: "tier-engine", flow: admin("/platform/tier-admin") },
   // user-profile — Self-Service-Kontoseite (custom screen).
-  { name: "user-profile", flow: admin("/tenant-admin/profile"), settleMs: 1000 },
+  { name: "user-profile", flow: admin("/tenant-admin/profile") },
   // user-data-rights — Privacy-Center (GDPR self-service, openToAll).
-  { name: "user-data-rights", flow: admin("/tenant-admin/privacy-center"), settleMs: 1000 },
+  { name: "user-data-rights", flow: admin("/tenant-admin/privacy-center") },
   // managed-pages — TenantAdmin entity-list (about + pricing seeded).
-  { name: "managed-pages", flow: admin("/tenant-admin/page-list"), settleMs: 1000 },
+  { name: "managed-pages", flow: admin("/tenant-admin/page-list") },
   // tags — GitLab-style label management screen (catalog, colors, usage counts).
-  { name: "tags", flow: admin("/tenant-admin/tag-list"), settleMs: 1000 },
+  { name: "tags", flow: admin("/tenant-admin/tag-list") },
   // tags — a host list (notes) with the drop-in TagFilter in its toolbar header.
-  { name: "tags-filter", flow: admin("/tenant-admin/note-list"), settleMs: 1000 },
+  { name: "tags-filter", flow: admin("/tenant-admin/note-list") },
   // tags — a note's edit screen with the drop-in TagSection (assigned colored chips).
-  { name: "tags-section", flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
+  { name: "tags-section", flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`) },
   // legal-pages — public, server-rendered route (no login). Plain
   // server-rendered legal text, not wired to the client-side theme system —
   // .dark on <html> has no effect here, so it's exempt from the theme-diff
@@ -200,14 +192,13 @@ const SCENARIOS: readonly Scenario[] = [
   },
   // template-resolver — the mounted "reply-snippets" collection: rich editor
   // open on one entry, showing the variable chips its variableSchema declares.
-  { name: "template-resolver", flow: collectionEditor(), settleMs: 1000 },
+  { name: "template-resolver", flow: collectionEditor() },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
-  { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens"), settleMs: 1000 },
+  { name: "personal-access-tokens", flow: admin("/tenant-admin/api-tokens") },
   // config Settings-Hub — mask-derived configEdit under synthetic `settings` workspace.
   {
     name: "config-settings-hub",
     flow: admin("/settings/subscription-stripe-system"),
-    settleMs: 1000,
   },
   // audit — the event store exposed as the admin-gated audit log (tenant-admin
   // workspace nav): paginated, filterable history of who/when/what.
@@ -218,36 +209,32 @@ const SCENARIOS: readonly Scenario[] = [
     name: "audit-log",
     flow: admin("/tenant-admin/audit-log"),
     waitFor: '[data-testid^="render-list-table"]',
-    settleMs: 1000,
   },
-  { name: "audit-log-detail", flow: auditLogDetailFlow(), settleMs: 1000 },
+  { name: "audit-log-detail", flow: auditLogDetailFlow() },
   // jobs — SystemAdmin operator UI on the platform workspace (run list, retry).
   {
     name: "job-runs",
     flow: admin("/platform/job-runs"),
     waitFor: '[data-testid^="render-list-table"]',
-    settleMs: 1000,
   },
-  { name: "job-trigger", flow: jobTriggerFlow(), settleMs: 1000 },
-  { name: "job-run-detail", flow: jobRunDetailFlow(), settleMs: 1000 },
+  { name: "job-trigger", flow: jobTriggerFlow() },
+  { name: "job-run-detail", flow: jobRunDetailFlow() },
   // projectionList renders via RenderList with a fixed testId; `^=` matches
   // the empty state too, an empty log is a valid ready state here.
   {
     name: "delivery-log",
     flow: admin("/tenant-admin/delivery-log"),
     waitFor: '[data-testid^="render-list-table"]',
-    settleMs: 1000,
   },
   // profile-picker — compliance-profiles actionForm (profileKey select) plus
   // an extension section rendering the profile catalog below the form.
-  { name: "profile-picker", flow: admin("/tenant-admin/profile-picker"), settleMs: 1000 },
+  { name: "profile-picker", flow: admin("/tenant-admin/profile-picker") },
   // tenant-settings-tenant — Settings-Hub-derived configEdit screen (mask-
   // based, same mechanism as config-settings-hub above) for the tenant-scope
   // currency/locale defaults.
   {
     name: "tenant-settings-tenant",
     flow: admin("/settings/tenant-settings-tenant"),
-    settleMs: 1000,
   },
   // session-list — sortable projectionList over store_user_sessions.
   // loginAsAdmin's own login already creates one live session row.
@@ -255,7 +242,6 @@ const SCENARIOS: readonly Scenario[] = [
     name: "session-list",
     flow: admin("/tenant-admin/session-list"),
     waitFor: '[data-testid^="render-list-table"]',
-    settleMs: 1000,
   },
   // export-job-list — SystemAdmin GDPR-export inspector; exportJobListFlow
   // dispatches one request-export write first so the list isn't empty.
@@ -263,21 +249,18 @@ const SCENARIOS: readonly Scenario[] = [
     name: "export-job-list",
     flow: exportJobListFlow(),
     waitFor: '[data-testid^="render-list-table"]',
-    settleMs: 1000,
   },
   // auth-mfa — logged-in self-service TOTP enrollment (QR + recovery codes).
-  { name: "auth-mfa", flow: adminMfaEnroll(), settleMs: 1000 },
+  { name: "auth-mfa", flow: adminMfaEnroll() },
   // custom-fields + folders — drop-in extension sections on the note edit screen.
   {
     name: "custom-fields",
     flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`),
-    settleMs: 1000,
     fullPage: true,
   },
   {
     name: "folders",
     flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`),
-    settleMs: 1000,
     fullPage: true,
   },
   // cap-overview — tenant cap list: per-cap quota cards + usage bars on the
@@ -289,13 +272,12 @@ const SCENARIOS: readonly Scenario[] = [
       await page.goto("/tenant-admin/my-caps");
       await page.getByTestId("cap-cards-panel").waitFor({ timeout: 15_000 });
     },
-    settleMs: 1000,
     fullPage: true,
   },
   // auth-mfa — login-time challenge step (MfaVerifyScreen swapped in after
   // /auth/login answers mfaRequired). MUST run last — see comment above
   // adminMfaLoginChallenge.
-  { name: "auth-mfa-verify", flow: adminMfaLoginChallenge(), settleMs: 1000 },
+  { name: "auth-mfa-verify", flow: adminMfaLoginChallenge() },
 ];
 
-runMatrix(SCENARIOS, { baseDir: BASE_DIR, themes: THEMES, applyTheme, locales: ["en"] });
+runMatrix(SCENARIOS, { themes: THEMES, applyTheme, locales: ["en"] });

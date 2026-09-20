@@ -1,11 +1,8 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+// @runtime test
 import { defineConfig, devices } from "@playwright/test";
+import "@cosmicdrift/kumiko-testing/preload/env";
+import { PLAYWRIGHT_DEMO_ENV } from "@cosmicdrift/kumiko-testing/e2e";
 import { E2E_PORTS } from "../../e2e/e2e-ports";
-import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ENV_ARG = samplesEnvFileArg(HERE);
 
 // E2E port from samples/e2e/e2e-ports.ts; 4177 stays free for manual `bun dev`.
 const PORT = E2E_PORTS["framework/admin-console"];
@@ -38,9 +35,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
+    command: "bun run src/app/server.ts",
     url: BASE_URL,
-    env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
+    env: { ...PLAYWRIGHT_DEMO_ENV, PORT: String(PORT) },
     reuseExistingServer: false,
     timeout: 90_000,
     stdout: "pipe",

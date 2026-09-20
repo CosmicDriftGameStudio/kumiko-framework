@@ -1,0 +1,93 @@
+{
+  "name": "@cosmicdrift/kumiko-testing",
+  "version": "0.294.1",
+  "description": "Test template for Kumiko apps: per-flow seedTenant, app test stack, canonical test preloads, bunfig generator and integration runner.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/testing"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
+  "type": "module",
+  "kumiko": {
+    "runtime": "test"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./bunfig": {
+      "types": "./src/bunfig.ts",
+      "default": "./src/bunfig.ts"
+    },
+    "./preload/temporal": {
+      "types": "./src/preload/temporal.ts",
+      "default": "./src/preload/temporal.ts"
+    },
+    "./preload/ci-log": {
+      "types": "./src/preload/ci-log.ts",
+      "default": "./src/preload/ci-log.ts"
+    },
+    "./preload/scrub-env": {
+      "types": "./src/preload/scrub-env.ts",
+      "default": "./src/preload/scrub-env.ts"
+    },
+    "./preload/env": {
+      "types": "./src/preload/env.ts",
+      "default": "./src/preload/env.ts"
+    },
+    "./preload/real": {
+      "types": "./src/preload/real.ts",
+      "default": "./src/preload/real.ts"
+    },
+    "./scaffold": {
+      "types": "./src/scaffold.ts",
+      "default": "./src/scaffold.ts"
+    },
+    "./e2e": {
+      "types": "./src/e2e/index.ts",
+      "default": "./src/e2e/index.ts"
+    },
+    "./e2e/seed-route": {
+      "types": "./src/e2e/seed-route.ts",
+      "default": "./src/e2e/seed-route.ts"
+    }
+  },
+  "bin": {
+    "kumiko-testing": "./bin/kumiko-testing.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.62.1"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "bin",
+    "!src/**/__tests__/**",
+    "README.md",
+    "LICENSE"
+  ]
+}

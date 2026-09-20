@@ -5,11 +5,11 @@
 // entry used to only fail at screenshot-time via a timing race, not at
 // registration.
 //
-// Lives outside samples/e2e/ on purpose — bunfig.toml excludes **/e2e/**
+// Lives outside src/e2e/ on purpose — bunfig.toml excludes **/e2e/**
 // from bun test (that tree is Playwright .spec.ts territory).
 
 import { describe, expect, test } from "bun:test";
-import { validateScenarios } from "../../e2e/screenshots";
+import { validateScenarios } from "../e2e/screenshots";
 
 describe("validateScenarios", () => {
   test("accepts a url scenario with waitFor", () => {

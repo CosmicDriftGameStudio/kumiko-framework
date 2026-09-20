@@ -1,3 +1,4 @@
+// @runtime test
 // Playwright-Config für den ui-walkthrough-Durchstich. Startet den
 // echten dev-server als webServer-Fixture, genau wie `bun dev` — nur
 // auf dem Port aus samples/e2e/e2e-ports.ts, damit keine Dev-Session kollidiert.
@@ -6,20 +7,17 @@
 // setupTestStack-Default ist ephemeral (fresh kumiko_test_<random> DB),
 // deshalb braucht's keine DB-Reset-Logik hier.
 
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import "@cosmicdrift/kumiko-testing/preload/env";
+import { PLAYWRIGHT_DEMO_ENV, screenshotSpecsIgnore } from "@cosmicdrift/kumiko-testing/e2e";
 import { E2E_PORTS } from "../../e2e/e2e-ports";
-import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ENV_ARG = samplesEnvFileArg(HERE);
 
 const PORT = E2E_PORTS["framework/ui-walkthrough"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: screenshotSpecsIgnore(),
   // globalSetup spawnt vor allen Tests einen bun-Subprozess der die
   // Registry auswertet und `e2e/.e2e-data.json` schreibt. Der eigent-
   // liche generated.spec.ts-Runner liest nur die JSON — framework-
@@ -61,13 +59,13 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
+    command: "bun run src/app/server.ts",
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" zwingt setupTestStack in den ephemeral-
     // Mode (fresh kumiko_test_<random> DB pro Playwright-Run, im
     // stop()-Handler gedroppt). Ohne das würde E2E gegen die persistent
     // Dev-DB laufen und die Tests sähen bereits gespeicherte Einträge.
-    env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
+    env: { ...PLAYWRIGHT_DEMO_ENV, PORT: String(PORT) },
     reuseExistingServer: false,
     timeout: 60_000,
     stdout: "pipe",
