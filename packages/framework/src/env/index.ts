@@ -76,7 +76,8 @@ export function kmsSlotsOf(schema: z.ZodObject<z.ZodRawShape>): readonly string[
 
 // A ciphertext-only slot is satisfied by its `_CIPHERTEXT` twin: the plaintext
 // only exists after the boot-time decrypt, so requiring it here would reject
-// exactly the deployment this meta enables.
+// exactly the deployment this meta enables. safeExtend, not extend: Zod 4 throws
+// on extend for schemas carrying refinements (app-level superRefine).
 function relaxCiphertextOnlySlots<S extends z.ZodObject<z.ZodRawShape>>(
   schema: S,
   env: Readonly<Record<string, string>>,
@@ -88,7 +89,7 @@ function relaxCiphertextOnlySlots<S extends z.ZodObject<z.ZodRawShape>>(
     if (field && env[name] === undefined && env[`${name}_CIPHERTEXT`])
       relaxed[name] = field.optional();
   }
-  return Object.keys(relaxed).length === 0 ? schema : schema.extend(relaxed);
+  return Object.keys(relaxed).length === 0 ? schema : schema.safeExtend(relaxed);
 }
 
 // --- Field-classification helpers (Zod v4 introspection) ---
