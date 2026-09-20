@@ -21,6 +21,7 @@ import {
   createTenantConfig,
   defineFeature,
   EXT_FILE_PROVIDER,
+  FILE_STORAGE_PROVIDER_ENV,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export type {
@@ -58,6 +59,7 @@ export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
     "provider",
     createTenantConfig("text", {
       default: "",
+      env: FILE_STORAGE_PROVIDER_ENV,
       write: access.roles("TenantAdmin", "SystemAdmin"),
       read: access.roles("TenantAdmin", "SystemAdmin", "User"),
     }),

@@ -5,7 +5,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createTenantConfig,
+  defineFeature,
+  defineWriteHandler,
+  FILE_PROVIDER_CONFIG_KEY,
+  FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
+  FILE_STORAGE_PROVIDER_ENV,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -25,7 +33,11 @@ import { z } from "zod";
 import { createConfigFeature } from "../../config";
 import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory } from "../../config/feature";
-import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
+import {
+  buildEnvConfigOverrides,
+  type ConfigResolver,
+  createConfigResolver,
+} from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3";
 import { fileProviderS3EnvFeature } from "../../file-provider-s3-env";
@@ -37,15 +49,30 @@ import { createFileProviderForTenant, fileFoundationFeature } from "../feature";
 // --- Test-Handler that exercises the factory end-to-end ---
 
 const TEST_HANDLER_QN = "file-test:write:build-provider";
+const PROBE_SECRET_KEY = "file-test:config:probe-secret";
 const testProbeFeature = defineFeature("file-test", (r) => {
   r.requires("config");
   r.requires("secrets");
+  // Envelope-cipher round-trip partner: proves the resolver still decrypts
+  // once it also carries ENV-bridged app-overrides.
+  r.config({
+    keys: {
+      probeSecret: createTenantConfig("text", {
+        encrypted: true,
+        default: "",
+        read: access.roles("TenantAdmin", "SystemAdmin"),
+        write: access.roles("TenantAdmin", "SystemAdmin"),
+      }),
+    },
+  });
   r.writeHandler(
     defineWriteHandler({
       name: "build-provider",
       schema: z.object({}),
       access: { roles: ["TenantAdmin", "SystemAdmin"] },
       handler: async (event, ctx) => {
+        const readConfig = ctx.config;
+        if (!readConfig) throw new Error(`${TEST_HANDLER_QN}: ctx.config is missing`);
         const provider = await createFileProviderForTenant(
           ctx,
           event.user.tenantId,
@@ -54,6 +81,8 @@ const testProbeFeature = defineFeature("file-test", (r) => {
         return {
           isSuccess: true,
           data: {
+            selectedProvider: await readConfig(FILE_PROVIDER_CONFIG_KEY),
+            probeSecret: await readConfig(PROBE_SECRET_KEY),
             hasWrite: typeof provider.write === "function",
             hasRead: typeof provider.read === "function",
             hasDelete: typeof provider.delete === "function",
@@ -72,10 +101,10 @@ let resolver: ConfigResolver;
 let providerRef: MutableMasterKeyProvider;
 
 const testEncryptionKey = randomBytes(32).toString("base64");
+const ENV_SELECTED_PROVIDER = "s3-env";
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(testEncryptionKey);
-  resolver = createConfigResolver({ cipher: encryption });
 
   const initialKp = createEnvMasterKeyProvider({
     env: {
@@ -96,12 +125,22 @@ beforeAll(async () => {
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,
-    extraContext: ({ db, registry }) => ({
-      configResolver: resolver,
-      configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-      secrets: createSecretsContext({ db, masterKeyProvider: providerRef }),
-    }),
+    extraContext: ({ db, registry }) => {
+      // No app-side resolver rebuild: the provider key declares
+      // env: FILE_STORAGE_PROVIDER, so the generic ENV bridge selects it.
+      resolver = createConfigResolver({
+        cipher: encryption,
+        appOverrides: buildEnvConfigOverrides(registry, {
+          [FILE_STORAGE_PROVIDER_ENV]: ENV_SELECTED_PROVIDER,
+        }),
+      });
+      return {
+        configResolver: resolver,
+        configEncryption: encryption,
+        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        secrets: createSecretsContext({ db, masterKeyProvider: providerRef }),
+      };
+    },
   });
   db = stack.db;
 
@@ -281,5 +320,89 @@ describe("scenario 4: s3-env provider (app-wide env, no secrets)", () => {
         else process.env[k] = v;
       }
     }
+  });
+});
+
+// --- Scenario 5: FILE_STORAGE_PROVIDER selects the provider, no app resolver ---
+//
+// The stack's resolver is the plain framework one — its only app-override
+// comes from buildEnvConfigOverrides reading the key's `env` declaration.
+// Before #3112 every app rebuilt createConfigResolver just to pin this key.
+
+describe("scenario 5: ENV-bridged provider selection", () => {
+  function withS3Env<T>(run: () => Promise<T>): Promise<T> {
+    const saved = S3_ENV_KEYS.map((k) => [k, process.env[k]] as const);
+    Object.assign(process.env, {
+      S3_BUCKET: "env-bridge-bucket",
+      S3_REGION: "fsn1",
+      S3_ACCESS_KEY: "AKIABRIDGE",
+      S3_SECRET_KEY: "env-secret-not-real",
+    });
+    return run().finally(() => {
+      for (const [k, v] of saved) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    });
+  }
+
+  test("no tenant row → FILE_STORAGE_PROVIDER wins and the factory builds that provider", async () => {
+    const admin = adminFor(506);
+
+    const result = await withS3Env(
+      async () => (await stack.http.writeOk(TEST_HANDLER_QN, {}, admin)) as Record<string, unknown>,
+    );
+    expect(result["selectedProvider"]).toBe(ENV_SELECTED_PROVIDER);
+    expect(result["hasWrite"]).toBe(true);
+  });
+
+  test("tenant row still overrides the ENV value (cascade unchanged)", async () => {
+    const admin = adminFor(507);
+
+    await selectS3Provider(admin);
+    await setConfig(admin, "file-provider-s3:config:bucket", "row-bucket");
+    await setConfig(admin, "file-provider-s3:config:region", "fsn1");
+    await setConfig(admin, "file-provider-s3:config:access-key-id", "AKIAROW");
+    await stack.http.writeOk(
+      "secrets:write:set",
+      { key: S3_SECRET_ACCESS_KEY.name, value: "row-secret" },
+      admin,
+    );
+
+    const result = await withS3Env(
+      async () => (await stack.http.writeOk(TEST_HANDLER_QN, {}, admin)) as Record<string, unknown>,
+    );
+    expect(result["selectedProvider"]).toBe("s3");
+  });
+
+  test("boot-gate sentinel selects no provider", async () => {
+    // What runDevApp writes into FILE_STORAGE_PROVIDER when options.files
+    // already wires a provider — it names no plugin, so the bridge must not
+    // turn it into a selection.
+    expect(
+      buildEnvConfigOverrides(stack.registry, {
+        [FILE_STORAGE_PROVIDER_ENV]: FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
+      }).get(FILE_PROVIDER_CONFIG_KEY),
+    ).toBe(FILE_STORAGE_PROVIDER_BOOT_SENTINEL);
+
+    const admin = adminFor(508);
+    await setConfig(admin, FILE_PROVIDER_CONFIG_KEY, FILE_STORAGE_PROVIDER_BOOT_SENTINEL);
+
+    const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
+    // The factory throw surfaces as internal_error; the original message sits
+    // in details.causeMessage.
+    expect(JSON.stringify(error)).toMatch(
+      /no provider selected — set the 'file-foundation:config:provider' config-key/,
+    );
+  });
+
+  test("encrypted config keys still round-trip through the same resolver", async () => {
+    const admin = adminFor(509);
+    await setConfig(admin, PROBE_SECRET_KEY, "cipher-round-trip");
+
+    const result = await withS3Env(
+      async () => (await stack.http.writeOk(TEST_HANDLER_QN, {}, admin)) as Record<string, unknown>,
+    );
+    expect(result["probeSecret"]).toBe("cipher-round-trip");
   });
 });
