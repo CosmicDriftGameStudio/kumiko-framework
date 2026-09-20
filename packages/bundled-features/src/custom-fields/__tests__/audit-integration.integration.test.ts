@@ -33,6 +33,7 @@ import { AuditQueries } from "../../audit/constants";
 import { createAuditFeature } from "../../audit/feature";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
+import { createUserFeature } from "../../user";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
@@ -86,6 +87,7 @@ beforeAll(async () => {
       propertyFeature,
       createConfigFeature(),
       createTenantFeature(),
+      createUserFeature(),
       createAuditFeature(),
     ],
   });

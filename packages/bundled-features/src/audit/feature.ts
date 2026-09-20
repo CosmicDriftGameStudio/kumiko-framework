@@ -35,8 +35,7 @@ export function createAuditFeature(): FeatureDefinition {
         recommended: false,
       });
       r.translations({ keys: AUDIT_I18N });
-      // Screens resolve actor names via tenant:query:members.
-      r.requires("tenant");
+      r.requires("tenant", "user");
 
       // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
       r.defineEvent("escape-hatch-used", escapeHatchUsedSchema, { piiFields: "none" });
@@ -57,7 +56,14 @@ export function createAuditFeature(): FeatureDefinition {
             renderer: { format: "timestamp" },
           },
           { field: "type", label: i18nKey("audit.log.col.type") },
-          { field: "createdBy", label: i18nKey("audit.log.col.actor") },
+          {
+            field: "createdBy",
+            label: i18nKey("audit.log.col.actor"),
+            // Resolves only for SystemAdmin until fw#3107: the lookup QN this
+            // derives, user:query:user:list, is SystemAdmin-only.
+            refEntity: "user:user",
+            refLabelField: "displayName",
+          },
         ],
         searchable: true,
         defaultSort: { field: "createdAt", dir: "desc" },
@@ -107,7 +113,7 @@ export function createAuditFeature(): FeatureDefinition {
                 { field: "createdAt", renderer: { format: "timestamp" } },
                 "aggregateType",
                 "aggregateId",
-                "createdBy",
+                { field: "createdBy", refEntity: "user:user", refLabelField: "displayName" },
                 "id",
               ],
             },

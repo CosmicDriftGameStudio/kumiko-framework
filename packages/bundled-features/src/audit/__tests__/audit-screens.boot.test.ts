@@ -1,17 +1,35 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  isFieldsEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+  sectionFieldSpecs,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { createConfigFeature } from "../../config/feature";
 import { createTenantFeature } from "../../tenant/feature";
+import { createUserFeature } from "../../user/feature";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
 import { AUDIT_I18N } from "../i18n";
 
 describe("audit log screen + handler access alignment", () => {
-  const features = [createConfigFeature(), createTenantFeature(), createAuditFeature()];
+  const features = [
+    createConfigFeature(),
+    createTenantFeature(),
+    createUserFeature(),
+    createAuditFeature(),
+  ];
 
   test("boot-validates with audit-log screen registered", () => {
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("the user:user actor reference makes `user` a hard boot dependency (fw#3103)", () => {
+    expect(() =>
+      validateBoot([createConfigFeature(), createTenantFeature(), createAuditFeature()]),
+    ).toThrow(/requires feature "user"/);
   });
 
   test("audit-log screen is declarative, access.admin-gated", () => {
@@ -61,6 +79,27 @@ describe("audit log screen + handler access alignment", () => {
     }
     expect(aggregateTypeKey).not.toBe(aggregateIdKey);
     expect(AUDIT_I18N[aggregateTypeKey]?.en).not.toBe(AUDIT_I18N[aggregateIdKey]?.en);
+  });
+
+  test("actor column and detail field declare the user:user reference (fw#3103)", () => {
+    const audit = createAuditFeature();
+    expect(audit.requires).toContain("user");
+
+    const list = audit.screens[AUDIT_LOG_SCREEN_ID];
+    if (list?.type !== "projectionList") throw new Error("expected a projectionList screen");
+    const actorColumn = list.columns.map(normalizeListColumn).find((c) => c.field === "createdBy");
+    expect(actorColumn?.refEntity).toBe("user:user");
+    expect(actorColumn?.refLabelField).toBe("displayName");
+
+    const detail = audit.screens[AUDIT_LOG_DETAIL_SCREEN_ID];
+    if (detail?.type !== "projectionDetail") throw new Error("expected a projectionDetail screen");
+    const actorField = detail.layout.sections
+      .filter(isFieldsEditSection)
+      .flatMap((section) => sectionFieldSpecs(section))
+      .map(normalizeEditField)
+      .find((f) => f.field === "createdBy");
+    expect(actorField?.refEntity).toBe("user:user");
+    expect(actorField?.refLabelField).toBe("displayName");
   });
 
   test("audit queries use access.admin (screen ⊆ handler)", () => {

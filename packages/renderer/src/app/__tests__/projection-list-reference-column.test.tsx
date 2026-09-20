@@ -6,7 +6,10 @@
 // text back off the reference column's injected runtime renderer.
 
 import { describe, expect, test } from "bun:test";
-import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ListColumnSpec,
+  ProjectionListScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
@@ -21,6 +24,9 @@ import { NavProvider } from "../nav";
 
 const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000";
 const REAL_TENANT_ID = "11111111-1111-4111-8111-111111111111";
+const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+const REAL_USER_ID = "22222222-2222-4222-8222-222222222222";
+const DELETED_USER_ID = "33333333-3333-4333-8333-333333333333";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -61,8 +67,9 @@ function stubDispatcher(): Dispatcher {
           isSuccess: true,
           data: {
             rows: [
-              { id: "row-1", tenantId: REAL_TENANT_ID },
-              { id: "row-2", tenantId: SYSTEM_TENANT_ID },
+              { id: "row-1", tenantId: REAL_TENANT_ID, createdBy: REAL_USER_ID },
+              { id: "row-2", tenantId: SYSTEM_TENANT_ID, createdBy: SYSTEM_USER_ID },
+              { id: "row-3", tenantId: REAL_TENANT_ID, createdBy: DELETED_USER_ID },
             ],
             nextCursor: null,
           },
@@ -72,6 +79,12 @@ function stubDispatcher(): Dispatcher {
         return {
           isSuccess: true,
           data: { rows: [{ id: REAL_TENANT_ID, name: "Acme Inc" }], nextCursor: null },
+        };
+      }
+      if (type === "user:query:user:list") {
+        return {
+          isSuccess: true,
+          data: { rows: [{ id: REAL_USER_ID, displayName: "Ada Lovelace" }], nextCursor: null },
         };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
@@ -95,6 +108,21 @@ function buildSchema(screen: ProjectionListScreenDefinition): FeatureSchema {
   } as FeatureSchema;
 }
 
+const TENANT_COLUMN: ListColumnSpec = {
+  field: "tenantId",
+  label: "delivery.log.col.tenantId",
+  refEntity: "tenant:tenant",
+  refLabelField: "name",
+};
+
+// Mirrors the audit-log actor column (fw#3103).
+const ACTOR_COLUMN: ListColumnSpec = {
+  field: "createdBy",
+  label: "audit.log.col.actor",
+  refEntity: "user:user",
+  refLabelField: "displayName",
+};
+
 const staticNav: NavApi = {
   route: { screenId: "delivery:screen:log" },
   navigate: () => {},
@@ -104,19 +132,12 @@ const staticNav: NavApi = {
   setSearchParams: () => {},
 };
 
-function renderLogScreen(): void {
+function renderLogScreen(column: ListColumnSpec = TENANT_COLUMN): void {
   const screen: ProjectionListScreenDefinition = {
     id: "log",
     type: "projectionList",
     query: "delivery:query:log:list",
-    columns: [
-      {
-        field: "tenantId",
-        label: "delivery.log.col.tenantId",
-        refEntity: "tenant:tenant",
-        refLabelField: "name",
-      },
-    ],
+    columns: [column],
   };
   render(
     <LocaleProvider
@@ -134,8 +155,8 @@ function renderLogScreen(): void {
   );
 }
 
-function referenceRenderer(): RuntimeRenderer {
-  const col = getCapturedProps()?.columns.find((c) => c.field === "tenantId");
+function referenceRenderer(field = "tenantId"): RuntimeRenderer {
+  const col = getCapturedProps()?.columns.find((c) => c.field === field);
   if (typeof col?.renderer !== "function") throw new Error("reference column has no renderer yet");
   return col.renderer as RuntimeRenderer;
 }
@@ -157,5 +178,37 @@ describe("projectionList reference column resolves labels (fw#2662)", () => {
     await waitFor(() => {
       expect(referenceRenderer()(SYSTEM_TENANT_ID, { tenantId: SYSTEM_TENANT_ID })).toBe("System");
     });
+  });
+});
+
+describe("actor column resolves display names (fw#3103)", () => {
+  const actorCell = (id: string): unknown => referenceRenderer("createdBy")(id, { createdBy: id });
+
+  test("a real user id resolves to the display name", async () => {
+    capturedProps = undefined;
+    renderLogScreen(ACTOR_COLUMN);
+
+    await waitFor(() => {
+      expect(actorCell(REAL_USER_ID)).toBe("Ada Lovelace");
+    });
+  });
+
+  test("SYSTEM_USER_ID resolves to the system label", async () => {
+    capturedProps = undefined;
+    renderLogScreen(ACTOR_COLUMN);
+
+    await waitFor(() => {
+      expect(actorCell(SYSTEM_USER_ID)).toBe("System");
+    });
+  });
+
+  test("an unresolvable actor (deleted user) falls back to the raw id without throwing", async () => {
+    capturedProps = undefined;
+    renderLogScreen(ACTOR_COLUMN);
+
+    await waitFor(() => {
+      expect(actorCell(REAL_USER_ID)).toBe("Ada Lovelace");
+    });
+    expect(actorCell(DELETED_USER_ID)).toBe(DELETED_USER_ID);
   });
 });

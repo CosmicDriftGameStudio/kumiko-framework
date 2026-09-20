@@ -67,6 +67,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.related-list-truncated":
       "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
     "kumiko.reference.system-tenant": "System",
+    "kumiko.reference.system-user": "System",
 
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.previousPage": "Previous page",
