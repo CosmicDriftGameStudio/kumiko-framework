@@ -14,6 +14,8 @@ type ScanSpecBase = {
   readonly kinds?: readonly RepoKind[];
   /** Repo-relative globs; in a kind "framework" root only files matching one of them are kept (replaces `within` there). */
   readonly frameworkWithin?: readonly string[];
+  /** Repo-relative globs of files added on top of the scope's own hits (e.g. Playwright `e2e/` dirs outside sourceRoots/testGlobs); manifest excludes and the extension filter still apply. */
+  readonly extraGlobs?: readonly string[];
 };
 
 export type ScanSpec =
@@ -109,6 +111,14 @@ function testHits(root: RepoRoot): Hit[] {
   return [...byRepoRel.values()];
 }
 
+function extraHits(root: RepoRoot, globs: readonly string[] | undefined): Hit[] {
+  const byRepoRel = new Map<string, Hit>();
+  for (const glob of globs ?? []) {
+    for (const repoRel of scanGlob(root.absPath, glob)) byRepoRel.set(repoRel, { repoRel });
+  }
+  return [...byRepoRel.values()];
+}
+
 function afterExcludes(hits: readonly Hit[], excludes: readonly string[] | undefined): Hit[] {
   if (!excludes || excludes.length === 0) return [...hits];
   return hits.filter((hit) => !matchesAny(hit.repoRel, excludes));
@@ -135,7 +145,9 @@ function scanRoot(spec: ScanSpec, root: RepoRoot): RootScan {
     spec.scope === "source"
       ? sourceSurfaceHits
       : afterExcludes(testHits(root), root.manifest.excludes);
-  const files = scopeHits
+  const seen = new Set(scopeHits.map((hit) => hit.repoRel));
+  const additionalHits = afterExcludes(extraHits(root, spec.extraGlobs), root.manifest.excludes);
+  const files = [...scopeHits, ...additionalHits.filter((hit) => !seen.has(hit.repoRel))]
     .filter((hit) => keepForSpec(hit, root, spec))
     .map((hit) => join(root.absPath, hit.repoRel))
     .sort();

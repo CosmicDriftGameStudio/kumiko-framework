@@ -415,6 +415,7 @@ function scanSpecSummary(spec: ScanSpec): string {
   if (spec.kinds) parts.push(`kinds=${spec.kinds.join(",")}`);
   if (spec.scope === "source" && spec.within) parts.push(`within=${spec.within.join(",")}`);
   if (spec.frameworkWithin) parts.push(`frameworkWithin=${spec.frameworkWithin.join(",")}`);
+  if (spec.extraGlobs) parts.push(`extraGlobs=${spec.extraGlobs.join(",")}`);
   return parts.join(" ");
 }
 

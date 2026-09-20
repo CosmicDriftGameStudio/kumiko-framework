@@ -12,7 +12,7 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `Missing required env var: ${name}. Copy .env.example to .env and fill in values.`,
+      `Missing required env var: ${name}. Copy .env.example to .env and fill in values. Tests also need the test services (Postgres, Redis) running, e.g. "docker compose up -d".`,
     );
   }
   return value;
