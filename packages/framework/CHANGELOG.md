@@ -1,5 +1,75 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.292.0
+
+### Minor Changes
+
+- fbe8ffa: `FILE_STORAGE_PROVIDER` now selects the file provider, not just the boot gate
+
+  `file-foundation`'s `provider` config key declares `env: "FILE_STORAGE_PROVIDER"`, so the generic ENV→app-override bridge (`buildEnvConfigOverrides`) fills it at boot. An app that mounts `composeFileStack({ providers: [...] })` and sets `FILE_STORAGE_PROVIDER=s3-env` gets that provider without replacing `createConfigResolver` — the workaround three apps had copied, each of which also had to re-wire the envelope cipher for `encrypted: true` keys or lose decryption silently.
+
+  The cascade is unchanged: the ENV value sits on the app-override rung, so a tenant row written via `config:write:set` still overrides it.
+
+  `FILE_STORAGE_PROVIDER` carries a second meaning — `validateBoot` requires its presence once file/image fields are in use, and `runDevApp` sets it to `"configured"` when `options.files` already wires a provider. That placeholder names no plugin, so `createFileProviderForTenant` treats it like an unset key and raises its usual "no provider selected" error instead of looking up a provider called `configured`. Both strings are now the exported constants `FILE_STORAGE_PROVIDER_ENV` and `FILE_STORAGE_PROVIDER_BOOT_SENTINEL`.
+
+  Not breaking, but check your value before upgrading: an app on the framework's default resolver whose `FILE_STORAGE_PROVIDER` is neither a registered provider name nor the sentinel now fails with `provider "<value>" not registered` where it previously failed with `no provider selected` — an error either way, but a different one. Apps that pass their own `configResolver` never reach the bridge and are unaffected. A second consequence: `config:query:readiness` resolves the same key, so for a tenant without a row the ENV-selected provider's required keys now count as required where nothing counted before.
+
+  <!-- kumiko-changes
+  feature: file-foundation
+  type: improvement
+  title: FILE_STORAGE_PROVIDER selects the file provider, not just the boot gate
+  detail: The `provider` config key declares `env: "FILE_STORAGE_PROVIDER"`, so the ENV→app-override bridge selects the provider at boot without an app-side `createConfigResolver` rebuild. Tenant rows still override the ENV value (cascade unchanged). The boot-gate placeholder `"configured"` that `runDevApp` writes names no plugin, so `createFileProviderForTenant` treats it as unset and raises "no provider selected"; both strings are exported as `FILE_STORAGE_PROVIDER_ENV` / `FILE_STORAGE_PROVIDER_BOOT_SENTINEL`.
+  migration: Apps on the framework's default config resolver: make sure `FILE_STORAGE_PROVIDER` holds a registered provider name (`inmemory`, `s3`, `s3-env`) — it is now the provider selection, not only a presence check. Apps that pass their own `configResolver` are unaffected and can drop their hand-rolled `file-foundation:config:provider` app-override.
+  -->
+
+- 6d53c10: A projectionList can declare a time-range filter
+
+  A list bound to a query that already accepts time bounds had no way to expose them: `ListFacetSpec` knew `select`, `boolean` and `reference`, so every list with a timestamp — which, through `createdAt`, is practically every list — could be searched but not narrowed to "the week the incident happened". The audit log shipped a `description` promising date filters that no control backed.
+
+  `{ type: "dateRange", field, label, params: { from, to } }` closes that. The renderer maps it to two native `<input type="date">` next to the facet dropdowns (no date dependency; the browser supplies the calendar, the locale and the keyboard handling) and sends the picked bounds as the two query params the facet names — explicit rather than a `from`/`to` convention, since a query is free to call them anything, and checked against the handler's Zod schema at boot. Filtering stays server-side; either bound alone is a valid open interval; changing the range resets the page like every other facet; an inverted range is clamped in the UI instead of reaching the handler's `from <= to` refine.
+
+  A calendar date covers a whole day in the viewer's time zone: "to the 14th" includes everything through the last instant of the 14th, computed across DST boundaries rather than by adding 24 hours. `audit:screen:audit-log` now declares the facet on `createdAt`, so its description holds.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A projectionList can declare a time-range filter
+  -->
+
+### Patch Changes
+
+- 787c572: Audit log shows actor display names instead of raw UUIDs (fw#3103)
+
+  The `Actor` column of `audit:screen:audit-log` and the `createdBy` field of its detail screen rendered the raw `createdBy` UUID. The framework primitive for this already existed — `ListColumnSpec.refEntity` / `refLabelField`, used by `sessions` and `delivery` — the audit feature just did not declare it. Both now carry `refEntity: "user:user"`, `refLabelField: "displayName"`, which also makes the `createdBy → user:user` relation machine-readable in the app schema instead of implicit.
+
+  `audit:query:list` and `audit:query:details` are unchanged and still return the plain id.
+
+  A system write (`SYSTEM_USER_ID`, the null UUID) has no `read_users` row, so the bulk reference lookup can never resolve it. `SYSTEM_REFERENCE_LABELS` gained a `user:user` entry with the new `kumiko.reference.system-user` key, so every screen referencing `user:user` — not just the audit log — renders "System" for it. An actor that resolves to no row at all (deleted user) keeps the existing generic fallback: the raw id, no throw.
+
+  `SYSTEM_USER_ID` moved from `framework/engine/system-user` to `kumiko-types/identifiers`, next to `SYSTEM_TENANT_ID`, so the client-side reference-label map can read it without importing a runtime module. `engine/system-user` re-exports it — every existing import keeps working.
+
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Audit log shows actor display names instead of raw UUIDs (fw#3103)
+  migration: The audit feature now declares `r.requires("tenant", "user")`. An app that mounts `createAuditFeature()` without the `user` feature fails at boot with `Feature "audit" requires feature "user" which is not registered` — mount `createUserFeature()`. Apps using `securityBaselineFeatures()` already had to mount it.
+  -->
+
+- 7b5ac24: Validate changeset folding in PR CI
+
+  The release-time `changes fold` now also runs as a dry run on every PR, so a changeset with an unresolvable feature fails its own PR instead of the next release.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Validate changeset folding in PR CI
+  -->
+
+- Updated dependencies [787c572]
+- Updated dependencies [6d53c10]
+  - @cosmicdrift/kumiko-types@0.292.0
+  - @cosmicdrift/kumiko-http@0.292.0
+
 ## 0.291.0
 
 ### Minor Changes
