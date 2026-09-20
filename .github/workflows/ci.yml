@@ -90,6 +90,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
+      - name: Changeset fold dry-run
+        run: bash scripts/changeset-fold-check.sh
+
       - name: Run tests
         run: |
           # watch-tests öffnen viele inotify-FDs; ohne Job-Container das

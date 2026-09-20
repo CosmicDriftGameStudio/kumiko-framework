@@ -254,4 +254,50 @@ describe("changes fold", () => {
       { version: "0.275.0", type: "fix", title: "Previous framework fix" },
     ]);
   });
+
+  test("--dry-run names changeset file and feature when the feature does not resolve", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      ".changeset/framework-log-4xx.md": `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nLogs rejected 4xx handlers.\n\n<!-- kumiko-changes\nfeature: api\ntype: fix\ntitle: Logs rejected 4xx handlers\n-->\n`,
+      ".changeset-status.json": JSON.stringify({
+        changesets: [{ id: "framework-log-4xx" }],
+        releases: [
+          {
+            name: "@cosmicdrift/kumiko-framework",
+            newVersion: "0.277.0",
+            changesets: ["framework-log-4xx"],
+          },
+        ],
+      }),
+    });
+
+    const result = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json"), "--dry-run"]);
+
+    expect(result.exit).toBe(1);
+    expect(result.errs.join("\n")).toContain('.changeset/framework-log-4xx.md: unknown feature "api"');
+    expect(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8")).toBe("[]");
+  });
+
+  test("--dry-run reports the resolved update without writing it", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      ".changeset/framework-fix.md": `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nFixes the framework flow.\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Fixes the framework flow\n-->\n`,
+      ".changeset-status.json": JSON.stringify({
+        changesets: [{ id: "framework-fix" }],
+        releases: [
+          {
+            name: "@cosmicdrift/kumiko-framework",
+            newVersion: "0.277.0",
+            changesets: ["framework-fix"],
+          },
+        ],
+      }),
+    });
+
+    const result = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json"), "--dry-run"]);
+
+    expect(result.exit).toBe(0);
+    expect(result.logs.join("\n")).toContain("would update");
+    expect(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8")).toBe("[]");
+  });
 });
