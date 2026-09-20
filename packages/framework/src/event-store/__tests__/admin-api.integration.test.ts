@@ -17,7 +17,7 @@ import { generateId as uuid } from "../../utils";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { IdempotentAppendConflictError, VersionConflictError } from "../errors";
 import { append, loadAggregate } from "../event-store";
-import { createEventsTable, eventsTable } from "../events-schema";
+import { eventsTable } from "../events-schema";
 
 // Test-only spy: wrap a DbConnection's `.unsafe()` to capture the SQL
 // string of every query the framework runs. Used to assert batching
@@ -47,7 +47,6 @@ const legacyUser = "legacy-user-42";
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

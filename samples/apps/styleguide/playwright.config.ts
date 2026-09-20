@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 
-const PORT = 4181;
+const PORT = E2E_PORTS["framework/styleguide"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -30,7 +31,7 @@ export default defineConfig({
     command: "bun --env-file=../../../.env run src/app/server.ts",
     url: BASE_URL,
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 90_000,
     stdout: "pipe",
     stderr: "pipe",

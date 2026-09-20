@@ -7,7 +7,6 @@ import {
   createSystemConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   setupTestStack,
@@ -88,7 +87,6 @@ beforeAll(async () => {
     },
   });
   await unsafePushTables(stack.db, { configValuesTable, tenantSecretsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -185,7 +183,6 @@ describe("config backing=secrets — fail-loud when secrets unwired", () => {
       },
     });
     await unsafePushTables(unwired.db, { configValuesTable, tenantSecretsTable });
-    await createEventsTable(unwired.db);
 
     try {
       const err = await unwired.http.writeErr(

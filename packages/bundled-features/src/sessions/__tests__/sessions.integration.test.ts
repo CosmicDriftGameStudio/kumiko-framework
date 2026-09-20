@@ -9,7 +9,7 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -87,7 +87,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

@@ -15,7 +15,6 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createAnonymousUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -87,7 +86,6 @@ beforeAll(async () => {
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
   await unsafeCreateEntityTable(db, userContentEntryEntity);
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

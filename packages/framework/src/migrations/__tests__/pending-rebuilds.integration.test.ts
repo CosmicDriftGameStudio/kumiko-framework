@@ -20,7 +20,6 @@ import {
   defineFeature,
   type ProjectionDefinition,
 } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import type { JobRunner } from "../../jobs/job-runner";
 import { createProjectionStateTable } from "../../pipeline";
 import {
@@ -97,7 +96,6 @@ let markerDir: string;
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, itemEntity, "pending-item");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, {
     readPendingCounts: countsTable,

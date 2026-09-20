@@ -13,7 +13,6 @@ import {
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -42,7 +41,6 @@ beforeAll(async () => {
   });
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
-  await createEventsTable(db);
 
   // Seed legal blocks für SYSTEM_TENANT in DE
   await seedTextBlock(db, {
@@ -266,7 +264,6 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
     });
     try {
       await unsafeCreateEntityTable(hostScopedStack.db, templateResourceEntity);
-      await createEventsTable(hostScopedStack.db);
 
       // Block NUR im SYSTEM_TENANT seeden — NICHT im otherTenantId
       await seedTextBlock(hostScopedStack.db, {
@@ -308,7 +305,6 @@ describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regressi
     });
     try {
       await unsafeCreateEntityTable(customStack.db, templateResourceEntity);
-      await createEventsTable(customStack.db);
       await seedTextBlock(customStack.db, {
         tenantId: SYSTEM_TENANT_ID,
         slug: "imprint",
@@ -363,7 +359,6 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
     });
     try {
       await unsafeCreateEntityTable(esStack.db, templateResourceEntity);
-      await createEventsTable(esStack.db);
       await seedTextBlock(esStack.db, {
         tenantId: SYSTEM_TENANT_ID,
         slug: "imprint",

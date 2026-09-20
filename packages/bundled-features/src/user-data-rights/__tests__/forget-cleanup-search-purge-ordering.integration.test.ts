@@ -18,7 +18,6 @@ import {
   SYSTEM_TENANT_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -107,7 +106,6 @@ beforeAll(async () => {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

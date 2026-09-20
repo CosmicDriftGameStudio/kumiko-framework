@@ -26,7 +26,7 @@ import {
   defineFeature,
 } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
-import { archiveStream, createEventsTable } from "../../event-store";
+import { archiveStream } from "../../event-store";
 import {
   createProjectionStateTable,
   getAllProjectionProgress,
@@ -104,7 +104,6 @@ const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, itemEntity, "rebuild-item");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
   tdb = createTenantDb(testDb.db, admin.tenantId);

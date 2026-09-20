@@ -19,7 +19,6 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestDb,
@@ -113,7 +112,6 @@ beforeAll(async () => {
 
   const registry = createRegistry([appFeature, createJobsFeature()]);
   await unsafePushTables(db, { jobRunsTable, jobRunLogsTable, tenantJobFailuresTable });
-  await createEventsTable(db);
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
   jobRunner = createJobRunner({

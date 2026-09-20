@@ -17,7 +17,6 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
 import {
   setupTestStack,
@@ -67,7 +66,6 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [widgetFeature, contactFeature] });
   await unsafeCreateEntityTable(stack.db, widgetEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity, "contact");
-  await createEventsTable(stack.db);
   // Shared across both pii tests below (not per-test) — reindexEntity scans
   // the whole tenant table regardless of which test created which row, so a
   // fresh KMS instance per test would make earlier rows' subject keys

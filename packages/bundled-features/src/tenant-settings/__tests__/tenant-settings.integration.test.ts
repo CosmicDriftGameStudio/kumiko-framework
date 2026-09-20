@@ -16,7 +16,6 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   pushEntityProjectionTables,
   setupTestStack,
@@ -84,7 +83,6 @@ describe("without tenant-settings mount", () => {
     });
     await unsafePushTables(stack.db, { configValuesTable });
     await unsafeCreateEntityTable(stack.db, invoiceEntity);
-    await createEventsTable(stack.db);
     await pushEntityProjectionTables(stack, stack.registry);
   });
 

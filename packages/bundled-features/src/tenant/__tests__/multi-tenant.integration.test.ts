@@ -11,7 +11,6 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestDb,
@@ -69,7 +68,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, userEntity);
   await unsafePushTables(db, { tenantMembershipsTable, configValuesTable });
-  await createEventsTable(db);
 
   const configFeature = createConfigFeature();
   const userFeature = createUserFeature();

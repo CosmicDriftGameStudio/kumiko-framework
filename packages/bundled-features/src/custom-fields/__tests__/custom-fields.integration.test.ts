@@ -21,7 +21,6 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,
   rebuildProjection,
@@ -87,7 +86,6 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
-  await createEventsTable(stack.db);
   await createProjectionStateTable(stack.db);
 });
 

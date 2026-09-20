@@ -11,7 +11,6 @@ import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db
 import { asRawClient } from "../../db/query";
 import { createEntity, createTextField, from } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
-import { createEventsTable } from "../../event-store";
 import { createInMemorySearchAdapter } from "../../search";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { seedRows } from "../../testing";
@@ -156,7 +155,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, piiCustomerEntity, "refSearchPiiCustomer");
   await unsafeCreateEntityTable(testDb.db, piiOrderEntity, "refSearchPiiOrder");
   await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
-  await createEventsTable(testDb.db);
   tdbA = createTenantDb(testDb.db, admin.tenantId);
   tdbB = createTenantDb(testDb.db, otherTenantAdmin.tenantId);
 });

@@ -15,7 +15,7 @@ import { insertMany } from "../../bun-db/query";
 import type { TenantId } from "../../engine/types";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
-import { createEventsTable, eventsTable, getStreamVersion } from "../index";
+import { eventsTable, getStreamVersion } from "../index";
 
 let testDb: BunTestDb;
 const tenantId: TenantId = uuid();
@@ -24,7 +24,6 @@ const userId = uuid();
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

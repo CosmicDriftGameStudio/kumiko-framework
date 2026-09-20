@@ -11,7 +11,6 @@ import {
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -92,7 +91,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await createEventsTable(stack.db);
 
   await asRawClient(stack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id) VALUES ($1, $3, 'team-a'), ($2, $3, 'team-b')`,
@@ -209,7 +207,6 @@ describe("notes-history read-gate — parents allowlist narrows both paths", () 
     await unsafeCreateEntityTable(allowStack.db, userEntity);
     await unsafeCreateEntityTable(allowStack.db, projectEntity);
     await unsafeCreateEntityTable(allowStack.db, otherEntity);
-    await createEventsTable(allowStack.db);
     await asRawClient(allowStack.db).unsafe(
       `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id) VALUES ($1, $2, 'team-a')`,
       [PROJECT_A, userA.tenantId],

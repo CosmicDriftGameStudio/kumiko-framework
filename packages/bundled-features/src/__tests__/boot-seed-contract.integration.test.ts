@@ -4,7 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -33,7 +33,6 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

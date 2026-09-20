@@ -22,7 +22,6 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestDb,
@@ -56,7 +55,6 @@ beforeAll(async () => {
   testRedis = await createTestRedis();
   db = testDb.db;
   await unsafePushTables(db, { jobRunsTable, jobRunLogsTable });
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

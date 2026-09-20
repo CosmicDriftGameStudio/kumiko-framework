@@ -16,7 +16,6 @@ import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { asRawClient } from "../../db/query";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
-import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
 import { TestUsers, unsafePushTables } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
@@ -68,7 +67,6 @@ const qualifiedProjectionName = "perfrebuild:projection:task-count";
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { perf_rebuild_task_count: taskCountTable });
 });

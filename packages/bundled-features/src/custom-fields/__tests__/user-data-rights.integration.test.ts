@@ -30,7 +30,6 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   resetEventStore,
@@ -158,7 +157,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await createEventsTable(stack.db);
 
   // runForgetCleanup + runUserExport iterate the user's memberships. Provide a
   // minimal membership read-model (same shape the user-data-rights suite uses).

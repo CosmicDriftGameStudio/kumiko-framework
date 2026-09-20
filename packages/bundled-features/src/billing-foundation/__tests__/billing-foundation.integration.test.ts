@@ -23,11 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createEventsTable,
-  isStreamArchived,
-  loadAggregate,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -147,7 +143,6 @@ beforeAll(async () => {
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push).
-  await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   // providerCustomerId/providerSubscriptionId are `personal: "tenant"`

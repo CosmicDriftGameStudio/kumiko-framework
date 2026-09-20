@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -71,7 +70,6 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 
   await seedPage(stack.db, {
     tenantId: TENANT_A,
@@ -601,7 +599,6 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     });
     await unsafeCreateEntityTable(cssStack.db, pageEntity);
     await unsafePushTables(cssStack.db, { configValuesTable });
-    await createEventsTable(cssStack.db);
     await seedPage(cssStack.db, {
       tenantId: TENANT_A,
       slug: "about",
@@ -754,7 +751,6 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
     });
     await unsafeCreateEntityTable(authStack.db, pageEntity);
     await unsafePushTables(authStack.db, { configValuesTable });
-    await createEventsTable(authStack.db);
     await seedPage(authStack.db, {
       tenantId: TENANT_A,
       slug: "about",

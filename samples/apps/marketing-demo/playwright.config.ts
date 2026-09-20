@@ -5,12 +5,13 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_ARG = samplesEnvFileArg(HERE);
 
-const PORT = 4179;
+const PORT = E2E_PORTS["framework/marketing-demo"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -47,7 +48,7 @@ export default defineConfig({
       PORT: String(PORT),
       KUMIKO_DEV_DB_NAME: "",
     },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 60_000,
     stdout: "pipe",
     stderr: "pipe",

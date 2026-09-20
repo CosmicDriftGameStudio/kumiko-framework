@@ -34,7 +34,6 @@ import type { Registry, TenantId } from "../../engine/types";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
 import { append, loadAggregate } from "../event-store";
-import { createEventsTable } from "../events-schema";
 
 const TENANT = "00000000-0000-4000-8000-000000000001" as TenantId;
 const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");
@@ -145,7 +144,6 @@ beforeAll(async () => {
     surveyFeature,
     signalsFeature,
   ]);
-  await createEventsTable(testDb.db);
   await unsafeCreateEntityTable(testDb.db, contactEntity, "contact");
   await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
   await unsafeCreateEntityTable(testDb.db, surveyEntity, "survey");

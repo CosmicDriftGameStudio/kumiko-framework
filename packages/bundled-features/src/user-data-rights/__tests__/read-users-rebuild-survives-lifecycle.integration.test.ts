@@ -21,11 +21,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  archiveStream,
-  createEventsTable,
-  eventsTable,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { archiveStream, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,
   rebuildProjection,
@@ -120,7 +116,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
   await createProjectionStateTable(stack.db);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });

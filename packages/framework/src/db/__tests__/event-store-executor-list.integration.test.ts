@@ -15,7 +15,6 @@ import {
   SYSTEM_TENANT_ID,
 } from "../../engine";
 import { UnprocessableError } from "../../errors";
-import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { encodeCursor } from "../cursor";
@@ -46,7 +45,6 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "pagerItem");
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });
 

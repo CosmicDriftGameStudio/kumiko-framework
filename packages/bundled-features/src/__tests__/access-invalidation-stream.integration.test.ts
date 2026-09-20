@@ -12,7 +12,7 @@ import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -133,7 +133,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

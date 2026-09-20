@@ -24,13 +24,7 @@ import { asRawClient } from "../../db/query";
 import type { TenantId } from "../../engine/types";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
-import {
-  append,
-  createEventsTable,
-  loadAggregate,
-  loadAggregateWithSnapshot,
-  saveSnapshot,
-} from "../index";
+import { append, loadAggregate, loadAggregateWithSnapshot, saveSnapshot } from "../index";
 
 let testDb: BunTestDb;
 const tenantId = uuid() as TenantId;
@@ -39,7 +33,6 @@ const userId = uuid();
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

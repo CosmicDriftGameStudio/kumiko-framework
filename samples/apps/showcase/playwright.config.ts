@@ -1,12 +1,13 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_ARG = samplesEnvFileArg(HERE);
 
-const PORT = 4175;
+const PORT = E2E_PORTS["framework/showcase"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -36,7 +37,7 @@ export default defineConfig({
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" → ephemeral DB per Playwright run.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     // 200 sequential showcase:write:item:create seeds go through the full
     // pipeline (validation, read-side, search-index, audit) on an ephemeral
     // DB — 120s was tuned for the pre-seed screenshot-server variant.

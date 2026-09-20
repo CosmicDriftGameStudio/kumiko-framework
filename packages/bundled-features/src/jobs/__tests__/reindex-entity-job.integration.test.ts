@@ -20,7 +20,6 @@ import {
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -69,7 +68,6 @@ const noopLogger: JobContext["log"] = {
 beforeAll(async () => {
   stack = await setupTestStack({ features: [widgetFeature, createJobsFeature()] });
   await unsafeCreateEntityTable(stack.db, widgetEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

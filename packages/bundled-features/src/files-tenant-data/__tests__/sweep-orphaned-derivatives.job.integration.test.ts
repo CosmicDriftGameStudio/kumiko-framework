@@ -10,7 +10,6 @@ import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildStorageKey,
   createInMemoryFileProvider,
@@ -126,7 +125,6 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
-  await createEventsTable(stack.db);
   await unsafePushTables(stack.db, { configValuesTable });
 });
 

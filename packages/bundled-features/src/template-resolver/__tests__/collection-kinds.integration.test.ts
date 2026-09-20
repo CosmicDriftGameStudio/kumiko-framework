@@ -7,7 +7,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type DbConnection, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { createAnonymousUser } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -60,7 +59,6 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
-  await createEventsTable(db);
 
   // A text-block and a snippet on the same tenant with the same slug — proves
   // the collection selects the row rather than decorating the payload.

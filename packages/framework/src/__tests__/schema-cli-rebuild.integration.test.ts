@@ -18,7 +18,6 @@ import { buildEntityTable } from "../db/table-builder";
 import { createTenantDb, type TenantDb } from "../db/tenant-db";
 import { createEntity, createTextField, defineApply, defineFeature } from "../engine";
 import type { ProjectionDefinition } from "../engine/types";
-import { createEventsTable } from "../event-store";
 import { createProjectionStateTable } from "../pipeline";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
 import {
@@ -101,7 +100,6 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, itemEntity, "apply-item");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { applyItemsPerGroup: counterTable });
   tdb = createTenantDb(testDb.db, admin.tenantId);

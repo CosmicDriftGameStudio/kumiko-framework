@@ -21,7 +21,6 @@ import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, selectMany } from "../../db/query";
 import { createRegistry } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import { createDispatcher, type Dispatcher } from "../../pipeline";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createSeedMigrationContext } from "../context";
@@ -38,7 +37,6 @@ let dispatcher: Dispatcher;
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   await createEsOperationsTable(testDb.db);
 
   const registry = createRegistry([]);

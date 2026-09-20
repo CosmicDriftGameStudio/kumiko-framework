@@ -14,7 +14,7 @@ import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db
 import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
-import { archiveStream, createArchivedStreamsTable, createEventsTable } from "../../event-store";
+import { archiveStream, createArchivedStreamsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -49,7 +49,6 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
-  await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);

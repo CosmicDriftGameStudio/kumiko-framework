@@ -19,7 +19,6 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   resetEventStore,
@@ -93,7 +92,6 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

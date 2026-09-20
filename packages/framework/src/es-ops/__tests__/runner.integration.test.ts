@@ -29,7 +29,6 @@ import {
   SYSTEM_TENANT_ID,
 } from "../../engine";
 import { VersionConflictError } from "../../errors";
-import { createEventsTable } from "../../event-store";
 import { createDispatcher, type Dispatcher } from "../../pipeline";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
@@ -89,7 +88,6 @@ let registry: ReturnType<typeof createRegistry>;
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   await createEsOperationsTable(testDb.db);
   await unsafeCreateEntityTable(testDb.db, probeEntity, "esops-probe");
   registry = createRegistry([seedTestFeature]);

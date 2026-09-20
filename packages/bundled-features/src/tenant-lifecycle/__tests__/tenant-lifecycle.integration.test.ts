@@ -9,12 +9,7 @@ import {
   EXT_TENANT_DATA,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  append,
-  createEventsTable,
-  eventsTable,
-  loadAggregate,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -95,7 +90,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, userSessionEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, tenantMembershipEntity);
-  await createEventsTable(db);
   await unsafePushTables(db, { configValuesTable });
 });
 
@@ -218,7 +212,6 @@ describe("tenant-lifecycle :: pipeline abandon / destroyFailed", () => {
     });
     await unsafeCreateEntityTable(poisonStack.db, tenantEntity);
     await unsafeCreateEntityTable(poisonStack.db, tenantComplianceProfileEntity);
-    await createEventsTable(poisonStack.db);
     await unsafePushTables(poisonStack.db, { configValuesTable });
   });
 
@@ -425,7 +418,6 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
     });
     await unsafeCreateEntityTable(isolationStack.db, tenantEntity);
     await unsafeCreateEntityTable(isolationStack.db, tenantComplianceProfileEntity);
-    await createEventsTable(isolationStack.db);
     await unsafePushTables(isolationStack.db, { configValuesTable });
   });
 
@@ -495,7 +487,6 @@ describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () =>
     await unsafeCreateEntityTable(derivedStack.db, userSessionEntity);
     await unsafeCreateEntityTable(derivedStack.db, tenantComplianceProfileEntity);
     await unsafeCreateEntityTable(derivedStack.db, tenantMembershipEntity);
-    await createEventsTable(derivedStack.db);
     await unsafePushTables(derivedStack.db, { configValuesTable });
   });
 

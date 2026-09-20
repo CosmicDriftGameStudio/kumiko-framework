@@ -9,7 +9,6 @@ import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db
 import { asRawClient } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
-import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { seedRows } from "../../testing";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
@@ -107,7 +106,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, customerEntity, "refSortCustomer");
   await unsafeCreateEntityTable(testDb.db, orderEntity, "refSortOrder");
   await unsafeCreateEntityTable(testDb.db, restrictedOrderEntity, "refSortRestrictedOrder");
-  await createEventsTable(testDb.db);
   tdbA = createTenantDb(testDb.db, admin.tenantId);
 });
 

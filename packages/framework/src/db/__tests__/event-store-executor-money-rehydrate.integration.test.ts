@@ -9,7 +9,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
 import { createEntity, createMoneyField, createTextField, from } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createTestEnvelopeCipher } from "../../testing";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
@@ -59,7 +58,6 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "moneyOrder");
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
   configureEntityFieldEncryption(cipher);
 });

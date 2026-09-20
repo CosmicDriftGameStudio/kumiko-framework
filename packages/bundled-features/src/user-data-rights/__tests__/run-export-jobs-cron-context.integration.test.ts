@@ -18,7 +18,6 @@ import {
   type JobContext,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   setupTestStack,
@@ -80,7 +79,6 @@ beforeAll(async () => {
       createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
     ],
   });
-  await createEventsTable(stack.db);
   await unsafePushTables(stack.db, { configValuesTable });
   await unsafeCreateEntityTable(stack.db, exportJobEntity);
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);

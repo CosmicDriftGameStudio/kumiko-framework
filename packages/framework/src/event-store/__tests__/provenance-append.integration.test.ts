@@ -5,7 +5,7 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { AccessDeniedError, InternalError } from "../../errors";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
-import { createEventsTable, loadAggregate, VersionConflictError } from "../index";
+import { loadAggregate, VersionConflictError } from "../index";
 import { appendProvenanceEvent, type ProvenanceEventInput } from "../provenance-append";
 
 let testDb: BunTestDb;
@@ -37,7 +37,6 @@ function provenanceEvent(overrides: Partial<ProvenanceEventInput>): ProvenanceEv
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, tenantA);
 });
 

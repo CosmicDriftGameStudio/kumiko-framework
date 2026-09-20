@@ -14,7 +14,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { append, createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
   type TestDb,
@@ -35,7 +35,6 @@ const executor = createEventStoreExecutor(userTable, userEntity, { entityName: "
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

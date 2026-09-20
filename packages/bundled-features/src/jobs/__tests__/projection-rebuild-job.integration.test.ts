@@ -25,7 +25,6 @@ import {
   defineFeature,
   type ProjectionDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   enqueueProjectionRebuild,
@@ -103,7 +102,6 @@ beforeAll(async () => {
   db = testDb.db;
 
   await unsafeCreateEntityTable(db, itemEntity, "rebuild-item");
-  await createEventsTable(db);
   await createProjectionStateTable(db);
   await unsafePushTables(db, { readRebuildCounts: countsTable, jobRunsTable, jobRunLogsTable });
   tdb = createTenantDb(db, admin.tenantId);

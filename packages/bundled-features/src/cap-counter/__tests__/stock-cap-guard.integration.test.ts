@@ -14,7 +14,7 @@ import {
   type SessionUser,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -36,7 +36,6 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   db = stack.db;
   await unsafeCreateEntityTable(db, capCounterEntity, "cap-counter");
-  await createEventsTable(db);
 });
 
 afterAll(async () => {
@@ -157,7 +156,6 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
   beforeAll(async () => {
     httpStack = await setupTestStack({ features: [stockItemFeature] });
     await unsafeCreateEntityTable(httpStack.db, capCounterEntity, "cap-counter");
-    await createEventsTable(httpStack.db);
   });
 
   afterAll(async () => {

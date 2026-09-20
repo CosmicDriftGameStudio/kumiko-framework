@@ -1,18 +1,19 @@
 // Playwright-Config für den workspaces-Sample. Startet den echten dev-
-// server als webServer-Fixture auf Port 4175 (4173 = laufende Dev-
-// Session, 4174 = ui-walkthrough-E2E). Pattern ist 1:1 wie der ui-
+// server als webServer-Fixture (Port aus samples/e2e/e2e-ports.ts).
+// Pattern ist 1:1 wie der ui-
 // walkthrough-Sample — wenn das Pattern nochmal gebraucht wird, lohnt
 // sich eine Extraktion.
 
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_ARG = samplesEnvFileArg(HERE);
 
-const PORT = 4175;
+const PORT = E2E_PORTS["framework/workspaces"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -49,7 +50,7 @@ export default defineConfig({
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" → ephemeral DB pro Playwright-Run.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 60_000,
     stdout: "pipe",
     stderr: "pipe",

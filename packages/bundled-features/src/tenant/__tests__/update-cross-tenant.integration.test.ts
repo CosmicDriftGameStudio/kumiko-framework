@@ -4,7 +4,6 @@
 // tenant's row. Real HTTP via setupTestStack — no mocks.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -30,7 +29,6 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

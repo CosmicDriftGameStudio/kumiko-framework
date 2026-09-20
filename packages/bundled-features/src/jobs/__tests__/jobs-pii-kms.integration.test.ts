@@ -20,7 +20,7 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
   createTestRedis,
@@ -59,7 +59,6 @@ beforeAll(async () => {
   await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
   // Kept only so the "no event store involved" assertion below has a table
   // to assert against — the write path itself never touches it.
-  await createEventsTable(testDb.db);
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
 

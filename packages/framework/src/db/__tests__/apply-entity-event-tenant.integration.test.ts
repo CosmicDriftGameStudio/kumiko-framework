@@ -21,7 +21,6 @@ import { asRawClient, selectMany } from "../../db/query";
 import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";
 import type { StoredEvent } from "../../event-store";
-import { createEventsTable } from "../../event-store";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { applyEntityEvent } from "../apply-entity-event";
 import { buildEntityTable } from "../table-builder";
@@ -39,7 +38,6 @@ let testDb: BunTestDb;
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   await asRawClient(testDb.db).unsafe(`
     CREATE TABLE read_apply_tenant_check (
       id uuid PRIMARY KEY,

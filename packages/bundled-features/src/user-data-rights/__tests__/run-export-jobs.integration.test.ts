@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -71,7 +71,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
-  await createEventsTable(stack.db);
   // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
   // Pattern matched user-data-rights-defaults integration-test.
   await asRawClient(stack.db).unsafe(`
@@ -1064,7 +1063,6 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     await unsafeCreateEntityTable(localStack.db, exportJobEntity);
     await unsafeCreateEntityTable(localStack.db, exportDownloadTokenEntity);
     await unsafeCreateEntityTable(localStack.db, tenantComplianceProfileEntity);
-    await createEventsTable(localStack.db);
     await asRawClient(localStack.db).unsafe(`
       CREATE TABLE IF NOT EXISTS read_tenant_memberships (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

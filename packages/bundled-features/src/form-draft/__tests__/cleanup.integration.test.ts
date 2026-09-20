@@ -11,7 +11,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { qn, type TenantId, toKebab } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   fileRefEntity,
@@ -72,7 +71,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
   await unsafeCreateEntityTable(stack.db, fileRefEntity, "fileRef");
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
   createTestRedis,
@@ -36,7 +36,6 @@ beforeAll(async () => {
   await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
   // Kept only for the negative assertion below (no jobs:event:run-* rows) —
   // the write path itself no longer touches the event store.
-  await createEventsTable(testDb.db);
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
 

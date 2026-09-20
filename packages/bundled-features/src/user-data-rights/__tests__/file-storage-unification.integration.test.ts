@@ -15,7 +15,6 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -122,7 +121,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, userSessionEntity);
   await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
   await unsafePushTables(db, { fileRefsTable, configValuesTable });
-  await createEventsTable(db);
   await asRawClient(db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
 });
 

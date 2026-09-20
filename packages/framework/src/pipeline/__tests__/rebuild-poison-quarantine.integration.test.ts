@@ -23,7 +23,7 @@ import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createTextField, defineApply, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
-import { append, createEventsTable } from "../../event-store";
+import { append } from "../../event-store";
 import { listRebuildDeadLetters } from "../../event-store/rebuild-dead-letter";
 import {
   createProjectionStateTable,
@@ -140,7 +140,6 @@ const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, itemEntity, "poison-item");
-  await createEventsTable(stack.db);
   await createProjectionStateTable(stack.db);
   await unsafePushTables(stack.db, {
     poisonCounter: counterTable,

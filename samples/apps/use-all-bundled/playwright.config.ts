@@ -1,12 +1,13 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_ARG = samplesEnvFileArg(HERE);
 
-const PORT = 4186;
+const PORT = E2E_PORTS["framework/use-all-bundled"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -43,7 +44,7 @@ export default defineConfig({
       KUMIKO_SECRETS_MASTER_KEY_V1: "a3VtaWtvLXNjcmVlbnNob3QtZGV2LW1hc3Rlci0zMmI=",
       KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
     },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 90_000,
     stdout: "pipe",
     stderr: "pipe",

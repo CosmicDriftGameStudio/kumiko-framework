@@ -12,7 +12,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestDb,
   type TestDb,
@@ -30,7 +29,6 @@ const executor = createEventStoreExecutor(userTable, userEntity, { entityName: "
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

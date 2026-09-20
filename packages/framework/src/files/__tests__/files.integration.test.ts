@@ -14,7 +14,7 @@ import {
   defineFeature,
   type SessionUser,
 } from "../../engine";
-import { createEventsTable, loadAggregate } from "../../event-store";
+import { loadAggregate } from "../../event-store";
 import {
   createTestDb,
   createTestUser,
@@ -79,7 +79,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, testTenantEntity);
   // Event-store table: the upload route appends files:event:uploaded in the
   // same tx as the FileRef insert. Without events, upload would 500.
-  await createEventsTable(testDb.db);
 
   const registry = createRegistry([tenantFeature]);
   const storageProvider = createLocalProvider(storagePath);

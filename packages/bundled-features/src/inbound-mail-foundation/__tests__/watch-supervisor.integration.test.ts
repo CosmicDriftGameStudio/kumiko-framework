@@ -9,7 +9,6 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestUser,
@@ -65,7 +64,6 @@ beforeAll(async () => {
     ],
   });
   db = stack.db;
-  await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
