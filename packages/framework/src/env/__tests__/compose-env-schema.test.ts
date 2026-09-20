@@ -334,6 +334,23 @@ describe("kms env slots", () => {
   it("parseEnv still validates a kms slot that is set", () => {
     expect(() => parseEnv(schema, { MASTER_KEY: "" })).toThrow(KumikoBootError);
   });
+
+  describe("schema carrying a refinement", () => {
+    const refined = schema.superRefine((value, ctx) => {
+      if (value.PLAIN === "forbidden") {
+        ctx.addIssue({ code: "custom", path: ["PLAIN"], message: "PLAIN is forbidden" });
+      }
+    });
+
+    it("parseEnv relaxes a ciphertext-only slot without dropping the refinement", () => {
+      expect(parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc" })["MASTER_KEY_CIPHERTEXT"]).toBe(
+        "abc",
+      );
+      expect(() => parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc", PLAIN: "forbidden" })).toThrow(
+        KumikoBootError,
+      );
+    });
+  });
 });
 
 describe("composeEnvSchema kms twins", () => {
