@@ -2,6 +2,7 @@ export {
   type AstGuard,
   buildGuardKitInventory,
   buildSharedProject,
+  cliFlagsError,
   explainGuards,
   filesForGuard,
   type GuardKitInventory,
@@ -27,6 +28,6 @@ export {
   type SecurityBaselineLoad,
 } from "./_lib/security-baseline";
 export { writeSecurityBaselines } from "./_lib/security-baseline-cli";
-export { GUARDS } from "./run-guards";
-export { REPO_CHECKS } from "./run-repo-checks";
-export { UI_GUARDS } from "./run-ui-guards";
+export { GUARD_FLAGS, GUARDS, runGuardsCli } from "./run-guards";
+export { REPO_CHECK_FLAGS, REPO_CHECKS, runRepoChecksCli } from "./run-repo-checks";
+export { runUiGuardsCli, UI_GUARD_FLAGS, UI_GUARDS } from "./run-ui-guards";

@@ -4,10 +4,10 @@
 // (../bin/cli.ts) is a 3-line wrapper that forwards process.argv. Tests
 // drive runCli directly with a captured Output so no subprocess is needed.
 //
-// Scope: scaffolding (`new app <name>`, `add feature <name>`) plus the
-// app-facing ops commands (`agent`, `project`, `consumer`). Framework-
-// maintainer commands (check, ci:guards, dev, build, …) stay in the
-// framework repo's bin/kumiko.ts, which operates on that workspace only.
+// Scope: scaffolding (`new app <name>`, `add feature <name>`), the quality
+// gate (`check`) and the app-facing ops commands (`agent`, `project`,
+// `consumer`). Workspace-only maintainer commands (ci:guards, dev, build, …)
+// stay in the framework repo's bin/kumiko.ts.
 
 import { scaffoldApp, scaffoldAppFeature } from "@cosmicdrift/kumiko-dev-server";
 import type { CliCommand } from "./commands";
