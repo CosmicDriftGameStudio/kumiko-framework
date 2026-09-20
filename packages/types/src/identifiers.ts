@@ -49,6 +49,12 @@ export function isSystemTenant(tenantId: TenantId | null | undefined): boolean {
   return !tenantId || tenantId === SYSTEM_TENANT_ID;
 }
 
+// "No human caller" marker on event-store `createdBy`. Stringified so it
+// round-trips through SessionUser.id; not a real UUID, and createdBy is text.
+// Lives here rather than next to createSystemUser() so client-side code (the
+// reference-label map) can read it without importing a runtime module.
+export const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+
 // Primary-key identifier for any entity row. Two shapes coexist because of
 // the entity-def `idType` switch: classic CRUD entities keep `serial` (number),
 // while tenant + ES aggregates run on `uuid` (string). Call sites that pass

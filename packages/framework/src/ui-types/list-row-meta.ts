@@ -12,8 +12,7 @@
 // deletedById) — this is also the SAME set the boot-validator's entityList
 // column checks accept, so a softDelete column stays a boot-time error
 // instead of a renderer-side throw (see screens.ts / entity-list-screens.ts).
-import { SYSTEM_USER_ID } from "../engine/system-user";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
+import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "../engine/types/identifiers";
 
 export type ListRowMetaColumnType = "text" | "number" | "timestamp";
 

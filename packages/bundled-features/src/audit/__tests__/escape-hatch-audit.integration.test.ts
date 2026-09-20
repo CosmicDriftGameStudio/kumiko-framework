@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
+import { createUserFeature } from "../../user";
 import { AuditQueries } from "../constants";
 import { createEscapeHatchAuditSink, ESCAPE_HATCH_USED_EVENT } from "../escape-hatch-audit-sink";
 import { createAuditFeature } from "../feature";
@@ -41,7 +42,13 @@ const adminOfSameTenant: SessionUser = createTestUser({ id: 10, tenantId, roles:
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [probeFeature, createConfigFeature(), createTenantFeature(), createAuditFeature()],
+    features: [
+      probeFeature,
+      createConfigFeature(),
+      createTenantFeature(),
+      createUserFeature(),
+      createAuditFeature(),
+    ],
     extraContext: ({ db }) => ({ _escapeHatchAuditSink: createEscapeHatchAuditSink({ db }) }),
   });
 });

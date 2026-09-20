@@ -1,6 +1,7 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-framework": patch
+"@cosmicdrift/kumiko-types": patch
 "@cosmicdrift/kumiko-renderer": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
@@ -13,6 +14,8 @@ The `Actor` column of `audit:screen:audit-log` and the `createdBy` field of its 
 `audit:query:list` and `audit:query:details` are unchanged and still return the plain id.
 
 A system write (`SYSTEM_USER_ID`, the null UUID) has no `read_users` row, so the bulk reference lookup can never resolve it. `SYSTEM_REFERENCE_LABELS` gained a `user:user` entry with the new `kumiko.reference.system-user` key, so every screen referencing `user:user` — not just the audit log — renders "System" for it. An actor that resolves to no row at all (deleted user) keeps the existing generic fallback: the raw id, no throw.
+
+`SYSTEM_USER_ID` moved from `framework/engine/system-user` to `kumiko-types/identifiers`, next to `SYSTEM_TENANT_ID`, so the client-side reference-label map can read it without importing a runtime module. `engine/system-user` re-exports it — every existing import keeps working.
 
 <!-- kumiko-changes
 feature: audit
