@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.292.0",
+    "type": "improvement",
+    "title": "FILE_STORAGE_PROVIDER selects the file provider, not just the boot gate",
+    "detail": "The `provider` config key declares `env: \"FILE_STORAGE_PROVIDER\"`, so the ENV→app-override bridge selects the provider at boot without an app-side `createConfigResolver` rebuild. Tenant rows still override the ENV value (cascade unchanged). The boot-gate placeholder `\"configured\"` that `runDevApp` writes names no plugin, so `createFileProviderForTenant` treats it as unset and raises \"no provider selected\"; both strings are exported as `FILE_STORAGE_PROVIDER_ENV` / `FILE_STORAGE_PROVIDER_BOOT_SENTINEL`.",
+    "migration": "Apps on the framework's default config resolver: make sure `FILE_STORAGE_PROVIDER` holds a registered provider name (`inmemory`, `s3`, `s3-env`) — it is now the provider selection, not only a presence check. Apps that pass their own `configResolver` are unaffected and can drop their hand-rolled `file-foundation:config:provider` app-override."
+  }
+]
