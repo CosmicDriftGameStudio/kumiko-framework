@@ -443,6 +443,99 @@ describe("validateBoot — projectionList screens", () => {
       expect(() => validateBoot([feature])).not.toThrow();
     });
 
+    // fw#3104: a dateRange facet sends its two bounds as the top-level params
+    // it names, so `filters` is the wrong thing to require — the declared
+    // param names are.
+    test("a dateRange facet on a query that can't narrow by time is rejected at boot", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ from: z.iso.datetime().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["dueAt"],
+          facets: [
+            {
+              field: "dueAt",
+              type: "dateRange",
+              label: "Due",
+              params: { from: "from", to: "to" },
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/no "to" parameter/);
+    });
+
+    test('a dateRange facet does NOT require a "filters" parameter', () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({
+            since: z.iso.datetime().optional(),
+            until: z.iso.datetime().optional(),
+          }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["dueAt"],
+          facets: [
+            {
+              field: "dueAt",
+              type: "dateRange",
+              label: "Due",
+              params: { from: "since", to: "until" },
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("a dateRange facet naming a reserved list-payload key is rejected", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({ limit: z.number().optional(), to: z.iso.datetime().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["dueAt"],
+          facets: [
+            {
+              field: "dueAt",
+              type: "dateRange",
+              label: "Due",
+              params: { from: "limit", to: "to" },
+            },
+          ],
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(/reserved list-payload key/);
+    });
+
     test("a reference facet targeting an unknown entity is rejected", () => {
       const feature = defineFeature("ledger", (r) => {
         r.queryHandler(

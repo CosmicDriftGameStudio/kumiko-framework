@@ -4,6 +4,7 @@
 import type { ListFacetSpec } from "@cosmicdrift/kumiko-framework/ui-types";
 import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "@cosmicdrift/kumiko-headless";
+import { Temporal } from "temporal-polyfill";
 import type { DataTableFacet } from "../primitives";
 
 // One resolved facet, independent of where the type info came from — an
@@ -94,40 +95,165 @@ export function resolveProjectionFacetSpecs(
 ): ResolvedFacetSpec[] {
   if (facets === undefined) return [];
   const tr = (label: string): string => (isFacetI18nKey(label) ? translate(label) : label);
-  return facets.map((facet): ResolvedFacetSpec => {
+  // dateRange carries no option list and no `filters` entry — it resolves
+  // through resolveDateRangeFacets into its own toolbar control instead.
+  return facets.flatMap((facet): ResolvedFacetSpec[] => {
+    if (facet.type === "dateRange") return [];
     if (facet.type === "select") {
-      return {
-        field: facet.field,
-        type: "select",
-        label: tr(facet.label),
-        options: facet.options.map((opt) => ({
-          value: opt.value,
-          label: tr(opt.label),
-        })),
-      };
+      return [
+        {
+          field: facet.field,
+          type: "select",
+          label: tr(facet.label),
+          options: facet.options.map((opt) => ({
+            value: opt.value,
+            label: tr(opt.label),
+          })),
+        },
+      ];
     }
     if (facet.type === "boolean") {
-      return {
-        field: facet.field,
-        type: "boolean",
-        label: tr(facet.label),
-        options: [
-          { value: "true", label: tr(facet.trueLabel) },
-          { value: "false", label: tr(facet.falseLabel) },
-        ],
-      };
+      return [
+        {
+          field: facet.field,
+          type: "boolean",
+          label: tr(facet.label),
+          options: [
+            { value: "true", label: tr(facet.trueLabel) },
+            { value: "false", label: tr(facet.falseLabel) },
+          ],
+        },
+      ];
     }
     const target = parseRefTarget(facet.entity, featureName);
-    return {
-      field: facet.field,
-      type: "reference",
-      label: tr(facet.label),
-      options: [],
-      reference: {
-        refEntity: target.entityName,
-        refFeature: target.featureName,
-        labelField: facet.labelField ?? "id",
+    return [
+      {
+        field: facet.field,
+        type: "reference",
+        label: tr(facet.label),
+        options: [],
+        reference: {
+          refEntity: target.entityName,
+          refFeature: target.featureName,
+          labelField: facet.labelField ?? "id",
+        },
       },
-    };
+    ];
   });
+}
+
+// --- dateRange facet (fw#3104) ---
+
+// A resolved dateRange facet. Kept out of ResolvedFacetSpec because it shares
+// nothing with the option-dropdown facets: no options, no `filters` entry —
+// the two bounds travel as named top-level query params.
+export type ResolvedDateRangeFacet = {
+  readonly field: string;
+  readonly label: string;
+  readonly fromParam: string;
+  readonly toParam: string;
+};
+
+export type DateRangeBound = "from" | "to";
+
+export type DateRangeValue = { readonly from: string; readonly to: string };
+
+export function resolveDateRangeFacets(
+  facets: readonly ListFacetSpec[] | undefined,
+  translate: Translate,
+): ResolvedDateRangeFacet[] {
+  if (facets === undefined) return [];
+  return facets.flatMap((facet): ResolvedDateRangeFacet[] =>
+    facet.type === "dateRange"
+      ? [
+          {
+            field: facet.field,
+            label: isFacetI18nKey(facet.label) ? translate(facet.label) : facet.label,
+            fromParam: facet.params.from,
+            toParam: facet.params.to,
+          },
+        ]
+      : [],
+  );
+}
+
+// The bounds live in the same `<screenId>.f.<key>` URL namespace the option
+// facets use, so setFilter's page-reset and clearFilters cover them for free.
+// buildFilterPayload drops them again: a dotted key resolves to no facet
+// type, which is its "unknown field" case.
+export function dateRangeUrlField(field: string, bound: DateRangeBound): string {
+  return `${field}.${bound}`;
+}
+
+export function readDateRange(
+  urlFilters: Readonly<Record<string, readonly string[]>>,
+  field: string,
+): DateRangeValue {
+  return {
+    from: urlFilters[dateRangeUrlField(field, "from")]?.[0] ?? "",
+    to: urlFilters[dateRangeUrlField(field, "to")]?.[0] ?? "",
+  };
+}
+
+// Keeps from <= to by pushing the opposite bound along, so an inverted range
+// can't reach the server and trip a handler's `from <= to` refine (a 422 the
+// user would see as a broken list, not as a correction).
+export function clampDateRange(
+  current: DateRangeValue,
+  bound: DateRangeBound,
+  value: string,
+): DateRangeValue {
+  if (bound === "from") {
+    const to = current.to !== "" && value !== "" && value > current.to ? value : current.to;
+    return { from: value, to };
+  }
+  const from = current.from !== "" && value !== "" && value < current.from ? value : current.from;
+  return { from, to: value };
+}
+
+// A calendar date covers a whole day in the viewer's zone: "from the 14th"
+// starts at that day's first instant, "to the 14th" includes everything up to
+// its last. Going through the next day's start keeps both ends right across a
+// DST boundary, where the day is not 24h long.
+function dayBoundInstant(date: string, bound: DateRangeBound, timeZone: string): string | null {
+  let plainDate: Temporal.PlainDate;
+  try {
+    plainDate = Temporal.PlainDate.from(date);
+  } catch {
+    // Half-typed or hand-crafted URL value — drop the bound rather than send
+    // something the handler's ISO-datetime schema would reject.
+    return null;
+  }
+  const start = plainDate.toZonedDateTime(timeZone).toInstant();
+  return bound === "from"
+    ? start.toString()
+    : plainDate
+        .add({ days: 1 })
+        .toZonedDateTime(timeZone)
+        .toInstant()
+        .subtract({
+          nanoseconds: 1,
+        })
+        .toString();
+}
+
+export function buildDateRangePayload(
+  specs: readonly ResolvedDateRangeFacet[],
+  urlFilters: Readonly<Record<string, readonly string[]>>,
+  timeZone: string,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const spec of specs) {
+    const range = readDateRange(urlFilters, spec.field);
+    for (const [bound, param] of [
+      ["from", spec.fromParam],
+      ["to", spec.toParam],
+    ] as const) {
+      const value = range[bound];
+      if (value === "") continue;
+      const instant = dayBoundInstant(value, bound, timeZone);
+      if (instant !== null) out[param] = instant;
+    }
+  }
+  return out;
 }

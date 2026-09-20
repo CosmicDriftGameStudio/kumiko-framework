@@ -105,13 +105,63 @@ function validateProjectionListFilterSchemaAcceptance(
 // (fw#2165): definePagedQueryHandler doesn't auto-merge params into the
 // handler's own Zod schema, so a declared facet would 422 on every query
 // unless the author added `filters` themselves.
+// A dateRange facet (fw#3104) sends its two bounds as the top-level payload
+// keys it names in `params`, not as a `filters` entry — so the query has to
+// accept exactly those keys. Catches the facet pointed at a field the query
+// can't narrow by, which would otherwise 422 on the first date the user picks.
+// Keys buildListQueryPayload owns — a facet param naming one of them would
+// silently replace the list's own paging/sorting on every pick.
+const RESERVED_LIST_PAYLOAD_KEYS: ReadonlySet<string> = new Set([
+  "limit",
+  "search",
+  "sort",
+  "sortDirection",
+  "offset",
+  "totalCount",
+  "cursor",
+  "filter",
+  "filters",
+]);
+
+function validateProjectionListDateRangeFacets(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  for (const facet of screen.facets ?? []) {
+    if (facet.type !== "dateRange") continue;
+    if (facet.params.from === facet.params.to) {
+      throw new Error(
+        `${prefix}: dateRange facet on "${facet.field}" names the same param ` +
+          `"${facet.params.from}" for both bounds.`,
+      );
+    }
+    for (const param of [facet.params.from, facet.params.to]) {
+      if (RESERVED_LIST_PAYLOAD_KEYS.has(param)) {
+        throw new Error(
+          `${prefix}: dateRange facet on "${facet.field}" names "${param}" as a bound, ` +
+            `which is a reserved list-payload key — pick the query's own time-bound param names.`,
+        );
+      }
+      if (schemaAccepts(schema, param)) continue;
+      throw new Error(
+        `${prefix}: dateRange facet on "${facet.field}" sends "${param}" but query ` +
+          `"${screen.query}" has no "${param}" parameter in its Zod schema — add ` +
+          `${param}: z.iso.datetime().optional() to the handler's schema, or point ` +
+          `params at the keys it already accepts.`,
+      );
+    }
+  }
+}
+
 function validateProjectionListFacetsSchemaAcceptance(
   prefix: string,
   screen: ProjectionListScreenDefinition,
   schema: QueryHandlerDef["schema"] | undefined,
 ): void {
-  // skip: no facets declared — nothing to reject.
-  if (screen.facets === undefined || screen.facets.length === 0) return;
+  validateProjectionListDateRangeFacets(prefix, screen, schema);
+  // skip: no facets that travel via `filters` — nothing to reject.
+  if (screen.facets === undefined || !screen.facets.some((f) => f.type !== "dateRange")) return;
   // skip: the schema already accepts filters — nothing to reject.
   if (schemaAccepts(schema, "filters")) return;
   throw new Error(

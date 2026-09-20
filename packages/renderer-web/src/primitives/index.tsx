@@ -24,6 +24,7 @@ import {
   type ButtonProps,
   type CardProps,
   type CorePrimitives,
+  type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableProps,
   type FieldProps,
@@ -908,6 +909,46 @@ function FacetFilter({
   );
 }
 
+// Time-range filter (fw#3104): two native <input type="date"> instead of a
+// dropdown — the browser supplies the calendar, the locale and the keyboard
+// handling, so no date dependency is needed. Each bound constrains the other
+// through min/max so the picker can't offer an inverted span; the caller
+// clamps a typed value on top of that.
+function DateRangeFacetFilter({
+  facet,
+  onChange,
+}: {
+  facet: DataTableDateRangeFacet;
+  onChange: (field: string, bound: "from" | "to", value: string) => void;
+}): ReactNode {
+  const inputClass =
+    "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  return (
+    <div className="flex items-center gap-2" data-testid={`facet-daterange-${facet.field}`}>
+      <span className="text-sm text-muted-foreground">{facet.label}</span>
+      <input
+        type="date"
+        className={inputClass}
+        value={facet.from}
+        {...(facet.to !== "" && { max: facet.to })}
+        aria-label={`${facet.label} from`}
+        data-testid={`facet-daterange-${facet.field}-from`}
+        onChange={(e) => onChange(facet.field, "from", e.target.value)}
+      />
+      <span className="text-sm text-muted-foreground">–</span>
+      <input
+        type="date"
+        className={inputClass}
+        value={facet.to}
+        {...(facet.from !== "" && { min: facet.from })}
+        aria-label={`${facet.label} to`}
+        data-testid={`facet-daterange-${facet.field}-to`}
+        onChange={(e) => onChange(facet.field, "to", e.target.value)}
+      />
+    </div>
+  );
+}
+
 function DefaultDataTable({
   columns,
   rows,
@@ -927,6 +968,8 @@ function DefaultDataTable({
   filterValues,
   onFilterChange,
   onFilterReset,
+  dateRangeFacets,
+  onDateRangeChange,
   testId,
   onCellChange,
   getRowTestId,
@@ -1255,32 +1298,40 @@ function DefaultDataTable({
 
   const hasFacets =
     filterFacets !== undefined && filterFacets.length > 0 && onFilterChange !== undefined;
+  const hasDateRangeFacets =
+    dateRangeFacets !== undefined && dateRangeFacets.length > 0 && onDateRangeChange !== undefined;
   const hasActiveFilters =
     filterValues !== undefined && Object.values(filterValues).some((v) => v.length > 0);
-  const facetCluster = hasFacets ? (
-    <div className="flex items-center gap-2">
-      {filterFacets.map((facet) => (
-        <FacetFilter
-          key={facet.field}
-          facet={facet}
-          selected={filterValues?.[facet.field] ?? []}
-          onChange={onFilterChange}
-        />
-      ))}
-      {hasActiveFilters && onFilterReset !== undefined && (
-        <UiButton
-          variant="ghost"
-          size="sm"
-          className="h-9 px-2"
-          onClick={onFilterReset}
-          data-testid="facet-reset"
-        >
-          Reset
-          <X />
-        </UiButton>
-      )}
-    </div>
-  ) : undefined;
+  const facetCluster =
+    hasFacets || hasDateRangeFacets ? (
+      <div className="flex flex-wrap items-center gap-2">
+        {hasFacets &&
+          filterFacets.map((facet) => (
+            <FacetFilter
+              key={facet.field}
+              facet={facet}
+              selected={filterValues?.[facet.field] ?? []}
+              onChange={onFilterChange}
+            />
+          ))}
+        {hasDateRangeFacets &&
+          dateRangeFacets.map((facet) => (
+            <DateRangeFacetFilter key={facet.field} facet={facet} onChange={onDateRangeChange} />
+          ))}
+        {hasActiveFilters && onFilterReset !== undefined && (
+          <UiButton
+            variant="ghost"
+            size="sm"
+            className="h-9 px-2"
+            onClick={onFilterReset}
+            data-testid="facet-reset"
+          >
+            Reset
+            <X />
+          </UiButton>
+        )}
+      </div>
+    ) : undefined;
 
   const hasToolbar =
     toolbarStart !== undefined || toolbarEnd !== undefined || facetCluster !== undefined;

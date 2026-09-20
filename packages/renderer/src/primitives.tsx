@@ -572,6 +572,18 @@ export type DataTableFacet = {
   readonly options: readonly { readonly value: string; readonly label: string }[];
 };
 
+// Time-range filter slot in the toolbar (fw#3104): two date inputs
+// (from/to) instead of an options dropdown. Values are `YYYY-MM-DD` or ""
+// (bound open) — the caller converts them into query params.
+export type DataTableDateRangeFacet = {
+  /** The facet's namespace (its date field) — a key, not a filter value. */
+  readonly field: string;
+  /** Translated label ("When"). */
+  readonly label: string;
+  readonly from: string;
+  readonly to: string;
+};
+
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
@@ -622,6 +634,10 @@ export type DataTableProps = {
   /** Reset-Button: löscht alle aktiven Facets. Renderer zeigt ihn nur
    *  wenn mindestens ein Facet aktiv ist. */
   readonly onFilterReset?: () => void;
+  /** Time-range filters beside the facet dropdowns (fw#3104). */
+  readonly dateRangeFacets?: readonly DataTableDateRangeFacet[];
+  /** One bound changed ("" clears it) → caller writes URL state + refetch. */
+  readonly onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void;
   /** Pagination-State + Callback. Wenn gesetzt, rendert der Renderer
    *  einen Pager unter der Tabelle (Web: Footer-Bar mit ← 1 ... N →).
    *  total/limit/page sind 1-basiert für die UI; Server-Translation

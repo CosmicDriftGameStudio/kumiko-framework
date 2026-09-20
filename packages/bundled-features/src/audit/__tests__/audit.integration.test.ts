@@ -21,9 +21,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
+import { buildDateRangePayload, resolveDateRangeFacets } from "@cosmicdrift/kumiko-renderer";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
-import { AuditQueries } from "../constants";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
 
 const widgetEntity = createEntity({
@@ -249,6 +250,92 @@ describe("audit: list query", () => {
     const untilRow = untilBefore.rows[0];
     if (!untilRow) throw new Error("expected untilBefore row");
     expect((untilRow.payload as { name?: string }).name).toBe("before-window");
+  });
+
+  // fw#3104: the audit screen's dateRange facet is the only UI that produces
+  // these bounds. The risk is not the handler (covered above) but the
+  // conversion of a calendar date into an instant: pick "the 14th" as the
+  // upper bound and an event at 23:59 local that day has to stay in the
+  // result. Bounds are derived from the live screen declaration, so a change
+  // to either end of the chain fails here.
+  test("dateRange facet bounds include an event at 23:59 of the `to` day", async () => {
+    const screen = createAuditFeature().screens[AUDIT_LOG_SCREEN_ID];
+    if (screen?.type !== "projectionList") throw new Error("expected a projectionList screen");
+    const specs = resolveDateRangeFacets(screen.facets, (key) => key);
+    expect(specs).toHaveLength(1);
+
+    await createWidget(admin, "late-on-the-14th");
+    await createWidget(admin, "just-after-midnight");
+
+    const listed = await stack.http.queryOk<AuditResponse>(AuditQueries.list, {}, admin);
+    const byName = new Map(
+      listed.rows
+        .filter((r) => r.type === "widget.created")
+        .map((r) => [(r.payload as { name?: string }).name ?? "", r.id]),
+    );
+    // 23:59 and 00:00 Europe/Vienna, expressed as the UTC instants the
+    // event store stores.
+    const stamps: ReadonlyArray<readonly [string, string]> = [
+      ["late-on-the-14th", "2020-06-14T21:59:00Z"],
+      ["just-after-midnight", "2020-06-14T22:00:00Z"],
+    ];
+    for (const [name, createdAt] of stamps) {
+      const id = byName.get(name);
+      if (!id) throw new Error(`missing event for ${name}`);
+      await asRawClient(stack.db).unsafe(
+        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
+        [createdAt, id],
+      );
+    }
+
+    const bounds = buildDateRangePayload(
+      specs,
+      { "createdAt.from": ["2020-06-14"], "createdAt.to": ["2020-06-14"] },
+      "Europe/Vienna",
+    );
+    const inRange = await stack.http.queryOk<AuditResponse>(AuditQueries.list, bounds, admin);
+    const names = inRange.rows.map((r) => (r.payload as { name?: string }).name);
+    expect(names).toContain("late-on-the-14th");
+    expect(names).not.toContain("just-after-midnight");
+  });
+
+  // Open interval from the same declaration — only one bound set must still
+  // reach the handler as a single param.
+  test("dateRange facet with only the `from` bound sends an open interval", async () => {
+    const screen = createAuditFeature().screens[AUDIT_LOG_SCREEN_ID];
+    if (screen?.type !== "projectionList") throw new Error("expected a projectionList screen");
+    const specs = resolveDateRangeFacets(screen.facets, (key) => key);
+
+    await createWidget(admin, "old");
+    await createWidget(admin, "recent");
+    const listed = await stack.http.queryOk<AuditResponse>(AuditQueries.list, {}, admin);
+    const byName = new Map(
+      listed.rows
+        .filter((r) => r.type === "widget.created")
+        .map((r) => [(r.payload as { name?: string }).name ?? "", r.id]),
+    );
+    for (const [name, createdAt] of [
+      ["old", "2020-06-01T12:00:00Z"],
+      ["recent", "2020-06-20T12:00:00Z"],
+    ] as const) {
+      const id = byName.get(name);
+      if (!id) throw new Error(`missing event for ${name}`);
+      await asRawClient(stack.db).unsafe(
+        `UPDATE kumiko_events SET created_at = $1::timestamptz WHERE id = $2::bigint`,
+        [createdAt, id],
+      );
+    }
+
+    const bounds = buildDateRangePayload(
+      specs,
+      { "createdAt.from": ["2020-06-10"] },
+      "Europe/Vienna",
+    );
+    expect(Object.keys(bounds)).toEqual(["from"]);
+    const sinceFrom = await stack.http.queryOk<AuditResponse>(AuditQueries.list, bounds, admin);
+    const names = sinceFrom.rows.map((r) => (r.payload as { name?: string }).name);
+    expect(names).toContain("recent");
+    expect(names).not.toContain("old");
   });
 
   test("rejects inverted from/to range with validation_error", async () => {
