@@ -100,6 +100,10 @@ export type ValidateBootOptions = {
    *  screen is reachable another way (e.g. as a sub-page of a generated
    *  settings hub). Suppresses the navAllowlist warning for these QNs. */
   readonly navAllowlistExempt?: ReadonlySet<string>;
+  /** Env the encrypted-field master-key probe reads. Defaults to
+   *  `process.env`; runners pass their resolved env so a ciphertext-only
+   *  key (already decrypted at boot) is visible to the probe. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
 };
 
 /**
@@ -276,7 +280,7 @@ export function validateBoot(
     // catches malformed keys (wrong length, bad base64) at boot instead of
     // on the first encrypted read in prod. An injected cipher (test seam,
     // custom KMS provider) satisfies the requirement without env keys.
-    validateEntityFieldEncryptionAvailable();
+    validateEntityFieldEncryptionAvailable(options?.env);
   }
 
   if (hasFileFields && !process.env[FILE_STORAGE_PROVIDER_ENV]) {

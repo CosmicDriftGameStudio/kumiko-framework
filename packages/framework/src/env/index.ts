@@ -34,12 +34,18 @@ export type KumikoEnvMeta = {
     /** Force the `--secret` flag in `pulumi config set`. Default false. */
     readonly secret?: boolean;
   };
+  /** The value may be delivered as a Scaleway Key Manager ciphertext in
+   *  `<NAME>_CIPHERTEXT`. `runProdApp` decrypts it at boot when `<NAME>` itself
+   *  is unset; a set plaintext always wins. A flag, not an object: every slot
+   *  uses the same `_CIPHERTEXT` twin and one shared key (`PLATFORM_KEK_KMS_*`). */
+  readonly kms?: true;
 };
 
 function isKumikoMeta(value: unknown): value is KumikoEnvMeta {
   if (value === null || typeof value !== "object") return false;
   // @cast-boundary schema-walk — runtime-shape narrowing of zod-meta payload
-  const v = value as { pulumi?: unknown };
+  const v = value as { pulumi?: unknown; kms?: unknown };
+  if (v.kms !== undefined && v.kms !== true) return false;
   if (v.pulumi === undefined) return true;
   if (v.pulumi === null || typeof v.pulumi !== "object") return false;
   // @cast-boundary schema-walk
@@ -58,6 +64,31 @@ export function readKumikoMeta(field: z.ZodType): KumikoEnvMeta {
     if (isKumikoMeta(k)) return k;
   }
   return {};
+}
+
+/** Env names whose schema field declares `kms: true` — the slots
+ *  `resolvePlatformKeks` resolves from a ciphertext. */
+export function kmsSlotsOf(schema: z.ZodObject<z.ZodRawShape>): readonly string[] {
+  return Object.entries(zodShape(schema))
+    .filter(([, field]) => readKumikoMeta(field).kms === true)
+    .map(([name]) => name);
+}
+
+// A ciphertext-only slot is satisfied by its `_CIPHERTEXT` twin: the plaintext
+// only exists after the boot-time decrypt, so requiring it here would reject
+// exactly the deployment this meta enables.
+function relaxCiphertextOnlySlots<S extends z.ZodObject<z.ZodRawShape>>(
+  schema: S,
+  env: Readonly<Record<string, string>>,
+): z.ZodObject<z.ZodRawShape> {
+  const shape = zodShape(schema);
+  const relaxed: Record<string, z.ZodType> = {};
+  for (const name of kmsSlotsOf(schema)) {
+    const field = shape[name];
+    if (field && env[name] === undefined && env[`${name}_CIPHERTEXT`])
+      relaxed[name] = field.optional();
+  }
+  return Object.keys(relaxed).length === 0 ? schema : schema.extend(relaxed);
 }
 
 // --- Field-classification helpers (Zod v4 introspection) ---
@@ -144,10 +175,23 @@ export type ComposedEnvSchema = {
   readonly sources: Readonly<Record<string, string>>;
 };
 
+// `.optional()` returns a new Zod instance that drops `.meta()`, which would
+// hide the slot from `kmsSlotsOf` on the composed schema.
+function optionalKeepingKmsMeta(field: z.ZodType): z.ZodType {
+  const optional = field.optional();
+  return readKumikoMeta(field).kms === true
+    ? optional.meta({ kumiko: readKumikoMeta(field) })
+    : optional;
+}
+
 export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvSchema {
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};
   const sources: Record<string, string> = {};
+  const kmsFields: { readonly name: string; readonly source: string }[] = [];
+  const noteKms = (name: string, field: z.ZodType, source: string): void => {
+    if (readKumikoMeta(field).kms === true) kmsFields.push({ name, source });
+  };
 
   // Framework-core first so a feature that accidentally declares the same
   // var (e.g. PORT) gets a clear conflict error citing "framework-core"
@@ -159,6 +203,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
     for (const [key, field] of Object.entries(zodShape(options.core))) {
       merged[key] = field;
       sources[key] = "framework-core";
+      noteKms(key, field, "framework-core");
     }
   }
 
@@ -178,8 +223,9 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
           },
         ]);
       }
-      merged[key] = wrap ? field.optional() : field;
+      merged[key] = wrap ? optionalKeepingKmsMeta(field) : field;
       sources[key] = feature.name;
+      noteKms(key, field, feature.name);
     }
   }
 
@@ -198,7 +244,21 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
       }
       merged[key] = field;
       sources[key] = "app";
+      noteKms(key, field, "app");
     }
+  }
+
+  // The twin follows from the slot, so a versioned family (`…_V2`) needs no
+  // second declaration. An already declared twin (apps that predate this) stays.
+  for (const { name, source } of kmsFields) {
+    const twin = `${name}_CIPHERTEXT`;
+    if (merged[twin] !== undefined) continue;
+    merged[twin] = z
+      .string()
+      .min(1)
+      .optional()
+      .describe(`Key-Manager ciphertext of ${name}; used when ${name} is unset.`);
+    sources[twin] = source;
   }
 
   return {
@@ -282,7 +342,7 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
     if (v !== undefined) cleaned[k] = v;
   }
 
-  const result = schema.safeParse(cleaned);
+  const result = relaxCiphertextOnlySlots(schema, cleaned).safeParse(cleaned);
   if (result.success) {
     // @cast-boundary schema-walk — z.infer<S> erasure across safeParse result
     return result.data as z.infer<S>;

@@ -20,6 +20,7 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   type KmsAdapter,
+  resolvePlatformKeks,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configureEntityFieldEncryption,
@@ -136,6 +137,10 @@ export type RunWorkerAppOptions = {
   /** Override `process.env` for env-validation (see
    *  RunProdAppOptions["envSource"]). */
   readonly envSource?: Record<string, string | undefined>;
+  /** Env names to decrypt from their `_CIPHERTEXT` twin at boot, typically
+   *  `kmsSlotsOf(composedEnv.schema)`. The worker parses no env schema, so it
+   *  cannot derive them; without this it reads the env as is. */
+  readonly kmsSlots?: readonly string[];
   readonly observability?: ObservabilityProvider;
   readonly observabilityOptions?: ObservabilityOptions;
 };
@@ -157,7 +162,13 @@ function makeBootModeHandle(): WorkerAppHandle {
 }
 
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
-  const envSource = options.envSource ?? process.env;
+  const rawEnvSource = options.envSource ?? process.env;
+  const envSource: Record<string, string | undefined> = options.kmsSlots
+    ? await resolvePlatformKeks(rawEnvSource, {
+        slots: options.kmsSlots,
+        logPrefix: "[runWorkerApp]",
+      })
+    : rawEnvSource;
 
   // 1. Polyfill before anything else — exactly the bug fw#1725 reports:
   //    without it, every job in the worker fails with "Temporal is not
@@ -180,7 +191,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   const features = composeFeatures(options.features, {
     includeBundled: !!options.includeBundled,
   });
-  validateBoot(features, options.validateBootOptions);
+  validateBoot(features, { env: envSource, ...options.validateBootOptions });
   warnIfNonUtcServerTimeZone();
   assertPiiBootInvariants(features, {
     kms: options.kms,

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { defineFeature } from "../../engine/define-feature";
-import { camelCase, composeEnvSchema, KumikoBootError, parseEnv, pulumiConfigKey } from "../index";
+import {
+  camelCase,
+  composeEnvSchema,
+  KumikoBootError,
+  kmsSlotsOf,
+  parseEnv,
+  pulumiConfigKey,
+  readKumikoMeta,
+} from "../index";
 
 describe("composeEnvSchema", () => {
   it("merges per-feature schemas and tags sources", () => {
@@ -293,5 +301,93 @@ describe("pulumiConfigKey + camelCase", () => {
 
   it("returns the camelCase name when no prefix", () => {
     expect(pulumiConfigKey("JWT_SECRET", undefined, undefined)).toBe("jwtSecret");
+  });
+});
+
+describe("kms env slots", () => {
+  const schema = z.object({
+    MASTER_KEY: z
+      .string()
+      .min(1)
+      .meta({ kumiko: { kms: true } }),
+    MASTER_KEY_CIPHERTEXT: z.string().min(1).optional(),
+    PLAIN: z.string().min(1).optional(),
+  });
+
+  it("kmsSlotsOf lists exactly the fields declaring kms", () => {
+    expect(kmsSlotsOf(schema)).toEqual(["MASTER_KEY"]);
+  });
+
+  it("rejects a non-true kms value in the meta", () => {
+    const bad = z.string().meta({ kumiko: { kms: "yes" } });
+    expect(readKumikoMeta(bad)).toEqual({});
+  });
+
+  it("parseEnv accepts a required kms slot that is present only as ciphertext", () => {
+    expect(() => parseEnv(schema, { MASTER_KEY_CIPHERTEXT: "abc" })).not.toThrow();
+  });
+
+  it("parseEnv still requires a kms slot when no ciphertext twin is set", () => {
+    expect(() => parseEnv(schema, {})).toThrow(KumikoBootError);
+  });
+
+  it("parseEnv still validates a kms slot that is set", () => {
+    expect(() => parseEnv(schema, { MASTER_KEY: "" })).toThrow(KumikoBootError);
+  });
+});
+
+describe("composeEnvSchema kms twins", () => {
+  const kmsField = z
+    .string()
+    .min(1)
+    .meta({ kumiko: { kms: true } });
+
+  it("declares the ciphertext twin of every kms field, owned by the same source", () => {
+    const secrets = defineFeature("secrets", (r) => {
+      r.envSchema(z.object({ KEY_V1: kmsField }));
+    });
+    const { schema, sources } = composeEnvSchema({
+      features: [secrets],
+      extend: z.object({ KEY_V2: kmsField }),
+    });
+
+    expect(Object.keys(schema.shape).sort()).toEqual([
+      "KEY_V1",
+      "KEY_V1_CIPHERTEXT",
+      "KEY_V2",
+      "KEY_V2_CIPHERTEXT",
+    ]);
+    expect(sources["KEY_V1_CIPHERTEXT"]).toBe("secrets");
+    expect(sources["KEY_V2_CIPHERTEXT"]).toBe("app");
+    expect(() => parseEnv(schema, {})).toThrow(KumikoBootError);
+    expect(() =>
+      parseEnv(schema, { KEY_V1_CIPHERTEXT: "a", KEY_V2_CIPHERTEXT: "b" }),
+    ).not.toThrow();
+  });
+
+  it("keeps a twin the app already declared instead of conflicting", () => {
+    const declared = z.string().min(1).optional().describe("hand-written twin");
+    const { schema } = composeEnvSchema({
+      features: [],
+      extend: z.object({ KEY: kmsField, KEY_CIPHERTEXT: declared }),
+    });
+
+    expect(schema.shape["KEY_CIPHERTEXT"]).toBe(declared);
+  });
+
+  it("adds the twin for a kms field of an optional feature too", () => {
+    const secrets = defineFeature("secrets", (r) => {
+      r.envSchema(z.object({ KEY: kmsField }));
+    });
+    const { schema } = composeEnvSchema({ features: [secrets], optionalFeatures: ["secrets"] });
+
+    expect(Object.keys(schema.shape).sort()).toEqual(["KEY", "KEY_CIPHERTEXT"]);
+    expect(kmsSlotsOf(schema)).toEqual(["KEY"]);
+  });
+
+  it("adds nothing for a schema without kms fields", () => {
+    const { schema } = composeEnvSchema({ features: [], extend: z.object({ PLAIN: z.string() }) });
+
+    expect(Object.keys(schema.shape)).toEqual(["PLAIN"]);
   });
 });

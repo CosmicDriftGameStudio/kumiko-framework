@@ -5,6 +5,7 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { runWorkerApp } from "../run-worker-app";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
 
@@ -130,6 +131,53 @@ describe("runWorkerApp boot-mode", () => {
     } finally {
       warnSpy.mockRestore();
       console.log = originalLog;
+    }
+  });
+
+  test("kmsSlots: a master key that exists only as ciphertext reaches the boot probe", async () => {
+    const encryptedFeature = defineFeature("worker-kms-probe", (r) => {
+      r.entity(
+        "note",
+        createEntity({
+          table: "worker_kms_probe_note",
+          fields: {
+            body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+          },
+        }),
+      );
+    });
+    const originalFetch = globalThis.fetch;
+    const originalLog = console.log;
+    const originalInfo = console.info;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ plaintext: Buffer.alloc(32, 7).toString("base64") }), {
+        status: 200,
+      })) as unknown as typeof globalThis.fetch;
+    console.log = () => {};
+    console.info = () => {};
+    const env = {
+      ...DUMMY_ENV,
+      KUMIKO_DRY_RUN_ENV: "boot",
+      KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT: "Y2lwaGVy",
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: "token",
+    };
+    try {
+      await expect(
+        runWorkerApp({ features: [encryptedFeature], migrations: false, envSource: env }),
+      ).rejects.toThrow(/no usable master key/);
+
+      const handle = await runWorkerApp({
+        features: [encryptedFeature],
+        migrations: false,
+        envSource: env,
+        kmsSlots: ["KUMIKO_SECRETS_MASTER_KEY_V1"],
+      });
+      await handle.stop();
+    } finally {
+      globalThis.fetch = originalFetch;
+      console.log = originalLog;
+      console.info = originalInfo;
     }
   });
 });

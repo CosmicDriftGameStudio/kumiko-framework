@@ -81,6 +81,7 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   type KmsAdapter,
+  resolvePlatformKeks,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configureEntityFieldEncryption,
@@ -108,6 +109,7 @@ import {
 import {
   type ComposedEnvSchema,
   KumikoBootError,
+  kmsSlotsOf,
   parseEnv,
 } from "@cosmicdrift/kumiko-framework/env";
 import { type DryRunMode, renderDryRun } from "@cosmicdrift/kumiko-framework/env/dry-run";
@@ -706,8 +708,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    at parse-time before the polyfill loads. Plain strings + .regex /
   //    .min / .email / .url cover every env-var shape we've actually
   //    needed in 9.1's audit (37 references, 25 distinct vars).
-  const envSource = options.envSource ?? process.env;
-  const runMode = parseRunMode(envSource["KUMIKO_DRY_RUN_ENV"]);
+  const rawEnvSource = options.envSource ?? process.env;
+  const runMode = parseRunMode(rawEnvSource["KUMIKO_DRY_RUN_ENV"]);
   if (options.envSchema) {
     if (isRenderMode(runMode)) {
       // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
@@ -729,7 +731,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     // a real env-check (all required vars present + schema-valid) before
     // it asserts feature-wiring works.
     try {
-      parseEnv(options.envSchema.schema, envSource, {
+      parseEnv(options.envSchema.schema, rawEnvSource, {
         sources: options.envSchema.sources,
         ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
       });
@@ -741,6 +743,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       throw err;
     }
   }
+
+  // Slots the schema marks `kms` are decrypted once here so every consumer
+  // below (boot probe, master-key keyring, config) sees the same resolved env.
+  const envSource: Record<string, string | undefined> = options.envSchema
+    ? await resolvePlatformKeks(rawEnvSource, {
+        slots: kmsSlotsOf(options.envSchema.schema),
+        logPrefix: "[runProdApp]",
+      })
+    : rawEnvSource;
 
   // 1. Polyfill before anything else — feature code references Temporal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
@@ -818,7 +829,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
-  validateBoot(features, options.validateBootOptions);
+  validateBoot(features, { env: envSource, ...options.validateBootOptions });
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   assertPiiBootInvariants(features, {

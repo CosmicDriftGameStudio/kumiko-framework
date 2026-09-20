@@ -36,7 +36,9 @@ export const secretsEnvSchema = z.object({
       message: "must be base64-encoded 32 bytes (AES-256 KEK)",
     })
     .describe("AES-256 master-key (KEK) for tenant-secrets encryption.")
-    .meta({ kumiko: { pulumi: { generator: "openssl rand -base64 32", secret: true } } }),
+    .meta({
+      kumiko: { kms: true, pulumi: { generator: "openssl rand -base64 32", secret: true } },
+    }),
   KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: z
     .string()
     .regex(/^[1-9]\d*$/, "must be a positive integer (V<n> selector)")
