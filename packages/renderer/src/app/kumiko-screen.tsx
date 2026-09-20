@@ -101,7 +101,7 @@ import {
   runProjectionRowNavigate,
   stringifyNavParams,
 } from "./row-actions";
-import { findEditScreenFor, screenAccessAllows } from "./screen-access";
+import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access";
 import { SecretMintBody } from "./secret-mint-body";
 import { SecretsEditBody } from "./secrets-edit-body";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
@@ -3184,7 +3184,7 @@ function ProjectionDetailBody({
                 const testId = `kumiko-screen-projection-detail-metric-${field}`;
                 const navigate = metricNavigateSpec(metric);
                 const onPress =
-                  navigate !== undefined
+                  navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
                     ? () => runMetricNavigate(nav, navigate, record, host)
                     : undefined;
                 return Metric !== undefined ? (

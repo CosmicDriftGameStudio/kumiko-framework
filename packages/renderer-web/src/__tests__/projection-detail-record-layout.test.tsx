@@ -1,10 +1,19 @@
 // projectionDetail record header + metrics band + tabs (fw record-screen-type).
 
 import { describe, expect, test } from "bun:test";
-import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  MetricNavigate,
+  ProjectionDetailScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import {
+  AppFeaturesProvider,
+  DispatcherProvider,
+  KumikoScreen,
+  NavProvider,
+  UserRolesProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import {
@@ -267,6 +276,96 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
 
     expect(navigateCalls).toEqual([{ screenId: "tenant-detail" }]);
     expect(setSearchParamsCalls).toContainEqual({ tab: "history" });
+  });
+
+  // solon#424: the metric declares no access rule of its own, so the jump is
+  // offered exactly when the destination screen's own `access` lets the user
+  // open it — otherwise the click is a dead end (the query rejects it
+  // server-side, which stays the real defense; this is the UX half).
+  describe("metric.navigate access gate", () => {
+    const gatedTarget: ProjectionDetailScreenDefinition & {
+      readonly detailFor: string;
+      readonly access: { readonly roles: readonly string[] };
+    } = {
+      id: "tenant-detail",
+      type: "projectionDetail",
+      query: "rentals:query:tenant:detail",
+      detailFor: "tenant",
+      access: { roles: ["ledger"] },
+      layout: { sections: [{ title: "Tenant", fields: ["description"] }] },
+    };
+
+    async function clickMetric(
+      navigate: MetricNavigate,
+      userRoles: readonly string[],
+      features: readonly FeatureSchema[],
+    ): Promise<readonly unknown[]> {
+      const navigateCalls: unknown[] = [];
+      const navApi: NavApi = {
+        route: undefined,
+        navigate: (target) => navigateCalls.push(target),
+        replace: () => {},
+        hrefFor: () => "",
+        searchParams: {},
+        setSearchParams: () => {},
+      };
+      const metricsScreen: ProjectionDetailScreenDefinition = {
+        ...baseScreen,
+        metrics: [{ field: "balance", label: "rentals.detail.metric.balance", navigate }],
+      };
+      const dispatcher = dispatcherReturning({ ...rowData, tenantId: "tenant-9" });
+      const user = userEvent.setup();
+
+      render(
+        <AppFeaturesProvider features={features}>
+          <UserRolesProvider roles={userRoles}>
+            <NavProvider value={navApi}>
+              <DispatcherProvider dispatcher={dispatcher}>
+                <KumikoScreen
+                  schema={schemaFor(metricsScreen)}
+                  qn="rentals:screen:rent-detail"
+                  entityId="rent-1"
+                />
+              </DispatcherProvider>
+            </NavProvider>
+          </UserRolesProvider>
+        </AppFeaturesProvider>,
+      );
+
+      await waitFor(() => screen.getByTestId("render-edit-form"));
+      await user.click(screen.getByTestId("kumiko-screen-projection-detail-metric-balance"));
+      return navigateCalls;
+    }
+
+    const appFeatures: readonly FeatureSchema[] = [
+      { featureName: "tenants", entities: {}, screens: [gatedTarget] },
+    ];
+
+    test("a role the target screen allows keeps the jump", async () => {
+      expect(await clickMetric({ screen: "tenant-detail" }, ["ledger"], appFeatures)).toEqual([
+        { screenId: "tenant-detail" },
+      ]);
+    });
+
+    test("a role the target screen denies makes the metric non-clickable", async () => {
+      expect(await clickMetric({ screen: "tenant-detail" }, ["property"], appFeatures)).toEqual([]);
+    });
+
+    test("an entity target resolves through detailFor and keeps the jump for an allowed role", async () => {
+      expect(
+        await clickMetric({ entity: "tenant", entityId: "tenantId" }, ["ledger"], appFeatures),
+      ).toEqual([{ entity: "tenant", id: "tenant-9" }]);
+    });
+
+    test("an entity target is denied for a role the detailFor screen excludes", async () => {
+      expect(
+        await clickMetric({ entity: "tenant", entityId: "tenantId" }, ["property"], appFeatures),
+      ).toEqual([]);
+    });
+
+    test("a target that resolves to no screen at all is not clickable", async () => {
+      expect(await clickMetric({ screen: "no-such-screen" }, ["ledger"], appFeatures)).toEqual([]);
+    });
   });
 
   test("header.subtitleHref — an absolute http(s) URL renders the subtitle as an external link", async () => {
