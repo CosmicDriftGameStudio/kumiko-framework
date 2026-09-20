@@ -1,13 +1,14 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../../scripts/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_ARG = samplesEnvFileArg(HERE);
 
-// 4178 — E2E port; 4177 bleibt für manuelles `bun dev`.
-const PORT = 4178;
+// E2E port from scripts/e2e-ports.ts; 4177 stays free for manual `bun dev`.
+const PORT = E2E_PORTS["framework/admin-console"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -40,7 +41,7 @@ export default defineConfig({
     command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
     url: BASE_URL,
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 90_000,
     stdout: "pipe",
     stderr: "pipe",

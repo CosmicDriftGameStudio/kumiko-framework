@@ -8,8 +8,9 @@
 // demos can run sequentially in the same job without colliding state.
 
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../scripts/e2e-ports";
 
-const PORT = process.env["HERO_PORT"] ?? "4290";
+const PORT = process.env["HERO_PORT"] ?? String(E2E_PORTS["framework/hero-demos"]);
 // Test workers are child processes of this config process and inherit
 // process.env - run-demo.ts reads HERO_PORT for rewritePort(), otherwise it never arrives.
 process.env["HERO_PORT"] = PORT;
@@ -40,7 +41,7 @@ export default defineConfig({
     url: BASE_URL,
     cwd: "../..",
     env: { PORT, HERO_DEMO: DEMO },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",

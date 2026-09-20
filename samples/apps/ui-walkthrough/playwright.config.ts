@@ -1,6 +1,6 @@
 // Playwright-Config für den ui-walkthrough-Durchstich. Startet den
 // echten dev-server als webServer-Fixture, genau wie `bun dev` — nur
-// auf Port 4174 damit die laufende Dev-Session (4173) nicht kollidiert.
+// auf dem Port aus scripts/e2e-ports.ts, damit keine Dev-Session kollidiert.
 //
 // Der dev-server macht auf PORT-Env basierend das HTTP-Binding. Die
 // setupTestStack-Default ist ephemeral (fresh kumiko_test_<random> DB),
@@ -9,12 +9,13 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_PORTS } from "../../../scripts/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_ARG = samplesEnvFileArg(HERE);
 
-const PORT = 4174;
+const PORT = E2E_PORTS["framework/ui-walkthrough"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -67,7 +68,7 @@ export default defineConfig({
     // stop()-Handler gedroppt). Ohne das würde E2E gegen die persistent
     // Dev-DB laufen und die Tests sähen bereits gespeicherte Einträge.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
     timeout: 60_000,
     stdout: "pipe",
     stderr: "pipe",
