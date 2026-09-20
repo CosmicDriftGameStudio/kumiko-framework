@@ -42,7 +42,7 @@ let indexPrefix: string;
 describe.skipIf(!MEILI_UP)("meilisearch adapter (live)", () => {
   beforeAll(async () => {
     client = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
-    indexPrefix = `test_${uuid().slice(-6)}_`;
+    indexPrefix = `test_${uuid()}_`;
     adapter = createMeilisearchAdapter({
       url: MEILI_URL,
       apiKey: MEILI_KEY,
@@ -110,10 +110,9 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter (live)", () => {
   });
 
   afterAll(async () => {
-    // Clean up all test indices
     const indices = await client.getIndexes();
     for (const idx of indices.results) {
-      if (idx.uid.startsWith("test_")) {
+      if (idx.uid.startsWith(indexPrefix)) {
         try {
           await client.index(idx.uid).delete().waitTask();
         } catch {

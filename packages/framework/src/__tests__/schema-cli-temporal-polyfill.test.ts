@@ -28,7 +28,7 @@ describe("runSchemaCli — Temporal polyfill", () => {
     // never retried on the next run.
     //
     // Asserting on globalThis.Temporal directly doesn't work here: the test
-    // harness's own preload (test-setup/base.preload.ts) already calls
+    // harness's own preload (@cosmicdrift/kumiko-testing/preload/temporal) already calls
     // ensureTemporalPolyfill() once per process, and its idempotency cache
     // (a module-level flag, not re-derived from globalThis) short-circuits
     // any later call regardless of what a test does to globalThis.Temporal in

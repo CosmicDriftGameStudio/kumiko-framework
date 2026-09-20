@@ -265,6 +265,18 @@
         "temporal-polyfill": "^0.3.2",
       },
     },
+    "packages/testing": {
+      "name": "@cosmicdrift/kumiko-testing",
+      "version": "0.293.0",
+      "bin": {
+        "kumiko-testing": "./bin/kumiko-testing.ts",
+      },
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "packages/types": {
       "name": "@cosmicdrift/kumiko-types",
       "version": "0.294.1",
@@ -1144,6 +1156,8 @@
     "@cosmicdrift/kumiko-sample-writeform-section": ["@cosmicdrift/kumiko-sample-writeform-section@workspace:samples/recipes/writeform-section"],
 
     "@cosmicdrift/kumiko-server-runtime": ["@cosmicdrift/kumiko-server-runtime@workspace:packages/server-runtime"],
+
+    "@cosmicdrift/kumiko-testing": ["@cosmicdrift/kumiko-testing@workspace:packages/testing"],
 
     "@cosmicdrift/kumiko-types": ["@cosmicdrift/kumiko-types@workspace:packages/types"],
 
