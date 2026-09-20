@@ -183,6 +183,55 @@ describe("useListUrlState", () => {
     });
   });
 
+  // fw#3104: the date-range facet lives in the same .f. namespace so
+  // clearFilters covers it — but both bounds have to land in ONE params
+  // update, or the second call overwrites the first.
+  test("setDateRange schreibt beide Grenzen atomar + resettet page", () => {
+    const nav = makeNav({ "orders.page": "4" });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    act(() => {
+      result.current.setDateRange("createdAt", { from: "2020-06-10", to: "2020-06-14" });
+    });
+    expect(nav.captures).toHaveLength(1);
+    expect(nav.captures[0]).toEqual({
+      "orders.f.createdAt.from": "2020-06-10",
+      "orders.f.createdAt.to": "2020-06-14",
+      "orders.page": null,
+    });
+  });
+
+  test("setDateRange mit leerer Grenze löscht nur diesen Key", () => {
+    const nav = makeNav({
+      "orders.f.createdAt.from": "2020-06-10",
+      "orders.f.createdAt.to": "2020-06-14",
+    });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    act(() => {
+      result.current.setDateRange("createdAt", { from: "", to: "2020-06-14" });
+    });
+    expect(nav.captures[0]).toEqual({
+      "orders.f.createdAt.from": null,
+      "orders.f.createdAt.to": "2020-06-14",
+      "orders.page": null,
+    });
+  });
+
+  test("clearFilters löscht auch die Zeitraum-Grenzen", () => {
+    const nav = makeNav({
+      "orders.f.createdAt.from": "2020-06-10",
+      "orders.f.createdAt.to": "2020-06-14",
+    });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    act(() => {
+      result.current.clearFilters();
+    });
+    expect(nav.captures[0]).toEqual({
+      "orders.page": null,
+      "orders.f.createdAt.from": null,
+      "orders.f.createdAt.to": null,
+    });
+  });
+
   test("clearFilters löscht alle aktiven .f.<field>-Keys", () => {
     const nav = makeNav({
       "orders.f.status": "draft",

@@ -106,10 +106,11 @@ function renderScreen(
   schema: FeatureSchema,
   qn: string,
   dispatcher: Dispatcher = stubDispatcher(),
+  timeZone = "UTC",
 ): void {
   render(
     <LocaleProvider
-      resolver={createStaticLocaleResolver({ locale: "de-DE" })}
+      resolver={createStaticLocaleResolver({ locale: "de-DE", timeZone })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
       <DispatcherProvider dispatcher={dispatcher}>
@@ -424,5 +425,94 @@ describe("projectionList filter + facets (fw#2224)", () => {
     expect(lastPayload).toMatchObject({
       filters: [{ field: "tenantId", op: "in", value: ["t1"] }],
     });
+  });
+});
+
+// fw#3104: a dateRange facet is the first facet that does NOT travel in
+// payload.filters — its two bounds go out as the top-level params the screen
+// declares. A screen may declare it as its only facet, so the wiring must not
+// hang off the option-facet path.
+describe("projectionList dateRange facet (fw#3104)", () => {
+  const dateRangeScreen: ProjectionListScreenDefinition = {
+    id: "event-list",
+    type: "projectionList",
+    query: "ledger:query:event:list",
+    columns: ["createdAt"],
+    facets: [
+      {
+        field: "createdAt",
+        type: "dateRange",
+        label: "When",
+        params: { from: "from", to: "to" },
+      },
+    ],
+  };
+  const schema: FeatureSchema = {
+    featureName: "ledger",
+    entities: {},
+    screens: [dateRangeScreen],
+  } as FeatureSchema;
+
+  test("reaches the DataTable as a dateRange facet, not as a filter dropdown", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    renderScreen(schema, "ledger:screen:event-list");
+
+    await waitFor(() => expect(capturedProps).toBeDefined());
+    const props = getCapturedProps();
+    if (props === undefined) throw new Error("DataTable was not rendered");
+    expect(props.dateRangeFacets).toEqual([
+      { field: "createdAt", label: "When", from: "", to: "" },
+    ]);
+    expect(props.filterFacets).toBeUndefined();
+    // Reset still has to be reachable on a dateRange-only screen.
+    expect(props.onFilterReset).toBeDefined();
+    expect(queryCalls[0]?.payload).not.toHaveProperty("from");
+  });
+
+  test("picking a bound sends it as the declared query param, in the viewer's zone", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    renderScreen(schema, "ledger:screen:event-list", stubDispatcher(), "Europe/Vienna");
+
+    await waitFor(() => expect(capturedProps).toBeDefined());
+    const before = queryCalls.length;
+    await act(async () => {
+      getCapturedProps()?.onDateRangeChange?.("createdAt", "to", "2020-06-14");
+    });
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(before));
+    const payload = queryCalls[queryCalls.length - 1]?.payload;
+    // Open interval: only the bound the user picked travels.
+    expect(payload).toMatchObject({ to: "2020-06-14T21:59:59.999999999Z" });
+    expect(payload).not.toHaveProperty("from");
+    expect(payload).not.toHaveProperty("filters");
+    expect(getCapturedProps()?.dateRangeFacets).toEqual([
+      { field: "createdAt", label: "When", from: "", to: "2020-06-14" },
+    ]);
+  });
+
+  test("a `from` past the current `to` is clamped before it can reach the handler's refine", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    renderScreen(schema, "ledger:screen:event-list", stubDispatcher(), "Europe/Vienna");
+
+    await waitFor(() => expect(capturedProps).toBeDefined());
+    await act(async () => {
+      getCapturedProps()?.onDateRangeChange?.("createdAt", "to", "2020-06-14");
+    });
+    await act(async () => {
+      getCapturedProps()?.onDateRangeChange?.("createdAt", "from", "2020-06-20");
+    });
+    await waitFor(() =>
+      expect(getCapturedProps()?.dateRangeFacets).toEqual([
+        { field: "createdAt", label: "When", from: "2020-06-20", to: "2020-06-20" },
+      ]),
+    );
+    const payload = queryCalls[queryCalls.length - 1]?.payload as Record<string, string>;
+    const from = payload["from"];
+    const to = payload["to"];
+    expect(from).toBeString();
+    expect(to).toBeString();
+    expect((from ?? "") <= (to ?? "")).toBe(true);
   });
 });

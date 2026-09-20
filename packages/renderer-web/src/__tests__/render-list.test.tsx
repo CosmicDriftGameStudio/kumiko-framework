@@ -206,3 +206,49 @@ afterEach(() => {
   const warn = console.warn as unknown as { mockRestore?: () => void };
   warn.mockRestore?.();
 });
+
+// fw#3104: the audit log declares a dateRange facet and nothing else, so the
+// toolbar's facet cluster must render for a screen with no option-dropdown
+// facets at all — otherwise the whole filter is invisible on the one screen
+// the feature exists for.
+describe("RenderList dateRange facet (fw#3104)", () => {
+  const rows = [{ id: "1", title: "Foo", status: "open", isUrgent: false, priority: 3 }];
+
+  test("renders both date inputs when it is the only facet", () => {
+    render(
+      <RenderList
+        screen={listScreen}
+        entity={taskEntity}
+        rows={rows}
+        featureName="tasks"
+        dateRangeFacets={[{ field: "createdAt", label: "When", from: "", to: "" }]}
+        onDateRangeChange={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("facet-daterange-createdAt-from").getAttribute("type")).toBe("date");
+    expect(screen.getByTestId("facet-daterange-createdAt-to").getAttribute("type")).toBe("date");
+  });
+
+  test("a picked bound reaches onDateRangeChange and constrains the other input", () => {
+    const onDateRangeChange = mock();
+    render(
+      <RenderList
+        screen={listScreen}
+        entity={taskEntity}
+        rows={rows}
+        featureName="tasks"
+        dateRangeFacets={[{ field: "createdAt", label: "When", from: "2020-06-10", to: "" }]}
+        onDateRangeChange={onDateRangeChange}
+      />,
+    );
+    // The `from` bound is the `to` input's floor, so the picker can't offer
+    // an inverted range.
+    expect(screen.getByTestId("facet-daterange-createdAt-to").getAttribute("min")).toBe(
+      "2020-06-10",
+    );
+    fireEvent.change(screen.getByTestId("facet-daterange-createdAt-to"), {
+      target: { value: "2020-06-14" },
+    });
+    expect(onDateRangeChange).toHaveBeenCalledWith("createdAt", "to", "2020-06-14");
+  });
+});

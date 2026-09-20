@@ -473,6 +473,8 @@ export type EntityListScreenDefinition = {
 // `falseLabel`) are i18n keys resolved via `translate()` with passthrough
 // for unknown keys (fw#2373) — not raw display strings. Sent to the server
 // as `{field, op:"in", value}` in `payload.filters`, ANDed with `filter`.
+// Exception: "dateRange" sends its bounds as the two top-level payload keys
+// named in `params`, not as a `filters` entry.
 export type ListFacetSpec =
   | {
       readonly field: string;
@@ -497,6 +499,20 @@ export type ListFacetSpec =
       /** Row field on the referenced entity shown as the option label
        *  (default "id"). */
       readonly labelField?: string;
+    }
+  | {
+      /** Declarative only — the date field the range narrows. It is NOT sent
+       *  to the server (the bounds go under `params`); it namespaces the
+       *  facet's URL keys and tells a reading agent which column this list
+       *  is time-rangeable on. */
+      readonly field: string;
+      readonly type: "dateRange";
+      readonly label: string;
+      /** Query-payload keys the chosen bounds are sent under as ISO instants.
+       *  Explicit rather than a `from`/`to` convention — a query is free to
+       *  name its time bounds anything, and the boot-validator checks these
+       *  keys against the handler's Zod schema. */
+      readonly params: { readonly from: string; readonly to: string };
     };
 
 export type ProjectionListScreenDefinition = {
@@ -535,7 +551,9 @@ export type ProjectionListScreenDefinition = {
   readonly filter?: ScreenFilter;
   /** User-toggleable facet dropdowns — see `ListFacetSpec` doc. `field`
    *  must be a declared column; the bound query handler must accept
-   *  `filters` in its Zod schema — the boot-validator checks both. */
+   *  `filters` in its Zod schema — the boot-validator checks both. A
+   *  "dateRange" facet instead needs its two `params` keys in that schema;
+   *  it sends no `filters` entry. */
   readonly facets?: readonly ListFacetSpec[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;

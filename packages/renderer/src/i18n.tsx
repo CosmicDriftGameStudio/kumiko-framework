@@ -205,6 +205,17 @@ export function useOptionalLocale(): string | undefined {
   return ctx === undefined ? undefined : ctx.resolver.locale();
 }
 
+/** Non-throwing time-zone read — "UTC" outside LocaleProvider, matching
+ *  createStaticLocaleResolver's own default. */
+export function useOptionalTimeZone(): string {
+  const ctx = useContext(LocaleContext);
+  return useSyncExternalStore(
+    (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
+    () => (ctx ? ctx.resolver.timeZone() : "UTC"),
+    () => (ctx ? ctx.resolver.timeZone() : "UTC"),
+  );
+}
+
 /** Non-throwing translate — undefined outside LocaleProvider. */
 export function useOptionalTranslation():
   | ((key: string, params?: Readonly<Record<string, unknown>>) => string)

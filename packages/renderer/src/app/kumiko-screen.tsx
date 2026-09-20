@@ -50,8 +50,9 @@ import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-cont
 import { useUserRoles } from "../context/user-roles-context";
 import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
 import { type UseQueryResult, useQuery } from "../hooks/use-query";
-import { useTranslation } from "../i18n";
+import { useOptionalTimeZone, useTranslation } from "../i18n";
 import {
+  type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableRowAction,
   statusToneForValue,
@@ -66,10 +67,14 @@ import type { FeatureSchema } from "./feature-schema";
 import { buildFormSchema } from "./form-schema";
 import { layoutFieldNames } from "./layout-fields";
 import {
+  buildDateRangePayload,
   buildFilterFacets,
   buildFilterPayload,
+  clampDateRange,
   mergeReferenceFacetOptions,
   type ResolvedFacetSpec,
+  readDateRange,
+  resolveDateRangeFacets,
   resolveProjectionFacetSpecs,
 } from "./list-facets";
 import { type NavApi, type ScreenTarget, useInitialValuesHandoff, useNav } from "./nav";
@@ -2410,6 +2415,19 @@ function ProjectionListBody({
     [urlState.filters, facetSpecs],
   );
 
+  // dateRange facets (fw#3104) bypass `filters` entirely — their two bounds
+  // become the top-level query params the facet declares, resolved from a
+  // calendar date to an instant in the viewer's zone.
+  const timeZone = useOptionalTimeZone();
+  const dateRangeSpecs = useMemo(
+    () => resolveDateRangeFacets(screen.facets, effectiveTranslate),
+    [screen.facets, effectiveTranslate],
+  );
+  const dateRangePayload = useMemo(
+    () => buildDateRangePayload(dateRangeSpecs, urlState.filters, timeZone),
+    [dateRangeSpecs, urlState.filters, timeZone],
+  );
+
   const queryPayload = useMemo(() => {
     const payload = buildListQueryPayload({
       limit,
@@ -2430,6 +2448,7 @@ function ProjectionListBody({
     if (screen.facets !== undefined && filterPayload.length > 0) {
       payload["filters"] = filterPayload;
     }
+    Object.assign(payload, dateRangePayload);
     return payload;
   }, [
     limit,
@@ -2440,6 +2459,7 @@ function ProjectionListBody({
     screen.filter,
     screen.facets,
     filterPayload,
+    dateRangePayload,
   ]);
 
   const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
@@ -2447,6 +2467,24 @@ function ProjectionListBody({
   const filterFacets = useMemo<DataTableFacet[]>(
     () => buildFilterFacets(resolvedFacetSpecs),
     [resolvedFacetSpecs],
+  );
+  const dateRangeFacets = useMemo<DataTableDateRangeFacet[]>(
+    () =>
+      dateRangeSpecs.map((spec) => ({
+        field: spec.field,
+        label: spec.label,
+        ...readDateRange(urlState.filters, spec.field),
+      })),
+    [dateRangeSpecs, urlState.filters],
+  );
+  const handleDateRangeChange = useCallback(
+    (field: string, bound: "from" | "to", value: string) => {
+      urlState.setDateRange(
+        field,
+        clampDateRange(readDateRange(urlState.filters, field), bound, value),
+      );
+    },
+    [urlState.setDateRange, urlState.filters],
   );
 
   // Entity-Targets (fw#2228) — see EntityListBody.runNavigate for why the
@@ -2583,8 +2621,14 @@ function ProjectionListBody({
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
         {...(filterFacets.length > 0 && {
           filterFacets,
-          filterValues: urlState.filters,
           onFilterChange: urlState.setFilter,
+        })}
+        {...(dateRangeFacets.length > 0 && {
+          dateRangeFacets,
+          onDateRangeChange: handleDateRangeChange,
+        })}
+        {...((filterFacets.length > 0 || dateRangeFacets.length > 0) && {
+          filterValues: urlState.filters,
           onFilterReset: urlState.clearFilters,
         })}
       />

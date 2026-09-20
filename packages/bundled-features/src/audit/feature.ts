@@ -61,6 +61,14 @@ export function createAuditFeature(): FeatureDefinition {
         ],
         searchable: true,
         defaultSort: { field: "createdAt", dir: "desc" },
+        facets: [
+          {
+            type: "dateRange",
+            field: "createdAt",
+            label: i18nKey("audit.log.col.when"),
+            params: { from: "from", to: "to" },
+          },
+        ],
         rowActions: [
           {
             kind: "navigate",

@@ -64,6 +64,13 @@ export type {
 export { isAppSchema, toAppSchema } from "./app/feature-schema";
 export type { KumikoScreenProps } from "./app/kumiko-screen";
 export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen";
+export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets";
+export {
+  buildDateRangePayload,
+  clampDateRange,
+  readDateRange,
+  resolveDateRangeFacets,
+} from "./app/list-facets";
 export type {
   NavApi,
   NavProviderProps,
@@ -188,6 +195,7 @@ export type {
   CardProps,
   CardSlots,
   CorePrimitives,
+  DataTableDateRangeFacet,
   DataTableFacet,
   DataTableProps,
   DataTableRowAction,

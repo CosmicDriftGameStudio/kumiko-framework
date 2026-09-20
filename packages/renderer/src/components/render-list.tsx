@@ -18,6 +18,7 @@ import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
 import {
+  type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableRowAction,
   type DataTableRowActionMode,
@@ -110,6 +111,10 @@ export type RenderListProps = {
   readonly onFilterChange?: (field: string, values: readonly string[]) => void;
   /** Reset aller aktiven Facets. */
   readonly onFilterReset?: () => void;
+  /** Time-range filters (fw#3104) — forwarded to the DataTable. */
+  readonly dateRangeFacets?: readonly DataTableDateRangeFacet[];
+  /** One bound changed (set URL state + refetch). */
+  readonly onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void;
   /** Forwarded to `DataTableProps.chromeless` — drops the table's own card
    *  frame for a host that already provides one (relatedList in a tabs-mode
    *  section, fw#2722). Default false. */
@@ -175,6 +180,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     filterValues,
     onFilterChange,
     onFilterReset,
+    dateRangeFacets,
+    onDateRangeChange,
     chromeless,
     scrollBody,
     screenPadding,
@@ -392,6 +399,8 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(filterValues !== undefined && { filterValues })}
         {...(onFilterChange !== undefined && { onFilterChange })}
         {...(onFilterReset !== undefined && { onFilterReset })}
+        {...(dateRangeFacets !== undefined && { dateRangeFacets })}
+        {...(onDateRangeChange !== undefined && { onDateRangeChange })}
         {...(chromeless !== undefined && { chromeless })}
         {...(scrollBody !== undefined && { scrollBody })}
         {...(screenPadding !== undefined && { screenPadding })}

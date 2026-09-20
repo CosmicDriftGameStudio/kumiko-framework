@@ -48,6 +48,14 @@ export type ListUrlStateApi = ListUrlState & {
   readonly setFilter: (field: string, values: readonly string[]) => void;
   /** Löscht alle aktiven Faceted-Filter (Reset-Button). */
   readonly clearFilters: () => void;
+  /** Sets both bounds of a dateRange facet in ONE params update — two
+   *  setFilter calls would overwrite each other, since the second still sees
+   *  the old searchParams. An empty string clears that bound. Resets the page
+   *  like setFilter. */
+  readonly setDateRange: (
+    field: string,
+    next: { readonly from: string; readonly to: string },
+  ) => void;
 };
 
 // `.` als Trenner: lesbar (`?orders.sort=name`), kollidiert nicht mit
@@ -142,11 +150,22 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
     [nav, screenId],
   );
 
+  const setDateRange = useCallback(
+    (field: string, next: { readonly from: string; readonly to: string }) => {
+      nav.setSearchParams({
+        [key(screenId, `f.${field}.from`)]: next.from === "" ? null : next.from,
+        [key(screenId, `f.${field}.to`)]: next.to === "" ? null : next.to,
+        [key(screenId, "page")]: null,
+      });
+    },
+    [nav, screenId],
+  );
+
   const clearFilters = useCallback(() => {
     const updates: Record<string, string | null> = { [key(screenId, "page")]: null };
     for (const field of Object.keys(filters)) updates[key(screenId, `f.${field}`)] = null;
     nav.setSearchParams(updates);
   }, [nav, screenId, filters]);
 
-  return { sort, q, page, filters, setSort, setQ, setPage, setFilter, clearFilters };
+  return { sort, q, page, filters, setSort, setQ, setPage, setFilter, clearFilters, setDateRange };
 }
