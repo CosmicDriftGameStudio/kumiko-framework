@@ -346,9 +346,9 @@ describe("kms env slots", () => {
       expect(parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc" })["MASTER_KEY_CIPHERTEXT"]).toBe(
         "abc",
       );
-      expect(() =>
-        parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc", PLAIN: "forbidden" }),
-      ).toThrow(KumikoBootError);
+      expect(() => parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc", PLAIN: "forbidden" })).toThrow(
+        KumikoBootError,
+      );
     });
   });
 });
