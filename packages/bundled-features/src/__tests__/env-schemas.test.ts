@@ -211,6 +211,7 @@ describe("compose across all Phase-2 features", () => {
       "JWT_SECRET",
       "KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION",
       "KUMIKO_SECRETS_MASTER_KEY_V1",
+      "KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT",
       "MOLLIE_API_KEY",
       "STRIPE_API_KEY",
       "STRIPE_WEBHOOK_SECRET",

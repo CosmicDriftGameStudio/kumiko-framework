@@ -61,10 +61,11 @@ describe("runProdApp kms slots", () => {
   });
 
   test("boots with a master key that exists only as Key Manager ciphertext", async () => {
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ plaintext: MASTER_KEY }), {
-        status: 200,
-      })) as unknown as typeof globalThis.fetch;
+    const decrypted: string[] = [];
+    globalThis.fetch = (async (_url: string | URL, init?: RequestInit) => {
+      decrypted.push(JSON.parse(String(init?.body)).ciphertext);
+      return new Response(JSON.stringify({ plaintext: MASTER_KEY }), { status: 200 });
+    }) as unknown as typeof globalThis.fetch;
     console.log = () => {};
     console.info = () => {};
 
@@ -75,6 +76,7 @@ describe("runProdApp kms slots", () => {
     });
 
     await handle.stop();
+    expect(decrypted).toEqual(["Y2lwaGVy"]);
   });
 
   test("a plaintext master key boots without any Key Manager request", async () => {
