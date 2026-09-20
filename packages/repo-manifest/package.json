@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-repo-manifest",
-  "version": "0.292.0",
+  "version": "0.293.0",
   "description": "kumiko.json repo manifest schema and loader.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-types
 
+## 0.293.0
+
 ## 0.292.0
 
 ### Minor Changes
