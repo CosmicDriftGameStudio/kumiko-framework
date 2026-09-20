@@ -573,7 +573,13 @@ jobs:
           failed=()
           for cfg in "${configs[@]}"; do
             echo "=== e2e: $cfg ==="
-            bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
+            # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
+            # it points outside the repo so the committed docs images stay untouched.
+            screenshot_env=()
+            if [[ "$cfg" == samples/apps/* ]]; then
+              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
+            fi
+            env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
             code=$?
             if [ $code -ne 0 ]; then failed+=("$cfg"); fi
           done

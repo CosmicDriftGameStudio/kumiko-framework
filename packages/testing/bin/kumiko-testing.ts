@@ -9,19 +9,28 @@ import { buildIntegrationTestArgs, selectIntegrationFiles } from "../src/integra
 
 const USAGE = `kumiko-testing <command>
 
-  bunfig [--dom] [--coverage]             write bunfig.toml, bunfig.integration.toml and
-                                          bunfig.real.toml (plus bunfig.dom.toml with --dom)
-  integration [--parallel N]              run every *.integration.test.ts under the cwd
+  bunfig [--dom] [--coverage] [--hoisted]  write bunfig.toml, bunfig.integration.toml and
+                                           bunfig.real.toml (plus bunfig.dom.toml with --dom);
+                                           --hoisted adds [install] linker = "hoisted"
+  integration [--parallel N]               run every *.integration.test.ts under the cwd
               [--timings <file>] [--update-timings]
 `;
 
 function runBunfig(args: readonly string[]): number {
   const { values } = parseArgs({
     args: [...args],
-    options: { dom: { type: "boolean" }, coverage: { type: "boolean" } },
+    options: {
+      dom: { type: "boolean" },
+      coverage: { type: "boolean" },
+      hoisted: { type: "boolean" },
+    },
     strict: true,
   });
-  const files = renderBunfigFiles({ dom: values.dom === true, coverage: values.coverage === true });
+  const files = renderBunfigFiles({
+    dom: values.dom === true,
+    coverage: values.coverage === true,
+    ...(values.hoisted === true && { install: { linker: "hoisted" } }),
+  });
   for (const [name, content] of Object.entries(files)) {
     writeFileSync(name, content);
     console.log(`wrote ${name}`);

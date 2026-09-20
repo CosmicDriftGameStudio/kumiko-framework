@@ -30,6 +30,7 @@
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+    "@cosmicdrift/kumiko-testing": "workspace:*",
     "@inquirer/core": "^10.0.0",
     "@inquirer/prompts": "^7.4.0"
   },

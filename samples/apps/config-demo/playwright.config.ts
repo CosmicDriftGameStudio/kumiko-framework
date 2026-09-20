@@ -1,4 +1,7 @@
+// @runtime test
 import { defineConfig, devices } from "@playwright/test";
+import "@cosmicdrift/kumiko-testing/preload/env";
+import { PLAYWRIGHT_DEMO_ENV, screenshotSpecsIgnore } from "@cosmicdrift/kumiko-testing/e2e";
 import { E2E_PORTS } from "../../e2e/e2e-ports";
 
 const PORT = E2E_PORTS["framework/config-demo"];
@@ -6,6 +9,7 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: screenshotSpecsIgnore(),
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
   retries: 0,
@@ -28,9 +32,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "bun --env-file=../../../.env run src/app/server.ts",
+    command: "bun run src/app/server.ts",
     url: BASE_URL,
-    env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },
+    env: { ...PLAYWRIGHT_DEMO_ENV, PORT: String(PORT) },
     reuseExistingServer: false,
     timeout: 60_000,
     stdout: "pipe",

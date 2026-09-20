@@ -43,6 +43,7 @@ const PEER_PACKAGES = [
   "kumiko-dev-server",
   "kumiko-repo-manifest",
   "kumiko-guards",
+  "kumiko-testing",
 ] as const;
 
 type PackedManifest = {

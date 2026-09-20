@@ -1,5 +1,10 @@
+// @runtime test
+import {
+  applyDefaultTheme,
+  DEFAULT_THEMES,
+  type DefaultThemeId,
+} from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { applyDefaultTheme, DEFAULT_THEMES, type DefaultThemeId } from "../../../e2e/screenshots";
 
 // Die 3 Doku-Themes. default-light/-dark sind der nackte renderer-web-Default
 // (Mode via .dark-Klasse). brand demonstriert App-Mount-Customizing: ein

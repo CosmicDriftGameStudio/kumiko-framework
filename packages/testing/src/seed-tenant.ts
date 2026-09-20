@@ -7,50 +7,41 @@ import {
   createSystemUser,
   type SessionUser,
   type TenantId,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { isPlainObject } from "@cosmicdrift/kumiko-framework/utils";
+import {
+  type BoundApi,
+  type SeededCredentials,
+  type SeededTenant,
+  type SeedTenantOptions,
+  withSession,
+} from "./seed-types";
 
-export type BoundApi = {
-  writeOk: <T = Record<string, unknown>>(
-    type: string,
-    payload: unknown,
-    requestId?: string,
-  ) => Promise<T>;
-  writeErr: (type: string, payload: unknown) => Promise<WriteErrorInfo>;
-  queryOk: <T = unknown>(type: string, payload: unknown) => Promise<T>;
-  queryErr: (type: string, payload: unknown) => Promise<WriteErrorInfo>;
-};
+export type {
+  BoundApi,
+  SeededCredentials,
+  SeededTenant,
+  SeededUser,
+  SeedPart,
+  SeedTenantOptions,
+} from "./seed-types";
 
-export type SeededUser = {
-  readonly id: string;
-  readonly email: string;
-  readonly password: string;
-  readonly session: SessionUser;
-};
+export type SavedRow = { readonly id: string; readonly data: { readonly version: number } };
 
-export type SeedPart = (ctx: {
-  readonly stack: TestStack;
-  readonly tenant: SeededTenant;
-}) => Promise<void>;
+export type SeedWriter = (
+  handlerQn: string,
+  payload: unknown,
+  tenantId: TenantId,
+) => Promise<SavedRow>;
 
-export type SeedTenantOptions = {
-  readonly name?: string;
-  readonly users?: number;
-  readonly with?: readonly SeedPart[];
-  readonly persist?: boolean;
-};
-
-export type SeededTenant = {
+export type PersistedTenant = {
   readonly id: TenantId;
   readonly key: string;
   readonly name: string;
-  readonly admin: SeededUser;
-  readonly members: readonly SeededUser[];
-  readonly addUser: (roles?: readonly string[]) => Promise<SeededUser>;
-  readonly api: BoundApi;
-  readonly apiAs: (user: SeededUser) => BoundApi;
+  readonly admin: SeededCredentials;
+  readonly members: readonly SeededCredentials[];
 };
 
 function bindApi(stack: TestStack, user: SessionUser): BoundApi {
@@ -63,17 +54,19 @@ function bindApi(stack: TestStack, user: SessionUser): BoundApi {
   };
 }
 
-function lightUser(tenantId: TenantId, roles: readonly string[]): SeededUser {
+function lightCredentials(): SeededCredentials {
   const id = randomUUID();
-  return {
-    id,
-    email: `user-${id}@example.test`,
-    password: `pw-${randomUUID()}`,
-    session: { id, tenantId, roles },
-  };
+  return { id, email: `user-${id}@example.test`, password: `pw-${randomUUID()}` };
 }
 
-type SavedRow = { readonly id: string; readonly data: { readonly version: number } };
+function newTenantIdentity(name: string | undefined): {
+  id: TenantId;
+  key: string;
+  name: string;
+} {
+  const id: TenantId = randomUUID();
+  return { id, key: `t-${id}`, name: name ?? `Test Tenant ${id.slice(0, 8)}` };
+}
 
 function isSavedRow(value: unknown): value is SavedRow {
   if (!isPlainObject(value) || typeof value["id"] !== "string") return false;
@@ -81,90 +74,98 @@ function isSavedRow(value: unknown): value is SavedRow {
   return isPlainObject(data) && typeof data["version"] === "number";
 }
 
-async function dispatchSeedWrite(
-  stack: TestStack,
-  type: string,
-  payload: unknown,
-  actor: SessionUser,
-): Promise<SavedRow> {
-  const result = await stack.dispatcher.write(type, payload, actor);
+export function unwrapSavedRow(handlerQn: string, result: WriteResult): SavedRow {
   if (!result.isSuccess) {
-    throw new Error(`seedTenant: ${type} failed: ${JSON.stringify(result.error)}`);
+    throw new Error(`seedTenant: ${handlerQn} failed: ${JSON.stringify(result.error)}`);
   }
   if (!isSavedRow(result.data)) {
-    throw new Error(`seedTenant: ${type} returned no saved row`);
+    throw new Error(`seedTenant: ${handlerQn} returned no saved row`);
   }
   return result.data;
 }
 
-async function persistUser(
-  stack: TestStack,
+export function stackSeedWriter(stack: TestStack): SeedWriter {
+  return async (handlerQn, payload, tenantId) =>
+    unwrapSavedRow(
+      handlerQn,
+      await stack.dispatcher.write(
+        handlerQn,
+        payload,
+        createSystemUser(tenantId, [ROLES.SystemAdmin]),
+      ),
+    );
+}
+
+export async function persistUserRows(
+  write: SeedWriter,
   tenantId: TenantId,
   roles: readonly string[],
-): Promise<SeededUser> {
-  const user = lightUser(tenantId, roles);
-  const operator = createSystemUser(tenantId, [ROLES.SystemAdmin]);
-  const created = await dispatchSeedWrite(
-    stack,
+): Promise<SeededCredentials> {
+  const light = lightCredentials();
+  const created = await write(
     UserHandlers.create,
     {
-      email: user.email,
-      passwordHash: await hashPassword(user.password),
-      displayName: `Seed ${user.id.slice(0, 8)}`,
+      email: light.email,
+      passwordHash: await hashPassword(light.password),
+      displayName: `Seed ${light.id.slice(0, 8)}`,
     },
-    operator,
+    tenantId,
   );
-  await dispatchSeedWrite(
-    stack,
+  await write(
     UserHandlers.update,
     { id: created.id, version: created.data.version, changes: { emailVerified: true } },
-    operator,
+    tenantId,
   );
-  await dispatchSeedWrite(
-    stack,
-    TenantHandlers.addMember,
-    { userId: created.id, tenantId, roles },
-    operator,
-  );
-  return { ...user, id: created.id, session: { ...user.session, id: created.id } };
+  await write(TenantHandlers.addMember, { userId: created.id, tenantId, roles }, tenantId);
+  return { id: created.id, email: light.email, password: light.password };
+}
+
+export async function persistTenantRows(
+  write: SeedWriter,
+  opts: { readonly name?: string; readonly users?: number } = {},
+): Promise<PersistedTenant> {
+  const { id, key, name } = newTenantIdentity(opts.name);
+  await write(TenantHandlers.create, { id, key, name }, id);
+  const admin = await persistUserRows(write, id, [ROLES.TenantAdmin]);
+  const members: SeededCredentials[] = [];
+  for (let i = 0; i < (opts.users ?? 0); i++) {
+    members.push(await persistUserRows(write, id, [ROLES.Member]));
+  }
+  return { id, key, name, admin, members };
+}
+
+function lightTenantRows(opts: SeedTenantOptions): PersistedTenant {
+  const identity = newTenantIdentity(opts.name);
+  const members = Array.from({ length: opts.users ?? 0 }, lightCredentials);
+  return { ...identity, admin: lightCredentials(), members };
 }
 
 export async function seedTenant(
   stack: TestStack,
   opts: SeedTenantOptions = {},
 ): Promise<SeededTenant> {
-  const id: TenantId = randomUUID();
-  const key = `t-${id}`;
-  const name = opts.name ?? `Test Tenant ${id.slice(0, 8)}`;
+  const write = stackSeedWriter(stack);
   const persist = opts.persist === true;
+  const rows = persist ? await persistTenantRows(write, opts) : lightTenantRows(opts);
+  const { id } = rows;
 
-  if (persist) {
-    await dispatchSeedWrite(
-      stack,
-      TenantHandlers.create,
-      { id, key, name },
-      createSystemUser(id, [ROLES.SystemAdmin]),
-    );
-  }
-
-  const createUser = (roles: readonly string[]): Promise<SeededUser> =>
-    persist ? persistUser(stack, id, roles) : Promise.resolve(lightUser(id, roles));
-
-  const admin = await createUser([ROLES.TenantAdmin]);
-  const members: SeededUser[] = [];
-  for (let i = 0; i < (opts.users ?? 0); i++) members.push(await createUser([ROLES.Member]));
-
+  const admin = withSession(rows.admin, id, [ROLES.TenantAdmin]);
   const tenant: SeededTenant = {
     id,
-    key,
-    name,
+    key: rows.key,
+    name: rows.name,
     admin,
-    members,
-    addUser: (roles = [ROLES.Member]) => createUser(roles),
+    members: rows.members.map((member) => withSession(member, id, [ROLES.Member])),
+    addUser: async (roles = [ROLES.Member]) =>
+      withSession(
+        persist ? await persistUserRows(write, id, roles) : lightCredentials(),
+        id,
+        roles,
+      ),
     api: bindApi(stack, admin.session),
     apiAs: (user) => bindApi(stack, user.session),
   };
 
-  for (const part of opts.with ?? []) await part({ stack, tenant });
+  for (const part of opts.with ?? []) await part({ tenant });
   return tenant;
 }

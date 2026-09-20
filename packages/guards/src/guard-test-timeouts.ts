@@ -50,6 +50,7 @@ const SCAN: ScanSpec = {
   extraGlobs: [
     "e2e/**/*.{ts,tsx}",
     "packages/*/e2e/**/*.{ts,tsx}",
+    "packages/*/src/e2e/**/*.{ts,tsx}",
     "samples/e2e/**/*.{ts,tsx}",
     "samples/apps/*/e2e/**/*.{ts,tsx}",
   ],

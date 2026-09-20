@@ -3,7 +3,7 @@
 // Jeder Case ist eine bewusste Marketing-Story — beweist eine USP
 // visuell. Neuer Eintrag = neues PNG beim nächsten `bun screenshots`.
 
-import type { Scenario } from "../../../e2e/screenshots";
+import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 
 export const SCENARIOS: readonly Scenario[] = [
   {
@@ -12,7 +12,6 @@ export const SCENARIOS: readonly Scenario[] = [
       "Asset-Tracker — DataTable mit Status-Spalte (verfügbar / ausgeliehen / in Wartung), DACH-Persona-Beweis",
     url: "/asset-list",
     waitFor: "table tbody tr",
-    settleMs: 500,
   },
   {
     name: "asset-edit",
@@ -25,7 +24,6 @@ export const SCENARIOS: readonly Scenario[] = [
       await page.waitForURL(/\/asset-edit/);
     },
     waitFor: "form input, [data-testid='field-name']",
-    settleMs: 400,
   },
   {
     name: "ticket-list",
@@ -33,7 +31,6 @@ export const SCENARIOS: readonly Scenario[] = [
       "Helpdesk — zweite App auf gleicher Plattform. Severity-Default-Sort, Schema-driven, gleicher Look wie Assets",
     url: "/ticket-list",
     waitFor: "table tbody tr",
-    settleMs: 500,
   },
   {
     name: "ticket-edit",
@@ -45,6 +42,5 @@ export const SCENARIOS: readonly Scenario[] = [
       await page.waitForURL(/\/ticket-edit/);
     },
     waitFor: "form input, [data-testid='field-title']",
-    settleMs: 400,
   },
 ];

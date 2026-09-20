@@ -1,19 +1,16 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Request, test } from "@playwright/test";
 import { pinEnglishLocale } from "./pin-english-locale";
+import { requireScreenshotDir } from "./screenshot-dir";
 
-// Shared screenshot runner for the samples cluster (workspace-local, not
-// published). Standalone apps (money-horse/publicstatus/show-pony) pin
-// published kumiko → they just follow the convention and copy the template.
-//
-// runScreenshots: one image per scenario → <outDir>/<name>.png.
+// runScreenshots: one image per scenario → $SCREENSHOT_DIR/<name>.png.
 // runMatrix: every scenario × locale × theme × viewport in ONE run →
-//   <baseDir>/<name>/<locale>/<theme>/<viewport>.png (feeds the preview switcher).
+//   $SCREENSHOT_DIR/<name>/<locale>/<theme>/<viewport>.png (feeds the preview switcher).
 //
 // Both are registrars: call at the spec's module top, do NOT await — otherwise
 // they register test() only after Playwright's collection pass (0 tests).
+// SCREENSHOT_DIR is read when a registrar runs, never at import time.
 
 const MIN_BYTES = 5 * 1024;
 
@@ -29,27 +26,12 @@ export async function applyDefaultTheme(page: Page, theme: DefaultThemeId): Prom
   }, theme);
 }
 
-// Docs preview root for sample-app matrices: <docs>/public/screenshots/samples/
-// <bucket>/<app>/<scenario>/<locale>/<theme>/<viewport>.png. The docgen derives
-// the same path from the recipe's directory, so no name mapping is needed.
-export function docsSampleDir(specDirname: string, sampleDirPath: string): string {
-  return (
-    process.env["SCREENSHOT_DIR"] ??
-    resolve(
-      specDirname,
-      "../../../../../kumiko-platform/apps/docs/public/screenshots/samples",
-      sampleDirPath,
-    )
-  );
-}
-
 export interface Scenario {
   readonly name: string;
   readonly description?: string;
   readonly url?: string;
   readonly flow?: (page: Page) => Promise<void>;
   readonly waitFor?: string;
-  readonly settleMs?: number;
   readonly fullPage?: boolean;
   readonly viewport?: { readonly width: number; readonly height: number };
   // runMatrix only: opt out of the identical-theme-screenshot check for
@@ -58,7 +40,60 @@ export interface Scenario {
   readonly themeInvariant?: boolean;
 }
 
-async function openScenario(page: Page, s: Scenario): Promise<void> {
+// EventSource (hot-reload, live events) has its own resource type, so a
+// never-ending stream does not count as an in-flight data request.
+const DATA_REQUEST_TYPES: ReadonlySet<string> = new Set(["fetch", "xhr"]);
+const STABLE_POLLS = 2;
+
+function countInFlightDataRequests(page: Page): () => number {
+  const inFlight = new Set<Request>();
+  const settle = (request: Request): void => {
+    inFlight.delete(request);
+  };
+  page.on("request", (request) => {
+    if (DATA_REQUEST_TYPES.has(request.resourceType())) inFlight.add(request);
+  });
+  page.on("requestfinished", settle);
+  page.on("requestfailed", settle);
+  return () => inFlight.size;
+}
+
+function pageFingerprint(): string {
+  return [
+    document.fonts.status,
+    document.documentElement.scrollWidth,
+    document.documentElement.scrollHeight,
+    document.body.getElementsByTagName("*").length,
+    document.getAnimations().filter((animation) => animation.playState === "running").length,
+  ].join(":");
+}
+
+// Replaces fixed sleeps: settled = no data request in flight and an unchanged
+// DOM/scroll-size/animation fingerprint over STABLE_POLLS consecutive polls.
+async function waitForSettledPage(page: Page, inFlightDataRequests: () => number): Promise<void> {
+  let previous: string | undefined;
+  let stablePolls = 0;
+  await expect
+    .poll(
+      async () => {
+        const current = await page.evaluate(pageFingerprint);
+        stablePolls = current === previous && inFlightDataRequests() === 0 ? stablePolls + 1 : 0;
+        previous = current;
+        return stablePolls;
+      },
+      {
+        message: "page never settled (data requests in flight or DOM still changing)",
+        intervals: [100],
+      },
+    )
+    .toBeGreaterThanOrEqual(STABLE_POLLS);
+}
+
+async function openScenario(
+  page: Page,
+  s: Scenario,
+  inFlightDataRequests: () => number,
+): Promise<void> {
   if (s.flow) await s.flow(page);
   else if (s.url) await page.goto(s.url);
   else throw new Error(`Scenario "${s.name}" needs either url or flow`);
@@ -66,11 +101,10 @@ async function openScenario(page: Page, s: Scenario): Promise<void> {
   if (s.waitFor) {
     await expect(page.locator(s.waitFor).first()).toBeVisible({ timeout: 10_000 });
   }
-  if (s.settleMs) await page.waitForTimeout(s.settleMs);
+  await waitForSettledPage(page, inFlightDataRequests);
 }
 
 export interface FlatOptions {
-  readonly outDir: string;
   readonly pinLocale?: boolean;
 }
 
@@ -93,9 +127,10 @@ export function validateScenarios(scenarios: readonly Scenario[]): void {
   }
 }
 
-export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions): void {
+export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions = {}): void {
   validateScenarios(scenarios);
-  mkdirSync(opts.outDir, { recursive: true });
+  const outDir = requireScreenshotDir();
+  mkdirSync(outDir, { recursive: true });
   // Scoped in its own describe so `test.use` below can't leak the pinned
   // locale into sibling test.describe blocks in the same spec file.
   test.describe(() => {
@@ -107,9 +142,10 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
     for (const s of scenarios) {
       test(s.description ? `${s.name} — ${s.description}` : s.name, async ({ page }) => {
         if (opts.pinLocale) await pinEnglishLocale(page);
+        const inFlightDataRequests = countInFlightDataRequests(page);
         if (s.viewport) await page.setViewportSize(s.viewport);
-        await openScenario(page, s);
-        const path = `${opts.outDir}/${s.name}.png`;
+        await openScenario(page, s, inFlightDataRequests);
+        const path = `${outDir}/${s.name}.png`;
         await page.screenshot({ path, fullPage: s.fullPage ?? false });
         expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
       });
@@ -117,7 +153,9 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
   });
 }
 
-const VIEWPORTS = {
+const VIEWPORT_IDS = ["desktop", "tablet", "mobile"] as const;
+type ViewportId = (typeof VIEWPORT_IDS)[number];
+const VIEWPORTS: Record<ViewportId, { readonly width: number; readonly height: number }> = {
   // 1920×1080 instead of the earlier 1280×900: these shots land in the
   // handbook and doc pages, where a 1280 image visibly softens on a HiDPI
   // display. Wider also shows what a two-column layout actually does — at
@@ -126,8 +164,7 @@ const VIEWPORTS = {
   // Landscape: portrait tablet shots collapsed two-column layouts into the mobile stack.
   tablet: { width: 1112, height: 834 },
   mobile: { width: 390, height: 844 },
-} as const;
-type ViewportId = keyof typeof VIEWPORTS;
+};
 
 // Narrow the axis from env (CSV) or take the default. Filters instead of
 // casting: a typo in the env var (e.g. SCREENSHOT_VIEWPORTS=typo) would
@@ -141,7 +178,8 @@ function axis<T extends string>(env: string | undefined, all: readonly T[]): rea
     .filter(Boolean);
   if (!picked || picked.length === 0) return all;
   // ponytail: filter-instead-of-cast — unknown values are silently ignored
-  const matched = picked.filter((p): p is T => (all as readonly string[]).includes(p));
+  const known = new Set<string>(all);
+  const matched = picked.filter((p): p is T => known.has(p));
   if (matched.length === 0) {
     throw new Error(
       `axis(): env filter "${env}" matched none of [${all.join(", ")}] — 0 registered tests.`,
@@ -151,7 +189,6 @@ function axis<T extends string>(env: string | undefined, all: readonly T[]): rea
 }
 
 export interface MatrixOptions<T extends string> {
-  readonly baseDir: string;
   readonly themes: readonly T[];
   readonly applyTheme: (page: Page, theme: T) => Promise<void>;
   readonly locales?: readonly string[];
@@ -202,15 +239,11 @@ export function runMatrix<T extends string>(
 ): void {
   validateScenarios(scenarios);
 
+  const baseDir = requireScreenshotDir();
   const locales = axis(process.env["SCREENSHOT_LOCALES"], opts.locales ?? ["en", "de"]);
   const themes = axis(process.env["SCREENSHOT_THEMES"], opts.themes);
-  const viewports = axis(
-    process.env["SCREENSHOT_VIEWPORTS"],
-    Object.keys(VIEWPORTS) as ViewportId[],
-  );
+  const viewports = axis(process.env["SCREENSHOT_VIEWPORTS"], VIEWPORT_IDS);
   const only = process.env["SCREENSHOT_ONLY"];
-
-  test.describe.configure({ mode: "serial" });
 
   for (const locale of locales) {
     test.describe(locale, () => {
@@ -234,7 +267,8 @@ export function runMatrix<T extends string>(
             localStorage.setItem("kumiko:locale", lng);
             localStorage.removeItem("kumiko:theme");
           }, locale);
-          await openScenario(page, s);
+          const inFlightDataRequests = countInFlightDataRequests(page);
+          await openScenario(page, s, inFlightDataRequests);
 
           const digests: ThemeScreenshotDigest<T>[] = [];
 
@@ -242,8 +276,8 @@ export function runMatrix<T extends string>(
             await opts.applyTheme(page, theme);
             for (const vp of viewports) {
               await page.setViewportSize(VIEWPORTS[vp]);
-              await page.waitForTimeout(150); // reflow after viewport change
-              const dir = `${opts.baseDir}/${s.name}/${locale}/${theme}`;
+              await waitForSettledPage(page, inFlightDataRequests);
+              const dir = `${baseDir}/${s.name}/${locale}/${theme}`;
               mkdirSync(dir, { recursive: true });
               const path = `${dir}/${vp}.png`;
               // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.

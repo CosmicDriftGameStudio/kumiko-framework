@@ -1,5 +1,5 @@
+import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page } from "@playwright/test";
-import type { Scenario } from "../../../e2e/screenshots";
 
 async function openLightbox(page: Page): Promise<void> {
   await page.goto("/demo-dialog");
@@ -33,7 +33,6 @@ const demo = (name: string, title: string, description: string): Scenario => ({
   description,
   url: `/${name}`,
   waitFor: demoTitle(title),
-  settleMs: 300,
 });
 
 const item = (name: string, description: string, waitFor: string): Scenario => ({
@@ -41,7 +40,6 @@ const item = (name: string, description: string, waitFor: string): Scenario => (
   description,
   url: `/${name}`,
   waitFor,
-  settleMs: 300,
 });
 
 export const SCENARIOS: readonly Scenario[] = [

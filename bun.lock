@@ -73,6 +73,7 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "zod": "^4.4.3",
       },
     },
@@ -86,6 +87,7 @@
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
         "@inquirer/core": "^10.0.0",
         "@inquirer/prompts": "^7.4.0",
       },
@@ -267,7 +269,7 @@
     },
     "packages/testing": {
       "name": "@cosmicdrift/kumiko-testing",
-      "version": "0.293.0",
+      "version": "0.294.1",
       "bin": {
         "kumiko-testing": "./bin/kumiko-testing.ts",
       },
@@ -275,7 +277,17 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "zod": "^4.4.3",
       },
+      "devDependencies": {
+        "@playwright/test": "^1.62.1",
+      },
+      "peerDependencies": {
+        "@playwright/test": "^1.62.1",
+      },
+      "optionalPeers": [
+        "@playwright/test",
+      ],
     },
     "packages/types": {
       "name": "@cosmicdrift/kumiko-types",

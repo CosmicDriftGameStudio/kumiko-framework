@@ -4,7 +4,12 @@
 // --print-manifest / --yes) → resolve deps → map to scaffold entries →
 // scaffoldApp() → print next-steps.
 
-import { type ScaffoldFeatureEntry, scaffoldApp } from "@cosmicdrift/kumiko-dev-server";
+import {
+  resolveFrameworkVersion,
+  type ScaffoldFeatureEntry,
+  scaffoldApp,
+} from "@cosmicdrift/kumiko-dev-server";
+import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
 import { resolveDeps } from "./dep-resolver";
 import { FEATURE_CONSTRUCTORS } from "./feature-constructors";
 import { loadManifest, type Manifest } from "./manifest";
@@ -62,10 +67,13 @@ export async function runCreate(args: CliArgs): Promise<number> {
     `→ Scaffolding ${features.length} feature${features.length === 1 ? "" : "s"} into ./${args.name}/ …`,
   );
 
+  const frameworkVersion = resolveFrameworkVersion();
   const result = await scaffoldApp({
     name: args.name,
     cwd: args.cwd,
     features,
+    testSetup: renderTestSetup,
+    ...(frameworkVersion !== undefined && { frameworkVersion }),
   });
 
   log("");

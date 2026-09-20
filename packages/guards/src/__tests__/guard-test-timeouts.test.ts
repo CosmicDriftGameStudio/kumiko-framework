@@ -46,6 +46,15 @@ describe("test-timeouts guard — violations", () => {
     ]);
   });
 
+  test("flags waitForTimeout in a package's src/e2e runner", () => {
+    expect(
+      messages(
+        "export const run = () => page.waitForTimeout(150);",
+        `${process.cwd()}/packages/testing/src/e2e/screenshots.ts`,
+      ),
+    ).toEqual([expect.stringContaining("page.waitForTimeout(…) waits for time")]);
+  });
+
   test("flags a while loop that sleeps", () => {
     expect(
       messages("export async function poll() { while (!ready()) { await sleep(10); } }"),
@@ -189,5 +198,31 @@ describe("test-timeouts guard — scan scope reaches Playwright dirs outside sou
       "e2e/screenshots/scenarios.ts",
       "src/a.test.ts",
     ]);
+  });
+
+  test("package layout: packages/*/src/e2e/** is scanned, other package src files are not", () => {
+    const dir = mkdtempSync(join(tmpdir(), "test-timeouts-pkg-scope-"));
+    cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+    writeFileSync(
+      join(dir, "kumiko.json"),
+      JSON.stringify({
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+        excludes: ["**/node_modules/**"],
+      }),
+    );
+    write(dir, "packages/testing/src/e2e/screenshots.ts");
+    write(dir, "packages/testing/src/seed-tenant.ts");
+    const loaded = loadRepoManifest(dir);
+    const root: RepoRoot = {
+      name: "app",
+      absPath: dir,
+      kind: loaded.manifest.kind,
+      manifest: loaded.manifest,
+      manifestSource: loaded.source,
+    };
+    const files = scanFiles(guard.scan, [root]).map((f) => relative(dir, f));
+    expect(files).toEqual(["packages/testing/src/e2e/screenshots.ts"]);
   });
 });

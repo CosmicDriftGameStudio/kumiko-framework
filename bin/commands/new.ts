@@ -1,32 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { parseArgs, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
-
-const DEV_SERVER_PACKAGE = "@cosmicdrift/kumiko-dev-server";
-
-// Pin scaffolded @cosmicdrift/* deps to the running dev-server's `^x.y.z`
-// instead of the "*" default, which yields unreproducible installs.
-// Latente Kopplung, bewusst: ALLE @cosmicdrift-Pakete releasen im Lockstep
-// (changesets fixed-group), dev-server's Version IST die Framework-Version.
-// Bricht der Lockstep jemals auf, muss hier pro Paket aufgelöst werden.
-function resolveFrameworkVersion(): string | undefined {
-  const entry = Bun.resolveSync(DEV_SERVER_PACKAGE, import.meta.dir);
-  let dir = dirname(entry);
-  while (true) {
-    const candidate = join(dir, "package.json");
-    if (existsSync(candidate)) {
-      const pkg = JSON.parse(readFileSync(candidate, "utf-8")) as {
-        name?: string;
-        version?: string;
-      };
-      if (pkg.name === DEV_SERVER_PACKAGE && pkg.version) return `^${pkg.version}`;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) return undefined;
-    dir = parent;
-  }
-}
 
 // kumiko new app <name> — DX-1.0. Scaffolds a fresh runnable Kumiko-app
 // workspace. Sister to `kumiko create <feature>` (single feature in
@@ -73,12 +46,16 @@ export const newCommand = defineCommand({
       return 1;
     }
     const destination = getStringFlag(args, "dest");
+    const { scaffoldApp, resolveFrameworkVersion } = await import(
+      "@cosmicdrift/kumiko-dev-server"
+    );
+    const { renderTestSetup } = await import("@cosmicdrift/kumiko-testing/scaffold");
     const frameworkVersion = resolveFrameworkVersion();
-    const { scaffoldApp } = await import("@cosmicdrift/kumiko-dev-server");
     try {
       const result = await scaffoldApp({
         name,
         cwd: ctx.cwd,
+        testSetup: renderTestSetup,
         ...(destination !== undefined && { destination }),
         ...(frameworkVersion !== undefined && { frameworkVersion }),
       });

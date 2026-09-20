@@ -67,17 +67,16 @@ them, no drift when options change.
 bun run screenshots                         # Playwright E2E on 4179
 ```
 
-Writes 4 PNGs to
-`../../../kumiko-platform/apps/marketing/public/screenshots/`:
+Writes 4 PNGs to `$SCREENSHOT_DIR` (required, there is no default so a run
+can never overwrite the committed docs images by accident):
 
 - `asset-list.png` — DataTable with translated cells
 - `asset-edit.png` — 3-section edit form
 - `ticket-list.png` — Helpdesk with severity default sort
 - `ticket-edit.png` — Ticket form
 
-Override via the `SCREENSHOT_DIR` env if the repos don't both live
-under `/Users/marc/code/`. Not run by CI — manual regeneration after
-schema or branding changes.
+Only runs when `SCREENSHOT_DIR` is set; a normal e2e run skips it. Manual
+regeneration after schema or branding changes.
 
 Setup details in `e2e/screenshots.spec.ts` + `e2e/scenarios.ts`.
 

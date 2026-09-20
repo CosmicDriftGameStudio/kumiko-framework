@@ -99,6 +99,15 @@ pathIgnorePatterns = [
     );
   });
 
+  test("install linker renders an [install] block between the header and [test]", () => {
+    const text = renderBunfig("unit", { install: { linker: "hoisted" } });
+    expect(text).toContain(
+      `${HEADER("unit").replace("[test]\n", "")}[install]\nlinker = "hoisted"\n\n[test]\n`,
+    );
+    const parsed = Bun.TOML.parse(text) as { install: Record<string, unknown> };
+    expect(parsed.install).toEqual({ linker: "hoisted" });
+  });
+
   test("dom on a non-unit variant is rejected", () => {
     expect(() => renderBunfig("integration", { dom: true })).toThrow(/only applies to the unit/);
     expect(() => renderBunfig("real", { dom: true })).toThrow(/only applies to the unit/);
@@ -132,6 +141,14 @@ describe("renderBunfigFiles", () => {
     ]);
     expect(withDom["bunfig.toml"]).toContain('"**/*.test.tsx"');
     expect(withDom["bunfig.dom.toml"]).not.toContain('"**/*.test.tsx"');
+  });
+
+  test("install applies to every generated file", () => {
+    for (const content of Object.values(
+      renderBunfigFiles({ dom: true, install: { linker: "hoisted" } }),
+    )) {
+      expect(content).toContain('[install]\nlinker = "hoisted"');
+    }
   });
 });
 

@@ -19,3 +19,31 @@ await tenant.api.writeOk("my-feature:write:thing:create", { title: "x" });
   `./test-setup/dom.preload.ts`.
 - `kumiko-testing integration [--parallel N] [--timings <file>]`: runs `*.integration.test.ts`
   with the 15s budget. No `--no-isolate`; `--parallel` only when you ask for it.
+
+## E2E (`./e2e`, `./e2e/seed-route`)
+
+`@playwright/test` is an optional peer dependency; only the `./e2e` subpath imports it. The server side
+(`./e2e/seed-route`) never does.
+
+```ts
+// e2e/server.ts: mount the seed routes next to the app
+runDevApp({ features, auth: { admin }, extraRoutes: createE2eSeedRoutes() });
+
+// playwright.config.ts
+export default defineAppE2eConfig({ port: 4321 });
+
+// e2e/flow.spec.ts
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+test("member sees the note", async ({ seedTenant, page }) => {
+  const tenant = await seedTenant({ users: 1, with: [seedNotes] });
+  await tenant.loginAs(page, tenant.members[0]!);
+});
+```
+
+- `defineAppE2eConfig({ port, env?, locale?, projects?, serverEntry?, testDir?, testMatch? })`: parallelism, retries, timeouts and
+  workers (`KUMIKO_E2E_WORKERS` overrides) are fixed by the template; projects cannot set them.
+- The seed routes answer only with `KUMIKO_TEST_SEED=1`, outside `NODE_ENV=production`, and with the
+  per-run `KUMIKO_TEST_SEED_TOKEN` in the `x-kumiko-test-seed` header. `defineAppE2eConfig` sets all three.
+- App roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })` lets `tenant.addUser(["TenantMember"])` seed them;
+  `SystemAdmin` is never seedable and makes the route builder throw.
+- A `SeedPart` receives `{ tenant }` and works against the in-process `seedTenant` and the HTTP tenant alike.
