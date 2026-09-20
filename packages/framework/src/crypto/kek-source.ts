@@ -1,12 +1,20 @@
-// Resolves PLATFORM_KEK / PLATFORM_KEK_PREVIOUS from a Key Manager ciphertext
-// when no plaintext is set, so the KEK need not sit in the pod env in the
-// clear. `PLATFORM_KEK` stays the source of truth: a plaintext value always
-// wins over its ciphertext sibling, with no request made at all.
+// Resolves an allowlisted set of secrets (RESOLVABLE_SLOTS) from a Key
+// Manager ciphertext when no plaintext is set, so they need not sit in the
+// pod env in the clear. A slot's plaintext always wins over its ciphertext
+// sibling, with no request made at all. Any other `*_CIPHERTEXT` in the env
+// is outside the allowlist and is ignored — a foreign ciphertext must never
+// fail boot.
 
 const SCALEWAY_KEY_MANAGER_API_VERSION = "v1alpha1";
 const DEFAULT_REGION = "fr-par";
 const DECRYPT_TIMEOUT_MS = 5_000;
 const RETRY_DELAYS_MS = [200, 800];
+const RESOLVABLE_SLOTS = [
+  "PLATFORM_KEK",
+  "PLATFORM_KEK_PREVIOUS",
+  "KUMIKO_BLIND_INDEX_KEY",
+] as const;
+type ResolvableSlot = (typeof RESOLVABLE_SLOTS)[number];
 
 export type KekSourceEnv = {
   readonly PLATFORM_KEK?: string | undefined;
@@ -17,6 +25,8 @@ export type KekSourceEnv = {
   readonly PLATFORM_KEK_KMS_KEY_ID?: string | undefined;
   readonly PLATFORM_KEK_KMS_TOKEN?: string | undefined;
   readonly PLATFORM_KEK_KMS_REGION?: string | undefined;
+  readonly KUMIKO_BLIND_INDEX_KEY?: string | undefined;
+  readonly KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT?: string | undefined;
   readonly [key: string]: string | undefined;
 };
 
@@ -97,13 +107,14 @@ async function decryptCiphertext(
 }
 
 async function resolveSlot(
-  plaintext: string | undefined,
-  ciphertext: string | undefined,
+  name: ResolvableSlot,
   env: KekSourceEnv,
   options: KekSourceOptions,
   fetchImpl: typeof globalThis.fetch,
 ): Promise<string | undefined> {
+  const plaintext = env[name];
   if (plaintext) return plaintext;
+  const ciphertext = env[`${name}_CIPHERTEXT`];
   if (!ciphertext) return undefined;
 
   const keyId = env.PLATFORM_KEK_KMS_KEY_ID;
@@ -111,7 +122,7 @@ async function resolveSlot(
   if (!keyId || !token) {
     const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
     throw new Error(
-      `${prefix}PLATFORM_KEK_KMS_KEY_ID / PLATFORM_KEK_KMS_TOKEN are all-or-none with a KEK ciphertext — a partial set means the KMS wiring is broken.`,
+      `${prefix}PLATFORM_KEK_KMS_KEY_ID / PLATFORM_KEK_KMS_TOKEN are all-or-none with a KEK ciphertext (slot ${name}) — a partial set means the KMS wiring is broken.`,
     );
   }
   const region = env.PLATFORM_KEK_KMS_REGION ?? DEFAULT_REGION;
@@ -121,12 +132,9 @@ async function resolveSlot(
 // A leftover plaintext beside a ciphertext boots green while nothing was
 // migrated, which is indistinguishable from a finished cutover unless the
 // boot says which source won. Never carries a key value, only its origin.
-function describeKekSource(
-  name: string,
-  plaintext: string | undefined,
-  ciphertext: string | undefined,
-  env: KekSourceEnv,
-): string | undefined {
+function describeKekSource(name: ResolvableSlot, env: KekSourceEnv): string | undefined {
+  const plaintext = env[name];
+  const ciphertext = env[`${name}_CIPHERTEXT`];
   if (plaintext) {
     return ciphertext
       ? `${name} source=plaintext-env (ciphertext present and ignored)`
@@ -138,52 +146,35 @@ function describeKekSource(
 }
 
 // Each slot resolves independently so a rollback that clears one slot's
-// plaintext (leaving its ciphertext/_VERSION behind or gone) never blocks the
-// other slot's fallback path — the trio check downstream still applies.
+// plaintext (leaving its ciphertext/_VERSION behind or gone) never blocks
+// another slot's fallback path — the trio check downstream still applies.
 export async function resolvePlatformKeks(
   env: KekSourceEnv,
   options: KekSourceOptions = {},
 ): Promise<KekSourceEnv> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
 
-  const active = await resolveSlot(
-    env.PLATFORM_KEK,
-    env.PLATFORM_KEK_CIPHERTEXT,
-    env,
-    options,
-    fetchImpl,
-  );
-  const previous = await resolveSlot(
-    env.PLATFORM_KEK_PREVIOUS,
-    env.PLATFORM_KEK_PREVIOUS_CIPHERTEXT,
-    env,
-    options,
-    fetchImpl,
-  );
+  const resolved: Partial<Record<ResolvableSlot, string | undefined>> = {};
+  for (const name of RESOLVABLE_SLOTS) {
+    resolved[name] = await resolveSlot(name, env, options, fetchImpl);
+  }
 
   const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
   // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
   const log = options.log ?? console.info;
-  for (const line of [
-    describeKekSource("PLATFORM_KEK", env.PLATFORM_KEK, env.PLATFORM_KEK_CIPHERTEXT, env),
-    describeKekSource(
-      "PLATFORM_KEK_PREVIOUS",
-      env.PLATFORM_KEK_PREVIOUS,
-      env.PLATFORM_KEK_PREVIOUS_CIPHERTEXT,
-      env,
-    ),
-  ]) {
+  for (const name of RESOLVABLE_SLOTS) {
+    const line = describeKekSource(name, env);
     if (line) log(`${prefix}${line}`);
   }
 
-  if (previous && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
+  if (resolved.PLATFORM_KEK_PREVIOUS && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
     throw new Error(
       `${prefix}PLATFORM_KEK_PREVIOUS_VERSION must be set when PLATFORM_KEK_PREVIOUS is set.`,
     );
   }
 
-  if (active === env.PLATFORM_KEK && previous === env.PLATFORM_KEK_PREVIOUS) {
-    return env;
-  }
-  return { ...env, PLATFORM_KEK: active, PLATFORM_KEK_PREVIOUS: previous };
+  const changed = RESOLVABLE_SLOTS.some((name) => resolved[name] !== env[name]);
+  if (!changed) return env;
+
+  return { ...env, ...resolved };
 }

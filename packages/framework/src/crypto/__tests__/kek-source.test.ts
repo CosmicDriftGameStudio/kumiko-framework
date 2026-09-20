@@ -295,4 +295,65 @@ describe("resolvePlatformKeks", () => {
 
     expect(lines).toEqual([]);
   });
+
+  test("decrypts KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT into KUMIKO_BLIND_INDEX_KEY", async () => {
+    const { fetch, calls } = trackedFetch([jsonResponse(200, { plaintext: PLAINTEXT_A })]);
+    const env: KekSourceEnv = {
+      KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    const result = await resolvePlatformKeks(env, { fetch });
+
+    expect(result.KUMIKO_BLIND_INDEX_KEY).toBe(PLAINTEXT_A);
+    expect(calls.length).toBe(1);
+  });
+
+  test("a plaintext KUMIKO_BLIND_INDEX_KEY wins over its ciphertext, no fetch", async () => {
+    const { fetch, calls } = trackedFetch([]);
+    const env: KekSourceEnv = {
+      KUMIKO_BLIND_INDEX_KEY: "blind-index-plaintext",
+      KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A,
+    };
+
+    const result = await resolvePlatformKeks(env, { fetch });
+
+    expect(result.KUMIKO_BLIND_INDEX_KEY).toBe("blind-index-plaintext");
+    expect(calls.length).toBe(0);
+  });
+
+  test("ignores a ciphertext outside the allowlist entirely", async () => {
+    const { fetch, calls } = trackedFetch([]);
+    const env: KekSourceEnv = {
+      FOO_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    const result = await resolvePlatformKeks(env, { fetch });
+
+    expect(calls.length).toBe(0);
+    expect(result["FOO"]).toBeUndefined();
+    expect(result).toBe(env);
+  });
+
+  test("decrypts PLATFORM_KEK and KUMIKO_BLIND_INDEX_KEY ciphertexts together", async () => {
+    const { fetch, calls } = trackedFetch([
+      jsonResponse(200, { plaintext: "active-plaintext" }),
+      jsonResponse(200, { plaintext: "blind-index-plaintext" }),
+    ]);
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_B,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    const result = await resolvePlatformKeks(env, { fetch });
+
+    expect(result.PLATFORM_KEK).toBe("active-plaintext");
+    expect(result.KUMIKO_BLIND_INDEX_KEY).toBe("blind-index-plaintext");
+    expect(calls.length).toBe(2);
+  });
 });
