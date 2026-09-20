@@ -1,20 +1,16 @@
-// Resolves an allowlisted set of secrets (RESOLVABLE_SLOTS) from a Key
-// Manager ciphertext when no plaintext is set, so they need not sit in the
-// pod env in the clear. A slot's plaintext always wins over its ciphertext
-// sibling, with no request made at all. Any other `*_CIPHERTEXT` in the env
-// is outside the allowlist and is ignored — a foreign ciphertext must never
-// fail boot.
+// Resolves a caller-named set of secret slots from a Key Manager ciphertext
+// when no plaintext is set, so they need not sit in the pod env in the clear.
+// A slot's plaintext always wins over its ciphertext sibling, with no request
+// made at all. Any `*_CIPHERTEXT` in the env that names no requested slot is
+// ignored — a foreign ciphertext must never fail boot.
 
 const SCALEWAY_KEY_MANAGER_API_VERSION = "v1alpha1";
 const DEFAULT_REGION = "fr-par";
 const DECRYPT_TIMEOUT_MS = 5_000;
 const RETRY_DELAYS_MS = [200, 800];
-const RESOLVABLE_SLOTS = [
-  "PLATFORM_KEK",
-  "PLATFORM_KEK_PREVIOUS",
-  "KUMIKO_BLIND_INDEX_KEY",
-] as const;
-type ResolvableSlot = (typeof RESOLVABLE_SLOTS)[number];
+// Used when the caller names no slots. Apps that predate `kms` schema meta
+// rely on it; drop once every consumer declares its slots in the env schema.
+const LEGACY_SLOTS = ["PLATFORM_KEK", "PLATFORM_KEK_PREVIOUS", "KUMIKO_BLIND_INDEX_KEY"] as const;
 
 export type KekSourceEnv = {
   readonly PLATFORM_KEK?: string | undefined;
@@ -35,6 +31,9 @@ export type KekSourceOptions = {
   readonly logPrefix?: string;
   /** Where the boot line naming the KEK source goes. Defaults to `console.info`. */
   readonly log?: (message: string) => void;
+  /** Env names to resolve, e.g. `kmsSlotsOf(schema)`. Defaults to the three
+   *  platform slots. */
+  readonly slots?: readonly string[];
 };
 
 function isRetryableStatus(status: number): boolean {
@@ -107,7 +106,7 @@ async function decryptCiphertext(
 }
 
 async function resolveSlot(
-  name: ResolvableSlot,
+  name: string,
   env: KekSourceEnv,
   options: KekSourceOptions,
   fetchImpl: typeof globalThis.fetch,
@@ -132,7 +131,7 @@ async function resolveSlot(
 // A leftover plaintext beside a ciphertext boots green while nothing was
 // migrated, which is indistinguishable from a finished cutover unless the
 // boot says which source won. Never carries a key value, only its origin.
-function describeKekSource(name: ResolvableSlot, env: KekSourceEnv): string | undefined {
+function describeKekSource(name: string, env: KekSourceEnv): string | undefined {
   const plaintext = env[name];
   const ciphertext = env[`${name}_CIPHERTEXT`];
   if (plaintext) {
@@ -154,26 +153,27 @@ export async function resolvePlatformKeks(
 ): Promise<KekSourceEnv> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
 
-  const resolved: Partial<Record<ResolvableSlot, string | undefined>> = {};
-  for (const name of RESOLVABLE_SLOTS) {
+  const slots = options.slots ?? LEGACY_SLOTS;
+  const resolved: Record<string, string | undefined> = {};
+  for (const name of slots) {
     resolved[name] = await resolveSlot(name, env, options, fetchImpl);
   }
 
   const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
   // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
   const log = options.log ?? console.info;
-  for (const name of RESOLVABLE_SLOTS) {
+  for (const name of slots) {
     const line = describeKekSource(name, env);
     if (line) log(`${prefix}${line}`);
   }
 
-  if (resolved.PLATFORM_KEK_PREVIOUS && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
+  if (resolved["PLATFORM_KEK_PREVIOUS"] && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
     throw new Error(
       `${prefix}PLATFORM_KEK_PREVIOUS_VERSION must be set when PLATFORM_KEK_PREVIOUS is set.`,
     );
   }
 
-  const changed = RESOLVABLE_SLOTS.some((name) => resolved[name] !== env[name]);
+  const changed = slots.some((name) => resolved[name] !== env[name]);
   if (!changed) return env;
 
   return { ...env, ...resolved };

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { defineFeature } from "../../engine/define-feature";
-import { camelCase, composeEnvSchema, KumikoBootError, parseEnv, pulumiConfigKey } from "../index";
+import {
+  camelCase,
+  composeEnvSchema,
+  KumikoBootError,
+  kmsSlotsOf,
+  parseEnv,
+  pulumiConfigKey,
+  readKumikoMeta,
+} from "../index";
 
 describe("composeEnvSchema", () => {
   it("merges per-feature schemas and tags sources", () => {
@@ -293,5 +301,37 @@ describe("pulumiConfigKey + camelCase", () => {
 
   it("returns the camelCase name when no prefix", () => {
     expect(pulumiConfigKey("JWT_SECRET", undefined, undefined)).toBe("jwtSecret");
+  });
+});
+
+describe("kms env slots", () => {
+  const schema = z.object({
+    MASTER_KEY: z
+      .string()
+      .min(1)
+      .meta({ kumiko: { kms: true } }),
+    MASTER_KEY_CIPHERTEXT: z.string().min(1).optional(),
+    PLAIN: z.string().min(1).optional(),
+  });
+
+  it("kmsSlotsOf lists exactly the fields declaring kms", () => {
+    expect(kmsSlotsOf(schema)).toEqual(["MASTER_KEY"]);
+  });
+
+  it("rejects a non-true kms value in the meta", () => {
+    const bad = z.string().meta({ kumiko: { kms: "yes" } });
+    expect(readKumikoMeta(bad)).toEqual({});
+  });
+
+  it("parseEnv accepts a required kms slot that is present only as ciphertext", () => {
+    expect(() => parseEnv(schema, { MASTER_KEY_CIPHERTEXT: "abc" })).not.toThrow();
+  });
+
+  it("parseEnv still requires a kms slot when no ciphertext twin is set", () => {
+    expect(() => parseEnv(schema, {})).toThrow(KumikoBootError);
+  });
+
+  it("parseEnv still validates a kms slot that is set", () => {
+    expect(() => parseEnv(schema, { MASTER_KEY: "" })).toThrow(KumikoBootError);
   });
 });

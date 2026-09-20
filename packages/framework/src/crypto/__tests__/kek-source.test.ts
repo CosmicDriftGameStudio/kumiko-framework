@@ -356,4 +356,86 @@ describe("resolvePlatformKeks", () => {
     expect(result.KUMIKO_BLIND_INDEX_KEY).toBe("blind-index-plaintext");
     expect(calls.length).toBe(2);
   });
+
+  describe("with schema-declared slots", () => {
+    const KEY_MANAGER = { PLATFORM_KEK_KMS_KEY_ID: "key-1", PLATFORM_KEK_KMS_TOKEN: TOKEN };
+
+    test("resolves a versioned master-key family without the framework knowing the versions", async () => {
+      const { fetch, calls } = trackedFetch([
+        jsonResponse(200, { plaintext: "v1-plaintext" }),
+        jsonResponse(200, { plaintext: "v2-plaintext" }),
+      ]);
+      const env: KekSourceEnv = {
+        KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT: CIPHERTEXT_A,
+        KUMIKO_SECRETS_MASTER_KEY_V2_CIPHERTEXT: CIPHERTEXT_B,
+        ...KEY_MANAGER,
+      };
+
+      const result = await resolvePlatformKeks(env, {
+        fetch,
+        slots: ["KUMIKO_SECRETS_MASTER_KEY_V1", "KUMIKO_SECRETS_MASTER_KEY_V2"],
+      });
+
+      expect(result["KUMIKO_SECRETS_MASTER_KEY_V1"]).toBe("v1-plaintext");
+      expect(result["KUMIKO_SECRETS_MASTER_KEY_V2"]).toBe("v2-plaintext");
+      expect(calls.length).toBe(2);
+    });
+
+    test("a plaintext beats its ciphertext per slot, the other slot still resolves", async () => {
+      const { fetch, calls } = trackedFetch([jsonResponse(200, { plaintext: "v2-plaintext" })]);
+      const env: KekSourceEnv = {
+        KUMIKO_SECRETS_MASTER_KEY_V1: "v1-plaintext",
+        KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT: CIPHERTEXT_A,
+        KUMIKO_SECRETS_MASTER_KEY_V2_CIPHERTEXT: CIPHERTEXT_B,
+        ...KEY_MANAGER,
+      };
+
+      const result = await resolvePlatformKeks(env, {
+        fetch,
+        slots: ["KUMIKO_SECRETS_MASTER_KEY_V1", "KUMIKO_SECRETS_MASTER_KEY_V2"],
+      });
+
+      expect(result["KUMIKO_SECRETS_MASTER_KEY_V1"]).toBe("v1-plaintext");
+      expect(result["KUMIKO_SECRETS_MASTER_KEY_V2"]).toBe("v2-plaintext");
+      expect(calls.length).toBe(1);
+    });
+
+    test("does not touch the platform slots that the caller did not name", async () => {
+      const { fetch, calls } = trackedFetch([]);
+      const env: KekSourceEnv = { PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A, ...KEY_MANAGER };
+
+      const result = await resolvePlatformKeks(env, { fetch, slots: [] });
+
+      expect(result).toBe(env);
+      expect(calls.length).toBe(0);
+    });
+
+    test("logs the source line for a declared slot", async () => {
+      const { fetch } = trackedFetch([jsonResponse(200, { plaintext: "v1-plaintext" })]);
+      const lines: string[] = [];
+      const env: KekSourceEnv = {
+        KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT: CIPHERTEXT_A,
+        ...KEY_MANAGER,
+      };
+
+      await resolvePlatformKeks(env, {
+        fetch,
+        slots: ["KUMIKO_SECRETS_MASTER_KEY_V1"],
+        log: (line) => lines.push(line),
+      });
+
+      expect(lines).toEqual([
+        "KUMIKO_SECRETS_MASTER_KEY_V1 source=key-manager keyId=key-1 region=fr-par",
+      ]);
+    });
+
+    test("still rejects a previous KEK without its version when that slot is declared", async () => {
+      const { fetch } = trackedFetch([jsonResponse(200, { plaintext: "previous-plaintext" })]);
+      const env: KekSourceEnv = { PLATFORM_KEK_PREVIOUS_CIPHERTEXT: CIPHERTEXT_B, ...KEY_MANAGER };
+
+      await expect(
+        resolvePlatformKeks(env, { fetch, slots: ["PLATFORM_KEK_PREVIOUS"] }),
+      ).rejects.toThrow(/PLATFORM_KEK_PREVIOUS_VERSION must be set/);
+    });
+  });
 });

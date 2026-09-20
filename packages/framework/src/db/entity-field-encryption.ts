@@ -134,15 +134,17 @@ export function resetEntityFieldEncryptionCacheForTests(): void {
 // surfaces missing AND malformed keys (wrong length, bad base64) at boot
 // instead of on the first encrypted read in prod. validateBoot runs before
 // configureEntityFieldEncryption, so the env probe is the common path.
-export function validateEntityFieldEncryptionAvailable(): void {
+export function validateEntityFieldEncryptionAvailable(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): void {
   // skip: an injected cipher (test seam / custom KMS) satisfies availability
   if (injectedCipher) return;
   try {
     createEnvMasterKeyProvider({
       env: {
-        ...process.env,
+        ...env,
         KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
-          process.env["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
+          env["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
       },
     });
   } catch (err) {

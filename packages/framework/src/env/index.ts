@@ -34,12 +34,18 @@ export type KumikoEnvMeta = {
     /** Force the `--secret` flag in `pulumi config set`. Default false. */
     readonly secret?: boolean;
   };
+  /** The value may be delivered as a Scaleway Key Manager ciphertext in
+   *  `<NAME>_CIPHERTEXT`. `runProdApp` decrypts it at boot when `<NAME>` itself
+   *  is unset; a set plaintext always wins. A flag, not an object: every slot
+   *  uses the same `_CIPHERTEXT` twin and one shared key (`PLATFORM_KEK_KMS_*`). */
+  readonly kms?: true;
 };
 
 function isKumikoMeta(value: unknown): value is KumikoEnvMeta {
   if (value === null || typeof value !== "object") return false;
   // @cast-boundary schema-walk — runtime-shape narrowing of zod-meta payload
-  const v = value as { pulumi?: unknown };
+  const v = value as { pulumi?: unknown; kms?: unknown };
+  if (v.kms !== undefined && v.kms !== true) return false;
   if (v.pulumi === undefined) return true;
   if (v.pulumi === null || typeof v.pulumi !== "object") return false;
   // @cast-boundary schema-walk
@@ -58,6 +64,31 @@ export function readKumikoMeta(field: z.ZodType): KumikoEnvMeta {
     if (isKumikoMeta(k)) return k;
   }
   return {};
+}
+
+/** Env names whose schema field declares `kms: true` — the slots
+ *  `resolvePlatformKeks` resolves from a ciphertext. */
+export function kmsSlotsOf(schema: z.ZodObject<z.ZodRawShape>): readonly string[] {
+  return Object.entries(zodShape(schema))
+    .filter(([, field]) => readKumikoMeta(field).kms === true)
+    .map(([name]) => name);
+}
+
+// A ciphertext-only slot is satisfied by its `_CIPHERTEXT` twin: the plaintext
+// only exists after the boot-time decrypt, so requiring it here would reject
+// exactly the deployment this meta enables.
+function relaxCiphertextOnlySlots<S extends z.ZodObject<z.ZodRawShape>>(
+  schema: S,
+  env: Readonly<Record<string, string>>,
+): z.ZodObject<z.ZodRawShape> {
+  const shape = zodShape(schema);
+  const relaxed: Record<string, z.ZodType> = {};
+  for (const name of kmsSlotsOf(schema)) {
+    const field = shape[name];
+    if (field && env[name] === undefined && env[`${name}_CIPHERTEXT`])
+      relaxed[name] = field.optional();
+  }
+  return Object.keys(relaxed).length === 0 ? schema : schema.extend(relaxed);
 }
 
 // --- Field-classification helpers (Zod v4 introspection) ---
@@ -282,7 +313,7 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
     if (v !== undefined) cleaned[k] = v;
   }
 
-  const result = schema.safeParse(cleaned);
+  const result = relaxCiphertextOnlySlots(schema, cleaned).safeParse(cleaned);
   if (result.success) {
     // @cast-boundary schema-walk — z.infer<S> erasure across safeParse result
     return result.data as z.infer<S>;

@@ -5,6 +5,7 @@ import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
+  validateEntityFieldEncryptionAvailable,
 } from "../entity-field-encryption";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
@@ -41,5 +42,33 @@ describe("entity-field-encryption", () => {
     });
     expect(stored["email"]).toBe("a@b.de");
     expect(stored["secretNote"]).not.toBe("note");
+  });
+});
+
+describe("validateEntityFieldEncryptionAvailable", () => {
+  test("accepts a keyring made only of the env it is handed", () => {
+    expect(() =>
+      validateEntityFieldEncryptionAvailable({ KUMIKO_SECRETS_MASTER_KEY_V1: TEST_KEY }),
+    ).not.toThrow();
+  });
+
+  test("rejects a handed env without any master key, whatever process.env holds", () => {
+    const previous = process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
+    process.env["KUMIKO_SECRETS_MASTER_KEY_V1"] = TEST_KEY;
+    try {
+      expect(() => validateEntityFieldEncryptionAvailable({})).toThrow(/no usable master key/);
+    } finally {
+      if (previous === undefined) delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
+      else process.env["KUMIKO_SECRETS_MASTER_KEY_V1"] = previous;
+    }
+  });
+
+  test("a pinned CURRENT_VERSION without that version's key still fails", () => {
+    expect(() =>
+      validateEntityFieldEncryptionAvailable({
+        KUMIKO_SECRETS_MASTER_KEY_V1: TEST_KEY,
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
+      }),
+    ).toThrow(/no usable master key/);
   });
 });
