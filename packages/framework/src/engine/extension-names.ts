@@ -87,6 +87,16 @@ export const EXT_FILE_PROVIDER = "fileProvider" as const;
 // des file-foundation-Features MUSS diese Konstante mitziehen.
 export const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider" as const;
 
+// Two roles: boot gate (validateBoot requires its presence once file/image
+// fields are in use) AND the ENV source of the config key above, bridged via
+// keyDef.env. Tenant rows keep overriding the bridged value.
+export const FILE_STORAGE_PROVIDER_ENV = "FILE_STORAGE_PROVIDER" as const;
+
+// Presence placeholder runDevApp writes when an explicitly wired provider
+// (options.files) already satisfies the boot gate. It names no plugin, so
+// provider resolution treats it like an unset key.
+export const FILE_STORAGE_PROVIDER_BOOT_SENTINEL = "configured" as const;
+
 /**
  * `derivativeRenderer` — File-Derivative-Renderer-Plugin-Selection
  * (file-derivatives).

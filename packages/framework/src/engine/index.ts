@@ -113,6 +113,8 @@ export {
   EXT_USER_DATA,
   EXT_USER_DATA_ORDER,
   FILE_PROVIDER_CONFIG_KEY,
+  FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
+  FILE_STORAGE_PROVIDER_ENV,
   TENANT_MEMBERSHIPS_QUERY,
 } from "./extension-names";
 export { extensionUsageEscapeHatchReason } from "./extensions/escape-hatch-usage";

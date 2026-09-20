@@ -58,6 +58,8 @@ import {
   createRegistry,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
+  FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
+  FILE_STORAGE_PROVIDER_ENV,
   findTierResolverUsage,
   type Registry,
   type SessionUser,
@@ -289,9 +291,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // permanent process.env mutation, so a second runDevApp call in the same
   // process (no files this time) doesn't fall through the gate falsely.
   const setFileStorageProviderEnv =
-    options.files !== undefined && process.env["FILE_STORAGE_PROVIDER"] === undefined;
+    options.files !== undefined && process.env[FILE_STORAGE_PROVIDER_ENV] === undefined;
   if (setFileStorageProviderEnv) {
-    process.env["FILE_STORAGE_PROVIDER"] = "configured";
+    process.env[FILE_STORAGE_PROVIDER_ENV] = FILE_STORAGE_PROVIDER_BOOT_SENTINEL;
   }
 
   // Boot-Validation als allererstes — vor fs-Watcher und Server. Dieselbe
@@ -302,7 +304,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   try {
     validateBoot(features, options.validateBootOptions);
   } finally {
-    if (setFileStorageProviderEnv) delete process.env["FILE_STORAGE_PROVIDER"];
+    if (setFileStorageProviderEnv) delete process.env[FILE_STORAGE_PROVIDER_ENV];
   }
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));

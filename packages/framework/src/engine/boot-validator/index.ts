@@ -1,5 +1,6 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { dedupeFeatures } from "../dedupe-features";
+import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { FeatureDefinition } from "../types";
 import { validateAccessDeclarations } from "./access-declarations";
@@ -278,9 +279,9 @@ export function validateBoot(
     validateEntityFieldEncryptionAvailable();
   }
 
-  if (hasFileFields && !process.env["FILE_STORAGE_PROVIDER"]) {
+  if (hasFileFields && !process.env[FILE_STORAGE_PROVIDER_ENV]) {
     throw new Error(
-      "FILE_STORAGE_PROVIDER environment variable is required (file/image fields in use)",
+      `${FILE_STORAGE_PROVIDER_ENV} environment variable is required (file/image fields in use)`,
     );
   }
 
