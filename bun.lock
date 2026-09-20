@@ -71,6 +71,7 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
         "zod": "^4.4.3",
       },
@@ -143,6 +144,9 @@
     "packages/guards": {
       "name": "@cosmicdrift/kumiko-guards",
       "version": "0.291.0",
+      "bin": {
+        "kumiko-guards": "./src/cli.ts",
+      },
       "dependencies": {
         "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
         "ts-morph": "^28.0.0",

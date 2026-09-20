@@ -37,7 +37,13 @@ function installedPackageDir(name: string): string {
   }
 }
 
-const PEER_PACKAGES = ["kumiko-framework", "kumiko-bundled-features", "kumiko-dev-server"] as const;
+const PEER_PACKAGES = [
+  "kumiko-framework",
+  "kumiko-bundled-features",
+  "kumiko-dev-server",
+  "kumiko-repo-manifest",
+  "kumiko-guards",
+] as const;
 
 type PackedManifest = {
   readonly bin: Record<string, string>;
@@ -115,10 +121,19 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
   test("the packed bin lists the app commands in --help", () => {
     const res = runKumiko(["--help"], installRoot);
     expect(res.code).toBe(0);
+    expect(res.out).toContain("kumiko check");
     expect(res.out).toContain("kumiko agent");
     expect(res.out).toContain("kumiko project");
     expect(res.out).toContain("kumiko consumer");
   });
+
+  test("kumiko check --help works from the packed install", () => {
+    const res = runKumiko(["check", "--help"], installRoot);
+    expect(res.code).toBe(0);
+    expect(res.out).not.toContain("not found");
+    expect(res.out).toContain("kumiko.json");
+    expect(res.out).toContain("--explain");
+  }, 20_000);
 
   test("kumiko agent --help works from the packed install", () => {
     const res = runKumiko(["agent", "--help"], installRoot);
@@ -196,7 +211,7 @@ export default { features: [feature] };
   });
 
   test("every @cosmicdrift specifier the app commands import is a declared subpath export", () => {
-    const sourceFiles = ["agent.ts", "project.ts", "consumer.ts"].map((f) =>
+    const sourceFiles = ["agent.ts", "check.ts", "project.ts", "consumer.ts"].map((f) =>
       join(PACKAGE_ROOT, "src", "commands", f),
     );
     const specifiers = new Set<string>();
