@@ -31,7 +31,6 @@ import {
   type TenantId,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   resetEventStore,
   setupTestStack,
@@ -125,7 +124,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, configValueEntity);
   await unsafeCreateEntityTable(stack.db, scopedEntity);
-  await createEventsTable(stack.db);
   await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
 });
 

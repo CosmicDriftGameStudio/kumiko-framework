@@ -29,7 +29,6 @@ import {
   esOperationsTable,
   runPendingSeedMigrations,
 } from "@cosmicdrift/kumiko-framework/es-ops";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createDispatcher, type Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestDb,
@@ -60,7 +59,6 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, tenantEntity);
   await unsafePushTables(testDb.db, { tenantMembershipsTable, configValuesTable });
-  await createEventsTable(testDb.db);
   await createEsOperationsTable(testDb.db);
 
   registry = createRegistry([createConfigFeature(), createTenantFeature()]);

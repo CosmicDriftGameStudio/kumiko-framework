@@ -8,7 +8,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -33,7 +32,6 @@ const alice = createTestUser({ id: 31, roles: ["TenantMember"] });
 beforeAll(async () => {
   stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

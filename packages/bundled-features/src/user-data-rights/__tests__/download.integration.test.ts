@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -136,7 +136,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

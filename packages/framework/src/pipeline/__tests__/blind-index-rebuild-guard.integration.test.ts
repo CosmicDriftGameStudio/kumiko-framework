@@ -10,7 +10,6 @@ import { asRawClient } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
@@ -38,7 +37,6 @@ const crud = createEventStoreExecutor(personTable, personEntity, { entityName: "
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, personEntity, "person");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });

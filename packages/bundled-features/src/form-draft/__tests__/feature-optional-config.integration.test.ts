@@ -9,7 +9,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -31,7 +30,6 @@ beforeAll(async () => {
     jobs: { consumerLane: "worker", queueNamePrefix: `kumiko-form-draft-no-config-${Date.now()}` },
   });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

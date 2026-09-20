@@ -6,7 +6,6 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestDb,
@@ -85,7 +84,6 @@ beforeAll(async () => {
   // We need events + archived_streams for the ES writes the job-runner's
   // logger does.
   await unsafePushTables(db, { jobRunsTable, jobRunLogsTable });
-  await createEventsTable(db);
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
   const logger = createJobRunLogger({ db, registry });

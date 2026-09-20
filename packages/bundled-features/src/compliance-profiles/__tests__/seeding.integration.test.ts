@@ -9,7 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -33,7 +33,6 @@ const feature = createComplianceProfilesFeature();
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

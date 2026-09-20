@@ -13,10 +13,7 @@ import {
   type Registry,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createArchivedStreamsTable,
-  createEventsTable,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { createArchivedStreamsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestDb,
@@ -115,7 +112,6 @@ beforeAll(async () => {
   // the framework events + archived-streams tables to exist before the
   // first append. setupTestStack provisions them automatically; this test
   // builds its DB manually (createTestDb + unsafePushTables), so we do it here.
-  await createEventsTable(db);
   await createArchivedStreamsTable(db);
 
   const encryption = createTestEnvelopeCipher(testEncryptionKey);

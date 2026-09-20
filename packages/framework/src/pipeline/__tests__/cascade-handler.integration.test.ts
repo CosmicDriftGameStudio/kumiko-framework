@@ -11,7 +11,6 @@ import {
   defineFeature,
   type Registry,
 } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createCascadeDeleteHook } from "../cascade-handler";
@@ -96,7 +95,6 @@ const memberEntity = createEntity({
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 
   await unsafeCreateEntityTable(testDb.db, departmentEntity);

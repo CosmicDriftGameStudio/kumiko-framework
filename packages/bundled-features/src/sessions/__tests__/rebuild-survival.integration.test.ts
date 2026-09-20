@@ -3,7 +3,6 @@ import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,
   rebuildProjection,
@@ -39,7 +38,6 @@ const TENANT: TenantId = testTenantId(1);
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userSessionEntity, "user-session");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
 });
 

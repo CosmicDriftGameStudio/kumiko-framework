@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { InMemoryKmsAdapter, PII_CIPHERTEXT_PREFIX, PII_ERASED_SENTINEL } from "../../crypto";
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { append, createEventsTable, loadEventsAfterVersion } from "../../event-store";
+import { append, loadEventsAfterVersion } from "../../event-store";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import {
   createTestDb,
@@ -41,7 +41,6 @@ const adminUser = TestUsers.admin;
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "esExecUser");
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
 });
 

@@ -9,7 +9,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
@@ -42,7 +41,6 @@ async function buildStack(feature: ReturnType<typeof createSecretsFeature>): Pro
     }),
   });
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
-  await createEventsTable(stack.db);
   return stack;
 }
 

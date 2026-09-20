@@ -23,7 +23,6 @@ import {
   EXT_USER_DATA,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -63,7 +62,6 @@ function baseFeatures(): NonNullable<Parameters<typeof setupTestStack>[0]["featu
 async function bootBaseTables(stack: TestStack): Promise<void> {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await createEventsTable(stack.db);
   await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
 }
 

@@ -20,7 +20,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -75,7 +74,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
   await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity);
-  await createEventsTable(stack.db);
 
   for (const id of [
     CONTACT_1,

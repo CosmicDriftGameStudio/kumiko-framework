@@ -19,7 +19,6 @@ import {
   type JobContext,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -74,7 +73,6 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
     });
     await unsafeCreateEntityTable(stack.db, userEntity);
     await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-    await createEventsTable(stack.db);
     await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
     await asRawClient(stack.db).unsafe(`
       CREATE TABLE IF NOT EXISTS test_audited_entity (

@@ -20,7 +20,6 @@ import {
 import { defineFeature } from "../../engine/define-feature";
 import { createEntity, createTextField } from "../../engine/factories";
 import { createRegistry } from "../../engine/registry";
-import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -65,7 +64,6 @@ const adminUser = TestUsers.admin;
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, personEntity, "person");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
 });

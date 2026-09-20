@@ -28,7 +28,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   fileRefEntity,
@@ -59,7 +58,6 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
   await unsafeCreateEntityTable(stack.db, fileRefEntity, "fileRef");
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

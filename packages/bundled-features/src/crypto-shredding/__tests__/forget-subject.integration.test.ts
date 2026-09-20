@@ -22,7 +22,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
 import {
   setupTestStack,
@@ -73,7 +73,6 @@ const memberUser = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCryptoShreddingFeature()] });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -291,7 +290,6 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
       features: [createCryptoShreddingFeature(), probeFeature],
     });
     await unsafeCreateEntityTable(searchStack.db, probeEntity, "probe");
-    await createEventsTable(searchStack.db);
   });
 
   afterAll(async () => {
@@ -432,7 +430,6 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
     await unsafeCreateEntityTable(stack.db, shareLikeEntity, "probe");
     await unsafePushTables(stack.db, { tenantMembershipsTable });
-    await createEventsTable(stack.db);
   });
 
   afterAll(async () => {
@@ -664,7 +661,6 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
       ],
     });
     await unsafePushTables(missingTableStack.db, { tenantMembershipsTable });
-    await createEventsTable(missingTableStack.db);
     // No unsafeCreateEntityTable for missingTableProbeEntity — that's the point.
   });
 
@@ -708,7 +704,6 @@ describe("crypto-shredding :: forget-subject purges user.email from the search i
       features: [createCryptoShreddingFeature(), createUserFeature()],
     });
     await unsafeCreateEntityTable(emailSearchStack.db, userEntity);
-    await createEventsTable(emailSearchStack.db);
   });
 
   afterAll(async () => {

@@ -14,7 +14,6 @@ import {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
   FILE_STORAGE_PROVIDER_ENV,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
@@ -146,7 +145,6 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

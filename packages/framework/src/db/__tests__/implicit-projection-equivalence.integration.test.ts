@@ -19,7 +19,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
-import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -52,7 +51,6 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
-  await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
 });

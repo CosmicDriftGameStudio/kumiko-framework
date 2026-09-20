@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -67,7 +66,6 @@ beforeAll(async () => {
     ],
   });
   db = stack.db;
-  await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tierAssignmentEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);

@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../../bun-db/__tests__/bun-test-db";
-import { createEventsTable } from "../../../event-store/events-schema";
 import { asRawClient } from "../../query";
 import { ensureIdempotencyKeyIndex } from "../event-store";
 
@@ -8,7 +7,6 @@ let testDb: BunTestDb;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

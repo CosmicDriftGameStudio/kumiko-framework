@@ -13,7 +13,7 @@ import {
   defineFeature,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -186,7 +186,6 @@ beforeAll(async () => {
   db = stack.db;
 
   await unsafeCreateEntityTable(db, capCounterEntity);
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

@@ -17,7 +17,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, selectMany, transaction } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
@@ -52,7 +51,6 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "unique-user");
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });
 

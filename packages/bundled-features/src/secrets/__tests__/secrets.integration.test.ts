@@ -7,7 +7,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
@@ -50,7 +49,6 @@ beforeAll(async () => {
   // belongs to an ES entity (and entity-tables aren't auto-pushed by
   // setupTestStack).
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

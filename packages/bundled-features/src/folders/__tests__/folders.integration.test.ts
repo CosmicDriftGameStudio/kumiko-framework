@@ -19,7 +19,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -98,7 +97,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, folderEntity);
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, creditEntity);
-  await createEventsTable(stack.db);
   await seedHostRows(stack, CREDIT_LABELS, admin.tenantId);
 });
 
@@ -347,7 +345,6 @@ describe("folders integration — openToAll access model", () => {
     await unsafeCreateEntityTable(openStack.db, folderEntity);
     await unsafeCreateEntityTable(openStack.db, folderAssignmentEntity);
     await unsafeCreateEntityTable(openStack.db, creditEntity);
-    await createEventsTable(openStack.db);
     await seedHostRows(openStack, ["c-1"], unprivileged.tenantId);
   });
 

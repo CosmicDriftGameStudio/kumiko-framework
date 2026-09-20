@@ -12,7 +12,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -60,7 +59,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 
   await seedTextBlock(stack.db, {
     tenantId: SYSTEM_TENANT_ID,
@@ -320,7 +318,6 @@ describe("seo :: resolverTrust authoritative (host-based, wie publicstatus/show-
     });
     await unsafeCreateEntityTable(authStack.db, pageEntity);
     await unsafePushTables(authStack.db, { configValuesTable });
-    await createEventsTable(authStack.db);
     await seedPage(authStack.db, {
       tenantId: TENANT_A,
       slug: "about",

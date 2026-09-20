@@ -22,7 +22,6 @@ import { generateId as uuid } from "../../utils";
 import {
   append,
   archiveStream,
-  createEventsTable,
   loadAggregate,
   loadAggregateWithSnapshot,
   loadLatestSnapshot,
@@ -56,7 +55,6 @@ const reducer: SnapshotReducer<CounterState> = (state, event) => {
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   bun = await createTestDb();
-  await createEventsTable(bun.db);
 });
 
 afterAll(async () => {

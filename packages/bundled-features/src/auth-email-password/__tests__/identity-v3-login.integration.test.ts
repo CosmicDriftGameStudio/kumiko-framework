@@ -9,7 +9,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { pbkdf2Sync, randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -74,7 +73,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

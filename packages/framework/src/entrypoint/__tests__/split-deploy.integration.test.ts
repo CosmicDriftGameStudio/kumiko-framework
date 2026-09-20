@@ -17,7 +17,7 @@ import { z } from "zod";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
 import { createRegistry, defineFeature } from "../../engine";
-import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
+import { createArchivedStreamsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
@@ -125,7 +125,6 @@ let testRedis: TestRedis;
 
 beforeAll(async () => {
   [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
-  await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);
 });

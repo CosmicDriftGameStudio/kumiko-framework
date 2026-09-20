@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -36,7 +35,6 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
-  await createEventsTable(db);
 });
 
 afterAll(async () => {
@@ -317,7 +315,6 @@ describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing 
     narrowedStack = await setupTestStack({ features: [narrowedFeature] });
     narrowedDb = narrowedStack.db;
     await unsafeCreateEntityTable(narrowedDb, tenantComplianceProfileEntity);
-    await createEventsTable(narrowedDb);
   });
 
   afterAll(async () => {

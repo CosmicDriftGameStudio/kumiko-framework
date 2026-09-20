@@ -27,7 +27,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -151,7 +151,6 @@ beforeAll(async () => {
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push).
-  await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantEntity);
 
   webhookApp = new Hono();

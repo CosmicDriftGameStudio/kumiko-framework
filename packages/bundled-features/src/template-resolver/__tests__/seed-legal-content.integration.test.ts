@@ -6,7 +6,7 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -33,7 +33,6 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [createTemplateResolverFeature()] });
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

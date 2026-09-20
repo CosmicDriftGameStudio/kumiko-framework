@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
@@ -51,7 +51,6 @@ beforeAll(async () => {
     }),
   });
   await unsafePushTables(stack.db, { tenantSecretsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

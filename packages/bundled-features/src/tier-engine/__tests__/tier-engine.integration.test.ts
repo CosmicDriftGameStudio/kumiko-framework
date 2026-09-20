@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -53,7 +52,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tierAssignmentEntity);
   await unsafePushTables(db, { configValuesTable });
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

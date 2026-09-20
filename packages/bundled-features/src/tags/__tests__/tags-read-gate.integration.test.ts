@@ -13,7 +13,6 @@ import {
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -109,7 +108,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await createEventsTable(stack.db);
 
   const values = [...TEAM_A_PROJECTS, ...TEAM_B_PROJECTS]
     .map((id, i) => `('${id}', $1, '${i < TEAM_A_PROJECTS.length ? "team-a" : "team-b"}', 'p${i}')`)
@@ -329,7 +327,6 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
     await unsafeCreateEntityTable(ownedStack.db, tagEntity);
     await unsafeCreateEntityTable(ownedStack.db, tagAssignmentEntity);
     await unsafeCreateEntityTable(ownedStack.db, ownedEntity);
-    await createEventsTable(ownedStack.db);
     await asRawClient(ownedStack.db).unsafe(
       `INSERT INTO ${OWNED_TABLE} (id, tenant_id, team_id) VALUES ($1, $2, 'team-a')`,
       [HOST, tagger.tenantId],

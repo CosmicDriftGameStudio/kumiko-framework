@@ -9,7 +9,6 @@ import { asRawClient, transaction } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import { from } from "../../engine/ownership";
 import { createSystemUser } from "../../engine/system-user";
-import { createEventsTable } from "../../event-store";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import {
   createTestDb,
@@ -29,7 +28,6 @@ const nonAdmin = TestUsers.user;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 });
 

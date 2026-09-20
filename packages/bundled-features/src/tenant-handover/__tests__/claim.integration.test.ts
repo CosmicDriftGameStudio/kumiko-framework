@@ -20,7 +20,7 @@ import {
   type EntityDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
@@ -107,7 +107,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

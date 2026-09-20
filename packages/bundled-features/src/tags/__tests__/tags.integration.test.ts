@@ -17,7 +17,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -99,7 +98,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, creditEntity);
   await unsafeCreateEntityTable(stack.db, noteEntity);
-  await createEventsTable(stack.db);
   await seedHostRows(stack, CREDIT_TABLE, CREDIT_LABELS, admin.tenantId);
   await seedHostRows(stack, NOTE_TABLE, ["note-d1"], admin.tenantId);
 });
@@ -468,13 +466,11 @@ describe("tags integration — openToAll access model", () => {
     await unsafeCreateEntityTable(openStack.db, tagAssignmentEntity);
     await unsafeCreateEntityTable(openStack.db, creditEntity);
     await unsafeCreateEntityTable(openStack.db, noteEntity);
-    await createEventsTable(openStack.db);
     await seedHostRows(openStack, CREDIT_TABLE, ["c-1"], unprivileged.tenantId);
 
     defaultStack = await setupTestStack({ features: [tagsFeature] });
     await unsafeCreateEntityTable(defaultStack.db, tagEntity);
     await unsafeCreateEntityTable(defaultStack.db, tagAssignmentEntity);
-    await createEventsTable(defaultStack.db);
   });
 
   afterAll(async () => {

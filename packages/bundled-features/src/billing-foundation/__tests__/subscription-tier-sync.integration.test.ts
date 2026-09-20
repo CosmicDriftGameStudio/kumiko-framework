@@ -13,7 +13,6 @@ import {
   type EntityDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -112,7 +111,6 @@ beforeAll(async () => {
       mockProviderFeature,
     ],
   });
-  await createEventsTable(stack.db);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { tier_assignments: tierAssignmentTable });

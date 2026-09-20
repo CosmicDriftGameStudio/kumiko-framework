@@ -11,7 +11,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -30,7 +29,6 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

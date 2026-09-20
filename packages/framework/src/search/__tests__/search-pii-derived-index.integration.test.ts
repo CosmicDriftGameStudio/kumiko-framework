@@ -11,7 +11,6 @@ import {
 } from "../../crypto";
 import { asRawClient, buildEntityTable, createEventStoreExecutor, createTenantDb } from "../../db";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { createEventsTable } from "../../event-store";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { purgeSearchDocumentsForSubject } from "../purge-subject";
 
@@ -53,7 +52,6 @@ const admin = TestUsers.admin;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [contactFeature] });
   await unsafeCreateEntityTable(stack.db, contactEntity, "contact");
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

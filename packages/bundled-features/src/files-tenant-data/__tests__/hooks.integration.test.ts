@@ -17,11 +17,7 @@ import {
   type EntityId,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  append,
-  createEventsTable,
-  loadAggregate,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildStorageKey,
   createInMemoryFileProvider,
@@ -101,7 +97,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, tenantMembershipEntity);
   await unsafeCreateEntityTable(db, fileRefEntity);
-  await createEventsTable(db);
   await unsafePushTables(db, { configValuesTable });
 });
 

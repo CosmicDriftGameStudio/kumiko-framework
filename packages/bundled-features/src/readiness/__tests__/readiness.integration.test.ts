@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
@@ -164,7 +164,6 @@ beforeAll(async () => {
   db = stack.db;
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
-  await createEventsTable(db);
 });
 
 afterAll(async () => {

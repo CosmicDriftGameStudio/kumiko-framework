@@ -5,7 +5,6 @@ import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import {
   append,
-  createEventsTable,
   IdempotentAppendConflictError,
   loadAggregate,
   loadAggregateAsOf,
@@ -25,7 +24,6 @@ const userA = uuid();
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await createEventsTable(testDb.db);
 });
 
 afterAll(async () => {

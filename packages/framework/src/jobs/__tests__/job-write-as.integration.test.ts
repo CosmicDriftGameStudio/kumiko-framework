@@ -21,7 +21,7 @@ import {
   type WriteResult,
 } from "../../engine";
 import { createWorkerEntrypoint } from "../../entrypoint";
-import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
+import { createArchivedStreamsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis } from "../../stack";
 import { waitFor } from "../../testing";
@@ -110,7 +110,6 @@ let testRedis: TestRedis;
 
 beforeAll(async () => {
   [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
-  await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);
 });

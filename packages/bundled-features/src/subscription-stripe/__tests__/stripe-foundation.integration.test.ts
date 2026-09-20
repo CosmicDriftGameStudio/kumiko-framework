@@ -22,7 +22,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
@@ -116,7 +116,6 @@ beforeAll(async () => {
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push). config +
   // secrets brauchen ihre Tabellen explizit.
-  await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
   // Standalone-secrets-context (gleiche KEK) zum direkten Seeden +
@@ -506,7 +505,6 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
         secrets: createSecretsContext({ db: ctxDb, masterKeyProvider }),
       }),
     });
-    await createEventsTable(gateStack.db);
     await unsafeCreateEntityTable(gateStack.db, tenantEntity);
     await unsafePushTables(gateStack.db, {
       configValuesTable,

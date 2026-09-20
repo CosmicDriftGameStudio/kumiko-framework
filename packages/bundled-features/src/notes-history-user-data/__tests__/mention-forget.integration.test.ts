@@ -19,7 +19,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
@@ -104,7 +103,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteMentionEntity, "note-mention");
   await unsafeCreateEntityTable(stack.db, contactEntity);
   await unsafePushTables(stack.db, { fileRefsTable });
-  await createEventsTable(stack.db);
   // tenant-membership table (from the tenant feature) manually created — same
   // minimal setup as run-forget-cleanup.integration.test.ts, no tenant feature
   // mounted here.

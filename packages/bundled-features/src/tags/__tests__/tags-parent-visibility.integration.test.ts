@@ -17,7 +17,6 @@ import {
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -103,7 +102,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await createEventsTable(stack.db);
   await asRawClient(stack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
        ($1, $2, 'team-a', 'Project A'),

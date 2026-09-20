@@ -25,7 +25,6 @@ import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
-  createEventsTable,
   getStreamVersion,
   loadAggregate,
   VersionConflictError,
@@ -83,7 +82,6 @@ beforeAll(async () => {
     ],
   });
   db = stack.db;
-  await createEventsTable(db);
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   // Unmanaged direct-write stores — kein r.entity, kein Auto-Push.

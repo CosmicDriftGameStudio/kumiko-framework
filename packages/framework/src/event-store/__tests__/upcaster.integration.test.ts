@@ -25,7 +25,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack";
-import { append, createEventsTable } from "../index";
+import { append } from "../index";
 import { upcastStoredEvent } from "../upcaster";
 
 // --- Fixture entity + projection table ---
@@ -113,7 +113,6 @@ const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, orderEntity, "upcast-order");
-  await createEventsTable(testDb.db);
   const { createProjectionStateTable } = await import("../../pipeline");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });

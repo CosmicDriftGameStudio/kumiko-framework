@@ -29,7 +29,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -92,7 +92,6 @@ beforeAll(async () => {
     features: [createCryptoShreddingFeature(), recordProbeFeature],
   });
   await unsafeCreateEntityTable(stack.db, recordProbeEntity, RECORD_PROBE_ENTITY_NAME);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -258,7 +257,6 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
     });
     await unsafeCreateEntityTable(gateStack.db, recordProbeEntity, RECORD_PROBE_ENTITY_NAME);
     await unsafePushTables(gateStack.db, { tenantMembershipsTable });
-    await createEventsTable(gateStack.db);
   });
 
   afterAll(async () => {
@@ -367,7 +365,6 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate, #2
       blockDeleteProbeEntity,
       BLOCK_DELETE_PROBE_ENTITY_NAME,
     );
-    await createEventsTable(retentionStack.db);
   });
 
   afterAll(async () => {
