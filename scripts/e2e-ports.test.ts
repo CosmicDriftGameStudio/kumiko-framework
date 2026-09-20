@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { E2E_PORTS } from "./e2e-ports";
+import { E2E_PORTS } from "../samples/e2e/e2e-ports";
 
 test("every E2E config owns a distinct port", () => {
   const owners = new Map<number, string[]>();

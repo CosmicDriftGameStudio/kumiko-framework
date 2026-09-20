@@ -1,5 +1,5 @@
 // Playwright-Config für den workspaces-Sample. Startet den echten dev-
-// server als webServer-Fixture (Port aus scripts/e2e-ports.ts).
+// server als webServer-Fixture (Port aus samples/e2e/e2e-ports.ts).
 // Pattern ist 1:1 wie der ui-
 // walkthrough-Sample — wenn das Pattern nochmal gebraucht wird, lohnt
 // sich eine Extraktion.
@@ -7,7 +7,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_PORTS } from "../../../scripts/e2e-ports";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

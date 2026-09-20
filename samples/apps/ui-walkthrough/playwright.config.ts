@@ -1,6 +1,6 @@
 // Playwright-Config für den ui-walkthrough-Durchstich. Startet den
 // echten dev-server als webServer-Fixture, genau wie `bun dev` — nur
-// auf dem Port aus scripts/e2e-ports.ts, damit keine Dev-Session kollidiert.
+// auf dem Port aus samples/e2e/e2e-ports.ts, damit keine Dev-Session kollidiert.
 //
 // Der dev-server macht auf PORT-Env basierend das HTTP-Binding. Die
 // setupTestStack-Default ist ephemeral (fresh kumiko_test_<random> DB),
@@ -9,7 +9,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_PORTS } from "../../../scripts/e2e-ports";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

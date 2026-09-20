@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_PORTS } from "../../../scripts/e2e-ports";
+import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

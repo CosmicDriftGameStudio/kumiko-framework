@@ -2,11 +2,11 @@
 // build-server (siehe e2e/build-server.ts) statt eines vollen
 // Kumiko-Stacks — Renderer-Package alleine gegen MockDispatcher.
 //
-// Port comes from scripts/e2e-ports.ts.
+// Port comes from samples/e2e/e2e-ports.ts.
 // Kein Docker erforderlich, keine DB — purely Browser + Bundle.
 
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_PORTS } from "../../scripts/e2e-ports";
+import { E2E_PORTS } from "../../samples/e2e/e2e-ports";
 
 const PORT = E2E_PORTS["framework/renderer-web"];
 const BASE_URL = `http://localhost:${PORT}`;
