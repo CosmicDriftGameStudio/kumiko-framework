@@ -18,6 +18,8 @@ import { KumikoScreen } from "../kumiko-screen";
 import type { NavApi } from "../nav";
 import { NavProvider } from "../nav";
 
+const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 // passChildren would drop testId — ReadOnlyReferenceValue/readOnlyDisplayText
@@ -55,7 +57,7 @@ function stubDispatcher(): Dispatcher {
       if (type === "sessions:query:session:detail") {
         return {
           isSuccess: true,
-          data: { id: "sess-1", userId: "u-1", ip: "10.0.0.1" },
+          data: { id: "sess-1", userId: "u-1", actedBy: SYSTEM_USER_ID, ip: "10.0.0.1" },
         };
       }
       if (type === "user:query:user:list") {
@@ -84,7 +86,13 @@ const detailScreen: ProjectionDetailScreenDefinition = {
   layout: {
     sections: [
       {
-        fields: [{ field: "userId", refEntity: "user:user", refLabelField: "displayName" }, "ip"],
+        fields: [
+          { field: "userId", refEntity: "user:user", refLabelField: "displayName" },
+          // Mirrors the audit-log detail actor field (fw#3103) — a system
+          // write has no read_users row for the bulk lookup to find.
+          { field: "actedBy", refEntity: "user:user", refLabelField: "displayName" },
+          "ip",
+        ],
       },
     ],
   },
@@ -134,6 +142,14 @@ describe("projectionDetail reference field resolves labels (fw#2662)", () => {
 
     await waitFor(() => {
       expect(getByTestId("field-value-userId").textContent).toBe("Jane Doe");
+    });
+  });
+
+  test("SYSTEM_USER_ID resolves to the system label instead of the raw id (fw#3103)", async () => {
+    const { getByTestId } = renderDetailScreen();
+
+    await waitFor(() => {
+      expect(getByTestId("field-value-actedBy").textContent).toBe("System");
     });
   });
 

@@ -12,7 +12,7 @@
 // deletedById) — this is also the SAME set the boot-validator's entityList
 // column checks accept, so a softDelete column stays a boot-time error
 // instead of a renderer-side throw (see screens.ts / entity-list-screens.ts).
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
+import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "../engine/types/identifiers";
 
 export type ListRowMetaColumnType = "text" | "number" | "timestamp";
 
@@ -56,4 +56,7 @@ export type SystemReferenceLabel = {
 // entity, not just delivery-log (fw#2662).
 export const SYSTEM_REFERENCE_LABELS: Readonly<Record<string, SystemReferenceLabel>> = {
   "tenant:tenant": { id: SYSTEM_TENANT_ID, labelKey: "kumiko.reference.system-tenant" },
+  // createdBy on a system write (fw#3103) — SYSTEM_USER_ID is an alias for
+  // "no human caller", so read_users never holds a matching row.
+  "user:user": { id: SYSTEM_USER_ID, labelKey: "kumiko.reference.system-user" },
 };

@@ -551,6 +551,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.list.sort.label": "Ordenar",
   "kumiko.list.sort.unsorted": "Sin ordenar",
   "kumiko.reference.system-tenant": "Sistema",
+  "kumiko.reference.system-user": "Sistema",
   "kumiko.nav.collapse": "Contraer",
   "kumiko.nav.expand": "Expandir",
   "kumiko.nav.language": "Idioma",
