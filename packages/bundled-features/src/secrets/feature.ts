@@ -39,13 +39,6 @@ export const secretsEnvSchema = z.object({
     .meta({
       kumiko: { kms: true, pulumi: { generator: "openssl rand -base64 32", secret: true } },
     }),
-  KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT: z
-    .string()
-    .min(1)
-    .optional()
-    .describe(
-      "Key-Manager ciphertext of KUMIKO_SECRETS_MASTER_KEY_V1; used when the plaintext is unset.",
-    ),
   KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: z
     .string()
     .regex(/^[1-9]\d*$/, "must be a positive integer (V<n> selector)")

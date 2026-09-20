@@ -335,3 +335,59 @@ describe("kms env slots", () => {
     expect(() => parseEnv(schema, { MASTER_KEY: "" })).toThrow(KumikoBootError);
   });
 });
+
+describe("composeEnvSchema kms twins", () => {
+  const kmsField = z
+    .string()
+    .min(1)
+    .meta({ kumiko: { kms: true } });
+
+  it("declares the ciphertext twin of every kms field, owned by the same source", () => {
+    const secrets = defineFeature("secrets", (r) => {
+      r.envSchema(z.object({ KEY_V1: kmsField }));
+    });
+    const { schema, sources } = composeEnvSchema({
+      features: [secrets],
+      extend: z.object({ KEY_V2: kmsField }),
+    });
+
+    expect(Object.keys(schema.shape).sort()).toEqual([
+      "KEY_V1",
+      "KEY_V1_CIPHERTEXT",
+      "KEY_V2",
+      "KEY_V2_CIPHERTEXT",
+    ]);
+    expect(sources["KEY_V1_CIPHERTEXT"]).toBe("secrets");
+    expect(sources["KEY_V2_CIPHERTEXT"]).toBe("app");
+    expect(() => parseEnv(schema, {})).toThrow(KumikoBootError);
+    expect(() =>
+      parseEnv(schema, { KEY_V1_CIPHERTEXT: "a", KEY_V2_CIPHERTEXT: "b" }),
+    ).not.toThrow();
+  });
+
+  it("keeps a twin the app already declared instead of conflicting", () => {
+    const declared = z.string().min(1).optional().describe("hand-written twin");
+    const { schema } = composeEnvSchema({
+      features: [],
+      extend: z.object({ KEY: kmsField, KEY_CIPHERTEXT: declared }),
+    });
+
+    expect(schema.shape["KEY_CIPHERTEXT"]).toBe(declared);
+  });
+
+  it("adds the twin for a kms field of an optional feature too", () => {
+    const secrets = defineFeature("secrets", (r) => {
+      r.envSchema(z.object({ KEY: kmsField }));
+    });
+    const { schema } = composeEnvSchema({ features: [secrets], optionalFeatures: ["secrets"] });
+
+    expect(Object.keys(schema.shape).sort()).toEqual(["KEY", "KEY_CIPHERTEXT"]);
+    expect(kmsSlotsOf(schema)).toEqual(["KEY"]);
+  });
+
+  it("adds nothing for a schema without kms fields", () => {
+    const { schema } = composeEnvSchema({ features: [], extend: z.object({ PLAIN: z.string() }) });
+
+    expect(Object.keys(schema.shape)).toEqual(["PLAIN"]);
+  });
+});

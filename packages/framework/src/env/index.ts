@@ -175,10 +175,23 @@ export type ComposedEnvSchema = {
   readonly sources: Readonly<Record<string, string>>;
 };
 
+// `.optional()` returns a new Zod instance that drops `.meta()`, which would
+// hide the slot from `kmsSlotsOf` on the composed schema.
+function optionalKeepingKmsMeta(field: z.ZodType): z.ZodType {
+  const optional = field.optional();
+  return readKumikoMeta(field).kms === true
+    ? optional.meta({ kumiko: readKumikoMeta(field) })
+    : optional;
+}
+
 export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvSchema {
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};
   const sources: Record<string, string> = {};
+  const kmsFields: { readonly name: string; readonly source: string }[] = [];
+  const noteKms = (name: string, field: z.ZodType, source: string): void => {
+    if (readKumikoMeta(field).kms === true) kmsFields.push({ name, source });
+  };
 
   // Framework-core first so a feature that accidentally declares the same
   // var (e.g. PORT) gets a clear conflict error citing "framework-core"
@@ -190,6 +203,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
     for (const [key, field] of Object.entries(zodShape(options.core))) {
       merged[key] = field;
       sources[key] = "framework-core";
+      noteKms(key, field, "framework-core");
     }
   }
 
@@ -209,8 +223,9 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
           },
         ]);
       }
-      merged[key] = wrap ? field.optional() : field;
+      merged[key] = wrap ? optionalKeepingKmsMeta(field) : field;
       sources[key] = feature.name;
+      noteKms(key, field, feature.name);
     }
   }
 
@@ -229,7 +244,21 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
       }
       merged[key] = field;
       sources[key] = "app";
+      noteKms(key, field, "app");
     }
+  }
+
+  // The twin follows from the slot, so a versioned family (`…_V2`) needs no
+  // second declaration. An already declared twin (apps that predate this) stays.
+  for (const { name, source } of kmsFields) {
+    const twin = `${name}_CIPHERTEXT`;
+    if (merged[twin] !== undefined) continue;
+    merged[twin] = z
+      .string()
+      .min(1)
+      .optional()
+      .describe(`Key-Manager ciphertext of ${name}; used when ${name} is unset.`);
+    sources[twin] = source;
   }
 
   return {
