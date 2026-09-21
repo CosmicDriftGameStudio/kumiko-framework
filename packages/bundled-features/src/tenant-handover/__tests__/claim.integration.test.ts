@@ -69,14 +69,29 @@ const noteEntity: EntityDefinition = createEntity({
   },
 });
 
+// A second edge off the root (kumiko-framework#3131), so `campaign` below is
+// reachable both directly from the run and one hop further out through here.
+const bundleEntity: EntityDefinition = createEntity({
+  table: "handover_bundle",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    runId: { type: "reference", entity: "run", required: true },
+    label: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
 // Hangs off the root through a plain `reference` field rather than a parentRef
-// (kumiko-framework#3088) — offlot-app's campaign.vehicleId shape.
+// (kumiko-framework#3088) — offlot-app's campaign.vehicleId shape. Neither
+// reference is required: a campaign reached through the bundle names no run,
+// which is what puts it on the longer of the two paths (#3131).
 const campaignEntity: EntityDefinition = createEntity({
   table: "handover_campaign",
   idType: "uuid",
   transferable: true,
   fields: {
-    runId: { type: "reference", entity: "run", required: true },
+    runId: { type: "reference", entity: "run" },
+    bundleId: { type: "reference", entity: "bundle" },
     label: createTextField({ personal: false, reason: "technical_reference" }),
   },
 });
@@ -93,29 +108,62 @@ const channelTextEntity: EntityDefinition = createEntity({
   },
 });
 
+// A two-type reference cycle (kumiko-framework#3131). Terminating on one is no
+// longer a property of the resolver — it follows from the mover's statements
+// only matching rows still in the source tenant — and a cycle is the one shape
+// the boot validator's depth check cannot measure, because how far it runs
+// depends on the rows rather than the declaration.
+const linkAEntity: EntityDefinition = createEntity({
+  table: "handover_link_a",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    runId: { type: "reference", entity: "run" },
+    viaB: { type: "reference", entity: "linkB" },
+  },
+});
+
+const linkBEntity: EntityDefinition = createEntity({
+  table: "handover_link_b",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    viaA: { type: "reference", entity: "linkA", required: true },
+  },
+});
+
 const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("run", runEntity);
   r.entity("photo", photoEntity);
   r.entity("note", noteEntity);
+  r.entity("bundle", bundleEntity);
   r.entity("campaign", campaignEntity);
   r.entity("channelText", channelTextEntity);
+  r.entity("linkA", linkAEntity);
+  r.entity("linkB", linkBEntity);
 });
 
 const runTable = buildEntityTable("run", runEntity);
 const photoTable = buildEntityTable("photo", photoEntity);
 const noteTable = buildEntityTable("note", noteEntity);
+const bundleTable = buildEntityTable("bundle", bundleEntity);
 const campaignTable = buildEntityTable("campaign", campaignEntity);
 const channelTextTable = buildEntityTable("channelText", channelTextEntity);
+const linkATable = buildEntityTable("linkA", linkAEntity);
+const linkBTable = buildEntityTable("linkB", linkBEntity);
 
 const runCrud = createEventStoreExecutor(runTable, runEntity, { entityName: "run" });
 const photoCrud = createEventStoreExecutor(photoTable, photoEntity, { entityName: "photo" });
 const noteCrud = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
+const bundleCrud = createEventStoreExecutor(bundleTable, bundleEntity, { entityName: "bundle" });
 const campaignCrud = createEventStoreExecutor(campaignTable, campaignEntity, {
   entityName: "campaign",
 });
 const channelTextCrud = createEventStoreExecutor(channelTextTable, channelTextEntity, {
   entityName: "channelText",
 });
+const linkACrud = createEventStoreExecutor(linkATable, linkAEntity, { entityName: "linkA" });
+const linkBCrud = createEventStoreExecutor(linkBTable, linkBEntity, { entityName: "linkB" });
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
@@ -140,8 +188,11 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, runEntity, "run");
   await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
+  await unsafeCreateEntityTable(stack.db, bundleEntity, "bundle");
   await unsafeCreateEntityTable(stack.db, campaignEntity, "campaign");
   await unsafeCreateEntityTable(stack.db, channelTextEntity, "channelText");
+  await unsafeCreateEntityTable(stack.db, linkAEntity, "linkA");
+  await unsafeCreateEntityTable(stack.db, linkBEntity, "linkB");
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
@@ -152,7 +203,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await stack.db.unsafe?.(
-    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_campaign, handover_channel_text, file_refs RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, file_refs RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -180,11 +231,31 @@ async function seedNote(tenantId: TenantId, hostId: string, body: string): Promi
   return String(result.data.id);
 }
 
+async function seedBundle(tenantId: TenantId, runId: string, label: string): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await bundleCrud.create({ runId, label }, user, db);
+  if (!result.isSuccess) throw new Error(`seedBundle failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
 async function seedCampaign(tenantId: TenantId, runId: string, label: string): Promise<string> {
   const user = createSystemUser(tenantId);
   const db = createTenantDb(stack.db, tenantId, "system");
   const result = await campaignCrud.create({ runId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedCampaign failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedCampaignInBundle(
+  tenantId: TenantId,
+  bundleId: string,
+  label: string,
+): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await campaignCrud.create({ bundleId, label }, user, db);
+  if (!result.isSuccess) throw new Error(`seedCampaignInBundle failed: ${result.error.message}`);
   return String(result.data.id);
 }
 
@@ -198,6 +269,35 @@ async function seedChannelText(
   const result = await channelTextCrud.create({ campaignId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedChannelText failed: ${result.error.message}`);
   return String(result.data.id);
+}
+
+async function seedLinkA(
+  tenantId: TenantId,
+  parent: { readonly runId: string } | { readonly viaB: string },
+): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await linkACrud.create(parent, user, db);
+  if (!result.isSuccess) throw new Error(`seedLinkA failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedLinkB(tenantId: TenantId, viaA: string): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await linkBCrud.create({ viaA }, user, db);
+  if (!result.isSuccess) throw new Error(`seedLinkB failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+// Closes the cycle in the DATA, not just in the schema: `linkA` can only point
+// back once its `linkB` exists. Without this the return edge matches no row at
+// all and a walk would terminate for the wrong reason.
+async function pointLinkABack(tenantId: TenantId, linkAId: string, viaB: string): Promise<void> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await linkACrud.update({ id: linkAId, version: 1, changes: { viaB } }, user, db);
+  if (!result.isSuccess) throw new Error(`pointLinkABack failed: ${result.error.message}`);
 }
 
 async function seedFileRef(
@@ -349,6 +449,96 @@ describe("tenant-handover :: claim", () => {
     expect(await readTenantId("handover_run", otherRunId)).toBe(SOURCE_TENANT);
     expect(await readTenantId("handover_campaign", otherCampaignId)).toBe(SOURCE_TENANT);
     expect(await readTenantId("handover_channel_text", otherChannelTextId)).toBe(SOURCE_TENANT);
+  });
+
+  // kumiko-framework#3131: `campaign` is reachable one hop from the run AND two
+  // hops through the bundle. The level-wise walk ran the campaign->channelText
+  // edge once, on the first level it was reachable, so the texts under the
+  // campaign found on the longer path stayed in the source tenant — silently,
+  // the same failure class as #3088 one level deeper.
+  test("follows a type reached by two paths of different length down both", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const bundleId = await seedBundle(SOURCE_TENANT, runId, "bundle");
+    const nearCampaignId = await seedCampaign(SOURCE_TENANT, runId, "straight off the run");
+    const farCampaignId = await seedCampaignInBundle(SOURCE_TENANT, bundleId, "via the bundle");
+    const nearTextId = await seedChannelText(SOURCE_TENANT, nearCampaignId, "near");
+    const farTextId = await seedChannelText(SOURCE_TENANT, farCampaignId, "far");
+
+    const dest = destinationUser(1);
+    const data = await stack.http.writeOk<{ movedEntities: Record<string, number> }>(
+      CLAIM,
+      { token: grantFor(runId), entityType: "run" },
+      dest,
+    );
+
+    expect(data.movedEntities).toEqual({ run: 1, bundle: 1, campaign: 2, channelText: 2 });
+
+    expect(await readTenantId("handover_bundle", bundleId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_campaign", nearCampaignId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_campaign", farCampaignId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_channel_text", nearTextId)).toBe(dest.tenantId);
+    // The row the old walk left behind.
+    expect(await readTenantId("handover_channel_text", farTextId)).toBe(dest.tenantId);
+
+    // History follows the late-found rows too, not just their projection.
+    expect(await loadAggregate(stack.db, farTextId, SOURCE_TENANT)).toHaveLength(0);
+    expect(
+      (await loadAggregate(stack.db, farTextId, dest.tenantId)).some(
+        (e) => e.type === "channelText.created",
+      ),
+    ).toBe(true);
+  });
+
+  // A cycle used to terminate because each edge ran at most once. That rule is
+  // gone (kumiko-framework#3131) — termination now rests on every statement
+  // filtering `tenant_id = source` and returning only the rows it flipped, so a
+  // row enters the worklist exactly once. Nothing else bounds the walk, which is
+  // why the rows below point at each other BOTH ways: the return edge has to
+  // match `linkA` and be turned away by the tenant filter, not miss it.
+  test("terminates on a reference cycle instead of running the rounds out", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const linkAId = await seedLinkA(SOURCE_TENANT, { runId });
+    const linkBId = await seedLinkB(SOURCE_TENANT, linkAId);
+    await pointLinkABack(SOURCE_TENANT, linkAId, linkBId);
+
+    const dest = destinationUser(1);
+    const data = await stack.http.writeOk<{ movedEntities: Record<string, number> }>(
+      CLAIM,
+      { token: grantFor(runId), entityType: "run" },
+      dest,
+    );
+
+    expect(data.movedEntities).toEqual({ run: 1, linkA: 1, linkB: 1 });
+    expect(await readTenantId("handover_link_a", linkAId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_link_b", linkBId)).toBe(dest.tenantId);
+  });
+
+  // The boot validator skips cycles when measuring depth, so this graph boots
+  // clean and only the mover can catch it. Failing the whole claim is the
+  // point: the alternative is moving the first five hops and leaving the rest,
+  // which is the silent partial move #3088 exists to end.
+  test("fails the claim when the rounds run out with rows still leading somewhere", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const a1 = await seedLinkA(SOURCE_TENANT, { runId });
+    const b1 = await seedLinkB(SOURCE_TENANT, a1);
+    const a2 = await seedLinkA(SOURCE_TENANT, { viaB: b1 });
+    const b2 = await seedLinkB(SOURCE_TENANT, a2);
+    const a3 = await seedLinkA(SOURCE_TENANT, { viaB: b2 });
+
+    const dest = destinationUser(1);
+    const err = await stack.http.writeErr(
+      CLAIM,
+      { token: grantFor(runId), entityType: "run" },
+      dest,
+    );
+
+    expect(err.httpStatus).toBe(422);
+    expectErrorIncludes(err, "transfer_graph_too_deep");
+
+    // Rolled back whole: neither the root nor the rows five hops in moved.
+    expect(await readTenantId("handover_run", runId)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_link_a", a1)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_link_a", a3)).toBe(SOURCE_TENANT);
   });
 
   test("replaying the same grant fails the same way an invalid one would, and changes nothing", async () => {

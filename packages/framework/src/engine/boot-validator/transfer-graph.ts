@@ -66,14 +66,14 @@ function validateNoMultipleReferenceEdge(entry: EntityEntry, featureName: string
 }
 
 // Depth is measured over reference edges between transferable entities, the
-// only chain the resolver nests through (parentRef is one level by
-// construction — see engine/boot-validator/parent-ref.ts).
+// only chain that nests (parentRef is one level by construction — see
+// engine/boot-validator/parent-ref.ts).
 //
 // `onPath` counts NODES, the limit counts EDGES: a chain of exactly
-// MAX_TRANSFER_DEPTH edges holds MAX_TRANSFER_DEPTH + 1 entities and is the
-// deepest graph the resolver still walks whole, so the bound has to allow it.
-// Rejecting it here would make a schema the mover handles correctly refuse to
-// boot.
+// MAX_TRANSFER_DEPTH edges holds MAX_TRANSFER_DEPTH + 1 entities, and the
+// mover runs MAX_TRANSFER_DEPTH rounds of one hop each, so it still walks that
+// chain whole. Rejecting it here would make a schema the mover handles
+// correctly refuse to boot.
 function longestTransferableChain(
   startName: string,
   bySource: ReadonlyMap<string, readonly string[]>,
@@ -81,8 +81,10 @@ function longestTransferableChain(
 ): readonly string[] | undefined {
   if (onPath.length > MAX_TRANSFER_DEPTH + 1) return onPath;
   for (const target of bySource.get(startName) ?? []) {
-    // skip: a cycle revisits a type already on this path — the resolver's
-    // edge de-duplication terminates there, so it is not a depth violation.
+    // skip: a cycle revisits a type already on this path, and schema depth
+    // cannot measure how far it actually runs — that depends on the rows, not
+    // the declaration. The mover carries this one instead, failing with
+    // `transfer_graph_too_deep` when its rounds run out (#3131).
     if (onPath.includes(target)) continue;
     const deeper = longestTransferableChain(target, bySource, [...onPath, target]);
     if (deeper !== undefined) return deeper;
