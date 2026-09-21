@@ -98,7 +98,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     expect(() => validateBoot([feature])).toThrow(/duplicate tab id "overview"/);
   });
 
-  test("mode: tabs on entityEdit throws — tabs are projectionDetail-only", () => {
+  // fw#3134: entityEdit joined projectionDetail as a tabs host. It renders
+  // every tab mounted and validates across all of them on submit, so a
+  // required field on an unopened tab surfaces instead of blocking silently.
+  test("mode: tabs on entityEdit boots", () => {
     const feature = defineFeature("app", (r) => {
       r.entity(
         "rent",
@@ -119,8 +122,82 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
         },
       });
     });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("mode: tabs on entityEdit enforces the same per-tab id as projectionDetail", () => {
+    const feature = defineFeature("app", (r) => {
+      r.entity(
+        "rent",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.screen({
+        id: "rent-edit",
+        type: "entityEdit",
+        entity: "rent",
+        layout: {
+          mode: "tabs",
+          sections: [
+            { title: "Overview", columns: 1, fields: ["name"] },
+            { id: "history", title: "History", columns: 1, fields: ["name"] },
+          ],
+        },
+      });
+    });
     expect(() => validateBoot([feature])).toThrow(
-      /Screen "rent-edit" \(entityEdit\) sets mode: "tabs" — tabs are only supported on projectionDetail/,
+      /Screen "rent-edit" \(entityEdit\).*sections\[0\] \("Overview"\) has no id/s,
+    );
+  });
+
+  test("mode: tabs on entityEdit with a single section throws", () => {
+    const feature = defineFeature("app", (r) => {
+      r.entity(
+        "rent",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.screen({
+        id: "rent-edit",
+        type: "entityEdit",
+        entity: "rent",
+        layout: {
+          mode: "tabs",
+          sections: [{ id: "overview", title: "Overview", columns: 1, fields: ["name"] }],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/tabs need at least 2 sections/);
+  });
+
+  // The other three edit-screen types have no jump-to-erroring-tab path, so a
+  // required field on a hidden tab would still block their submit in silence.
+  test("mode: tabs on actionForm still throws", () => {
+    const feature = defineFeature("app", (r) => {
+      r.writeHandler(
+        "archive",
+        z.object({ reason: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+      );
+      r.screen({
+        id: "rent-action",
+        type: "actionForm",
+        handler: "app:write:archive",
+        fields: { reason: { type: "text" } } as never,
+        layout: {
+          mode: "tabs",
+          sections: [
+            { id: "overview", title: "Overview", columns: 1, fields: ["reason"] },
+            { id: "history", title: "History", columns: 1, fields: ["reason"] },
+          ] as never,
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /Screen "rent-action" \(actionForm\) sets mode: "tabs" — tabs are only supported on projectionDetail and entityEdit/,
     );
   });
 

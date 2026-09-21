@@ -149,6 +149,7 @@ export function computeEditViewModel<
     if (isExtensionEditSection(sectionSpec)) {
       return {
         kind: "extension" as const,
+        ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
         title: translate(sectionSpec.title),
         component: sectionSpec.component,
         contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
@@ -441,8 +442,9 @@ export function computeEditViewModel<
     // Boot-validator rejects fields.length === 0 with no groups (screens.ts),
     // so an empty section never reaches this code.
     const visible = fields.some((field) => field.visible);
-    // Tabs mode renders this section as its own card, where two columns reads
-    // better than the single-column default a stacked form keeps.
+    // Tabs mode renders this section as its own panel, where two columns reads
+    // better than the single-column default a stacked form keeps. Applies to
+    // entityEdit tabs as well since fw#3134, not just projectionDetail.
     const defaultColumns = screen.layout.mode === "tabs" ? 2 : 1;
     const groups = sectionSpec.groups?.map((group) => ({
       title: translate(group.title),
@@ -461,6 +463,7 @@ export function computeEditViewModel<
     }));
     return {
       kind: "fields" as const,
+      ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
       visible,
       // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
       ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),

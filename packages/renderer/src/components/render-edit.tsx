@@ -109,6 +109,16 @@ function toConditionValue<TValues extends FormValues, TCtx>(
   return (values: TValues) => evalFieldCondition(cond, values as Record<string, unknown>);
 }
 
+// Tab-strip key. The boot-validator makes `id` mandatory on a tabs layout and
+// entityEdit only ever has "fields"/"extension" sections (relatedList and
+// writeForm are rejected outright), so the positional fallback is unreachable
+// for a tabs screen — it only keeps this total for other layouts.
+function tabIdAt(section: EditSectionViewModel | undefined, index: number): string {
+  const declared =
+    section?.kind === "fields" || section?.kind === "extension" ? section.id : undefined;
+  return declared ?? `section-${index}`;
+}
+
 function deriveFormFields<TValues extends FormValues, TCtx>(
   screen: EntityEditScreenDefinition,
 ): Record<string, FieldConditions<TValues, TCtx>> {
@@ -285,6 +295,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const dispatcher = useOptionalDispatcher();
 
   const isWizard = screen.layout.mode === "wizard";
+  // Tabs reuse the wizard's step machinery: one section visible at a time,
+  // all of them mounted, `currentStep` as the active index. What they do NOT
+  // share is navigation — a tab form submits from any tab, so every
+  // step-transition path below stays wizard-only (fw#3134).
+  const isTabs = screen.layout.mode === "tabs";
   const draftEnabled = isWizard && screen.layout.draft === true && dispatcher !== undefined;
   const isCreateMode = entityIdProp === undefined || entityIdProp === null || entityIdProp === "";
   const draftStorage = useDraftStorage();
@@ -350,8 +365,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     Progress,
     StepBar,
     WizardStepGroup,
+    Tabs,
   } = usePrimitives();
 
+  // Both stepped layouts show one section at a time and keep the rest mounted
+  // but inert. A tabs layout on a host without the Tabs primitive has no strip
+  // to switch with, so it falls back to rendering every section stacked rather
+  // than stranding the user on section 0 (fw#3134).
+  const isStepped = isWizard || (isTabs && Tabs !== undefined);
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
   // Must be computed before submitConfig/useForm bakes it in (the controller
@@ -683,8 +704,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // button, and it can never go dirty either.
   const isFieldless = Object.keys(entity.fields).length === 0;
 
-  // A lone relatedList tab (hideSectionTitles is only ever set by the tabs
-  // layout, which also narrows filteredSections to that one active section)
+  // A lone relatedList tab (`hideSectionTitles` is only ever set by
+  // ProjectionDetailBody, which hands this component ONE section — its
+  // synthesized screen drops layout.mode, so an entityEdit tabs layout never
+  // reaches this line and `filteredSections[0]` stays the active section)
   // needs its own tab panel capped at the available height so its table
   // scrolls inside the panel instead of the whole page stretching to the
   // row count (fw#2722) — a short table still sizes to its content instead
@@ -850,14 +873,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     }
   }
 
-  // Wizard mode: locates the first step whose "fields" section contains one
-  // of the given field paths — matched on the path's first segment, since
-  // `FieldIssue.path`/`snapshot.errors` keys can be dotted (embedded-list
-  // rows, e.g. `tasks.2.title`) while a section's field name is always the
-  // plain top-level name. Returns undefined for a root-level issue (path
-  // `"(root)"`, see zod-bridge.ts) or one that matches no rendered field —
-  // callers must NOT suppress the error banner in that case, there is
-  // nowhere to jump the user to.
+  // Stepped modes (wizard, tabs): locates the first step whose "fields"
+  // section contains one of the given field paths — matched on the path's
+  // first segment, since `FieldIssue.path`/`snapshot.errors` keys can be
+  // dotted (embedded-list rows, e.g. `tasks.2.title`) while a section's field
+  // name is always the plain top-level name. Returns undefined for a
+  // root-level issue (path `"(root)"`, see zod-bridge.ts) or one that matches
+  // no rendered field — callers must NOT suppress the error banner in that
+  // case, there is nowhere to jump the user to. Extension sections are not
+  // jump targets by design: they validate through the controlled-mode
+  // controls.validate() API and own no field specs to match against.
   function findFirstErroringStep(fieldPaths: readonly string[]): number | undefined {
     const erroredFields = new Set(fieldPaths.map((p) => p.split(".")[0]));
     const idx = filteredSections.findIndex(
@@ -956,18 +981,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // Root-level `.refine()`/cross-field issues from controller.validate()
         // — same "jump to the erroring step" treatment as a server field
         // error below, sourced from the freshly-validated snapshot.
-        if (isWizard) {
+        if (isStepped) {
           const step = findFirstErroringStep(Object.keys(controller.getSnapshot().errors));
           if (step !== undefined) setRawStep(step);
         }
       } else {
         const fieldIssues = result.error.details?.fields ?? [];
-        // A server field error on a step the wizard isn't currently showing
-        // is otherwise invisible — jump to the first step that contains one
-        // of the errored fields. Non-wizard forms render every field at
-        // once, so the original suppress-when-field-issues-exist rule still
-        // applies there (the field itself already shows the error inline).
-        if (isWizard) {
+        // A server field error on a step the form isn't currently showing is
+        // otherwise invisible — jump to the first step that contains one of
+        // the errored fields. For tabs this is what keeps the submit from
+        // blocking in silence, the failure mode the boot-validator used to
+        // prevent by rejecting the layout outright (fw#3134). Single-section
+        // forms render every field at once, so the original
+        // suppress-when-field-issues-exist rule still applies there (the
+        // field itself already shows the error inline).
+        if (isStepped) {
           const step = findFirstErroringStep(fieldIssues.map((i) => i.path));
           if (step !== undefined) {
             setRawStep(step);
@@ -1293,18 +1321,44 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             })()}
           </>
         )}
+        {isTabs &&
+          (() => {
+            // No Tabs primitive registered → every section renders stacked
+            // (stepHidden below is gated on the same condition), which is the
+            // single-layout behaviour. Degrading to one long form beats
+            // hiding sections behind a strip that never drew.
+            if (Tabs === undefined) return null;
+            return (
+              <Tabs
+                testId="render-edit-tabs"
+                items={filteredSections.map((section, index) => ({
+                  id: tabIdAt(section, index),
+                  label: section.title ?? "",
+                }))}
+                activeId={tabIdAt(filteredSections[currentStep], currentStep)}
+                onSelect={(id) => {
+                  const index = filteredSections.findIndex((s, i) => tabIdAt(s, i) === id);
+                  // skip: the strip reported an id no section owns.
+                  if (index === -1) return;
+                  setRawStep(index);
+                }}
+              />
+            );
+          })()}
         {filteredSections.map((section: EditSectionViewModel, sectionIndex: number) => {
-          // Wizard steps stay mounted while off-screen (native `hidden`, not
-          // unmounted) so an extension section's submit-registry entry
-          // (useExtensionFormSubmit → registry.remove on unmount) survives
-          // navigating past its step — otherwise Finish only ran the last
-          // mounted step's handler and silently dropped earlier steps' writes.
-          const stepHidden = isWizard && sectionIndex !== currentStep;
+          // Wizard steps and tabs stay mounted while off-screen (native
+          // `hidden`, not unmounted) so an extension section's submit-registry
+          // entry (useExtensionFormSubmit → registry.remove on unmount)
+          // survives navigating past its step — otherwise Finish only ran the
+          // last mounted step's handler and silently dropped earlier steps'
+          // writes. For tabs this is also what makes ONE submit cover every
+          // tab, including tabs the user never opened (fw#3134).
+          const stepHidden = isStepped && sectionIndex !== currentStep;
           const wrapWizardStep = (key: string, el: ReactNode): ReactNode => {
-            if (!isWizard) return el;
+            if (!isStepped) return el;
             if (WizardStepGroup === undefined) {
               throw new Error(
-                "RenderEdit: wizard layout requires primitives.WizardStepGroup, but none is registered.",
+                `RenderEdit: ${screen.layout.mode} layout requires primitives.WizardStepGroup, but none is registered.`,
               );
             }
             return (
@@ -1446,8 +1500,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             return wrapWizardStep(sectionKey, cardEl);
           }
           // Suppress the section header when it would just repeat the form
-          // title verbatim (typical for single-section actionForms).
-          const sectionTitle = section.title === formTitle ? undefined : section.title;
+          // title verbatim (typical for single-section actionForms), or the
+          // tab label right above it. Without a Tabs primitive the sections
+          // render stacked, and then the titles are what tells them apart.
+          const repeatsTabLabel = isTabs && isStepped;
+          const sectionTitle =
+            section.title === formTitle || repeatsTabLabel ? undefined : section.title;
           const sectionEl = (
             <Section
               key={sectionKey}
