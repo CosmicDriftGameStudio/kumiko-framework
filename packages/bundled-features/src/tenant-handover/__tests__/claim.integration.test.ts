@@ -69,19 +69,53 @@ const noteEntity: EntityDefinition = createEntity({
   },
 });
 
+// Hangs off the root through a plain `reference` field rather than a parentRef
+// (kumiko-framework#3088) — offlot-app's campaign.vehicleId shape.
+const campaignEntity: EntityDefinition = createEntity({
+  table: "handover_campaign",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    runId: { type: "reference", entity: "run", required: true },
+    label: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
+// The second level: references the campaign, not the root. Nothing links it to
+// the run directly, so it only moves if the graph nests.
+const channelTextEntity: EntityDefinition = createEntity({
+  table: "handover_channel_text",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    campaignId: { type: "reference", entity: "campaign", required: true },
+    body: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
 const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("run", runEntity);
   r.entity("photo", photoEntity);
   r.entity("note", noteEntity);
+  r.entity("campaign", campaignEntity);
+  r.entity("channelText", channelTextEntity);
 });
 
 const runTable = buildEntityTable("run", runEntity);
 const photoTable = buildEntityTable("photo", photoEntity);
 const noteTable = buildEntityTable("note", noteEntity);
+const campaignTable = buildEntityTable("campaign", campaignEntity);
+const channelTextTable = buildEntityTable("channelText", channelTextEntity);
 
 const runCrud = createEventStoreExecutor(runTable, runEntity, { entityName: "run" });
 const photoCrud = createEventStoreExecutor(photoTable, photoEntity, { entityName: "photo" });
 const noteCrud = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
+const campaignCrud = createEventStoreExecutor(campaignTable, campaignEntity, {
+  entityName: "campaign",
+});
+const channelTextCrud = createEventStoreExecutor(channelTextTable, channelTextEntity, {
+  entityName: "channelText",
+});
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
@@ -106,6 +140,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, runEntity, "run");
   await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
+  await unsafeCreateEntityTable(stack.db, campaignEntity, "campaign");
+  await unsafeCreateEntityTable(stack.db, channelTextEntity, "channelText");
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
@@ -116,7 +152,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await stack.db.unsafe?.(
-    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, file_refs RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_campaign, handover_channel_text, file_refs RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -141,6 +177,26 @@ async function seedNote(tenantId: TenantId, hostId: string, body: string): Promi
   const db = createTenantDb(stack.db, tenantId, "system");
   const result = await noteCrud.create({ hostType: "run", hostId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedNote failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedCampaign(tenantId: TenantId, runId: string, label: string): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await campaignCrud.create({ runId, label }, user, db);
+  if (!result.isSuccess) throw new Error(`seedCampaign failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedChannelText(
+  tenantId: TenantId,
+  campaignId: string,
+  body: string,
+): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await channelTextCrud.create({ campaignId, body }, user, db);
+  if (!result.isSuccess) throw new Error(`seedChannelText failed: ${result.error.message}`);
   return String(result.data.id);
 }
 
@@ -252,6 +308,47 @@ describe("tenant-handover :: claim", () => {
     // The unrelated run (same entity type, different row) never moved.
     expect(await readTenantId("handover_run", otherRunId)).toBe(SOURCE_TENANT);
     expect(await readTenantId("handover_photo", otherPhotoId)).toBe(SOURCE_TENANT);
+  });
+
+  // kumiko-framework#3088: before this, resolveChildCandidates only knew
+  // parentRef, so a graph hanging off `reference` fields moved the root row
+  // alone and left its children in the source tenant.
+  test("claims a two-level reference graph whole: root -> campaign -> channelText", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const campaignId = await seedCampaign(SOURCE_TENANT, runId, "spring");
+    const channelTextId = await seedChannelText(SOURCE_TENANT, campaignId, "for sale");
+
+    // A second run with its own campaign and text — proves the walk follows
+    // the identified row's edges, not every row of a participating type.
+    const otherRunId = await seedRun(SOURCE_TENANT, "someone else's run");
+    const otherCampaignId = await seedCampaign(SOURCE_TENANT, otherRunId, "summer");
+    const otherChannelTextId = await seedChannelText(SOURCE_TENANT, otherCampaignId, "theirs");
+
+    const dest = destinationUser(1);
+    const data = await stack.http.writeOk<{
+      movedEntities: Record<string, number>;
+    }>(CLAIM, { token: grantFor(runId), entityType: "run" }, dest);
+
+    expect(data.movedEntities).toEqual({ run: 1, campaign: 1, channelText: 1 });
+
+    expect(await readTenantId("handover_run", runId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_campaign", campaignId)).toBe(dest.tenantId);
+    // The second level: reachable only through the campaign, never named by
+    // the grant.
+    expect(await readTenantId("handover_channel_text", channelTextId)).toBe(dest.tenantId);
+
+    // Event history follows at every level, not just for the root.
+    expect(
+      (await loadAggregate(stack.db, channelTextId, dest.tenantId)).some(
+        (e) => e.type === "channelText.created",
+      ),
+    ).toBe(true);
+    expect(await loadAggregate(stack.db, channelTextId, SOURCE_TENANT)).toHaveLength(0);
+
+    // The unrelated run's whole chain stayed put.
+    expect(await readTenantId("handover_run", otherRunId)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_campaign", otherCampaignId)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_channel_text", otherChannelTextId)).toBe(SOURCE_TENANT);
   });
 
   test("replaying the same grant fails the same way an invalid one would, and changes nothing", async () => {
