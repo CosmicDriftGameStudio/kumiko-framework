@@ -28,3 +28,16 @@ Two side effects worth knowing before declaring a tabs layout: a section that
 omits `columns` defaults to 2 under tabs (the existing projectionDetail rule now
 also reaches entityEdit), and the section title is dropped from the panel
 because the tab label already carries it.
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: entityEdit accepts layout.mode "tabs" (fw#3134)
+migration: |
+  Nothing to change: `single` and `wizard` behave as before. A screen that
+  switches to `mode: "tabs"` needs at least two sections, each with a title and
+  a kebab-case `id` — the same shape projectionDetail already requires. Two
+  defaults differ from `single` inside a tabs layout: a section that omits
+  `columns` renders in 2 columns, and its title is dropped from the panel
+  because the tab label carries it.
+-->
