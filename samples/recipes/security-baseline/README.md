@@ -58,7 +58,7 @@ A `createSessionsFeature({ ... })` mounted with different options than the
 preset's own no-arg instance still produces a clear boot error — dedupe only
 collapses provably interchangeable instances, never silently picks one:
 
-```ts
+```ts illustration
 export const APP_FEATURES = [
   // ...
   createSessionsFeature({ expiresInMs: 1000 }),
