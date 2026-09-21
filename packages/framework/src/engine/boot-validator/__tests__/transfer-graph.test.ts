@@ -71,9 +71,10 @@ describe("validateTransferGraph", () => {
     ).not.toThrow();
   });
 
-  // The boundary the resolver actually draws: 5 edges (6 entities) still move
-  // as one graph, so the validator must not reject them. Off by one here and a
-  // supported schema stops booting.
+  // The boundary the mover actually draws: it runs MAX_TRANSFER_DEPTH rounds of
+  // one hop each, so 5 edges (6 entities) still move as one graph and the
+  // validator must not reject them. Off by one here and a supported schema
+  // stops booting.
   test("accepts a chain of exactly the maximum depth", () => {
     const chain: Record<string, EntityDefinition> = { e0: entity({}) };
     for (let i = 1; i <= MAX_TRANSFER_DEPTH; i++) {

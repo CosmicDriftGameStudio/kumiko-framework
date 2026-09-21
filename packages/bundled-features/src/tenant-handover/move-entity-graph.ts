@@ -26,9 +26,9 @@ import {
   extractTableName,
   physicalColumnName,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { MAX_TRANSFER_DEPTH, type Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
-import { resolveTransferGraph } from "./transfer-graph";
+import { resolveTransferAdjacency, type TransferEdge } from "./transfer-graph";
 
 const FILE_REFS_TABLE = "file_refs";
 const EVENTS_TABLE = "kumiko_events";
@@ -152,10 +152,52 @@ async function moveReferencedChildRows(args: {
   return rows.map((row) => row.id);
 }
 
+// Resolves one edge against the ids its parent type just moved, and reports
+// which rows changed hands.
+async function moveEdgeRows(args: {
+  readonly db: DbRunner;
+  readonly registry: Registry;
+  readonly edge: TransferEdge;
+  readonly parentRowIds: readonly string[];
+  readonly sourceTenantId: string;
+  readonly destinationTenantId: string;
+}): Promise<readonly string[]> {
+  const { db, registry, edge, parentRowIds, sourceTenantId, destinationTenantId } = args;
+  const table = entityTableFromRegistry(registry, edge.entityName, edge.entity);
+  const tableName = extractTableName(table);
+  const tenantCol = physicalColumnName(table, "tenantId");
+  const pkCol = physicalColumnName(table, "id");
+
+  if (edge.link.kind === "parentRef") {
+    return moveChildRows({
+      db,
+      tableName,
+      typeCol: physicalColumnName(table, edge.link.typeField),
+      idCol: physicalColumnName(table, edge.link.idField),
+      tenantCol,
+      pkCol,
+      parentEntityType: edge.parentEntityName,
+      parentRowIds,
+      sourceTenantId,
+      destinationTenantId,
+    });
+  }
+  return moveReferencedChildRows({
+    db,
+    tableName,
+    refCol: physicalColumnName(table, edge.link.field),
+    tenantCol,
+    pkCol,
+    parentRowIds,
+    sourceTenantId,
+    destinationTenantId,
+  });
+}
+
 // Everything the root ownership write does NOT cover: the root's own event
 // history + attached files, plus the rows, event history and attached files of
-// every descendant the declared transfer graph reaches — level by level, so a
-// nested reference chain moves whole rather than one level deep (#3088).
+// every descendant the declared transfer graph reaches, however deep and by
+// however many paths (#3088, #3131).
 // Returns a count per moved entity name (the
 // write handler turns this into the audit entry) — `fileRef` is a single
 // pooled count across root + every child, since it is not itself part of the
@@ -196,117 +238,94 @@ export async function moveTransferGraph(args: {
     }),
   );
 
-  // Row ids per entity type, fed forward: level N's edges match against the
-  // ids level N-1 actually moved. A row already moved by an earlier edge no
-  // longer matches `tenantCol = source`, so a second edge reaching it returns
-  // nothing — the move is idempotent without a separate visited set.
-  const movedIdsByEntity = new Map<string, readonly string[]>([[rootEntityName, [rootRowId]]]);
-  const { levels, overflowEdges } = resolveTransferGraph(registry, rootEntityName);
+  const adjacency = resolveTransferAdjacency(registry, rootEntityName);
 
-  for (const level of levels) {
-    const freshIdsByEntity = new Map<string, string[]>();
+  // A worklist, not a level-wise walk (#3131): each batch of rows that actually
+  // changed hands becomes the parent ids for the edges leading away from its
+  // type. The same edge therefore runs again whenever a later round discovers
+  // more rows of its parent type, which is what a type reachable by two paths
+  // of different length needs.
+  //
+  // Termination rests on row-level idempotency, NOT on visiting each edge once:
+  // every statement filters on `tenantCol = sourceTenantId` and RETURNS only
+  // the rows it flipped, so a row enters this worklist exactly once and the
+  // source tenant holds finitely many. Do not add an edge-level visited set to
+  // "bound" this — that is precisely the bug #3131 removed.
+  let pending: readonly { readonly entityName: string; readonly rowIds: readonly string[] }[] = [
+    { entityName: rootEntityName, rowIds: [rootRowId] },
+  ];
 
-    for (const edge of level) {
-      const parentRowIds = movedIdsByEntity.get(edge.parentEntityName) ?? [];
-      // skip: the previous level moved no rows of this parent type, so this
-      // edge has nothing to hang off.
-      if (parentRowIds.length === 0) continue;
+  for (let round = 0; round < MAX_TRANSFER_DEPTH && pending.length > 0; round++) {
+    const discovered: { entityName: string; rowIds: readonly string[] }[] = [];
 
-      const table = entityTableFromRegistry(registry, edge.entityName, edge.entity);
-      const tableName = extractTableName(table);
-      const tenantCol = physicalColumnName(table, "tenantId");
-      const pkCol = physicalColumnName(table, "id");
-
-      const childIds =
-        edge.link.kind === "parentRef"
-          ? await moveChildRows({
-              db,
-              tableName,
-              typeCol: physicalColumnName(table, edge.link.typeField),
-              idCol: physicalColumnName(table, edge.link.idField),
-              tenantCol,
-              pkCol,
-              parentEntityType: edge.parentEntityName,
-              parentRowIds,
-              sourceTenantId,
-              destinationTenantId,
-            })
-          : await moveReferencedChildRows({
-              db,
-              tableName,
-              refCol: physicalColumnName(table, edge.link.field),
-              tenantCol,
-              pkCol,
-              parentRowIds,
-              sourceTenantId,
-              destinationTenantId,
-            });
-      if (childIds.length === 0) continue;
-
-      // Moved first, validated second — safe only because everything here
-      // shares the root UPDATE's transaction (see file header): throwing now
-      // rolls this move back together with the root's, not just this one.
-      if (edge.entity.transferable !== true) {
-        throw new UnprocessableError("entity_not_transferable", {
-          i18nKey: "errors.tenantHandover.entityNotTransferable",
-          details: { entityName: edge.entityName },
-        });
-      }
-
-      // `+=`, not `=`: one entity type can be reached by more than one edge
-      // (`note.vehicleId` and `note.campaignId`), and assigning would drop the
-      // earlier count.
-      movedCounts[edge.entityName] = (movedCounts[edge.entityName] ?? 0) + childIds.length;
-      const fresh = freshIdsByEntity.get(edge.entityName) ?? [];
-      fresh.push(...childIds);
-      freshIdsByEntity.set(edge.entityName, fresh);
-
-      await moveEventHistory({
-        db,
-        aggregateType: edge.entityName,
-        aggregateIds: childIds,
-        sourceTenantId,
-        destinationTenantId,
-      });
-      trackFileMove(
-        await moveFileRefs({
+    for (const { entityName, rowIds } of pending) {
+      for (const edge of adjacency.get(entityName) ?? []) {
+        const childIds = await moveEdgeRows({
           db,
-          entityType: edge.entityName,
-          entityIds: childIds,
+          registry,
+          edge,
+          parentRowIds: rowIds,
           sourceTenantId,
           destinationTenantId,
-        }),
-      );
+        });
+        // skip: this edge found nothing hanging off these particular rows —
+        // either the app declares the link but no row uses it, or the rows were
+        // already moved by an edge reached earlier.
+        if (childIds.length === 0) continue;
+
+        // Moved first, validated second — safe only because everything here
+        // shares the root UPDATE's transaction (see file header): throwing now
+        // rolls this move back together with the root's, not just this one.
+        if (edge.entity.transferable !== true) {
+          throw new UnprocessableError("entity_not_transferable", {
+            i18nKey: "errors.tenantHandover.entityNotTransferable",
+            details: { entityName: edge.entityName },
+          });
+        }
+
+        // `+=`, not `=`: one entity type can be reached by more than one edge
+        // (`note.vehicleId` and `note.campaignId`), and assigning would drop the
+        // earlier count.
+        movedCounts[edge.entityName] = (movedCounts[edge.entityName] ?? 0) + childIds.length;
+        discovered.push({ entityName: edge.entityName, rowIds: childIds });
+
+        await moveEventHistory({
+          db,
+          aggregateType: edge.entityName,
+          aggregateIds: childIds,
+          sourceTenantId,
+          destinationTenantId,
+        });
+        trackFileMove(
+          await moveFileRefs({
+            db,
+            entityType: edge.entityName,
+            entityIds: childIds,
+            sourceTenantId,
+            destinationTenantId,
+          }),
+        );
+      }
     }
 
-    for (const [entityName, ids] of freshIdsByEntity) {
-      movedIdsByEntity.set(entityName, ids);
-    }
+    pending = discovered;
   }
 
-  // The depth limit is a safety net, not a licence to move part of a graph:
-  // if the level that got truncated actually hangs off rows this handover
-  // moved, the declaration reaches further than the mover does, and stopping
-  // quietly would leave exactly the orphaned rows #3088 is about. The boot
-  // validator catches the common shape of this up front, but it measures
-  // reference chains between transferable entities only — this is what closes
-  // the remaining gap, and it rolls the whole transaction back.
+  // The depth limit is a safety net, not a licence to move part of a graph: if
+  // rounds ran out while rows remain whose type still leads somewhere, the
+  // declaration reaches further than the mover does, and returning quietly
+  // would leave exactly the orphaned rows #3088 is about.
   //
-  // The id lookup is the last level that moved rows of that type, not
-  // necessarily the level the overflow edge hangs off, so this can fire on a
-  // graph whose deepest rows are older than the truncation. It only reaches
-  // here for a declaration already past the limit, where erring towards the
-  // named error beats moving part of a graph.
-  const strandedEdge = overflowEdges.find(
-    (edge) => (movedIdsByEntity.get(edge.parentEntityName) ?? []).length > 0,
-  );
-  if (strandedEdge !== undefined) {
+  // Rounds count hops of both edge kinds, while the boot validator measures
+  // reference chains between transferable entities only. A graph that fills the
+  // limit with reference hops and then adds a parentRef child therefore boots
+  // clean and fails here instead — the residual the validator cannot see, and
+  // the reason this check has to exist rather than trusting boot alone.
+  const stranded = pending.find(({ entityName }) => (adjacency.get(entityName) ?? []).length > 0);
+  if (stranded !== undefined) {
     throw new UnprocessableError("transfer_graph_too_deep", {
       i18nKey: "errors.tenantHandover.transferGraphTooDeep",
-      details: {
-        entityName: strandedEdge.entityName,
-        parentEntityName: strandedEdge.parentEntityName,
-      },
+      details: { entityName: stranded.entityName },
     });
   }
 
