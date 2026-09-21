@@ -266,6 +266,10 @@ export type EditSectionViewModel =
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
+  /** From `EditFieldsSection.id`. The boot-validator makes it mandatory under
+   *  `layout.mode: "tabs"` so the tab strip has a stable key per tab; other
+   *  layouts leave it unset. */
+  readonly id?: string;
   /** False when the section has fields but none of them is visible.
    *  The renderer then draws nothing, but the section stays in the array
    *  (key stability). */
@@ -291,6 +295,9 @@ export type EditFieldsSectionViewModel = {
 
 export type EditExtensionSectionViewModel = {
   readonly kind: "extension";
+  /** From `EditExtensionSection.id` — same tab-strip role as on a "fields"
+   *  section, see EditFieldsSectionViewModel.id. */
+  readonly id?: string;
   readonly title: string;
   readonly component: PlatformComponent;
   readonly contributesToFormSubmit: boolean;

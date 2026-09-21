@@ -119,6 +119,47 @@ describe("computeEditViewModel", () => {
     expect(asFields(vm.sections[1]).columns).toBe(1);
   });
 
+  // The two-column default came in with projectionDetail tabs and now also
+  // covers entityEdit tabs (fw#3134) — a tab is its own panel, where a stacked
+  // form's single column wastes the width.
+  test("a tabs layout defaults sections to 2 columns, not 1", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        mode: "tabs",
+        sections: [
+          { id: "main", title: "Main", fields: ["customerName"] },
+          { id: "notes", title: "Notes", columns: 1, fields: ["notes"] },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asFields(vm.sections[0]).columns).toBe(2);
+    expect(asFields(vm.sections[1]).columns).toBe(1);
+  });
+
+  test("tabs sections carry their declared id into the view model", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        mode: "tabs",
+        sections: [
+          { id: "main", title: "Main", fields: ["customerName"] },
+          { id: "notes", title: "Notes", fields: ["notes"] },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    expect(asFields(vm.sections[0]).id).toBe("main");
+    expect(asFields(vm.sections[1]).id).toBe("notes");
+  });
+
   test("visible predicate evaluated against current values (live-reactive)", () => {
     const screen = editScreen({
       sections: [

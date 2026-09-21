@@ -4019,3 +4019,171 @@ describe("RenderEdit — slots.footer", () => {
     expect(actions.children[0]?.getAttribute("data-testid")).toBe("render-edit-submit");
   });
 });
+
+// fw#3134: entityEdit gained layout.mode "tabs". The boot-validator used to
+// reject it because a required field on a hidden tab would block submit with
+// nothing on screen to explain it. What makes it safe is not per-tab scoping
+// (that would skip the field instead) but the opposite: validate everything,
+// then move the user to the tab holding the first error.
+describe("RenderEdit tabs mode (fw#3134)", () => {
+  // Radix Tabs default to activationMode "automatic": the trigger activates on
+  // focus, and a synthetic click never moves focus in happy-dom.
+  function selectTab(id: string): void {
+    const trigger = screen.getByTestId(`render-edit-tabs-${id}`);
+    act(() => {
+      trigger.focus();
+      fireEvent.focus(trigger);
+    });
+  }
+
+  function makeTabsScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-tabs",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "basics", title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { id: "details", title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+  }
+
+  test("renders a tab strip and keeps the inactive tab's fields mounted but hidden", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-tabs")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-tabs-basics")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-tabs-details")).toBeTruthy();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).toBeNull();
+    // Mounted (getBy, not queryBy) but inert — that is what lets one submit
+    // carry a tab the user never opened.
+    expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
+  });
+
+  test("the submit button shows on every tab, and there is no wizard Next", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
+    expect(screen.queryByTestId("render-edit-wizard-step-label")).toBeNull();
+  });
+
+  test("selecting a tab swaps which section is visible", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    selectTab("details");
+
+    expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
+  });
+
+  test("one submit carries the values of every tab, including one never opened", async () => {
+    const writes: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher((async (type: string, payload: unknown) => {
+      writes.push({ type, payload });
+      return { isSuccess: true, data: { id: "1" } };
+    }) as Dispatcher["write"]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme" } });
+    selectTab("details");
+    const countInput = screen.getByTestId("field-count").querySelector("input") as HTMLInputElement;
+    fireEvent.change(countInput, { target: { value: "7" } });
+    // Submitting from "basics" — "details" is hidden at that point, and its
+    // value has to travel anyway.
+    selectTab("basics");
+
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(writes).toHaveLength(1);
+    expect(writes[0]?.payload).toMatchObject({ title: "Acme", count: 7 });
+  });
+
+  test("a required field on an unopened tab activates that tab instead of blocking in silence", async () => {
+    const schema = z.object({
+      title: z.string().min(1),
+      count: z.number().min(1),
+    });
+    const writes: unknown[] = [];
+    const dispatcher = makeDispatcher((async (type: string, payload: unknown) => {
+      writes.push({ type, payload });
+      return { isSuccess: true, data: { id: "1" } };
+    }) as Dispatcher["write"]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+          schema={schema}
+        />
+      </DispatcherProvider>,
+    );
+
+    // Before the submit the offending field sits on a tab the user never
+    // opened, so its error would have nowhere to show. This is exactly the
+    // state the boot-validator used to forbid outright.
+    expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(writes).toHaveLength(0);
+    expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
+    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
+  });
+});

@@ -197,6 +197,52 @@ function validateRowActionNavigateParams(
   }
 }
 
+// Shared by projectionDetail and entityEdit: a tab strip needs something to
+// label each tab with and a stable id per tab — the id anchors the ?tab=
+// param on projectionDetail and the jump-to-erroring-tab logic on entityEdit
+// (fw#3134).
+function validateTabSections(
+  featureName: string,
+  screenId: string,
+  screenType: "projectionDetail" | "entityEdit",
+  sections: readonly { readonly id?: string; readonly title?: string }[],
+): void {
+  if (sections.length < 2) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but only ` +
+        `${sections.length} section(s) — tabs need at least 2 sections.`,
+    );
+  }
+  const tabIds = new Set<string>();
+  sections.forEach((section, index) => {
+    if (section.title === undefined || section.title.trim().length === 0) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but ` +
+          `sections[${index}] has no title — every tab needs a title.`,
+      );
+    }
+    if (section.id === undefined || section.id.trim().length === 0) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has mode: "tabs" but ` +
+          `sections[${index}] ("${section.title}") has no id — every tab needs a stable id.`,
+      );
+    }
+    if (!isKebabSegment(section.id)) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sections[${index}] ` +
+          `("${section.title}") has id "${section.id}" — must be kebab-case.`,
+      );
+    }
+    if (tabIds.has(section.id)) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has duplicate tab id ` +
+          `"${section.id}" (sections[${index}]).`,
+      );
+    }
+    tabIds.add(section.id);
+  });
+}
+
 // Wizard layouts (mode: "wizard") need >= 2 titled sections — a single or
 // untitled step would leave the progress indicator blank, so both fail at
 // boot rather than as a broken step UI.
@@ -207,16 +253,19 @@ function validateWizardLayout(
   layout: EditLayout,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
-  // Tabs truncate the layout to one section, but scopeFieldNames derives
-  // required-field validation from the `fields` prop, not from layout — a
-  // hidden tab could hide a required field and silently block submit.
-  // projectionDetail has no submit, so tabs are safe there (see its own
-  // branch in validateScreens) but not here.
+  // entityEdit renders tabs like wizard steps: every section stays mounted,
+  // submit validates across all of them, and a field error jumps to the tab
+  // holding it (fw#3134). The other three have no such jump — actionForm and
+  // secretMint are one-shot forms, configEdit fires a write per field — so a
+  // required field on a hidden tab would still block their submit silently.
   if (layout.mode === "tabs") {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets mode: "tabs" — tabs are only ` +
-        `supported on projectionDetail. Use mode: "wizard" or "single" instead.`,
-    );
+    if (screenType !== "entityEdit") {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets mode: "tabs" — tabs are only ` +
+          `supported on projectionDetail and entityEdit. Use mode: "wizard" or "single" instead.`,
+      );
+    }
+    validateTabSections(featureName, screenId, screenType, layout.sections);
   }
   // "form-draft" is hardcoded because the framework layer must not depend on
   // @cosmicdrift/kumiko-bundled-features — same precedence as the
@@ -1077,41 +1126,7 @@ export function validateScreens(
         );
       }
       if (screen.layout.mode === "tabs") {
-        if (screen.layout.sections.length < 2) {
-          throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has mode: "tabs" but only ` +
-              `${screen.layout.sections.length} section(s) — tabs need at least 2 sections.`,
-          );
-        }
-        const tabIds = new Set<string>();
-        screen.layout.sections.forEach((section, index) => {
-          if (section.title === undefined || section.title.trim().length === 0) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has mode: "tabs" but ` +
-                `sections[${index}] has no title — every tab needs a title.`,
-            );
-          }
-          if (section.id === undefined || section.id.trim().length === 0) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has mode: "tabs" but ` +
-                `sections[${index}] ("${section.title}") has no id — every tab needs a stable id for ` +
-                `the ?tab= param.`,
-            );
-          }
-          if (!isKebabSegment(section.id)) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sections[${index}] ` +
-                `("${section.title}") has id "${section.id}" — must be kebab-case.`,
-            );
-          }
-          if (tabIds.has(section.id)) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has duplicate tab id ` +
-                `"${section.id}" (sections[${index}]).`,
-            );
-          }
-          tabIds.add(section.id);
-        });
+        validateTabSections(feature.name, screenId, "projectionDetail", screen.layout.sections);
       }
       if (screen.metrics !== undefined) {
         for (const metric of screen.metrics) {
