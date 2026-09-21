@@ -67,6 +67,7 @@ import {
   validateScreens,
 } from "./screens";
 import { warnOnMissingSecurityBaseline } from "./security-baseline";
+import { validateTransferGraph } from "./transfer-graph";
 import {
   collectWorkspaceQns,
   resolveNavAllowlist,
@@ -80,6 +81,7 @@ export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 // dieselbe Extraktionslogik.
 export { collectWriteHandlerQns } from "./nav";
 export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline";
+export { MAX_TRANSFER_DEPTH } from "./transfer-graph";
 
 export type ValidateBootOptions = {
   /** Warn when an access role is used by exactly one handler/config-key/
@@ -227,6 +229,7 @@ export function validateBoot(
     validateConfigKeyPiiEncrypted(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateParentRefs(feature, featureMap);
+    validateTransferGraph(feature, featureMap);
     validateMultiStreamProjections(feature);
     // Vor validateScreens: dessen visible/entityId-Feldref-Checks werfen für
     // einen Function-Wert bereits (mit verwirrender "unknown field undefined"-
