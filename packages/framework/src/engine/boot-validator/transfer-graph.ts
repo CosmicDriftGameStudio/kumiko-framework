@@ -48,6 +48,9 @@ function referenceTargets(entity: EntityDefinition): readonly string[] {
 // `= ANY($ids)` column match cannot address. Declaring one on a transferable
 // entity would mean its rows never move with their host.
 function validateNoMultipleReferenceEdge(entry: EntityEntry, featureName: string): void {
+  // skip: the entity never travels, so the shape that would strand its rows
+  // during a handover cannot arise — rejecting it would break consumers that
+  // legitimately declare a multiple reference on a non-transferable entity.
   if (entry.entity.transferable !== true) return;
   for (const [fieldName, field] of Object.entries(entry.entity.fields)) {
     if (field.type !== "reference" || field.multiple !== true) continue;
