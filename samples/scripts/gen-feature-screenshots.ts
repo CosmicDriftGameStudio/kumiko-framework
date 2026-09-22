@@ -219,6 +219,13 @@ function writePreviewIndex(): void {
     items.length === 0
       ? ""
       : `<h2>${title}</h2>\n${items.map((i) => `<section><h3>${i.label}</h3><img src="${i.rel}" alt="${i.label}" style="max-width:100%;border:1px solid #ccc;border-radius:8px;" /></section>`).join("\n")}`;
+  const sections = [
+    section("Bundled features (live UI)", featurePngs),
+    section("Sample apps (live UI)", appPngs),
+    section("Sample pages (docs preview matrix)", samplePngs),
+  ]
+    .filter((value) => value.length > 0)
+    .join("\n");
 
   const html = `<!doctype html>
 <html lang="en">
@@ -234,9 +241,7 @@ function writePreviewIndex(): void {
 <body>
   <h1>Feature &amp; sample screenshot preview</h1>
   <p>Regenerate: <code>bun run gen:feature-screenshots</code> in kumiko-framework.</p>
-  ${section("Bundled features (live UI)", featurePngs)}
-  ${section("Sample apps (live UI)", appPngs)}
-  ${section("Sample pages (docs preview matrix)", samplePngs)}
+${sections}
 </body>
 </html>
 `;
