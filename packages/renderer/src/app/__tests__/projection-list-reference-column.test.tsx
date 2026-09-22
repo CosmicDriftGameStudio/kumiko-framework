@@ -75,10 +75,13 @@ function stubDispatcher(): Dispatcher {
           },
         };
       }
-      if (type === "tenant:query:tenant:list") {
+      // tenant:tenant resolves through the tenant directory, not the
+      // SystemAdmin-only tenant:query:tenant:list a TenantAdmin can't call
+      // (fw#3142).
+      if (type === "tenant:query:tenant-directory") {
         return {
           isSuccess: true,
-          data: { rows: [{ id: REAL_TENANT_ID, name: "Acme Inc" }], nextCursor: null },
+          data: { rows: [{ id: REAL_TENANT_ID, label: "Acme Inc" }], nextCursor: null },
         };
       }
       // user:user resolves through the tenant-scoped member directory, not the
