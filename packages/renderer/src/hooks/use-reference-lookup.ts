@@ -45,14 +45,8 @@ export function referenceLookupSource(
   };
 }
 
-/** Bulk-Lookup für eine einzelne Reference-Spalte. Liefert eine Map
- *  von UUID → Display-Value (aus labelField). Während die Query lädt,
- *  ist die Map leer; der Caller fällt dann auf den UUID-Fallback.
- *
- *  `featureName` ist hier das **target**-Feature (refFeature aus
- *  ViewModel), nicht das current Feature — Cross-Feature-Refs lookup
- *  laufen damit gegen `<refFeature>:query:<refEntity>:list`, sofern
- *  REFERENCE_LOOKUP_SOURCES für das Ziel keine andere Quelle nennt. */
+/** Empty while the query loads (or fails), so callers fall back to the raw id.
+ *  `featureName` is the reference's target feature, not the screen's. */
 export function useReferenceLookup(
   featureName: string,
   refEntity: string,
