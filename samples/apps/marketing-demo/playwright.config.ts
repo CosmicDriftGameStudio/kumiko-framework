@@ -1,7 +1,7 @@
 // @runtime test
 // Playwright-Config für Marketing-Demo. Generiert Screenshots aus den
-// echten gerenderten Pages (Asset-Tracker + Helpdesk) → cross-repo nach
-// kumiko-platform/apps/marketing/public/screenshots/.
+// echten gerenderten Pages (Asset-Tracker + Helpdesk) in das konfigurierte
+// Screenshot-Verzeichnis.
 
 import { defineConfig, devices } from "@playwright/test";
 import "@cosmicdrift/kumiko-testing/preload/env";

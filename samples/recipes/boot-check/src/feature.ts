@@ -4,9 +4,9 @@
 
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
-// The prompt-store trap (kumiko-enterprise#229): a feature with a PII field
-// was mounted without its required companion feature, and nothing caught
-// it at boot. r.requires("user-data-hook") can't express this — it would
+// A prompt-store integration trap: a feature with a PII field was mounted
+// without its required companion feature, and nothing caught it at boot.
+// r.requires("user-data-hook") can't express this — it would
 // fail even for a prompt-store variant with no PII fields at all.
 const promptFields = {
   text: createTextField({

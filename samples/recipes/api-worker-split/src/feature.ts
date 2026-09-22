@@ -1,6 +1,6 @@
 // API/Worker-Split Sample
 //
-// Proves the split deploy topology end-to-end (kumiko-platform#512):
+// Proves the split deployment topology end-to-end:
 //
 //   - the API process runs `runSingleInstance: false` — it serves HTTP,
 //     writes events, and ENQUEUES worker-lane jobs. It applies no

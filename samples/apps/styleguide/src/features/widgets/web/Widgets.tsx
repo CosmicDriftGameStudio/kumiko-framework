@@ -360,8 +360,8 @@ function InboxDemo(): ReactNode {
 
 // Ghost-text completion + correct/translate/rewrite toolbar. The server
 // handler here is a hand-rolled demo feature (ai-text-demo.ts, canned
-// strings), not the real enterprise feature — kumiko-framework must not
-// import kumiko-enterprise. The title field is deliberately pre-filled with
+// strings), not the real enterprise feature — the public framework must not
+// import the private enterprise package. The title field is deliberately pre-filled with
 // a value wider than the box (ghost-overlay scroll sync), the note textarea
 // with more lines than visible (vertical scroll sync).
 function AiTextDemo(): ReactNode {

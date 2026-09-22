@@ -115,8 +115,8 @@ then 500s). For a real deploy, swap to the persistent provider in
 
 Then set `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` (plus
 optional `S3_ENDPOINT` for Hetzner/S3-compatible stores) and the app override
-`file-foundation:config:provider = "s3-env"`. Full wiring + prod-verify steps:
-the **`wire-gdpr-data-rights`** runbook in `kumiko-platform/docs/runbooks/`.
+`file-foundation:config:provider = "s3-env"`. For full wiring and production
+verification, follow your deployment team's private operations documentation.
 
 ## Adding your own domain
 

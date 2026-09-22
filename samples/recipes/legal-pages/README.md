@@ -141,8 +141,8 @@ await seedTextBlock(db, {
 ```
 
 → Templates for full legally-sound texts: e-recht24.de
-or datenschutz-generator.de by Dr. Schwenke. See
-[docs/plans/datenschutz/legal-artifacts.md](../../../docs/plans/datenschutz/legal-artifacts.md).
+or datenschutz-generator.de by Dr. Schwenke. Follow your deployment team's
+private legal-template documentation for the approved source process.
 
 ### 4. Visit the pages
 
@@ -202,5 +202,5 @@ from SYSTEM_TENANT:
 
 - [packages/bundled-features/src/template-resolver/README.md](../../../packages/bundled-features/src/template-resolver/README.md) — content store
 - [packages/bundled-features/src/legal-pages/README.md](../../../packages/bundled-features/src/legal-pages/README.md) — DACH compliance wrapper
-- [docs/plans/datenschutz/](../../../docs/plans/datenschutz/) — consolidated privacy plan index
-- [docs/plans/datenschutz/legal-artifacts.md](../../../docs/plans/datenschutz/legal-artifacts.md) — template sources for legally-sound texts
+- Private legal-template documentation — consolidated privacy plan index and
+  template sources for legally-sound texts

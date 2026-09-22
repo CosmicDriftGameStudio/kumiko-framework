@@ -1,5 +1,5 @@
 // @runtime test
-// Marketing-Screenshot-Generator für kumiko.rocks.
+// Marketing-Screenshot-Generator.
 //
 // Liest Szenarien aus ./scenarios.ts → schreibt PNGs nach $SCREENSHOT_DIR
 // (Pflicht, kein Default).

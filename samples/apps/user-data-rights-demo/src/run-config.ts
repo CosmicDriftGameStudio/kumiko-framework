@@ -14,8 +14,9 @@
 //
 // **Prod-Storage:** Die Demo nutzt file-provider-inmemory, damit sie ohne
 // S3-Credentials laeuft — Exporte ueberleben aber keinen Restart. Fuer einen
-// echten Deploy auf den persistenten Provider wechseln (Runbook
-// kumiko-platform/docs/runbooks/wire-gdpr-data-rights.md):
+// echten Deploy auf den persistenten Provider wechseln; die
+// deployment-spezifischen Produktionsschritte stehen in der privaten
+// Operations-Dokumentation:
 //   import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
 //   fileProviderInMemoryFeature -> fileProviderS3EnvFeature
 //   + S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY env vars

@@ -2,7 +2,7 @@
 
 Declare a feature's own mount-invariant with `r.bootCheck(...)` instead of
 relying on framework-internal knowledge. The recipe reproduces the
-prompt-store trap (kumiko-enterprise#229): a feature ships PII-annotated
+prompt-store integration trap: a feature ships PII-annotated
 fields but the companion feature that's supposed to govern user data was
 never mounted, and nothing caught it — until now.
 

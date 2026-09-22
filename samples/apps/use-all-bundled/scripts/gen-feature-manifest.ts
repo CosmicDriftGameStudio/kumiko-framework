@@ -5,8 +5,8 @@
 // Generates feature-manifest.json — the runtime-introspected metadata of
 // every bundled feature: config keys (type/scope/default/roles), hard +
 // optional dependencies, secrets, extension usages, and cross-feature APIs.
-// docs.kumiko.rocks renders this as human-readable reference tables (see the
-// kumiko-platform docgen `feature-metadata` generator).
+// docs.kumiko.rocks renders this as human-readable reference tables through
+// the documentation generator's `feature-metadata` pass.
 //
 // Extraction logic lives shared in `buildManifestFromRegistry`
 // (@cosmicdrift/kumiko-framework/engine) — the enterprise generator uses it

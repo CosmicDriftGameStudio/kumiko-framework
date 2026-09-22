@@ -1,6 +1,6 @@
-// Hand-rolled stand-in for the real `ai-text` feature (kumiko-enterprise/
-// packages/ai-text). kumiko-framework is public NPM and must never import
-// the private enterprise package, so this demo duplicates the
+// Hand-rolled stand-in for the real enterprise `ai-text` feature.
+// kumiko-framework is public NPM and must never import the private enterprise
+// package, so this demo duplicates the
 // `ai-text:query:run` wire contract by hand — canned string transforms
 // instead of a real LLM call — purely so AiTextField/AiTextArea can be
 // driven end-to-end in the styleguide. Feature name MUST stay "ai-text":

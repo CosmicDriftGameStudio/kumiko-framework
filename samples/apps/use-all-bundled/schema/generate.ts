@@ -3,7 +3,7 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
 //
 // Regeneriert schema.generated.ts (Entity-Tables) für die use-all-bundled
-// Smoke-App. Pattern aus kumiko-studio/drizzle/generate.ts adaptiert auf
+// Smoke-App. Pattern aus einer vergleichbaren Studio-App adaptiert auf
 // die 29 bundled-features die hier gemountet sind (siehe ../src/run-config.ts).
 //
 // Usage:
