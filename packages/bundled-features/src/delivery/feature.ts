@@ -47,6 +47,8 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       recommended: true,
     });
     r.systemScope();
+    // delivery-log's tenantId column has refEntity: "tenant:tenant" (boot-checked).
+    r.requires("tenant");
     // Backing table: the (tenant,user,type,channel) uniqueIndex lives only on
     // the physical table, not on the entity fields, so the generator would
     // otherwise omit it → duplicate preference rows on concurrent upserts.

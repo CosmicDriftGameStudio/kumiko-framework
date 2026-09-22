@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { access, isOpenToAllGranted, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { createConfigFeature } from "../../config/feature";
+import { createTenantFeature } from "../../tenant/feature";
 import { DELIVERY_LOG_SCREEN_ID } from "../constants";
 import { createDeliveryFeature } from "../feature";
 
 describe("delivery screens + handler access alignment", () => {
-  const features = [createDeliveryFeature()];
+  const features = [createConfigFeature(), createTenantFeature(), createDeliveryFeature()];
 
   test("boot-validates with delivery-log screen registered", () => {
     expect(() => validateBoot(features)).not.toThrow();
@@ -38,7 +40,11 @@ describe("delivery screens + handler access alignment", () => {
 
   test("boot-validates with a narrowed access option", () => {
     expect(() =>
-      validateBoot([createDeliveryFeature({ access: access.systemAdmin })]),
+      validateBoot([
+        createConfigFeature(),
+        createTenantFeature(),
+        createDeliveryFeature({ access: access.systemAdmin }),
+      ]),
     ).not.toThrow();
   });
 });

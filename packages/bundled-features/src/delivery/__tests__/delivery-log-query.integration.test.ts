@@ -11,6 +11,8 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createConfigFeature } from "../../config/feature";
+import { createTenantFeature } from "../../tenant/feature";
 import { DeliveryQueries } from "../constants";
 import { createDeliveryFeature } from "../feature";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
@@ -31,7 +33,9 @@ const admin = createTestUser({ id: 701, roles: ["TenantAdmin"], tenantId });
 const systemAdmin = createTestUser({ id: 709, roles: ["SystemAdmin"], tenantId });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createDeliveryFeature()] });
+  stack = await setupTestStack({
+    features: [createConfigFeature(), createTenantFeature(), createDeliveryFeature()],
+  });
   await unsafePushTables(stack.db, { deliveryAttemptsTable, notificationPreferencesTable });
   await insertMany(stack.db, deliveryAttemptsTable, [
     {

@@ -9,6 +9,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { createConfigFeature } from "../../config/feature";
+import { createTenantFeature } from "../../tenant/feature";
 import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants";
 import { createDeliveryFeature } from "../feature";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
@@ -17,7 +19,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createDeliveryFeature()],
+    features: [createConfigFeature(), createTenantFeature(), createDeliveryFeature()],
   });
   await unsafePushTables(stack.db, { deliveryAttemptsTable, notificationPreferencesTable });
 });
@@ -28,7 +30,11 @@ afterAll(async () => {
 
 describe("delivery access matrix", () => {
   test("delivery log handler and screen share access.admin", () => {
-    const registry = createRegistry([createDeliveryFeature()]);
+    const registry = createRegistry([
+      createConfigFeature(),
+      createTenantFeature(),
+      createDeliveryFeature(),
+    ]);
     expect(rolesOf(registry.getQueryHandler(DeliveryQueries.log)?.access)).toEqual([
       ...access.admin,
     ]);
