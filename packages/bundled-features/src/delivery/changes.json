@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.296.0",
+    "type": "breaking",
+    "title": "delivery requires tenant",
+    "migration": "delivery now declares r.requires(\"tenant\") because its delivery-log screen references tenant:tenant. Stacks that mount delivery must also mount createTenantFeature() (and its config dependency)."
+  },
+  {
     "version": "0.271.0",
     "type": "improvement",
     "title": "systemScope handlers get a default per-tenant+handler rate limit; delivery:preferences opts out (fw#2861).",

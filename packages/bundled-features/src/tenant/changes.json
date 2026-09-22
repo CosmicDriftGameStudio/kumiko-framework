@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.296.0",
+    "type": "improvement",
+    "title": "Tenant reference columns show display names for TenantAdmins (fw#3142)",
+    "detail": "Every `tenant:tenant` reference (the delivery-log tenantId column, `LIST_ROW_META_REFERENCES.tenantId`, and any screen that references a tenant) resolved its label through the entity-convention query `tenant:query:tenant:list`. That handler is a SystemAdmin-only entity-list handler, so a TenantAdmin got a 403 and every cell fell back to the raw UUID.\nThe entity-convention handler stays SystemAdmin-only. Instead the new `tenant:query:tenant-directory` (`access.admin`) returns just `{ id, label }` pairs: an admin gets their own tenant, a SystemAdmin keeps the global reach of `tenant:query:tenant:list`. The query is not exposed to agents. The central `REFERENCE_LOOKUP_SOURCES` map in `@cosmicdrift/kumiko-framework/ui-types` now routes `tenant:tenant` lookups there, the same way it already routes `user:user` lookups to the member directory (fw#3107).",
+    "migration": "No code change needed. A `tenant:tenant` reference picker or column in an edit form or list now shows a non-SystemAdmin their own tenant's name instead of failing with a 403 and falling back to the raw id. Set `optionsQuery` on the reference field if a screen needs a different source."
+  },
+  {
+    "version": "0.296.0",
+    "type": "improvement",
+    "title": "User reference columns show display names for TenantAdmins (fw#3107)",
+    "detail": "Every `user:user` reference (the audit-log actor, the sessions user column, their detail screens) resolved its label through the entity-convention query `user:query:user:list`. That handler is the SystemAdmin cross-tenant user roster, so a TenantAdmin got a 403 and every cell fell back to the raw UUID — in practice every tenant admin reading their own audit log.\nThe roster stays SystemAdmin-only: its `tenants` column joins every membership of a user and would expose foreign tenant names. Instead the new `tenant:query:member-directory` (`access.admin`) returns just `{ id, label }` pairs — the display name, no email, no roles. An admin gets their own tenant's members; a SystemAdmin keeps the global reach the roster gave them, so operator actions in tenants they are no member of still resolve. The query is not exposed to agents. The new central `REFERENCE_LOOKUP_SOURCES` map in `@cosmicdrift/kumiko-framework/ui-types` routes `user:user` lookups there, the same way `SYSTEM_REFERENCE_LABELS` already applies per referenced entity. The list lookup, the read-only detail value, the reference combobox and embedded-list reference cells all consult it; a reference field's own `optionsQuery` still wins.",
+    "migration": "No code change needed. Two behavior shifts to be aware of: for a non-SystemAdmin, a `user:user` reference picker in an edit form now offers the active tenant's members (it used to fail with a 403 and stay empty) — set `optionsQuery` on the reference field if a screen needs a different source. And a `user:user` label now only resolves when the `tenant` feature is mounted. In an app that mounts `sessions` without `tenant`, a SystemAdmin — who used to see names there — now sees the raw id, the same fallback a TenantAdmin got before; mount `createTenantFeature()` to get names back."
+  },
+  {
     "version": "0.271.0",
     "type": "improvement",
     "title": "systemScope handlers get a default per-tenant+handler rate limit; tenant:me opts out (fw#2861).",
@@ -15,31 +29,31 @@
     "version": "0.209.0",
     "type": "improvement",
     "title": "tenant: single /members screen replaces the members-card/pending-card split (#2223)",
-    "detail": "New `tenant:query:team:list` handler merges active memberships and pending invitations into one projectionList screen (`membersScreen`), with a `status` facet, sortable/searchable columns, and a danger-styled `cancel-invitation` row action visible only on pending rows. `createTenantFeature({ inviteScreen: true })` additionally wires a drawer-hosted invite actionForm onto the toolbar (bound to auth-email-password's `invite-create` handler) \u2014 off by default, and only safe to enable once the app also configures `createAuthEmailPasswordFeature({ invite: {...} })`, since the boot validator rejects the actionForm's cross-feature handler QN otherwise. The old `members`/`invitations` query handlers and their custom `MembersScreen` component are unaffected and stay registered for existing callers; `updateMemberRoles` stays SystemAdmin-only and off this screen."
+    "detail": "New `tenant:query:team:list` handler merges active memberships and pending invitations into one projectionList screen (`membersScreen`), with a `status` facet, sortable/searchable columns, and a danger-styled `cancel-invitation` row action visible only on pending rows. `createTenantFeature({ inviteScreen: true })` additionally wires a drawer-hosted invite actionForm onto the toolbar (bound to auth-email-password's `invite-create` handler) — off by default, and only safe to enable once the app also configures `createAuthEmailPasswordFeature({ invite: {...} })`, since the boot validator rejects the actionForm's cross-feature handler QN otherwise. The old `members`/`invitations` query handlers and their custom `MembersScreen` component are unaffected and stay registered for existing callers; `updateMemberRoles` stays SystemAdmin-only and off this screen."
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "resolveRawDb: removed redundant null check",
-    "detail": "CodeQL flagged db !== null after if (!db) \u2014 truthiness already excludes null. Internal cleanup, no API break."
+    "detail": "CodeQL flagged db !== null after if (!db) — truthiness already excludes null. Internal cleanup, no API break."
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "Seed hook: explicit SessionUser typing",
-    "detail": "Fixed tenant seeding type annotation \u2014 prevents implicit any propagation in seed handlers."
+    "detail": "Fixed tenant seeding type annotation — prevents implicit any propagation in seed handlers."
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "Seed afterCommit + real tenant rescope",
-    "detail": "ScheduleAfterCommit now available on HandlerContext \u2014 fireEntityPostSave queues after TX commit instead of mid-transaction. DB/notify/hasFeature/_tenantId are correctly rescoped when targeting an entity's tenant.",
-    "migration": "Only affects custom seed handlers using fireEntityPostSave \u2014 now afterCommit-compatible."
+    "detail": "ScheduleAfterCommit now available on HandlerContext — fireEntityPostSave queues after TX commit instead of mid-transaction. DB/notify/hasFeature/_tenantId are correctly rescoped when targeting an entity's tenant.",
+    "migration": "Only affects custom seed handlers using fireEntityPostSave — now afterCommit-compatible."
   },
   {
     "version": "0.163.0",
     "type": "improvement",
     "title": "tenant: seedTenant fires entity postSave hooks (#1463).",
-    "detail": "tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks \u2014 self-signup (`provisionSignupAccount` \u2192 `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected \u2014 the param is optional and append-only."
+    "detail": "tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks — self-signup (`provisionSignupAccount` → `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected — the param is optional and append-only."
   }
 ]
