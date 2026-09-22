@@ -59,8 +59,6 @@ export function createAuditFeature(): FeatureDefinition {
           {
             field: "createdBy",
             label: i18nKey("audit.log.col.actor"),
-            // Resolves only for SystemAdmin until fw#3107: the lookup QN this
-            // derives, user:query:user:list, is SystemAdmin-only.
             refEntity: "user:user",
             refLabelField: "displayName",
           },

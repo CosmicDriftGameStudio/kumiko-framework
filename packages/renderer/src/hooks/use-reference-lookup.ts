@@ -17,7 +17,10 @@
 // internen Cache shared zwischen List + Edit-Form für die gleiche
 // Entity, Live-Updates kommen via SSE (use-query-live).
 
-import { SYSTEM_REFERENCE_LABELS } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  REFERENCE_LOOKUP_SOURCES,
+  SYSTEM_REFERENCE_LABELS,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { useMemo } from "react";
 import { toKebab } from "../app/qn";
 import { useTranslation } from "../i18n";
@@ -26,19 +29,30 @@ import { useQuery } from "./use-query";
 
 export type ReferenceLookupMap = ReadonlyMap<string, string>;
 
-/** Bulk-Lookup für eine einzelne Reference-Spalte. Liefert eine Map
- *  von UUID → Display-Value (aus labelField). Während die Query lädt,
- *  ist die Map leer; der Caller fällt dann auf den UUID-Fallback.
- *
- *  `featureName` ist hier das **target**-Feature (refFeature aus
- *  ViewModel), nicht das current Feature — Cross-Feature-Refs lookup
- *  laufen damit gegen `<refFeature>:query:<refEntity>:list`. */
+/** Where a reference target's label rows come from: the central override for
+ *  that `feature:entity` if one exists, else the entity-convention list
+ *  handler plus the caller's own label field. */
+export function referenceLookupSource(
+  refFeature: string,
+  refEntity: string,
+  labelField: string,
+): { readonly queryQn: string; readonly labelKey: string } {
+  const override = REFERENCE_LOOKUP_SOURCES[`${refFeature}:${refEntity}`];
+  if (override !== undefined) return override;
+  return {
+    queryQn: `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`,
+    labelKey: labelField,
+  };
+}
+
+/** Empty while the query loads (or fails), so callers fall back to the raw id.
+ *  `featureName` is the reference's target feature, not the screen's. */
 export function useReferenceLookup(
   featureName: string,
   refEntity: string,
   labelField: string,
 ): { readonly map: ReferenceLookupMap; readonly loading: boolean } {
-  const queryQn = `${toKebab(featureName)}:query:${toKebab(refEntity)}:list`;
+  const { queryQn, labelKey } = referenceLookupSource(featureName, refEntity, labelField);
   const result = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
     limit: REFERENCE_LIST_LOOKUP_LIMIT,
   });
@@ -50,13 +64,13 @@ export function useReferenceLookup(
       const id = row["id"];
       if (id === undefined || id === null) continue;
       const idStr = String(id);
-      const label = row[labelField] ?? id;
+      const label = row[labelKey] ?? id;
       out.set(idStr, String(label));
     }
     // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row, so
     // the bulk lookup above never covers them — inject the label directly.
     if (systemLabel !== undefined) out.set(systemLabel.id, translate(systemLabel.labelKey));
     return out;
-  }, [result.data, labelField, systemLabel, translate]);
+  }, [result.data, labelKey, systemLabel, translate]);
   return { map, loading: result.loading };
 }

@@ -138,10 +138,12 @@ export type {
 export type {
   ListRowMetaColumnType,
   ListRowMetaReference,
+  ReferenceLookupSource,
   SystemReferenceLabel,
 } from "./list-row-meta";
 export {
   LIST_ROW_META_COLUMNS,
   LIST_ROW_META_REFERENCES,
+  REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
 } from "./list-row-meta";

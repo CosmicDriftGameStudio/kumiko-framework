@@ -20,6 +20,7 @@ import { screenAccessAllows } from "../app/screen-access";
 import { useUserRoles } from "../context/user-roles-context";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
+import { referenceLookupSource } from "../hooks/use-reference-lookup";
 import { useLocale, useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
 import { EmbeddedListField } from "./embedded-list-field";
@@ -179,10 +180,7 @@ function referenceOptionSource(
   if (field.refOptionsQuery !== undefined) {
     return { queryQn: field.refOptionsQuery, labelKey: "label" };
   }
-  return {
-    queryQn: `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`,
-    labelKey: field.refLabelField ?? "id",
-  };
+  return referenceLookupSource(refFeature, refEntity, field.refLabelField ?? "id");
 }
 
 // Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox

@@ -81,10 +81,12 @@ function stubDispatcher(): Dispatcher {
           data: { rows: [{ id: REAL_TENANT_ID, name: "Acme Inc" }], nextCursor: null },
         };
       }
-      if (type === "user:query:user:list") {
+      // user:user resolves through the tenant-scoped member directory, not the
+      // SystemAdmin-only user:query:user:list a TenantAdmin can't call (fw#3107).
+      if (type === "tenant:query:member-directory") {
         return {
           isSuccess: true,
-          data: { rows: [{ id: REAL_USER_ID, displayName: "Ada Lovelace" }], nextCursor: null },
+          data: { rows: [{ id: REAL_USER_ID, label: "Ada Lovelace" }], nextCursor: null },
         };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
