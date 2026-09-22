@@ -156,25 +156,6 @@ async function runRunner(r: Runner): Promise<void> {
   r.after?.();
 }
 
-function copyConfigScreenshot(): void {
-  const dest = `${OUT_DIR}/config.png`;
-  const candidates = [
-    resolve(
-      SAMPLES_ROOT,
-      "../../kumiko-platform/apps/docs/public/screenshots/config-demo/config-edit-override.png",
-    ),
-    `${OUT_DIR}/.config-demo-tmp/config-edit-override.png`,
-  ];
-  for (const src of candidates) {
-    if (existsSync(src)) {
-      copyFileSync(src, dest);
-      console.log(`wrote ${dest} (from ${src})`);
-      return;
-    }
-  }
-  console.warn("skip config.png — no config-demo asset found");
-}
-
 function dirHasPng(dir: string): boolean {
   return existsSync(dir) && readdirSync(dir).some((f) => f.endsWith(".png"));
 }
@@ -284,7 +265,6 @@ function writeScreenshotManifest(): void {
 async function main(): Promise<void> {
   console.log(`screenshot dir: ${OUT_DIR}`);
   await runAllScreenshots();
-  copyConfigScreenshot();
   writeScreenshotManifest();
   writePreviewIndex();
 }
