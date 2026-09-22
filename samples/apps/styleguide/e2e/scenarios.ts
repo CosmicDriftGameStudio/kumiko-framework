@@ -71,4 +71,11 @@ export const SCENARIOS: readonly Scenario[] = [
     url: "/widgets",
     waitFor: "[data-testid='widgets-page']",
   },
+  {
+    name: "widgets-dashboard",
+    description: "Declarative dashboard: stat, chart and list panels from schema",
+    url: "/widgets-dashboard",
+    waitFor: "[data-testid='dashboard-widgets-dashboard']",
+    fullPage: true,
+  },
 ];

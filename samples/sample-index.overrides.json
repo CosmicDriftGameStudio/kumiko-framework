@@ -39,7 +39,7 @@
     "primarySample": "recipes-encrypted-tenant-config",
     "whenToUse": "Tenants need runtime-editable settings (API keys, branding, limits) with typed keys, role-gated writes, and optional encryption at rest.",
     "sampleBlurb": "Typed tenant config keys with role-gated writes and optional encryption — integration tests cover read/write boundaries.",
-    "screenshot": "/screenshots/features/config.png"
+    "screenshot": "/screenshots/features/config-settings-hub.png"
   },
   "custom-fields": {
     "primarySample": "recipes-custom-fields-basic",
