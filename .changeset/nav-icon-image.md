@@ -10,7 +10,7 @@ borrow `file` or `folder`. `"image"` maps to lucide's `ImageIcon` in the web
 renderer.
 
 <!-- kumiko-changes
-feature: renderer
+feature: renderer-web
 type: improvement
 title: NavIconKey gains "image"
 -->
