@@ -22,9 +22,11 @@ import {
 import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   createRedisSseBroker,
+  ExtraRouteRejection,
   isRedisSseBroker,
   NO_ROUTE_MATCH_HEADER_NAME,
   type SseEvent,
+  signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
@@ -97,8 +99,8 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
     handler: async (_event, ctx) => ({ hasKms: ctx.kms !== undefined }),
   });
-  // SystemAdmin-gated write — Ziel des extraRoutes.dispatchSystemWrite-
-  // Tests: Echo von user.tenantId + roles beweist, dass der Dispatch
+  // SystemAdmin-gated write — Ziel der entry:"signature" / `wire`-Tests:
+  // Echo von user.tenantId + roles beweist, dass der Dispatch
   // durch den echten Dispatcher (Zod + Access-Check) läuft und der
   // auto-konstruierte SystemUser den Ziel-Tenant trägt.
   r.writeHandler({
@@ -313,27 +315,26 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
   });
 
-  test("extraRoutes-callback mounts custom HTTP-routes on the Hono-app", async () => {
-    // Beweist dass die runProdApp.extraRoutes-Option den Hono-app
-    // bekommt und Routes daran VOR dem static-fallback greifen — das
-    // ist das Fundament für /feed.xml, /sitemap.xml, /og-image etc.
+  test("extraRoutes: entry:anonymous mounts custom HTTP-routes on the Hono-app", async () => {
+    // Proves runProdApp.extraRoutes mounts declarative route entries that
+    // take effect BEFORE the static fallback — the foundation for
+    // /feed.xml, /sitemap.xml, /og-image etc.
     let extraInvoked = false;
     const handle = await boot(undefined, {
-      extraRoutes: (app, deps) => {
-        extraInvoked = true;
-        // deps.db + deps.redis sind die runProdApp-Connections — die
-        // Route kann gegen die Domain queryen, hier reicht ein simple
-        // Echo zum Beweis dass wir ans App-Object kommen.
-        app.get("/feed.xml", (c) => {
-          const dbAvailable = deps.db !== undefined;
-          return c.body(`<?xml version="1.0"?><probe ok="${dbAvailable}" />`, 200, {
-            "content-type": "application/rss+xml",
-          });
-        });
-      },
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/feed.xml",
+          entry: "anonymous",
+          handler: (c) => {
+            extraInvoked = true;
+            return c.body('<?xml version="1.0"?><probe ok="true" />', 200, {
+              "content-type": "application/rss+xml",
+            });
+          },
+        },
+      ],
     });
-
-    expect(extraInvoked).toBe(true);
 
     // handle.fetch durchläuft den static-fallback wrapper — dort liegt
     // die "Hono-First, dann Disk"-Logik. entrypoint.app.fetch würde den
@@ -341,36 +342,51 @@ describe("runProdApp", () => {
     const res = await handle.fetch(new Request("http://test/feed.xml"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/rss+xml");
+    expect(extraInvoked).toBe(true);
     const body = await res.text();
     expect(body).toContain('<probe ok="true" />');
   });
 
-  test("extraRoutes-deps: dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
-    // Das ist das Wiring für Provider-Webhook-Routes (billing-foundation
-    // createSubscriptionWebhookHandler): die Route authentifiziert via
-    // Provider-Signatur und schreibt dann am JWT-Pfad vorbei durch den
-    // Command-Dispatcher. Beweist: (a) registry liegt in den deps,
-    // (b) dispatchSystemWrite geht durch Zod + Access-Check des Handlers,
-    // (c) der SystemUser trägt den Ziel-Tenant (Event-Store-Konsistenz).
+  test("extraRoutes: entry:signature dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
+    // Wiring for provider webhook routes (billing-foundation
+    // createSubscriptionWebhookRoute): the route authenticates via
+    // provider signature (verify()) and then writes past the JWT path
+    // through the command dispatcher. Proves: (a) registry is in the
+    // deps, (b) dispatchSystemWrite goes through Zod + the handler's
+    // access check, (c) the SystemUser carries the target tenant.
     let registryHasProbe = false;
     const handle = await boot(undefined, {
-      extraRoutes: (app, deps) => {
-        registryHasProbe = deps.registry.features.has("prod-probe");
-        app.post("/webhook-probe", async (c) => {
-          const result = await deps.dispatchSystemWrite({
-            handlerQn: "prod-probe:write:probe-write",
-            payload: { note: "from-webhook" },
-            tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
-          });
-          return c.json(result);
-        });
-      },
+      extraRoutes: [
+        signatureRoute({
+          method: "POST",
+          path: "/webhook-probe",
+          entry: "signature",
+          verify: async (req) => {
+            if (req.headers["x-probe-signature"] !== "test-secret") {
+              throw new ExtraRouteRejection(401, { error: "bad-signature" });
+            }
+          },
+          handler: async (c, _verified, deps) => {
+            registryHasProbe = deps.registry.features.has("prod-probe");
+            const result = await deps.dispatchSystemWrite({
+              handlerQn: "prod-probe:write:probe-write",
+              payload: { note: "from-webhook" },
+              tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+            });
+            return c.json(result);
+          },
+        }),
+      ],
     });
 
-    expect(registryHasProbe).toBe(true);
-
-    const res = await handle.fetch(new Request("http://test/webhook-probe", { method: "POST" }));
+    const res = await handle.fetch(
+      new Request("http://test/webhook-probe", {
+        method: "POST",
+        headers: { "x-probe-signature": "test-secret" },
+      }),
+    );
     expect(res.status).toBe(200);
+    expect(registryHasProbe).toBe(true);
     const body = (await res.json()) as {
       isSuccess: boolean;
       data?: { tenantSeen: string; roles: string[] };
@@ -378,6 +394,44 @@ describe("runProdApp", () => {
     expect(body.isSuccess).toBe(true);
     expect(body.data?.tenantSeen).toBe(TENANT_ID);
     expect(body.data?.roles).toContain("SystemAdmin");
+  });
+
+  test("extraRoutes: entry:signature with a wrong signature rejects with 401 before dispatchSystemWrite runs", async () => {
+    let dispatched = false;
+    const handle = await boot(undefined, {
+      extraRoutes: [
+        signatureRoute({
+          method: "POST",
+          path: "/webhook-probe",
+          entry: "signature",
+          verify: async (req) => {
+            if (req.headers["x-probe-signature"] !== "test-secret") {
+              throw new ExtraRouteRejection(401, { error: "bad-signature" });
+            }
+          },
+          handler: async (c, _verified, deps) => {
+            dispatched = true;
+            const result = await deps.dispatchSystemWrite({
+              handlerQn: "prod-probe:write:probe-write",
+              payload: { note: "from-webhook" },
+              tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+            });
+            return c.json(result);
+          },
+        }),
+      ],
+    });
+
+    const res = await handle.fetch(
+      new Request("http://test/webhook-probe", {
+        method: "POST",
+        headers: { "x-probe-signature": "wrong" },
+      }),
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("bad-signature");
+    expect(dispatched).toBe(false);
   });
 
   test("static-fallback: extraRoute beats Disk-File at colliding path (Hono-First)", async () => {
@@ -393,13 +447,17 @@ describe("runProdApp", () => {
 
     const handle = await boot(undefined, {
       staticDir: tmpStaticDir,
-      extraRoutes: (app) => {
-        app.get("/feed.xml", (c) =>
-          c.body("<this-is-the-hono-version />", 200, {
-            "content-type": "application/rss+xml",
-          }),
-        );
-      },
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/feed.xml",
+          entry: "anonymous",
+          handler: (c) =>
+            c.body("<this-is-the-hono-version />", 200, {
+              "content-type": "application/rss+xml",
+            }),
+        },
+      ],
     });
 
     const res = await handle.fetch(new Request("http://test/feed.xml"));
@@ -436,12 +494,17 @@ describe("runProdApp", () => {
 
     const handle = await boot(undefined, {
       staticDir: tmpStaticDir,
-      extraRoutes: (app) => {
-        app.get("/probe/:id", (c) => {
-          if (c.req.param("id") === "missing") return c.text("not found", 404);
-          return c.text(`probe:${c.req.param("id")}`, 200);
-        });
-      },
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/probe/:id",
+          entry: "anonymous",
+          handler: (c) => {
+            if (c.req.param("id") === "missing") return c.text("not found", 404);
+            return c.text(`probe:${c.req.param("id")}`, 200);
+          },
+        },
+      ],
     });
 
     const res = await handle.fetch(new Request("http://test/probe/missing"));
@@ -458,9 +521,14 @@ describe("runProdApp", () => {
 
     const handle = await boot(undefined, {
       staticDir: tmpStaticDir,
-      extraRoutes: (app) => {
-        app.get("/probe/:id", (c) => c.text("not found", 404));
-      },
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/probe/:id",
+          entry: "anonymous",
+          handler: (c) => c.text("not found", 404),
+        },
+      ],
     });
 
     const res = await handle.fetch(new Request("http://test/some/client-route"));
@@ -496,12 +564,17 @@ describe("runProdApp", () => {
     // through buildStaticFallback/tryHonoFirst, so the strip has to happen
     // at this bypass site too (run-prod-app.ts's fetchHandler assembly).
     const handle = await boot(undefined, {
-      extraRoutes: (app) => {
-        app.get("/probe/:id", (c) => {
-          if (c.req.param("id") === "missing") return c.text("not found", 404);
-          return c.text(`probe:${c.req.param("id")}`, 200);
-        });
-      },
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/probe/:id",
+          entry: "anonymous",
+          handler: (c) => {
+            if (c.req.param("id") === "missing") return c.text("not found", 404);
+            return c.text(`probe:${c.req.param("id")}`, 200);
+          },
+        },
+      ],
     });
 
     const routerMiss = await handle.fetch(new Request("http://test/totally/unknown/path"));
@@ -512,6 +585,25 @@ describe("runProdApp", () => {
     expect(deliberate404.status).toBe(404);
     expect(await deliberate404.text()).toBe("not found");
     expect(deliberate404.headers.has(NO_ROUTE_MATCH_HEADER_NAME)).toBe(false);
+  });
+
+  test("hostDispatch: async fn receives deps.systemQuery, 'not-found' result → 404", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+    let systemQueryPonged = false;
+    const handle = await boot(undefined, {
+      staticDir: tmpStaticDir,
+      hostDispatch: async (_req, deps) => {
+        const result = await deps.systemQuery("prod-probe:query:ping", {}, TENANT_ID);
+        systemQueryPonged = (result as { pong: boolean }).pong === true; // @cast-boundary engine-payload
+        return { kind: "not-found" };
+      },
+    });
+
+    const res = await handle.fetch(new Request("http://test/"));
+    expect(res.status).toBe(404);
+    expect(systemQueryPonged).toBe(true);
   });
 
   test("static-fallback: If-None-Match → 304 on disk file", async () => {
@@ -915,10 +1007,10 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   test(
     "Write → appendEvent → MSP wendet async an; Consumer-Cursor wandert",
     async () => {
-      let dispatchSystemWrite: import("../extra-routes-deps").ExtraRoutesSystemDeps["dispatchSystemWrite"];
+      let dispatchSystemWrite: import("../extra-routes-deps").SystemWireDeps["dispatchSystemWrite"];
       const handle = await boot(undefined, {
         eventDispatcher: { pollIntervalMs: 50 },
-        extraRoutes: (_app, deps) => {
+        wire: (deps) => {
           dispatchSystemWrite = deps.dispatchSystemWrite;
         },
       });

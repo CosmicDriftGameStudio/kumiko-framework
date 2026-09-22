@@ -1,10 +1,19 @@
 import { Hono } from "hono";
+import { ROLES } from "../auth/roles";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names";
 import { runsInLane } from "../engine/run-in";
-import { createAnonymousUser } from "../engine/system-user";
-import { type AppContext, isFileField, type Registry, type RunIn } from "../engine/types";
+import { ANONYMOUS_ROLE, createAnonymousUser, createSystemUser } from "../engine/system-user";
+import {
+  type AppContext,
+  type HttpRouteMethod,
+  isFileField,
+  type Registry,
+  type RunIn,
+  type TenantId,
+  type WriteResult,
+} from "../engine/types";
 import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
@@ -52,6 +61,13 @@ import {
 } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
+import {
+  type ExtraRouteDefinition,
+  ExtraRouteEntries,
+  type ExtraRouteEntry,
+  ExtraRouteRejection,
+  type SystemDispatchArgs,
+} from "./extra-route";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
@@ -219,6 +235,13 @@ export type ServerOptions = {
   // (defaultTenantId only); run{Prod,Dev}App merge auth-foundation tenant
   // providers into AnonymousAccessResolved before calling buildServer.
   anonymousAccess?: AnonymousAccessResolved;
+  // Declarative HTTP routes outside the /api/write|query|batch pipeline that
+  // still need the framework's dispatcher (webhooks, OAuth callbacks, admin
+  // escape-hatches). Each entry declares its access tier (`entry`) up
+  // front — buildServer wires the matching guard + deps, no handler gets a
+  // raw db/redis. Mounted right after the r.httpRoute loop, before
+  // registerVersionRoute (kumiko-framework#3050).
+  extraRoutes?: readonly ExtraRouteDefinition[];
 };
 
 export type KumikoServer = {
@@ -606,6 +629,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   const app = new Hono();
 
+  // Only entry:"signature" bypasses jwtGuard (verify() authenticates
+  // itself); entry:"anonymous" still needs the anonymousAccess fallthrough
+  // (tenant-by-host), entry:"user" needs c.get("user") populated.
+  const extraRoutePublicMatchers = compileExtraRoutePublicMatchers(options.extraRoutes);
+  const isExtraRoutePublicPath = (c: import("hono").Context): boolean =>
+    extraRoutePublicMatchers.some((m) => m.method === c.req.method && m.pattern.test(c.req.path));
+
   const sensitiveConfig = mergeSensitiveConfig(
     options.observabilityOptions?.sensitiveFilter ?? DEFAULT_SENSITIVE_CONFIG,
   );
@@ -689,7 +719,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
   });
   app.use("/api/*", async (c, next) => {
-    if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+    if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
     return jwtGuard(c, next);
   });
 
@@ -701,7 +731,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const patRateLimiter = options.auth?.patRateLimiter;
   if (patRateLimiter) {
     app.use("/api/*", async (c, next) => {
-      if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+      if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
       const pat = getUser(c)?.pat;
       if (pat && !(await patRateLimiter.check(pat.tokenId))) {
         return c.json(
@@ -733,7 +763,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (allowedOrigins && allowedOrigins.length > 0) {
     const originGuard = originMiddleware(allowedOrigins);
     app.use("/api/*", async (c, next) => {
-      if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+      if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
       return originGuard(c, next);
     });
   }
@@ -747,7 +777,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // are covered uniformly.
   const csrfGuard = csrfMiddleware();
   app.use("/api/*", async (c, next) => {
-    if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+    if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
     return csrfGuard(c, next);
   });
 
@@ -815,54 +845,73 @@ export function buildServer(options: ServerOptions): KumikoServer {
       const honoHandler = async (c: import("hono").Context): Promise<Response> =>
         route.handler(c, {
           app,
-          systemQuery: (type, payload, tenantId) =>
-            // createAnonymousUser, NOT createSystemUser: httpRoute handlers
-            // using systemQuery are, by construction, `anonymous: true`
-            // public routes — the synthesized user must clear the SAME
-            // access gate a real anonymous visitor would, no more. The
-            // system role would ALSO satisfy that gate here, but it can
-            // read fields gated to "system" that "anonymous" can't
-            // (filterReadFields is a plain role-in-map check) — a future
-            // systemQuery caller reading a system-gated field would leak
-            // it into a public response. The forced tenant already comes
-            // from bypassing the HTTP layer entirely; no elevated role
-            // is needed or wanted on top of that.
-            //
-            // httpRoute handlers run OUTSIDE /api/* — requestIdMiddleware
-            // (which wraps requestContext.run with ip/requestId/
-            // correlationId) never sees this request. Without this wrap,
-            // `rateLimit: {per: "ip", ...}` on a handler invoked via
-            // systemQuery is silent dead-code: enforceRateLimit reads
-            // requestContext.get()?.ip, which is undefined here, so
-            // buildBucketKey always returns {kind: "skip"}.
-            requestContext.run(requestContext.get() ?? buildRequestContextData(c), () =>
-              dispatcher.query(type, payload, createAnonymousUser(tenantId)),
-            ),
+          // createAnonymousUser, NOT createSystemUser: httpRoute handlers
+          // using systemQuery are, by construction, `anonymous: true`
+          // public routes — the synthesized user must clear the SAME
+          // access gate a real anonymous visitor would, no more. The
+          // system role would ALSO satisfy that gate here, but it can
+          // read fields gated to "system" that "anonymous" can't
+          // (filterReadFields is a plain role-in-map check) — a future
+          // systemQuery caller reading a system-gated field would leak
+          // it into a public response. The forced tenant already comes
+          // from bypassing the HTTP layer entirely; no elevated role
+          // is needed or wanted on top of that.
+          systemQuery: makeSystemQuery(c, dispatcher),
         });
-      switch (route.method) {
-        case "GET":
-          app.get(route.path, honoHandler);
-          break;
-        case "POST":
-          app.post(route.path, honoHandler);
-          break;
-        case "PUT":
-          app.put(route.path, honoHandler);
-          break;
-        case "PATCH":
-          app.patch(route.path, honoHandler);
-          break;
-        case "DELETE":
-          app.delete(route.path, honoHandler);
-          break;
-        case "OPTIONS":
-        case "HEAD":
-          // Hono-on() für die Methoden ohne Convenience-Method.
-          app.on(route.method, route.path, honoHandler);
-          break;
-        default:
-          assertUnreachable(route.method, "http method");
+      mountHonoRoute(app, route.method, route.path, honoHandler);
+    }
+  }
+
+  // extraRoutes (kumiko-framework#3050) — declarative HTTP-routes with a
+  // Pflicht `entry` tier. Mounted after r.httpRoute for the same reason: an
+  // extraRoute dispatching through `dispatcher` builds Hono's matcher, so
+  // this must run before any seed that also dispatches (runProdApp/
+  // createKumikoServer call buildServer before seeding).
+  if (options.extraRoutes) {
+    // Boot-time validation for the whole list BEFORE mounting anything —
+    // an app with one bad route should fail loud at boot, not mount N-1
+    // routes and then throw on route N.
+    for (const route of options.extraRoutes) {
+      if (!isKnownExtraRouteEntry(route.entry)) {
+        throw new Error(
+          `[kumiko] extraRoutes: unknown entry "${String(route.entry)}" on ` +
+            `"${route.method} ${route.path}" — expected "anonymous" | "user" | "signature". ` +
+            "A JS caller without the ExtraRouteDefinition type can hit this at boot.",
+        );
       }
+      if (route.entry === ExtraRouteEntries.user && !route.path.startsWith("/api/")) {
+        throw new Error(
+          `[kumiko] extraRoutes: entry:"user" route "${route.method} ${route.path}" must be ` +
+            "mounted under \"/api/\" — that's the only path prefix that rides the framework's " +
+            "jwtGuard chain, which is what populates deps.user.",
+        );
+      }
+      // A signature route under /api/ skips jwtGuard/origin/csrf for every
+      // path its pattern matches — a wildcard would switch off auth for
+      // unrelated /api/* handlers (e.g. "/api/*" swallows /api/write).
+      if (
+        route.entry === ExtraRouteEntries.signature &&
+        route.path.startsWith("/api/") &&
+        route.path.includes("*")
+      ) {
+        throw new Error(
+          `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
+            'use a wildcard under "/api/" — it would bypass the auth chain for every matching path.',
+        );
+      }
+    }
+    const dispatchSystemWrite = makeDispatchSystemWrite(dispatcher);
+    const dispatchSystemQuery = makeDispatchSystemQuery(dispatcher);
+    for (const route of options.extraRoutes) {
+      const honoHandler = buildExtraRouteHonoHandler(route, {
+        app,
+        dispatcher,
+        registry: options.registry,
+        secrets: contextWithObservability.secrets,
+        dispatchSystemWrite,
+        dispatchSystemQuery,
+      });
+      mountHonoRoute(app, route.method, route.path, honoHandler);
     }
   }
 
@@ -898,6 +947,202 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
   };
+}
+
+// Method-switch shared by r.httpRoute and extraRoutes — one place to keep
+// the two mounting paths from drifting on which Hono methods get a
+// convenience-call vs. app.on().
+function mountHonoRoute(
+  app: Hono,
+  method: HttpRouteMethod,
+  path: string,
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+  handler: (c: import("hono").Context<any, any>) => Response | Promise<Response>,
+): void {
+  switch (method) {
+    case "GET":
+      app.get(path, handler);
+      break;
+    case "POST":
+      app.post(path, handler);
+      break;
+    case "PUT":
+      app.put(path, handler);
+      break;
+    case "PATCH":
+      app.patch(path, handler);
+      break;
+    case "DELETE":
+      app.delete(path, handler);
+      break;
+    case "OPTIONS":
+    case "HEAD":
+      // Hono's on() for the methods without a convenience method.
+      app.on(method, path, handler);
+      break;
+    default:
+      assertUnreachable(method, "http method");
+  }
+}
+
+// Shared systemQuery builder for r.httpRoute and extraRoutes (anonymous +
+// signature entries). requestContext.run must wrap the dispatcher call —
+// both route kinds run outside the requestIdMiddleware chain that normally
+// populates it, and `rateLimit: {per: "ip", ...}` on a handler invoked
+// through systemQuery is otherwise silent dead-code (enforceRateLimit reads
+// requestContext.get()?.ip, undefined without this wrap).
+function makeSystemQuery(
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+  c: import("hono").Context<any, any>,
+  dispatcher: Dispatcher,
+): (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown> {
+  return (type, payload, tenantId) =>
+    requestContext.run(requestContext.get() ?? buildRequestContextData(c), () =>
+      dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+    );
+}
+
+// SystemAdmin write/query builders shared by buildServer's `extraRoutes`
+// mount and server-runtime's `wire` hook (runProdApp/createKumikoServer,
+// after buildServer). Privilege-scope: SystemAdmin is the highest
+// non-tenant-scoped role — reaches ANY SystemAdmin-gated handler on ANY
+// tenant. Only safe for callers that already proved their own authenticity
+// (signature verify(), HMAC state, ...), never exposed to a raw request.
+export function makeDispatchSystemWrite(
+  dispatcher: Dispatcher,
+): (args: SystemDispatchArgs) => Promise<WriteResult> {
+  return ({ handlerQn, payload, tenantId }) =>
+    dispatcher.write(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
+}
+
+export function makeDispatchSystemQuery(
+  dispatcher: Dispatcher,
+): (args: SystemDispatchArgs) => Promise<unknown> {
+  return ({ handlerQn, payload, tenantId }) =>
+    dispatcher.query(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
+}
+
+function isKnownExtraRouteEntry(entry: unknown): entry is ExtraRouteEntry {
+  return (
+    entry === ExtraRouteEntries.anonymous ||
+    entry === ExtraRouteEntries.user ||
+    entry === ExtraRouteEntries.signature
+  );
+}
+
+// Hono path pattern ("/api/foo/:bar", "/api/foo/*") → RegExp. Only the
+// subset extraRoutes actually uses (static segments, `:param`, trailing
+// `*`) — no inline `:param{regex}` constraints, no optional `:param?`.
+function honoPathToRegex(path: string): RegExp {
+  const segments = path
+    .split("/")
+    .map((segment) => {
+      if (segment.startsWith(":")) return "[^/]+";
+      if (segment === "*") return ".*";
+      return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("/");
+  return new RegExp(`^${segments}$`);
+}
+
+type ExtraRoutePublicMatcher = { readonly method: string; readonly pattern: RegExp };
+
+// See the bypass comment at the jwtGuard mount above — only signature
+// routes are public here.
+function compileExtraRoutePublicMatchers(
+  extraRoutes: readonly ExtraRouteDefinition[] | undefined,
+): readonly ExtraRoutePublicMatcher[] {
+  if (!extraRoutes) return [];
+  return extraRoutes
+    .filter((route) => route.entry === ExtraRouteEntries.signature)
+    .map((route) => ({ method: route.method, pattern: honoPathToRegex(route.path) }));
+}
+
+type ExtraRouteHonoHandlerDeps = {
+  readonly app: Hono;
+  readonly dispatcher: Dispatcher;
+  readonly registry: Registry;
+  readonly secrets: import("../secrets").SecretsContext | undefined;
+  readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
+  readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
+};
+
+function buildExtraRouteHonoHandler(
+  route: ExtraRouteDefinition,
+  shared: ExtraRouteHonoHandlerDeps,
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+): (c: import("hono").Context<any, any>) => Promise<Response> {
+  switch (route.entry) {
+    case ExtraRouteEntries.anonymous:
+      return async (c) =>
+        route.handler(c, {
+          app: shared.app,
+          registry: shared.registry,
+          systemQuery: makeSystemQuery(c, shared.dispatcher),
+        });
+    case ExtraRouteEntries.user:
+      return async (c) => {
+        const user = getUser(c);
+        if (!user || user.roles.includes(ANONYMOUS_ROLE)) {
+          return c.json(
+            {
+              error: {
+                code: "unauthenticated",
+                httpStatus: 401,
+                message: "this route requires a signed-in user",
+                i18nKey: "auth.errors.missingToken",
+              },
+            },
+            401,
+          );
+        }
+        return route.handler(c, {
+          app: shared.app,
+          registry: shared.registry,
+          user,
+          query: (type, payload) => shared.dispatcher.query(type, payload, user),
+          write: (type, payload) => shared.dispatcher.write(type, payload, user),
+        });
+      };
+    case ExtraRouteEntries.signature:
+      return async (c) => {
+        const rawBody = await c.req.text();
+        const headers: Record<string, string> = {};
+        c.req.raw.headers.forEach((value, key) => {
+          headers[key.toLowerCase()] = value;
+        });
+        let verified: unknown;
+        try {
+          verified = await route.verify(
+            { rawBody, headers, params: c.req.param(), query: c.req.query() },
+            { registry: shared.registry, secrets: shared.secrets },
+          );
+        } catch (e) {
+          if (e instanceof ExtraRouteRejection) {
+            return c.json(e.body, e.status);
+          }
+          return c.json(
+            {
+              error: {
+                code: "extra_route_signature_invalid",
+                message: e instanceof Error ? e.message : String(e),
+              },
+            },
+            401,
+          );
+        }
+        return route.handler(c, verified, {
+          app: shared.app,
+          registry: shared.registry,
+          secrets: shared.secrets,
+          systemQuery: makeSystemQuery(c, shared.dispatcher),
+          dispatchSystemWrite: shared.dispatchSystemWrite,
+          dispatchSystemQuery: shared.dispatchSystemQuery,
+        });
+      };
+    default:
+      return assertUnreachable(route, "extra route entry");
+  }
 }
 
 function deriveTenantLifecycleResolver(

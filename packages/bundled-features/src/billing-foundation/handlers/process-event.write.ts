@@ -1,5 +1,5 @@
 // process-event — programmatic write-handler den der webhook-handler
-// (createSubscriptionWebhookHandler) aufruft NACHDEM Plugin den raw-body
+// (createSubscriptionWebhookRoute) aufruft NACHDEM Plugin den raw-body
 // verifiziert + zu SubscriptionEvent normalisiert hat.
 //
 // **ES-Pattern:**

@@ -1,15 +1,15 @@
-// HTTP-Route-Definition — feature-deklarierte HTTP-Endpoints außerhalb
-// der /api/write|query|batch-Pipeline. Use-Case: RSS/Atom-Feeds, OpenAPI-
-// Specs, OG-Image-Generators, Webhook-Receiver — alles wo der Feature-
-// Author das Wire-Format selbst kontrolliert.
+// HTTP route definition — feature-declared HTTP endpoints outside
+// the /api/write|query|batch pipeline. Use case: RSS/Atom feeds, OpenAPI
+// specs, OG image generators, webhook receivers — anything where the
+// feature author controls the wire format themselves.
 //
-// Pattern symmetrisch zu r.queryHandler / r.writeHandler: Definition als
-// Teil des Features (nicht des App-Bootstrapping). Phase-3 Multi-Tenant
-// wird trivial weil tenant-context via host-resolution greift.
+// Pattern symmetric to r.queryHandler / r.writeHandler: definition as
+// part of the feature (not the app bootstrapping). Phase-3 multi-tenant
+// becomes trivial because tenant context is picked up via host resolution.
 //
-// Escape-hatch bleibt: runProdApp.extraRoutes für hand-rolled Routes die
-// nichts mit einem Feature zu tun haben (z.B. plattform-spezifische
-// Static-Serving-Logic).
+// Escape-hatch stays: runProdApp.extraRoutes (declarative list with
+// `entry` tier) for hand-rolled routes that have nothing to do with a
+// feature (e.g. platform-specific static-serving logic).
 
 import type { Context } from "hono";
 

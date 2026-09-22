@@ -132,6 +132,11 @@ export function buildStaticFallback(
   appSchemaJson: string,
   hostDispatch?: HostDispatchFn,
   pageHead?: PageHeadOptions,
+  /** Backs hostDispatch's `systemQuery` — required whenever `hostDispatch`
+   *  is set (a hostDispatch that reads `deps.systemQuery` without it would
+   *  throw). Separate from `pageHead.dispatcher` since resolvePageHead is
+   *  optional independently of hostDispatch. */
+  hostDispatchDispatcher?: QueryDispatcher,
 ): (req: Request) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
 
@@ -230,7 +235,21 @@ export function buildStaticFallback(
     if (!hostDispatch) return null;
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
-    const result = hostDispatch({ host, path: url.pathname, search: url.search });
+    const systemQuery: PageHeadSystemQuery = (type, payload, tenantId) => {
+      if (!hostDispatchDispatcher) {
+        throw new Error(
+          "hostDispatch called deps.systemQuery but buildStaticFallback got no hostDispatchDispatcher",
+        );
+      }
+      return requestContext.run(
+        requestContext.get() ?? buildRequestContextDataFromRequest(req),
+        () => hostDispatchDispatcher.query(type, payload, createAnonymousUser(tenantId)),
+      );
+    };
+    const result = await hostDispatch(
+      { host, path: url.pathname, search: url.search },
+      { systemQuery },
+    );
     if (result.kind === "not-found") {
       return new Response("Not Found", { status: 404 });
     }

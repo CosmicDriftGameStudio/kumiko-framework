@@ -72,7 +72,11 @@ describe("createE2eSeedRoutes options", () => {
   });
 
   test("builds without options and with app roles", () => {
-    expect(typeof createE2eSeedRoutes()).toBe("function");
-    expect(typeof createE2eSeedRoutes({ extraRoles: ["TenantMember"] })).toBe("function");
+    expect(createE2eSeedRoutes().map((route) => route.entry)).toEqual([
+      "signature",
+      "signature",
+      "signature",
+    ]);
+    expect(createE2eSeedRoutes({ extraRoles: ["TenantMember"] })).toHaveLength(3);
   });
 });

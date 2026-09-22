@@ -72,6 +72,7 @@ import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   createDefaultSseBroker,
   createRedisLoginRateLimiter,
+  type ExtraRouteDefinition,
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
   type SseBroker,
@@ -146,7 +147,7 @@ import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
 import { buildBunServeOptions } from "./bun-serve-options";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
-import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
+import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
 import {
   addConfigAccessorFactory,
@@ -425,14 +426,21 @@ export type HostDispatchResult =
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
   | { readonly kind: "not-found" };
 
-export type HostDispatchFn = (req: {
-  readonly host: string;
-  readonly path: string;
-  /** Query-String inkl. führendem `?`, `""` wenn keiner. Redirects die
-   *  den Pfad auf einen anderen Host umbiegen (z.B. Auth-Routen mit
-   *  `?token=` aus alten Mail-Links) MÜSSEN ihn an `to` anhängen. */
-  readonly search: string;
-}) => HostDispatchResult;
+export type HostDispatchFn = (
+  req: {
+    readonly host: string;
+    readonly path: string;
+    /** Query string incl. leading `?`, `""` if none. Redirects that
+     *  route the path to a different host (e.g. auth routes with
+     *  `?token=` from old mail links) MUST append it to `to`. */
+    readonly search: string;
+  },
+  /** `systemQuery` runs as the anonymous role (like PageHeadSystemQuery) —
+   *  hostDispatch is reachable by any public visitor, same access gate as a
+   *  real anonymous request. Lets a Multi-Tenant hostDispatch look up the
+   *  tenant for a subdomain instead of needing its own db handle. */
+  deps: { readonly systemQuery: PageHeadSystemQuery },
+) => HostDispatchResult | Promise<HostDispatchResult>;
 
 // PageHeadMeta/PageHeadResolver/PageHeadSystemQuery moved to
 // @cosmicdrift/kumiko-headless/apex (kumiko-framework#3026) — runDevApp needs
@@ -584,16 +592,18 @@ export type RunProdAppOptions = {
      *  späteren pgClient-Pass-through. */
     readonly pollIntervalMs?: number;
   };
-  /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
-   *  Systems. Aufgerufen NACH /api/* + /health, VOR der static-fallback —
-   *  perfekt für GET-Endpoints die kein JSON liefern: /feed.xml,
-   *  /og-image, /sitemap.xml, /robots.txt-mit-Logik. Bekommt das raw
-   *  Hono-app + die Connection-Deps (db/redis) zum Querying.
-   *
-   *  Naming: `deps` statt `ctx` weil im Framework `ctx` der HandlerContext
-   *  mit user/tenant/registry ist — hier ist der Scope absichtlich kleiner
-   *  (Routes laufen außerhalb der Auth/Tenant-Pipeline). */
-  readonly extraRoutes?: (app: import("hono").Hono, deps: ExtraRoutesSystemDeps) => void;
+  /** Declarative HTTP-routes outside the /api/write|query|batch pipeline —
+   *  each entry declares its access tier (`entry`: "anonymous" | "user" |
+   *  "signature"), buildServer wires the matching guard + deps. Mounted
+   *  inside buildServer, right after the r.httpRoute loop, before seeds
+   *  (kumiko-framework#3050). */
+  readonly extraRoutes?: readonly ExtraRouteDefinition[];
+  /** Hook for app-wired co-running components that need the system-write
+   *  dispatcher (e.g. wiring a webhook plugin's system-scoped secrets, or
+   *  starting a co-running supervisor) — runs after buildServer, before
+   *  seeds, with NO `app` (routes are declared via `extraRoutes`, not
+   *  wired here). */
+  readonly wire?: (deps: SystemWireDeps) => void | Promise<void>;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the
    *  process stays up listening on PORT. Set to false in tests that drive
@@ -1065,6 +1075,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     ...(options.metrics && { metrics: options.metrics }),
     ...(options.rateLimit && { rateLimit: options.rateLimit }),
+    ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
     ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
@@ -1223,14 +1234,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
   const appSchemaJson = JSON.stringify(buildAppSchema(registry, { searchAdapterMissing }));
 
-  // App-eigene HTTP-Routes mounten — VOR den Seeds (symmetrisch zum
-  // dev-server, siehe create-kumiko-server.ts). Ein Seed, der über den
-  // Dispatcher dispatcht, baut Honos Matcher; danach wirft jedes weitere
-  // app.get() "Can not add a route since the matcher is already built".
-  // Eingehende /api/*-Pfade sind schon vom dispatcher belegt; extraRoutes
-  // sollte die nicht überschreiben (kein enforce, das ist Author-Verantwortung).
-  if (options.extraRoutes) {
-    options.extraRoutes(entrypoint.app, {
+  // `extraRoutes` itself is already mounted — buildServer wires it inside
+  // createApiEntrypoint/createAllInOneEntrypoint, before this function ever
+  // runs. `wire` is the remaining escape-hatch for app-wired co-running
+  // components that need the system-write dispatcher but don't declare a
+  // route (kumiko-framework#3050).
+  if (options.wire) {
+    await options.wire({
       db,
       redis,
       registry,
@@ -1296,6 +1306,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           options.resolvePageHead
             ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }
             : undefined,
+          entrypoint.dispatcher,
         )
       : // No staticDir (split-deploy / API-only container) → app.fetch's
         // response goes straight to the client, bypassing buildStaticFallback

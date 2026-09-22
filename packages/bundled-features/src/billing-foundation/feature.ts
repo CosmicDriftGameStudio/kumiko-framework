@@ -20,8 +20,8 @@
 //      → read-your-own-write semantics.
 //   4. **process-event-handler**: programmatic write-handler den der
 //      webhook-handler aufruft, dispatcht zu type-passendem appendEvent.
-//   5. **createSubscriptionWebhookHandler**: factory für die HTTP-Route
-//      `/api/subscription/webhook/:providerName`.
+//   5. **createSubscriptionWebhookRoute**: factory for the `entry:"signature"`
+//      extraRoute `/api/subscription/webhook/:providerName`.
 //   6. **payment-received event + read_payments projection**: one-off-
 //      payments (checkout mode "payment") get their own event, own
 //      per-tenant aggregate, and own `process-payment-event` write-handler
@@ -85,7 +85,7 @@ import { paymentTenantDestroyHook, subscriptionTenantDestroyHook } from "./tenan
 
 export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
   r.describe(
-    "Plugin host for subscription billing \u2014 manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block \u2014 use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+    "Plugin host for subscription billing \u2014 manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. Low-level building block \u2014 use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
   );
   r.uiHints({
     displayLabel: "Billing \u00b7 Foundation",

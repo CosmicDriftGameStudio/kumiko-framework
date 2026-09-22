@@ -2,17 +2,24 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
+import {
+  ExtraRouteRejection,
+  NO_ROUTE_MATCH_HEADER_NAME,
+  signatureRoute,
+} from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createBooleanField,
   createEntity,
   createTextField,
   defineFeature,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { z } from "zod";
 import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
+
+const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
 // Integration-Test: bootet createKumikoServer mit echtem Postgres,
 // echtem Redis, echter Kumiko-Pipeline. Treibt den fetch-Handler
@@ -30,8 +37,16 @@ const probeEntity = createEntity({
 
 const probeFeature = defineFeature("dev-server-probe", (r) => {
   r.entity("probe", probeEntity);
-  // SystemAdmin-gated write — Ziel des extraRoutes.dispatchSystemWrite-
-  // Tests (252/2): Echo von user.tenantId + roles beweist Dispatch durch
+  // Anonymous query for hostDispatch's deps.systemQuery — proves the
+  // dev path gets the same anonymous-role dispatch-deps shape as prod.
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    handler: async () => ({ pong: true }),
+  });
+  // SystemAdmin-gated write — Ziel der entry:"signature" / `wire`-Tests
+  // (252/2): Echo von user.tenantId + roles beweist Dispatch durch
   // den echten Dispatcher (Zod + Access-Check) mit Ziel-Tenant-SystemUser.
   r.writeHandler({
     name: "probe-write",
@@ -320,35 +335,77 @@ describe("createKumikoServer (Multi-Entry)", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  test("hostDispatch: async fn erhält deps.systemQuery, 'not-found' → 404 (kumiko-framework#3050 dev-Pendant)", async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "kumiko-multi-it-"));
+    const publicEntry = join(tmpDir, "client-public.tsx");
+    writeFileSync(publicEntry, "// public");
+    let systemQueryPonged = false;
+
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      clientEntries: [{ name: "public", sourceFile: publicEntry }],
+      _buildBundle: async () => ({ js: "// PUBLIC-BUNDLE", map: "" }),
+      hostDispatch: async (_req, deps) => {
+        const result = await deps.systemQuery("dev-server-probe:query:ping", {}, TENANT_ID);
+        systemQueryPonged = (result as { pong: boolean }).pong === true; // @cast-boundary engine-payload
+        return { kind: "not-found" };
+      },
+    });
+
+    const res = await handle.fetch(new Request("http://localhost/"));
+    expect(res.status).toBe(404);
+    expect(systemQueryPonged).toBe(true);
+  });
 });
 
-// 252/2: der Dev-Pfad bekommt dieselbe extraRoutes-deps-Closure wie
-// runProdApp (seit der Extraktion nach extra-routes-deps.ts geteilt) —
-// hier der analoge Beweis gegen createKumikoServer.
-describe("createKumikoServer extraRoutes-deps", () => {
-  test("dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
+// 252/2: the dev path shares extra-routes-deps.ts with runProdApp —
+// here the analogous proof against createKumikoServer, with `wire` for the
+// registry/dispatchSystemWrite check and an entry:"signature" route for
+// the webhook dispatch.
+describe("createKumikoServer extraRoutes / wire deps", () => {
+  test("wire: dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
     const tenantId = "00000000-0000-4000-8000-000000000042";
     let registryHasProbe = false;
     handle = await createKumikoServer({
       features: [probeFeature],
       port: 0,
       installSignalHandlers: false,
-      extraRoutes: (app, deps) => {
+      extraRoutes: [
+        signatureRoute({
+          method: "POST",
+          path: "/webhook-probe",
+          entry: "signature",
+          verify: async (req) => {
+            if (req.headers["x-probe-signature"] !== "test-secret") {
+              throw new ExtraRouteRejection(401, { error: "bad-signature" });
+            }
+          },
+          handler: async (c, _verified, deps) => {
+            const result = await deps.dispatchSystemWrite({
+              handlerQn: "dev-server-probe:write:probe-write",
+              payload: { note: "from-webhook" },
+              tenantId: tenantId as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+            });
+            return c.json(result);
+          },
+        }),
+      ],
+      wire: (deps) => {
         registryHasProbe = deps.registry.features.has("dev-server-probe");
-        app.post("/webhook-probe", async (c) => {
-          const result = await deps.dispatchSystemWrite({
-            handlerQn: "dev-server-probe:write:probe-write",
-            payload: { note: "from-webhook" },
-            tenantId: tenantId as import("@cosmicdrift/kumiko-framework/engine").TenantId,
-          });
-          return c.json(result);
-        });
       },
     });
 
     expect(registryHasProbe).toBe(true);
 
-    const res = await handle.fetch(new Request("http://test/webhook-probe", { method: "POST" }));
+    const res = await handle.fetch(
+      new Request("http://test/webhook-probe", {
+        method: "POST",
+        headers: { "x-probe-signature": "test-secret" },
+      }),
+    );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       isSuccess: boolean;
@@ -369,9 +426,14 @@ describe("createKumikoServer — extraRoutes vs. onAfterSetup ordering", () => {
       features: [probeFeature],
       port: 0,
       installSignalHandlers: false,
-      extraRoutes: (app) => {
-        app.get("/probe", (c) => c.json({ ok: true }));
-      },
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/probe",
+          entry: "anonymous",
+          handler: (c) => c.json({ ok: true }),
+        },
+      ],
       onAfterSetup: async (stack) => {
         await stack.http.writeOk(
           "dev-server-probe:write:probe-write",

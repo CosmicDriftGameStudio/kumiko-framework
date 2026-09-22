@@ -251,6 +251,9 @@ export type RunDevAppOptions = {
    *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
    *  gleichnamigen Option in runProdApp. */
   readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
+  /** Hook for app-wired co-running components — symmetric to
+   *  runProdApp.wire (kumiko-framework#3050). */
+  readonly wire?: CreateKumikoServerOptions["wire"];
   /** Feature-toggle resolver — durchgereicht an createKumikoServer →
    *  setupTestStack. Sprint-8 Tier-Composition: per-Tenant unterschied-
    *  liche features aktiv via globalFeatureToggleRuntime. Pattern in
@@ -486,6 +489,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
     ...(options.files !== undefined && { files: options.files }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
+    ...(options.wire !== undefined && { wire: options.wire }),
     ...(finalEffectiveFeatures !== undefined && {
       effectiveFeatures: finalEffectiveFeatures,
     }),

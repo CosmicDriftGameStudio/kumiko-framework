@@ -61,7 +61,7 @@ import Redis from "ioredis";
 import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
 import { composeFeatures } from "./compose-features";
-import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
+import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
 import { requireEnv } from "./run-prod-app";
 import { addConfigAccessorFactory, buildBootExtraContext } from "./run-prod-app-boot-context";
@@ -79,9 +79,9 @@ export type WorkerDeps = {
 /** Deps for the `wireComponents` hook — app-wired co-running components
  *  (an analysis runner, an IMAP supervisor, ...) that need the system-
  *  write dispatcher and register their own shutdown hooks on the worker
- *  lifecycle. Same deps shape as extraRoutes, plus `lifecycle` for
- *  `registerShutdownHook`. */
-export type WorkerWireDeps = ExtraRoutesSystemDeps & {
+ *  lifecycle. Same shape as the `wire` hook's SystemWireDeps, plus
+ *  `lifecycle` for `registerShutdownHook`. */
+export type WorkerWireDeps = SystemWireDeps & {
   readonly lifecycle: WorkerEntrypoint["lifecycle"];
 };
 

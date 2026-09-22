@@ -1,19 +1,14 @@
-// Connect-routes integration — mounts createInboundMailConnectRoutes on a
-// Hono app wired to a real setupTestStack dispatcher + secrets context.
-// Exercises OAuth connect redirect, HMAC state, callback account create,
-// and error paths (401/400/404/502) — not mock-only existence checks.
+// Connect-routes integration — mounts createInboundMailConnectRoutes as
+// real extraRoutes on a setupTestStack (kumiko-framework#3050), driven with
+// real HTTP through the framework's own auth/signature wiring, never a
+// hand-rolled Hono app or createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  defineFeature,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
@@ -28,7 +23,6 @@ import {
   type MutableMasterKeyProvider,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { Hono } from "hono";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -53,6 +47,8 @@ import {
 const OAUTH_PROVIDER_KEY = "oauth-test";
 const STATE_SECRET = "inbound-mail-connect-test-state-secret-32b";
 const CALLBACK_URL = "http://localhost/inbound-mail/oauth/callback";
+const CONNECT_PATH = "/api/inbound-mail/connect";
+const CALLBACK_PATH = "/inbound-mail/oauth/callback";
 
 const oauthTestPlugin: InboundMailProviderPlugin = {
   verify: async () => {},
@@ -94,7 +90,6 @@ let stack: TestStack;
 let db: DbConnection;
 let secrets: ReturnType<typeof createSecretsContext>;
 let providerRef: MutableMasterKeyProvider;
-let routes: ReturnType<typeof createInboundMailConnectRoutes>;
 
 beforeAll(async () => {
   const initialKp = createEnvMasterKeyProvider({
@@ -120,6 +115,10 @@ beforeAll(async () => {
     extraContext: ({ db: stackDb }) => ({
       secrets: createSecretsContext({ db: stackDb, masterKeyProvider: providerRef }),
     }),
+    extraRoutes: createInboundMailConnectRoutes({
+      stateSecret: STATE_SECRET,
+      callbackUrl: CALLBACK_URL,
+    }),
   });
   db = stack.db;
   secrets = createSecretsContext({ db, masterKeyProvider: providerRef });
@@ -129,19 +128,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, seenMessageEntity);
   await unsafePushTables(db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
-
-  routes = createInboundMailConnectRoutes({
-    providerCtx: { registry: stack.registry, secrets },
-    dispatchWrite: ({ handlerQn, payload, tenantId }) =>
-      stack.dispatcher.write(
-        handlerQn,
-        payload,
-        createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
-      ),
-    secrets,
-    stateSecret: STATE_SECRET,
-    callbackUrl: CALLBACK_URL,
-  });
 });
 
 afterAll(async () => {
@@ -157,49 +143,47 @@ function adminFor(tenantNumber: number) {
   });
 }
 
-function buildApp(opts: { user?: { id: string; tenantId: string } | null } = {}) {
-  const app = new Hono<{ Variables: { user?: { id: string; tenantId: string } } }>();
-  if (opts.user !== null) {
-    const user = opts.user ?? adminFor(4201);
-    app.use("*", async (c, next) => {
-      c.set("user", { id: user.id, tenantId: user.tenantId });
-      await next();
-    });
-  }
-  app.get("/api/inbound-mail/connect", routes.connect);
-  app.get("/inbound-mail/oauth/callback", routes.callback);
-  return app;
+async function authHeader(user: ReturnType<typeof adminFor>): Promise<Record<string, string>> {
+  const token = await stack.jwt.sign(user);
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function getConnect(query: string, user?: ReturnType<typeof adminFor>) {
+  const headers = user ? await authHeader(user) : {};
+  return stack.app.request(`${CONNECT_PATH}?${query}`, { headers, redirect: "manual" });
+}
+
+async function getCallback(query: string) {
+  return stack.app.request(`${CALLBACK_PATH}?${query}`);
 }
 
 describe("connect-routes — connect", () => {
   test("401 without session user", async () => {
-    const app = buildApp({ user: null });
-    const res = await app.request(
-      `/api/inbound-mail/connect?provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=inbox@acme.test`,
+    const res = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=inbox@acme.test`,
     );
     expect(res.status).toBe(401);
   });
 
   test("400 when query params are incomplete", async () => {
-    const app = buildApp();
-    const res = await app.request(`/api/inbound-mail/connect?provider=${OAUTH_PROVIDER_KEY}`);
+    const res = await getConnect(`provider=${OAUTH_PROVIDER_KEY}`, adminFor(4301));
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_connect_request");
   });
 
   test("404 for unknown provider key", async () => {
-    const app = buildApp();
-    const res = await app.request(
-      "/api/inbound-mail/connect?provider=does-not-exist&scope=shared&mailbox=inbox@acme.test",
+    const res = await getConnect(
+      "provider=does-not-exist&scope=shared&mailbox=inbox@acme.test",
+      adminFor(4302),
     );
     expect(res.status).toBe(404);
   });
 
   test("400 when provider has no oauth flow (inmemory)", async () => {
-    const app = buildApp();
-    const res = await app.request(
-      "/api/inbound-mail/connect?provider=inmemory&scope=shared&mailbox=inbox@acme.test",
+    const res = await getConnect(
+      "provider=inmemory&scope=shared&mailbox=inbox@acme.test",
+      adminFor(4303),
     );
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
@@ -207,10 +191,9 @@ describe("connect-routes — connect", () => {
   });
 
   test("302 redirect to provider authorize URL with signed state", async () => {
-    const app = buildApp({ user: adminFor(4202) });
-    const res = await app.request(
-      `/api/inbound-mail/connect?provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=team@acme.test`,
-      { redirect: "manual" },
+    const res = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=team@acme.test`,
+      adminFor(4304),
     );
     expect(res.status).toBe(302);
     const location = res.headers.get("location");
@@ -224,33 +207,27 @@ describe("connect-routes — connect", () => {
 
 describe("connect-routes — oauth callback", () => {
   test("400 when code/state missing", async () => {
-    const app = buildApp({ user: null });
-    const res = await app.request("/inbound-mail/oauth/callback");
+    const res = await getCallback("");
     expect(res.status).toBe(400);
   });
 
   test("400 on tampered state", async () => {
-    const app = buildApp({ user: null });
-    const res = await app.request("/inbound-mail/oauth/callback?code=ok&state=not.a.valid.state");
+    const res = await getCallback("code=ok&state=not.a.valid.state");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_state");
   });
 
   test("happy path: creates mail account + stores refresh token secret", async () => {
-    const user = adminFor(4203);
-    const connectApp = buildApp({ user });
-    const connectRes = await connectApp.request(
-      `/api/inbound-mail/connect?provider=${OAUTH_PROVIDER_KEY}&scope=user&mailbox=owner@acme.test`,
-      { redirect: "manual" },
+    const user = adminFor(4305);
+    const connectRes = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=user&mailbox=owner@acme.test`,
+      user,
     );
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
     expect(state).toBeTruthy();
 
-    const callbackApp = buildApp({ user: null });
-    const callbackRes = await callbackApp.request(
-      `/inbound-mail/oauth/callback?code=ok&state=${encodeURIComponent(state!)}`,
-    );
+    const callbackRes = await getCallback(`code=ok&state=${encodeURIComponent(state!)}`);
     expect(callbackRes.status).toBe(200);
     const body = (await callbackRes.json()) as { connected: boolean; accountId: string };
     expect(body.connected).toBe(true);
@@ -267,34 +244,26 @@ describe("connect-routes — oauth callback", () => {
   });
 
   test("502 when token exchange fails", async () => {
-    const user = adminFor(4204);
-    const connectApp = buildApp({ user });
-    const connectRes = await connectApp.request(
-      `/api/inbound-mail/connect?provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=fail@acme.test`,
-      { redirect: "manual" },
+    const connectRes = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=fail@acme.test`,
+      adminFor(4306),
     );
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
 
-    const res = await buildApp({ user: null }).request(
-      `/inbound-mail/oauth/callback?code=fail-exchange&state=${encodeURIComponent(state!)}`,
-    );
+    const res = await getCallback(`code=fail-exchange&state=${encodeURIComponent(state!)}`);
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("token_exchange_failed");
   });
 
   test("502 when provider omits refresh token", async () => {
-    const user = adminFor(4205);
-    const connectApp = buildApp({ user });
-    const connectRes = await connectApp.request(
-      `/api/inbound-mail/connect?provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=norefresh@acme.test`,
-      { redirect: "manual" },
+    const connectRes = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=norefresh@acme.test`,
+      adminFor(4307),
     );
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
 
-    const res = await buildApp({ user: null }).request(
-      `/inbound-mail/oauth/callback?code=no-refresh&state=${encodeURIComponent(state!)}`,
-    );
+    const res = await getCallback(`code=no-refresh&state=${encodeURIComponent(state!)}`);
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("no_refresh_token");

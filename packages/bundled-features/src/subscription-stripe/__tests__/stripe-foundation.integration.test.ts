@@ -16,12 +16,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   billingFoundationFeature,
-  createSubscriptionWebhookHandler,
-  type SubscriptionProviderPlugin,
+  createSubscriptionWebhookRoute,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -33,18 +32,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
-import { Hono } from "hono";
 import Stripe from "stripe";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { configValuesTable, createConfigFeature } from "../../config";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
-import {
-  createSecretsContext,
-  createSecretsFeature,
-  type SecretsContext,
-  tenantSecretsTable,
-} from "../../secrets";
+import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
@@ -67,11 +60,6 @@ const PRICE_TO_TIER = { price_pro_monthly: "pro", price_business_yearly: "busine
 
 let stack: TestStack;
 let db: DbConnection;
-let webhookApp: Hono;
-/** Zweite webhook-app MIT system-secrets gewired — für Scenario 5
- *  (runtime-secret-Pfad). */
-let webhookAppWithSecrets: Hono;
-let secretsCtx: SecretsContext;
 
 const stripeForFixtures = new Stripe(TEST_API_KEY);
 
@@ -109,8 +97,15 @@ beforeAll(async () => {
       configResolver: resolver,
       configEncryption: encryption,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      // Forwarded to every signature extraRoute's verify()/handler() as
+      // `deps.secrets` — one webhook route now serves both the factory-
+      // fallback scenarios (1–4, no row seeded yet) and the runtime-secret
+      // scenario (5, seeded via config:write:set) since runtime.ts's
+      // resolver already falls back to the factory options when the store
+      // is empty.
       secrets: createSecretsContext({ db: ctxDb, masterKeyProvider }),
     }),
+    extraRoutes: [createSubscriptionWebhookRoute()],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
@@ -118,46 +113,6 @@ beforeAll(async () => {
   // secrets brauchen ihre Tabellen explizit.
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
-  // Standalone-secrets-context (gleiche KEK) zum direkten Seeden +
-  // als systemSecrets für die zweite webhook-app.
-  secretsCtx = createSecretsContext({ db, masterKeyProvider });
-
-  // Webhook-app: Hono mit der webhook-handler-Route.
-  // dispatchWrite ruft `stack.http.write` mit dem System-User des
-  // resolved-Tenants — das ist exakt was der App-Builder im echten
-  // bin/server.ts via extraRoutes wireup macht. `systemSecrets` optional:
-  // ohne → factory-fallback-Pfad (Scenarios 1–4); mit → runtime-secret-
-  // Pfad (Scenario 5), exakt wie der App-Owner createSecretsContext wired.
-  const mountWebhook = (systemSecrets?: SecretsContext): Hono => {
-    const app = new Hono();
-    app.post(
-      "/api/subscription/webhook/:providerName",
-      createSubscriptionWebhookHandler({
-        dispatchWrite: async ({ handlerQn, payload, tenantId }) => {
-          const systemUser = createTestUser({
-            id: 1,
-            tenantId: tenantId as TenantId,
-            roles: ["SystemAdmin"],
-          });
-          const res = await stack.http.write(handlerQn, payload, systemUser);
-          const body = await res.json();
-          return body.isSuccess
-            ? { isSuccess: true, data: body.data }
-            : { isSuccess: false, error: body.error };
-        },
-        resolveProvider: (providerName) => {
-          const usage = stack.registry
-            .getExtensionUsages("subscriptionProvider")
-            .find((u) => u.entityName === providerName);
-          return usage?.options as SubscriptionProviderPlugin | undefined;
-        },
-        ...(systemSecrets && { systemSecrets }),
-      }),
-    );
-    return app;
-  };
-  webhookApp = mountWebhook();
-  webhookAppWithSecrets = mountWebhook(secretsCtx);
 });
 
 afterAll(async () => {
@@ -218,8 +173,8 @@ async function signEvent(payload: string, secret = TEST_SECRET): Promise<string>
   });
 }
 
-async function postStripeWebhook(payload: string, sig: string, app: Hono = webhookApp) {
-  return app.request("/api/subscription/webhook/stripe", {
+async function postStripeWebhook(payload: string, sig: string) {
+  return stack.app.request("/api/subscription/webhook/stripe", {
     method: "POST",
     body: payload,
     headers: { "stripe-signature": sig, "content-type": "application/json" },
@@ -298,8 +253,11 @@ describe("scenario 2: invalid sig → 401, kein DB-write", () => {
 
     const res = await postStripeWebhook(payload, wrongSig);
     expect(res.status).toBe(401);
+    // extraRoutes' generic signature-rejection code (kumiko-framework#3050)
+    // — verify() throws a plain Error on sig mismatch, buildServer maps any
+    // non-ExtraRouteRejection throw from verify() to this code.
     const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("subscription_webhook_signature_invalid");
+    expect(body.error.code).toBe("extra_route_signature_invalid");
 
     // Drift-pin: foundation-DB ist unberührt — kein subscription-row
     // für diesen Tenant entstanden.
@@ -427,7 +385,7 @@ describe("scenario 5: runtime-secret resolution", () => {
     // fallback (TEST_SECRET) nutzen, schlüge die Verifikation fehl.
     const sig = await signEvent(payload, SEEDED_WEBHOOK_SECRET);
 
-    const res = await postStripeWebhook(payload, sig, webhookAppWithSecrets);
+    const res = await postStripeWebhook(payload, sig);
     expect(res.status).toBe(200);
 
     const admin = createTestUser({
@@ -452,7 +410,7 @@ describe("scenario 5: runtime-secret resolution", () => {
       buildStripeSubscriptionEvent({ eventId: "evt_4005_stale", tenantId: testTenantId(4006) }),
     );
     const sigWithStaleFallback = await signEvent(payload, TEST_SECRET);
-    const res = await postStripeWebhook(payload, sigWithStaleFallback, webhookAppWithSecrets);
+    const res = await postStripeWebhook(payload, sigWithStaleFallback);
     expect(res.status).toBe(401);
   });
 });

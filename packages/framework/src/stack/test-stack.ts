@@ -42,8 +42,9 @@ export type TestStack = {
   // to assert a consumer pushed an invalidation without opening a real SSE
   // connection.
   sseBroker: SseBroker;
-  // Command-dispatcher behind the HTTP routes — for direct system-writes
-  // in tests and dev-server extraRoutes (provider-webhook wiring).
+  // Command-dispatcher behind the HTTP routes — for direct system-writes in
+  // tests and behind entry:"signature" extraRoutes / the `wire` hook
+  // (provider-webhook wiring).
   dispatcher: Dispatcher;
   // The AppContext buildServer handed the request path, incl. the fields it
   // wires itself (_fileProviderResolver). A dev-server that starts its own
@@ -105,6 +106,10 @@ export type TestStackOptions = {
    *  The resolver is auto-built from the test Redis. Mirrors
    *  buildServer's `rateLimit` option 1:1 — see there for shape. */
   rateLimit?: import("../api/server").ServerOptions["rateLimit"];
+  /** Forwarded to buildServer — Integration-Tests that exercise `extraRoutes`
+   *  MUST go through here (real HTTP via `stack.http`/`stack.app.fetch`),
+   *  never `createTestDispatcher`. */
+  extraRoutes?: import("../api/server").ServerOptions["extraRoutes"];
   /** Inject a MasterKeyProvider for secrets-backed tests. Lands typed in
    *  AppContext — set/delete/get + rotation job pick it up. Omit for
    *  suites that don't touch secrets. */
@@ -404,6 +409,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       },
       eventDedup,
       sseBroker,
+      ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
       // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
       // deterministic drains — no timer-induced flakiness. pollIntervalMs
       // stays short anyway in case a test opts into `.start()`. pgClient

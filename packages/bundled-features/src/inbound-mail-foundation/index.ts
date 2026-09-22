@@ -6,8 +6,7 @@ export {
 } from "./aggregate-id";
 export {
   createInboundMailConnectRoutes,
-  type InboundMailConnectRoutes,
-  type InboundMailConnectRoutesDeps,
+  type InboundMailConnectRoutesOptions,
 } from "./connect-routes";
 export {
   INBOUND_MAIL_FOUNDATION_FEATURE,

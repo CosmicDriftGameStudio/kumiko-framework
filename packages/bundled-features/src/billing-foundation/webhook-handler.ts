@@ -1,213 +1,153 @@
-// createSubscriptionWebhookHandler — Hono-route-factory den der App-
-// Owner via `extraRoutes` in seinem bin/server.ts mountet.
-//
-// **Multi-Provider:** der Plugin wird via Pfad-Parameter
-// `:providerName` ausgewählt — Stripe-Dashboard zeigt auf
-// `/api/subscription/webhook/stripe`, PayPal auf
-// `/api/subscription/webhook/paypal`. Eine Hono-Route, alle Plugins
-// gleichzeitig aktiv.
-//
-// Beispiel-Verwendung in bin/server.ts (runDevApp wie runProdApp liefern
-// `registry` + `dispatchSystemWrite` in den extraRoutes-deps):
-//
-//   await runDevApp({
-//     features: APP_FEATURES,
-//     extraRoutes: (app, deps) => {
-//       const handler = createSubscriptionWebhookHandler({
-//         dispatchWrite: ({ handlerQn, payload, tenantId }) =>
-//           deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
-//         resolveProvider: (name) =>
-//           deps.registry.getExtensionUsages("subscriptionProvider")
-//             .find((u) => u.entityName === name)?.options as
-//             SubscriptionProviderPlugin | undefined,
-//       });
-//       app.post("/api/subscription/webhook/:providerName", handler);
-//     },
-//   });
-//
-// Was der handler macht:
-//   1. providerName aus dem URL-Pfad lesen
-//   2. raw-body via c.req.text() lesen (NICHT JSON-parsen — Stripe-Sig
-//      prüft exakte bytes)
-//   3. Headers sammeln + an Plugin durchreichen
-//   4. Plugin-Lookup im Registry via "subscriptionProvider"-extension
-//      und dem providerName aus dem URL-Pfad
-//   5. plugin.verifyAndParseWebhook(raw, headers, ctx) → SubscriptionEvent | null
-//   6. Bei null (= Plugin filtert event-type raus): 200 OK ohne side-effects
-//   7. Bei Event: ctx.write("billing-foundation:write:process-event")
-//      mit der vom Plugin aufgelösten tenantId
-//   8. Returnt 200 OK an Provider
-//
-// **Auth:** kein JWT/Cookie. Authentifizierung läuft via Provider-
-// Webhook-Sig im Plugin. Kein `c.get("user")`-call hier.
+// Multi-provider: the plugin is selected via the `:providerName` path-param
+// (Stripe → /stripe, PayPal → /paypal), one route mounts every plugin at once.
+// rawBody is intentionally NOT JSON-parsed before verify() — Stripe's
+// signature check needs the exact bytes. No JWT/cookie auth: the provider's
+// webhook signature in verify() IS the auth, so no c.get("user") here.
 
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { Context, Hono } from "hono";
+import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import type { Context } from "hono";
 import {
   BILLING_FOUNDATION_FEATURE,
   BillingEventKinds,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
 } from "./constants";
-import type { SubscriptionProviderPlugin } from "./types";
+import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types";
 
-/**
- * Dependencies the App-Owner gibt dem webhook-handler — beide direkt aus
- * den `extraRoutes`-deps ableitbar (`dispatchSystemWrite` + `registry`),
- * siehe Beispiel im Header.
- */
-export type SubscriptionWebhookDeps = {
-  /** Schreibt durch den Standard-Dispatcher mit einem auto-konstruierten
-   *  SystemUser. Muss `process-event` als SystemAdmin durchlassen. */
-  readonly dispatchWrite: (args: {
-    readonly handlerQn: string;
-    readonly payload: unknown;
-    readonly tenantId: string;
-  }) => Promise<{
-    readonly isSuccess: boolean;
-    readonly data?: unknown;
-    readonly error?: unknown;
-  }>;
+export type SubscriptionWebhookRouteOptions = {
+  /** Route path — MUST carry the `:providerName` path-param. Default
+   *  "/api/subscription/webhook/:providerName". */
+  readonly path?: string;
+  /** Runs after a successful dispatchSystemWrite, before the 200 response —
+   *  lets callers (e.g. subscription-tier-sync) chain a side-effect without
+   *  duplicating the provider-resolve/payload-mapping logic above. Returning
+   *  a failed WriteResult turns the response into the same 500 a dispatch
+   *  failure would produce. */
+  readonly afterDispatch?: (
+    dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
+    tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId,
+    deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps,
+  ) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
+};
 
-  /** Plugin-Lookup-Function — bekommt den providerName aus dem URL-
-   *  Pfad und returnt den passenden Plugin (= entityName-match in
-   *  registry.getExtensionUsages("subscriptionProvider")). */
-  readonly resolveProvider: (providerName: string) => SubscriptionProviderPlugin | undefined;
+const DEFAULT_WEBHOOK_PATH = "/api/subscription/webhook/:providerName";
 
-  /** Optionaler system-scoped SecretsContext, durchgereicht an
-   *  `verifyAndParseWebhook` (3. Arg). Erlaubt Plugins, ihre app-wide-
-   *  Credentials (Stripe api-key/webhook-secret) zur Laufzeit aus
-   *  secrets unter SYSTEM_TENANT_ID zu lesen statt aus einem mount-time-
-   *  Closure. Der App-Owner baut ihn via `createSecretsContext({ db,
-   *  masterKeyProvider })` aus den extraRoutes-deps. Fehlt er, fallen
-   *  Plugins auf ihren Closure-Fallback zurück. */
-  readonly systemSecrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext;
+function resolveProvider(
+  registry: import("@cosmicdrift/kumiko-framework/engine").Registry,
+  providerName: string,
+): SubscriptionProviderPlugin | undefined {
+  return registry
+    .getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION)
+    .find((u) => u.entityName === providerName)?.options as SubscriptionProviderPlugin | undefined;
+}
+
+type VerifiedWebhook = {
+  readonly providerName: string;
+  readonly event: SubscriptionEvent | PaymentEvent | null;
 };
 
 /**
- * Returnt einen Hono-handler. Mounten via
- * `app.post("/api/subscription/webhook/:providerName", handler)`.
+ * Builds the `entry:"signature"` extraRoute definition. Mount via
+ * `extraRoutes: [createSubscriptionWebhookRoute()]`.
  */
-export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) {
-  return async (c: Context): Promise<Response> => {
-    // 1. providerName aus URL-Pfad. Hono-Standard via c.req.param.
-    const providerName = c.req.param("providerName");
-    if (!providerName || providerName.length === 0) {
-      return c.json(
-        {
-          error: {
-            code: "subscription_provider_path_missing",
-            message: `${BILLING_FOUNDATION_FEATURE}: Mount the route as POST /api/subscription/webhook/:providerName so each provider has its own URL (Stripe-Dashboard → /stripe, PayPal-Dashboard → /paypal).`,
+export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRouteOptions = {}) {
+  const path = options.path ?? DEFAULT_WEBHOOK_PATH;
+  return signatureRoute<VerifiedWebhook>({
+    method: "POST",
+    path,
+    entry: "signature",
+    verify: async ({ rawBody, headers, params }, deps) => {
+      const providerName = params["providerName"];
+      if (!providerName) {
+        throw new ExtraRouteRejection(
+          400,
+          {
+            error: {
+              code: "subscription_provider_path_missing",
+              message: `${BILLING_FOUNDATION_FEATURE}: mount the route with a :providerName path-param so each provider has its own URL (Stripe-Dashboard → /stripe, PayPal-Dashboard → /paypal).`,
+            },
           },
-        },
-        400,
-      );
-    }
-
-    // 2. Raw-body. Provider-Sigs werden gegen die exakten bytes verifiziert.
-    const rawBody = await c.req.text();
-    const headers: Record<string, string> = {};
-    c.req.raw.headers.forEach((value, key) => {
-      headers[key.toLowerCase()] = value;
-    });
-
-    // 3. Plugin-Lookup via path-segment. Jeder gemountete Plugin hat
-    //    sich mit `r.useExtension("subscriptionProvider", entityName,
-    //    {...})` registriert; entityName matcht hier den path-segment.
-    const plugin = deps.resolveProvider(providerName);
-    if (!plugin) {
-      return c.json(
-        {
-          error: {
-            code: "subscription_provider_not_registered",
-            message: `${BILLING_FOUNDATION_FEATURE}: provider "${providerName}" not registered as '${SUBSCRIPTION_PROVIDER_EXTENSION}'-plugin. Mount the matching subscription-${providerName} feature.`,
+          "subscription webhook route mounted without :providerName",
+        );
+      }
+      const plugin = resolveProvider(deps.registry, providerName);
+      if (!plugin) {
+        throw new ExtraRouteRejection(
+          404,
+          {
+            error: {
+              code: "subscription_provider_not_registered",
+              message: `${BILLING_FOUNDATION_FEATURE}: provider "${providerName}" not registered as '${SUBSCRIPTION_PROVIDER_EXTENSION}'-plugin. Mount the matching subscription-${providerName} feature.`,
+            },
           },
-        },
-        404,
-      );
-    }
-
-    // 4. Plugin verifies + parses. **Pre-tenant-resolution** — kein
-    //    ctx, Plugin liest seinen webhook-secret aus eigener
-    //    module-load-Closure (ENV-VAR oder system-config).
-    //    Throws on sig-mismatch — wir mappen auf 401 (= "config-bug,
-    //    retry won't help, Provider stopp").
-    let parsed: Awaited<ReturnType<SubscriptionProviderPlugin["verifyAndParseWebhook"]>>;
-    try {
-      parsed = await plugin.verifyAndParseWebhook(rawBody, headers, deps.systemSecrets);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      return c.json(
-        {
-          error: {
-            code: "subscription_webhook_signature_invalid",
-            message: `Plugin "${providerName}" rejected webhook: ${msg}`,
+          `subscription provider "${providerName}" not registered`,
+        );
+      }
+      // Throws on sig-mismatch — the ExtraRoute wrapper maps any non-
+      // ExtraRouteRejection throw to 401 extra_route_signature_invalid
+      // (= config-bug, retry won't help, provider stop).
+      const event = await plugin.verifyAndParseWebhook(rawBody, headers, deps.secrets);
+      return { providerName, event };
+    },
+    handler: async (c: Context, verified, deps) => {
+      if (verified.event === null) {
+        return c.json({ ignored: true }, 200);
+      }
+      const parsed = verified.event;
+      const tenantId = parsed.tenantId as import("@cosmicdrift/kumiko-framework/engine").TenantId;
+      if (parsed.kind === BillingEventKinds.payment) {
+        const dispatched = await deps.dispatchSystemWrite({
+          handlerQn: SubscriptionFoundationHandlers.processPaymentEvent,
+          tenantId,
+          payload: {
+            providerEventId: parsed.providerEventId,
+            providerName: parsed.providerName,
+            providerCustomerId: parsed.providerCustomerId,
+            priceId: parsed.priceId,
+            rawPayload: parsed.rawPayload,
           },
-        },
-        401,
-      );
-    }
-
-    // 5. Plugin returned null = "ich kenne diesen event-type nicht / ist
-    //    nicht relevant". 200 OK damit der Provider keine retries macht.
-    if (parsed === null) {
-      return c.json({ ignored: true }, 200);
-    }
-
-    // 6. Dispatch to the type-matching write-handler. Payment-events (own
-    //    aggregate, own `read_payments`-row) go to process-payment-event;
-    //    everything else (kind is undefined or "subscription") keeps going
-    //    through process-event, unchanged. Every handler handles idempotency
-    //    internally via deterministic aggregate-id + stream-scan.
-    if (parsed.kind === BillingEventKinds.payment) {
-      const dispatched = await deps.dispatchWrite({
-        handlerQn: SubscriptionFoundationHandlers.processPaymentEvent,
-        tenantId: parsed.tenantId,
+        });
+        return respondFromDispatch(
+          c,
+          dispatched.isSuccess && options.afterDispatch
+            ? await options.afterDispatch(dispatched, tenantId, deps)
+            : dispatched,
+          "subscription_payment_webhook_processing_failed",
+          "Internal error processing payment event",
+        );
+      }
+      const dispatched = await deps.dispatchSystemWrite({
+        handlerQn: SubscriptionFoundationHandlers.processEvent,
+        tenantId,
         payload: {
           providerEventId: parsed.providerEventId,
           providerName: parsed.providerName,
+          type: parsed.type,
           providerCustomerId: parsed.providerCustomerId,
-          priceId: parsed.priceId,
+          providerSubscriptionId: parsed.providerSubscriptionId,
+          status: parsed.status,
+          tier: parsed.tier,
+          currentPeriodEndIso: parsed.currentPeriodEnd,
           rawPayload: parsed.rawPayload,
         },
       });
       return respondFromDispatch(
         c,
-        dispatched,
-        "subscription_payment_webhook_processing_failed",
-        "Internal error processing payment event",
+        dispatched.isSuccess && options.afterDispatch
+          ? await options.afterDispatch(dispatched, tenantId, deps)
+          : dispatched,
+        "subscription_webhook_processing_failed",
+        "Internal error processing subscription event",
       );
-    }
-
-    const dispatched = await deps.dispatchWrite({
-      handlerQn: SubscriptionFoundationHandlers.processEvent,
-      tenantId: parsed.tenantId,
-      payload: {
-        providerEventId: parsed.providerEventId,
-        providerName: parsed.providerName,
-        type: parsed.type,
-        providerCustomerId: parsed.providerCustomerId,
-        providerSubscriptionId: parsed.providerSubscriptionId,
-        status: parsed.status,
-        tier: parsed.tier,
-        currentPeriodEndIso: parsed.currentPeriodEnd,
-        rawPayload: parsed.rawPayload,
-      },
-    });
-    return respondFromDispatch(
-      c,
-      dispatched,
-      "subscription_webhook_processing_failed",
-      "Internal error processing subscription event",
-    );
-  };
+    },
+  });
 }
 
 /** Shared 500/200-mapping for both dispatch branches above. Internal error →
  *  provider should retry, hence 500 instead of 401/404 (transient, not a config-bug). */
 function respondFromDispatch(
   c: Context,
-  dispatched: Awaited<ReturnType<SubscriptionWebhookDeps["dispatchWrite"]>>,
+  dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
   errorCode: string,
   errorMessage: string,
 ): Response {
@@ -219,13 +159,3 @@ function respondFromDispatch(
   }
   return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200); // @cast-boundary engine-bridge
 }
-
-/**
- * Convenience für TypeScript-IDE: `Hono.post(...)`-Call-Type damit der
- * App-Owner-Code typed bleibt ohne Hono-types zu importieren.
- */
-export type SubscriptionWebhookHandler = ReturnType<typeof createSubscriptionWebhookHandler>;
-
-// Re-export für convenience: App-Owner kann den TenantId-type aus dem
-// gleichen Modul importieren (vermeidet ein zweites Framework-import).
-export type { Hono, TenantId };
