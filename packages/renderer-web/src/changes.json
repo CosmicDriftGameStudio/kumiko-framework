@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.297.0",
+    "type": "improvement",
+    "title": "NavIconKey gains \"image\"",
+    "detail": "The icon vocabulary had no picture icon, so a photos action or nav entry had to\nborrow `file` or `folder`. `\"image\"` maps to lucide's `ImageIcon` in the web\nrenderer."
+  },
+  {
     "version": "0.290.0",
     "type": "fix",
     "title": "DetailList sizes its label column from the container",

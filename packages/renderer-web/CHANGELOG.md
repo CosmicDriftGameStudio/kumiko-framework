@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.297.0
+
+### Minor Changes
+
+- f20a9d6: `NavIconKey` gains `"image"`
+
+  The icon vocabulary had no picture icon, so a photos action or nav entry had to
+  borrow `file` or `folder`. `"image"` maps to lucide's `ImageIcon` in the web
+  renderer.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: NavIconKey gains "image"
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-renderer@0.297.0
+- @cosmicdrift/kumiko-headless@0.297.0
+- @cosmicdrift/kumiko-dispatcher-live@0.297.0
+
 ## 0.296.0
 
 ### Patch Changes
