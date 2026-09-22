@@ -136,6 +136,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Each entry is its own required branch-protection check `tz-matrix (<tz>)`:
+        # edit this list only together with the protection, or PRs wait forever
+        # on a removed zone and an added one silently gates nothing.
         tz:
           - America/Los_Angeles
           - Europe/Berlin
@@ -294,8 +297,8 @@ jobs:
           MOLLIE_API_KEY: test_smoke
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Bundle smoke (Empfehlung 4)" -- bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
-  # Non-blocking: nicht in release.needs, nicht in Branch-Protection → der
-  # required `test`-Check bleibt unberührt. Fährt die ~213
+  # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
+  # umbenennen. Fährt die ~213
   # *.integration.test.ts via scripts/run-integration-tests.ts (dir-by-dir,
   # concurrency=1) gegen den vollen Stack. Wall-clock perf gates laufen
   # separat via `test:integration:perf` (KUMIKO_PERF_GATE=1). Der env-Preload von @cosmicdrift/kumiko-testing
@@ -422,7 +425,7 @@ jobs:
           docker network rm kumiko-ci || true
 
   # Event-store latency gate (#1940), isolated in its own job (removes bulk-suite contention) and gated on p95 not p99 — cold-Postgres warm-up alone spikes p99 to 47-73ms even fully isolated.
-  # Fails loudly on its own red X, but is NOT in release.needs or branch protection yet — wiring it in is a separate repo-admin change.
+  # The job name is a required branch-protection check: rename only together with it.
   event-store-perf:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -483,11 +486,9 @@ jobs:
         if: always()
         run: docker rm -f kumiko-ci-pg || true
 
-  # Non-blocking (wie integration): nicht in release.needs, nicht in
-  # Branch-Protection. Fährt die 12 vorhandenen Playwright-e2e-Suiten
-  # (e2e/hero-demos, packages/renderer-web/e2e, samples/apps/*,
-  # samples/recipes/apex-landing) sequenziell gegen denselben Stack wie
-  # integration (pg/redis/meili/minio) — liefen vorher nie in CI.
+  # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
+  # umbenennen. Fährt die Playwright-e2e-Suiten aus der Liste unten
+  # sequenziell gegen pg/redis/meili.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -541,8 +542,7 @@ jobs:
 
       - name: Run e2e suites
         # Sequenziell (eigene webServer-Ports pro Suite, kein Parallel-Bedarf).
-        # Erste Aktivierung — Fehler sind erwartbar (Drift, nie in CI
-        # gelaufen); Job ist non-blocking, Summary zählt nur mit.
+        # Alle Suites laufen durch, eine rote Suite macht den Job am Ende rot.
         env:
           CI: "true"
           NODE_ENV: test
@@ -667,7 +667,7 @@ jobs:
           git push -f origin badges-tmp:badges
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, use-all-bundled-smoke]
+    needs: [test, use-all-bundled-smoke, integration, e2e, tz-matrix, event-store-perf]
     # github-hosted: npm akzeptiert sigstore-provenance-attestations nur von
     # github-hosted runners (HTTP 422 sonst). Public Repo → alle Jobs github-
     # hosted (gratis); cdgs-runner wird hier nicht mehr genutzt.
