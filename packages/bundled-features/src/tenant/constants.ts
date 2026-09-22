@@ -52,6 +52,9 @@ export const TenantQueries = {
   // Label source for `user:user` reference columns — see
   // REFERENCE_LOOKUP_SOURCES in the framework's ui-types.
   memberDirectory: "tenant:query:member-directory",
+  // Label source for `tenant:tenant` reference columns — see
+  // REFERENCE_LOOKUP_SOURCES in the framework's ui-types.
+  tenantDirectory: "tenant:query:tenant-directory",
   activeTenantIds: "tenant:query:active-tenant-ids",
   resolveUserIds: "tenant:query:resolve-user-ids",
   // Pending Invitations für den aktuellen Tenant (Admin-UI-Liste).

@@ -10,14 +10,11 @@ import { z } from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { userTable } from "../../user";
 import { tenantMembershipsTable } from "../membership-table";
+import { isSystemAdmin } from "./is-system-admin";
 
 // Shares the KMS adapter's small dedicated pool, same rationale as
 // members.query.ts.
 const KMS_POOL_CONCURRENCY = 4;
-
-function isSystemAdmin(roles: readonly string[]): boolean {
-  return access.systemAdmin.some((role) => roles.includes(role));
-}
 
 async function loadMemberUserIds(db: TenantDb, tenantId: string): Promise<readonly string[]> {
   const memberships = await selectMany(db, tenantMembershipsTable, { tenantId });
@@ -54,7 +51,7 @@ export const memberDirectoryQuery = definePagedQueryHandler({
     }
     const { limit } = query.payload;
     let users: readonly { id: unknown; displayName?: unknown }[];
-    if (isSystemAdmin(query.user.roles)) {
+    if (isSystemAdmin(query.user)) {
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as user:query:user:list did",
       );

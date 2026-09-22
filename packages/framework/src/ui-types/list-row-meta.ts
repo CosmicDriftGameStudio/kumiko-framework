@@ -32,9 +32,9 @@ export type ListRowMetaReference = {
   readonly refLabelField: string;
 };
 
-// tenantId would otherwise render the raw GUID; the lookup query is
-// `tenant:query:tenant:list`, cross-tenant because the feature is
-// `r.systemScope()`.
+// tenantId would otherwise render the raw GUID; the lookup query is resolved
+// through REFERENCE_LOOKUP_SOURCES (tenant-directory), not the
+// entity-convention `tenant:query:tenant:list`.
 // ponytail: bulk lookup is capped at REFERENCE_LIST_LOOKUP_LIMIT (200) —
 // above that, rows fall back to the GUID; paginate the lookup if an install
 // ever exceeds it.
@@ -56,8 +56,15 @@ export type ReferenceLookupSource = {
 // `tenants` join must not reach a TenantAdmin, so it stays SystemAdmin-only and
 // the label lookup goes through the member directory instead: own-tenant
 // members for an admin, every user for a SystemAdmin (fw#3107).
+//
+// tenant:tenant — the convention QN, `tenant:query:tenant:list`, is a
+// SystemAdmin-only entity-list handler, so a TenantAdmin got a 403 and every
+// tenant cell fell back to the raw UUID. The label lookup goes through the
+// tenant directory instead: the caller's own tenant for an admin, every
+// tenant for a SystemAdmin (fw#3142).
 export const REFERENCE_LOOKUP_SOURCES: Readonly<Record<string, ReferenceLookupSource>> = {
   "user:user": { queryQn: "tenant:query:member-directory", labelKey: "label" },
+  "tenant:tenant": { queryQn: "tenant:query:tenant-directory", labelKey: "label" },
 };
 
 export type SystemReferenceLabel = {
