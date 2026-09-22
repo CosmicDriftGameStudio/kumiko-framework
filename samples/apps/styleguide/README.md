@@ -6,6 +6,17 @@ Elevation, Spacing), atomare Primitives (Buttons, Cards, Inputs) und das
 ModeSwitch, …). Zugleich die e2e-Renderfläche der Widgets — wer ein
 Widget ändert, sieht hier sofort, ob es überall noch stimmt.
 
+## The UI catalog to open before you design a screen
+
+The styleguide is Kumiko's visual design reference. It shows the pieces an app
+can reuse, the states they support, and how the same visual language works in a
+custom screen and in a declarative dashboard.
+
+The catalog covers foundations, primitives, widgets, forms, and complete
+composition examples. Use it as a design guild: choose an existing primitive
+or widget before inventing a new one, then compare the custom and declarative
+implementations. App UI guards enforce the same discipline in app repositories.
+
 Zwei Widget-Seiten zeigen dieselben Bausteine auf beiden Wegen:
 
 - **`/widgets`** — der Katalog als Custom-Screen: jedes Widget direkt
