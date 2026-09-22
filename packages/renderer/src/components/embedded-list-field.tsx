@@ -11,9 +11,9 @@ import {
   sumEmbeddedListColumn,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useState } from "react";
-import { toKebab } from "../app/qn";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
+import { referenceLookupSource } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
 import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives";
 import { usePrimitives } from "../primitives";
@@ -148,15 +148,21 @@ export function EmbeddedListField({
   const derived = field.embeddedListDerived;
 
   const referenceCells = cells.filter((c) => c.type === "reference");
-  const referenceQueries = referenceCells.map((cell) => {
-    const refFeature = cell.refFeature ?? featureName;
-    const refEntity = cell.refEntity ?? "";
-    const qn = cell.refOptionsQuery ?? `${toKebab(refFeature)}:query:${toKebab(refEntity)}:list`;
+  const referenceSources = referenceCells.map((cell) =>
+    cell.refOptionsQuery !== undefined
+      ? { queryQn: cell.refOptionsQuery, labelKey: "label" }
+      : referenceLookupSource(
+          cell.refFeature ?? featureName,
+          cell.refEntity ?? "",
+          cell.refLabelField ?? "id",
+        ),
+  );
+  const referenceQueries = referenceSources.map((source) =>
     // biome-ignore lint/correctness/useHookAtTopLevel: referenceCells comes from the entity-schema definition — fixed for the screen's lifetime, not a real conditional-hook risk.
-    return useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(qn, {
+    useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(source.queryQn, {
       limit: REFERENCE_COMBOBOX_LIMIT,
-    });
-  });
+    }),
+  );
 
   if (EmbeddedListInput === undefined) return null;
 
@@ -165,7 +171,7 @@ export function EmbeddedListField({
     if (cell.type === "reference") {
       const idx = referenceCells.indexOf(cell);
       const query = referenceQueries[idx];
-      const labelKey = cell.refOptionsQuery !== undefined ? "label" : (cell.refLabelField ?? "id");
+      const labelKey = referenceSources[idx]?.labelKey ?? "id";
       const referenceOptions = (query?.data?.rows ?? []).map((row) => ({
         value: String(row["id"] ?? ""),
         label: String(row[labelKey] ?? row["id"] ?? ""),

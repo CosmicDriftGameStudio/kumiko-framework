@@ -42,6 +42,24 @@ export const LIST_ROW_META_REFERENCES: Readonly<Record<string, ListRowMetaRefere
   tenantId: { refFeature: "tenant", refEntity: "tenant", refLabelField: "name" },
 };
 
+export type ReferenceLookupSource = {
+  readonly queryQn: string;
+  readonly labelKey: string;
+};
+
+// Overrides the `<refFeature>:query:<refEntity>:list` convention the renderer
+// otherwise derives for a reference lookup. Keyed by `${refFeature}:${refEntity}`
+// like SYSTEM_REFERENCE_LABELS, so the override holds for every screen that
+// references the entity instead of each one re-declaring it.
+//
+// user:user — the convention QN is a SystemAdmin cross-tenant roster whose
+// `tenants` join must not reach a TenantAdmin, so it stays SystemAdmin-only and
+// the label lookup goes through the member directory instead: own-tenant
+// members for an admin, every user for a SystemAdmin (fw#3107).
+export const REFERENCE_LOOKUP_SOURCES: Readonly<Record<string, ReferenceLookupSource>> = {
+  "user:user": { queryQn: "tenant:query:member-directory", labelKey: "label" },
+};
+
 export type SystemReferenceLabel = {
   readonly id: string;
   readonly labelKey: string;

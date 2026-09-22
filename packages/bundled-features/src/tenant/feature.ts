@@ -16,6 +16,7 @@ import { createWrite } from "./handlers/create.write";
 import { invitationsQuery } from "./handlers/invitations.query";
 import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
+import { memberDirectoryQuery } from "./handlers/member-directory.query";
 import { membersQuery } from "./handlers/members.query";
 import { membershipsQuery } from "./handlers/memberships.query";
 import { removeMemberWrite } from "./handlers/remove-member.write";
@@ -132,6 +133,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
       list: r.queryHandler(listQuery),
       memberships: r.queryHandler(membershipsQuery),
       members: r.queryHandler(membersQuery),
+      memberDirectory: r.queryHandler(memberDirectoryQuery),
       activeTenantIds: r.queryHandler(activeTenantIdsQuery),
       resolveUserIds: r.queryHandler(resolveUserIdsQuery),
       invitations: r.queryHandler(invitationsQuery),
