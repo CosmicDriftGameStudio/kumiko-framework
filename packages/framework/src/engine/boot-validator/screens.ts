@@ -1010,7 +1010,17 @@ export function validateScreens(
         );
       }
       for (const col of screen.columns) {
-        validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
+        const normalizedCol = normalizeListColumn(col);
+        validateColumnRendererForm(feature.name, screenId, normalizedCol);
+        if (normalizedCol.refEntity !== undefined) {
+          assertRefTargetRegistered(
+            `[Feature ${feature.name}] Screen "${screenId}" (projectionList)`,
+            `column "${normalizedCol.field}" (refEntity)`,
+            normalizedCol.refEntity,
+            feature.name,
+            featureMap,
+          );
+        }
       }
       // Screen filter (fw#2224) — field existence can't be checked without
       // an entity (columns aren't a complete field inventory of the
@@ -1196,6 +1206,18 @@ export function validateScreens(
                 `(relatedList) has empty or non-string query.`,
             );
           }
+          for (const col of section.columns) {
+            const normalizedCol = normalizeListColumn(col);
+            if (normalizedCol.refEntity !== undefined) {
+              assertRefTargetRegistered(
+                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" (relatedList)`,
+                `column "${normalizedCol.field}" (refEntity)`,
+                normalizedCol.refEntity,
+                feature.name,
+                featureMap,
+              );
+            }
+          }
           if (screen.layout.mode === "wizard") {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
@@ -1361,6 +1383,18 @@ export function validateScreens(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail)`,
           section,
         );
+        for (const fieldSpec of sectionFieldSpecs(section)) {
+          const normalizedField = normalizeEditField(fieldSpec);
+          if (normalizedField.refEntity !== undefined) {
+            assertRefTargetRegistered(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail)`,
+              `field "${normalizedField.field}" (refEntity)`,
+              normalizedField.refEntity,
+              feature.name,
+              featureMap,
+            );
+          }
+        }
       }
       // Header actions reuse RowAction (the displayed record stands in for
       // the row), so the same navigate/writeHandler existence checks as
@@ -2196,6 +2230,30 @@ export function validateColumnRendererForm(
   }
 }
 
+// Shared entity-target resolution for reference facets, refEntity columns
+// (projectionList/relatedList) and refEntity fields (projectionDetail).
+function assertRefTargetRegistered(
+  prefix: string,
+  subject: string,
+  refTarget: string,
+  currentFeatureName: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const target = parseRefTarget(refTarget, currentFeatureName);
+  const targetFeature = featureMap.get(target.featureName);
+  if (targetFeature?.entities?.[target.entityName] === undefined) {
+    throw new Error(
+      `${prefix} ${subject} targets entity "${refTarget}", which does not resolve to a ` +
+        `registered entity. Known entities in feature "${target.featureName}": ` +
+        `${
+          Object.keys(targetFeature?.entities ?? {})
+            .sort()
+            .join(", ") || "(none)"
+        }.`,
+    );
+  }
+}
+
 // Facets (fw#2224) — unlike filter, a field inventory IS available here: the
 // declared columns. A facet on a field with no column is almost always a
 // typo (the user never sees the field anywhere), so this is hard-checked
@@ -2241,20 +2299,13 @@ function validateListFacets(
       );
     }
     if (facet.type === "reference") {
-      const target = parseRefTarget(facet.entity, currentFeatureName);
-      const targetFeature = featureMap.get(target.featureName);
-      if (targetFeature?.entities?.[target.entityName] === undefined) {
-        throw new Error(
-          `${prefix} facet "${facet.field}" (type "reference") targets entity "${facet.entity}", ` +
-            `which does not resolve to a registered entity. Known entities in feature ` +
-            `"${target.featureName}": ` +
-            `${
-              Object.keys(targetFeature?.entities ?? {})
-                .sort()
-                .join(", ") || "(none)"
-            }.`,
-        );
-      }
+      assertRefTargetRegistered(
+        prefix,
+        `facet "${facet.field}" (type "reference")`,
+        facet.entity,
+        currentFeatureName,
+        featureMap,
+      );
     }
   }
 }
