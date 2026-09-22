@@ -11,7 +11,8 @@
 -- read_users
 -- managed projection — recreated + rebuilt from events (see .rebuild.json)
 -- WARN: destructive change (new UNIQUE index(es): read_users_email_unique, read_users_email_unique_bidx) forces DROP+CREATE + full event replay.
--- Consider an Expand/Contract split across two releases to avoid the rebuild — see docs/guides/expand-contract-managed-projections.md.
+-- Consider an Expand/Contract split across two releases to avoid the rebuild;
+-- see the expand/contract migration guide.
 DROP TABLE IF EXISTS "read_users";
 CREATE TABLE IF NOT EXISTS "read_users" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

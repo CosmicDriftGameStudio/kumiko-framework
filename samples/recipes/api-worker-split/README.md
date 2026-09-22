@@ -32,7 +32,7 @@ Requires Postgres + Redis (env: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`).
 
 ```bash
 bun install
-bun run schema:apply        # creates infra + entity tables (kumiko/migrations)
+bun run schema:apply        # creates framework + entity tables (kumiko/migrations)
 bun run api                 # terminal 1 — HTTP + enqueue
 bun run worker              # terminal 2 — consumes jobs, applies projections
 ```

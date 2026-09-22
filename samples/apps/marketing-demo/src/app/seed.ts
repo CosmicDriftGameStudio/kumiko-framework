@@ -24,7 +24,7 @@ import {
 } from "./seed-data";
 
 // YYYY-MM-DD-Helper über Temporal.PlainDate — Date-API ist im Repo per
-// No-Date-API-Guard verboten (siehe docs/plans/architecture/timezones.md).
+// No-Date-API-Guard verboten.
 function formatPlainDate(year: number, month: number, day: number): string {
   return Temporal.PlainDate.from({ year, month, day }).toString();
 }

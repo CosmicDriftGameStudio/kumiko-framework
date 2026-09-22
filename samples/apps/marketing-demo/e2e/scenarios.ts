@@ -1,4 +1,4 @@
-// Marketing-Screenshot-Szenarien für die kumiko.rocks-Site.
+// Marketing-Screenshot-Szenarien.
 //
 // Jeder Case ist eine bewusste Marketing-Story — beweist eine USP
 // visuell. Neuer Eintrag = neues PNG beim nächsten `bun screenshots`.
