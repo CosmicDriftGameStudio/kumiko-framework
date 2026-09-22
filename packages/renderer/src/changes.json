@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.296.0",
+    "type": "improvement",
+    "title": "entityEdit accepts layout.mode \"tabs\" (fw#3134)",
+    "detail": "A long edit form no longer has to choose between one endless page\n(`mode: \"single\"`) and a forced walk through every step (`mode: \"wizard\"`).\nTabs were rejected at boot because a required field on a hidden tab would block\nsubmit with nothing on screen to explain it.\nWhat resolves that is not scoping validation to the active tab — that would\nskip the field instead of showing it — but the opposite: every tab stays\nmounted, one submit validates across all of them, and a field error activates\nthe tab holding it. Values from a tab the user never opened travel with that\nsubmit. The tab strip needs the same per-tab `id` and title projectionDetail\nalready requires, now checked by a shared validator for both.\n`actionForm`, `configEdit` and `secretMint` still reject tabs: none of them has\na jump-to-erroring-tab path, so the silent-block failure would remain.\nThe tab is activated, not focused — focus would need a platform-specific call\nthis layer does not have. The error renders inline on the now-visible field.\nTwo side effects worth knowing before declaring a tabs layout: a section that\nomits `columns` defaults to 2 under tabs (the existing projectionDetail rule now\nalso reaches entityEdit), and the section title is dropped from the panel\nbecause the tab label already carries it.",
+    "migration": "Nothing to change: `single` and `wizard` behave as before. A screen that\nswitches to `mode: \"tabs\"` needs at least two sections, each with a title and\na kebab-case `id` — the same shape projectionDetail already requires. Two\ndefaults differ from `single` inside a tabs layout: a section that omits\n`columns` renders in 2 columns, and its title is dropped from the panel\nbecause the tab label carries it."
+  },
+  {
     "version": "0.292.0",
     "type": "fix",
     "title": "A projectionDetail metric is only clickable when its navigate target is reachable",

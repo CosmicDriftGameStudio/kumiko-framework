@@ -1,5 +1,112 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.296.0
+
+### Minor Changes
+
+- cb6e8a4: entityEdit accepts `layout.mode: "tabs"` (fw#3134)
+
+  A long edit form no longer has to choose between one endless page
+  (`mode: "single"`) and a forced walk through every step (`mode: "wizard"`).
+  Tabs were rejected at boot because a required field on a hidden tab would block
+  submit with nothing on screen to explain it.
+
+  What resolves that is not scoping validation to the active tab — that would
+  skip the field instead of showing it — but the opposite: every tab stays
+  mounted, one submit validates across all of them, and a field error activates
+  the tab holding it. Values from a tab the user never opened travel with that
+  submit. The tab strip needs the same per-tab `id` and title projectionDetail
+  already requires, now checked by a shared validator for both.
+
+  `actionForm`, `configEdit` and `secretMint` still reject tabs: none of them has
+  a jump-to-erroring-tab path, so the silent-block failure would remain.
+
+  The tab is activated, not focused — focus would need a platform-specific call
+  this layer does not have. The error renders inline on the now-visible field.
+
+  Two side effects worth knowing before declaring a tabs layout: a section that
+  omits `columns` defaults to 2 under tabs (the existing projectionDetail rule now
+  also reaches entityEdit), and the section title is dropped from the panel
+  because the tab label already carries it.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityEdit accepts layout.mode "tabs" (fw#3134)
+  migration: |
+    Nothing to change: `single` and `wizard` behave as before. A screen that
+    switches to `mode: "tabs"` needs at least two sections, each with a title and
+    a kebab-case `id` — the same shape projectionDetail already requires. Two
+    defaults differ from `single` inside a tabs layout: a section that omits
+    `columns` renders in 2 columns, and its title is dropped from the panel
+    because the tab label carries it.
+  -->
+
+- bfa7536: refEntity on projectionList/relatedList columns and projectionDetail fields is boot-checked against registered entities
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: refEntity on projectionList/relatedList columns and projectionDetail fields is boot-checked against registered entities
+  migration: |
+    A refEntity that does not resolve to a registered entity now fails boot with the target and the known entities of the target feature (same message as a reference facet). Fix the typo, or mount and r.requires() the target feature; test stacks booting a feature without its refEntity target feature must add it.
+  -->
+
+- 42b0562: kumiko schema apply can resolve the schema-declared Key Manager slots
+
+  `runSchemaCli`'s `apply` accepts a new `kmsSlots` option, passed straight through to `resolveKmsWiringAsync`'s `slots` for the rebuild-triggering KMS wiring. Given `kmsSlots`, `apply` resolves exactly those slots from their Key-Manager ciphertext (via `resolvePlatformKeks`); omitted, behavior is unchanged except that the source line it already logged now goes through the CLI's own `out.log` instead of `console.info`. `resolvePlatformKeks` will lose its three-platform-slot default in a later release, and only a caller that already passes its own slots stays unaffected when that happens. An app whose env schema declares its slots with `.meta({ kumiko: { kms: true } })` should pass `kmsSlots: kmsSlotsOf(<app>ComposedEnv.schema)` from its `bin/kumiko.ts` now. The framework core env schema does not declare `PLATFORM_KEK` / `PLATFORM_KEK_PREVIOUS` / `KUMIKO_BLIND_INDEX_KEY` as `kms` slots, so the scaffolded `bin/kumiko.ts` keeps relying on the default for now.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko schema apply can resolve the schema-declared Key Manager slots
+  -->
+
+- f042685: tenant-handover follows reference edges and nested levels, not just one level of parentRef
+
+  `resolveChildCandidates` knew exactly one edge kind: an entity's `parentRef`. An app whose graph hangs together through ordinary `{ type: "reference" }` fields got a silent partial handover — the root row moved and its children stayed in the source tenant. `parentRef` is also one level deep by construction, so even declaring it could not express a root → child → grandchild chain. Both together are the data loss kumiko-framework#3035 warns about, reachable without doing anything wrong.
+
+  The resolver now reads static adjacency off the declarations — which edges lead away from each type — and the mover drives the traversal from the rows it moves. An entity is reached when it declares a `parentRef` naming a type in the graph, or a single-valued `reference` field pointing at one. Every batch of rows that actually changed hands becomes the parent ids for the edges leading away from its type, so the same edge runs again whenever a later round discovers more rows of its parent type — what a type reachable by two paths of different length needs. The root is never collected as its own descendant, and a reference cycle terminates on row-level idempotency: every statement filters on the source tenant and returns only the rows it flipped, so a row enters the worklist exactly once. `transferable: true` remains the only gate on what actually moves.
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: improvement
+  title: Transfer graph follows reference edges and nested levels (fw#3088, fw#3131)
+  migration: |
+    A handover now moves rows it previously left behind. An entity with `transferable: true` that points at the handover root through a plain `reference` field was silently skipped before and travels with the root from this version on, and so does anything hanging off that entity, up to five hops from the root. A type that two paths of different length lead to has its descendants moved along both. Check every entity declaring `transferable: true` and confirm it should move with its host — an entity that should NOT travel needs `transferable` removed, which is also what the existing named `entity_not_transferable` error reports at claim time. Two new boot errors, both scoped to `transferable: true` entities only: a `multiple` reference on such an entity is rejected (its jsonb array cannot be matched by the mover, so its rows would be left behind), and a transferable reference chain longer than five edges is rejected with the offending path. The boot check measures transferable reference chains only, while the mover counts hops of both edge kinds, and it cannot measure a cycle at all, so for the shapes boot cannot see the mover carries the same guarantee at claim time: rows still leading somewhere after five hops fail the claim with `transfer_graph_too_deep` and roll the whole handover back, rather than moving part of it.
+  -->
+
+### Patch Changes
+
+- d8cdd8a: Tenant reference columns show display names for TenantAdmins, not only SystemAdmins (fw#3142)
+
+  Every `tenant:tenant` reference (the delivery-log tenantId column, `LIST_ROW_META_REFERENCES.tenantId`, and any screen that references a tenant) resolved its label through the entity-convention query `tenant:query:tenant:list`. That handler is a SystemAdmin-only entity-list handler, so a TenantAdmin got a 403 and every cell fell back to the raw UUID.
+
+  The entity-convention handler stays SystemAdmin-only. Instead the new `tenant:query:tenant-directory` (`access.admin`) returns just `{ id, label }` pairs: an admin gets their own tenant, a SystemAdmin keeps the global reach of `tenant:query:tenant:list`. The query is not exposed to agents. The central `REFERENCE_LOOKUP_SOURCES` map in `@cosmicdrift/kumiko-framework/ui-types` now routes `tenant:tenant` lookups there, the same way it already routes `user:user` lookups to the member directory (fw#3107).
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Tenant reference columns show display names for TenantAdmins (fw#3142)
+  migration: No code change needed. A `tenant:tenant` reference picker or column in an edit form or list now shows a non-SystemAdmin their own tenant's name instead of failing with a 403 and falling back to the raw id. Set `optionsQuery` on the reference field if a screen needs a different source.
+  -->
+
+- 3c34575: User reference columns show display names for TenantAdmins, not only SystemAdmins (fw#3107)
+
+  Every `user:user` reference (the audit-log actor, the sessions user column, their detail screens) resolved its label through the entity-convention query `user:query:user:list`. That handler is the SystemAdmin cross-tenant user roster, so a TenantAdmin got a 403 and every cell fell back to the raw UUID — in practice every tenant admin reading their own audit log.
+
+  The roster stays SystemAdmin-only: its `tenants` column joins every membership of a user and would expose foreign tenant names. Instead the new `tenant:query:member-directory` (`access.admin`) returns just `{ id, label }` pairs — the display name, no email, no roles. An admin gets their own tenant's members; a SystemAdmin keeps the global reach the roster gave them, so operator actions in tenants they are no member of still resolve. The query is not exposed to agents. The new central `REFERENCE_LOOKUP_SOURCES` map in `@cosmicdrift/kumiko-framework/ui-types` routes `user:user` lookups there, the same way `SYSTEM_REFERENCE_LABELS` already applies per referenced entity. The list lookup, the read-only detail value, the reference combobox and embedded-list reference cells all consult it; a reference field's own `optionsQuery` still wins.
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: User reference columns show display names for TenantAdmins (fw#3107)
+  migration: No code change needed. Two behavior shifts to be aware of: for a non-SystemAdmin, a `user:user` reference picker in an edit form now offers the active tenant's members (it used to fail with a 403 and stay empty) — set `optionsQuery` on the reference field if a screen needs a different source. And a `user:user` label now only resolves when the `tenant` feature is mounted. In an app that mounts `sessions` without `tenant`, a SystemAdmin — who used to see names there — now sees the raw id, the same fallback a TenantAdmin got before; mount `createTenantFeature()` to get names back.
+  -->
+
+  - @cosmicdrift/kumiko-http@0.296.0
+  - @cosmicdrift/kumiko-types@0.296.0
+
 ## 0.295.0
 
 ### Patch Changes

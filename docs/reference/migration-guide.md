@@ -2,13 +2,27 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-19
+verified: 2026-09-22
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.296.0
+
+### delivery
+
+**delivery requires tenant**
+
+**Migration:** delivery now declares r.requires("tenant") because its delivery-log screen references tenant:tenant. Stacks that mount delivery must also mount createTenantFeature() (and its config dependency).
+
+### framework-core
+
+**refEntity on projectionList/relatedList columns and projectionDetail fields is boot-checked against registered entities**
+
+**Migration:** A refEntity that does not resolve to a registered entity now fails boot with the target and the known entities of the target feature (same message as a reference facet). Fix the typo, or mount and r.requires() the target feature; test stacks booting a feature without its refEntity target feature must add it.
 
 ## 0.291.0
 
