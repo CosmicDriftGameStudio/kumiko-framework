@@ -91,6 +91,11 @@ export type RunSchemaCliOptions = {
    *  tables a freshly applied migration changed (via its `.rebuild.json`
    *  marker). Omitted (dev `kumiko schema`) → no rebuild, migrations only. */
   readonly features?: readonly FeatureDefinition[];
+  /** Schema-declared Key Manager slots, typically `kmsSlotsOf(composedEnv.schema)`.
+   *  This CLI parses no env schema, so `apply`'s KMS wiring cannot derive them
+   *  itself; omitted, `resolvePlatformKeks` (inside `resolveKmsWiringAsync`)
+   *  falls back to its own default. */
+  readonly kmsSlots?: readonly string[];
 };
 
 /**
@@ -361,6 +366,8 @@ export async function runSchemaCli(
           // the row (fw#3091).
           wiring = await resolveKmsWiringAsync(process.env, {
             logPrefix: "[kumiko schema apply]",
+            log: out.log,
+            ...(options.kmsSlots && { slots: options.kmsSlots }),
           });
           if ("kms" in wiring) {
             configurePiiSubjectKms(wiring.kms);
