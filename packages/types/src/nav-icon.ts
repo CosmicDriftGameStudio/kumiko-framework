@@ -88,7 +88,8 @@ export type NavIconKey =
   | "x-circle"
   | "loader"
   | "mic"
-  | "circle-stop";
+  | "circle-stop"
+  | "image";
 
 // Alias kept because the union stopped being nav-only — actions and fields
 // (added on this branch) also key their icons against it.

@@ -45,6 +45,7 @@ import {
   Gauge,
   Hash,
   Home,
+  ImageIcon,
   Info,
   KeyRound,
   Languages,
@@ -181,6 +182,7 @@ export const NAV_ICONS = {
   loader: Loader2,
   mic: Mic,
   "circle-stop": CircleStop,
+  image: ImageIcon,
 } as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
 
 // Widened alias for runtime lookups against the plain `string` icon keys
