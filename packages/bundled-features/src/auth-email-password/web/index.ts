@@ -18,6 +18,7 @@ export type {
   VerifyEmailFailure,
 } from "./auth-client";
 export {
+  AuthRequestError,
   confirmAccountUnlock,
   confirmSignup,
   requestAccountUnlock,
@@ -54,8 +55,10 @@ export type { RequestAccountUnlockScreenProps } from "./request-account-unlock-s
 export { RequestAccountUnlockScreen } from "./request-account-unlock-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
-export type { SessionApi, SessionState, SessionStatus } from "./session";
+export type { SessionApi, SessionBootstrapFailure, SessionState, SessionStatus } from "./session";
 export { hasLikelyAuthSession, SessionContext, SessionProvider, useSession } from "./session";
+export type { SessionBootstrapErrorScreenProps } from "./session-bootstrap-error";
+export { retryDelayMs, SessionBootstrapErrorScreen } from "./session-bootstrap-error";
 export type { SignupCompleteScreenProps } from "./signup-complete-screen";
 export { SignupCompleteScreen } from "./signup-complete-screen";
 export type { SignupScreenProps } from "./signup-screen";

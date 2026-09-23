@@ -232,6 +232,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.resetPassword.successTitle": "Passwort gesetzt",
   "auth.resetPassword.title": "Neues Passwort setzen",
   "auth.resetPassword.tooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
+  "auth.sessionBootstrap.errorBody":
+    "Der Server war nicht erreichbar oder hat einen Fehler gemeldet. Bitte erneut versuchen.",
+  "auth.sessionBootstrap.errorTitle": "Sitzung konnte nicht geladen werden",
+  "auth.sessionBootstrap.rateLimitedBody":
+    "Zu viele Anfragen in kurzer Zeit. Bitte kurz warten und erneut versuchen.",
+  "auth.sessionBootstrap.retry": "Erneut versuchen",
+  "auth.sessionBootstrap.retrying": "Wird erneut versucht …",
   "auth.signup.email": "E-Mail",
   "auth.signup.haveAccount": "Bereits einen Account? Anmelden",
   "auth.signup.intro":

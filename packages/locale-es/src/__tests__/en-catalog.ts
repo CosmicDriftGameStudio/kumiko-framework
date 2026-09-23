@@ -224,6 +224,13 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.resetPassword.successTitle": "Password set",
   "auth.resetPassword.title": "Set new password",
   "auth.resetPassword.tooShort": "Password must be at least 8 characters.",
+  "auth.sessionBootstrap.errorBody":
+    "The server could not be reached or returned an error. Please try again.",
+  "auth.sessionBootstrap.errorTitle": "Couldn't load your session",
+  "auth.sessionBootstrap.rateLimitedBody":
+    "Too many requests in a short time. Please wait a moment and try again.",
+  "auth.sessionBootstrap.retry": "Try again",
+  "auth.sessionBootstrap.retrying": "Retrying…",
   "auth.signup.email": "Email",
   "auth.signup.haveAccount": "Already have an account? Sign in",
   "auth.signup.intro": "Enter your email. We'll send you an activation link to set your password.",

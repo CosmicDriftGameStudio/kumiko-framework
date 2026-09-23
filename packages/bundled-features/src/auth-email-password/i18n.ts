@@ -131,6 +131,13 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.inviteAccept.toggleExisting": "I already have an account",
     "auth.inviteAccept.missingToken": "The invitation link is missing or invalid.",
     "auth.inviteAccept.goToLogin": "Go to sign in",
+    "auth.sessionBootstrap.errorTitle": "Couldn't load your session",
+    "auth.sessionBootstrap.errorBody":
+      "The server could not be reached or returned an error. Please try again.",
+    "auth.sessionBootstrap.rateLimitedBody":
+      "Too many requests in a short time. Please wait a moment and try again.",
+    "auth.sessionBootstrap.retry": "Try again",
+    "auth.sessionBootstrap.retrying": "Retrying…",
     "auth.user.menu.label": "Account",
     "auth.user.menu.logout": "Sign out",
     "auth.tenant.switcher.label": "Tenant",

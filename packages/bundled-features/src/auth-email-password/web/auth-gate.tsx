@@ -12,6 +12,7 @@
 import { type ComponentType, type ReactNode, useEffect, useState } from "react";
 import { LoginScreen, type LoginScreenProps } from "./login-screen";
 import { SessionProvider, useSession } from "./session";
+import { SessionBootstrapErrorScreen } from "./session-bootstrap-error";
 
 // Generic — NOT auth-mfa's MfaVerifyScreenProps directly, so this feature
 // stays unaware of auth-mfa's concrete shape (same coupling direction as
@@ -65,7 +66,7 @@ export function createLoginRoute(
   const MfaSetupComponent = opts.mfaSetupScreen;
 
   function LoginRoute(): ReactNode {
-    const { status, refresh } = useSession();
+    const { status, refresh, bootstrapFailure } = useSession();
     const { onAuthenticated } = opts;
     // Pending challenge-token from LoginScreen's onMfaChallenge. Lives here
     // (not in SessionState) because it's a UI-only transition — the server
@@ -85,6 +86,9 @@ export function createLoginRoute(
       return (
         <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm" />
       );
+    }
+    if (status === "error" && bootstrapFailure !== null) {
+      return <SessionBootstrapErrorScreen failure={bootstrapFailure} onRetry={refresh} />;
     }
     // A standalone mount (no parent gate, no onAuthenticated wired — e.g. an
     // apex/marketing surface that just places <LoginRoute /> directly) has no

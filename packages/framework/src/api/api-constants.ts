@@ -101,6 +101,19 @@ export const BODY_LIMIT_OPT_OUT_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.files}`,
 ]);
 
+// authEndpointRateLimit (L2) exceptions, exact method+path match, no prefix/glob.
+// A forgotten entry here is safe (over-limited, not unlimited).
+export const AUTH_RATE_LIMIT_EXEMPT_ROUTES: ReadonlyArray<{
+  readonly method: string;
+  readonly path: string;
+}> = [{ method: "GET", path: `/api${Routes.authTenants}` }];
+
+export function isAuthRateLimitExempt(method: string, path: string): boolean {
+  return AUTH_RATE_LIMIT_EXEMPT_ROUTES.some(
+    (route) => route.method === method && route.path === path,
+  );
+}
+
 // Methods that can mutate server state. GET/HEAD/OPTIONS are safe under
 // CORS + SameSite-cookie semantics and skip the CSRF / Origin guards entirely.
 export const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set([

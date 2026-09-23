@@ -160,14 +160,17 @@ export type ServerOptions = {
   //     of the app process.
   //   - `auth`: gates a single path-pattern (default `/api/auth/*`)
   //     with tighter limits. Typically `limit: 5, windowSeconds: 60`
-  //     to slow brute-force without breaking real users.
+  //     to slow brute-force without breaking real users. GET /api/auth/tenants
+  //     (session read, called on every page load) is always exempt — see
+  //     AUTH_RATE_LIMIT_EXEMPT_ROUTES in api-constants.ts.
   // Both omitted → no L1/L2 wired and no resolver auto-built unless an
   // L3 handler declared `rateLimit:`. This keeps zero-cost when unused.
   rateLimit?: {
     readonly global?: Omit<GlobalIpRateLimitOptions, "resolver">;
     readonly auth?: Omit<AuthEndpointRateLimitOptions, "resolver"> & {
       // Path-pattern the L2 middleware applies to. Default `/api/auth/*`.
-      // Override for apps with a different auth route layout.
+      // Override for apps with a different auth route layout. The
+      // GET /api/auth/tenants exemption above applies regardless of `path`.
       readonly path?: string;
     };
   };

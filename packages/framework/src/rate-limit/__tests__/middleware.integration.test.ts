@@ -186,4 +186,44 @@ describe("authEndpointRateLimit (L2)", () => {
     const otherAcc = await reqA("user-b");
     expect(otherAcc.status).toBe(200);
   });
+
+  test("GET /api/auth/tenants is exempt (session read), but POST on the same path is not", async () => {
+    const app = new Hono();
+    app.use(
+      "/api/auth/*",
+      authEndpointRateLimit({ resolver, limit: 2, windowSeconds: 60, onFailClosed: () => {} }),
+    );
+    app.get("/api/auth/tenants", (c) => c.text("ok"));
+    app.post("/api/auth/tenants", (c) => c.text("ok"));
+    app.post("/api/auth/login", (c) => c.text("ok"));
+
+    const ipHeader = { "x-forwarded-for": "10.0.2.1" };
+
+    // 10 GETs — none consume the l2:ip:/api/auth/tenants bucket.
+    for (let i = 0; i < 10; i++) {
+      const res = await app.request("/api/auth/tenants", { headers: ipHeader });
+      expect(res.status).toBe(200);
+      // Exempt requests skip the resolver entirely — no rate-limit headers.
+      expect(res.headers.get("X-RateLimit-Limit")).toBeNull();
+    }
+
+    // A separate credential-endpoint bucket is untouched by the above.
+    await app.request("/api/auth/login", { method: "POST", headers: ipHeader });
+    await app.request("/api/auth/login", { method: "POST", headers: ipHeader });
+    const loginBlocked = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: ipHeader,
+    });
+    expect(loginBlocked.status).toBe(429);
+
+    // POST on the exempt path is method-exact, not path-exact — it still
+    // shares the ordinary ip+path bucket and trips at the same limit.
+    await app.request("/api/auth/tenants", { method: "POST", headers: ipHeader });
+    await app.request("/api/auth/tenants", { method: "POST", headers: ipHeader });
+    const postTenantsBlocked = await app.request("/api/auth/tenants", {
+      method: "POST",
+      headers: ipHeader,
+    });
+    expect(postTenantsBlocked.status).toBe(429);
+  });
 });

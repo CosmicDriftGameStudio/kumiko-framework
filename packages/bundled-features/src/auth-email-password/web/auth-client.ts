@@ -62,6 +62,26 @@ export function csrfHeader(): Record<string, string> {
   return token !== undefined ? { [CSRF_HEADER_NAME]: token } : {};
 }
 
+// Thrown by fetchTenants/fetchCurrentUser on a non-401 error status, distinguishable from a plain network failure by its status field.
+export class AuthRequestError extends Error {
+  readonly status: number;
+  readonly retryAfterSeconds: number | undefined;
+
+  constructor(message: string, status: number, retryAfterSeconds: number | undefined) {
+    super(message);
+    this.name = "AuthRequestError";
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+// Only a non-negative integer second count is usable; anything else is treated as absent.
+export function parseRetryAfterSeconds(header: string | null): number | undefined {
+  if (header === null) return undefined;
+  if (!/^\d+$/.test(header)) return undefined;
+  return Number(header);
+}
+
 // LoginResult mirrors the two-step login contract auth-routes.ts owns: a
 // straight success, an MFA challenge (auth-mfa mints the token), an
 // MFA-setup-required block (enforcement policy blocks an unenrolled user),
@@ -344,7 +364,13 @@ export async function fetchTenants(): Promise<{
     credentials: "same-origin",
   });
   if (res.status === 401) return null;
-  if (!res.ok) throw new Error(`auth/tenants failed: ${res.status}`);
+  if (!res.ok) {
+    throw new AuthRequestError(
+      `auth/tenants failed: ${res.status}`,
+      res.status,
+      parseRetryAfterSeconds(res.headers.get("Retry-After")),
+    );
+  }
   // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
   return (await res.json()) as {
     tenants: readonly TenantSummary[];
@@ -392,7 +418,13 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
     body: JSON.stringify({ type: "user:query:user:me", payload: {} }),
   });
   if (res.status === 401) return null;
-  if (!res.ok) throw new Error(`user:me failed: ${res.status}`);
+  if (!res.ok) {
+    throw new AuthRequestError(
+      `user:me failed: ${res.status}`,
+      res.status,
+      parseRetryAfterSeconds(res.headers.get("Retry-After")),
+    );
+  }
   // @cast-boundary engine-payload — HTTP-API contract, server-side schema-validated
   const body = (await res.json()) as {
     data?: {
