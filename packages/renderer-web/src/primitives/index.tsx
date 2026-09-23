@@ -1360,7 +1360,10 @@ function DefaultDataTable({
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
           className={cn("flex flex-wrap items-center gap-3", scrollBody === true && "shrink-0")}
         >
-          {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
+          {/* min-w-48: without a floor, flex shrinks the search instead of wrapping the facet cluster onto its own line (fw#3116). */}
+          {toolbarStart !== undefined && (
+            <div className="flex-1 min-w-48 max-w-sm">{toolbarStart}</div>
+          )}
           {facetCluster}
           {toolbarEnd !== undefined && (
             <div className="flex flex-wrap items-center gap-2 ml-auto">{toolbarEnd}</div>
