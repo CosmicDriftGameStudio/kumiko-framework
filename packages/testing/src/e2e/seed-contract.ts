@@ -65,7 +65,7 @@ export const seedUserRequestSchema = createSeedUserRequestSchema();
 export const seedUserResponseSchema = seededCredentialsSchema;
 
 export const inboxQuerySchema = z.strictObject({
-  tenantId: z.uuid(),
+  tenantId: z.uuid().optional(),
   to: z.string().min(1).max(MAX_EMAIL_LENGTH),
 });
 

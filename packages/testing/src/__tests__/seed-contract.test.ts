@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createSeedUserRequestSchema,
+  inboxQuerySchema,
   resolveSeedableRoles,
   SEEDABLE_ROLES,
 } from "../e2e/seed-contract";
@@ -63,6 +64,26 @@ describe("createSeedUserRequestSchema", () => {
     expect(JSON.stringify(result.error?.issues)).toContain(
       "allowed: TenantAdmin, Member, TenantMember",
     );
+  });
+});
+
+describe("inboxQuerySchema", () => {
+  test("accepts `to` alone, with no tenantId", () => {
+    expect(inboxQuerySchema.safeParse({ to: "a@example.test" }).success).toBe(true);
+  });
+
+  test("rejects a missing `to`", () => {
+    expect(inboxQuerySchema.safeParse({ tenantId: TENANT_ID }).success).toBe(false);
+  });
+
+  test("rejects a non-uuid tenantId", () => {
+    expect(
+      inboxQuerySchema.safeParse({ tenantId: "not-a-uuid", to: "a@example.test" }).success,
+    ).toBe(false);
+  });
+
+  test("rejects an unknown key", () => {
+    expect(inboxQuerySchema.safeParse({ to: "a@example.test", extra: "nope" }).success).toBe(false);
   });
 });
 

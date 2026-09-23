@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   getInbox,
   mailTransportInMemoryFeature,
@@ -19,6 +20,7 @@ import {
 } from "../seed-tenant";
 import { SEED_ENABLE_ENV, SEED_ROUTES, SEED_TOKEN_ENV, SEED_TOKEN_HEADER } from "./constants";
 import {
+  type CapturedMail,
   createSeedUserRequestSchema,
   inboxQuerySchema,
   seedTenantRequestSchema,
@@ -89,7 +91,23 @@ function assertGateOpen(request: SignatureExtraRouteVerifyRequest): void {
 
 export type E2eSeedRoutesOptions = {
   readonly extraRoles?: readonly string[];
+  // Apps that send tenantless mail (signup/forgot-password/magic-link) via
+  // their own raw createInMemoryTransport() pass its `sent` array here so
+  // the inbox route can read it without a tenantId. Independent of
+  // mailTransportInMemoryFeature — both sources may be present at once.
+  readonly mailOutbox?: { readonly sent: readonly EmailMessage[] };
 };
+
+function toCapturedMail(message: EmailMessage): CapturedMail {
+  return {
+    to: message.to,
+    subject: message.subject,
+    html: message.html,
+    ...(message.from !== undefined ? { from: message.from } : {}),
+    ...(message.replyTo !== undefined ? { replyTo: message.replyTo } : {}),
+    ...(message.headers !== undefined ? { headers: message.headers } : {}),
+  };
+}
 
 // Builds the route definitions unconditionally (extraRoles validation must
 // still throw in every environment) — the *mounting* decision is the
@@ -168,16 +186,37 @@ export function createE2eSeedRoutes(
       );
     },
     handler: async (c, verified, deps) => {
-      if (!deps.registry.features.has(mailTransportInMemoryFeature.name)) {
+      const recipient = verified.to.toLowerCase();
+      const isRecipient = (message: { readonly to: string }) =>
+        message.to.toLowerCase() === recipient;
+
+      const tenantId = verified.tenantId;
+      const mailOutbox = options.mailOutbox;
+      const hasTenantSource =
+        tenantId !== undefined && deps.registry.features.has(mailTransportInMemoryFeature.name);
+      if (!hasTenantSource && mailOutbox === undefined) {
         return c.json(
-          { error: `${mailTransportInMemoryFeature.name} is not mounted; no inbox to read` },
+          {
+            error:
+              `no inbox to read: neither ${mailTransportInMemoryFeature.name} is mounted with a ` +
+              "tenantId nor was mailOutbox passed to createE2eSeedRoutes()",
+          },
           501,
         );
       }
-      const recipient = verified.to.toLowerCase();
-      const messages = getInbox(verified.tenantId).filter(
-        (message) => message.to.toLowerCase() === recipient,
-      );
+
+      // Both sources may be present; concatenation order between them is
+      // undefined (neither carries a timestamp). Within each source, newest
+      // first — that ordering is what mailCapture and its tests rely on.
+      const tenantMessages =
+        hasTenantSource && tenantId !== undefined
+          ? [...getInbox(tenantId)].filter(isRecipient).reverse().map(toCapturedMail)
+          : [];
+      const outboxMessages =
+        mailOutbox !== undefined
+          ? [...mailOutbox.sent].filter(isRecipient).reverse().map(toCapturedMail)
+          : [];
+      const messages: readonly CapturedMail[] = [...tenantMessages, ...outboxMessages];
       return c.json({ messages });
     },
   });
