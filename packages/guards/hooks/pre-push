@@ -1,0 +1,36 @@
+#!/usr/bin/env sh
+# PRE_PUSH_SKIP is checked here too so the bypass works even without node_modules.
+if [ "${PRE_PUSH_SKIP:-0}" = "1" ]; then
+  echo "[pre-push] PRE_PUSH_SKIP=1 — hook skipped"
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+if [ -z "$REPO_ROOT" ]; then
+  echo "[pre-push] FATAL: git rev-parse --show-toplevel failed — refusing push" >&2
+  exit 1
+fi
+
+# Walk up to / so a worktree without its own node_modules resolves via the
+# parent install; `[ -x ]` also skips a broken (uninstalled) symlink.
+BIN=""
+DIR="$REPO_ROOT"
+while true; do
+  CANDIDATE="$DIR/node_modules/.bin/kumiko-pre-push"
+  if [ -x "$CANDIDATE" ]; then
+    BIN="$CANDIDATE"
+    break
+  fi
+  if [ "$DIR" = "/" ]; then
+    break
+  fi
+  DIR="$(dirname "$DIR")"
+done
+
+if [ -z "$BIN" ]; then
+  echo "[pre-push] kumiko-pre-push not found in any node_modules/.bin above $REPO_ROOT." >&2
+  echo "Run \`bun install\`, or set PRE_PUSH_SKIP=1 to bypass this hook." >&2
+  exit 1
+fi
+
+cd "$REPO_ROOT" && exec "$BIN" "$@"

@@ -17,8 +17,11 @@ findings into the baseline file.
 
 ## `kumiko-pre-push`
 
-A POSIX-sh pre-push hook, wired via a thin shim (e.g. `.husky/pre-push`
-calling `bun node_modules/@cosmicdrift/kumiko-guards/src/pre-push.sh`). Inside
+A POSIX-sh pre-push hook, wired by copying the package's `hooks/pre-push`
+shim to `.husky/pre-push`. The shim execs the nearest executable
+`node_modules/.bin/kumiko-pre-push` from the repo root upwards (so worktrees
+without their own `node_modules` resolve via the parent install) and fails
+closed with a `bun install` / `PRE_PUSH_SKIP=1` hint when none exists. Inside
 the cosmicdriftgamestudio parent workspace it runs a scoped `bun check` for
 the pushing repo only; in a standalone clone it runs the repo's own
 `package.json` `test` script. Set `PRE_PUSH_SKIP=1` to bypass.
