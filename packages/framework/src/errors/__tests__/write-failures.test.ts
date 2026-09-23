@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { failNotFound, failTransition, failUnprocessable } from "../write-error-info";
+import { InternalError, NotFoundError } from "../classes";
+import {
+  failNotFound,
+  failTransition,
+  failUnprocessable,
+  reraiseAsKumikoError,
+  toWriteErrorInfo,
+} from "../write-error-info";
 
 describe("failNotFound", () => {
   test("baut WriteFailure mit reason=not_found + entity-id-details", () => {
@@ -73,7 +80,6 @@ describe("failTransition", () => {
 describe("toWriteErrorInfo — dev cause-snapshot", () => {
   test("InternalError mit cause exposed cause-Snapshot in details (dev)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info");
-    const { InternalError } = await import("../classes");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
     try {
@@ -93,7 +99,6 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
 
   test("Production: InternalError lässt details undefined (kein Stack-Leak)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info");
-    const { InternalError } = await import("../classes");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "production";
     try {
@@ -107,7 +112,6 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
 
   test("InternalError MIT bereits gesetztem details → Author-details gewinnt (kein Overwrite)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info");
-    const { InternalError } = await import("../classes");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
     try {
@@ -120,5 +124,44 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
     } finally {
       process.env["NODE_ENV"] = previous;
     }
+  });
+});
+
+// The cause must reach routes.ts's logServerFault via reraiseAsKumikoError,
+// but never the wire body or the idempotency cache (both serialize the info).
+describe("toWriteErrorInfo / reraiseAsKumikoError — cause round-trip", () => {
+  test("cause survives toWriteErrorInfo → reraiseAsKumikoError without appearing on the info object", () => {
+    const boom = new Error("connection was closed");
+    const info = toWriteErrorInfo(new InternalError({ cause: boom }));
+    expect(reraiseAsKumikoError(info).cause).toBe(boom);
+    expect(Object.keys(info)).not.toContain("cause");
+  });
+
+  test("production: cause still reaches reraise even though details/message stay sanitized", () => {
+    const previous = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const boom = new Error("connection was closed");
+      const info = toWriteErrorInfo(new InternalError({ cause: boom }));
+      expect(info.details).toBeUndefined();
+      const serialized = JSON.stringify(info);
+      expect(serialized).not.toContain("connection was closed");
+      expect(serialized).not.toContain("cause");
+      expect(reraiseAsKumikoError(info).cause).toBe(boom);
+    } finally {
+      if (previous === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = previous;
+    }
+  });
+
+  test("KumikoError without a cause → reraised error has no cause", () => {
+    const info = toWriteErrorInfo(new NotFoundError("invoice", "inv-1"));
+    expect(reraiseAsKumikoError(info).cause).toBeUndefined();
+  });
+
+  test("a plain object with the same shape (simulated idempotency-cache replay) carries no cause", () => {
+    const info = toWriteErrorInfo(new InternalError({ cause: new Error("connection was closed") }));
+    const replayed = { ...info };
+    expect(reraiseAsKumikoError(replayed).cause).toBeUndefined();
   });
 });

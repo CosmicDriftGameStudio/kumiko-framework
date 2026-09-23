@@ -58,6 +58,12 @@ export function failTransition(from: string, to: string, allowed: readonly strin
   );
 }
 
+// The cause travels out-of-band, keyed on the info object's identity: a field
+// on WriteErrorInfo would leak the underlying Error into the /batch failure
+// body and the idempotency cache, both of which serialize the info to JSON.
+// A cache replay yields a fresh object without an entry, so no cause there.
+const causeByWriteErrorInfo = new WeakMap<WriteErrorInfo, Error>();
+
 export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
   // In dev/test surface the cause-snapshot through `details` so the
   // HTTP response carries something useful. Without this, internal_error
@@ -79,7 +85,7 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
         : undefined
       : undefined;
   const effectiveDetails = err.details ?? causeDetails;
-  return {
+  const info: WriteErrorInfo = {
     code: err.code,
     httpStatus: err.httpStatus,
     i18nKey: err.i18nKey,
@@ -87,6 +93,8 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
     ...(err.i18nParams && { i18nParams: err.i18nParams }),
     ...(effectiveDetails !== undefined && { details: effectiveDetails }),
   };
+  if (err.cause instanceof Error) causeByWriteErrorInfo.set(info, err.cause);
+  return info;
 }
 
 // Reconstitutes an error from WriteErrorInfo so command() (throw-based) can
@@ -95,19 +103,20 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
 // httpStatus / details but `instanceof NotFoundError` won't work. That's OK:
 // the HTTP layer keys off code + httpStatus, not class identity.
 export function reraiseAsKumikoError(info: WriteErrorInfo): KumikoError {
-  return new ReraisedError(info);
+  return new ReraisedError(info, causeByWriteErrorInfo.get(info));
 }
 
 class ReraisedError extends KumikoError {
   readonly code: string;
   readonly httpStatus: number;
 
-  constructor(info: WriteErrorInfo) {
+  constructor(info: WriteErrorInfo, cause?: Error) {
     super({
       message: info.message,
       i18nKey: info.i18nKey,
       ...(info.i18nParams && { i18nParams: info.i18nParams }),
       ...(info.details !== undefined && { details: info.details }),
+      ...(cause && { cause }),
     });
     this.code = info.code;
     this.httpStatus = info.httpStatus;
