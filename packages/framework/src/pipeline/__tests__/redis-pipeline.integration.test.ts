@@ -223,6 +223,65 @@ describe("idempotency guard", () => {
     if (final.status !== "cached") throw new Error("expected cached value");
     expect(JSON.parse(final.result)).toEqual({ isSuccess: true, data: { owner: "reclaimer" } });
   });
+
+  test("release() frees the lock — a waiting check() reclaims immediately instead of polling out", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, {
+      pendingTtlSeconds: 5,
+      pollIntervalMs: 20,
+      waitTimeoutMs: 10_000,
+    });
+    const requestId = "req-release-1";
+
+    const first = await guard.check(tenantA, userA, requestId);
+    expect(first.status).toBe("acquired");
+    if (first.status !== "acquired") throw new Error("expected to acquire the lock");
+
+    // Waiter starts BEFORE release — if release is a no-op this only resolves
+    // once waitTimeoutMs elapses (10s), which the 500ms race below catches.
+    const waiterPromise = guard.check(tenantA, userA, requestId);
+
+    await guard.release(tenantA, userA, requestId, first.token);
+
+    const raced = await Promise.race([
+      waiterPromise.then((v) => ({ done: true as const, v })),
+      new Promise<{ done: false }>((r) => setTimeout(() => r({ done: false }), 500)),
+    ]);
+    expect(raced.done).toBe(true);
+    if (!raced.done) throw new Error("waiter did not reclaim after release()");
+    expect(raced.v.status).toBe("acquired");
+  });
+
+  test("release() with a stale token is a no-op — it must not clear a new owner's lock", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, {
+      pendingTtlSeconds: 1,
+      pollIntervalMs: 20,
+      waitTimeoutMs: 6_000,
+    });
+    const requestId = "req-release-stale";
+
+    const original = await guard.check(tenantA, userA, requestId);
+    expect(original.status).toBe("acquired");
+    if (original.status !== "acquired") throw new Error("expected to acquire the lock");
+
+    // Let the lock expire, then a new owner reclaims it.
+    await new Promise((r) => setTimeout(r, 1100));
+    const reclaimer = await guard.check(tenantA, userA, requestId);
+    expect(reclaimer.status).toBe("acquired");
+    if (reclaimer.status !== "acquired") throw new Error("expected to reclaim the lock");
+
+    // The original (stale) owner's release() must not touch the reclaimer's lock.
+    await guard.release(tenantA, userA, requestId, original.token);
+
+    await guard.store(tenantA, userA, requestId, reclaimer.token, {
+      isSuccess: true,
+      data: { owner: "reclaimer" },
+    });
+
+    const final = await guard.check(tenantA, userA, requestId);
+    expect(final.status).toBe("cached");
+    if (final.status !== "cached") throw new Error("expected cached value");
+    expect(JSON.parse(final.result)).toEqual({ isSuccess: true, data: { owner: "reclaimer" } });
+  });
 });
 
 // --- Event Dedup ---

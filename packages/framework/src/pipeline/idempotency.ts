@@ -19,6 +19,7 @@ export type IdempotencyGuard = {
     token: string,
     result: unknown,
   ): Promise<void>;
+  release(tenantId: string, userId: string, requestId: string, token: string): Promise<void>;
 };
 
 // Sentinel prefix stored under the key while the handler is running. Each
@@ -59,6 +60,16 @@ export function createIdempotencyGuard(
     if redis.call("get", KEYS[1]) == ARGV[1] then
       redis.call("set", KEYS[1], ARGV[2], "EX", ARGV[3])
       return 1
+    else
+      return 0
+    end
+  `;
+
+  // Same CAS guard as storeScript: only clear the lock if we still own it.
+  // A stale token (lock already reclaimed by a new owner) is a no-op.
+  const releaseScript = `
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+      return redis.call("del", KEYS[1])
     else
       return 0
     end
@@ -137,6 +148,11 @@ export function createIdempotencyGuard(
       // silently skipping here is the fix: the old code did an unconditional
       // SET and could stomp that fresher result with our stale one.
       void written;
+    },
+
+    async release(tenantId, userId, requestId, token) {
+      const key = `${prefix}${tenantId}:${userId}:${requestId}`;
+      await redis.eval(releaseScript, 1, key, token);
     },
   };
 }

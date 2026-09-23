@@ -62,13 +62,26 @@ async function runBatchBody(
     }
   }
 
-  // Wrap return paths: cache the final result under requestId so retries get
-  // the same answer (both success and failure results are cached).
+  // Cache the result under requestId so retries get the same answer. Only a
+  // provably rolled-back 5xx releases the lock instead (releaseOrFinalize).
   const finalize = async (result: BatchResult): Promise<BatchResult> => {
     if (requestId && idempotency && idempotencyToken) {
       await idempotency.store(user.tenantId, user.id, requestId, idempotencyToken, result);
     }
     return result;
+  };
+
+  // Never for the no-tx fallback: without a rollback, a re-run would repeat
+  // the side effects of the commands that already ran.
+  const releaseOrFinalize = async (
+    result: BatchResult,
+    isRetryableRollback: boolean,
+  ): Promise<BatchResult> => {
+    if (isRetryableRollback && requestId && idempotency && idempotencyToken) {
+      await idempotency.release(user.tenantId, user.id, requestId, idempotencyToken);
+      return result;
+    }
+    return finalize(result);
   };
 
   const afterCommitHooks: AfterCommitHook[] = [];
@@ -151,6 +164,7 @@ async function runBatchBody(
     return finalize({ isSuccess: true, results });
   }
 
+  let transactionCallbackCompleted = false;
   try {
     await transaction(db, async (tx) => {
       for (let i = 0; i < commands.length; i++) {
@@ -170,22 +184,34 @@ async function runBatchBody(
           throw new BatchRollback(i, res.error);
         }
       }
+      transactionCallbackCompleted = true;
     });
   } catch (e) {
     if (e instanceof BatchRollback) {
-      return finalize({
-        isSuccess: false,
-        error: e.failureError,
-        failedIndex: e.failedIndex,
-        results,
-      });
+      // Thrown inside the callback, so the tx rolled back. A 4xx is
+      // deterministic and stays cached; a 5xx may be transient.
+      return releaseOrFinalize(
+        {
+          isSuccess: false,
+          error: e.failureError,
+          failedIndex: e.failedIndex,
+          results,
+        },
+        e.failureError.httpStatus >= 500,
+      );
     }
-    return finalize({
-      isSuccess: false,
-      error: toWriteErrorInfo(wrapToKumiko(e)),
-      failedIndex: results.length,
-      results,
-    });
+    // A completed callback means the throw came from COMMIT (outcome unknown),
+    // so cache it; otherwise COMMIT was never sent and releasing is safe.
+    const error = toWriteErrorInfo(wrapToKumiko(e));
+    return releaseOrFinalize(
+      {
+        isSuccess: false,
+        error,
+        failedIndex: results.length,
+        results,
+      },
+      !transactionCallbackCompleted && error.httpStatus >= 500,
+    );
   }
 
   // Commit succeeded — fire deferred side-effects.
