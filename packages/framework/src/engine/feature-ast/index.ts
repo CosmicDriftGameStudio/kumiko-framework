@@ -52,6 +52,8 @@ export type {
   FeaturePatcher,
 } from "./patcher";
 export { createFeaturePatcher } from "./patcher";
+export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema";
+export { parsePatternChanges } from "./pattern-change-schema";
 export type {
   AuthClaimsPattern,
   ClaimKeyPattern,

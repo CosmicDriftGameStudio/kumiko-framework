@@ -36,7 +36,7 @@ export type ParsedHandlerCall = {
   readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
-const AGENT_RISK_VALUES: readonly AgentRisk[] = ["low", "mid", "high"];
+export const AGENT_RISK_VALUES: readonly AgentRisk[] = ["low", "mid", "high"];
 
 function isAgentRisk(value: unknown): value is AgentRisk {
   return typeof value === "string" && (AGENT_RISK_VALUES as readonly string[]).includes(value);

@@ -62,14 +62,14 @@ import type { SourceLocation } from "./source-location";
 // that never reaches the output.
 // =============================================================================
 
-const SYNTHETIC_LOC: SourceLocation = {
+export const SYNTHETIC_LOC: SourceLocation = {
   file: "<patcher>",
   start: { line: 1, column: 1 },
   end: { line: 1, column: 1 },
   raw: "",
 };
 
-function rawLoc(raw: string): SourceLocation {
+export function rawLoc(raw: string): SourceLocation {
   return { ...SYNTHETIC_LOC, raw };
 }
 
