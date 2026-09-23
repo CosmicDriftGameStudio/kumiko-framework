@@ -33,6 +33,7 @@ import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import type { TierMap } from "../../tier-engine/compose-app";
 import { TierEngineQueries } from "../../tier-engine/constants";
+import { tierAssignmentEntity } from "../../tier-engine/entity";
 import { createTierEngineFeature } from "../../tier-engine/feature";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
 import { billingFoundationFeature } from "../feature";
@@ -72,6 +73,7 @@ async function bootStack(
   const stack = await setupTestStack({ features, extraRoutes });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   return stack;
 }

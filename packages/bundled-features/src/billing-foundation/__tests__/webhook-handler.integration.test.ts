@@ -6,7 +6,20 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  testTenantId,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
+import {
+  createComplianceProfilesFeature,
+  tenantComplianceProfileEntity,
+} from "../../compliance-profiles";
+import { createConfigFeature } from "../../config";
+import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import {
   SubscriptionEventTypes,
   type SubscriptionStatus,
@@ -36,9 +49,18 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [billingFoundationFeature, mockProviderFeature],
+    features: [
+      createConfigFeature(),
+      createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
+      billingFoundationFeature,
+      mockProviderFeature,
+    ],
     extraRoutes: [createSubscriptionWebhookRoute()],
   });
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
 });
 
 afterAll(async () => {
