@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.304.0",
+    "type": "improvement",
+    "title": "Screenshot scenarios get { seedTenant } in flow and a beforeCapture hook; the README no longer recommends a postSave hook on tenant for test defaults",
+    "detail": "`runScreenshots`/`runMatrix` register their tests on the same `test` as `@cosmicdrift/kumiko-testing/e2e`'s seeded-tenant fixture, so `Scenario.flow` now receives `(page, { seedTenant })` — existing single-parameter `flow(page)` scenarios keep working unchanged. `Scenario.beforeCapture?: (page) => Promise<void>` runs after the viewport is set and the page has settled, right before each screenshot. `seedTenant()`'s \"no baseURL\" error now only fires when a scenario actually calls it, not for every screenshot spec's fixture setup."
+  },
+  {
     "version": "0.299.0",
     "type": "fix",
     "title": "kumiko-testing bunfig merges app-owned sections (e.g. install.scopes) back in and only aborts, naming the key, when a managed [install]/[test] section has a key the template doesn't emit; e2e seed routes gain an isE2eSeedingEnabled() export so a custom server entry can skip mounting them in prod",
