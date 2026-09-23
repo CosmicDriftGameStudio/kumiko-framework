@@ -41,7 +41,9 @@ export function readOptionalPhase(node: Node | undefined): HookPhase | undefined
 export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   if (!isPlainObject(value)) return undefined;
   if (Array.isArray(value["roles"]) && value["roles"].every((r) => typeof r === "string")) {
-    return { roles: value["roles"] as readonly string[] };
+    const personalData =
+      value["personalData"] === "public-intake" ? { personalData: "public-intake" as const } : {};
+    return { roles: value["roles"] as readonly string[], ...personalData };
   }
   const openToAll = value["openToAll"];
   if (isPlainObject(openToAll) && typeof openToAll["reason"] === "string") {

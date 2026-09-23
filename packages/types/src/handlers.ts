@@ -28,11 +28,19 @@ export type OpenToAllAccessRule = {
   readonly openToAll: OpenToAllDeclaration;
 };
 
+// "public-intake": anonymous callers may write personal data; the required rateLimit is the only protection.
+export type RoleAccessPersonalData = "public-intake";
+
+export type RoleAccessRule = {
+  readonly roles: readonly string[];
+  readonly personalData?: RoleAccessPersonalData;
+};
+
 // AccessRule is DEFAULT-DENY: a handler without an access rule is not reachable.
 // To grant access, set one of:
 //   - { roles: ["Admin", ...] }             — role-based allowlist (empty array denies everyone)
 //   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
-export type AccessRule = { readonly roles: readonly string[] } | OpenToAllAccessRule;
+export type AccessRule = RoleAccessRule | OpenToAllAccessRule;
 
 export type EscapeHatchDeclaration = { readonly reason: string };
 

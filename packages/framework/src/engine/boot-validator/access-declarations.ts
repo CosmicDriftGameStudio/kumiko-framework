@@ -1,3 +1,4 @@
+import { ANONYMOUS_ROLE } from "../system-user";
 import type {
   AccessRule,
   FeatureDefinition,
@@ -73,12 +74,14 @@ function candidatePersonalFieldNames(
   feature: FeatureDefinition,
   handlerName: string,
   handler: WriteHandlerDef,
+  honorOwnerBindingOverride?: boolean,
 ): ReadonlySet<string> {
   const mappedEntityName = feature.handlerEntityMappings?.[handlerName];
   const entities = feature.entities ?? {};
   if (mappedEntityName) {
     const entity = entities[mappedEntityName];
-    const honorOwnerBinding = !canWriteAroundExecutor(feature, handler);
+    const honorOwnerBinding =
+      honorOwnerBindingOverride ?? !canWriteAroundExecutor(feature, handler);
     return entity ? personalFieldNames(entity, honorOwnerBinding) : new Set();
   }
   const names = new Set<string>();
@@ -103,10 +106,15 @@ function hasOpenToAll(access: AccessRule): boolean {
 
 // Read via `unknown`: access can come from untyped sources (pattern JSON, Designer).
 function declaredPersonalData(access: AccessRule): unknown {
-  if (!("openToAll" in access)) return undefined;
+  if (!("openToAll" in access)) return access.personalData;
   const openToAll: unknown = access.openToAll;
   if (typeof openToAll !== "object" || openToAll === null) return undefined;
   return "personalData" in openToAll ? openToAll.personalData : undefined;
+}
+
+function accessAllowsAnonymous(access: AccessRule): boolean {
+  if ("openToAll" in access) return false;
+  return Array.isArray(access.roles) && access.roles.includes(ANONYMOUS_ROLE);
 }
 
 function declaresTenantMembersPersonalData(access: AccessRule): boolean {
@@ -154,9 +162,10 @@ function validatePersonalDataOnlyOnWrite(
 ): void {
   // skip: write handlers may declare personalData, or it wasn't declared here
   if (kind === "write" || declaredPersonalData(access) === undefined) return;
+  const property = "openToAll" in access ? "openToAll.personalData" : "access.personalData";
   throw new Error(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
-      "openToAll.personalData — it only applies to write handlers, whose input is " +
+      `${property} — it only applies to write handlers, whose input is ` +
       "checked for personal-data fields.",
   );
 }
@@ -167,11 +176,29 @@ function validatePersonalDataValue(
   access: AccessRule,
 ): void {
   const declared = declaredPersonalData(access);
-  // skip: nothing declared, or the one supported value
-  if (declared === undefined || declared === "tenant-members") return;
+  // skip: nothing declared
+  if (declared === undefined) return;
+  if ("openToAll" in access) {
+    // skip: the one supported value on openToAll
+    if (declared === "tenant-members") return;
+    throw new Error(
+      `[Feature ${feature.name}] write handler "${handlerName}" declares an unknown ` +
+        `openToAll.personalData ${JSON.stringify(declared)} — the only supported value is "tenant-members".`,
+    );
+  }
+  if (declared !== "public-intake") {
+    throw new Error(
+      `[Feature ${feature.name}] write handler "${handlerName}" declares an unknown ` +
+        `access.personalData ${JSON.stringify(declared)} — the only supported value is "public-intake".`,
+    );
+  }
+  // skip: roles include "anonymous", which personalData: "public-intake" requires
+  if (Array.isArray(access.roles) && access.roles.includes(ANONYMOUS_ROLE)) return;
   throw new Error(
-    `[Feature ${feature.name}] write handler "${handlerName}" declares an unknown ` +
-      `openToAll.personalData ${JSON.stringify(declared)} — the only supported value is "tenant-members".`,
+    `[Feature ${feature.name}] write handler "${handlerName}" declares ` +
+      'access.personalData: "public-intake" but its roles do not include ' +
+      `"${ANONYMOUS_ROLE}" — personalData: "public-intake" only applies to handlers ` +
+      "that allow anonymous callers.",
   );
 }
 
@@ -200,12 +227,37 @@ function validateOpenToAllPersonalData(
   );
 }
 
+// Anonymous callers all share one user.id, so honorOwnerBindingOverride is always false here.
+function validateAnonymousPersonalData(
+  feature: FeatureDefinition,
+  handlerName: string,
+  handler: WriteHandlerDef,
+): void {
+  const access = handler.access;
+  // skip: not reachable by an anonymous caller, or already declares public-intake
+  if (!accessAllowsAnonymous(access) || declaredPersonalData(access) === "public-intake") return;
+  const inputKeys = collectZodObjectKeys(handler.schema);
+  const personalNames = candidatePersonalFieldNames(feature, handlerName, handler, false);
+  const offending = [...inputKeys].filter((key) => personalNames.has(key));
+  // skip: no personal-data fields in the handler's input
+  if (offending.length === 0) return;
+  throw new Error(
+    `[Feature ${feature.name}] write handler "${handlerName}" allows anonymous callers ` +
+      `("${ANONYMOUS_ROLE}" in access.roles) and accepts personal-data field(s) ` +
+      `${offending.map((f) => `"${f}"`).join(", ")}. Declare ` +
+      'access: { roles: [..., "anonymous"], personalData: "public-intake" } — every anonymous ' +
+      'request shares one caller identity, so owner-binding via from("user:id", ...) does not ' +
+      "vouch for it; protection comes from the handler's required rateLimit (per ip).",
+  );
+}
+
 export function validateAccessDeclarations(feature: FeatureDefinition): void {
   for (const [handlerName, handler] of Object.entries(feature.writeHandlers)) {
     validateOpenToAllReason(feature, "write", handlerName, handler.access);
     validateEscapeHatchReason(feature, "write", handlerName, handler.escapeHatch);
     validatePersonalDataValue(feature, handlerName, handler.access);
     validateOpenToAllPersonalData(feature, handlerName, handler);
+    validateAnonymousPersonalData(feature, handlerName, handler);
   }
   for (const [handlerName, handler] of Object.entries(feature.queryHandlers)) {
     validateOpenToAllReason(feature, "query", handlerName, handler.access);

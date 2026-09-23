@@ -476,6 +476,8 @@ export type {
   RelationDefinition,
   ResolvedPiiFlags,
   RetentionDef,
+  RoleAccessPersonalData,
+  RoleAccessRule,
   RowAction,
   RowActionNavigate,
   RowActionNavigateBase,

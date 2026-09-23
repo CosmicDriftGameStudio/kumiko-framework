@@ -194,6 +194,8 @@ export type {
   RateLimitDisabled,
   RateLimitOption,
   RateLimitPer,
+  RoleAccessPersonalData,
+  RoleAccessRule,
   SessionUser,
   SessionUserOrigin,
   StreamHandlerDef,

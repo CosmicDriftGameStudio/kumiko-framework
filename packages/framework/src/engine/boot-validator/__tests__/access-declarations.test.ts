@@ -578,3 +578,130 @@ describe("validateAccessDeclarations — self-bound personal-data fields", () =>
     expect(() => validateAccessDeclarations(feature)).toThrow(/"displayName"/);
   });
 });
+
+describe("validateAccessDeclarations — anonymous (roles-form) personal-data intake", () => {
+  test("an anonymous write handler accepting a personal-data field without personalData throws", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:signup",
+        z.object({ email: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: { roles: ["anonymous"] } },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:signup"/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"email"/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/personalData: "public-intake"/);
+  });
+
+  test('the same handler WITH personalData: "public-intake" boots fine', () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:signup",
+        z.object({ email: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: { roles: ["anonymous"], personalData: "public-intake" } },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
+  test('an owner-bound personal-data field is not exempted for an anonymous handler — anonymous callers share one user.id, so from("user:id", ...) binds no one', () => {
+    const ownedByCaller: OwnershipMap = { Member: from("user:id", "ownerUserId") };
+    const entity = createEntity({
+      table: "fw2885_guard_anon_owned",
+      fields: {
+        name: createTextField({ personal: { of: "ownerUserId" }, find: "none" }),
+        ownerUserId: createTextField({ required: false, personal: "ref" }),
+      },
+      access: { write: ownedByCaller },
+    });
+    const schema = z.object({ name: z.string() });
+    const anonymousFeature = defineFeature("notes", (r) => {
+      r.entity("note", entity);
+      r.writeHandler("note:signup", schema, async () => ({ isSuccess: true as const, data: {} }), {
+        access: { roles: ["anonymous"] },
+      });
+    });
+    expect(anonymousFeature.handlerEntityMappings["note:signup"]).toBe("note");
+    expect(() => validateAccessDeclarations(anonymousFeature)).toThrow(/"name"/);
+
+    // Control: the same owner-bound entity/schema via openToAll IS exempted, so the throw above is override-specific.
+    const openToAllFeature = defineFeature("notes", (r) => {
+      r.entity("note", entity);
+      r.writeHandler("note:signup", schema, async () => ({ isSuccess: true as const, data: {} }), {
+        access: { openToAll: { reason: "members share contacts" } },
+      });
+    });
+    expect(() => validateAccessDeclarations(openToAllFeature)).not.toThrow();
+  });
+
+  test('personalData: "public-intake" on roles without "anonymous" throws', () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:create",
+        z.object({ title: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: { roles: ["Admin"], personalData: "public-intake" } },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create"/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/anonymous/);
+  });
+
+  test('personalData: "tenant-members" on the roles form throws', () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:create",
+        z.object({ title: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        {
+          // @cast-boundary test — simulates JSON/Designer input that doesn't match the static union
+          access: { roles: ["anonymous"], personalData: "tenant-members" } as unknown as AccessRule,
+        },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"tenant-members"/);
+  });
+
+  test("personalData on the roles form of a query handler throws", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["anonymous"], personalData: "public-intake" },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list"/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/access\.personalData/);
+  });
+
+  test("a non-anonymous roles handler accepting a personal-data field does not throw", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:create",
+        z.object({ email: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: { roles: ["Admin"] } },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
+  test('personalData: "tenant-members" no longer type-checks on the roles form', () => {
+    // @ts-expect-error "tenant-members" is only valid on openToAll, not the roles form
+    const access: AccessRule = { roles: ["anonymous"], personalData: "tenant-members" };
+    expect(access).toBeDefined();
+  });
+
+  test("an unrecognised personalData string does not type-check on the roles form", () => {
+    // @ts-expect-error only "public-intake" is a valid roles-form personalData value
+    const access: AccessRule = { roles: ["anonymous"], personalData: "whatever" };
+    expect(access).toBeDefined();
+  });
+});
