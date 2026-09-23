@@ -39,9 +39,11 @@ import {
   type GuardOutcome,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
@@ -61,8 +63,8 @@ const FIELD_FACTORY_CALLEES = new Set(["createTextField", "createLongTextField"]
 const VALID_PERSONAL_HINT =
   '{ personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false } ("false" additionally needs { reason: "..." })';
 
-function relFile(sf: SourceFile): string {
-  return path.relative(ROOT, sf.getFilePath());
+function relFile(sf: SourceFile, roots: readonly RepoRoot[]): string {
+  return relFromRepoRoot(sf.getFilePath(), roots);
 }
 
 function fieldFactoryOptions(call: CallExpression): ObjectLiteralExpression | undefined {
@@ -110,7 +112,7 @@ export interface Finding {
   callee: string;
 }
 
-function scanFieldFactories(sf: SourceFile): Finding[] {
+function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding[] {
   const findings: Finding[] = [];
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression().getText();
@@ -126,15 +128,19 @@ function scanFieldFactories(sf: SourceFile): Finding[] {
 
     const place = enclosingFieldName(call) ?? `${callee}(...)`;
     const line = call.getStartLineNumber();
-    findings.push({ file: relFile(sf), line, place, callee });
+    const file = relFile(sf, roots);
+    findings.push({ file, line, place, callee });
     console.warn(
-      `  [text-field-stance WARN] ${relFile(sf)}:${line}  ${callee}(...) at "${place}" has no personal stance — mark ${VALID_PERSONAL_HINT}`,
+      `  [text-field-stance WARN] ${file}:${line}  ${callee}(...) at "${place}" has no personal stance — mark ${VALID_PERSONAL_HINT}`,
     );
   }
   return findings;
 }
 
-function scan(files: readonly SourceFile[]): {
+function scan(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): {
   findings: Finding[];
   scanned: number;
 } {
@@ -143,7 +149,7 @@ function scan(files: readonly SourceFile[]): {
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
     scanned++;
-    findings.push(...scanFieldFactories(sf));
+    findings.push(...scanFieldFactories(sf, roots));
   }
   return { findings, scanned };
 }
@@ -179,14 +185,18 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
     baselineCounts(findings),
     `Annotate the call (${VALID_PERSONAL_HINT}).`,
     {
-      formatDriftRemediation: `Run \`bun guards/guard-text-field-stance.ts --write-baseline\` once.`,
+      formatDriftRemediation: `Run \`kumiko-guards guards --write-baseline --guard="Text-Field Personal-Stance Guard"\` once.`,
       resolveLine,
     },
   );
 }
 
-function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
-  const { findings } = scan(files);
+function analyse(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+  compareBaseline: boolean,
+): GuardOutcome {
+  const { findings } = scan(files, roots);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
@@ -197,8 +207,9 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
 export const guard: AstGuard = {
   name: "Text-Field Personal-Stance Guard",
   scan: SCAN,
-  hint: "after a deliberate annotation: `bun guards/guard-text-field-stance.ts --write-baseline`",
-  run: (files) => analyse(files, true),
+  hint: 'after a deliberate annotation: `kumiko-guards guards --write-baseline --guard="Text-Field Personal-Stance Guard"`',
+  run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
+  writeBaseline: (files) => textFieldStanceBaseline.write(baselineCounts(scan(files).findings)),
 };
 
 // Flags werden NUR hier gelesen, nicht in run() — der Shared-Runner
@@ -215,7 +226,7 @@ if (import.meta.main) {
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), false);
+    analyse(filesForGuard(project, guard), resolveRepoRoots(), false);
     process.exit(0);
   }
   runStandalone(guard);

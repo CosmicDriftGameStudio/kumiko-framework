@@ -53,7 +53,11 @@ function parseOrReject<T>(value: ParsedBody<T>): T {
   throw new ExtraRouteRejection(400, { error: value.error });
 }
 
-function seedingEnabled(): boolean {
+// Exported so a server entry that already mounts its own extraRoutes (instead
+// of duplicating e2e/server.ts) can gate the *registration* itself — prod
+// then never carries the seed routes at all, rather than relying solely on
+// each route's own per-request assertGateOpen() check.
+export function isE2eSeedingEnabled(): boolean {
   return process.env[SEED_ENABLE_ENV] === "1" && process.env["NODE_ENV"] !== "production";
 }
 
@@ -71,7 +75,7 @@ function assertGateOpen(request: SignatureExtraRouteVerifyRequest): void {
   // ExtraRouteRejection(status, body) always renders via c.json(body, status)
   // (buildExtraRouteHonoHandler) — the plain-text "Not Found" from the old
   // middleware becomes a JSON body; no test asserts the 404 body shape.
-  if (!seedingEnabled()) throw new ExtraRouteRejection(404, { error: "Not Found" });
+  if (!isE2eSeedingEnabled()) throw new ExtraRouteRejection(404, { error: "Not Found" });
   const expected = process.env[SEED_TOKEN_ENV];
   if (expected === undefined || expected === "") {
     throw new ExtraRouteRejection(500, {
@@ -87,6 +91,13 @@ export type E2eSeedRoutesOptions = {
   readonly extraRoles?: readonly string[];
 };
 
+// Builds the route definitions unconditionally (extraRoles validation must
+// still throw in every environment) — the *mounting* decision is the
+// caller's: use isE2eSeedingEnabled() to keep prod from ever registering
+// these route objects at all, e.g. `...(isE2eSeedingEnabled() ?
+// createE2eSeedRoutes() : [])` in a server entry that also runs in prod
+// (kumiko-framework#3120). Each route's own assertGateOpen() 404s outside
+// the seed condition regardless — this is belt-and-suspenders, not the only gate.
 export function createE2eSeedRoutes(
   options: E2eSeedRoutesOptions = {},
 ): readonly ExtraRouteDefinition[] {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
+import type { RepoRoot } from "../_lib/roots";
 import { guard } from "../guard-restricted-symbols";
 
 function files(map: Record<string, string>): SourceFile[] {
@@ -93,5 +94,35 @@ describe("Restricted-Symbols Guard", () => {
 				`,
     });
     expect(guard.run(sfs).violations).toHaveLength(1);
+  });
+});
+
+// A multi-repo caller (infra's run-guards.ts) passes its own roots into
+// runGuards; a guard that re-derives single-repo roots cannot classify a
+// sibling repo's apps/-layout file and throws instead of reporting.
+describe("Restricted-Symbols Guard — roots passed by the caller", () => {
+  const platformRoot: RepoRoot = {
+    name: "kumiko-platform",
+    absPath: "/fx/kumiko-platform",
+    kind: "app",
+    manifest: { kind: "app", sourceRoots: ["apps/*/src"], testGlobs: [] },
+    manifestSource: "derived",
+  };
+  const project = new Project({ useInMemoryFileSystem: true });
+  project.createSourceFile(
+    "/fx/kumiko-platform/apps/docs/src/content.config.ts",
+    'import { getUnscopedAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";\n',
+  );
+  const sfs = project.getSourceFiles();
+
+  test("without the caller's roots, an apps/-layout file cannot be classified", () => {
+    expect(() => guard.run(sfs)).toThrow(/cannot classify path/);
+  });
+
+  test("with the caller's roots, the file resolves against its own repo and is reported", () => {
+    const { violations } = guard.run(sfs, [platformRoot]);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("apps/docs/src/content.config.ts");
+    expect(violations[0]?.message).toContain("getUnscopedAggregateStreamTenant");
   });
 });

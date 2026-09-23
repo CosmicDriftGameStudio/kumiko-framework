@@ -34,7 +34,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
-import { resolveRepoRoots } from "./_lib/roots";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
   scope: "source",
@@ -204,9 +204,8 @@ export const guard: AstGuard = {
   scan: SCAN,
   security: true,
   hint: "Direct node:fs import outside the allowlist — use FileStorageProvider (packages/framework/src/files/) instead of wiring fs yourself. The path-traversal guard (resolveContainedPath) only exists there. Legitimate new tooling caller? Extend the allowlist in guard-no-direct-fs.ts, with a reason + repo scope.",
-  run(files) {
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
-    const roots = resolveRepoRoots();
 
     for (const sf of files) {
       const file = sf.getFilePath();

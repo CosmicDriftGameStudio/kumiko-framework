@@ -47,3 +47,11 @@ test("member sees the note", async ({ seedTenant, page }) => {
 - App roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })` lets `tenant.addUser(["TenantMember"])` seed them;
   `SystemAdmin` is never seedable and makes the route builder throw.
 - A `SeedPart` receives `{ tenant }` and works against the in-process `seedTenant` and the HTTP tenant alike.
+- Already have a custom server entry (mail transport, KMS, boot seeds, ...) that also runs in prod?
+  Point `serverEntry` at it instead of duplicating `e2e/server.ts`, and mount the seed routes only
+  when the seed condition holds: `...(isE2eSeedingEnabled() ? createE2eSeedRoutes() : [])` in its own
+  `extraRoutes` — prod then never registers the routes at all, not just a per-request 404.
+  `isE2eSeedingEnabled` is exported from `@cosmicdrift/kumiko-testing/e2e/seed-route`.
+- App-wide defaults after tenant creation (e.g. a completed onboarding) belong in a `postSave` hook on
+  the `"tenant"` entity (`r.hook("postSave", { allOf: "tenant" }, ...)`), fired via
+  `seedTenant(db, options, { registry, context })` — not in `seedTenant()` itself, which stays a blank tenant.

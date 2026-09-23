@@ -1,7 +1,7 @@
 // scaffoldApp unit-tests (DX-1.0 + #352 deploy/schema scaffold).
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app";
@@ -380,12 +380,13 @@ describe("scaffoldApp", () => {
     expect(main).toContain("...kmsWiring,");
   });
 
-  test("src/run-config.ts mounts secrets + sessions + tasks + HAS_AUTH", async () => {
+  test("src/run-config.ts mounts secrets + auth-foundation + sessions + tasks + HAS_AUTH", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
     const runConfig = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
     expect(runConfig).toContain("createSecretsFeature()");
+    expect(runConfig).toContain("authFoundationFeature");
     expect(runConfig).toContain("createSessionsFeature()");
     expect(runConfig).toContain("tasksFeature");
     expect(runConfig).toContain('from "./features/tasks"');
@@ -560,5 +561,58 @@ describe("scaffoldApp", () => {
     )?.[0];
     expect(uuidA).toBeDefined();
     expect(uuidA).toBe(uuidB);
+  });
+});
+
+// File-content assertions on run-config.ts can't catch a missing sessionStore
+// provider — only actually booting the generated bin/main.ts can.
+describe("generated default app actually boots (kumiko-framework#3120)", () => {
+  const FIXTURE_ROOT = join(import.meta.dir, ".tmp-fixtures");
+  const createdDirs: string[] = [];
+
+  afterAll(() => {
+    for (const d of createdDirs) {
+      try {
+        rmSync(d, { recursive: true, force: true });
+      } catch {
+        // ignore — best-effort
+      }
+    }
+  });
+
+  test("KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts exits 0 against the default scaffold", async () => {
+    mkdirSync(FIXTURE_ROOT, { recursive: true });
+    const cwd = mkdtempSync(join(FIXTURE_ROOT, "boot-"));
+    createdDirs.push(cwd);
+    const dest = join(cwd, "boot-fixture");
+
+    await scaffoldApp({ name: "boot-fixture", destination: dest });
+
+    const proc = Bun.spawn({
+      cmd: ["bun", "bin/main.ts"],
+      cwd: dest,
+      env: {
+        ...process.env,
+        KUMIKO_DRY_RUN_ENV: "boot",
+        JWT_SECRET: "a".repeat(32),
+        KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+        DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
+        REDIS_URL: "redis://127.0.0.1:1",
+        PLATFORM_KEK: "",
+        SUBJECT_KEYS_DATABASE_URL: "",
+        KUMIKO_BLIND_INDEX_KEY: "",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).toBe(0);
+    expect(`${stdout}${stderr}`).not.toContain("BOOT ABORTED");
+    expect(stdout).toContain("boot validation OK");
   });
 });

@@ -21,10 +21,12 @@
  * baseline fails, at or under passes. Without the file the guard is
  * warning-only (bootstrap: `--write-baseline` once).
  *
- * Usage:
+ * Usage (framework dev checkout):
  *   bun guards/guard-test-timeouts.ts                  # compare to baseline
  *   bun guards/guard-test-timeouts.ts --write-baseline # freeze current
  *   bun guards/guard-test-timeouts.ts --no-baseline    # skip comparison
+ * Consumer (via the published `kumiko-guards` CLI):
+ *   kumiko-guards guards --write-baseline --guard=test-timeouts
  */
 import * as path from "node:path";
 import { type CallExpression, Node, type SourceFile, SyntaxKind } from "ts-morph";
@@ -36,9 +38,11 @@ import {
   type GuardOutcome,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
@@ -78,8 +82,8 @@ export interface Finding {
   message: string;
 }
 
-function relFile(sf: SourceFile): string {
-  return path.relative(ROOT, sf.getFilePath());
+function relFile(sf: SourceFile, roots: readonly RepoRoot[]): string {
+  return relFromRepoRoot(sf.getFilePath(), roots);
 }
 
 function isLoop(node: Node): boolean {
@@ -151,9 +155,12 @@ function withExceptionNote(node: Node, message: string): string | undefined {
     : message;
 }
 
-export function scanTimeouts(sf: SourceFile): Finding[] {
+export function scanTimeouts(
+  sf: SourceFile,
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Finding[] {
   if (sf.getFilePath().includes(RECIPES_DIR)) return [];
-  const file = relFile(sf);
+  const file = relFile(sf, roots);
   const findings: Finding[] = [];
   const add = (node: Node, message: string): void => {
     const reported = withExceptionNote(node, message);
@@ -184,7 +191,7 @@ const timeoutsBaseline = baselineRatchet({
 const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, or mark the line with \`// ${EXCEPTION_TAG}: #<issue> <technical reason>\`.`;
 
 const HINT =
-  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See docs/guides/test-failures.md. After a deliberate change: `bun guards/guard-test-timeouts.ts --write-baseline`.";
+  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md. After a deliberate change: `kumiko-guards guards --write-baseline --guard=test-timeouts`.";
 
 export function baselineCounts(findings: readonly Finding[]): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -194,10 +201,13 @@ export function baselineCounts(findings: readonly Finding[]): Record<string, num
   return counts;
 }
 
-function scan(files: readonly SourceFile[]): Finding[] {
+function scan(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Finding[] {
   const findings: Finding[] = [];
   for (const sf of files) {
-    for (const finding of scanTimeouts(sf)) {
+    for (const finding of scanTimeouts(sf, roots)) {
       findings.push(finding);
       console.warn(`  [test-timeouts WARN] ${finding.file}:${finding.line}  ${finding.message}`);
     }
@@ -205,8 +215,12 @@ function scan(files: readonly SourceFile[]): Finding[] {
   return findings;
 }
 
-function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
-  const findings = scan(files);
+function analyse(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+  compareBaseline: boolean,
+): GuardOutcome {
+  const findings = scan(files, roots);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
@@ -216,7 +230,8 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
     baselineCounts(findings),
     REMEDIATION,
     {
-      formatDriftRemediation: "Run `bun guards/guard-test-timeouts.ts --write-baseline` once.",
+      formatDriftRemediation:
+        "Run `kumiko-guards guards --write-baseline --guard=test-timeouts` once.",
       resolveLine: (file) => local.find((f) => f.file === file)?.line ?? 1,
     },
   );
@@ -227,7 +242,8 @@ export const guard: AstGuard = {
   name: "test-timeouts",
   scan: SCAN,
   hint: HINT,
-  run: (files) => analyse(files, true),
+  run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
+  writeBaseline: (files) => timeoutsBaseline.write(baselineCounts(scan(files))),
 };
 
 // Flags are read only here, never in run() — the shared runner drives every
@@ -237,12 +253,12 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.includes("--write-baseline")) {
     const project = buildSharedProject([guard]);
-    timeoutsBaseline.write(baselineCounts(scan(filesForGuard(project, guard))));
+    guard.writeBaseline?.(filesForGuard(project, guard));
     process.exit(0);
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), false);
+    analyse(filesForGuard(project, guard), resolveRepoRoots(), false);
     process.exit(0);
   }
   runStandalone(guard);
