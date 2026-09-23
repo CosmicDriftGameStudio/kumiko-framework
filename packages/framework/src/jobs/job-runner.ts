@@ -1,4 +1,4 @@
-import { Queue, Worker } from "bullmq";
+import { type JobsOptions, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow } from "../db/connection";
@@ -317,13 +317,27 @@ function timeoutReject(
   };
 }
 
+// Default base delay when a job opts into backoff without an explicit
+// delayMs. Without a `delay`, BullMQ's fixed/exponential strategies compute
+// NaN/undefined, which is falsy — the job retries immediately instead of
+// waiting.
+const DEFAULT_JOB_BACKOFF_DELAY_MS = 1_000;
+
 // Shared by dispatch() and handleEvent() — an event-triggered job must retry
 // on failure the same way a directly-dispatched one does; a duplicated
 // inline computation in handleEvent previously dropped both options.
-function buildRetryBullOpts(jobDef: JobDefinition): Record<string, unknown> {
-  const opts: Record<string, unknown> = {};
-  if (jobDef.retries !== undefined) opts["attempts"] = jobDef.retries + 1;
-  if (jobDef.backoff) opts["backoff"] = { type: jobDef.backoff };
+function buildRetryBullOpts(jobDef: JobDefinition): Pick<JobsOptions, "attempts" | "backoff"> {
+  const opts: Pick<JobsOptions, "attempts" | "backoff"> = {};
+  if (jobDef.retries !== undefined) opts.attempts = jobDef.retries + 1;
+  if (jobDef.backoff) {
+    opts.backoff =
+      typeof jobDef.backoff === "string"
+        ? { type: jobDef.backoff, delay: DEFAULT_JOB_BACKOFF_DELAY_MS }
+        : {
+            type: jobDef.backoff.type,
+            delay: jobDef.backoff.delayMs ?? DEFAULT_JOB_BACKOFF_DELAY_MS,
+          };
+  }
   return opts;
 }
 

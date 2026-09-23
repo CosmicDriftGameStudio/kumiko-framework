@@ -729,6 +729,21 @@ export function validateBootGates(state: RegistryState): void {
   }
 }
 
+export function validateJobBackoff(state: RegistryState): void {
+  // Object-form backoff carries an explicit delayMs base — catch a bad value
+  // at boot instead of letting BullMQ silently compute NaN/undefined delays.
+  for (const [jobName, jobDef] of state.jobMap) {
+    if (typeof jobDef.backoff !== "object") continue;
+    const { delayMs } = jobDef.backoff;
+    if (delayMs === undefined) continue;
+    if (!Number.isInteger(delayMs) || delayMs <= 0) {
+      throw new Error(
+        `Job "${jobName}" backoff.delayMs must be a positive integer (got ${delayMs})`,
+      );
+    }
+  }
+}
+
 export function validateExtensionUsageTargets(state: RegistryState): void {
   // Validate: extension usages must reference existing extensions
   for (const usage of state.extensionUsages) {

@@ -410,6 +410,8 @@ export type {
   HookMap,
   ImageFieldDef,
   ImagesFieldDef,
+  JobBackoff,
+  JobBackoffStrategy,
   JobContext,
   JobDefinition,
   JobHandlerFn,

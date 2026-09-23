@@ -358,6 +358,14 @@ export type JobTrigger =
   | { readonly cron: string }
   | { readonly manual: true };
 
+export type JobBackoffStrategy = "fixed" | "exponential";
+// String form uses the framework's default base delay; the object form's
+// `delayMs` is the base BullMQ multiplies: "fixed" keeps it constant,
+// "exponential" scales it delayMs * 2^(attemptsMade-1) per retry.
+export type JobBackoff =
+  | JobBackoffStrategy
+  | { readonly type: JobBackoffStrategy; readonly delayMs?: number | undefined };
+
 export type JobDefinition = {
   readonly name: string;
   readonly handler: JobHandlerFn;
@@ -366,7 +374,7 @@ export type JobDefinition = {
   readonly maxPerTenant?: number | undefined;
   readonly debounceMs?: number | undefined;
   readonly retries?: number | undefined;
-  readonly backoff?: "fixed" | "exponential" | undefined;
+  readonly backoff?: JobBackoff | undefined;
   readonly timeout?: number | undefined;
   readonly schema?: ZodType | undefined;
   // Enqueue this job once when a runner for its lane starts. Fire-and-forget:
