@@ -87,20 +87,23 @@ type BunfigBlock = { readonly header: string; readonly lines: readonly string[] 
 
 // Splits on un-indented `[header]` lines only — real bunfig files never
 // indent a table header, and TOML array/inline-table values that happen to
-// contain "[" are never alone on their own line.
+// contain "[" are never alone on their own line. Anything before the first
+// header (top-level keys like `preload`/`telemetry`/`smol`/`logLevel`, plus
+// the header comments) is its own block under the synthetic header "" —
+// dropping it silently lost those keys (kumiko-framework#3120).
 function splitBunfigBlocks(content: string): readonly BunfigBlock[] {
   const blocks: { header: string; lines: string[] }[] = [];
-  let current: { header: string; lines: string[] } | undefined;
+  let current: { header: string; lines: string[] } = { header: "", lines: [] };
   for (const line of content.split("\n")) {
     const match = /^\[([^\]]+)\]\s*$/.exec(line);
     if (match?.[1] !== undefined) {
-      if (current !== undefined) blocks.push(current);
+      blocks.push(current);
       current = { header: match[1], lines: [] };
       continue;
     }
-    current?.lines.push(line);
+    current.lines.push(line);
   }
-  if (current !== undefined) blocks.push(current);
+  blocks.push(current);
   return blocks;
 }
 

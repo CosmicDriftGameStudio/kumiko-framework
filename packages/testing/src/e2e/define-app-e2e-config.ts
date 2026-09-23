@@ -76,7 +76,7 @@ function assertTemplateOwnedKeysUnset(project: E2eProject): void {
   ];
   if (offending.length > 0) {
     throw new Error(
-      `defineAppE2eConfig: project "${name}" sets ${offending.join(", ")}; timeouts, retries and workers belong to the template. Diagnose per docs/guides/test-failures.md instead of raising them.`,
+      `defineAppE2eConfig: project "${name}" sets ${offending.join(", ")}; timeouts, retries and workers belong to the template. Diagnose per https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md instead of raising them.`,
     );
   }
 }

@@ -130,7 +130,7 @@ export function runGuardsCli(argv: readonly string[]): number {
   if (flags.includes("--write-baseline")) {
     if (guardNameArg === undefined) {
       console.error(
-        "--write-baseline needs --guard=<name>. Freeze a baseline only deliberately, one guard at a time — fix the cause first (docs/guides/test-failures.md).",
+        "--write-baseline needs --guard=<name>. Freeze a baseline only deliberately, one guard at a time — fix the cause first (https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md).",
       );
       return 1;
     }

@@ -191,7 +191,7 @@ const timeoutsBaseline = baselineRatchet({
 const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, or mark the line with \`// ${EXCEPTION_TAG}: #<issue> <technical reason>\`.`;
 
 const HINT =
-  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See docs/guides/test-failures.md. After a deliberate change: `kumiko-guards guards --write-baseline --guard=test-timeouts`.";
+  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md. After a deliberate change: `kumiko-guards guards --write-baseline --guard=test-timeouts`.";
 
 export function baselineCounts(findings: readonly Finding[]): Record<string, number> {
   const counts: Record<string, number> = {};
