@@ -10,8 +10,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   buildEntityTable,
   createEventStoreExecutor,
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -19,7 +19,6 @@ import {
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   setupTestStack,
   type TestStack,
@@ -102,7 +101,11 @@ describe("reindexEntityJob", () => {
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
-      systemDb: createUncheckedSystemDb(createTenantDb(stack.db, admin.tenantId, "system")),
+      systemDb: createSystemDbView(
+        createTenantDb(stack.db, admin.tenantId, "system", undefined, undefined, undefined, {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        }),
+      ),
       log: noopLogger,
       triggeredBy: null,
       ...bridgeStub(),
@@ -143,7 +146,11 @@ describe("reindexEntityJob", () => {
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
-      systemDb: createUncheckedSystemDb(createTenantDb(stack.db, admin.tenantId, "system")),
+      systemDb: createSystemDbView(
+        createTenantDb(stack.db, admin.tenantId, "system", undefined, undefined, undefined, {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        }),
+      ),
       log: noopLogger,
       triggeredBy: null,
       ...bridgeStub(),
@@ -207,11 +214,13 @@ describe("reindexEntityJob", () => {
       registry: stack.registry,
       searchAdapter: stack.search,
       systemUser: admin,
-      systemDb: createUncheckedSystemDb(createTenantDb(stack.db, otherTenantId, "system")),
+      systemDb: createSystemDbView(createTenantDb(stack.db, otherTenantId, "system")),
       log: noopLogger,
       triggeredBy: null,
       ...bridgeStub(),
     };
-    await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(AccessDeniedError);
+    await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(
+      /tenant self-check failed/,
+    );
   });
 });

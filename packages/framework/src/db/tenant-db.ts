@@ -73,8 +73,8 @@ export function unsafeRawForDeclaredStep(
   if (!runner) {
     throw new InternalError({
       message:
-        "unsafeRawForDeclaredStep received a holder not built by createTenantDb or " +
-        "createUncheckedSystemDb — no declared unsafeRaw runner bound.",
+        "unsafeRawForDeclaredStep received a holder not built by createTenantDb, " +
+        "createUncheckedSystemDb, or createSystemDbView — no declared unsafeRaw runner bound.",
     });
   }
   return runner(reason);
@@ -98,14 +98,23 @@ export function withSystemDbUnsafeRawGrant(
 }
 
 // Ungated when `gate` is absent (the handler's own ctx.systemDb — systemScope() is
-// itself the grant there). Gated by a hook's own escapeHatch when `gate` is present:
-// unsafeRaw then denies without `hasGrant(gate.grant)`, same error shape as
-// ctx.db.unsafeRaw's denial in createTenantDb below.
+// itself the grant there). Gated by a hook's own escapeHatch when `gate.kind` is
+// "hook-grant": unsafeRaw then denies without `hasGrant(gate.grant)`, same error shape
+// as ctx.db.unsafeRaw's denial in createTenantDb below. Gated by the source TenantDb's
+// own escapeHatch when `gate.kind` is "source-tenant-db" (createSystemDbView): unsafeRaw
+// defers entirely to `db.unsafeRaw`, which checks reason/memberReadOnly/grant and
+// reports itself — the view's own `report` is never called for unsafe-raw in that mode.
 function buildUncheckedSystemDb(
   db: TenantDb,
   dbOutsideTransaction: TenantDb | undefined,
   report: EscapeHatchReporter,
-  gate?: { readonly grant: EscapeHatchDeclaration | undefined; readonly deniedCallerLabel: string },
+  gate?:
+    | {
+        readonly kind: "hook-grant";
+        readonly grant: EscapeHatchDeclaration | undefined;
+        readonly deniedCallerLabel: string;
+      }
+    | { readonly kind: "source-tenant-db" },
 ): UncheckedSystemDb {
   const allowedTenantIds: readonly TenantId[] = [db.tenantId, SYSTEM_TENANT_ID];
 
@@ -127,6 +136,9 @@ function buildUncheckedSystemDb(
   }
 
   function grantedUnsafeRawRunner(reason: string): DbRunner {
+    if (gate?.kind === "source-tenant-db") {
+      return db.unsafeRaw(reason);
+    }
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
     }
@@ -199,34 +211,50 @@ function buildUncheckedSystemDb(
     },
   };
   declaredUnsafeRawRunners.set(uncheckedSystemDb, grantedUnsafeRawRunner);
-  systemDbRebinders.set(uncheckedSystemDb, (grant, deniedCallerLabel) =>
-    buildUncheckedSystemDb(
-      withUnsafeRawGrant(db, grant),
-      dbOutsideTransaction && withUnsafeRawGrant(dbOutsideTransaction, grant),
-      report,
-      { grant, deniedCallerLabel },
-    ),
-  );
+  if (gate?.kind !== "source-tenant-db") {
+    systemDbRebinders.set(uncheckedSystemDb, (grant, deniedCallerLabel) =>
+      buildUncheckedSystemDb(
+        withUnsafeRawGrant(db, grant),
+        dbOutsideTransaction && withUnsafeRawGrant(dbOutsideTransaction, grant),
+        report,
+        { kind: "hook-grant", grant, deniedCallerLabel },
+      ),
+    );
+  }
   return uncheckedSystemDb;
 }
 
-// buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
-// mode from the caller's own tenantId, never a foreign one.
+// Framework-private (not re-exported from db/index.ts): buildHandlerContext
+// (pipeline/dispatch-shared.ts) always builds "system" mode from the caller's
+// own tenantId, never a foreign one.
 //
 // dbOutsideTransaction is optional so every existing single-arg call site
-// (jobs, tests, delivery-service.ts) keeps compiling — those callers have no
+// (jobs/job-runner.ts, tests) keeps compiling — those callers have no
 // outside-tx source to hand in and never needed one. Only
 // buildHandlerContext passes it, which is also the only place `.outsideTransaction`
 // is reachable through `ctx.systemDb`.
 //
 // Ungated here (the handler's own systemScope() is the grant); a hook's own
-// escapeHatch is layered on afterwards via withSystemDbUnsafeRawGrant.
+// escapeHatch is layered on afterwards via withSystemDbUnsafeRawGrant. Public
+// callers use createSystemDbView instead, whose unsafeRaw follows the source
+// TenantDb's own escapeHatch gate.
 export function createUncheckedSystemDb(
   db: TenantDb,
   dbOutsideTransaction?: TenantDb,
   report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
 ): UncheckedSystemDb {
   return buildUncheckedSystemDb(db, dbOutsideTransaction, report);
+}
+
+// Public: must never grant more raw access than the source TenantDb — unlike
+// createUncheckedSystemDb (framework-private; r.systemScope()/a job IS the
+// declaration), this view's unsafeRaw defers entirely to db's own escapeHatch gate.
+export function createSystemDbView(
+  db: TenantDb,
+  dbOutsideTransaction?: TenantDb,
+  report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
+): UncheckedSystemDb {
+  return buildUncheckedSystemDb(db, dbOutsideTransaction, report, { kind: "source-tenant-db" });
 }
 
 // @cast-boundary tenant-db-row

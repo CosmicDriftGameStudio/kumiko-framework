@@ -4,8 +4,8 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -251,6 +251,65 @@ const ticketFeature = defineFeature("tickets", (r) => {
   });
 });
 
+// A tenantUserIdsQuery handler NOT declared r.systemScope() must get the same
+// tenant-filtered ctx.db / no ctx.systemDb a real dispatch would give it —
+// captured here so the test can assert on it directly.
+let capturedNonSystemQueryCtx: { hasSystemDb: boolean; dbMode: string } | undefined;
+
+const nonSystemUserIdsQueryName = "test-non-system-broadcast:query:non-system-user-ids";
+
+const nonSystemBroadcastFeature = defineFeature("test-non-system-broadcast", (r) => {
+  r.queryHandler({
+    name: "nonSystemUserIds",
+    schema: z.object({ tenantId: z.string() }),
+    access: { roles: ["Admin"] },
+    handler: async (_query, ctx) => {
+      capturedNonSystemQueryCtx = { hasSystemDb: ctx.systemDb !== undefined, dbMode: ctx.db.mode };
+      const rows = await selectMany<{ userId: string }>(ctx.db, tenantMembershipsTable, {});
+      return rows.map((r2) => r2.userId);
+    },
+  });
+});
+
+// The dispatcher grants a systemScope handler's ctx.systemDb.unsafeRaw ungated —
+// the grant comes from this feature's own r.systemScope() declaration, not from
+// the delivery service caller. ctx.db stays ungated even here.
+let capturedSystemQueryCtx:
+  | { systemDbUnsafeRawWorked: boolean; dbUnsafeRawThrew: boolean }
+  | undefined;
+
+const systemUserIdsQueryName = "test-system-broadcast:query:system-user-ids";
+
+const systemBroadcastFeature = defineFeature("test-system-broadcast", (r) => {
+  r.systemScope();
+  r.queryHandler({
+    name: "systemUserIds",
+    schema: z.object({ tenantId: z.string() }),
+    access: { roles: ["Admin"] },
+    handler: async (_query, ctx) => {
+      let dbUnsafeRawThrew = false;
+      try {
+        ctx.db.unsafeRaw("x");
+      } catch {
+        dbUnsafeRawThrew = true;
+      }
+      const runner = ctx.systemDb?.unsafeRaw(
+        "test: systemScope handler grants ctx.systemDb.unsafeRaw",
+      );
+      const rows = runner
+        ? await selectMany<{ userId: string }>(runner, tenantMembershipsTable, {
+            tenantId: _query.payload.tenantId,
+          })
+        : undefined;
+      capturedSystemQueryCtx = {
+        systemDbUnsafeRawWorked: rows !== undefined,
+        dbUnsafeRawThrew,
+      };
+      return (rows ?? []).map((r2) => r2.userId);
+    },
+  });
+});
+
 const configFeature = createConfigFeature();
 const tenantFeature = createTenantFeature();
 const templateResolverFeature = createTemplateResolverFeature();
@@ -279,6 +338,8 @@ const features = [
   channelPushFeature,
   appFeature,
   ticketFeature,
+  nonSystemBroadcastFeature,
+  systemBroadcastFeature,
 ] as const;
 
 beforeAll(async () => {
@@ -1327,6 +1388,76 @@ describe("flow 15b: escape-hatch audit for tenant broadcast", () => {
   });
 });
 
+// --- Flow 15c: tenantUserIdsQuery that is NOT r.systemScope() ---
+
+describe("flow 15c: tenantUserIdsQuery handler without r.systemScope()", () => {
+  test("gets a tenant-mode db and no systemDb, and the broadcast still resolves recipients", async () => {
+    const nonSystemService = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: nonSystemUserIdsQueryName,
+    });
+
+    // Unique title — flow 8 already broadcasts app:notify:tenant-alert to the same
+    // admin/user1/user2, so a plain notificationType filter would pass even if this
+    // service delivered nothing new. Filtering by this test's own title isolates it.
+    const nonSystemBroadcastTitle = "non-system-broadcast-flow-15c";
+    await nonSystemService.notify(
+      "app:notify:tenant-alert",
+      { to: { tenant: admin.tenantId }, data: { title: nonSystemBroadcastTitle, body: "X" } },
+      admin,
+      admin.tenantId,
+    );
+
+    expect(capturedNonSystemQueryCtx).toEqual({ hasSystemDb: false, dbMode: "tenant" });
+
+    const messages = await selectMany(db, inAppMessagesTable, {
+      notificationType: "app:notify:tenant-alert",
+      title: nonSystemBroadcastTitle,
+    });
+    const recipientIds = messages.map((m) => m["userId"]);
+    expect(recipientIds).toContain(admin.id);
+    expect(recipientIds).toContain(user1.id);
+    expect(recipientIds).toContain(user2.id);
+  });
+});
+
+// --- Flow 15d: tenantUserIdsQuery that IS r.systemScope() ---
+
+describe("flow 15d: tenantUserIdsQuery handler with r.systemScope()", () => {
+  test("ctx.systemDb.unsafeRaw works, ctx.db.unsafeRaw is denied, broadcast still resolves recipients", async () => {
+    const systemService = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: systemUserIdsQueryName,
+    });
+
+    const systemBroadcastTitle = "system-broadcast-flow-15d";
+    await systemService.notify(
+      "app:notify:tenant-alert",
+      { to: { tenant: admin.tenantId }, data: { title: systemBroadcastTitle, body: "X" } },
+      admin,
+      admin.tenantId,
+    );
+
+    expect(capturedSystemQueryCtx).toEqual({
+      systemDbUnsafeRawWorked: true,
+      dbUnsafeRawThrew: true,
+    });
+
+    const messages = await selectMany(db, inAppMessagesTable, {
+      notificationType: "app:notify:tenant-alert",
+      title: systemBroadcastTitle,
+    });
+    const recipientIds = messages.map((m) => m["userId"]);
+    expect(recipientIds).toContain(admin.id);
+    expect(recipientIds).toContain(user1.id);
+    expect(recipientIds).toContain(user2.id);
+  });
+});
+
 // --- Flow 16: Unsubscribe race — ON CONFLICT makes repeated clicks safe ---
 
 describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
@@ -1545,10 +1676,16 @@ describe("flow 17: async render→send pipeline", () => {
 
   // Mirrors what job-runner.ts's handleJob really builds for a
   // r.systemScope()'d job (framework#2105) — a real TenantDb wrapped by
-  // createUncheckedSystemDb, not a mock, so requireTenantScopedDeps'
+  // createSystemDbView, not a mock, so requireTenantScopedDeps'
   // assertTenantMatch() call exercises the actual production code path.
+  // The unsafeRaw grant mirrors the systemScope() grant that job-runner.ts's
+  // real ctx.systemDb carries in production.
   function makeSystemDb(tenantId: TenantId) {
-    return createUncheckedSystemDb(createTenantDb(db, tenantId, "system"));
+    return createSystemDbView(
+      createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      }),
+    );
   }
 
   test("delivery.render on a channel without a render step records failed and does not dispatch send", async () => {
