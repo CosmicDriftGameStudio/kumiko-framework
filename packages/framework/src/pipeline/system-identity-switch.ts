@@ -1,4 +1,9 @@
-import { type TenantDb, withUnsafeRawGrant } from "../db/tenant-db";
+import {
+  type TenantDb,
+  type UncheckedSystemDb,
+  withSystemDbUnsafeRawGrant,
+  withUnsafeRawGrant,
+} from "../db/tenant-db";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type {
   ActiveMembershipResult,
@@ -214,7 +219,10 @@ function readIdentitySwitchFn<
 }
 
 // context's own keys only — never touch a property of the resolved value, which may be a Proxy that throws on any get.
-function readDbLikeValue(context: object, key: "db" | "dbOutsideTransaction"): object | undefined {
+function readDbLikeValue(
+  context: object,
+  key: "db" | "dbOutsideTransaction" | "systemDb",
+): object | undefined {
   if (!(key in context)) return undefined;
   const value = (context as Record<string, unknown>)[key];
   return typeof value === "object" && value !== null ? value : undefined;
@@ -340,6 +348,7 @@ export function withHookEscapeHatchGrant<TContext extends object>(
   const ctxQueryProjection = readIdentitySwitchFn<ProjectionReader>(context, "queryProjection");
   const ctxDb = readDbLikeValue(context, "db");
   const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
+  const ctxSystemDb = readDbLikeValue(context, "systemDb");
   if (
     !ctxQueryAs &&
     !ctxWriteAs &&
@@ -347,7 +356,8 @@ export function withHookEscapeHatchGrant<TContext extends object>(
     !ctxQueryAsMember &&
     !ctxQueryProjection &&
     !ctxDb &&
-    !ctxDbOutsideTransaction
+    !ctxDbOutsideTransaction &&
+    !ctxSystemDb
   ) {
     return context;
   }
@@ -366,10 +376,18 @@ export function withHookEscapeHatchGrant<TContext extends object>(
     ...(ctxDbOutsideTransaction && {
       dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction as TenantDb, escapeHatch),
     }),
+    // @cast-boundary engine-bridge — withSystemDbUnsafeRawGrant passes non-UncheckedSystemDb values through unchanged.
+    ...(ctxSystemDb && {
+      systemDb: withSystemDbUnsafeRawGrant(
+        ctxSystemDb as UncheckedSystemDb,
+        escapeHatch,
+        callerLabel,
+      ),
+    }),
   };
 }
 
-// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.queryProjection/ctx.db/ctx.dbOutsideTransaction instead of inheriting the handler's grant.
+// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.queryProjection/ctx.db/ctx.dbOutsideTransaction/ctx.systemDb instead of inheriting the handler's grant.
 export function bindHookEscapeHatchGrant(
   fn: LifecycleHookFn,
   label: string,

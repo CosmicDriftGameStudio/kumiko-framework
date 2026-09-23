@@ -80,18 +80,32 @@ export function unsafeRawForDeclaredStep(
   return runner(reason);
 }
 
-// buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
-// mode from the caller's own tenantId, never a foreign one.
-//
-// dbOutsideTransaction is optional so every existing single-arg call site
-// (jobs, tests, delivery-service.ts) keeps compiling — those callers have no
-// outside-tx source to hand in and never needed one. Only
-// buildHandlerContext passes it, which is also the only place `.outsideTransaction`
-// is reachable through `ctx.systemDb`.
-export function createUncheckedSystemDb(
+const systemDbRebinders = new WeakMap<
+  UncheckedSystemDb,
+  (grant: EscapeHatchDeclaration | undefined, deniedCallerLabel: string) => UncheckedSystemDb
+>();
+
+// Rebinds a hook's own escapeHatch onto ctx.systemDb, mirroring withUnsafeRawGrant: always
+// rebuilt from the original db/dbOutsideTransaction/report, never stacked onto a prior rebind.
+// Inputs not built by createUncheckedSystemDb pass through unchanged.
+export function withSystemDbUnsafeRawGrant(
+  systemDb: UncheckedSystemDb,
+  grant: EscapeHatchDeclaration | undefined,
+  deniedCallerLabel: string,
+): UncheckedSystemDb {
+  const rebind = systemDbRebinders.get(systemDb);
+  return rebind ? rebind(grant, deniedCallerLabel) : systemDb;
+}
+
+// Ungated when `gate` is absent (the handler's own ctx.systemDb — systemScope() is
+// itself the grant there). Gated by a hook's own escapeHatch when `gate` is present:
+// unsafeRaw then denies without `hasGrant(gate.grant)`, same error shape as
+// ctx.db.unsafeRaw's denial in createTenantDb below.
+function buildUncheckedSystemDb(
   db: TenantDb,
-  dbOutsideTransaction?: TenantDb,
-  report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
+  dbOutsideTransaction: TenantDb | undefined,
+  report: EscapeHatchReporter,
+  gate?: { readonly grant: EscapeHatchDeclaration | undefined; readonly deniedCallerLabel: string },
 ): UncheckedSystemDb {
   const allowedTenantIds: readonly TenantId[] = [db.tenantId, SYSTEM_TENANT_ID];
 
@@ -115,6 +129,13 @@ export function createUncheckedSystemDb(
   function grantedUnsafeRawRunner(reason: string): DbRunner {
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
+    }
+    if (gate && !hasGrant(gate.grant)) {
+      throw new AccessDeniedError({
+        message:
+          'ctx.systemDb.unsafeRaw(reason): rejected — declare `escapeHatch: { reason: "..." }` on ' +
+          `${gate.deniedCallerLabel} to allow unsafeRaw.`,
+      });
     }
     report("unsafe-raw", reason);
     return tenantDbRunner(db);
@@ -178,7 +199,34 @@ export function createUncheckedSystemDb(
     },
   };
   declaredUnsafeRawRunners.set(uncheckedSystemDb, grantedUnsafeRawRunner);
+  systemDbRebinders.set(uncheckedSystemDb, (grant, deniedCallerLabel) =>
+    buildUncheckedSystemDb(
+      withUnsafeRawGrant(db, grant),
+      dbOutsideTransaction && withUnsafeRawGrant(dbOutsideTransaction, grant),
+      report,
+      { grant, deniedCallerLabel },
+    ),
+  );
   return uncheckedSystemDb;
+}
+
+// buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
+// mode from the caller's own tenantId, never a foreign one.
+//
+// dbOutsideTransaction is optional so every existing single-arg call site
+// (jobs, tests, delivery-service.ts) keeps compiling — those callers have no
+// outside-tx source to hand in and never needed one. Only
+// buildHandlerContext passes it, which is also the only place `.outsideTransaction`
+// is reachable through `ctx.systemDb`.
+//
+// Ungated here (the handler's own systemScope() is the grant); a hook's own
+// escapeHatch is layered on afterwards via withSystemDbUnsafeRawGrant.
+export function createUncheckedSystemDb(
+  db: TenantDb,
+  dbOutsideTransaction?: TenantDb,
+  report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
+): UncheckedSystemDb {
+  return buildUncheckedSystemDb(db, dbOutsideTransaction, report);
 }
 
 // @cast-boundary tenant-db-row
