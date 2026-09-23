@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.299.0",
+    "type": "improvement",
+    "title": "kumiko-guards ships a kumiko-pre-push bin carrying the shared pre-push hook mechanics",
+    "detail": "Consumer repos can replace their vendored .husky/pre-push with a thin shim; a tracked, executable scripts/pre-push-extra.sh is the per-repo extension point."
+  },
+  {
+    "version": "0.299.0",
+    "type": "improvement",
+    "title": "kumiko-guards ships the canonical `hooks/pre-push` shim that execs the nearest `node_modules/.bin/kumiko-pre-push` and fails closed with a `bun install` / `PRE_PUSH_SKIP=1` hint when it is missing; repos copy it to `.husky/pre-push`."
+  },
+  {
+    "version": "0.299.0",
+    "type": "fix",
+    "title": "AstGuard.run receives the caller's repo roots (guard-test-timeouts, guard-pii-annotations, guard-section-fields-raw, guard-text-field-stance, guard-i18n-locale-mount, guard-i18n-locale-terminology, check-complexity, guard-direct-fetch, guard-no-direct-fs, guard-write-handler-qns) so multi-repo aggregate runs stop throwing \"cannot classify path\" or dropping sibling-repo findings; --write-baseline now requires --guard=<name>",
+    "migration": "No action needed for AstGuard.run's new optional `roots` parameter. `kumiko-guards guards --write-baseline` no longer writes every ratchet guard's baseline in one call; pass `--guard=<name>` to freeze one guard deliberately, or run it once per guard."
+  },
+  {
     "version": "0.292.0",
     "type": "improvement",
     "title": "Export the three suite runners so a CLI can compose them in-process",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.299.0",
+    "type": "fix",
+    "title": "Scaffolded docker-compose.yml uses the correct Postgres 18 data path; default app mounts auth-foundation so it boots",
+    "migration": "No action needed for existing apps; only newly scaffolded apps are affected."
+  },
+  {
     "version": "0.298.0",
     "type": "breaking",
     "title": "createKumikoServer/runDevApp take ExtraRouteDefinition[]; dev hostDispatch gets systemQuery",
