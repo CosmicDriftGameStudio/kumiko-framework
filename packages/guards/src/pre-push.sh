@@ -2,11 +2,18 @@
 # Pre-push hook — runs scoped `bun check` before allowing push.
 #
 # Logic:
-#   1. If running inside the cosmicdriftgamestudio Parent-Workspace,
+#   1. If running inside a worktree with a tracked, executable
+#      scripts/check-wt.sh, delegate to it.
+#   2. Else if running inside a worktree under the parent workspace (no
+#      check-wt.sh), run this worktree's own package.json scripts
+#      (typecheck, lint, test, test:dom) directly — the parent's
+#      `bun check` would otherwise check the main checkout instead of the
+#      worktree.
+#   3. Else if running inside the cosmicdriftgamestudio Parent-Workspace,
 #      delegate to its `bun check` with KUMIKO_CLI_SCOPE set to THIS
 #      sub-repo only — so a push from one sub-repo doesn't run
 #      Biome/TS/Tests for its siblings as well.
-#   2. Else (standalone clone outside the parent workspace): run the
+#   4. Else (standalone clone outside the parent workspace): run the
 #      sub-repo's own package.json `test` script — refuses the push if that
 #      script is missing.
 #
@@ -61,6 +68,18 @@ while [ "$DIR" != "/" ]; do
   DIR="$(dirname "$DIR")"
 done
 
+# Exit 0 iff $REPO_ROOT/package.json has a string scripts[NAME]. Runs from /
+# so the repo's bunfig (e.g. a throwing top-level preload) can't turn the
+# probe into a false "no script"; path and name go in as argv, never
+# interpolated into the JS source.
+has_package_script() {
+  (cd / && bun -e '
+    const pkg = await Bun.file(process.argv[1]).json().catch(() => null);
+    const name = process.argv[2];
+    process.exit(pkg && typeof pkg.scripts?.[name] === "string" ? 0 : 1);
+  ' "$REPO_ROOT/package.json" "$1") >/dev/null 2>&1
+}
+
 if git -C "$REPO_ROOT" ls-files --error-unmatch scripts/pre-push-extra.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/pre-push-extra.sh" ]; then
   echo "[pre-push] running scripts/pre-push-extra.sh…"
@@ -79,10 +98,43 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
   cd "$REPO_ROOT" && exec "$REPO_ROOT/scripts/check-wt.sh"
 fi
 
+# infra#899: no tracked scripts/check-wt.sh — the parent-scoped `bun check`
+# branch below would check the main checkout, not this worktree. Run the
+# worktree's own package.json scripts directly instead (only when nested
+# under the parent workspace; a standalone worktree's own `bun run test`
+# already checks the right code).
+if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
+   && [ -n "$PARENT_DIR" ]; then
+  cd "$REPO_ROOT"
+  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom)…"
+  if ! has_package_script test; then
+    echo "[pre-push] FATAL: worktree without a package.json \"test\" script — nothing to run, refusing push." >&2
+    echo "Add a \"test\" script to package.json, or set PRE_PUSH_SKIP=1 to bypass (use sparingly)." >&2
+    exit 1
+  fi
+  FAILED=""
+  for SCRIPT_NAME in typecheck lint test test:dom; do
+    if has_package_script "$SCRIPT_NAME"; then
+      echo "[pre-push] bun run $SCRIPT_NAME"
+      if ! bun run "$SCRIPT_NAME"; then
+        FAILED="$FAILED $SCRIPT_NAME"
+      fi
+    else
+      echo "[pre-push] $SCRIPT_NAME: no script, skipped"
+    fi
+  done
+  if [ -n "$FAILED" ]; then
+    echo "[pre-push] worktree check failed:$FAILED" >&2
+    exit 1
+  fi
+  exit 0
+fi
+
 if [ -n "$PARENT_DIR" ]; then
   echo "[pre-push] bun check (scoped: $REPO_NAME)…"
   # KUMIKO_PUSH_REPO_ROOT forwards this checkout to guards that need it
-  # (worktrees with scripts/check-wt.sh take the branch above and skip this path).
+  # (worktrees never reach this branch — check-wt.sh or the generic
+  # worktree branch above always exits first).
   cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" KUMIKO_PUSH_REPO_ROOT="$REPO_ROOT" bun kumiko-framework/bin/kumiko.ts check
 else
   echo "[pre-push] bun run test (standalone)…"
@@ -91,10 +143,7 @@ else
   # exclusions (e.g. integration suites needing infra this hook doesn't have).
   # A missing `test` script would otherwise surface as bun's unhelpful
   # "Script not found" — check it up front with a clear, actionable message.
-  if ! (cd "$REPO_ROOT" && bun -e '
-    const pkg = await Bun.file("package.json").json().catch(() => null);
-    process.exit(pkg && typeof pkg.scripts?.test === "string" ? 0 : 1);
-  ' >/dev/null 2>&1); then
+  if ! has_package_script test; then
     echo "[pre-push] FATAL: standalone clone without a package.json \"test\" script — nothing to run, refusing push." >&2
     echo "Add a \"test\" script to package.json, or set PRE_PUSH_SKIP=1 to bypass (use sparingly)." >&2
     exit 1
