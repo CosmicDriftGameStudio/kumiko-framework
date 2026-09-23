@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { defineFeature } from "../../engine/define-feature";
+import { prometheusMetricsEnvSchema } from "../../observability/metrics-wiring";
 import { renderDryRun } from "../dry-run";
 import { composeEnvSchema } from "../index";
 
@@ -90,7 +91,7 @@ describe("renderDryRun", () => {
     expect(ver?.default).toBe("1");
   });
 
-  it("pulumi mode emits `pulumi config set` lines, omitting optional+defaulted", () => {
+  it("pulumi mode emits required lines, optional ones commented out, omits defaulted", () => {
     const composed = buildComposed();
     const out = renderDryRun(composed, "pulumi", { pulumiPrefix: "studio" });
     expect(out).toContain(
@@ -100,9 +101,36 @@ describe("renderDryRun", () => {
       'pulumi config set --secret studioSecretsMasterKey "$(openssl rand -base64 32)"',
     );
     expect(out).toContain('pulumi config set studioStudioAdminEmail "<set-me>"');
-    // Optional + default skipped:
-    expect(out).not.toContain("SMTP_HOST");
+    expect(out).toContain(
+      '# pulumi config set studioSmtpHost "<set-me>" # SMTP_HOST (channel-email-smtp): Outbound SMTP host',
+    );
+    expect(out).not.toMatch(/^pulumi config set.*SMTP_HOST/m);
     expect(out).not.toContain("CURRENT_VERSION");
+    const requiredLineIndex = out.lastIndexOf("pulumi config set studioStudioAdminEmail");
+    const optionalHeaderIndex = out.indexOf("# Optional (uncomment and set to enable):");
+    expect(requiredLineIndex).toBeGreaterThanOrEqual(0);
+    expect(optionalHeaderIndex).toBeGreaterThan(requiredLineIndex);
+  });
+
+  it("pulumi mode lists an optional secret field (PROMETHEUS_METRICS_TOKEN) commented out with generator", () => {
+    const composed = composeEnvSchema({
+      features: [],
+      extend: z.object({ FOO: z.string() }).extend(prometheusMetricsEnvSchema.shape),
+    });
+    const out = renderDryRun(composed, "pulumi");
+    expect(out).toContain(
+      '# pulumi config set --secret prometheusMetricsToken "$(openssl rand -base64 32)" # PROMETHEUS_METRICS_TOKEN (app): Bearer token for /metrics; unset keeps the endpoint off.',
+    );
+    expect(out).not.toMatch(/^pulumi config set.*PROMETHEUS_METRICS_TOKEN/m);
+  });
+
+  it("pulumi mode omits the Optional header when there are no optional fields", () => {
+    const composed = composeEnvSchema({
+      features: [],
+      extend: z.object({ FOO: z.string() }),
+    });
+    const out = renderDryRun(composed, "pulumi");
+    expect(out).not.toContain("# Optional");
   });
 
   it("k8s mode emits a Secret manifest", () => {
@@ -117,5 +145,17 @@ describe("renderDryRun", () => {
     expect(out).toContain("namespace: studio");
     expect(out).toContain('JWT_SECRET: "<set-me>"');
     expect(out).toContain('KUMIKO_SECRETS_MASTER_KEY_V1: "<set-me>"');
+    expect(out).toContain('  # SMTP_HOST: "<set-me>" # (channel-email-smtp): Outbound SMTP host');
+    expect(out).not.toMatch(/^ {2}SMTP_HOST:/m);
+    expect(out).not.toContain("CURRENT_VERSION");
+  });
+
+  it("k8s mode omits the Optional header when there are no optional fields", () => {
+    const composed = composeEnvSchema({
+      features: [],
+      extend: z.object({ FOO: z.string() }),
+    });
+    const out = renderDryRun(composed, "k8s");
+    expect(out).not.toContain("# Optional");
   });
 });
