@@ -256,7 +256,7 @@ export type MatrixViewportPlan =
   | { readonly mode: "skip"; readonly reason: string };
 
 function isViewportId(name: string): name is ViewportId {
-  return (VIEWPORT_IDS as readonly string[]).includes(name);
+  return VIEWPORT_IDS.some((id) => id === name);
 }
 
 // A device project (name === a ViewportId, use.isMobile === true) already
@@ -325,6 +325,7 @@ export function runMatrix<T extends string>(
           );
           if (plan.mode === "skip") {
             test.skip(true, plan.reason);
+            // skip: test.skip() throws; the return only narrows `plan` for TypeScript.
             return;
           }
 
