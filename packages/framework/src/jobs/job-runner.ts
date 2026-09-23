@@ -323,9 +323,10 @@ function timeoutReject(
 // waiting.
 const DEFAULT_JOB_BACKOFF_DELAY_MS = 1_000;
 
-// Shared by dispatch() and handleEvent() — an event-triggered job must retry
-// on failure the same way a directly-dispatched one does; a duplicated
-// inline computation in handleEvent previously dropped both options.
+// Shared by every enqueue path (dispatch(), handleEvent(), cron, runOnBoot,
+// perTenant wrapper/children, sequential re-enqueue) — a job with `retries`
+// set must retry the same way regardless of how it got enqueued, or it
+// fails for good on the very first error on whichever path skips this.
 function buildRetryBullOpts(jobDef: JobDefinition): Pick<JobsOptions, "attempts" | "backoff"> {
   const opts: Pick<JobsOptions, "attempts" | "backoff"> = {};
   if (jobDef.retries !== undefined) opts.attempts = jobDef.retries + 1;
@@ -536,9 +537,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         await targetQueue.add(
           actualName,
           { ...bullJob.data, _tenantId: tenantId },
-          wrapperJobId !== undefined
-            ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
-            : undefined,
+          {
+            ...buildRetryBullOpts(actualDef),
+            // Dedup over wrapper retries only holds as long as the children
+            // stay in Redis for the wrapper's whole retry window.
+            ...(wrapperJobId !== undefined
+              ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
+              : {}),
+          },
         );
       }
       // skip: fan-out dispatcher job, per-tenant children enqueued
@@ -567,8 +573,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // same queue the worker just picked from (since only the consuming
         // lane runs handleJob at all), but route explicitly — no implicit
         // coupling to "whichever queue the caller happened to be on".
+        // The re-enqueued job starts with a full retry budget; a remaining
+        // budget is deliberately not carried over, since finalAttempt/
+        // tenantVisibleFailure are computed from jobDef.retries against
+        // attemptsMade, not against some inherited remainder.
         await queues[laneForJob(jobDef)].add(jobName, bullJob.data, {
           delay: SEQUENTIAL_RETRY_DELAY_MS,
+          ...buildRetryBullOpts(jobDef),
         });
         // skip: lock taken, work re-enqueued with delay, current invocation done
         return;
@@ -917,6 +928,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               opts: {
                 removeOnComplete: { count: 100 },
                 removeOnFail: { count: 50 },
+                ...buildRetryBullOpts(jobDef),
               },
             },
           );
@@ -927,7 +939,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if (jobDef.runOnBoot) {
           const bootName = jobDef.perTenant ? `_perTenant:${name}` : name;
-          await consumerQueue.add(bootName, {}, { jobId: bootJobIdForJobName(name) });
+          await consumerQueue.add(
+            bootName,
+            {},
+            {
+              jobId: bootJobIdForJobName(name),
+              ...buildRetryBullOpts(jobDef),
+            },
+          );
         }
       }
 
@@ -974,7 +993,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
       // perTenant: dispatch the fan-out wrapper instead
       if (jobDef.perTenant) {
-        const job = await targetQueue.add(`_perTenant:${jobName}`, payload ?? {});
+        const job = await targetQueue.add(
+          `_perTenant:${jobName}`,
+          payload ?? {},
+          buildRetryBullOpts(jobDef),
+        );
         return job.id ?? "unknown";
       }
 
