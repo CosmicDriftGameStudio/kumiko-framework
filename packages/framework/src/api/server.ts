@@ -1178,6 +1178,9 @@ function buildExtraRouteHonoHandler(
           );
         } catch (e) {
           if (e instanceof ExtraRouteRejection) {
+            if (e.retryAfterSeconds !== undefined) {
+              return c.json(e.body, e.status, { "Retry-After": String(e.retryAfterSeconds) });
+            }
             return c.json(e.body, e.status);
           }
           return c.json(
