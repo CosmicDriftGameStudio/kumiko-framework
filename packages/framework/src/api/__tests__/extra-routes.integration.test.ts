@@ -55,6 +55,35 @@ const probeFeature = defineFeature("extra-route-probe", (r) => {
   });
 });
 
+// Module-level store — proves deps.write ran via a follow-up query, no DB needed.
+const anonymousWriteStore = new Map<string, string[]>();
+
+const anonymousWriteFeature = defineFeature("anonymous-write-probe", (r) => {
+  r.writeHandler({
+    name: "anon-write",
+    schema: z.object({ note: z.string() }),
+    access: { roles: ["anonymous"] },
+    handler: async (event) => {
+      const notes = anonymousWriteStore.get(event.user.tenantId) ?? [];
+      notes.push(event.payload.note);
+      anonymousWriteStore.set(event.user.tenantId, notes);
+      return { isSuccess: true as const, data: { tenantSeen: event.user.tenantId } };
+    },
+  });
+  r.writeHandler({
+    name: "anon-gated-write",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    handler: async () => ({ isSuccess: true as const, data: { ok: true as const } }),
+  });
+  r.queryHandler({
+    name: "anon-notes",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    handler: async (event) => ({ notes: anonymousWriteStore.get(event.user.tenantId) ?? [] }),
+  });
+});
+
 describe("extraRoutes: entry:anonymous", () => {
   const pingRoute: AnonymousExtraRoute = {
     method: "GET",
@@ -132,6 +161,128 @@ describe("extraRoutes: entry:anonymous under /api/* (kumiko-framework#3050 bypas
     } finally {
       await stack.cleanup();
     }
+  });
+});
+
+describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymous write)", () => {
+  const writeRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/api/anon-write-probe",
+    entry: "anonymous",
+    handler: async (c, deps) => {
+      const result = await deps.write("anonymous-write-probe:write:anon-write", {
+        note: "from-anon",
+      });
+      return c.json(result);
+    },
+  };
+  const gatedWriteRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/api/anon-gated-write-probe",
+    entry: "anonymous",
+    handler: async (c, deps) => {
+      const result = await deps.write("anonymous-write-probe:write:anon-gated-write", {});
+      return c.json(result);
+    },
+  };
+  // Catches the thrown error itself and surfaces its message — proves what
+  // deps.write actually throws, not just that *something* threw.
+  const outsideApiWriteRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/public/anon-write-probe",
+    entry: "anonymous",
+    handler: async (c, deps) => {
+      try {
+        const result = await deps.write("anonymous-write-probe:write:anon-write", {
+          note: "should-not-persist",
+        });
+        return c.json(result);
+      } catch (e) {
+        return c.json({ error: { message: e instanceof Error ? e.message : String(e) } }, 500);
+      }
+    },
+  };
+
+  const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000099" as TenantId;
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    anonymousWriteStore.clear();
+    stack = await setupTestStack({
+      features: [anonymousWriteFeature],
+      extraRoutes: [writeRoute, gatedWriteRoute, outsideApiWriteRoute],
+      // No defaultTenantId: X-Tenant picks the tenant per request, so the cross-tenant test below is real.
+      anonymousAccess: {
+        tenantExists: async (id) => id === TENANT_ID || id === OTHER_TENANT_ID,
+      },
+    });
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("under /api/ with anonymousAccess wired, deps.write runs against a handler allowing roles:['anonymous'] and actually persists", async () => {
+    const res = await stack.app.request("/api/anon-write-probe", {
+      method: "POST",
+      headers: { "X-Tenant": TENANT_ID },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: boolean; data: { tenantSeen: string } };
+    expect(body.isSuccess).toBe(true);
+    expect(body.data.tenantSeen).toBe(TENANT_ID);
+
+    const notesRes = await stack.app.request("/api/query", {
+      method: "POST",
+      headers: { "content-type": "application/json", "X-Tenant": TENANT_ID },
+      body: JSON.stringify({ type: "anonymous-write-probe:query:anon-notes", payload: {} }),
+    });
+    expect(notesRes.status).toBe(200);
+    const notesBody = (await notesRes.json()) as { data: { notes: readonly string[] } };
+    expect(notesBody.data.notes).toContain("from-anon");
+  });
+
+  test("deps.write is access-checked as the anonymous session — a role-gated handler is denied, nothing written", async () => {
+    const before = anonymousWriteStore.get(TENANT_ID)?.length ?? 0;
+    const res = await stack.app.request("/api/anon-gated-write-probe", {
+      method: "POST",
+      headers: { "X-Tenant": TENANT_ID },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: boolean; error?: { code: string } };
+    expect(body.isSuccess).toBe(false);
+    expect(body.error?.code).toBe("access_denied");
+    expect(anonymousWriteStore.get(TENANT_ID)?.length ?? 0).toBe(before);
+  });
+
+  test("deps.write parity: a Bearer token whose role clears the gate succeeds — same as calling /api/write directly (see the no-token case above, which 403s)", async () => {
+    const token = await stack.jwt.sign(TestUsers.admin);
+    const res = await stack.app.request("/api/anon-gated-write-probe", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess: boolean };
+    expect(body.isSuccess).toBe(true);
+  });
+
+  test("deps.write lands in the request-resolved tenant, not a different one", async () => {
+    const res = await stack.app.request("/api/anon-write-probe", {
+      method: "POST",
+      headers: { "X-Tenant": OTHER_TENANT_ID },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { tenantSeen: string } };
+    expect(body.data.tenantSeen).toBe(OTHER_TENANT_ID);
+    expect(anonymousWriteStore.get(OTHER_TENANT_ID)).toContain("from-anon");
+    expect(anonymousWriteStore.get(TENANT_ID)).not.toContain("from-anon");
+  });
+
+  test("outside /api/, deps.write throws with a message naming the /api/ + anonymousAccess requirement, nothing written", async () => {
+    const before = anonymousWriteStore.get(TENANT_ID)?.length ?? 0;
+    const res = await stack.app.request("/public/anon-write-probe", { method: "POST" });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toMatch(/mounted\s+under\s+"\/api\/"\s+with\s+anonymousAccess/);
+    expect(anonymousWriteStore.get(TENANT_ID)?.length ?? 0).toBe(before);
   });
 });
 
