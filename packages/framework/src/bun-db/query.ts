@@ -729,26 +729,41 @@ function buildWhereClause(
   return { sqlText: conditions.join(" AND "), values };
 }
 
-// #1163: under load the Bun.SQL pool can hand out a connection the server
-// already closed ("The connection was closed.", AbortError code 20) — no
-// validate-on-checkout exists. One retry re-checks out a fresh connection;
-// safe for pure reads. Tx handles are never retried: their transaction is
-// dead once the connection dropped, and a retry would run on the same dead
-// handle. Detection is name+message (not name alone) so a genuine user
-// abort (AbortSignal cancel) is NOT retried.
-function isClosedConnectionError(err: unknown): boolean {
-  if (err === null || typeof err !== "object") return false;
-  const e = err as { name?: unknown; message?: unknown };
+// A pool can briefly keep handing out connections the server just closed.
+// Each failed attempt discards one, so retries are bounded by pool size.
+const CLOSED_CONNECTION_CODES: ReadonlySet<string> = new Set([
+  "CONNECTION_CLOSED", // postgres-js
+  "ERR_POSTGRES_CONNECTION_CLOSED", // Bun.SQL
+  "57P01", // PG SQLSTATE: admin_shutdown / terminated backend
+]);
+
+export function isClosedConnectionError(err: unknown): boolean {
+  const code = extractPgError(err)?.code;
+  return code !== undefined && CLOSED_CONNECTION_CODES.has(code);
+}
+
+// Tx/reserved handles are pinned to one physical connection — a retry there
+// would run on the same dead connection, not swap in a fresh one.
+function isPooledClient(raw: unknown): boolean {
+  if (raw === null || (typeof raw !== "object" && typeof raw !== "function")) return false;
+  // @cast-boundary driver handle shape — begin/savepoint/release are optional across drivers
+  const r = raw as { begin?: unknown; savepoint?: unknown; release?: unknown };
   return (
-    e.name === "AbortError" &&
-    typeof e.message === "string" &&
-    /connection was closed/i.test(e.message)
+    typeof r.begin === "function" &&
+    typeof r.savepoint !== "function" &&
+    typeof r.release !== "function"
   );
 }
 
+function poolMaxOf(raw: unknown): number {
+  // @cast-boundary driver pool options — both postgres-js and Bun.SQL expose options.max
+  const max = (raw as { options?: { max?: unknown } }).options?.max;
+  return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : 10;
+}
+
 // Exported so raw-SQL query modules outside bun-db (e.g. bundled-features'
-// db/queries/*.ts) can opt into the same #1163 retry instead of calling
-// asRawClient(db).unsafe(...) directly and losing it.
+// db/queries/*.ts) can opt into the same closed-connection retry instead of
+// calling asRawClient(db).unsafe(...) directly and losing it.
 // READS ONLY — retry re-executes the statement; never pass INSERT/UPDATE/DELETE.
 export async function unsafeReadRetrying<TRow>(
   db: AnyDb,
@@ -759,9 +774,18 @@ export async function unsafeReadRetrying<TRow>(
   try {
     return (await raw.unsafe(sqlText, params)) as readonly TRow[];
   } catch (err) {
-    // TransactionSql has savepoint(), only a top-level pool client has begin().
-    if (typeof raw.begin !== "function" || !isClosedConnectionError(err)) throw err;
-    return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+    if (!isPooledClient(raw) || !isClosedConnectionError(err)) throw err;
+    const maxAttempts = poolMaxOf(raw) + 1;
+    let lastErr: unknown = err;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+      } catch (retryErr) {
+        lastErr = retryErr;
+        if (!isClosedConnectionError(retryErr)) throw retryErr;
+      }
+    }
+    throw lastErr;
   }
 }
 

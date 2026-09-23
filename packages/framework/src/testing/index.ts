@@ -15,6 +15,7 @@ export { resetEntityFieldEncryptionCacheForTests } from "../db/entity-field-encr
 export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";
 export { withBootValidatorFixture } from "./boot-validator-fixture";
+export { captureClosedConnectionError } from "./closed-connection-error";
 export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup";
 export {
   type E2EGeneratorOptions,
