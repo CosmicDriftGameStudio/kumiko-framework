@@ -31,6 +31,7 @@ import {
   tryMapUniqueViolation,
 } from "./event-store-executor-context";
 import { runInSavepointIfSupported } from "./query";
+import { assertPersonalDataWrite, tableNameOf } from "./tenant-db";
 import { tenantDbRunner } from "./tenant-db-runner";
 
 // Art. 17 erasure runs as the framework operator, not as a row owner; a
@@ -144,6 +145,9 @@ export function createWriteVerbs(
       );
       if ("failure" in preSaveResult) return preSaveResult.failure;
       const data = preSaveResult.data;
+
+      // After preSave so derived fields count, before the event append so nothing persists.
+      assertPersonalDataWrite(db, tableNameOf(table), Object.keys(data), entity);
 
       // H.2 — entity-level write-ownership on create. No oldRow exists, so
       // only the new row is checked. No Straddle concern for creates.
@@ -333,6 +337,9 @@ export function createWriteVerbs(
       );
       if ("failure" in preSaveResult) return preSaveResult.failure;
       const changes = preSaveResult.data;
+
+      // After preSave so derived fields count, before the event append so nothing persists.
+      assertPersonalDataWrite(db, tableNameOf(table), Object.keys(changes), entity);
 
       // H.2 — entity-level write-ownership on update. Load old row (already
       // done above), build post-change row via shallow merge. Straddle-safe

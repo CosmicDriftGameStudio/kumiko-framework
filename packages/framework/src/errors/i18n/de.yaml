@@ -147,6 +147,18 @@ member_resolution_read_only:
     `jobRunner`/...). Aufgelöste Member-Principals sind nur lesend — es gibt
     kein `writeAsMember`.
 
+public_intake_required:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: ein Write unter einem anonymen Wurzel-Handler hat ein
+    Personendaten-Feld (`pii` / `userOwned` / `recordOwned`) geschrieben, direkt
+    oder über `ctx.write`/`writeAs`/`queryAs` oder einen Hook. `details` nennen
+    `rootHandler`, `target` und `fields`. Ist der anonyme Intake gewollt, am
+    Wurzel-Handler `access: { roles: [..., "anonymous"], personalData: "public-intake" }`
+    deklarieren.
+
 agent.tool_not_allowed:
   endUser: |
     Dieses Tool ist im aktuellen Modus nicht verfügbar.

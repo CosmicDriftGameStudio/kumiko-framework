@@ -24,6 +24,7 @@ import {
   type SelectOptions,
   type WhereObject,
 } from "../db/query";
+import type { EntityDefinition } from "../engine/types/fields";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { AccessDeniedError, InternalError, memberResolutionReadOnlyDenied } from "../errors";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
@@ -44,6 +45,21 @@ const declaredUnsafeRawRunners = new WeakMap<
   TenantDb | UncheckedSystemDb,
   (reason: string) => DbRunner
 >();
+
+// The CRUD executor writes through tenantDbRunner, not insertOne, so it asks the
+// TenantDb it was handed for its gate. Bound inside createTenantDb so rebound instances
+// (withUnsafeRawGrant, acknowledgeConventionCrossTenant) carry it too.
+const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
+
+// The executor passes its entity so the check does not depend on the table-name lookup.
+export function assertPersonalDataWrite(
+  db: TenantDb,
+  tableName: string,
+  keys: readonly string[],
+  entity: EntityDefinition,
+): void {
+  personalDataGates.get(db)?.(tableName, keys, entity);
+}
 
 // Framework-private (not re-exported from db/index.ts): same grant check + audit as unsafeRaw, for engine forwarding.
 export function unsafeRawForDeclaredStep(
@@ -170,7 +186,7 @@ export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): rea
   return rows as unknown as readonly T[];
 }
 
-function tableNameOf(table: Table | EntityTableMeta): string {
+export function tableNameOf(table: Table | EntityTableMeta): string {
   const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
   if (typeof sym === "string") return sym;
   return asEntityTableMeta(table)?.tableName ?? "<unknown>";
@@ -205,7 +221,15 @@ export type TenantDbGrants = {
   // Set for a resolved member principal (ctx.queryAsMember): no raw DbRunner leaves
   // this TenantDb, so no handler can COMMIT/RELEASE SAVEPOINT out of the READ ONLY scope.
   readonly memberReadOnly?: boolean;
+  // Set only for an anonymous root without personalData: "public-intake" (write-origin.ts).
+  readonly personalDataGate?: PersonalDataGate;
 };
+
+export type PersonalDataGate = (
+  tableName: string,
+  keys: readonly string[],
+  entity?: EntityDefinition,
+) => void;
 
 const unsafeRawRebinders = new WeakMap<
   TenantDb,
@@ -347,6 +371,20 @@ export function createTenantDb(
     return grants?.globalWrites?.reason ?? "";
   }
 
+  function personalDataDenied(
+    table: Table | EntityTableMeta,
+    keys: readonly string[],
+  ): AccessDeniedError | undefined {
+    if (!grants?.personalDataGate) return undefined;
+    try {
+      grants.personalDataGate(tableNameOf(table), keys);
+      return undefined;
+    } catch (e) {
+      if (e instanceof AccessDeniedError) return e;
+      throw e;
+    }
+  }
+
   function foreignTenantOnGlobalWrite(
     table: Table | EntityTableMeta,
     tenantIdValue: unknown,
@@ -379,7 +417,9 @@ export function createTenantDb(
         values: Record<string, unknown>,
       ): Promise<T | undefined> {
         const denied =
-          missingEscapeHatch(table) ?? foreignTenantOnGlobalWrite(table, values["tenantId"]);
+          missingEscapeHatch(table) ??
+          foreignTenantOnGlobalWrite(table, values["tenantId"]) ??
+          personalDataDenied(table, Object.keys(values));
         if (denied) return Promise.reject(denied);
         report("global-write", globalWriteReason());
         return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, values));
@@ -389,7 +429,9 @@ export function createTenantDb(
         where: WhereObject,
       ): Promise<readonly T[]> {
         const denied =
-          missingEscapeHatch(table) ?? foreignTenantOnGlobalWrite(table, set["tenantId"]);
+          missingEscapeHatch(table) ??
+          foreignTenantOnGlobalWrite(table, set["tenantId"]) ??
+          personalDataDenied(table, Object.keys(set));
         if (denied) return Promise.reject(denied);
         if (!where || Object.keys(where).length === 0) {
           return Promise.reject(
@@ -483,6 +525,8 @@ export function createTenantDb(
         );
         if (denied) return Promise.reject(denied);
       }
+      const personalDenied = personalDataDenied(table, Object.keys(values));
+      if (personalDenied) return Promise.reject(personalDenied);
       const data = insertValues(table, values);
       return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, data));
     },
@@ -499,6 +543,8 @@ export function createTenantDb(
           ),
         );
       }
+      const personalDenied = personalDataDenied(table, Object.keys(set));
+      if (personalDenied) return Promise.reject(personalDenied);
       const filter = writeWhere(table, where);
       return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, filter));
     },
@@ -525,6 +571,7 @@ export function createTenantDb(
     return createTenantDb(db, tenantId, "system", tracer, meter, signal, grants);
   });
   bindTenantDbRunner(tenantDb, db);
+  if (grants?.personalDataGate) personalDataGates.set(tenantDb, grants.personalDataGate);
   return tenantDb;
 }
 

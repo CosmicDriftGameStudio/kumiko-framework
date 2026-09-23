@@ -13,6 +13,7 @@ import {
   isLifecycleResult,
   wrapToKumiko,
 } from "./dispatcher-utils";
+import { rootWriteOrigin } from "./write-origin";
 
 // Core batch logic extracted so write() and command() can reuse it
 // (a single write = batch of one, running in its own transaction).
@@ -117,6 +118,7 @@ export async function runBatch(
         cmd.type,
         cmd.payload,
         user,
+        rootWriteOrigin(ctx.registry, cmd.type, user),
         undefined,
         afterCommitHooks,
       );
@@ -142,6 +144,7 @@ export async function runBatch(
           cmd.type,
           cmd.payload,
           user,
+          rootWriteOrigin(ctx.registry, cmd.type, user),
           tx,
           afterCommitHooks,
         );

@@ -59,6 +59,10 @@ export const FrameworkReasons = {
   // AccessDeniedError: a query handler invoked via ctx.queryAsMember tried to
   // write — a resolved member principal is read-only by construction.
   memberResolutionReadOnly: "member_resolution_read_only",
+
+  // AccessDeniedError: a write under an anonymous root touched a personal-data field
+  // without the root handler declaring access.personalData: "public-intake".
+  publicIntakeRequired: "public_intake_required",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

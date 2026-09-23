@@ -16,6 +16,7 @@ import type { TenantId } from "../engine/types/identifiers";
 import { InternalError } from "../errors";
 import { executeQuery } from "./dispatch-query";
 import { type DispatchContext, resolveDbSource } from "./dispatch-shared";
+import { rootWriteOrigin } from "./write-origin";
 
 export type ActiveMembershipPolicy = {
   // destroyRequested still counts as active — owners must be able to cancel
@@ -60,11 +61,14 @@ async function findMembership(
   userId: string,
   tenantId: TenantId,
 ): Promise<RawMembershipRow | undefined> {
+  const membershipUser = createSystemUser(tenantId);
+  // Auth-flow entry point with no enclosing handler, so it is its own root.
   const rawMemberships = await executeQuery(
     ctx,
     ctx.membershipQuery,
     { userId },
-    createSystemUser(tenantId),
+    membershipUser,
+    rootWriteOrigin(ctx.registry, ctx.membershipQuery, membershipUser),
   );
   if (!Array.isArray(rawMemberships) || !rawMemberships.every(isMembershipRow)) {
     throw new InternalError({

@@ -32,6 +32,7 @@ import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { createMemberReaderFn } from "./member-reader";
 import { createTenantTimezoneCache } from "./tenant-timezone-cache";
+import { rootWriteOrigin } from "./write-origin";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -182,9 +183,15 @@ export function createDispatcher(
 
     batch: (commands, user, requestId?) => runBatch(ctx, commands, user, requestId),
 
-    query: (typeOrRef, payload, user) => executeQuery(ctx, resolveType(typeOrRef), payload, user),
+    query: (typeOrRef, payload, user) => {
+      const type = resolveType(typeOrRef);
+      return executeQuery(ctx, type, payload, user, rootWriteOrigin(registry, type, user));
+    },
 
-    stream: (typeOrRef, payload, user) => executeStream(ctx, resolveType(typeOrRef), payload, user),
+    stream: (typeOrRef, payload, user) => {
+      const type = resolveType(typeOrRef);
+      return executeStream(ctx, type, payload, user, rootWriteOrigin(registry, type, user));
+    },
 
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);

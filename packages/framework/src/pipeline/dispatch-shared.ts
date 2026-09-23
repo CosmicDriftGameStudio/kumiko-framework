@@ -100,6 +100,9 @@ import {
   systemIdentitySwitchDenied,
 } from "./system-identity-switch";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache";
+import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin";
+
+export type { WriteOrigin } from "./write-origin";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
 // `tenant` feature — the literal below IS the coupling to its `timezone`
@@ -277,6 +280,7 @@ export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
+  origin: WriteOrigin,
   tx?: DbTx,
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
@@ -320,6 +324,7 @@ export async function buildHandlerContext(
         unsafeRaw: handlerEscapeHatch,
         report: reportEscapeHatch,
         memberReadOnly: isMemberResolutionPrincipal(user),
+        personalDataGate: buildPersonalDataGate(registry, origin),
       },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
@@ -421,10 +426,11 @@ export async function buildHandlerContext(
     user,
     hasIdentitySwitchGrant,
     {
+      // Inherits the caller's origin, so switching to SYSTEM cannot shed an anonymous root.
       queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeQuery(ctx, targetType, payload, asUser, tx), // @wrapper-known semantic-alias
+        executeQuery(ctx, targetType, payload, asUser, origin, tx), // @wrapper-known semantic-alias
       writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeWrite(ctx, targetType, payload, asUser, tx, bridgeSink),
+        executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink),
     },
     identitySwitchAudit,
   );
@@ -483,10 +489,10 @@ export async function buildHandlerContext(
   );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
-      executeQuery(ctx, targetType, payload, user, tx), // @wrapper-known semantic-alias
+      executeQuery(ctx, targetType, payload, user, origin, tx), // @wrapper-known semantic-alias
     queryAs: identitySwitch.queryAs,
     write: async (targetType: string, payload: unknown) => {
-      const res = await executeWrite(ctx, targetType, payload, user, tx, bridgeSink);
+      const res = await executeWrite(ctx, targetType, payload, user, origin, tx, bridgeSink);
       return res;
     },
     writeAs: identitySwitch.writeAs,
@@ -1175,8 +1181,9 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
       })
     : undefined;
   const identitySwitch = createGatedIdentitySwitch("r.authClaims hook", user, false, {
+    // Login is itself the root operation; the hook context is read-only.
     queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
-      executeQuery(ctx, qn, payload, asUser), // @wrapper-known semantic-alias
+      executeQuery(ctx, qn, payload, asUser, rootWriteOrigin(ctx.registry, qn, asUser)), // @wrapper-known semantic-alias
     writeAs: async () => {
       throw new InternalError({
         message: "r.authClaims hook context has no writeAs — auth-claims hooks are read-only.",

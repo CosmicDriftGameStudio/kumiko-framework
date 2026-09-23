@@ -15,6 +15,7 @@ import {
 import { executeQuery } from "./dispatch-query";
 import { type DispatchContext, resolveAuthClaimsFn, resolveDbSource } from "./dispatch-shared";
 import { isSystemIdentity } from "./system-identity-switch";
+import { rootWriteOrigin } from "./write-origin";
 
 // Stricter than interactive sign-in: an unknown principal or a tenant
 // mid-teardown must not resolve — there is no user-facing flow to recover.
@@ -103,6 +104,7 @@ export function createMemberReaderFn(
 
   return async (userId, qn, payload) => {
     const user = await resolve(userId);
-    return executeQuery(ctx, qn, payload, user, tx);
+    // A resolved member is never anonymous and read-only, so it may start its own root.
+    return executeQuery(ctx, qn, payload, user, rootWriteOrigin(ctx.registry, qn, user), tx);
   };
 }
