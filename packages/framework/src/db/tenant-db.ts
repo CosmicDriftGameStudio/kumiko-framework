@@ -102,8 +102,9 @@ export function withSystemDbUnsafeRawGrant(
 // "hook-grant": unsafeRaw then denies without `hasGrant(gate.grant)`, same error shape
 // as ctx.db.unsafeRaw's denial in createTenantDb below. Gated by the source TenantDb's
 // own escapeHatch when `gate.kind` is "source-tenant-db" (createSystemDbView): unsafeRaw
-// defers entirely to `db.unsafeRaw`, which checks reason/memberReadOnly/grant and
-// reports itself — the view's own `report` is never called for unsafe-raw in that mode.
+// defers entirely to db's own declared runner (reason/memberReadOnly/grant check and
+// report) — the view's own `report` is never called for unsafe-raw in that mode, and a
+// source not built by createTenantDb fails closed.
 function buildUncheckedSystemDb(
   db: TenantDb,
   dbOutsideTransaction: TenantDb | undefined,
@@ -137,7 +138,7 @@ function buildUncheckedSystemDb(
 
   function grantedUnsafeRawRunner(reason: string): DbRunner {
     if (gate?.kind === "source-tenant-db") {
-      return db.unsafeRaw(reason);
+      return unsafeRawForDeclaredStep(db, reason);
     }
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
