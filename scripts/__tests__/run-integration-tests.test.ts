@@ -1,26 +1,64 @@
-// dirRunFailed — the exit-code decision for one integration-test directory
-// run. Regression: a non-zero exit with 0 pass AND 0 fail (import-time
-// crash / DB-setup failure that still prints a benign "Ran 0 tests" summary)
-// was silently swallowed as a passed teardown warning (silent-skip pattern).
+// Any non-zero exit of a directory run fails the whole run, even when every
+// test in it passed: an exit code the summary cannot explain is a real error,
+// never a benign teardown warning.
 
-import { describe, expect, test } from "bun:test";
-import { dirRunFailed } from "../run-integration-tests";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, test } from "bun:test";
 
-describe("dirRunFailed", () => {
-  test("clean exit is never a failure, regardless of totals", () => {
-    expect(dirRunFailed(0, { pass: 5, fail: 0, tests: 5, files: 1 })).toBe(false);
-    expect(dirRunFailed(0, { pass: 0, fail: 0, tests: 0, files: 0 })).toBe(false);
-  });
+const RUNNER_PATH = join(import.meta.dir, "..", "run-integration-tests.ts");
 
-  test("non-zero exit with real test failures is a failure", () => {
-    expect(dirRunFailed(1, { pass: 3, fail: 2, tests: 5, files: 1 })).toBe(true);
-  });
+let tmpDir: string | undefined;
 
-  test("non-zero exit with 0 pass and 0 fail (crash-on-import) is a failure", () => {
-    expect(dirRunFailed(1, { pass: 0, fail: 0, tests: 0, files: 1 })).toBe(true);
-  });
+afterEach(() => {
+  if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  tmpDir = undefined;
+});
 
-  test("non-zero exit with pass > 0 and 0 fail (teardown-only error) is NOT a failure", () => {
-    expect(dirRunFailed(1, { pass: 5, fail: 0, tests: 5, files: 1 })).toBe(false);
-  });
+function writeFixture(testBody: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "kumiko-integration-runner-"));
+  writeFileSync(join(dir, "bunfig.integration.toml"), "");
+  mkdirSync(join(dir, "packages", "x"), { recursive: true });
+  writeFileSync(
+    join(dir, "packages", "x", "a.integration.test.ts"),
+    `import { expect, test } from "bun:test";\n\ntest("a", () => {\n  expect(1).toBe(1);\n${testBody}});\n`,
+  );
+  return dir;
+}
+
+async function runRunnerIn(dir: string): Promise<{ code: number; stdout: string }> {
+  const proc = Bun.spawn(
+    [
+      "bun",
+      "-e",
+      `const { runIntegrationTests } = await import(${JSON.stringify(RUNNER_PATH)}); process.exit(await runIntegrationTests());`,
+    ],
+    { cwd: dir, stdout: "pipe", stderr: "pipe" },
+  );
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const code = await proc.exited;
+  return { code, stdout: stdout + stderr };
+}
+
+describe("runIntegrationTests", () => {
+  test("a directory that sets process.exitCode after all tests pass still fails the run", async () => {
+    tmpDir = writeFixture("  process.exitCode = 3;\n");
+    const { code, stdout } = await runRunnerIn(tmpDir);
+
+    expect(code).not.toBe(0);
+    expect(stdout).toContain("Integration run FAILED.");
+    expect(stdout).toContain("1 pass");
+  }, 30_000);
+
+  test("a directory with a clean exit stays green", async () => {
+    tmpDir = writeFixture("");
+    const { code, stdout } = await runRunnerIn(tmpDir);
+
+    expect(code).toBe(0);
+    expect(stdout).toContain("Integration run complete.");
+  }, 30_000);
 });
