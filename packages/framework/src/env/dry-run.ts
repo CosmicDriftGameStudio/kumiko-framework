@@ -152,20 +152,27 @@ function renderJson(fields: readonly EnvField[], options: DryRunOptions): string
   )}\n`;
 }
 
+function pulumiConfigSetLine(f: EnvField, options: DryRunOptions): string {
+  const meta = readKumikoMeta(f.field);
+  const key = pulumiConfigKey(f.name, f.field, options.pulumiPrefix);
+  const secretFlag = meta.pulumi?.secret ? " --secret" : "";
+  const value = meta.pulumi?.generator ? `"$(${meta.pulumi.generator})"` : `"<set-me>"`;
+  const comment = f.description
+    ? ` # ${f.name} (${f.source}): ${f.description}`
+    : ` # ${f.name} (${f.source})`;
+  return `pulumi config set${secretFlag} ${key} ${value}${comment}`;
+}
+
 function renderPulumi(fields: readonly EnvField[], options: DryRunOptions): string {
   // Defaulted vars are skipped — the framework provides them, ops doesn't.
-  const lines: string[] = [];
-  for (const f of fields) {
-    if (f.klass === "withDefault") continue;
-    if (f.klass === "optional") continue;
-    const meta = readKumikoMeta(f.field);
-    const key = pulumiConfigKey(f.name, f.field, options.pulumiPrefix);
-    const secretFlag = meta.pulumi?.secret ? " --secret" : "";
-    const value = meta.pulumi?.generator ? `"$(${meta.pulumi.generator})"` : `"<set-me>"`;
-    const comment = f.description
-      ? ` # ${f.name} (${f.source}): ${f.description}`
-      : ` # ${f.name} (${f.source})`;
-    lines.push(`pulumi config set${secretFlag} ${key} ${value}${comment}`);
+  // Optional vars stay commented out: setting one turns its feature on.
+  const required = fields.filter((f) => f.klass === "required");
+  const optional = fields.filter((f) => f.klass === "optional");
+  const lines: string[] = required.map((f) => pulumiConfigSetLine(f, options));
+  if (optional.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("# Optional (uncomment and set to enable):");
+    for (const f of optional) lines.push(`# ${pulumiConfigSetLine(f, options)}`);
   }
   return `${lines.join("\n")}\n`;
 }
@@ -183,9 +190,15 @@ function renderK8s(fields: readonly EnvField[], options: DryRunOptions): string 
     "stringData:",
   ];
   for (const f of fields) {
-    if (f.klass === "withDefault") continue;
-    if (f.klass === "optional") continue;
-    lines.push(`  ${f.name}: "<set-me>"`);
+    if (f.klass === "required") lines.push(`  ${f.name}: "<set-me>"`);
+  }
+  const optional = fields.filter((f) => f.klass === "optional");
+  if (optional.length > 0) {
+    lines.push("  # Optional (uncomment and set to enable):");
+    for (const f of optional) {
+      const comment = f.description ? ` # (${f.source}): ${f.description}` : ` # (${f.source})`;
+      lines.push(`  # ${f.name}: "<set-me>"${comment}`);
+    }
   }
   return `${lines.join("\n")}\n`;
 }
