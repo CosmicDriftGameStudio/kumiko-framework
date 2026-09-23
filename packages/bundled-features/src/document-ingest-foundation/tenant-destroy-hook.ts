@@ -10,32 +10,21 @@
 // (kumiko-framework#1495). The `pages` ciphertext dies separately when the
 // pipeline's later `subject-keys` stage erases the tenant subject key.
 
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type DbRunner,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser, type TenantDataDestroyHook } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractEntity, documentExtractsTable } from "./entity";
 
 const executor = createEventStoreExecutor(documentExtractsTable, documentExtractEntity, {
   entityName: "document-extract",
 });
 
-type DestroyCtx = {
-  readonly db: DbRunner;
-  readonly tenantId: TenantId;
-};
-
-export async function documentExtractTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
-  const rows = await selectMany<{ id: string }>(ctx.db, documentExtractsTable, {
+export const documentExtractTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
+  const rows = await ctx.db.selectMany<{ id: string }>(documentExtractsTable, {
     tenantId: ctx.tenantId,
   });
   const user = createSystemUser(ctx.tenantId);
-  const db = createTenantDb(ctx.db, ctx.tenantId, "system");
   for (const row of rows) {
-    const result = await executor.forget({ id: row.id }, user, db);
+    const result = await executor.forget({ id: row.id }, user, ctx.db);
     // Executor writes return {isSuccess:false} instead of throwing — a
     // discarded result would report this destroy stage "succeeded" while the
     // extracted document text survives. Throw so the pipeline's retry/abandon
@@ -46,4 +35,4 @@ export async function documentExtractTenantDestroyHook(ctx: DestroyCtx): Promise
       );
     }
   }
-}
+};

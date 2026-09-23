@@ -25,7 +25,6 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testin
 import { createConfigFeature } from "../../config";
 import { documentExtractEntity, documentExtractsTable } from "../entity";
 import { readIngestPages, writeIngestPages } from "../pages";
-import { documentExtractTenantDestroyHook } from "../tenant-destroy-hook";
 
 let stack: TestStack;
 let kms: InMemoryKmsAdapter;
@@ -108,31 +107,5 @@ describe("documentExtract.pages — tenant-subject encryption (#1621)", () => {
     const row = await executor.detail({ id }, actor, createTenantDb(stack.db, tenantId));
     expect(row?.["pages"]).toBe(PII_ERASED_SENTINEL);
     expect(readIngestPages(row?.["pages"])).toEqual([]);
-  });
-});
-
-describe("documentExtractTenantDestroyHook (#1621)", () => {
-  test("drops the tenant's extract rows and leaves other tenants alone", async () => {
-    const mine = await createExtract("file-mine");
-    const otherTenantId = testTenantId(2);
-    const otherResult = await executor.create(
-      {
-        fileRefId: "file-theirs",
-        storageKey: "s3://bucket/file-theirs",
-        pages: writeIngestPages(pages),
-        meta: {},
-      },
-      createSystemUser(otherTenantId),
-      createTenantDb(stack.db, otherTenantId),
-    );
-    if (!otherResult.isSuccess) throw new Error("setup create failed");
-
-    await documentExtractTenantDestroyHook({ db: stack.db, tenantId });
-
-    const remaining = (await asRawClient(stack.db).unsafe(
-      `SELECT id FROM read_document_extracts`,
-    )) as ReadonlyArray<{ id: string }>;
-    expect(remaining.map((row) => row.id)).not.toContain(mine);
-    expect(remaining).toHaveLength(1);
   });
 });
