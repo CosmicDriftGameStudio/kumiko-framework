@@ -231,6 +231,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.resetPassword.successTitle": "Contraseña establecida",
   "auth.resetPassword.title": "Establecer nueva contraseña",
   "auth.resetPassword.tooShort": "La contraseña debe tener al menos 8 caracteres.",
+  "auth.sessionBootstrap.errorBody":
+    "No se pudo conectar con el servidor o devolvió un error. Vuelve a intentarlo.",
+  "auth.sessionBootstrap.errorTitle": "No se pudo cargar la sesión",
+  "auth.sessionBootstrap.rateLimitedBody":
+    "Demasiadas solicitudes en poco tiempo. Espera un momento y vuelve a intentarlo.",
+  "auth.sessionBootstrap.retry": "Reintentar",
+  "auth.sessionBootstrap.retrying": "Reintentando…",
   "auth.signup.email": "Correo electrónico",
   "auth.signup.haveAccount": "¿Ya tienes una cuenta? Inicia sesión",
   "auth.signup.intro":

@@ -12,6 +12,7 @@
 import { readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import {
+  AuthRequestError,
   type CurrentUserProfile,
   fetchCurrentUser,
   fetchTenants,
@@ -23,7 +24,14 @@ import {
   type TenantSummary,
 } from "./auth-client";
 
-export type SessionStatus = "loading" | "unauthenticated" | "authenticated";
+export type SessionStatus = "loading" | "unauthenticated" | "authenticated" | "error";
+
+// httpStatus null means the fetch itself threw (offline/DNS/CORS), not that the server answered.
+export type SessionBootstrapFailure = {
+  readonly httpStatus: number | null;
+  readonly retryAfterSeconds: number | null;
+  readonly failedAtEpochMs: number;
+};
 
 export type SessionState = {
   readonly status: SessionStatus;
@@ -36,6 +44,7 @@ export type SessionState = {
    *  Client computed dieselbe merge-Logik aus user.globalRoles +
    *  tenants[active].roles damit nav-filtering greift. Dedupliziert. */
   readonly roles: readonly string[];
+  readonly bootstrapFailure: SessionBootstrapFailure | null;
 };
 
 export type SessionApi = SessionState & {
@@ -58,6 +67,7 @@ export const UNAUTHENTICATED: SessionState = {
   activeTenantId: null,
   tenants: [],
   roles: [],
+  bootstrapFailure: null,
 };
 
 const INITIAL: SessionState = {
@@ -66,6 +76,7 @@ const INITIAL: SessionState = {
   activeTenantId: null,
   tenants: [],
   roles: [],
+  bootstrapFailure: null,
 };
 
 // kumiko_auth ist HttpOnly — kumiko_csrf wird beim Login gemeinsam gesetzt.
@@ -117,15 +128,33 @@ async function refresh(): Promise<SessionState> {
     activeTenantId: tenants.activeTenantId,
     tenants: tenants.tenants,
     roles: computeActiveRoles(user, tenants.activeTenantId, tenants.tenants),
+    bootstrapFailure: null,
   };
+}
+
+// Non-AuthRequestError throws (offline, DNS, CORS) have no status, so httpStatus stays null.
+function toBootstrapFailure(err: unknown): SessionBootstrapFailure {
+  if (err instanceof AuthRequestError) {
+    return {
+      httpStatus: err.status,
+      retryAfterSeconds: err.retryAfterSeconds ?? null,
+      failedAtEpochMs: Date.now(),
+    };
+  }
+  return { httpStatus: null, retryAfterSeconds: null, failedAtEpochMs: Date.now() };
 }
 
 export function SessionProvider({ children }: { readonly children: ReactNode }): ReactNode {
   const [state, setState] = useState<SessionState>(INITIAL);
 
+  // Never rejects, so bootstrap can't strand the UI on "loading" forever.
   const doRefresh = useCallback(async () => {
-    const next = await refresh();
-    setState(next);
+    try {
+      const next = await refresh();
+      setState(next);
+    } catch (err) {
+      setState({ ...UNAUTHENTICATED, status: "error", bootstrapFailure: toBootstrapFailure(err) });
+    }
   }, []);
 
   // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312

@@ -1,7 +1,15 @@
-import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  PrimitivesProvider,
+} from "@cosmicdrift/kumiko-renderer";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { defaultTranslations } from "../../i18n";
 import { createLoginRoute, makeAuthGate } from "../auth-gate";
+import { SessionProvider } from "../session";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 
 describe("makeAuthGate", () => {
@@ -234,5 +242,119 @@ describe("createLoginRoute", () => {
     expect(screen.getByTestId("mfa-setup-info").textContent).toBe(
       "setup-token-123:user@example.com",
     );
+  });
+});
+
+// Real SessionProvider (no mocked SessionContext) — proves the actual
+// bootstrap-failure wiring end to end: hasLikelyAuthSession → fetchTenants
+// throws → doRefresh catches → "error" status → SessionBootstrapErrorScreen.
+// Uses makeAuthGate + SessionProvider directly instead of makeSessionAuthGate:
+// client-plugin.test.tsx mocks makeSessionAuthGate process-wide via bun:test's
+// shared module registry, which would silently no-op it here too.
+describe("makeSessionAuthGate — session bootstrap failure", () => {
+  const resolver = createStaticLocaleResolver({ locale: "en" });
+  const originalFetch = globalThis.fetch;
+
+  function renderRealSession(ui: ReactNode) {
+    return render(
+      <PrimitivesProvider value={defaultPrimitives}>
+        <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
+          <SessionProvider>{ui}</SessionProvider>
+        </LocaleProvider>
+      </PrimitivesProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    document.cookie = "kumiko_csrf=gate-test-token";
+  });
+
+  afterEach(() => {
+    document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    globalThis.fetch = originalFetch;
+  });
+
+  test("429 on GET /auth/tenants → error screen with data-http-status=429, children not rendered; retry recovers", async () => {
+    let tenantsCalls = 0;
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/auth/tenants") {
+        tenantsCalls++;
+        if (tenantsCalls === 1) return new Response(null, { status: 429 });
+        return new Response(JSON.stringify({ tenants: [], activeTenantId: "t1" }), {
+          status: 200,
+        });
+      }
+      if (url === "/api/query") {
+        return new Response(
+          JSON.stringify({
+            data: { id: "u1", email: "u@example.com", displayName: "U", roles: "[]" },
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(null, { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const Gate = makeAuthGate();
+    renderRealSession(
+      <Gate>
+        <div data-testid="protected">secret</div>
+      </Gate>,
+    );
+
+    const errorScreen = await waitFor(() => screen.getByTestId("session-bootstrap-error"));
+    expect(errorScreen.getAttribute("data-http-status")).toBe("429");
+    expect(screen.queryByTestId("protected")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("protected")).toBeTruthy();
+    });
+    expect(tenantsCalls).toBe(2);
+  });
+
+  test("500 on POST /api/query (user:me) → error screen with data-http-status=500, children not rendered", async () => {
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/auth/tenants") {
+        return new Response(JSON.stringify({ tenants: [], activeTenantId: "t1" }), {
+          status: 200,
+        });
+      }
+      if (url === "/api/query") {
+        return new Response(null, { status: 500 });
+      }
+      return new Response(null, { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const Gate = makeAuthGate();
+    renderRealSession(
+      <Gate>
+        <div data-testid="protected">secret</div>
+      </Gate>,
+    );
+
+    const errorScreen = await waitFor(() => screen.getByTestId("session-bootstrap-error"));
+    expect(errorScreen.getAttribute("data-http-status")).toBe("500");
+    expect(screen.queryByTestId("protected")).toBeNull();
+  });
+
+  test("network failure on GET /auth/tenants → error screen with data-http-status=network", async () => {
+    globalThis.fetch = mock(async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+
+    const Gate = makeAuthGate();
+    renderRealSession(
+      <Gate>
+        <div data-testid="protected">secret</div>
+      </Gate>,
+    );
+
+    const errorScreen = await waitFor(() => screen.getByTestId("session-bootstrap-error"));
+    expect(errorScreen.getAttribute("data-http-status")).toBe("network");
+    expect(screen.queryByTestId("protected")).toBeNull();
   });
 });

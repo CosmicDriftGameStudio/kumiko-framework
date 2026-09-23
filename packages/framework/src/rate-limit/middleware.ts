@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { isAuthRateLimitExempt } from "../api/api-constants";
 import { requestContext } from "../api/request-context";
 import { RateLimitError, serializeError } from "../errors";
 import type { RateLimitDecision, RateLimitResolver } from "./resolver";
@@ -84,6 +85,8 @@ export function authEndpointRateLimit(opts: AuthEndpointRateLimitOptions): Middl
   const onFailClosed = opts.onFailClosed ?? defaultOnFailClosed("l2-auth-endpoints");
 
   return async (c, next) => {
+    if (isAuthRateLimitExempt(c.req.method, c.req.path)) return next();
+
     const ip = extractIp(c);
     if (!ip) return next();
 

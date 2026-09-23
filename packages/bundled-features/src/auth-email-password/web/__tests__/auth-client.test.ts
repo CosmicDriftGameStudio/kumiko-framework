@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { CSRF_HEADER_NAME } from "@cosmicdrift/kumiko-dispatcher-live";
 import {
+  AuthRequestError,
   confirmAccountUnlock,
   confirmSignup,
   csrfHeader,
@@ -389,6 +390,29 @@ describe("fetchTenants", () => {
     ) as unknown as typeof fetch;
 
     await expect(fetchTenants()).rejects.toThrow("auth/tenants failed: 500");
+  });
+
+  test("429 with Retry-After → AuthRequestError carries status + retryAfterSeconds", async () => {
+    globalThis.fetch = mock(
+      async () => new Response(null, { status: 429, headers: { "Retry-After": "7" } }),
+    ) as unknown as typeof fetch;
+
+    const err = await fetchTenants().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AuthRequestError);
+    expect((err as AuthRequestError).status).toBe(429);
+    expect((err as AuthRequestError).retryAfterSeconds).toBe(7);
+  });
+
+  test("non-ok without Retry-After header → retryAfterSeconds is undefined", async () => {
+    globalThis.fetch = mock(
+      async () => new Response(null, { status: 500 }),
+    ) as unknown as typeof fetch;
+
+    const err = await fetchTenants().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AuthRequestError);
+    expect((err as AuthRequestError).retryAfterSeconds).toBeUndefined();
   });
 });
 
