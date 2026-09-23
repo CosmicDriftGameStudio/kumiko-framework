@@ -65,8 +65,8 @@ export function createMfaStatusChecker(opts: {
       return { required: true, challengeToken: token };
     }
 
-    // ctx.config is bound to the CALLING user's tenant (GUEST_USER for
-    // login) — wrong tenant here. ctx.configResolver takes tenantId
+    // ctx.config is bound to the CALLING user's tenant (the anonymous
+    // identity's tenant for login) — wrong tenant here. ctx.configResolver takes tenantId
     // explicitly, which is what a pre-session check against the LOGGING-IN
     // user's tenant needs.
     // @cast-boundary engine-payload — "select" config values are validated

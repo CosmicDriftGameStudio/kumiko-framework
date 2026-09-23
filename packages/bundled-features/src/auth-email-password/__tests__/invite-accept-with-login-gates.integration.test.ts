@@ -166,14 +166,14 @@ function aliceSession(): SessionUser {
   return { id: aliceId, tenantId: TENANT_A_ID, roles: ["Admin"] };
 }
 
-// auth-mfa:write:verify runs pre-session (access: { roles: ["all"] }) —
+// auth-mfa:write:verify runs pre-session (access: { roles: ["anonymous"] }) —
 // dispatched here the same way the framework's /api/auth/mfa/verify route
-// would, with a guest identity. The handler derives everything it needs
-// from the challenge token, not from this actor.
+// would, with the anonymous identity. The handler derives everything it
+// needs from the challenge token, not from this actor.
 const GUEST: SessionUser = {
-  id: "00000000-0000-0000-0000-000000000000",
+  id: "anonymous",
   tenantId: "00000000-0000-4000-8000-000000000000" as TenantId,
-  roles: ["all"],
+  roles: ["anonymous"],
 };
 
 async function inviteEmail(email: string, role: string): Promise<string> {

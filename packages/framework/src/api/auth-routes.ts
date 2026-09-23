@@ -5,7 +5,7 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import type Redis from "ioredis";
 import { z } from "zod";
 import { buildSessionRoles } from "../engine/membership-roles";
-import { createSystemUser } from "../engine/system-user";
+import { createAnonymousUser, createSystemUser } from "../engine/system-user";
 import {
   type ActiveMembershipRejection,
   type ActiveMembershipResult,
@@ -195,15 +195,6 @@ type MembershipRow = {
    *  tenant-switcher-Fix mit; optional für ältere App-eigene Queries. */
   tenantName?: string;
   tenantKey?: string;
-};
-
-// Guest identity used for unauthenticated calls (e.g. login). The "all" role
-// lets framework access checks pass for handlers declared with roles: ["all"].
-// `id` is the zero-uuid so it flows through event-store columns cleanly.
-const GUEST_USER: SessionUser = {
-  id: "00000000-0000-0000-0000-000000000000",
-  tenantId: SYSTEM_TENANT_ID,
-  roles: ["all"],
 };
 
 // Pluggable rate-limiter for POST /auth/login. Returning `false` blocks the
@@ -780,7 +771,7 @@ export function createAuthRoutes(
         }
       }
 
-      const result = await dispatcher.write(loginQn, body, GUEST_USER);
+      const result = await dispatcher.write(loginQn, body, createAnonymousUser(SYSTEM_TENANT_ID));
 
       if (!result.isSuccess) {
         // Feature-specific auth reason codes arrive via UnprocessableError.details.reason
@@ -845,7 +836,7 @@ export function createAuthRoutes(
   }
 
   // POST /auth/mfa/verify — completes a two-step login. Mirrors /auth/login
-  // structurally (public, GUEST_USER dispatch, mintSessionAndRespond on
+  // structurally (public, anonymous identity dispatch, mintSessionAndRespond on
   // success) but with its OWN rate limiter (mfaVerifyRateLimit) — this route
   // never goes through a dispatcher write-handler's own rateLimit config,
   // so without this it would have NO rate limiting at all. Per-account
@@ -877,7 +868,11 @@ export function createAuthRoutes(
         }
       }
 
-      const result = await dispatcher.write(mfaVerifyQn, body, GUEST_USER);
+      const result = await dispatcher.write(
+        mfaVerifyQn,
+        body,
+        createAnonymousUser(SYSTEM_TENANT_ID),
+      );
 
       if (!result.isSuccess) {
         // @cast-boundary error-details — KumikoError.details shape is per-error
@@ -954,7 +949,11 @@ export function createAuthRoutes(
         }
       }
 
-      const result = await dispatcher.write(mfaPreauthEnableStartQn, body, GUEST_USER);
+      const result = await dispatcher.write(
+        mfaPreauthEnableStartQn,
+        body,
+        createAnonymousUser(SYSTEM_TENANT_ID),
+      );
 
       if (!result.isSuccess) {
         // @cast-boundary error-details — KumikoError.details shape is per-error
@@ -985,7 +984,7 @@ export function createAuthRoutes(
 
   // POST /auth/mfa/preauth-confirm — completes both the enrollment started
   // by preauth-enable-start AND the login mfa-setup-required blocked.
-  // Mirrors /auth/mfa/verify structurally (public, GUEST_USER dispatch,
+  // Mirrors /auth/mfa/verify structurally (public, anonymous identity dispatch,
   // mintSessionAndRespond on success) with its OWN rate limiter
   // (mfaPreauthConfirmRateLimit) — same reasoning as mfaVerifyRateLimit.
   // Per-account brute-force protection (capping wrong-code guesses against
@@ -1016,7 +1015,11 @@ export function createAuthRoutes(
         }
       }
 
-      const result = await dispatcher.write(mfaPreauthConfirmQn, body, GUEST_USER);
+      const result = await dispatcher.write(
+        mfaPreauthConfirmQn,
+        body,
+        createAnonymousUser(SYSTEM_TENANT_ID),
+      );
 
       if (!result.isSuccess) {
         // @cast-boundary error-details — KumikoError.details shape is per-error
@@ -1128,7 +1131,11 @@ export function createAuthRoutes(
         return c.json({ isSuccess: false, error: "invalid_body" }, 400);
       }
 
-      const result = await dispatcher.write(sg.confirmHandler, parsed.data, GUEST_USER);
+      const result = await dispatcher.write(
+        sg.confirmHandler,
+        parsed.data,
+        createAnonymousUser(SYSTEM_TENANT_ID),
+      );
 
       if (!result.isSuccess) {
         // 422 für invalid_signup_token (handler-level UnprocessableError).
@@ -1210,7 +1217,11 @@ export function createAuthRoutes(
       if (!parsed.success) {
         return c.json({ isSuccess: false, error: "invalid_body" }, 400);
       }
-      const result = await dispatcher.write(inv.acceptWithLoginHandler, parsed.data, GUEST_USER);
+      const result = await dispatcher.write(
+        inv.acceptWithLoginHandler,
+        parsed.data,
+        createAnonymousUser(SYSTEM_TENANT_ID),
+      );
       if (!result.isSuccess) {
         const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
@@ -1258,7 +1269,11 @@ export function createAuthRoutes(
       if (!parsed.success) {
         return c.json({ isSuccess: false, error: "invalid_body" }, 400);
       }
-      const result = await dispatcher.write(inv.signupCompleteHandler, parsed.data, GUEST_USER);
+      const result = await dispatcher.write(
+        inv.signupCompleteHandler,
+        parsed.data,
+        createAnonymousUser(SYSTEM_TENANT_ID),
+      );
       if (!result.isSuccess) {
         const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
@@ -1457,10 +1472,20 @@ function registerTokenRequestRoute(opts: {
     if (!parsed.success) return c.json({ isSuccess: true });
 
     // The handler dispatches the magic-link mail via delivery before returning.
-    // Handler-level failures (only legitimate reason: misconfiguration) are
-    // silently swallowed — observability logs capture them for ops — so the
-    // response shape stays uniform for unknown vs. known emails.
-    await opts.dispatcher.write(opts.requestHandler, { email: parsed.data.email }, GUEST_USER);
+    // Handler-level failures (misconfiguration, e.g. no RateLimitResolver) stay
+    // out of the response so it is uniform for unknown vs. known emails, but
+    // they are logged — otherwise the mail silently never goes out. No email in
+    // the log line (PII).
+    const result = await opts.dispatcher.write(
+      opts.requestHandler,
+      { email: parsed.data.email },
+      createAnonymousUser(SYSTEM_TENANT_ID),
+    );
+    if (!result.isSuccess) {
+      console.error(
+        `[kumiko] token request handler "${opts.requestHandler}" failed: ${result.error.code}`,
+      );
+    }
 
     return c.json({ isSuccess: true });
   });
@@ -1480,7 +1505,11 @@ function registerTokenConfirmRoute(opts: {
     if (!parsed.success) {
       return c.json({ isSuccess: false, error: "invalid_body" }, 400);
     }
-    const result = await opts.dispatcher.write(opts.confirmHandler, parsed.data, GUEST_USER);
+    const result = await opts.dispatcher.write(
+      opts.confirmHandler,
+      parsed.data,
+      createAnonymousUser(SYSTEM_TENANT_ID),
+    );
     if (!result.isSuccess) {
       const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
       return c.json({ isSuccess: false, error: result.error }, status);

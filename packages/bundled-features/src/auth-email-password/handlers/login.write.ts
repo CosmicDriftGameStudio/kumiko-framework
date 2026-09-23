@@ -257,9 +257,10 @@ export async function gateBuildSession(
 }
 
 // Login — unauthenticated entry point. The route is wired public (no JWT
-// middleware), synthesising a guest SessionUser for the handler's access
-// check. Everything inside the handler goes through ctx.queryAs(system, ...)
-// so the user feature stays the single owner of its table.
+// middleware), dispatching with the framework's anonymous identity for the
+// handler's access check. Everything inside the handler goes through
+// ctx.queryAs(system, ...) so the user feature stays the single owner of its
+// table.
 export function createLoginHandler(opts: LoginHandlerOptions = {}) {
   const strictVerification = opts.strictEmailVerification === true;
   const maxFailedAttempts =
@@ -273,7 +274,8 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       email: z.email(),
       password: z.string().min(1),
     }),
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Unauthenticated login has no caller identity yet — it looks up the user row by " +

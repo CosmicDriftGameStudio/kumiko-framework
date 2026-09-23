@@ -67,7 +67,8 @@ export function createSignupConfirmHandler() {
   return defineWriteHandler<"signup-confirm", typeof SignupConfirmSchema, SignupConfirmData>({
     name: "signup-confirm",
     schema: SignupConfirmSchema,
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     agent: { expose: false },
     escapeHatch: {
       reason: SIGNUP_CONFIRM_PROVISION_REASON,

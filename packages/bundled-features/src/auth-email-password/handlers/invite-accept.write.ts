@@ -78,9 +78,9 @@ export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
     name: "invite-accept",
     schema: InviteAcceptSchema,
-    // openToAll: any authenticated user (Branch 1). Branch 2+3 (anon)
-    // nutzen `roles: ["all"]` weil dort GUEST_USER mit ["all"]-role
-    // dispatched wird.
+    // openToAll: any authenticated user (Branch 1). Branch 2+3 (anon) live
+    // in the sibling invite-accept-with-login / invite-signup-complete
+    // handlers, which declare roles: ["anonymous"] instead.
     access: {
       openToAll: {
         reason:

@@ -25,7 +25,8 @@ export function createResetPasswordHandler(opts: ResetPasswordOptions) {
       token: z.string().min(1),
       newPassword: passwordSchema,
     }),
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +

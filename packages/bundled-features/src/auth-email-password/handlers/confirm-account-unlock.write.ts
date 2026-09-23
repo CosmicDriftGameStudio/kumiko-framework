@@ -29,7 +29,8 @@ export function createConfirmAccountUnlockHandler(opts: ConfirmAccountUnlockOpti
     schema: z.object({
       token: z.string().min(1),
     }),
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     agent: { expose: false },
     handler: async (event, ctx) => {
       if (!opts.hmacSecret) {
