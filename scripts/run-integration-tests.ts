@@ -59,22 +59,13 @@ async function discoverIntegrationTargets(
 }
 
 type DirRunResult =
-  | { kind: "ran"; dir: string; totals: NonNullable<ReturnType<typeof parseBunTestRunOutput>> }
+  | {
+      kind: "ran";
+      dir: string;
+      totals: NonNullable<ReturnType<typeof parseBunTestRunOutput>>;
+      exitCode: number;
+    }
   | { kind: "skipped"; dir: string; reason: string };
-
-// A non-zero exit is only a real failure if either a test actually failed,
-// or NO test ran at all (0 pass, 0 fail) — the latter is a crash the summary
-// line can't distinguish from a clean teardown error (e.g. an import-time
-// crash or DB-setup failure that still prints a benign "Ran 0 tests" line).
-// A non-zero exit with pass > 0 and fail === 0 is a genuine teardown-only
-// error and stays a warning, not a build failure.
-export function dirRunFailed(
-  code: number,
-  totals: NonNullable<ReturnType<typeof parseBunTestRunOutput>>,
-): boolean {
-  if (code === 0) return false;
-  return totals.fail > 0 || totals.pass === 0;
-}
 
 function printIntegrationSummary(
   discovery: IntegrationDiscovery,
@@ -123,15 +114,15 @@ function printIntegrationSummary(
     }
   }
 
-  const failedDirs = ran.filter((r) => r.totals.fail > 0);
+  const failedDirs = ran.filter((r) => r.totals.fail > 0 || r.exitCode !== 0);
   if (failedDirs.length > 0) {
     console.log(`\n  Failed in ${failedDirs.length} director${failedDirs.length === 1 ? "y" : "ies"}:`);
-    for (const { dir, totals: t } of failedDirs) {
-      console.log(`    ${dir}  (${t.fail} fail)`);
+    for (const { dir, totals: t, exitCode: dirExitCode } of failedDirs) {
+      console.log(`    ${dir}  (${t.fail} fail, exit ${dirExitCode})`);
     }
   }
 
-  const exitCode = totals.fail > 0 || !filesOk || !dirsOk ? 1 : 0;
+  const exitCode = failedDirs.length > 0 || !filesOk || !dirsOk ? 1 : 0;
   console.log(exitCode === 0 ? "\nIntegration run complete." : "\nIntegration run FAILED.");
   return { exitCode };
 }
@@ -223,13 +214,12 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
       continue;
     }
 
-    dirResults.push({ kind: "ran", dir: relDir, totals });
-    if (dirRunFailed(code, totals)) lastCode = code;
-    else if (code !== 0) console.warn(`  (teardown error in ${relDir} — all ${totals.pass} tests passed, exit ${code} ignored)`);
+    dirResults.push({ kind: "ran", dir: relDir, totals, exitCode: code });
+    if (code !== 0) lastCode = code;
   }
 
   const { exitCode: summaryCode } = printIntegrationSummary(discovery, dirResults, mode);
-  return summaryCode !== 0 ? summaryCode : lastCode;
+  return lastCode !== 0 ? lastCode : summaryCode;
 }
 
 if (import.meta.main) {

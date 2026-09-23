@@ -1,9 +1,18 @@
 import { spawn } from "node:child_process";
+import { constants } from "node:os";
 
 /** Shared docker-compose probe budget — cold Docker Desktop often exceeds this. */
 export const DOCKER_PROBE_TIMEOUT_MS = 2000;
 
 const GIT_ENV_VARS_TO_STRIP = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY"];
+
+/** A killed child reports `code: null` — map signal-kills to the shell's
+ *  128+n convention so a caller checking `=== 0` never sees a false success. */
+export function exitStatusFromChild(code: number | null, signal: NodeJS.Signals | null): number {
+  if (code !== null) return code;
+  if (signal) return 128 + (constants.signals[signal] ?? 0);
+  return 1;
+}
 
 /** Strips GIT_DIR/GIT_WORK_TREE/etc from the current env — a `git` hook
  *  (e.g. pre-push) sets these for itself, and without stripping them any
@@ -45,7 +54,7 @@ export function run(
       stderr += c.toString("utf-8");
     });
     child.on("error", () => settle(-1));
-    child.on("exit", (code) => settle(code ?? 0));
+    child.on("exit", (code, signal) => settle(exitStatusFromChild(code, signal)));
     if (opts?.timeoutMs) {
       timer = setTimeout(() => {
         if (child.exitCode === null && child.signalCode === null) {
@@ -87,6 +96,9 @@ export function runStreaming(
     child.stdout?.on("data", onData);
     child.stderr?.on("data", onData);
     child.on("error", () => resolve(-1));
-    child.on("exit", (code) => resolve(code ?? 0));
+    child.on("exit", (code, signal) => {
+      if (signal) out.log(`killed by ${signal}`);
+      resolve(exitStatusFromChild(code, signal));
+    });
   });
 }
