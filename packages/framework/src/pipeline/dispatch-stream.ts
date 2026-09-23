@@ -14,6 +14,7 @@ import {
   ensureFeatureEnabled,
   isMemberResolutionPrincipal,
   runStreamInstrumented,
+  type WriteOrigin,
 } from "./dispatch-shared";
 
 // Standalone stream execution — used by the public dispatcher.stream().
@@ -27,8 +28,11 @@ export async function* executeStream(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
 ): AsyncGenerator<unknown> {
-  yield* runStreamInstrumented(ctx, type, user, () => executeStreamInner(ctx, type, payload, user));
+  yield* runStreamInstrumented(ctx, type, user, () =>
+    executeStreamInner(ctx, type, payload, user, origin),
+  );
 }
 
 async function* executeStreamInner(
@@ -36,6 +40,7 @@ async function* executeStreamInner(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
 ): AsyncGenerator<unknown> {
   const { registry } = ctx;
   const handler = registry.getStreamHandler(type);
@@ -80,7 +85,7 @@ async function* executeStreamInner(
   // await; close is fire-and-forget instead (#1563).
   let abandonedForInvalidation = false;
   try {
-    const handlerContext = await buildHandlerContext(ctx, type, user);
+    const handlerContext = await buildHandlerContext(ctx, type, user, origin);
     const chunks = handler.handler({ type, payload: parsed.data, user }, handlerContext);
     iterator = chunks[Symbol.asyncIterator]();
 

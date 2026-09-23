@@ -4,7 +4,7 @@ import { filterReadFields } from "../engine/field-access";
 import type { QueryHandlerDef, SessionUser } from "../engine/types";
 import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors";
 import { assertNoSecretLeak } from "../secrets";
-import type { DispatchContext } from "./dispatch-shared";
+import type { DispatchContext, WriteOrigin } from "./dispatch-shared";
 import {
   buildHandlerContext,
   enforceRateLimit,
@@ -21,10 +21,11 @@ export async function executeQuery(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
   tx?: DbTx,
 ): Promise<unknown> {
   return runHandlerInstrumented(ctx, type, "query", user, () =>
-    executeQueryInner(ctx, type, payload, user, tx),
+    executeQueryInner(ctx, type, payload, user, origin, tx),
   );
 }
 
@@ -33,6 +34,7 @@ async function executeQueryInner(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
   tx?: DbTx,
 ): Promise<unknown> {
   const { registry } = ctx;
@@ -83,9 +85,9 @@ async function executeQueryInner(
   // A resolved member (ctx.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
   return user.origin === "member-resolution"
     ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
-        runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, readOnlyTx),
+        runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, readOnlyTx),
       )
-    : runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, tx);
+    : runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, tx);
 }
 
 async function runQueryHandler(
@@ -95,10 +97,19 @@ async function runQueryHandler(
   payload: unknown,
   includeDeleted: boolean,
   user: SessionUser,
+  origin: WriteOrigin,
   tx: DbTx | undefined,
 ): Promise<unknown> {
   const { registry } = ctx;
-  const handlerContext = await buildHandlerContext(ctx, type, user, tx, undefined, includeDeleted);
+  const handlerContext = await buildHandlerContext(
+    ctx,
+    type,
+    user,
+    origin,
+    tx,
+    undefined,
+    includeDeleted,
+  );
   let result = await handler.handler({ type, payload, user }, handlerContext);
 
   // postQuery-Hooks: fire BEFORE field-access-filter so hooks see raw data

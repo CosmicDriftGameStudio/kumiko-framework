@@ -141,6 +141,18 @@ member_resolution_read_only:
     to write (`ctx.write`/`writeAs`/`appendEvent`/`jobRunner`/...). Resolved
     member principals are read-only — there is no `writeAsMember`.
 
+public_intake_required:
+  endUser: |
+    This action isn't allowed.
+    Please contact an administrator if you believe this is a mistake.
+  developer: |
+    `AccessDeniedError`: a write under an anonymous root handler touched a
+    personal-data field (`pii` / `userOwned` / `recordOwned`), directly or via
+    `ctx.write`/`writeAs`/`queryAs` or a hook. `details` name `rootHandler`,
+    `target` and `fields`. Declare
+    `access: { roles: [..., "anonymous"], personalData: "public-intake" }` on
+    the root handler if the anonymous intake is intended.
+
 agent.tool_not_allowed:
   endUser: |
     This tool is not available in the current mode.

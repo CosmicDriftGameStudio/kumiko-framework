@@ -22,7 +22,7 @@ import {
   writeFailure,
 } from "../errors";
 import { assertNoSecretLeak } from "../secrets";
-import type { DispatchContext } from "./dispatch-shared";
+import type { DispatchContext, WriteOrigin } from "./dispatch-shared";
 import {
   buildHandlerContext,
   CONFIG_WRITE_RESET_TYPE,
@@ -129,6 +129,7 @@ async function runLifecycle(
   data: unknown,
   handlerContext: HandlerContext,
   user: SessionUser,
+  origin: WriteOrigin,
   afterCommitHooks: AfterCommitHook[],
   runner: DbRunner | undefined,
 ): Promise<void> {
@@ -156,6 +157,7 @@ async function runLifecycle(
         ctx,
         type,
         user,
+        origin,
         undefined,
         afterCommitHooks,
       );
@@ -169,6 +171,7 @@ async function runLifecycle(
         ctx,
         type,
         user,
+        origin,
         undefined,
         afterCommitHooks,
       );
@@ -192,11 +195,12 @@ export async function executeWrite(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
   tx: DbTx | undefined,
   afterCommitHooks: AfterCommitHook[],
 ): Promise<WriteResult> {
   return runHandlerInstrumented(ctx, type, "write", user, () =>
-    executeWriteInner(ctx, type, payload, user, tx, afterCommitHooks),
+    executeWriteInner(ctx, type, payload, user, origin, tx, afterCommitHooks),
   );
 }
 
@@ -227,12 +231,13 @@ export async function executeNestedWrite(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
   tx: DbTx | undefined,
   afterCommitHooks: AfterCommitHook[],
 ): Promise<WriteResult> {
   const { registry } = ctx;
   const nested = extractNestedSpecs(type, payload, registry);
-  if (!nested) return executeWrite(ctx, type, payload, user, tx, afterCommitHooks);
+  if (!nested) return executeWrite(ctx, type, payload, user, origin, tx, afterCommitHooks);
 
   // Pre-flight client-shape checks. Merge non-array issues (collected up
   // front by extractNestedSpecs) with fk-injection issues into one error
@@ -264,6 +269,7 @@ export async function executeNestedWrite(
     type,
     nested.cleanPayload,
     user,
+    origin,
     tx,
     afterCommitHooks,
   );
@@ -339,6 +345,7 @@ export async function executeNestedWrite(
         spec.subType,
         subPayload,
         user,
+        origin,
         tx,
         afterCommitHooks,
       );
@@ -363,6 +370,7 @@ async function executeWriteInner(
   type: string,
   payload: unknown,
   user: SessionUser,
+  origin: WriteOrigin,
   tx: DbTx | undefined,
   afterCommitHooks: AfterCommitHook[],
 ): Promise<WriteResult> {
@@ -461,7 +469,7 @@ async function executeWriteInner(
     }
   }
 
-  const handlerContext = await buildHandlerContext(ctx, type, user, tx, afterCommitHooks);
+  const handlerContext = await buildHandlerContext(ctx, type, user, origin, tx, afterCommitHooks);
 
   // Auto transition guard: if entity has transitions and handler doesn't skip it.
   // Reads via the guard's own db handle — for r.systemScope() handlers
@@ -553,7 +561,16 @@ async function executeWriteInner(
   if (result.isSuccess) {
     try {
       const runner = resolveDbSource(ctx, tx);
-      await runLifecycle(ctx, type, result.data, handlerContext, user, afterCommitHooks, runner);
+      await runLifecycle(
+        ctx,
+        type,
+        result.data,
+        handlerContext,
+        user,
+        origin,
+        afterCommitHooks,
+        runner,
+      );
     } catch (e) {
       return writeFailure(wrapToKumiko(e));
     }
