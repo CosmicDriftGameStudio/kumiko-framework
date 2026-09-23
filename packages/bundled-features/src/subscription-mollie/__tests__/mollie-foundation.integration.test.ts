@@ -21,12 +21,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   billingFoundationFeature,
-  createSubscriptionWebhookHandler,
-  type SubscriptionProviderPlugin,
+  createSubscriptionWebhookRoute,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -39,7 +37,6 @@ import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
-import { Hono } from "hono";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
@@ -125,7 +122,6 @@ const PRICE_TO_CONFIG = {
 
 let stack: TestStack;
 let db: DbConnection;
-let webhookApp: Hono;
 
 beforeAll(async () => {
   // Echte factory mit injection-port. Das beweist factory-Logik
@@ -147,41 +143,12 @@ beforeAll(async () => {
       billingFoundationFeature,
       mollieFeature,
     ],
+    extraRoutes: [createSubscriptionWebhookRoute()],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push).
   await unsafeCreateEntityTable(db, tenantEntity);
-
-  webhookApp = new Hono();
-  webhookApp.post(
-    "/api/subscription/webhook/:providerName",
-    createSubscriptionWebhookHandler({
-      dispatchWrite: async ({ handlerQn, payload, tenantId }) => {
-        const systemUser = createTestUser({
-          id: 1,
-          tenantId: tenantId as TenantId,
-          roles: ["SystemAdmin"],
-        });
-        const res = await stack.http.write(handlerQn, payload, systemUser);
-        const body = (await res.json()) as {
-          isSuccess?: boolean;
-          data?: unknown;
-          error?: unknown;
-        };
-        return body.isSuccess
-          ? { isSuccess: true, ...(body.data !== undefined && { data: body.data }) }
-          : { isSuccess: false, ...(body.error !== undefined && { error: body.error }) };
-      },
-      resolveProvider: (providerName) => {
-        const usage = stack.registry
-          .getExtensionUsages("subscriptionProvider")
-          .find((u) => u.entityName === providerName);
-        // @cast-boundary engine-payload — extension-usage carries unknown options
-        return usage?.options as SubscriptionProviderPlugin | undefined;
-      },
-    }),
-  );
 });
 
 afterAll(async () => {
@@ -227,7 +194,7 @@ function buildMockSubscription(
 }
 
 async function postMollieWebhook(id: string) {
-  return webhookApp.request("/api/subscription/webhook/mollie", {
+  return stack.app.request("/api/subscription/webhook/mollie", {
     method: "POST",
     body: `id=${id}`,
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -386,15 +353,15 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
 });
 
 describe("scenario 4: error + ignored paths", () => {
-  test("body ohne id → 401 (Plugin throws, foundation mapped auf signature_invalid)", async () => {
-    const res = await webhookApp.request("/api/subscription/webhook/mollie", {
+  test("body ohne id → 401 (Plugin throws, extraRoute mapped auf extra_route_signature_invalid)", async () => {
+    const res = await stack.app.request("/api/subscription/webhook/mollie", {
       method: "POST",
       body: "no-id-field",
       headers: { "content-type": "application/x-www-form-urlencoded" },
     });
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("subscription_webhook_signature_invalid");
+    expect(body.error.code).toBe("extra_route_signature_invalid");
   });
 
   test("sub_xxx-direct-event → 200 ignored, kein DB-write", async () => {
@@ -422,7 +389,7 @@ describe("scenario 4: error + ignored paths", () => {
     // handler refactored sodass er ALLE requests an das erste plugin
     // routet, wäre dieser Test grün — bricht aber wenn der Test einen
     // unbekannten provider-name fordert.
-    const res = await webhookApp.request("/api/subscription/webhook/paypal", {
+    const res = await stack.app.request("/api/subscription/webhook/paypal", {
       method: "POST",
       body: "id=tr_dummy",
       headers: { "content-type": "application/x-www-form-urlencoded" },

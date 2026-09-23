@@ -23,6 +23,7 @@ import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-
 import {
   type AuthRoutesConfig,
   buildRequestContextDataFromRequest,
+  type ExtraRouteDefinition,
   generateToken,
   requestContext,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -47,8 +48,8 @@ import {
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
 import { buildBunServeOptions } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
 import {
-  type ExtraRoutesSystemDeps,
   makeDispatchSystemWrite,
+  type SystemWireDeps,
 } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
 import { injectSchema } from "@cosmicdrift/kumiko-server-runtime/inject-schema";
 import {
@@ -127,7 +128,10 @@ export type DevHostDispatchResult =
 
 /** Picks an entry by inspecting the incoming request. Wird von
  *  Multi-Entry-Apps gesetzt; im Single-Entry-Mode irrelevant. */
-export type DevHostDispatch = (req: Request) => DevHostDispatchResult;
+export type DevHostDispatch = (
+  req: Request,
+  deps: { readonly systemQuery: PageHeadSystemQuery },
+) => DevHostDispatchResult | Promise<DevHostDispatchResult>;
 
 export type CreateKumikoServerOptions = {
   /** Features whose entities, handlers, and screens get wired into the
@@ -217,12 +221,15 @@ export type CreateKumikoServerOptions = {
    *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
    *  es bei jedem Boot. */
   readonly onAfterSetup?: (stack: TestStack) => Promise<void>;
-  /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
-   *  Systems — symmetrisch zum runProdApp.extraRoutes. Wird VOR der
-   *  Static/HTML-Auslieferung aufgerufen, sodass eigene GETs (/feed.xml,
-   *  /og-image, …) Vorrang vor dem Dev-Asset-Pfad haben. `deps` statt
-   *  `ctx` weil dies kein HandlerContext ist — kein user/tenant. */
-  readonly extraRoutes?: (app: import("hono").Hono, deps: ExtraRoutesSystemDeps) => void;
+  /** Declarative HTTP-routes outside the /api/write|query|batch pipeline —
+   *  symmetric to runProdApp.extraRoutes (kumiko-framework#3050). Mounted
+   *  inside buildServer (setupTestStack), before the Static/HTML-fallback,
+   *  so an own GET (/feed.xml, /og-image, …) wins over the dev-asset path. */
+  readonly extraRoutes?: readonly ExtraRouteDefinition[];
+  /** Hook for app-wired co-running components that need the system-write
+   *  dispatcher — runs after buildServer, before onAfterSetup (seeds), with
+   *  NO `app` (routes are declared via `extraRoutes`, not wired here). */
+  readonly wire?: (deps: SystemWireDeps) => void | Promise<void>;
   /** Per-request head-metadata resolver (Open-Graph/title/description) —
    *  same option, same `PageHeadResolver` signature, and same shared
    *  resolve+inject call (`resolveAndInjectPageHead`) as `runProdApp`'s
@@ -830,6 +837,7 @@ export async function createKumikoServer(
     ...(options.effectiveFeatures !== undefined && {
       effectiveFeatures: options.effectiveFeatures,
     }),
+    ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     // jobs: {} = enqueuer-only; startDevJobRunners below is the sole
     // consumer/cron-scheduler per lane, so runOnBoot/cron jobs don't double-fire.
     jobs: {},
@@ -837,16 +845,12 @@ export async function createKumikoServer(
   await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
 
-  // App-eigene HTTP-Routes ans Hono-app hängen — symmetrisch zur
-  // gleichnamigen Option in runProdApp. Wird vor dem dev-fallback
-  // (HTML/JS/CSS-Serving via handleFetch unten) registriert, damit
-  // explizite Routen wie /feed.xml den Asset-Pfad schlagen.
-  //
-  // Muss VOR dem Seed laufen: ein Seed, der über stack.http dispatcht,
-  // baut Honos Matcher — danach wirft jedes weitere app.get() mit
-  // "Can not add a route since the matcher is already built".
-  if (options.extraRoutes !== undefined) {
-    options.extraRoutes(stack.app, {
+  // `extraRoutes` is already mounted — setupTestStack's buildServer() call
+  // wired it above, before this function ever runs. `wire` is the
+  // remaining escape-hatch for app-wired co-running components that need
+  // the system-write dispatcher but don't declare a route.
+  if (options.wire !== undefined) {
+    await options.wire({
       db: stack.db,
       // Der nackte ioredis-Client (nicht der TestRedis-Wrapper) —
       // Parität mit runProdApp, App-Code soll in dev+prod dasselbe sehen.
@@ -861,8 +865,6 @@ export async function createKumikoServer(
   // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
   // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
   // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
-  // Dispatching through stack.http below builds Hono's matcher — no route
-  // may be registered after this point (see extraRoutes above).
   if (options.onAfterSetup !== undefined) {
     await options.onAfterSetup(stack);
   }
@@ -943,6 +945,15 @@ export async function createKumikoServer(
   // ist es immer "client" mit Schema-Inject true (Single-Entry-Default
   // damit der Client TypeScript-Schemas findet).
   //
+  // Anonymous-role systemQuery, shared by resolvePageHead and hostDispatch —
+  // mirrors runProdApp's HostDispatchFn deps so dev/prod stay symmetric.
+  const buildDevSystemQuery =
+    (req: Request): PageHeadSystemQuery =>
+    (type, payload, tenantId) =>
+      requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
+        stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+      );
+
   // resolvePageHead goes through the same headless resolveAndInjectPageHead
   // that runProdApp uses, so dev and e2e exercise the one timeout and
   // fallback path instead of a second copy of it (#3026).
@@ -966,14 +977,10 @@ export async function createKumikoServer(
     if (options.resolvePageHead !== undefined) {
       const url = new URL(req.url);
       const host = req.headers.get("host") ?? url.host;
-      const systemQuery: PageHeadSystemQuery = (type, payload, tenantId) =>
-        requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
-          stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
-        );
       html = await resolveAndInjectPageHead(html, options.resolvePageHead, {
         path: url.pathname,
         host,
-        systemQuery,
+        systemQuery: buildDevSystemQuery(req),
       });
     }
     return new Response(html, { headers });
@@ -1085,7 +1092,7 @@ export async function createKumikoServer(
       // Discriminated-Dispatch — symmetric zu prod. Ohne hostDispatch
       // landet das im Single-Entry-Default ("client" + Schema-Inject).
       if (options.hostDispatch !== undefined) {
-        const dispatch = options.hostDispatch(req);
+        const dispatch = await options.hostDispatch(req, { systemQuery: buildDevSystemQuery(req) });
         if (dispatch.kind === "redirect") {
           return new Response(null, {
             status: dispatch.status ?? 302,

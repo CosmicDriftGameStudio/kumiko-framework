@@ -1,47 +1,38 @@
-import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  type Registry,
-  type SessionUser,
-  type TenantId,
-  type WriteResult,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import type Redis from "ioredis";
 
-/** Deps für `extraRoutes` — geteilt zwischen runProdApp (prod) und
- *  createKumikoServer (dev), damit die beiden Pfade nicht driften.
- *  Naming: `deps` statt `ctx` weil im Framework `ctx` der HandlerContext
- *  mit user/tenant/registry ist — hier ist der Scope absichtlich kleiner
- *  (Routes laufen außerhalb der Auth/Tenant-Pipeline). */
-export type ExtraRoutesSystemDeps = {
+export type { SystemDispatchArgs } from "@cosmicdrift/kumiko-framework/api";
+// Re-export the SystemAdmin write/query builders — the single source of
+// truth lives in framework/api next to buildServer's own `extraRoutes`
+// mount so the two never drift on how the SystemAdmin identity is built.
+export {
+  makeDispatchSystemQuery,
+  makeDispatchSystemWrite,
+} from "@cosmicdrift/kumiko-framework/api";
+
+/** Deps for the `wire` hook (runProdApp/createKumikoServer, after
+ *  buildServer has mounted `extraRoutes` — see kumiko-framework#3050) and
+ *  for `runWorkerApp.wireComponents`. Naming: `deps` not `ctx` because
+ *  `ctx` is the framework's HandlerContext (user/tenant/registry) — this
+ *  scope is deliberately smaller and has NO `app` (routes are declared via
+ *  `extraRoutes`, not wired here). */
+export type SystemWireDeps = {
   readonly db: DbConnection;
   readonly redis: Redis;
-  /** Feature-registry — z.B. für Plugin-Lookups via
+  /** Feature-registry — e.g. for plugin-lookups via
    *  `registry.getExtensionUsages("subscriptionProvider")`. */
   readonly registry: Registry;
-  /** Schreibt durch den /api/*-Command-Dispatcher (gleiche Idempotency/
-   *  Job-Hooks) — aber als auto-konstruierter SystemAdmin des Ziel-
-   *  Tenants, OHNE Access-Check der Route. Privilege-Scope: SystemAdmin
-   *  ist die höchste nicht-tenant-scoped Rolle — der Call erreicht JEDEN
-   *  SystemAdmin-gegateten Handler auf jedem Tenant; das Rollen-Set ist
-   *  nicht konfigurierbar. Nur für Pfade, die ihre Authentizität selbst
-   *  beweisen (Provider-Webhook-Signaturen,
-   *  createSubscriptionWebhookHandler et al.). */
+  /** Writes through the /api/*-command-dispatcher (same idempotency/job
+   *  hooks) as an auto-constructed SystemAdmin of the target tenant,
+   *  WITHOUT the route's own access-check. Privilege-scope: SystemAdmin is
+   *  the highest non-tenant-scoped role — reaches ANY SystemAdmin-gated
+   *  handler on ANY tenant; the role-set is not configurable. Only for
+   *  co-running components that already proved their own authenticity
+   *  (e.g. an IMAP supervisor authenticated against its own mailbox). */
   readonly dispatchSystemWrite: (args: {
     readonly handlerQn: string;
     readonly payload: unknown;
-    readonly tenantId: TenantId;
+    readonly tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId;
   }) => Promise<WriteResult>;
 };
-
-type SystemWriteDispatcher = {
-  readonly write: (handlerQn: string, payload: unknown, user: SessionUser) => Promise<WriteResult>;
-};
-
-export function makeDispatchSystemWrite(
-  dispatcher: SystemWriteDispatcher,
-): ExtraRoutesSystemDeps["dispatchSystemWrite"] {
-  return ({ handlerQn, payload, tenantId }) =>
-    dispatcher.write(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
-}

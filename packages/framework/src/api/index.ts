@@ -28,6 +28,21 @@ export {
   createInMemoryLoginRateLimiter,
   createRedisLoginRateLimiter,
 } from "./auth-routes";
+export type {
+  AnonymousExtraRoute,
+  AnonymousExtraRouteDeps,
+  ExtraRouteDefinition,
+  ExtraRouteEntry,
+  ExtraRouteRejectionStatus,
+  SignatureExtraRoute,
+  SignatureExtraRouteDeps,
+  SignatureExtraRouteVerifyDeps,
+  SignatureExtraRouteVerifyRequest,
+  SystemDispatchArgs,
+  UserExtraRoute,
+  UserExtraRouteDeps,
+} from "./extra-route";
+export { ExtraRouteEntries, ExtraRouteRejection, signatureRoute } from "./extra-route";
 export type { CachedResponseInit, CachePolicy } from "./http-cache";
 export {
   cacheControlHeader,
@@ -50,7 +65,7 @@ export {
 } from "./request-id-middleware";
 export { createApiRoutes } from "./routes";
 export type { KumikoServer, ServerOptions } from "./server";
-export { buildServer } from "./server";
+export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server";
 export type { SseBroker, SseClient, SseEvent } from "./sse-broker";
 export { createSseBroker } from "./sse-broker";
 export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";

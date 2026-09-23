@@ -1,30 +1,22 @@
-// createInboundMailConnectRoutes — Hono-Route-Factory die der App-Owner
-// via `extraRoutes` in seinem bin/server.ts mountet (Muster
-// billing-foundation/webhook-handler.ts).
+// createInboundMailConnectRoutes — declarative extraRoutes (kumiko-
+// framework#3050) the app owner mounts via `extraRoutes` in buildServer.
 //
-//   GET /inbound-mail/connect          (auth-gated — im authed Bereich mounten)
-//   GET /inbound-mail/oauth/callback   (anonymous — MUSS außerhalb /api/*
-//                                       liegen, /api ist auth-gated;
-//                                       verifiziert user-data-rights §5)
+//   GET /api/inbound-mail/connect      (entry:"user" — signed-in caller)
+//   GET /inbound-mail/oauth/callback   (entry:"signature" — anonymous,
+//                                       outside /api/*; verify() IS the auth,
+//                                       trusting only the HMAC-signed state)
 //
-// Beispiel bin/server.ts:
-//
-//   const routes = createInboundMailConnectRoutes({
-//     providerCtx: { registry: deps.registry, secrets, config: undefined },
-//     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
-//       deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
-//     secrets,
-//     stateSecret: env.INBOUND_MAIL_STATE_SECRET,
-//     callbackUrl: `${env.PUBLIC_BASE_URL}/inbound-mail/oauth/callback`,
-//   });
-//   app.get("/api/inbound-mail/connect", routes.connect);      // auth-gated
-//   app.get("/inbound-mail/oauth/callback", routes.callback);  // anonymous
-//
-// Provider registrieren KEINE eigenen Routen — ihr oauth-Block wird über
-// resolveInboundProviderForKey aufgelöst. Der Callback vertraut NUR dem
-// HMAC-verifizierten state (CSRF-/Fremd-Claiming-Sperre, oauth-state.ts).
+// Providers register no routes of their own — their oauth block is
+// resolved via resolveInboundProviderForKey. The callback trusts ONLY the
+// HMAC-verified state (CSRF-/foreign-claiming lock, see oauth-state.ts).
 
-import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type {
+  ExtraRouteDefinition,
+  SignatureExtraRouteDeps,
+  SignatureExtraRouteVerifyRequest,
+  UserExtraRouteDeps,
+} from "@cosmicdrift/kumiko-framework/api";
+import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import type { Context } from "hono";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
@@ -32,199 +24,228 @@ import {
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "./constants";
-import { signOAuthState, verifyOAuthState } from "./oauth-state";
+import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state";
 import { resolveInboundProviderForKey } from "./provider-factory";
-import type { InboundMailContext } from "./types";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
+const DEFAULT_CONNECT_PATH = "/api/inbound-mail/connect";
+const DEFAULT_CALLBACK_PATH = "/inbound-mail/oauth/callback";
 
-export type InboundMailConnectRoutesDeps = {
-  /** Slim-Context für Provider-Lookups + oauth-Calls (registry Pflicht). */
-  readonly providerCtx: InboundMailContext;
-  /** Schreibt durch den Standard-Dispatcher mit auto-konstruiertem
-   *  SystemUser — muss connect-account als SystemAdmin durchlassen. */
-  readonly dispatchWrite: (args: {
-    readonly handlerQn: string;
-    readonly payload: unknown;
-    readonly tenantId: string;
-  }) => Promise<{
-    readonly isSuccess: boolean;
-    readonly data?: unknown;
-    readonly error?: unknown;
-  }>;
-  /** Tenant-Secret-Write für den Refresh-Token (Slot = accountId). */
-  readonly secrets: SecretsContext;
-  /** HMAC-Secret für den state-Parameter (Deploy-Config aus env —
-   *  `scope:"system"`-Secrets existieren in secrets-v1 nicht). */
+export type InboundMailConnectRoutesOptions = {
+  /** HMAC-secret for the state param (deploy-time env — `scope:"system"`
+   *  secrets don't exist in secrets-v1). */
   readonly stateSecret: string;
-  /** Absolute Callback-URL — exakt so beim OAuth-Provider registriert. */
+  /** Absolute callback URL — must match what's registered with the OAuth
+   *  provider exactly. */
   readonly callbackUrl: string;
-  /** Wohin der Browser nach erfolgreichem Connect redirected wird.
-   *  Fehlt sie, antwortet der Callback mit JSON (API-/Test-Modus). */
+  /** Where the browser redirects after a successful connect. Omitted →
+   *  the callback answers with JSON instead (API-/test-mode). */
   readonly successRedirectUrl?: string;
   readonly stateTtlMinutes?: number;
+  /** Default "/api/inbound-mail/connect". */
+  readonly connectPath?: string;
+  /** Default "/inbound-mail/oauth/callback". */
+  readonly callbackPath?: string;
 };
 
-function errorJson(c: Context, status: 400 | 401 | 404 | 502, code: string, message: string) {
+function errorJson(c: Context, status: 400 | 401 | 404 | 500 | 502, code: string, message: string) {
   return c.json({ error: { code, message } }, status);
 }
 
-/** Session-User aus dem Hono-Context — vom Auth-Middleware gesetzt. */
-function sessionUserOf(c: Context): { id: string; tenantId: string } | undefined {
-  const user = c.get("user") as { id?: unknown; tenantId?: unknown } | undefined;
-  if (!user || typeof user.id !== "string" || typeof user.tenantId !== "string") return undefined;
-  return { id: user.id, tenantId: user.tenantId };
+type VerifiedCallback = { readonly code: string; readonly state: OAuthStatePayload };
+
+function verifyCallbackRequest(
+  request: SignatureExtraRouteVerifyRequest,
+  stateSecret: string,
+): VerifiedCallback {
+  const code = request.query["code"] ?? "";
+  const rawState = request.query["state"] ?? "";
+  if (!code || !rawState) {
+    throw new ExtraRouteRejection(
+      400,
+      { error: { code: "invalid_callback", message: "missing code or state" } },
+      "inbound-mail oauth callback missing code or state",
+    );
+  }
+  const verified = verifyOAuthState(rawState, stateSecret);
+  if (!verified.ok) {
+    throw new ExtraRouteRejection(
+      400,
+      { error: { code: "invalid_state", message: `state rejected: ${verified.reason}` } },
+      `inbound-mail oauth callback state rejected: ${verified.reason}`,
+    );
+  }
+  return { code, state: verified.payload };
 }
 
-export function createInboundMailConnectRoutes(deps: InboundMailConnectRoutesDeps) {
-  const ttl = deps.stateTtlMinutes ?? DEFAULT_STATE_TTL_MINUTES;
+/** Builds the `entry:"user"`/`entry:"signature"` extraRoute pair. Mount via
+ *  `extraRoutes: createInboundMailConnectRoutes(options)`. */
+export function createInboundMailConnectRoutes(
+  options: InboundMailConnectRoutesOptions,
+): readonly ExtraRouteDefinition[] {
+  const ttl = options.stateTtlMinutes ?? DEFAULT_STATE_TTL_MINUTES;
 
-  const connect = async (c: Context): Promise<Response> => {
-    const user = sessionUserOf(c);
-    if (!user) {
-      return errorJson(c, 401, "unauthenticated", "connect requires a signed-in user");
-    }
-    const providerKey = c.req.query("provider") ?? "";
-    const scope = c.req.query("scope") ?? "";
-    const mailbox = c.req.query("mailbox") ?? "";
-    if (!providerKey || (scope !== "user" && scope !== "shared") || !mailbox) {
-      return errorJson(
-        c,
-        400,
-        "invalid_connect_request",
-        `${INBOUND_MAIL_FOUNDATION_FEATURE}: expected ?provider=<key>&scope=user|shared&mailbox=<address>`,
-      );
-    }
+  const connectRoute: ExtraRouteDefinition = {
+    method: "GET",
+    path: options.connectPath ?? DEFAULT_CONNECT_PATH,
+    entry: "user",
+    handler: async (c: Context, deps: UserExtraRouteDeps): Promise<Response> => {
+      const providerKey = c.req.query("provider") ?? "";
+      const scope = c.req.query("scope") ?? "";
+      const mailbox = c.req.query("mailbox") ?? "";
+      if (!providerKey || (scope !== "user" && scope !== "shared") || !mailbox) {
+        return errorJson(
+          c,
+          400,
+          "invalid_connect_request",
+          `${INBOUND_MAIL_FOUNDATION_FEATURE}: expected ?provider=<key>&scope=user|shared&mailbox=<address>`,
+        );
+      }
 
-    let plugin: ReturnType<typeof resolveInboundProviderForKey>;
-    try {
-      plugin = resolveInboundProviderForKey(deps.providerCtx, providerKey);
-    } catch (e) {
-      return errorJson(
-        c,
-        404,
-        "provider_not_registered",
-        e instanceof Error ? e.message : String(e),
-      );
-    }
-    if (!plugin.oauth) {
-      return errorJson(
-        c,
-        400,
-        "provider_has_no_oauth_flow",
-        `provider "${providerKey}" connects via credentials form (connect-account write-handler), not OAuth`,
-      );
-    }
+      let plugin: ReturnType<typeof resolveInboundProviderForKey>;
+      try {
+        plugin = resolveInboundProviderForKey({ registry: deps.registry }, providerKey);
+      } catch (e) {
+        return errorJson(
+          c,
+          404,
+          "provider_not_registered",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+      if (!plugin.oauth) {
+        return errorJson(
+          c,
+          400,
+          "provider_has_no_oauth_flow",
+          `provider "${providerKey}" connects via credentials form (connect-account write-handler), not OAuth`,
+        );
+      }
 
-    const state = signOAuthState(
-      {
-        tenantId: user.tenantId,
-        ownerUserId: scope === "user" ? user.id : null,
-        providerKey,
-        mailbox,
-      },
-      ttl,
-      deps.stateSecret,
-    );
-    const authorizeUrl = await plugin.oauth.buildAuthorizeUrl(deps.providerCtx, {
-      state,
-      redirectUri: deps.callbackUrl,
-    });
-    return c.redirect(authorizeUrl, 302);
+      const state = signOAuthState(
+        {
+          tenantId: deps.user.tenantId,
+          ownerUserId: scope === "user" ? deps.user.id : null,
+          providerKey,
+          mailbox,
+        },
+        ttl,
+        options.stateSecret,
+      );
+      const authorizeUrl = await plugin.oauth.buildAuthorizeUrl(
+        { registry: deps.registry },
+        { state, redirectUri: options.callbackUrl },
+      );
+      return c.redirect(authorizeUrl, 302);
+    },
   };
 
-  const callback = async (c: Context): Promise<Response> => {
-    const code = c.req.query("code") ?? "";
-    const rawState = c.req.query("state") ?? "";
-    if (!code || !rawState) {
-      return errorJson(c, 400, "invalid_callback", "missing code or state");
-    }
-    const verified = verifyOAuthState(rawState, deps.stateSecret);
-    if (!verified.ok) {
-      return errorJson(c, 400, "invalid_state", `state rejected: ${verified.reason}`);
-    }
-    const state = verified.payload;
+  const callbackRoute = signatureRoute<VerifiedCallback>({
+    method: "GET",
+    path: options.callbackPath ?? DEFAULT_CALLBACK_PATH,
+    entry: "signature",
+    verify: async (request) => verifyCallbackRequest(request, options.stateSecret),
+    handler: async (
+      c: Context,
+      verified: VerifiedCallback,
+      deps: SignatureExtraRouteDeps,
+    ): Promise<Response> => {
+      const { code, state } = verified;
+      const providerCtx = { registry: deps.registry, secrets: deps.secrets, config: undefined };
 
-    let plugin: ReturnType<typeof resolveInboundProviderForKey>;
-    try {
-      plugin = resolveInboundProviderForKey(deps.providerCtx, state.providerKey);
-    } catch (e) {
-      return errorJson(
-        c,
-        404,
-        "provider_not_registered",
-        e instanceof Error ? e.message : String(e),
-      );
-    }
-    if (!plugin.oauth) {
-      return errorJson(c, 400, "provider_has_no_oauth_flow", state.providerKey);
-    }
+      let plugin: ReturnType<typeof resolveInboundProviderForKey>;
+      try {
+        plugin = resolveInboundProviderForKey(providerCtx, state.providerKey);
+      } catch (e) {
+        return errorJson(
+          c,
+          404,
+          "provider_not_registered",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+      if (!plugin.oauth) {
+        return errorJson(c, 400, "provider_has_no_oauth_flow", state.providerKey);
+      }
 
-    let tokens: Awaited<ReturnType<NonNullable<typeof plugin.oauth>["exchangeCode"]>>;
-    try {
-      tokens = await plugin.oauth.exchangeCode(deps.providerCtx, {
-        code,
-        redirectUri: deps.callbackUrl,
+      let tokens: Awaited<ReturnType<NonNullable<typeof plugin.oauth>["exchangeCode"]>>;
+      try {
+        tokens = await plugin.oauth.exchangeCode(providerCtx, {
+          code,
+          redirectUri: options.callbackUrl,
+        });
+      } catch (e) {
+        return errorJson(
+          c,
+          502,
+          "token_exchange_failed",
+          e instanceof Error ? e.message : String(e),
+        );
+      }
+      if (!tokens.refreshToken) {
+        // No refresh token → no server-side sync possible. Consent must
+        // request offline_access (or access_type=offline) — the provider's
+        // oauth block owns the scopes.
+        return errorJson(
+          c,
+          502,
+          "no_refresh_token",
+          `provider "${state.providerKey}" returned no refresh token — check the offline-access scope in the provider's oauth.scopes`,
+        );
+      }
+
+      // Account creation (programmatic SystemUser; the real owner comes from
+      // the HMAC-verified state → ownerUserIdOverride).
+      const dispatched = await deps.dispatchSystemWrite({
+        handlerQn: InboundMailFoundationHandlers.connectAccount,
+        tenantId: state.tenantId,
+        payload: {
+          provider: state.providerKey,
+          authMethod: InboundMailAuthMethods.oauth,
+          displayName: state.mailbox,
+          address: state.mailbox,
+          scope: state.ownerUserId ? "user" : "shared",
+          ownerUserIdOverride: state.ownerUserId,
+        },
       });
-    } catch (e) {
-      return errorJson(c, 502, "token_exchange_failed", e instanceof Error ? e.message : String(e));
-    }
-    if (!tokens.refreshToken) {
-      // Ohne Refresh-Token kein Server-Sync — Consent muss offline_access
-      // (bzw. access_type=offline) anfordern; der Provider-oauth-Block
-      // besitzt die Scopes.
-      return errorJson(
-        c,
-        502,
-        "no_refresh_token",
-        `provider "${state.providerKey}" returned no refresh token — check the offline-access scope in the provider's oauth.scopes`,
+      if (!dispatched.isSuccess) {
+        return errorJson(c, 502, "account_create_failed", JSON.stringify(dispatched.error ?? {}));
+      }
+      const accountId = (dispatched.data as { accountId?: unknown } | undefined)?.accountId;
+      if (typeof accountId !== "string") {
+        return errorJson(c, 502, "account_create_failed", "connect-account returned no accountId");
+      }
+
+      // Refresh-token into the per-account secret slot (Slot = accountId).
+      // Access tokens (~1h) are NEVER persisted — refresh-before-poll in the
+      // sync path. `deps.secrets` is optional on SignatureExtraRouteDeps —
+      // without it the token would be silently lost, so fail loud instead.
+      if (!deps.secrets) {
+        return errorJson(
+          c,
+          500,
+          "secrets_context_missing",
+          `${INBOUND_MAIL_FOUNDATION_FEATURE}: no secrets context wired for the oauth callback route — the refresh token cannot be persisted`,
+        );
+      }
+      await deps.secrets.set(
+        state.tenantId,
+        inboundCredentialSecretKey(accountId),
+        tokens.refreshToken,
+        {
+          redact: (plaintext) => `${plaintext.slice(0, 4)}…`,
+          hint: `OAuth refresh token for inbound mail account ${accountId}`,
+        },
       );
-    }
 
-    // Account anlegen (programmatic SystemUser; echter Owner kommt aus
-    // dem HMAC-verifizierten state → ownerUserIdOverride).
-    const dispatched = await deps.dispatchWrite({
-      handlerQn: InboundMailFoundationHandlers.connectAccount,
-      tenantId: state.tenantId,
-      payload: {
-        provider: state.providerKey,
-        authMethod: InboundMailAuthMethods.oauth,
-        displayName: state.mailbox,
-        address: state.mailbox,
-        scope: state.ownerUserId ? "user" : "shared",
-        ownerUserIdOverride: state.ownerUserId,
-      },
-    });
-    if (!dispatched.isSuccess) {
-      return errorJson(c, 502, "account_create_failed", JSON.stringify(dispatched.error ?? {}));
-    }
-    const accountId = (dispatched.data as { accountId?: unknown } | undefined)?.accountId;
-    if (typeof accountId !== "string") {
-      return errorJson(c, 502, "account_create_failed", "connect-account returned no accountId");
-    }
+      if (options.successRedirectUrl) {
+        const target = new URL(options.successRedirectUrl);
+        target.searchParams.set("accountId", accountId);
+        return c.redirect(target.toString(), 302);
+      }
+      return c.json({ connected: true, accountId }, 200);
+    },
+  });
 
-    // Refresh-Token in den per-Account-Secret-Slot (Request-Pfad =
-    // voller SecretsContext). Access-Tokens (~1h) werden NIE persistiert
-    // — refresh-before-poll im Sync-Pfad.
-    await deps.secrets.set(
-      state.tenantId,
-      inboundCredentialSecretKey(accountId),
-      tokens.refreshToken,
-      {
-        redact: (plaintext) => `${plaintext.slice(0, 4)}…`,
-        hint: `OAuth refresh token for inbound mail account ${accountId}`,
-      },
-    );
-
-    if (deps.successRedirectUrl) {
-      const target = new URL(deps.successRedirectUrl);
-      target.searchParams.set("accountId", accountId);
-      return c.redirect(target.toString(), 302);
-    }
-    return c.json({ connected: true, accountId }, 200);
-  };
-
-  return { connect, callback };
+  return [connectRoute, callbackRoute];
 }
-
-export type InboundMailConnectRoutes = ReturnType<typeof createInboundMailConnectRoutes>;

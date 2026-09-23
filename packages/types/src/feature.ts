@@ -840,13 +840,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   workspace(definition: WorkspaceDefinition): void;
 
   // Register an HTTP-route owned by this feature. The route is mounted
-  // outside the dispatcher pipeline (= außerhalb /api/write|query|batch),
-  // direkt an die app — Use-Case: RSS/Atom-Feeds, OG-Images, OpenAPI-Specs.
+  // outside the dispatcher pipeline (= outside /api/write|query|batch),
+  // directly on the app — use case: RSS/Atom feeds, OG images, OpenAPI specs.
   // Duplicate "method path"-Combinations are rejected per feature at setup
   // time; there is no cross-feature check.
-  // Symmetric to queryHandler/writeHandler — Routes leben mit dem Feature,
-  // nicht im Bootstrap. Escape-hatch für nicht-feature-bound Routes
-  // bleibt runProdApp.extraRoutes.
+  // Symmetric to queryHandler/writeHandler — routes live with the feature,
+  // not in the bootstrap. Escape-hatch for non-feature-bound routes stays
+  // runProdApp.extraRoutes (declarative list with `entry` tier).
   httpRoute(definition: HttpRouteDefinition): void;
 
   // Declare an "unmanaged" framework-native table that bypasses the

@@ -49,7 +49,6 @@ export {
   effectiveTierFromSubscription,
   SUBSCRIPTION_WEBHOOK_PATH,
   type SubscriptionTierSyncDeps,
-  type SystemWriteResult,
 } from "./subscription-tier-sync";
 export type {
   PaymentEvent,
@@ -57,7 +56,6 @@ export type {
   SubscriptionProviderPlugin,
 } from "./types";
 export {
-  createSubscriptionWebhookHandler,
-  type SubscriptionWebhookDeps,
-  type SubscriptionWebhookHandler,
+  createSubscriptionWebhookRoute,
+  type SubscriptionWebhookRouteOptions,
 } from "./webhook-handler";

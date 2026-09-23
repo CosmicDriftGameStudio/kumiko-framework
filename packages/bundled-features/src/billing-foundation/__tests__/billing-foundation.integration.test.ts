@@ -8,8 +8,8 @@
 // beweist die Foundation-eigene Verdrahtung (atomic insert + upsert,
 // Idempotency via deterministic aggregate-ids, tenant-isolation).
 //
-// Webhook-Handler-Factory (createSubscriptionWebhookHandler) wird in
-// einem separaten Test mit Hono-mock geprüft.
+// Webhook-route (createSubscriptionWebhookRoute) gets its own dedicated
+// coverage in webhook-handler.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -22,7 +22,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -32,7 +32,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { Hono } from "hono";
 import {
   ComplianceProfileHandlers,
   createComplianceProfilesFeature,
@@ -53,7 +52,7 @@ import { billingFoundationFeature } from "../feature";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection";
 import { subscriptionTenantDestroyHook } from "../tenant-destroy-hook";
 import type { PaymentEvent, SubscriptionProviderPlugin } from "../types";
-import { createSubscriptionWebhookHandler } from "../webhook-handler";
+import { createSubscriptionWebhookRoute } from "../webhook-handler";
 
 // =============================================================================
 // Mock-plugin für create-checkout-session + create-portal-session-Tests.
@@ -126,7 +125,6 @@ const mockPaymentProviderFeature = defineFeature("test-mock-payment-provider", (
 
 let stack: TestStack;
 let db: DbConnection;
-let paymentWebhookApp: Hono;
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -139,6 +137,10 @@ beforeAll(async () => {
       mockProviderFeature,
       mockPaymentProviderFeature,
     ],
+    // Scenario 11 exercises the real payment-branch of the webhook route
+    // (webhook-handler.ts) mounted through the same stack — no hand-rolled
+    // Hono app, real HTTP via stack.app.
+    extraRoutes: [createSubscriptionWebhookRoute()],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
@@ -150,34 +152,6 @@ beforeAll(async () => {
   // see feature.ts), so process-event.write.ts calls configuredPiiSubjectKms()
   // directly and needs one configured, same as run{Prod,Dev}App do at boot.
   configurePiiSubjectKms(new InMemoryKmsAdapter());
-
-  // Webhook-app for scenario 11 — same mountWebhook shape as
-  // stripe-foundation.integration.test.ts, exercising the real
-  // createSubscriptionWebhookHandler payment-branch (webhook-handler.ts).
-  paymentWebhookApp = new Hono();
-  paymentWebhookApp.post(
-    "/api/subscription/webhook/:providerName",
-    createSubscriptionWebhookHandler({
-      dispatchWrite: async ({ handlerQn, payload, tenantId }) => {
-        const systemUser = createTestUser({
-          id: 1,
-          tenantId: tenantId as TenantId,
-          roles: ["SystemAdmin"],
-        });
-        const res = await stack.http.write(handlerQn, payload, systemUser);
-        const body = await res.json();
-        return body.isSuccess
-          ? { isSuccess: true, data: body.data }
-          : { isSuccess: false, error: body.error };
-      },
-      resolveProvider: (providerName) => {
-        const usage = stack.registry
-          .getExtensionUsages("subscriptionProvider")
-          .find((u) => u.entityName === providerName);
-        return usage?.options as SubscriptionProviderPlugin | undefined;
-      },
-    }),
-  );
 });
 
 afterAll(async () => {
@@ -993,7 +967,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(rowsB).toHaveLength(1);
   });
 
-  test("webhook-handler payment-branch (createSubscriptionWebhookHandler): POST → row, retry POST → duplicate:true, still one row", async () => {
+  test("webhook-route payment-branch (createSubscriptionWebhookRoute): POST → row, retry POST → duplicate:true, still one row", async () => {
     const tenantId = testTenantId(4004);
     const body = JSON.stringify({
       providerEventId: "evt_webhook_payment_001",
@@ -1002,7 +976,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
       priceId: "price_webhook_test",
     });
 
-    const first = await paymentWebhookApp.request("/api/subscription/webhook/mock-payment", {
+    const first = await stack.app.request("/api/subscription/webhook/mock-payment", {
       method: "POST",
       body,
     });
@@ -1011,7 +985,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(firstBody["processed"]).toBe(true);
     expect(firstBody["duplicate"]).toBe(false);
 
-    const second = await paymentWebhookApp.request("/api/subscription/webhook/mock-payment", {
+    const second = await stack.app.request("/api/subscription/webhook/mock-payment", {
       method: "POST",
       body,
     });

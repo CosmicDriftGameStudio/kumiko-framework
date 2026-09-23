@@ -87,6 +87,7 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly maxRequestBytes?: ServerOptions["maxRequestBytes"];
   readonly readiness?: ServerOptions["readiness"];
   readonly metrics?: ServerOptions["metrics"];
+  readonly extraRoutes?: ServerOptions["extraRoutes"];
   // Job-enqueue surface for the API process. Required whenever the registry
   // defines event-triggered jobs: command-dispatcher fires handleEvent as
   // an afterCommit-hook — without a jobRunner the enqueue silently drops.
@@ -236,6 +237,7 @@ function buildApiServer(
     maxRequestBytes: opts.maxRequestBytes,
     readiness: opts.readiness,
     metrics: opts.metrics,
+    extraRoutes: opts.extraRoutes,
     observability: opts.observability,
     observabilityOptions: opts.observabilityOptions,
     dispatcherOptions,

@@ -5,11 +5,11 @@ export { SYSTEM_USER_ID };
 
 export const SYSTEM_ROLE = "system" as const;
 
-// extraRoles: hasAccess kennt keinen System-Bypass — Handler gaten auf
-// explizite Rollen. Caller, die Handler mit z.B. SystemAdmin-Gate erreichen
-// müssen (extraRoutes.dispatchSystemWrite → billing-foundation
-// process-event), geben die Rolle hier zusätzlich mit; createdBy bleibt
-// SYSTEM_USER_ID, der Audit-Trail zeigt weiterhin System.
+// extraRoles: hasAccess has no system bypass — handlers gate on
+// explicit roles. Callers that must reach handlers gated e.g. on
+// SystemAdmin (dispatchSystemWrite on entry:"signature" routes or the
+// `wire` hook → billing-foundation process-event) pass the role here
+// additionally; createdBy stays SYSTEM_USER_ID, the audit trail still shows System.
 export function createSystemUser(
   tenantId: TenantId,
   extraRoles: readonly string[] = [],

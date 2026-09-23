@@ -164,10 +164,10 @@ describe("default coverage sweep — proves the default, not a hand-maintained l
   });
 
   // Regression for the DoD: "neue Route ohne Eintrag in irgendeiner Liste
-  // bekommt automatisch ein Limit". Mounts a route the same way an app-owner's
-  // `extraRoutes` callback would — after buildServer, with zero Routes/
-  // opt-out entries — and proves it inherits the cap AND still serves a
-  // small body correctly (not an accidental always-413).
+  // bekommt automatisch ein Limit". Mounts a route directly on the app
+  // after buildServer, with zero Routes/opt-out entries — and proves it
+  // inherits the cap AND still serves a small body correctly (not an
+  // accidental always-413).
   test("a route mounted after buildServer with no list entry anywhere still inherits the default limit", async () => {
     const app = buildApp();
     app.post("/api/totally-new-route-nobody-listed", async (c) => c.json({ ok: true }));
