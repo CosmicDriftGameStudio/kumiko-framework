@@ -1,5 +1,112 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.305.0
+
+### Minor Changes
+
+- 90c5398: The web SPA calls `GET /api/auth/tenants` on every page load to bootstrap its session, which used to trip the L2 auth-endpoint rate limiter after 5 requests/minute and left the UI stuck on the loading screen. `rateLimit.auth` now exempts this exact route, and the client now surfaces bootstrap failures instead of hanging.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: rateLimit.auth (L2) no longer throttles GET /api/auth/tenants
+  detail: |
+    The SPA's own session bootstrap called GET /api/auth/tenants on every
+    page load, which counted against the L2 auth-endpoint bucket and threw
+    429 on the 6th page load within a minute. This route is now exempted
+    from rateLimit.auth by exact method+path match; all other auth routes
+    (including POST on the same path, if ever added) are unaffected.
+  migration: |
+    Apps using the default rateLimit.auth need no changes. Apps that want
+    to keep throttling GET /api/auth/tenants should rely on rateLimit.global
+    (L1, IP-based) instead. Credential-submitting POST routes are unaffected
+    even when rateLimit.auth's `path` option is customized.
+  -->
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: breaking
+  title: Session bootstrap failures now render a retryable error screen instead of hanging on "loading"
+  detail: |
+    fetchTenants()/fetchCurrentUser() failures (rate limit, 5xx, network)
+    used to reject out of the session bootstrap effect and leave the UI on
+    the loading placeholder forever. SessionStatus gained an "error" value
+    and SessionState gained a bootstrapFailure field; the auth gate now
+    renders SessionBootstrapErrorScreen with a Retry-After-aware retry
+    button for this case.
+  migration: |
+    Code with an exhaustive switch over SessionStatus, or tests/stories that
+    hand-build a SessionState literal, needs to add the "error" case and the
+    bootstrapFailure field. refresh() no longer rejects on bootstrap
+    failures; it resolves and sets status to "error" instead.
+  -->
+
+- 05b87d7: `ExtraRouteRejection` now accepts status `503` alongside an optional `retryAfterSeconds`, which renders as a `Retry-After` header, so signature routes can report "temporarily not ready" from `verify()` without inventing a verify-side sentinel (kumiko-framework#3168).
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ExtraRouteRejection supports 503 + Retry-After for signature routes whose verify() is temporarily unable to run
+  -->
+
+- 0ee6000: Job backoff now waits between retries: backoff defaults to a 1000 ms base delay and accepts { type, delayMs } (fw#3167)
+
+  Previously, jobs with backoff set retried immediately: BullMQ received only { type } with no delay, and its fixed/exponential strategies compute NaN/undefined without one (falsy, so no wait). Now "fixed" waits a constant 1000 ms and "exponential" waits 1000/2000/4000 ms... between attempts by default. Jobs with a high retries count will therefore take noticeably longer to reach their final failure. A new object form, backoff: { type, delayMs }, lets a job configure its own base delay instead of the 1000 ms default.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Job backoff now waits between retries: backoff defaults to a 1000 ms base delay and accepts { type, delayMs } (fw#3167)
+  -->
+
+- 0567906: Writes under an anonymous root need access.personalData: "public-intake" at runtime, across feature boundaries (fw#3165)
+
+  The boot check from fw#2885 only sees personal-data keys in an anonymous write handler's own input schema, for entities of its own feature. Every public dispatch (write, batch command, query, stream) now computes a WriteOrigin (root handler, anonymous root, public-intake declared) once. Every nested call inherits it: ctx.write, ctx.writeAs, ctx.query, ctx.queryAs, nested writes and afterCommit hooks. When the root is anonymous and does not declare public-intake, a write that touches a personal-data field (pii / userOwned / recordOwned) of any registered entity fails with AccessDeniedError, details.reason "public_intake_required". The error details name the root handler, the table and the fields, never the values. The check runs in TenantDb.insertOne/updateMany, in db.global().insertOne/updateMany and in the event-sourced create/update executor, after preSave and before the event append. It also covers rebound TenantDbs (acknowledgeCrossTenant, hook re-gating). Authenticated sessions are not affected. Not gated: ctx.db.unsafeRaw (covered by escapeHatch plus audit); ctx.appendEvent on a feature's own events (foreign events are already rejected); tables outside the registered entities; jobs and event subscribers queued from an anonymous root; and TenantDbs that handler code builds directly with createTenantDb. The last two are tracked in fw#3185, which also lists the bundled auth-email-password and user-data-rights flows that go through unsafeRaw or createTenantDb.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Writes under an anonymous root need access.personalData: "public-intake" at runtime, across feature boundaries (fw#3165)
+  migration: |
+    A write handler that anonymous callers can reach (roles include "anonymous") and that writes a personal-data field (pii / userOwned / recordOwned) of any entity must declare access: { roles: [..., "anonymous"], personalData: "public-intake" }. This applies whether the handler writes the field itself or through ctx.db, the CRUD executor, ctx.write, ctx.writeAs/queryAs or a postSave/afterCommit hook, and it applies across features. Without the declaration the write now fails with AccessDeniedError (details.reason "public_intake_required"). A failing afterCommit hook is only logged, and its write does not happen. Known consumer handlers, measured on 23.09.2026: offlot-app waitlist:submit, vehicle-enquiry:submit and try-first:set-contact; publicstatus email-subscriber:subscribe; show-pony rsvp:submit. Add the declaration if the anonymous intake is intended (the handler's rateLimit is then the only protection). Otherwise stop writing the field from the anonymous path.
+  -->
+
+- d98d172: setupTestStack accepts a metrics option, forwarded to buildServer like runProdApp (fw#3182)
+
+  TestStackOptions gains an optional metrics field forwarded to buildServer. setupTestStackFromFeatures and setupAppTestStack pick it up too since they spread the option through. Spread resolveObservabilityWiring(token) into setupTestStack for the same token-gated /metrics behavior as prod.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: setupTestStack accepts a metrics option, forwarded to buildServer like runProdApp (fw#3182)
+  detail: |
+    TestStackOptions gains an optional metrics field forwarded to buildServer, same as runProdApp. Spread resolveObservabilityWiring(token) into setupTestStack/setupTestStackFromFeatures/setupAppTestStack to get /metrics mounted in integration tests with the same token-gated PrometheusMeter-backed behavior as prod.
+  -->
+
+### Patch Changes
+
+- 9de2cde: Dry-run pulumi/k8s output lists optional env keys as commented-out lines (#3183)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: KUMIKO_DRY_RUN_ENV=pulumi and =k8s now list optional env keys (e.g. PROMETHEUS_METRICS_TOKEN) as commented-out lines under an "Optional" header, with secret flag, generator and description; defaulted keys stay omitted
+  migration: |
+    No action needed. Uncomment and set an optional line only when you want to enable that feature.
+  -->
+
+- d42d76a: Write handlers that fail with a 5xx now log their original `cause` under `[api] handler failed`. Previously `reraiseAsKumikoError` rebuilt the error from the JSON-serializable `WriteErrorInfo`, which never carried a `cause`, so ops saw the wrapped message but not the underlying failure.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Write-path 5xx logs now include the original cause chain
+  -->
+
+- Updated dependencies [0ee6000]
+  - @cosmicdrift/kumiko-types@0.305.0
+  - @cosmicdrift/kumiko-http@0.305.0
+
 ## 0.304.0
 
 ### Patch Changes

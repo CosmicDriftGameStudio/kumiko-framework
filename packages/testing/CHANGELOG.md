@@ -1,5 +1,37 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.305.0
+
+### Patch Changes
+
+- c41c201: E2E webserver builds Tailwind CSS once instead of running a `--watch` process
+
+  `defineAppE2eConfig` sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server it boots builds CSS once and stops instead of keeping a Tailwind `--watch` process alive. Tailwind v4's watcher subscribes to the whole app cwd recursively with no gitignore filter, so every Playwright artifact write under `test-results/` previously counted as a rebuild trigger.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: createKumikoServer/runDevApp gain stylesheetWatch (env KUMIKO_DEV_STYLESHEET_WATCH=0) to build Tailwind CSS once without a --watch process
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: defineAppE2eConfig starts the E2E web server without a Tailwind --watch process, so Playwright artifact writes no longer trigger hundreds of CSS rebuilds
+  -->
+
+- Updated dependencies [90c5398]
+- Updated dependencies [9de2cde]
+- Updated dependencies [c41c201]
+- Updated dependencies [05b87d7]
+- Updated dependencies [0ee6000]
+- Updated dependencies [0567906]
+- Updated dependencies [d98d172]
+- Updated dependencies [d42d76a]
+  - @cosmicdrift/kumiko-framework@0.305.0
+  - @cosmicdrift/kumiko-bundled-features@0.305.0
+  - @cosmicdrift/kumiko-dev-server@0.305.0
+
 ## 0.304.0
 
 ### Minor Changes
