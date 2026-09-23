@@ -97,8 +97,10 @@ export function buildPersonalDataGate(
   const map = personalDataTableMap(registry);
   return (tableName, keys, entity) => {
     const personalFields = entity ? personalColumnNames(entity) : map.get(tableName);
+    // skip: table carries no personal-data annotations
     if (!personalFields) return;
     const offending = [...new Set(keys.map(toSnakeCase))].filter((k) => personalFields.has(k));
+    // skip: write touches no personal-data field
     if (offending.length === 0) return;
     throw publicIntakeRequiredError(origin, tableName, offending);
   };
