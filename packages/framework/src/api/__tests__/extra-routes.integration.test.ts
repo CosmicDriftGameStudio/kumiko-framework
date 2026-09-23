@@ -461,6 +461,14 @@ describe("extraRoutes: entry:signature", () => {
       if (req.headers["x-force-404"] === "1") {
         throw new ExtraRouteRejection(404, { error: "unknown-provider" });
       }
+      if (req.headers["x-force-503"] === "retry") {
+        throw new ExtraRouteRejection(503, { error: "not-ready" }, undefined, {
+          retryAfterSeconds: 30,
+        });
+      }
+      if (req.headers["x-force-503"] === "plain") {
+        throw new ExtraRouteRejection(503, { error: "not-ready" });
+      }
       if (req.headers["x-hmac"] !== signHmac(req.rawBody)) {
         throw new Error("signature mismatch");
       }
@@ -534,6 +542,28 @@ describe("extraRoutes: entry:signature", () => {
     });
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "unknown-provider" });
+  });
+
+  test("verify() throwing ExtraRouteRejection(503, body, options) surfaces the body and Retry-After header", async () => {
+    const res = await stack.app.request("/webhooks/probe", {
+      method: "POST",
+      headers: { "x-force-503": "retry", "content-type": "application/json" },
+      body: JSON.stringify({ note: "x" }),
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "not-ready" });
+    expect(res.headers.get("retry-after")).toBe("30");
+  });
+
+  test("verify() throwing ExtraRouteRejection(503, body) without options omits the Retry-After header", async () => {
+    const res = await stack.app.request("/webhooks/probe", {
+      method: "POST",
+      headers: { "x-force-503": "plain", "content-type": "application/json" },
+      body: JSON.stringify({ note: "x" }),
+    });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "not-ready" });
+    expect(res.headers.get("retry-after")).toBeNull();
   });
 
   test("mounted under /api/:provider — no session needed, honoPathToRegex matches the :param, rawBody arrives intact through /api/*", async () => {

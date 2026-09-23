@@ -128,19 +128,48 @@ export function signatureRoute<T>(def: SignatureExtraRoute<T>): ExtraRouteDefini
   return def as unknown as SignatureExtraRoute<unknown>;
 }
 
-export type ExtraRouteRejectionStatus = 400 | 401 | 403 | 404 | 500;
+export type ExtraRouteRejectionStatus = 400 | 401 | 403 | 404 | 500 | 503;
+
+export type ExtraRouteRejectionOptions = { readonly retryAfterSeconds?: number };
 
 /** Thrown by `verify()` to reject a signature route with a specific status +
  *  JSON body. Any other throw from `verify()` is mapped to 401
- *  `extra_route_signature_invalid` by the buildServer wrapper. */
+ *  `extra_route_signature_invalid` by the buildServer wrapper.
+ *
+ *  503 signals "temporarily not ready" (e.g. a dependency the verify step
+ *  needs is down) — webhook providers like Stripe retry on 503.
+ *  `options.retryAfterSeconds` renders as the `Retry-After` header. */
 export class ExtraRouteRejection extends Error {
   readonly status: ExtraRouteRejectionStatus;
   readonly body: unknown;
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(status: ExtraRouteRejectionStatus, body: unknown, message?: string) {
+  constructor(
+    status: ExtraRouteRejectionStatus,
+    body: unknown,
+    message?: string,
+    options?: ExtraRouteRejectionOptions,
+  ) {
     super(message ?? `extra route rejected with status ${status}`);
     this.name = "ExtraRouteRejection";
     this.status = status;
     this.body = body;
+    const retryAfterSeconds = options?.retryAfterSeconds;
+    if (retryAfterSeconds !== undefined) {
+      // Retry-After is only meaningful for 503 in this union (RFC 9110) and
+      // is rendered as a delta-seconds header — reject anything that could
+      // not survive that round-trip.
+      if (status !== 503) {
+        throw new RangeError(
+          "ExtraRouteRejection: retryAfterSeconds is only valid with status 503",
+        );
+      }
+      if (!Number.isInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
+        throw new RangeError(
+          "ExtraRouteRejection: retryAfterSeconds must be a non-negative integer",
+        );
+      }
+    }
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }

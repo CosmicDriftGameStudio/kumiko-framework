@@ -33,6 +33,7 @@ export type {
   AnonymousExtraRouteDeps,
   ExtraRouteDefinition,
   ExtraRouteEntry,
+  ExtraRouteRejectionOptions,
   ExtraRouteRejectionStatus,
   SignatureExtraRoute,
   SignatureExtraRouteDeps,
