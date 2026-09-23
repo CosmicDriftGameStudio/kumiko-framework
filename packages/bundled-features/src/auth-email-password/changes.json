@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.305.0",
+    "type": "breaking",
+    "title": "Session bootstrap failures now render a retryable error screen instead of hanging on \"loading\"",
+    "detail": "fetchTenants()/fetchCurrentUser() failures (rate limit, 5xx, network)\nused to reject out of the session bootstrap effect and leave the UI on\nthe loading placeholder forever. SessionStatus gained an \"error\" value\nand SessionState gained a bootstrapFailure field; the auth gate now\nrenders SessionBootstrapErrorScreen with a Retry-After-aware retry\nbutton for this case.",
+    "migration": "Code with an exhaustive switch over SessionStatus, or tests/stories that\nhand-build a SessionState literal, needs to add the \"error\" case and the\nbootstrapFailure field. refresh() no longer rejects on bootstrap\nfailures; it resolves and sets status to \"error\" instead."
+  },
+  {
     "version": "0.300.0",
     "type": "breaking",
     "title": "auth handlers switch from GUEST_USER (roles: [\"all\"]) to the anonymous identity with a per-IP rateLimit",
