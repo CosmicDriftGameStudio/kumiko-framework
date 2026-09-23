@@ -315,6 +315,7 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         source: PLACEHOLDER_LOC,
         method: "GET",
         path: "/x",
+        anonymous: true,
         handlerBody: PLACEHOLDER_BODY_LOC,
       };
     case "projection":

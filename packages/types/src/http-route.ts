@@ -61,11 +61,11 @@ export type HttpRouteDefinition = {
   readonly method: HttpRouteMethod;
   /** URL-Pfad (Hono-Pattern, z.B. "/feed.xml" oder "/og/:tenantId.png"). */
   readonly path: string;
-  /** Wenn true, bypasses die /api/*-Auth-Middleware. Default false —
-   *  Routes liegen außerhalb /api/* und sehen die Auth-Middleware
-   *  ohnehin nicht; das Flag ist semantisch (= "diese Route ist
-   *  bewusst öffentlich") für Boot-Validator + Doku. */
-  readonly anonymous?: boolean;
+  /** true = public, no session required. false = mounted behind the
+   *  session auth chain (no anonymous fallthrough, PAT rate limit,
+   *  origin + CSRF guards) — a request without a session gets 401. The
+   *  handler reads the caller via getUser(c). */
+  readonly anonymous: boolean;
   /** Hono-Handler. Bekommt Hono-Context + Framework-Deps; returnt
    *  Response (sync oder async). */
   readonly handler: HttpRouteHandler;

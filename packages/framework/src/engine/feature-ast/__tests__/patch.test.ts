@@ -239,6 +239,7 @@ describe("patch coverage for the remaining pattern-kinds", () => {
       method: "GET",
       path: "/health",
       handlerSource: "async (c) => c.json({ ok: true })",
+      anonymous: true,
     });
     expect(parseSourceFile(sf).patterns).toHaveLength(3);
     removePattern(sf, { kind: "httpRoute", method: "GET", path: "/health" });

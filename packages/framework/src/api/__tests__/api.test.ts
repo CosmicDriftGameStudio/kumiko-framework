@@ -851,6 +851,7 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
         r.httpRoute({
           method: "GET",
           path: "/api/forbidden",
+          anonymous: true,
           handler: (c) => c.text("nope"),
         });
       }),
@@ -860,8 +861,8 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
   test("Boot-Validator: doppelte method+path-Combo wird abgelehnt", () => {
     expect(() =>
       defineFeature("dup", (r) => {
-        r.httpRoute({ method: "GET", path: "/x", handler: (c) => c.text("a") });
-        r.httpRoute({ method: "GET", path: "/x", handler: (c) => c.text("b") });
+        r.httpRoute({ method: "GET", path: "/x", anonymous: true, handler: (c) => c.text("a") });
+        r.httpRoute({ method: "GET", path: "/x", anonymous: true, handler: (c) => c.text("b") });
       }),
     ).toThrow(/already registered/);
   });

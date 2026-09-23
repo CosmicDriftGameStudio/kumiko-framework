@@ -498,6 +498,12 @@ export function buildUiExtensionsMethods<TName extends string>(
             `Pick a different path or use r.queryHandler / r.writeHandler.`,
         );
       }
+      if (typeof definition.anonymous !== "boolean") {
+        throw new Error(
+          `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" must declare ` +
+            `anonymous: true | false — true mounts it public, false behind the session auth chain.`,
+        );
+      }
       const key = `${definition.method} ${definition.path}`;
       if (state.httpRoutes[key]) {
         throw new Error(
