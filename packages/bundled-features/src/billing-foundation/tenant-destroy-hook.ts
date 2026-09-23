@@ -1,5 +1,5 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
+import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id";
@@ -24,6 +24,7 @@ export const PAYMENT_TENANT_DESTROY_ARCHIVE_REASON =
  *  hard-delete the row. Either way the subscription stream is archived so a
  *  future projection rebuild can't resurrect what was erased. */
 export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
+  declareEscapeHatch({ reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON });
   const { profile } = await resolveProfileForTenant({
     db: ctx.db.unsafeRaw(SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON),
     tenantId: ctx.tenantId,
@@ -53,6 +54,7 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
  *  itself is still one stream per tenant (paymentAggregateId), so
  *  archiveStream targets that single aggregateId as usual. */
 export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
+  declareEscapeHatch({ reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON });
   const { profile } = await resolveProfileForTenant({
     db: ctx.db.unsafeRaw(PAYMENT_TENANT_DESTROY_ARCHIVE_REASON),
     tenantId: ctx.tenantId,

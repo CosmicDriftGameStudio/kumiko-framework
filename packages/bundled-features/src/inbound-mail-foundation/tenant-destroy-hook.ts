@@ -18,7 +18,7 @@
 // etwaige Ciphertext-Kopien unlesbar. Diese Hooks entsorgen die Rows.
 
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
+import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { seenMessageTable, syncCursorTable } from "./entities";
 import {
@@ -44,6 +44,7 @@ async function archiveAndDeleteRows(
   table: EntityTableMeta,
   aggregateType: string,
 ): Promise<readonly string[]> {
+  declareEscapeHatch({ reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON });
   const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
   for (const row of rows) {
     await archiveStream(ctx.db.unsafeRaw(INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON), {
