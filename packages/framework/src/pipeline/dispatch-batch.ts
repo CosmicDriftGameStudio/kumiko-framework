@@ -1,3 +1,4 @@
+import { requestContext } from "../api/request-context";
 import type { DbConnection } from "../db/connection";
 import { transaction } from "../db/query";
 import type { DeleteContext, SaveContext, SessionUser, WriteResult } from "../engine/types";
@@ -18,6 +19,22 @@ import { rootWriteOrigin } from "./write-origin";
 // Core batch logic extracted so write() and command() can reuse it
 // (a single write = batch of one, running in its own transaction).
 export async function runBatch(
+  ctx: DispatchContext,
+  commands: readonly BatchCommand[],
+  user: SessionUser,
+  requestId?: string,
+): Promise<BatchResult> {
+  const current = requestContext.get();
+  if (!current?.signal) {
+    return runBatchBody(ctx, commands, user, requestId);
+  }
+  // Strip the signal: a disconnect would roll back the tx, idempotency would
+  // cache a 500 for the uncommitted write and afterCommit effects would be lost.
+  const { signal: _signal, ...withoutSignal } = current;
+  return requestContext.run(withoutSignal, () => runBatchBody(ctx, commands, user, requestId));
+}
+
+async function runBatchBody(
   ctx: DispatchContext,
   commands: readonly BatchCommand[],
   user: SessionUser,

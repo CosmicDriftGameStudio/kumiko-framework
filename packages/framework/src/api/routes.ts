@@ -29,6 +29,10 @@ export const StreamFrame = {
   error: "error",
 } as const;
 
+// Non-standard but widely used for "client hung up" — distinct from a real
+// 5xx so a disconnect never gets logged as a server fault.
+const CLIENT_CLOSED_REQUEST_STATUS = 499;
+
 export type ApiRoutesOptions = {
   // Override the SSE heartbeat interval (ms). Default SSE_HEARTBEAT_INTERVAL_MS.
   // Deployment-tunable for proxies with different idle timeouts — also used
@@ -203,7 +207,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
       // in-flight .next(), so awaiting here would block the response until
       // that pending pull resolves (which may be never for an idle stream).
       void generator.return(undefined).catch(() => {});
-      return c.body(null, 499 as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
+      return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
     }
 
     return streamSSE(c, async (stream) => {
@@ -364,6 +368,13 @@ function logClientFault(err: KumikoError, requestId: string | undefined, type?: 
   });
 }
 
+// Identity-checked against THIS request's signal — signal.aborted alone
+// would also match a real 5xx that happens to race a disconnect.
+function isClientAbort(err: KumikoError): boolean {
+  const signal = requestContext.get()?.signal;
+  return signal?.aborted === true && err.cause !== undefined && err.cause === signal.reason;
+}
+
 // Unexpected server faults (5xx) carry their diagnostic stack only on the
 // in-process error — serializeError strips cause/details from the wire body.
 // Without this a wrapped throw (InternalError{cause}) returns a 500 with zero
@@ -401,6 +412,20 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: string) {
 // keep the same lean shape on failure — only the `error` key.
 function queryErrorResponse(c: Context, err: KumikoError, type?: string) {
   const requestId = requestContext.get()?.requestId;
+  if (isClientAbort(err)) {
+    if (clientFaultLoggingEnabled()) {
+      const startedAt = requestContext.get()?.startedAt;
+      createFallbackLogger("api").warn("request aborted by client", {
+        requestId,
+        type: type?.slice(0, MAX_LOGGED_TYPE_LENGTH),
+        status: CLIENT_CLOSED_REQUEST_STATUS,
+        ...(startedAt === undefined
+          ? {}
+          : { durationMs: Math.round(performance.now() - startedAt) }),
+      });
+    }
+    return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
+  }
   logServerFault(err, requestId, type);
   const body = serializeError(err, requestId);
   return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
