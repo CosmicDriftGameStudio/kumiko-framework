@@ -265,6 +265,8 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
   });
 
   test("deps.write lands in the request-resolved tenant, not a different one", async () => {
+    // The store is module-level; earlier tests already wrote into TENANT_ID.
+    anonymousWriteStore.clear();
     const res = await stack.app.request("/api/anon-write-probe", {
       method: "POST",
       headers: { "X-Tenant": OTHER_TENANT_ID },
@@ -273,7 +275,7 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
     const body = (await res.json()) as { data: { tenantSeen: string } };
     expect(body.data.tenantSeen).toBe(OTHER_TENANT_ID);
     expect(anonymousWriteStore.get(OTHER_TENANT_ID)).toContain("from-anon");
-    expect(anonymousWriteStore.get(TENANT_ID)).not.toContain("from-anon");
+    expect(anonymousWriteStore.has(TENANT_ID)).toBe(false);
   });
 
   test("outside /api/, deps.write throws with a message naming the /api/ + anonymousAccess requirement, nothing written", async () => {
