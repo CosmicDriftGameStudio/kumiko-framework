@@ -2,13 +2,51 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-22
+verified: 2026-09-23
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.298.0
+
+### billing-foundation
+
+**Billing webhook wiring moves from a raw handler to createSubscriptionWebhookRoute()/createWebhookRoute()**
+
+**Migration:** createSubscriptionWebhookHandler(...) is replaced by createSubscriptionWebhookRoute({ path?, afterDispatch? }), which returns an ExtraRouteDefinition for the extraRoutes array instead of a manually-mounted handler; the route path still defaults to /webhooks/subscription/:providerName. createSubscriptionTierSync(...) deps drop db, registry, dispatchSystemWrite and tierAssignmentTable - it now exposes .createWebhookRoute(), which produces the signature-verified ExtraRouteDefinition to add to extraRoutes. A webhook previously wired as extraRoutes: (app, deps) => { app.post("/webhooks/subscription/:providerName", createSubscriptionWebhookHandler(...)) } becomes extraRoutes: [createSubscriptionTierSync({ ... }).createWebhookRoute()] (or createSubscriptionWebhookRoute({...}) for the lower-level handler), with db/registry/dispatchSystemWrite no longer passed in - the route's signature-entry deps (systemQuery, dispatchSystemWrite, dispatchSystemQuery) cover the read/write access the old handler needed.
+
+### enterprise:dev-server
+
+**createKumikoServer/runDevApp take ExtraRouteDefinition[]; dev hostDispatch gets systemQuery**
+
+**Migration:** extraRoutes on createKumikoServer/runDevApp changes from (app, deps) => void to readonly ExtraRouteDefinition[] - see the framework core changelog entry for the route-kind/dep breakdown. wire?: (deps: SystemWireDeps) => void | Promise<void> replaces non-route setup previously done inside the old extraRoutes callback. The dev hostDispatch callback now receives a second argument { systemQuery }; a dispatch implementation reading the dev db directly switches to systemQuery.
+
+### enterprise:server-runtime
+
+**ExtraRoutesSystemDeps renamed to SystemWireDeps; hostDispatch gains systemQuery**
+
+**Migration:** ExtraRoutesSystemDeps is renamed to SystemWireDeps and now backs the new wire hook instead of extraRoutes; WorkerWireDeps is derived from it. A consumer importing ExtraRoutesSystemDeps from server-runtime must switch to SystemWireDeps (same shape: db, redis, registry, dispatchSystemWrite). HostDispatchFn passed to runProdApp now takes a second argument { systemQuery } - a dispatch function reading db directly for routing decisions must switch to systemQuery.
+
+### enterprise:testing
+
+**createE2eSeedRoutes() returns ExtraRouteDefinition[] instead of an extraRoutes callback**
+
+**Migration:** createE2eSeedRoutes() now returns readonly ExtraRouteDefinition[] instead of an (app, deps) => void callback. The call site extraRoutes: createE2eSeedRoutes() in setupTestStack is unchanged, but any code that imported createE2eSeedRoutes() to invoke it directly against app (rather than passing it through extraRoutes) must instead treat the result as a route list, e.g. register each entry through the framework's ExtraRouteDefinition handling.
+
+### framework-core
+
+**extraRoutes/hostDispatch move to structured route and wire definitions**
+
+**Migration:** extraRoutes on runProdApp/createKumikoServer/runDevApp/setupTestStack changes from (app, deps) => void to readonly ExtraRouteDefinition[]. Each entry is { method, path, entry: "anonymous" | "user" | "signature", handler }, built via the helpers in @cosmicdrift/kumiko-framework/api; a signature route also needs verify(request, deps) via signatureRoute<T>(). An anonymous GET route that used to call app.get(path, handler) on the raw app now receives { app, registry, systemQuery } - replace direct db/redis reads with systemQuery. A route reading user data via a raw db handle now declares entry: "user" (path must live under /api/, unauthenticated requests get 401 automatically) and receives { app, registry, user, query, write } instead of db/redis. A route verifying an external signature (webhooks) declares entry: "signature" and receives { app, registry, secrets?, systemQuery, dispatchSystemWrite, dispatchSystemQuery }; reject invalid signatures with ExtraRouteRejection(status, body) from verify. Non-route setup that used to run inside the old extraRoutes(app, deps) callback (late-binding, background seeds, starting a runner) moves to the new wire?: (deps: SystemWireDeps) => void | Promise<void> option on runProdApp/createKumikoServer, which gets { db, redis, registry, dispatchSystemWrite } but no app. hostDispatch (dev) and HostDispatchFn (runProdApp) gain a second argument { systemQuery }; an app.use middleware that read db directly for host dispatch now uses systemQuery instead.
+
+### inbound-mail-foundation
+
+**createInboundMailConnectRoutes() returns ExtraRouteDefinition[] with static options only**
+
+**Migration:** createInboundMailConnectRoutes(options) now returns readonly ExtraRouteDefinition[] (connect route as entry: "user", callback route as entry: "signature") instead of mounting itself on app. options is now static config only - any db/registry/dispatch values previously passed through options are supplied by the framework via the route's deps instead. Replace extraRoutes: (app, deps) => createInboundMailConnectRoutes(options)(app, deps) with extraRoutes: createInboundMailConnectRoutes(options) (spread into the app's route array alongside other route definitions).
 
 ## 0.296.0
 

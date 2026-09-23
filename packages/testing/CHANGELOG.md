@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.298.0
+
+### Minor Changes
+
+- 6735981: createE2eSeedRoutes() returns ExtraRouteDefinition[] instead of an extraRoutes callback
+
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: createE2eSeedRoutes() returns ExtraRouteDefinition[] instead of an extraRoutes callback
+  migration: |
+    createE2eSeedRoutes() now returns readonly ExtraRouteDefinition[] instead of an (app, deps) => void callback. The call site extraRoutes: createE2eSeedRoutes() in setupTestStack is unchanged, but any code that imported createE2eSeedRoutes() to invoke it directly against app (rather than passing it through extraRoutes) must instead treat the result as a route list, e.g. register each entry through the framework's ExtraRouteDefinition handling.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [6735981]
+- Updated dependencies [6735981]
+- Updated dependencies [4ae8163]
+- Updated dependencies [6735981]
+- Updated dependencies [6735981]
+  - @cosmicdrift/kumiko-bundled-features@0.298.0
+  - @cosmicdrift/kumiko-dev-server@0.298.0
+  - @cosmicdrift/kumiko-framework@0.298.0
+
 ## 0.297.0
 
 ### Patch Changes

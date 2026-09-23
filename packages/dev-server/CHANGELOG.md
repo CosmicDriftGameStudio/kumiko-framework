@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.298.0
+
+### Minor Changes
+
+- 6735981: createKumikoServer/runDevApp take ExtraRouteDefinition[]; dev hostDispatch gets systemQuery
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: createKumikoServer/runDevApp take ExtraRouteDefinition[]; dev hostDispatch gets systemQuery
+  migration: |
+    extraRoutes on createKumikoServer/runDevApp changes from (app, deps) => void to readonly ExtraRouteDefinition[] - see the framework core changelog entry for the route-kind/dep breakdown. wire?: (deps: SystemWireDeps) => void | Promise<void> replaces non-route setup previously done inside the old extraRoutes callback. The dev hostDispatch callback now receives a second argument { systemQuery }; a dispatch implementation reading the dev db directly switches to systemQuery.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [6735981]
+- Updated dependencies [4ae8163]
+- Updated dependencies [6735981]
+- Updated dependencies [6735981]
+- Updated dependencies [6735981]
+  - @cosmicdrift/kumiko-bundled-features@0.298.0
+  - @cosmicdrift/kumiko-framework@0.298.0
+  - @cosmicdrift/kumiko-server-runtime@0.298.0
+  - @cosmicdrift/kumiko-headless@0.298.0
+
 ## 0.297.0
 
 ### Patch Changes
