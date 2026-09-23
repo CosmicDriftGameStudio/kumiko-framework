@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.298.0",
+    "type": "breaking",
+    "title": "createE2eSeedRoutes() returns ExtraRouteDefinition[] instead of an extraRoutes callback",
+    "migration": "createE2eSeedRoutes() now returns readonly ExtraRouteDefinition[] instead of an (app, deps) => void callback. The call site extraRoutes: createE2eSeedRoutes() in setupTestStack is unchanged, but any code that imported createE2eSeedRoutes() to invoke it directly against app (rather than passing it through extraRoutes) must instead treat the result as a route list, e.g. register each entry through the framework's ExtraRouteDefinition handling."
+  },
+  {
     "version": "0.295.0",
     "type": "improvement",
     "title": "New kumiko-testing package with seedTenant, preloads, bunfig generator and integration runner",

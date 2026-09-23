@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.298.0
+
+### Minor Changes
+
+- 6735981: Billing webhook wiring moves from a raw handler to createSubscriptionWebhookRoute()/createWebhookRoute()
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: Billing webhook wiring moves from a raw handler to createSubscriptionWebhookRoute()/createWebhookRoute()
+  migration: |
+    createSubscriptionWebhookHandler(...) is replaced by createSubscriptionWebhookRoute({ path?, afterDispatch? }), which returns an ExtraRouteDefinition for the extraRoutes array instead of a manually-mounted handler; the route path still defaults to /webhooks/subscription/:providerName. createSubscriptionTierSync(...) deps drop db, registry, dispatchSystemWrite and tierAssignmentTable - it now exposes .createWebhookRoute(), which produces the signature-verified ExtraRouteDefinition to add to extraRoutes. A webhook previously wired as extraRoutes: (app, deps) => { app.post("/webhooks/subscription/:providerName", createSubscriptionWebhookHandler(...)) } becomes extraRoutes: [createSubscriptionTierSync({ ... }).createWebhookRoute()] (or createSubscriptionWebhookRoute({...}) for the lower-level handler), with db/registry/dispatchSystemWrite no longer passed in - the route's signature-entry deps (systemQuery, dispatchSystemWrite, dispatchSystemQuery) cover the read/write access the old handler needed.
+  -->
+
+- 6735981: createInboundMailConnectRoutes() returns ExtraRouteDefinition[] with static options only
+
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: createInboundMailConnectRoutes() returns ExtraRouteDefinition[] with static options only
+  migration: |
+    createInboundMailConnectRoutes(options) now returns readonly ExtraRouteDefinition[] (connect route as entry: "user", callback route as entry: "signature") instead of mounting itself on app. options is now static config only - any db/registry/dispatch values previously passed through options are supplied by the framework via the route's deps instead. Replace extraRoutes: (app, deps) => createInboundMailConnectRoutes(options)(app, deps) with extraRoutes: createInboundMailConnectRoutes(options) (spread into the app's route array alongside other route definitions).
+  -->
+
+### Patch Changes
+
+- Updated dependencies [4ae8163]
+- Updated dependencies [6735981]
+  - @cosmicdrift/kumiko-framework@0.298.0
+  - @cosmicdrift/kumiko-headless@0.298.0
+  - @cosmicdrift/kumiko-renderer@0.298.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.298.0
+  - @cosmicdrift/kumiko-renderer-web@0.298.0
+  - @cosmicdrift/kumiko-types@0.298.0
+
 ## 0.297.0
 
 ### Patch Changes
