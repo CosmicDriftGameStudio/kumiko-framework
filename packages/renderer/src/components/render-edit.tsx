@@ -7,6 +7,7 @@ import {
   evalFieldCondition,
   isFieldsEditSection,
   normalizeEditField,
+  PROJECTION_DETAIL_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
@@ -158,6 +159,7 @@ function ExtensionSectionMount({
   values,
   patch,
   validate,
+  hideTitle,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
@@ -166,6 +168,7 @@ function ExtensionSectionMount({
   readonly values?: Readonly<Record<string, unknown>>;
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
+  readonly hideTitle?: boolean;
 }): ReactNode {
   const { Banner, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
@@ -188,7 +191,10 @@ function ExtensionSectionMount({
     );
   }
   return (
-    <Section title={section.title} testId={`section-extension-${section.title}`}>
+    <Section
+      {...(hideTitle !== true && { title: section.title })}
+      testId={`section-extension-${section.title}`}
+    >
       <Component
         entityName={section.entityName ?? hostEntityName}
         entityId={entityId}
@@ -1128,6 +1134,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         values={snapshot.values}
       />
     ) : undefined;
+  // A projectionDetail is read-only by contract (projection-detail-shim.ts), but its
+  // synthesized entity is empty when every section is an extension or relatedList,
+  // which would otherwise trip the fieldless-form branch and draw a no-op Save.
+  const showsSubmit =
+    screen.entity !== PROJECTION_DETAIL_ENTITY &&
+    (isFormEditable || hasExtensionRegistrations || isFieldless);
   const footerSlot = screen.slots?.footer;
   // Mirrors every branch inside formActions below — without this guard
   // DefaultForm renders an empty footer strip (border + padding, no content)
@@ -1136,8 +1148,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const hasFormActions =
     (isWizard && currentStep > 0) ||
     (isWizard && !isLastWizardStep) ||
-    ((isFormEditable || hasExtensionRegistrations || isFieldless) &&
-      (!isWizard || isLastWizardStep)) ||
+    (showsSubmit && (!isWizard || isLastWizardStep)) ||
     footerSlot !== undefined;
   const formActions = (
     <>
@@ -1174,21 +1185,20 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.next")}
         </Button>
       )}
-      {(isFormEditable || hasExtensionRegistrations || isFieldless) &&
-        (!isWizard || isLastWizardStep) && (
-          <Button
-            type="submit"
-            disabled={
-              (snapshot.isUnchanged && !extensionDirty && !isFieldless) || isSubmitting || disabled
-            }
-            loading={isSubmitting}
-            variant={submitVariant ?? "primary"}
-            icon="check"
-            testId="render-edit-submit"
-          >
-            {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
-          </Button>
-        )}
+      {showsSubmit && (!isWizard || isLastWizardStep) && (
+        <Button
+          type="submit"
+          disabled={
+            (snapshot.isUnchanged && !extensionDirty && !isFieldless) || isSubmitting || disabled
+          }
+          loading={isSubmitting}
+          variant={submitVariant ?? "primary"}
+          icon="check"
+          testId="render-edit-submit"
+        >
+          {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
+        </Button>
+      )}
     </>
   );
 
@@ -1391,6 +1401,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   patchAndScheduleDraftSave as (partial: Readonly<Record<string, unknown>>) => void
                 }
                 validate={scopedValidate}
+                hideTitle={hideSectionTitles}
               />
             );
             return wrapWizardStep(section.title, mount);

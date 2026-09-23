@@ -559,6 +559,50 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
   });
 
+  test("a layout of only extension sections still renders no submit button", async () => {
+    // No fields section means the synthesized entity has zero fields — the
+    // same shape as a fieldless secretMint form, which does get a submit.
+    const extensionOnlyScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          {
+            kind: "extension",
+            title: "Notes",
+            component: { react: { __component: "SessionNotes" } },
+            entityName: "user-session",
+          },
+        ],
+      },
+    };
+    const extensionOnlySchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [extensionOnlyScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ SessionNotes }}>
+          <KumikoScreen
+            schema={extensionOnlySchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("session-notes"));
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+  });
+
   test("layout.mode: 'tabs' — mounts only when its tab is active, not on first render of another tab", async () => {
     const tabsExtensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -631,6 +675,8 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     await waitFor(() => screen.getByTestId("session-notes"));
     expect(screen.getByTestId("session-notes").textContent).toBe("user-session:sess-1");
     expect(screen.queryByTestId("field-userId")).toBeNull();
+    // The tab strip already labels the panel; the section must not repeat it.
+    expect(within(screen.getByTestId("section-extension-Notes")).queryByText("Notes")).toBeNull();
   });
 
   test("layout.mode: 'tabs' with a header — the head card plus one card for the active tab's fields", async () => {
