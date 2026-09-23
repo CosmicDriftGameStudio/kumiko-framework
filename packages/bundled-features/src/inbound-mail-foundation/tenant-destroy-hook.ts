@@ -17,13 +17,8 @@
 // löscht den Tenant-Subject-Key, damit werden Event-Log-Payloads UND
 // etwaige Ciphertext-Kopien unlesbar. Diese Hooks entsorgen die Rows.
 
-import {
-  type DbRunner,
-  deleteMany,
-  type EntityTableMeta,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { seenMessageTable, syncCursorTable } from "./entities";
 import {
@@ -40,19 +35,18 @@ import {
 const ARCHIVED_BY = "tenant-lifecycle:destroy";
 const REASON = "tenant_destroy";
 
-type DestroyCtx = {
-  readonly db: DbRunner;
-  readonly tenantId: TenantId;
-};
+// archiveStream sits outside TenantDb's own methods — needs the escape hatch.
+export const INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON =
+  "tenant-destroy archives each inbound-mail entity's event-streams before the projection rows are deleted";
 
 async function archiveAndDeleteRows(
-  ctx: DestroyCtx,
+  ctx: TenantDataHookCtx,
   table: EntityTableMeta,
   aggregateType: string,
 ): Promise<readonly string[]> {
-  const rows = await selectMany<{ id: string }>(ctx.db, table, { tenantId: ctx.tenantId });
+  const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
   for (const row of rows) {
-    await archiveStream(ctx.db, {
+    await archiveStream(ctx.db.unsafeRaw(INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON), {
       tenantId: ctx.tenantId,
       aggregateId: row.id,
       aggregateType,
@@ -60,23 +54,23 @@ async function archiveAndDeleteRows(
       reason: REASON,
     });
   }
-  await deleteMany(ctx.db, table, { tenantId: ctx.tenantId });
+  await ctx.db.deleteMany(table, { tenantId: ctx.tenantId });
   return rows.map((row) => row.id);
 }
 
-export async function mailAccountTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
+export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
   const accountIds = await archiveAndDeleteRows(
     ctx,
     mailAccountsProjectionTable as EntityTableMeta,
     MAIL_ACCOUNT_AGGREGATE_TYPE,
   );
   for (const accountId of accountIds) {
-    await deleteMany(ctx.db, syncCursorTable as EntityTableMeta, { accountId });
-    await deleteMany(ctx.db, seenMessageTable as EntityTableMeta, { accountId });
+    await ctx.db.deleteMany(syncCursorTable as EntityTableMeta, { accountId });
+    await ctx.db.deleteMany(seenMessageTable as EntityTableMeta, { accountId });
   }
 }
 
-export async function inboundMessageTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
+export async function inboundMessageTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
   await archiveAndDeleteRows(
     ctx,
     inboundMessagesProjectionTable as EntityTableMeta,
@@ -84,7 +78,7 @@ export async function inboundMessageTenantDestroyHook(ctx: DestroyCtx): Promise<
   );
 }
 
-export async function mailThreadTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
+export async function mailThreadTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
   await archiveAndDeleteRows(
     ctx,
     mailThreadsProjectionTable as EntityTableMeta,

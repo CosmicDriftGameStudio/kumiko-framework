@@ -23,7 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -33,7 +33,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import {
-  ComplianceProfileHandlers,
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles";
@@ -50,7 +49,6 @@ import {
 } from "../constants";
 import { billingFoundationFeature } from "../feature";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection";
-import { subscriptionTenantDestroyHook } from "../tenant-destroy-hook";
 import type { PaymentEvent, SubscriptionProviderPlugin } from "../types";
 import { createSubscriptionWebhookRoute } from "../webhook-handler";
 
@@ -669,66 +667,9 @@ describe("scenario 8: cancel-event setzt status auf canceled, behält subscripti
   });
 });
 
-describe("scenario 9: subscriptionTenantDestroyHook (#800 tenant-destroy PII erasure)", () => {
-  test("default profile → row hard-deleted, stream archived", async () => {
-    const admin = adminFor(3009);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
-      buildEvent({
-        providerEventId: "evt_3009_create",
-        providerCustomerId: "cus_3009",
-        providerSubscriptionId: "sub_3009",
-      }),
-      admin,
-    );
-
-    await subscriptionTenantDestroyHook({ db, tenantId: admin.tenantId });
-
-    const rows = await selectMany(db, subscriptionsProjectionTable, {
-      id: subscriptionAggregateId(admin.tenantId),
-    });
-    expect(rows).toHaveLength(0);
-    expect(
-      await isStreamArchived(db, admin.tenantId, subscriptionAggregateId(admin.tenantId)),
-    ).toBe(true);
-  });
-
-  test("HGB profile → PII redacted, accounting fields + row survive, stream archived", async () => {
-    const admin = adminFor(3010);
-    await stack.http.writeOk(
-      ComplianceProfileHandlers.setProfile,
-      { profileKey: "de-hr-dsgvo-hgb" },
-      admin,
-    );
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
-      buildEvent({
-        providerEventId: "evt_3010_create",
-        providerCustomerId: "cus_3010",
-        providerSubscriptionId: "sub_3010",
-        tier: "pro",
-      }),
-      admin,
-    );
-
-    await subscriptionTenantDestroyHook({ db, tenantId: admin.tenantId });
-
-    const rows = await selectMany<{
-      providerCustomerId: string;
-      providerSubscriptionId: string;
-      tier: string;
-      status: string;
-    }>(db, subscriptionsProjectionTable, { id: subscriptionAggregateId(admin.tenantId) });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.providerCustomerId).toBe("[erased]");
-    expect(rows[0]?.providerSubscriptionId).toBe("[erased]");
-    // accounting facts survive — that's the point of the HGB retention branch
-    expect(rows[0]?.tier).toBe("pro");
-    expect(
-      await isStreamArchived(db, admin.tenantId, subscriptionAggregateId(admin.tenantId)),
-    ).toBe(true);
-  });
-});
+// scenario 9 (subscriptionTenantDestroyHook direct-call, default+HGB branches) removed:
+// covered end-to-end by billing-foundation/__tests__/tenant-destroy.integration.test.ts,
+// which drives the real tenant-lifecycle sweep instead of hand-feeding the hook.
 
 describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", () => {
   test("raw event-log payload and raw projection row both hold ciphertext, not the plaintext provider id", async () => {

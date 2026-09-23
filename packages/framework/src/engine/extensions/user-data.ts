@@ -171,10 +171,16 @@ export type UserDataDeleteHook = (
  * konsumierende Features liefern beide Hooks via
  * `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })`.
  *
- * Kein Hook ist optional — beide MÜSSEN registriert sein. Boot-Check
- * (Sprint 2) prüft das.
+ * Export-only ist ein legitimer Teil-Vertrag (#972) — siehe `UserDataExtensionOptions`
+ * für die tatsächlich akzeptierte Options-Form.
  */
 export interface UserDataExtensionHooks {
   readonly export: UserDataExportHook;
   readonly delete: UserDataDeleteHook;
 }
+
+/** Options für EXT_USER_DATA: mindestens einer der beiden Hooks ist Pflicht, ein leeres `{}` nicht. */
+export type UserDataExtensionOptions = (
+  | { readonly export: UserDataExportHook; readonly delete?: UserDataDeleteHook }
+  | { readonly export?: UserDataExportHook; readonly delete: UserDataDeleteHook }
+) & { readonly order?: number };

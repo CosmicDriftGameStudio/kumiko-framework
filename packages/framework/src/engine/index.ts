@@ -136,6 +136,7 @@ export type {
   UserDataExportHook,
   UserDataExportSnippet,
   UserDataExtensionHooks,
+  UserDataExtensionOptions,
   UserDataHookCtx,
   UserDataStorageProvider,
 } from "./extensions/user-data";
@@ -392,6 +393,7 @@ export type {
   EscapeHatchTarget,
   EscapeHatchUseEvent,
   EventDef,
+  ExtensionOptionsFor,
   FeatureDefinition,
   FeatureRegistrar,
   FieldAccess,
@@ -419,6 +421,7 @@ export type {
   JsonbFieldDef,
   KumikoEntityTypeMap,
   KumikoEventTypeMap,
+  KumikoExtensionOptionsMap,
   KumikoHandlerPayloadMap,
   KumikoHandlerResultMap,
   LifecycleHookType,

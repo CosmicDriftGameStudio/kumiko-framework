@@ -72,6 +72,11 @@ export type {
   KumikoHandlerPayloadMap,
   KumikoHandlerResultMap,
 } from "@cosmicdrift/kumiko-types/event-type-map";
+// Cross-Feature Compile-Time-Type-Map for r.useExtension options — mirrors KumikoEventTypeMap above.
+export type {
+  ExtensionOptionsFor,
+  KumikoExtensionOptionsMap,
+} from "@cosmicdrift/kumiko-types/extension-options-map";
 export type {
   BootCheckContext,
   BootCheckFn,

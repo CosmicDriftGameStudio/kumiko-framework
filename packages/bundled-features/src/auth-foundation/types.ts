@@ -22,7 +22,7 @@ import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 
 export type { SessionMassRevoker };
 
-export const EXT_TOKEN_VERIFIER = "tokenVerifier";
+export const EXT_TOKEN_VERIFIER = "tokenVerifier" as const;
 
 /**
  * Deps available to a provider's `build()`. DB access only — a hot-path
@@ -84,7 +84,7 @@ export function tokenShapeKey(shape: TokenShape): string {
 // single-provider — sessions have no per-provider shape to route on, so
 // exactly one implementation must be registered (boot-fails on 0 or ≥2).
 
-export const EXT_SESSION_STORE = "sessionStore";
+export const EXT_SESSION_STORE = "sessionStore" as const;
 
 /** Keep current sid (if any); revoke every other live session. Used by auth-mfa. */
 export type SessionRevokeAllOthers = (
@@ -117,8 +117,8 @@ export function isSessionStoreProvider(o: unknown): o is SessionStoreProvider {
 // optional — zero registered means today's single-tenant / header-cookie
 // path (no subdomain resolver, no existence check). ≥2 fails boot.
 
-export const EXT_TENANT_RESOLVER = "tenantResolver";
-export const EXT_TENANT_EXISTENCE = "tenantExistence";
+export const EXT_TENANT_RESOLVER = "tenantResolver" as const;
+export const EXT_TENANT_EXISTENCE = "tenantExistence" as const;
 
 /** Trust mode for a registered tenantResolver — mirrors AnonymousAccessConfig.resolverTrust. */
 export type TenantResolverTrust = "authoritative" | "fallback-only";
@@ -167,4 +167,14 @@ export function isTenantExistenceProvider(o: unknown): o is TenantExistenceProvi
     "build" in o &&
     typeof (o as { build: unknown }).build === "function"
   );
+}
+
+// r.useExtension options-shape for auth-foundation's four extension points.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [EXT_TOKEN_VERIFIER]: AuthProviderPlugin;
+    [EXT_SESSION_STORE]: SessionStoreProvider;
+    [EXT_TENANT_RESOLVER]: TenantResolverProvider;
+    [EXT_TENANT_EXISTENCE]: TenantExistenceProvider;
+  }
 }

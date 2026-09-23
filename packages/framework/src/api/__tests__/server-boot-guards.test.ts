@@ -228,6 +228,7 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
     r.extendsRegistrar(EXT_PRINCIPAL_STATUS, {});
     r.useExtension(EXT_PRINCIPAL_STATUS, "has-principal-status", {
       resolveStatus: async () => "active" as const,
+      resolveProfile: async () => ({ globalRoles: [] }),
     });
   });
 

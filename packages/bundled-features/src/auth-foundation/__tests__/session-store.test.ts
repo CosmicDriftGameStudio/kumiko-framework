@@ -67,6 +67,7 @@ describe("validateSessionStoreMultiplicity", () => {
 
   test("malformed registration (no build) → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken", (r) => {
+      // @ts-expect-error malformed plugin (no build) — proves the runtime guard rejects it too.
       r.useExtension(EXT_SESSION_STORE, "broken", {});
     });
     const registry = createRegistry([authFoundationFeature, broken]);
