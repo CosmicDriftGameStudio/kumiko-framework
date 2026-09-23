@@ -177,35 +177,52 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     },
   );
 
-  // Records whether ctx.db threw (should, once the request signal is
-  // aborted) and whether the ctx.dbOutsideTransaction insert still landed
-  // (should — durability writes must survive a client disconnect).
-  //
-  // The throwing side reads via ctx.db.selectMany, not the event-store
-  // executor's create() — the latter writes through db.raw (bypassing
-  // TenantDb's withDbSpan/signal check entirely), so it wouldn't exercise
-  // the signal wiring this test is meant to prove. insertOne isn't an
-  // option either: bagTable is executor-managed (WritableTable rejects its
-  // EXECUTOR_ONLY brand) — direct writes would drift it past its event
-  // stream. selectMany has no such restriction (reads keep the plain
-  // SchemaTable param) and still goes through the same signal check.
+  // Proves runBatch strips the request signal: both inserts land and
+  // ctx.signal is undefined even though the request was pre-aborted.
   r.writeHandler(
     "bag:create-signal-probe",
     z.object({ label: z.string() }),
     async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
-      let dbThrewAbortError = false;
-      try {
-        await ctx.db?.selectMany(bagTable, {});
-      } catch (err) {
-        dbThrewAbortError = err instanceof Error && err.name === "AbortError";
-      }
+      await ctx.db?.selectMany(bagTable, {});
+      await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
       const outsideTx = ctx.dbOutsideTransaction;
       if (!outsideTx) {
         throw new Error("bag:create-signal-probe requires ctx.dbOutsideTransaction");
       }
       await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
-      return { isSuccess: true as const, data: { dbThrewAbortError } };
+      return { isSuccess: true as const, data: { signalSeen: ctx.signal !== undefined } };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Query path counterpart — ctx.db.selectMany hits signal.throwIfAborted().
+  r.queryHandler(
+    "bag:list-signal-probe",
+    z.object({}),
+    async (_query, ctx) => selectMany(ctx.db, bagTable),
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Negative control: never touches ctx.db, so a pre-aborted signal must still 500.
+  r.queryHandler(
+    "bag:query-boom",
+    z.object({}),
+    async () => {
+      throw new Error("unrelated boom");
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Pre-write ctx.db read — crud.create's own insert writes via db.raw and
+  // doesn't check the signal, so this is what makes the test discriminating.
+  r.writeHandler(
+    "bag:create-plain",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      await ctx.db?.selectMany(bagTable, {});
+      const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
+      return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
   );
@@ -366,7 +383,7 @@ describe("ctx.dbOutsideTransaction", () => {
     expect(labels).toEqual(["probe-outside-tx"]);
   });
 
-  test("an already-aborted request signal fails ctx.db but not ctx.dbOutsideTransaction", async () => {
+  test("an already-aborted request signal still commits both ctx.db and ctx.dbOutsideTransaction writes", async () => {
     const controller = new AbortController();
     controller.abort();
     const token = await stack.jwt.sign(admin);
@@ -385,16 +402,86 @@ describe("ctx.dbOutsideTransaction", () => {
 
     const body = (await res.json()) as {
       isSuccess: boolean;
-      data?: { dbThrewAbortError: boolean };
+      data?: { signalSeen: boolean };
     };
     expect(body.isSuccess).toBe(true);
-    expect(body.data?.dbThrewAbortError).toBe(true);
+    expect(body.data?.signalSeen).toBe(false);
 
-    // Only the outside-tx insert landed — ctx.db's insert threw before it
-    // could write, and there was nothing to roll back for it.
+    // Both inserts landed — the client's disconnect doesn't touch the write.
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
-    expect(labels).toEqual(["signal-probe-outside-tx"]);
+    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]).sort();
+    expect(labels).toEqual(["signal-probe-inside-tx", "signal-probe-outside-tx"]);
+  });
+
+  test("an already-aborted signal doesn't stop idempotent retries from committing", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const token = await stack.jwt.sign(admin);
+    const requestId = "retry-under-abort-1";
+
+    const requestOptions = {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        type: "ctxbridge:write:bag:create-plain",
+        payload: { label: "retried" },
+        requestId,
+      }),
+      signal: controller.signal,
+    } as const;
+
+    const first = await stack.app.request(
+      new Request("http://test.local/api/write", requestOptions),
+    );
+    const second = await stack.app.request(
+      new Request("http://test.local/api/write", requestOptions),
+    );
+
+    expect((await first.json()).isSuccess).toBe(true);
+    expect((await second.json()).isSuccess).toBe(true);
+
+    const bags = await selectMany(stack.db, bagTable);
+    expect(bags).toHaveLength(1);
+  });
+});
+
+describe("query dispatch surfaces a client abort as 499, not a server fault", () => {
+  test("a pre-aborted signal 499s instead of 500ing", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const token = await stack.jwt.sign(admin);
+
+    const res = await stack.app.request(
+      new Request("http://test.local/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "ctxbridge:query:bag:list-signal-probe",
+          payload: {},
+        }),
+        signal: controller.signal,
+      }),
+    );
+    expect(res.status).toBe(499);
+  });
+
+  test("a pre-aborted signal still 500s when the handler fails for an unrelated reason", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const token = await stack.jwt.sign(admin);
+
+    const res = await stack.app.request(
+      new Request("http://test.local/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "ctxbridge:query:bag:query-boom",
+          payload: {},
+        }),
+        signal: controller.signal,
+      }),
+    );
+    expect(res.status).toBe(500);
   });
 });
 

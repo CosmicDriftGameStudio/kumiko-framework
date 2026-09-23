@@ -66,6 +66,16 @@ const boomFeature = defineFeature("boom", (r) => {
     async () => ({ ok: true }),
     openToAll,
   );
+  // Same abort path TenantDb uses (signal.throwIfAborted()), without a DB.
+  r.queryHandler(
+    "abort-probe",
+    z.object({}),
+    async (_query, ctx) => {
+      ctx.signal?.throwIfAborted();
+      return { ok: true };
+    },
+    openToAll,
+  );
 });
 
 const { app, jwt } = buildServer({
@@ -177,6 +187,67 @@ describe("HTTP layer logs unexpected 5xx faults", () => {
     const { status, errors } = await queryWithCapturedWarnings("nope:query:nothing", {});
     expect(status).toBe(404);
     expect(apiFaultLog(errors)).toBeUndefined();
+  });
+
+  test("a pre-aborted client signal 499s and logs a warn, not '[api] handler failed'", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const warnings: unknown[][] = [];
+    const errors: unknown[][] = [];
+    const warnSpy = spyOn(console, "warn").mockImplementation((...args) => {
+      warnings.push(args);
+    });
+    const errorSpy = spyOn(console, "error").mockImplementation((...args) => {
+      errors.push(args);
+    });
+    try {
+      const res = await app.request(
+        new Request("http://test.local/api/query", {
+          method: "POST",
+          headers: await auth(),
+          body: JSON.stringify({ type: "boom:query:abort-probe", payload: {} }),
+          signal: controller.signal,
+        }),
+      );
+      expect(res.status).toBe(499);
+      expect(apiFaultLog(errors)).toBeUndefined();
+      const hit = warnings.find(
+        (args) =>
+          typeof args[0] === "string" && args[0].includes("[api] request aborted by client"),
+      );
+      expect(hit).toBeDefined();
+      const data = hit?.[1];
+      expect(isRecord(data)).toBe(true);
+      if (!isRecord(data)) return;
+      expect(data["status"]).toBe(499);
+      expect(data["type"]).toBe("boom:query:abort-probe");
+    } finally {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  test("a pre-aborted client signal still 500s + logs when the handler fails for an unrelated reason", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "error").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    try {
+      const res = await app.request(
+        new Request("http://test.local/api/query", {
+          method: "POST",
+          headers: await auth(),
+          body: JSON.stringify({ type: "boom:query:explode", payload: {} }),
+          signal: controller.signal,
+        }),
+      );
+      expect(res.status).toBe(500);
+      expect(apiFaultLog(calls)).toBeDefined();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

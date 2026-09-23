@@ -17,10 +17,11 @@ import { generateId } from "../utils";
 //                   with correlationId, forms a causal DAG across streams.
 //   signal        — AbortSignal from the underlying HTTP request. Aborts
 //                   when the client disconnects (mobile back-press, tab
-//                   close). Long-running framework code (event streaming,
-//                   projection rebuild) checks signal.aborted at chunk
-//                   boundaries; short queries don't pay the overhead.
-//                   Undefined for non-HTTP entry-points (jobs, MSP-applies).
+//                   close). Query/stream handlers check signal.aborted at
+//                   chunk or query boundaries; runBatch (write dispatch)
+//                   strips it before executing so a disconnect can't abort
+//                   a transaction mid-commit. Undefined for non-HTTP
+//                   entry-points (jobs, MSP-applies) and inside write batches.
 export type RequestContextData = {
   readonly requestId: string;
   readonly correlationId: string;
