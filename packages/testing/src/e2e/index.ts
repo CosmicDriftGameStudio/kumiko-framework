@@ -51,6 +51,7 @@ export type { CapturedMail } from "./seed-contract";
 export {
   type E2eSeededTenant,
   type E2eSeedTenantOptions,
+  type SeedTenantFixture,
   test,
 } from "./seeded-tenant-fixture";
 export { E2E_TIMEOUT_MS } from "./timeouts";
