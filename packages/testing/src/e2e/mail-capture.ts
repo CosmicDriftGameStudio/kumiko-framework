@@ -15,12 +15,12 @@ export function seedRouteHeaders(): Record<string, string> {
 
 async function readInbox(
   request: APIRequestContext,
-  tenantId: string,
   to: string,
+  tenantId: string | undefined,
 ): Promise<readonly CapturedMail[]> {
   const response = await request.get(SEED_ROUTES.inbox, {
     headers: seedRouteHeaders(),
-    params: { tenantId, to },
+    params: tenantId === undefined ? { to } : { tenantId, to },
   });
   if (!response.ok()) {
     throw new Error(
@@ -30,14 +30,30 @@ async function readInbox(
   return inboxResponseSchema.parse(await response.json()).messages;
 }
 
-export function mailCapture(
+export type MailCaptureOptions = {
+  readonly tenantId?: string;
+  readonly match?: (mail: CapturedMail) => boolean;
+};
+
+// The inbox route returns the tenant buffer before the mailOutbox, each
+// newest-first; `.find` keeps that order because mails carry no timestamp.
+// With both sources mounted, a tenant-buffer match wins over a newer outbox one.
+export async function mailCapture(
   request: APIRequestContext,
-  tenantId: string,
   to: string,
-): Promise<readonly CapturedMail[]> {
-  return waitForProjection(
-    () => readInbox(request, tenantId, to),
-    (messages) => messages.length > 0,
-    `mailCapture: no mail arrived for ${to} in tenant ${tenantId}`,
+  opts: MailCaptureOptions = {},
+): Promise<CapturedMail> {
+  const { tenantId, match } = opts;
+  const isCandidate = (mail: CapturedMail) => match === undefined || match(mail);
+  const description = tenantId === undefined ? `for ${to}` : `for ${to} in tenant ${tenantId}`;
+  const message = `mailCapture: no mail arrived ${description}`;
+
+  const messages = await waitForProjection(
+    () => readInbox(request, to, tenantId),
+    (candidates) => candidates.some(isCandidate),
+    message,
   );
+  const mail = messages.find(isCandidate);
+  if (mail === undefined) throw new Error(message);
+  return mail;
 }

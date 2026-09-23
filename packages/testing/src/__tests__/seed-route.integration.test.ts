@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   isMailTransportPlugin,
   mailFoundationFeature,
@@ -16,6 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-dev-server";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { type APIRequestContext, request as playwrightRequest } from "@playwright/test";
 import {
   PLAYWRIGHT_DEMO_ENV,
   SEED_ENABLE_ENV,
@@ -23,6 +25,7 @@ import {
   SEED_TOKEN_ENV,
   SEED_TOKEN_HEADER,
 } from "../e2e/constants";
+import { mailCapture } from "../e2e/mail-capture";
 import {
   inboxResponseSchema,
   seedTenantResponseSchema,
@@ -61,6 +64,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  await Promise.all(requestContexts.splice(0).map((context) => context.dispose()));
   await handle?.stop();
   handle = undefined;
   for (const key of ENV_KEYS) {
@@ -101,6 +105,16 @@ async function seedTenantVia(h: KumikoServerHandle, body: unknown = {}) {
   const res = await post(h, SEED_ROUTES.seedTenant, body);
   expect(res.status).toBe(200);
   return seedTenantResponseSchema.parse(await res.json());
+}
+
+const requestContexts: APIRequestContext[] = [];
+
+async function apiContext(h: KumikoServerHandle): Promise<APIRequestContext> {
+  const port = h.server?.port;
+  if (port === undefined) throw new Error("runDevApp did not open a socket under Bun");
+  const context = await playwrightRequest.newContext({ baseURL: `http://localhost:${port}` });
+  requestContexts.push(context);
+  return context;
 }
 
 describe("seed routes: gates", () => {
@@ -307,8 +321,8 @@ describe("POST /__test/seed-user unknown tenant", () => {
 });
 
 describe("GET /__test/inbox", () => {
-  function inbox(h: KumikoServerHandle, tenantId: string, to: string) {
-    const query = new URLSearchParams({ tenantId, to });
+  function inbox(h: KumikoServerHandle, tenantId: string | undefined, to: string) {
+    const query = new URLSearchParams(tenantId === undefined ? { to } : { tenantId, to });
     return h.fetch(
       new Request(`http://localhost${SEED_ROUTES.inbox}?${query}`, {
         headers: { [SEED_TOKEN_HEADER]: TOKEN },
@@ -338,14 +352,56 @@ describe("GET /__test/inbox", () => {
     expect(await empty.json()).toEqual({ messages: [] });
   });
 
-  test("is 501 when the in-memory transport is not mounted, 400 on a bad query", async () => {
+  test("is 501 when neither the tenant feature nor mailOutbox is available, 400 on a bad query", async () => {
     const h = await boot();
     expect((await inbox(h, crypto.randomUUID(), "a@example.test")).status).toBe(501);
+    expect((await inbox(h, undefined, "a@example.test")).status).toBe(501);
 
     const withMail = await (async () => {
       await h.stop();
       return boot([mailFoundationFeature, mailTransportInMemoryFeature]);
     })();
     expect((await inbox(withMail, "not-a-uuid", "a@example.test")).status).toBe(400);
+  });
+
+  test("reads a tenantless mail from mailOutbox by `to`, without a tenantId", async () => {
+    const outbox = createInMemoryTransport();
+    const h = await boot([noteFeature], { mailOutbox: outbox });
+    await outbox.send({ to: "outbox@example.test", subject: "outbox mail", html: "<p>x</p>" });
+
+    const res = await inbox(h, undefined, "outbox@example.test");
+
+    expect(res.status).toBe(200);
+    const body = inboxResponseSchema.parse(await res.json());
+    expect(body.messages.map((message) => message.subject)).toEqual(["outbox mail"]);
+  });
+
+  test("two mails to the same address come back newest first; mailCapture with match still finds the older one", async () => {
+    const outbox = createInMemoryTransport();
+    const h = await boot([noteFeature], { mailOutbox: outbox });
+    await outbox.send({ to: "dup@example.test", subject: "first", html: "<p>1</p>" });
+    await outbox.send({ to: "dup@example.test", subject: "second", html: "<p>2</p>" });
+
+    const res = await inbox(h, undefined, "dup@example.test");
+    const body = inboxResponseSchema.parse(await res.json());
+    expect(body.messages.map((message) => message.subject)).toEqual(["second", "first"]);
+
+    const context = await apiContext(h);
+    const older = await mailCapture(context, "dup@example.test", {
+      match: (mail) => mail.subject === "first",
+    });
+    expect(older.subject).toBe("first");
+    const newest = await mailCapture(context, "dup@example.test");
+    expect(newest.subject).toBe("second");
+  });
+
+  test("a tenantless inbox request with mailOutbox mounted still needs a valid token", async () => {
+    const outbox = createInMemoryTransport();
+    const h = await boot([noteFeature], { mailOutbox: outbox });
+
+    const query = new URLSearchParams({ to: "outbox@example.test" });
+    const res = await h.fetch(new Request(`http://localhost${SEED_ROUTES.inbox}?${query}`));
+
+    expect(res.status).toBe(401);
   });
 });

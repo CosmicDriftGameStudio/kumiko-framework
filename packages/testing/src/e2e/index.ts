@@ -27,7 +27,7 @@ export {
   type E2eProject,
   resolveE2eWorkers,
 } from "./define-app-e2e-config";
-export { mailCapture } from "./mail-capture";
+export { type MailCaptureOptions, mailCapture } from "./mail-capture";
 export { pinEnglishLocale } from "./pin-english-locale";
 export { pollForRow, waitForProjection } from "./poll";
 export {
