@@ -849,6 +849,16 @@ export async function createKumikoServer(
   const devDbName = process.env["KUMIKO_DEV_DB_NAME"];
   const persistentDb = devDbName !== undefined && devDbName !== "";
 
+  // Redis is shared across boots AND across apps (unlike the per-boot test
+  // DB, which is ephemeral or persistent per KUMIKO_DEV_DB_NAME), so every
+  // boot needs its own queue-name prefix — otherwise two dev/e2e servers
+  // running in parallel drain each other's queues ("Unknown job: ..."). A
+  // persistent DB implies a stable prefix so jobs survive a restart; an
+  // ephemeral DB gets a fresh prefix per boot, matching the fresh DB.
+  const jobQueueNamePrefix = persistentDb
+    ? `kumiko-dev-${devDbName}`
+    : `kumiko-dev-${crypto.randomUUID()}`;
+
   logInfo(
     `[kumiko-server] booting Kumiko stack${
       persistentDb ? ` — persistent DB "${devDbName}"` : " — ephemeral test DB"
@@ -866,9 +876,11 @@ export async function createKumikoServer(
       effectiveFeatures: options.effectiveFeatures,
     }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
-    // jobs: {} = enqueuer-only; startDevJobRunners below is the sole
-    // consumer/cron-scheduler per lane, so runOnBoot/cron jobs don't double-fire.
-    jobs: {},
+    // jobs.consumerLane unset = enqueuer-only; startDevJobRunners below is
+    // the sole consumer/cron-scheduler per lane, so runOnBoot/cron jobs
+    // don't double-fire. queueNamePrefix keeps this boot's queues isolated
+    // from every other dev/e2e server sharing the same Redis.
+    jobs: { queueNamePrefix: jobQueueNamePrefix },
   });
   await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
@@ -921,6 +933,10 @@ export async function createKumikoServer(
     // ctx.write/ctx.writeAs/ctx.queryAs inside a dev-run job throw on their
     // first call (kumiko-framework#2553).
     dispatcher: stack.dispatcher,
+    // Same isolation reasoning as setupTestStack's jobs.queueNamePrefix
+    // above — both must use the same prefix so enqueuer and consumer agree
+    // on queue names.
+    queueNamePrefix: jobQueueNamePrefix,
   });
 
   // Dev user = TestUsers.admin. Demo features are openToAll but the
