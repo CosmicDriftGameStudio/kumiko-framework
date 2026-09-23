@@ -31,6 +31,7 @@ import { createConfigFeature } from "../../config";
 import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
 import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import {
   createInboundMailConnectRoutes,
@@ -123,6 +124,7 @@ beforeAll(async () => {
   db = stack.db;
   secrets = createSecretsContext({ db, masterKeyProvider: providerRef });
 
+  await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
