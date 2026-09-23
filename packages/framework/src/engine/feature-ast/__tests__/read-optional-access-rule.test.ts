@@ -26,3 +26,17 @@ describe("readOptionalAccessRule — openToAll.personalData", () => {
     ).toBeUndefined();
   });
 });
+
+describe("readOptionalAccessRule — roles.personalData", () => {
+  test("keeps personalData: public-intake on the roles form", () => {
+    expect(readOptionalAccessRule({ roles: ["anonymous"], personalData: "public-intake" })).toEqual(
+      { roles: ["anonymous"], personalData: "public-intake" },
+    );
+  });
+
+  test("drops an unknown personalData value on the roles form", () => {
+    expect(
+      readOptionalAccessRule({ roles: ["anonymous"], personalData: "tenant-members" }),
+    ).toEqual({ roles: ["anonymous"] });
+  });
+});
