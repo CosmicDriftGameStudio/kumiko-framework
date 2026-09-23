@@ -6,8 +6,9 @@
 // survive a projection rebuild: replaying a stored membership event goes
 // through the apply path, not the handler. stripForbiddenMembershipRoles is
 // the read-time backstop — applied at every JWT mint that derives roles from
-// membership, it neutralises a resurrected role without touching globalRoles
-// (where SystemAdmin legitimately lives).
+// membership, it neutralises a resurrected role. buildSessionRoles applies a
+// matching strip (anonymous/all only) to globalRoles, where SystemAdmin
+// legitimately lives.
 
 import { access } from "./config-helpers";
 
@@ -26,9 +27,19 @@ export function findForbiddenMembershipRole(roles: readonly string[]): string | 
 }
 
 // Filters reserved roles out of the membership portion only. Callers merge the
-// result with globalRoles, which is never filtered.
+// result with globalRoles, which buildSessionRoles filters separately below.
 export function stripForbiddenMembershipRoles(roles: readonly string[]): readonly string[] {
   return roles.filter((role) => !isForbiddenMembershipRole(role));
+}
+
+// "anonymous"/"all" are never legitimate global roles; system/SystemAdmin stay.
+const NON_MINTABLE_GLOBAL_ROLES: ReadonlySet<string> = new Set<string>([
+  ...access.all,
+  ...access.anonymous,
+]);
+
+function stripNonMintableGlobalRoles(roles: readonly string[]): readonly string[] {
+  return roles.filter((role) => !NON_MINTABLE_GLOBAL_ROLES.has(role));
 }
 
 // Single mint path for session roles: merges globalRoles with the stripped
@@ -41,5 +52,10 @@ export function buildSessionRoles(
   globalRoles: readonly string[],
   membershipRoles: readonly string[],
 ): readonly string[] {
-  return Array.from(new Set([...globalRoles, ...stripForbiddenMembershipRoles(membershipRoles)]));
+  return Array.from(
+    new Set([
+      ...stripNonMintableGlobalRoles(globalRoles),
+      ...stripForbiddenMembershipRoles(membershipRoles),
+    ]),
+  );
 }

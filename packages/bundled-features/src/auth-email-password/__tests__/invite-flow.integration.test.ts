@@ -82,9 +82,9 @@ function newTenantId(_suffix: string): TenantId {
 }
 
 const GUEST: SessionUser = {
-  id: "00000000-0000-0000-0000-000000000000",
+  id: "anonymous",
   tenantId: SYSTEM_TENANT_ID,
-  roles: ["all"],
+  roles: ["anonymous"],
 };
 
 function extractTokenFromMail(html: string): string {

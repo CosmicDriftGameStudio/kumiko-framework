@@ -10,6 +10,7 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
+  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -22,10 +23,12 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
+import { UserHandlers } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthHandlers } from "../constants";
@@ -172,5 +175,30 @@ describe("L2 rate-limit covers public token routes", () => {
     // Victim IP still has a fresh bucket.
     const victimFirst = await postFrom(path, victim, { email: "good@example.com" });
     expect(victimFirst.status).toBe(200);
+  });
+});
+
+// The 200-for-unknown-email tests above prove nothing about the handler
+// actually running — registerTokenRequestRoute swallows every handler
+// failure into an always-200 response (anti-enumeration). Only a seeded,
+// real user distinguishes "mail sent" from "silently swallowed" — which is
+// exactly what an anonymous-dispatch switch could silently break.
+describe("request-password-reset actually dispatches mail for a real user", () => {
+  test("a seeded user gets the reset mail (anonymous dispatch didn't swallow it)", async () => {
+    const hash = await hashPassword("correct horse battery staple");
+    await stack.http.writeOk(
+      UserHandlers.create,
+      { email: "reset-target@example.com", passwordHash: hash, displayName: "reset-target" },
+      TestUsers.systemAdmin,
+    );
+
+    const before = emailTransport.sent.length;
+    const res = await postFrom("/api/auth/request-password-reset", "10.50.0.200", {
+      email: "reset-target@example.com",
+    });
+
+    expect(res.status).toBe(200);
+    expect(emailTransport.sent.length).toBe(before + 1);
+    expect(emailTransport.sent.at(-1)?.to).toBe("reset-target@example.com");
   });
 });

@@ -14,6 +14,7 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createAnonymousUser,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
@@ -45,14 +46,10 @@ const CHALLENGE_TOKEN_SECRET = "no-redis-test-challenge-token-secret-not-real-00
 const SETUP_TOKEN_SECRET = "no-redis-test-setup-token-secret-not-real-0002";
 const TENANT_ID: TenantId = testTenantId(421);
 
-// Mirrors framework's auth-routes.ts GUEST_USER — verify/enable-confirm-preauth
-// are guest-callable (access: { roles: ["all"] }), the real identity comes
+// Mirrors framework's auth-routes.ts anonymous dispatch — verify/enable-confirm-preauth
+// are guest-callable (access: { roles: ["anonymous"] }), the real identity comes
 // entirely from the signed token, not from this dispatch-level user.
-const GUEST_USER: SessionUser = {
-  id: "00000000-0000-0000-0000-000000000000",
-  tenantId: SYSTEM_TENANT_ID,
-  roles: ["all"],
-};
+const ANONYMOUS_USER: SessionUser = createAnonymousUser(SYSTEM_TENANT_ID);
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
@@ -125,7 +122,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     const err = await stack.http.writeErr(
       AuthMfaHandlers.verify,
       { challengeToken: token, code: "123456" },
-      GUEST_USER,
+      ANONYMOUS_USER,
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");
@@ -148,7 +145,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     const err = await stack.http.writeErr(
       AuthMfaHandlers.enableConfirmPreauth,
       { setupToken: token, code: "123456" },
-      GUEST_USER,
+      ANONYMOUS_USER,
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(500);
     expect(err.code).toBe("internal_error");

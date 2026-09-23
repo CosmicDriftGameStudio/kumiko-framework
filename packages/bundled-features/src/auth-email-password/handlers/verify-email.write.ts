@@ -26,7 +26,8 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
   return defineWriteHandler<"verify-email", typeof VerifyEmailSchema, VerifyEmailData>({
     name: "verify-email",
     schema: VerifyEmailSchema,
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +

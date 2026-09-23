@@ -148,6 +148,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
             `Set { roles: [...] } for role-based access, or { openToAll: { reason: "..." } } for any authenticated user.`,
         );
       }
+      validateNoAllRoleInHandlerAccess(feature.name, kind, name, handler.access);
       validateAnonymousRateLimit(feature.name, kind, name, handler.access, handler.rateLimit);
       validateRateLimitDisabledReason(feature.name, kind, name, handler.rateLimit);
     }
@@ -169,6 +170,25 @@ export function validateRateLimitDisabledReason(
         `be rate-limited.`,
     );
   }
+}
+
+// No session ever carries the role "all" — `roles: ["all"]` is unreachable dead config, not a wildcard.
+export function validateNoAllRoleInHandlerAccess(
+  featureName: string,
+  kind: "write" | "query" | "stream",
+  handlerName: string,
+  access: NonNullable<FeatureDefinition["writeHandlers"][string]["access"]>,
+): void {
+  // skip: openToAll has no roles list to check
+  if (!("roles" in access)) return;
+  // skip: no "all" in the roles list, nothing unreachable to report
+  if (!access.roles.includes("all")) return;
+  throw new Error(
+    `${kind} handler "${featureName}:${kind}:${handlerName}" declares access: { roles: ["all"] } — ` +
+      `no session ever carries the role "all", so this handler is unreachable by any caller. ` +
+      `Use access: { roles: ["anonymous"] } plus rateLimit: { per: "ip", ... } (or "ip+handler") ` +
+      `for unauthenticated callers, or access: { openToAll: { reason: "..." } } for any signed-in user.`,
+  );
 }
 
 export function validateAnonymousRateLimit(

@@ -38,10 +38,9 @@ describe("forbidden membership roles", () => {
   });
 });
 
-// The two cases that discriminate the fix at every JWT mint: the strip wraps
-// ONLY the membership portion, never the merged result — so a legitimate
-// SystemAdmin in globalRoles survives, a resurrected one in membership does not.
-describe("merge semantics (globalRoles never filtered)", () => {
+// globalRoles keeps SystemAdmin/system but loses anonymous/all; membershipRoles
+// strips all forbidden roles (SystemAdmin, system, anonymous, all).
+describe("merge semantics (globalRoles: SystemAdmin/system kept, anonymous/all stripped)", () => {
   test("global SystemAdmin survives (no regression for real admins)", () => {
     expect(buildSessionRoles(["SystemAdmin"], [])).toContain("SystemAdmin");
   });
@@ -54,5 +53,15 @@ describe("merge semantics (globalRoles never filtered)", () => {
     expect([...buildSessionRoles(["SystemAdmin"], ["Admin", "SystemAdmin"])].sort()).toEqual(
       ["Admin", "SystemAdmin"].sort(),
     );
+  });
+
+  test("anonymous/all in globalRoles are stripped, SystemAdmin stays", () => {
+    expect([...buildSessionRoles(["anonymous", "all", "SystemAdmin"], [])].sort()).toEqual([
+      "SystemAdmin",
+    ]);
+  });
+
+  test("anonymous/all in membershipRoles are stripped too", () => {
+    expect(buildSessionRoles([], ["anonymous", "all", "Admin"])).toEqual(["Admin"]);
   });
 });

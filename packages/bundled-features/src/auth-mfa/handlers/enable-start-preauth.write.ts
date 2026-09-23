@@ -29,7 +29,8 @@ export type EnableStartPreauthOptions = {
 // preauthSetupToken (minted by login.write.ts when enforcement policy
 // blocks an unenrolled user), not from event.user — there is no session at
 // this point. Runs pre-session the same way verify.write.ts does (dispatched
-// by the framework's /auth/mfa/preauth-enable-start route with GUEST_USER).
+// by the framework's /auth/mfa/preauth-enable-start route with the
+// anonymous identity).
 export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions) {
   return defineWriteHandler({
     name: "enable-start-preauth",
@@ -37,7 +38,8 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       preauthSetupToken: z.string().min(1),
       accountLabel: z.string().min(1).max(200),
     }),
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     description:
       "Begins TOTP enrollment for a user whose sign-in was blocked because the tenant requires two-factor authentication, taking identity from the pre-auth token login issued instead of from a session.",
     // Same secret-bearing result as enable-start.

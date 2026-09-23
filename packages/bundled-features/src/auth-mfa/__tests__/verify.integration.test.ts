@@ -44,14 +44,14 @@ let stack: TestStack;
 const SETUP_TOKEN_SECRET = "test-mfa-setup-secret-at-least-32-bytes-long!!";
 const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";
 
-// Handler access is `{ roles: ["all"] }`, matching how the framework route
-// dispatches with a guest identity — a literal here is enough since the
-// handler derives everything from the challenge-token payload, not from
-// event.user.
+// Handler access is `{ roles: ["anonymous"] }`, matching how the framework
+// route dispatches with the anonymous identity — a literal here is enough
+// since the handler derives everything from the challenge-token payload,
+// not from event.user.
 const GUEST: SessionUser = {
-  id: "00000000-0000-0000-0000-000000000000",
+  id: "anonymous",
   tenantId: "00000000-0000-4000-8000-000000000001" as TenantId,
-  roles: ["all"],
+  roles: ["anonymous"],
 };
 
 beforeAll(async () => {

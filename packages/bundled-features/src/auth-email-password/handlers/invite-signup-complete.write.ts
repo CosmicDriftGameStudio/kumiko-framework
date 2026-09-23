@@ -92,7 +92,8 @@ export function createInviteSignupCompleteHandler() {
   >({
     name: "invite-signup-complete",
     schema: InviteSignupCompleteSchema,
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     agent: { expose: false },
     escapeHatch: {
       reason: INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON,

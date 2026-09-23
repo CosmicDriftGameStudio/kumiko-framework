@@ -63,7 +63,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       setupToken: z.string().min(1),
       code: z.string().length(6),
     }),
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.queryAs(SYSTEM, " +
@@ -86,7 +87,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       if (tenantId === undefined) return invalidSetupToken();
 
       // Fail closed: unlike verify.write.ts/enable-confirm.write.ts, this
-      // endpoint has NO gate before it (access: { roles: ["all"] }, no JWT,
+      // endpoint has NO gate before it (access: { roles: ["anonymous"] }, no JWT,
       // no prior challenge-token from a successful login) — its only secret
       // is a 6-digit TOTP code. Silently skipping the brute-force cap and
       // single-use burn when ctx.redis is absent would let the setup token

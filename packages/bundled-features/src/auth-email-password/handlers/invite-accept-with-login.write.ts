@@ -115,7 +115,8 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
   >({
     name: "invite-accept-with-login",
     schema: InviteAcceptWithLoginSchema,
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Anonymous invite-accept has no session in the invited tenant yet — checks existing " +

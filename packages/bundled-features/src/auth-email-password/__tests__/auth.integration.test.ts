@@ -393,12 +393,12 @@ describe("scenario 6: logout", () => {
   });
 
   test("unauthenticated call to logout is rejected by framework access", async () => {
-    // roles: ["all"] — no authenticated role. Handler's access is
+    // roles: ["anonymous"] — no authenticated role. Handler's access is
     // access.authenticated which requires User/Admin/SystemAdmin.
     const guest = createTestUser({
       id: 0,
       tenantId: "00000000-0000-4000-8000-000000000000",
-      roles: ["all"],
+      roles: ["anonymous"],
     });
     const error = await stack.http.writeErr(AuthHandlers.logout, {}, guest);
     expectErrorIncludes(error, "access_denied");

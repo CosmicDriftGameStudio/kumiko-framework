@@ -47,14 +47,14 @@ const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";
 const TENANT_ID: TenantId = testTenantId(400);
 
 // auth-mfa:write:enable-start-preauth / enable-confirm-preauth both run
-// pre-session (access: { roles: ["all"] }) — dispatched here the same way
-// the framework's /api/auth/mfa/preauth-enable-start and preauth-confirm
-// routes would, with a guest identity. Both handlers derive everything they
-// need from the verified token, not from this actor.
+// pre-session (access: { roles: ["anonymous"] }) — dispatched here the same
+// way the framework's /api/auth/mfa/preauth-enable-start and preauth-confirm
+// routes would, with the anonymous identity. Both handlers derive everything
+// they need from the verified token, not from this actor.
 const GUEST: SessionUser = {
-  id: "00000000-0000-0000-0000-000000000000",
+  id: "anonymous",
   tenantId: "00000000-0000-4000-8000-000000000000" as TenantId,
-  roles: ["all"],
+  roles: ["anonymous"],
 };
 
 beforeAll(async () => {

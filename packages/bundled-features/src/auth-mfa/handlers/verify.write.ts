@@ -35,7 +35,7 @@ const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
 });
 
 // Completes the two-step login. Runs pre-session (dispatched by the
-// framework's /auth/mfa/verify route with a guest identity, same as
+// framework's /auth/mfa/verify route with the anonymous identity, same as
 // login.write.ts) — everything it needs (which user, which tenant) comes
 // from the challenge token, not from an authenticated caller.
 export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
@@ -45,7 +45,8 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
   return defineWriteHandler({
     name: "verify",
     schema: z.object({ challengeToken: z.string().min(1), code: z.string().min(6).max(9) }),
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Pre-auth MFA step has no session yet — re-derives it via ctx.queryAs(SYSTEM, " +

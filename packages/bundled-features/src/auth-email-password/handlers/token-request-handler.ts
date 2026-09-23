@@ -94,7 +94,8 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
   return defineWriteHandler<TName, typeof RequestTokenSchema, TokenRequestData<TSuccessKind>>({
     name: spec.handlerName,
     schema: RequestTokenSchema,
-    access: { roles: ["all"] },
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     escapeHatch: {
       reason:
         "Anonymous requester has no session — looks up the target user by email via " +

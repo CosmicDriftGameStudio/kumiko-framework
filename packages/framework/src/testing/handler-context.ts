@@ -5,6 +5,8 @@
 // production services (delivery-service uses it to run cross-feature notify
 // calls without a real dispatcher). Hence the runtime classification despite
 // living under `testing/` — no vitest imports, no test side-effects.
+
+import { ANONYMOUS_ROLE } from "../engine/system-user";
 import type {
   AppendEventArgs,
   FetchForWritingArgs,
@@ -76,7 +78,7 @@ export function bridgeStub(opts?: {
   const stubUser: SessionUser = opts?.user ?? {
     id: "00000000-0000-0000-0000-000000000000",
     tenantId: "00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"], // @cast-boundary engine-bridge
-    roles: ["all"],
+    roles: [ANONYMOUS_ROLE],
   };
   return {
     user: stubUser,
