@@ -788,4 +788,32 @@ defineFeature("f", (r) => {
     ]);
     expect(result.ok).toBe(false);
   });
+
+  test("an opaque handler pattern (top-level spread) round-trips through parsePatternChanges", () => {
+    const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+const BASE = { description: "shared" };
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    ...BASE,
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { roles: ["Admin"] },
+  });
+});
+`;
+    const result = parseSourceFile(makeSourceFile(source));
+    expect(result.errors).toEqual([]);
+    const pattern = result.patterns.find((p) => p.kind === "writeHandler");
+    if (!pattern) throw new Error("no writeHandler pattern found");
+    expect(pattern.handlerName).toBeUndefined();
+    const parsed = parsePatternChanges([{ op: "add", pattern }]);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.changes).toEqual([{ op: "add", pattern }]);
+  });
 });

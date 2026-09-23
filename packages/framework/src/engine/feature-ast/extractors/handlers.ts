@@ -1,3 +1,4 @@
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { CallExpression, Node, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type {
@@ -5,7 +6,10 @@ import type {
   AgentHandlerHints,
   AgentRisk,
   EscapeHatchDeclaration,
+  QueryHandlerDef,
   RateLimitDeclaration,
+  StreamHandlerDef,
+  WriteHandlerDef,
 } from "../../types/handlers";
 import type { QueryHandlerPattern, StreamHandlerPattern, WriteHandlerPattern } from "../patterns";
 import type { SourceLocation } from "../source-location";
@@ -28,6 +32,7 @@ import {
   readDataLiteralNode,
   readNameLiteral,
   readObjectPropertyInitializer,
+  readPropertyKey,
 } from "./shared";
 
 export type ParsedHandlerCall = {
@@ -60,6 +65,87 @@ export function readOptionalAgentHints(value: unknown): AgentHandlerHints | unde
   };
 }
 
+type KeyClassification = "modeled" | "opaque";
+
+// Record<keyof Def, ...> instead of a looser map: adding a field to
+// WriteHandlerDef/QueryHandlerDef/StreamHandlerDef without classifying it
+// here is a compile error, not a silent drop on render.
+const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> = {
+  name: "modeled",
+  schema: "modeled",
+  handler: "modeled",
+  access: "modeled",
+  description: "modeled",
+  agent: "modeled",
+  unsafeSkipTransitionGuard: "modeled",
+  rateLimit: "modeled",
+  escapeHatch: "modeled",
+  perform: "opaque",
+};
+
+const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> = {
+  name: "modeled",
+  schema: "modeled",
+  handler: "modeled",
+  [ENTITY_CONVENTION_QUERY_BRAND]: "opaque",
+  access: "modeled",
+  description: "modeled",
+  agent: "modeled",
+  rateLimit: "modeled",
+  outputSchema: "opaque",
+  escapeHatch: "modeled",
+};
+
+const STREAM_HANDLER_KEY_KINDS: Record<keyof StreamHandlerDef, KeyClassification> = {
+  name: "modeled",
+  schema: "modeled",
+  handler: "modeled",
+  access: "modeled",
+  rateLimit: "modeled",
+  escapeHatch: "modeled",
+};
+
+const HANDLER_KEY_KINDS = {
+  writeHandler: WRITE_HANDLER_KEY_KINDS,
+  queryHandler: QUERY_HANDLER_KEY_KINDS,
+  streamHandler: STREAM_HANDLER_KEY_KINDS,
+} as const;
+
+function lookupClassification<T extends Record<string, KeyClassification>>(
+  map: T,
+  key: string,
+): KeyClassification | undefined {
+  return key in map ? map[key as keyof T] : undefined;
+}
+
+// True when the call's object body/options carry a shape the extractor
+// cannot losslessly model property-by-property (a spread, a method/accessor
+// shorthand, a computed key, or a key outside the classification map above).
+// Callers fall back to the opaque whole-call pattern instead of dropping
+// whatever they can't read.
+function hasUnmodeledShape(
+  obj: ObjectLiteralExpression,
+  methodName: "writeHandler" | "queryHandler" | "streamHandler",
+): boolean {
+  const keyKinds = HANDLER_KEY_KINDS[methodName];
+  for (const prop of obj.getProperties()) {
+    if (prop.getKind() === SyntaxKind.SpreadAssignment) return true;
+    const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+    if (propAssign) {
+      if (propAssign.getNameNode().getKind() === SyntaxKind.ComputedPropertyName) return true;
+      if (lookupClassification(keyKinds, readPropertyKey(propAssign)) !== "modeled") return true;
+      continue;
+    }
+    const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+    if (shorthand) {
+      if (lookupClassification(keyKinds, shorthand.getName()) !== "modeled") return true;
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 /**
  * Resolves an argument standing in for a handler-call's object-form body:
  * either it's already an object literal, or a bare identifier declared
@@ -77,7 +163,8 @@ function resolveObjectLiteralArg(node: Node) {
 
 // Deliberately does NOT resolve identifiers (unlike resolveObjectLiteralArg):
 // an options argument authored as a bare reference has no per-property
-// nodes to read, so it must ParseError instead of silently dropping headers.
+// nodes to read, so parseHandlerCall falls back to the opaque whole-call
+// pattern instead of trying to read headers off it.
 function unwrapObjectLiteral(node: Node): ObjectLiteralExpression | undefined {
   const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
   if (direct) return direct;
@@ -177,6 +264,9 @@ export function parseHandlerCall(
 
   const obj = args.length === 1 ? resolveObjectLiteralArg(first) : undefined;
   if (obj) {
+    if (hasUnmodeledShape(obj, methodName)) {
+      return ok({ source: sourceLocationFromNode(call, sourceFile) });
+    }
     const nameLiteral = obj
       .getProperty("name")
       ?.asKind(SyntaxKind.PropertyAssignment)
@@ -287,12 +377,8 @@ export function parseHandlerCall(
   let description: string | undefined;
   if (optionsArg) {
     const optionsObj = unwrapObjectLiteral(optionsArg);
-    if (!optionsObj) {
-      return fail(
-        methodName,
-        sourceLocationFromNode(optionsArg, sourceFile),
-        "options argument (4th) must be an inline object literal",
-      );
+    if (!optionsObj || hasUnmodeledShape(optionsObj, methodName)) {
+      return ok({ source: sourceLocationFromNode(call, sourceFile) });
     }
     const headerResult = readHandlerHeaderFields(optionsObj, methodName, sourceFile);
     if (headerResult.kind === "error") return headerResult;

@@ -22,10 +22,13 @@ function parse(source: string) {
   return result;
 }
 
-function findPattern(patterns: readonly FeaturePattern[], kind: FeaturePattern["kind"]) {
+function findPattern<K extends FeaturePattern["kind"]>(
+  patterns: readonly FeaturePattern[],
+  kind: K,
+): Extract<FeaturePattern, { kind: K }> {
   const found = patterns.find((p) => p.kind === kind);
   if (!found) throw new Error(`no ${kind} pattern found`);
-  return found;
+  return found as Extract<FeaturePattern, { kind: K }>;
 }
 
 const DEFAULT_IMPORTS = [
@@ -288,11 +291,26 @@ defineFeature("f", (r) => {
 `;
   const result = parse(source);
 
-  test("ParseErrors instead of silently dropping the whole header", () => {
-    expect(result.patterns.some((p) => p.kind === "writeHandler")).toBe(false);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]?.methodName).toBe("writeHandler");
-    expect(result.errors[0]?.reason).toContain("options argument");
+  test("kept as an opaque pattern instead of silently dropping the header", () => {
+    expect(result.errors).toEqual([]);
+    const pattern = findPattern(result.patterns, "writeHandler");
+    expect(pattern.handlerName).toBeUndefined();
+    expect((pattern as { source: { raw: string } }).source.raw).toContain(
+      'r.writeHandler("x", z.object({}), async () => {}, OPTS)',
+    );
+  });
+
+  test("render → parse roundtrip keeps the call verbatim", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+      imports: [...DEFAULT_IMPORTS, 'const OPTS = { access: { roles: ["Admin"] } };'],
+    });
+    expect(rendered).toContain('r.writeHandler("x", z.object({}), async () => {}, OPTS)');
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    const reparsedPattern = findPattern(reparsed.patterns, "writeHandler");
+    expect(reparsedPattern.handlerName).toBeUndefined();
   });
 });
 
@@ -496,5 +514,156 @@ defineFeature("f", (r) => {
       rateLimit: { per: "user", limit: 5, windowSeconds: 60 },
       agent: { expose: true, risk: "high" },
     });
+  });
+});
+
+describe("object form with a top-level spread", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+const BASE = { description: "shared" };
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    ...BASE,
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { roles: ["Admin"] },
+  });
+});
+`;
+  const result = parse(source);
+
+  test("kept as an opaque pattern instead of dropping the spread", () => {
+    expect(result.errors).toEqual([]);
+    const pattern = findPattern(result.patterns, "writeHandler");
+    expect(pattern.handlerName).toBeUndefined();
+  });
+
+  test("render → parse roundtrip keeps the call verbatim", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+      imports: [...DEFAULT_IMPORTS, 'const BASE = { description: "shared" };'],
+    });
+    expect(rendered).toContain("...BASE,");
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "writeHandler").handlerName).toBeUndefined();
+  });
+});
+
+describe("positional options with a top-level spread", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+const BASE_OPTS = { description: "shared" };
+const ADMIN = { roles: ["Admin"] };
+
+defineFeature("f", (r) => {
+  r.writeHandler("x", z.object({}), async () => {}, { ...BASE_OPTS, access: ADMIN });
+});
+`;
+  const result = parse(source);
+
+  test("kept as an opaque pattern instead of dropping the spread", () => {
+    expect(result.errors).toEqual([]);
+    const pattern = findPattern(result.patterns, "writeHandler");
+    expect(pattern.handlerName).toBeUndefined();
+  });
+
+  test("render → parse roundtrip keeps the call verbatim", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+      imports: [
+        ...DEFAULT_IMPORTS,
+        'const BASE_OPTS = { description: "shared" };',
+        'const ADMIN = { roles: ["Admin"] };',
+      ],
+    });
+    expect(rendered).toContain("...BASE_OPTS, access: ADMIN");
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "writeHandler").handlerName).toBeUndefined();
+  });
+});
+
+describe("inline queryHandler with outputSchema", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("f", (r) => {
+  r.queryHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => ({}),
+    access: { roles: ["Admin"] },
+    outputSchema: z.object({ id: z.string() }),
+  });
+});
+`;
+  const result = parse(source);
+
+  test("kept as an opaque pattern instead of dropping outputSchema", () => {
+    expect(result.errors).toEqual([]);
+    const pattern = findPattern(result.patterns, "queryHandler");
+    expect(pattern.handlerName).toBeUndefined();
+  });
+
+  test("render → parse roundtrip keeps outputSchema verbatim", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+      imports: [...DEFAULT_IMPORTS],
+    });
+    expect(rendered).toContain("outputSchema: z.object({ id: z.string() }),");
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "queryHandler").handlerName).toBeUndefined();
+  });
+});
+
+describe("inline writeHandler with a perform pipeline", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { roles: ["Admin"] },
+    perform: stepsPipeline([]),
+  });
+});
+`;
+  const result = parse(source);
+
+  test("kept as an opaque pattern instead of dropping perform", () => {
+    expect(result.errors).toEqual([]);
+    const pattern = findPattern(result.patterns, "writeHandler");
+    expect(pattern.handlerName).toBeUndefined();
+  });
+
+  test("render → parse roundtrip keeps perform verbatim", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+      imports: [
+        ...DEFAULT_IMPORTS,
+        'import { stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";',
+      ],
+    });
+    expect(rendered).toContain("perform: stepsPipeline([]),");
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "writeHandler").handlerName).toBeUndefined();
   });
 });
