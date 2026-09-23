@@ -10,6 +10,20 @@ verified: 2026-09-23
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.300.0
+
+### auth-email-password
+
+**auth handlers switch from GUEST_USER (roles: ["all"]) to the anonymous identity with a per-IP rateLimit**
+
+**Migration:** The auth-email-password and auth-mfa handlers reachable from unauthenticated /auth/* routes (login, invite-accept-with-login, invite-signup-complete, reset-password, signup-confirm, verify-email, confirm-account-unlock, signup-request, the token-request handlers, mfa verify, mfa enable-start-preauth, mfa enable-confirm-preauth) now declare access: { roles: ["anonymous"] } instead of access: { roles: ["all"] }, each with its own rateLimit: { per: "ip+handler", limit, windowSeconds }. Enforcing that rateLimit on a request that carries a client IP requires a RateLimitResolver (Redis), same as the already rate-limited self-registration-status query; without one these handlers fail with InternalError (fail-closed, #1467). The password-reset, email-verification and account-unlock request routes keep answering 200 for anti-enumeration, so there the failure shows up as a "[kumiko] token request handler ... failed" error log line and no mail is sent. Wire Redis (or context.rateLimit) before relying on these routes. Test fixtures that hand-roll a guest SessionUser with roles: ["all"] must switch to roles: ["anonymous"] (or createAnonymousUser from @cosmicdrift/kumiko-framework/engine).
+
+### framework-core
+
+**Remove the guest-identity all-role: unauthenticated handlers must declare roles: ["anonymous"] with a rateLimit**
+
+**Migration:** Handlers declared with access: { roles: ["all"] } now fail boot — no session ever carries the role "all", so this is unreachable dead config, not a wildcard. Switch to access: { roles: ["anonymous"] } plus rateLimit: { per: "ip" | "ip+handler", limit: N, windowSeconds: N } for unauthenticated callers, or access: { openToAll: { reason: "..." } } for any signed-in user. Test fixtures that hand-roll a SessionUser with roles: ["all"] (bridgeStub, hand-rolled guest literals) must switch to createAnonymousUser(tenantId) or roles: ["anonymous"]. buildSessionRoles now also strips "anonymous" and "all" out of globalRoles at every JWT mint (membership roles were already stripped). auth-routes.ts now dispatches every public /auth/* write with createAnonymousUser(SYSTEM_TENANT_ID) instead of the removed GUEST_USER constant.
+
 ## 0.298.0
 
 ### billing-foundation
