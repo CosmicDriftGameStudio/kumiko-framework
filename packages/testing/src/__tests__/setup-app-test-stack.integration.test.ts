@@ -2,11 +2,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { asRawClient, tableExists } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observability";
 import { createTestDb, type TestDb, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { setupAppTestStack } from "../index";
 import { noteFeature } from "./note-feature";
 
 const NOTES_TABLE = "public.read_testing_notes";
+const METRICS_TOKEN = "setup-app-test-stack-metrics-token-minimum-32-chars!!";
 
 let probe: TestDb;
 
@@ -50,6 +52,24 @@ describe("setupAppTestStack", () => {
     const stack = await setupAppTestStack([noteFeature], { includeBundled: false });
     try {
       expect(stack.registry.getFeature("tenant")).toBeUndefined();
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("metrics option forwarded through setupTestStackFromFeatures to buildServer", async () => {
+    const stack: TestStack = await setupAppTestStack([noteFeature], {
+      ...resolveObservabilityWiring(METRICS_TOKEN),
+    });
+    try {
+      const noAuth = await stack.app.request("/metrics");
+      expect(noAuth.status).toBe(401);
+
+      const scraped = await stack.app.request("/metrics", {
+        headers: { Authorization: `Bearer ${METRICS_TOKEN}` },
+      });
+      expect(scraped.status).toBe(200);
+      expect(scraped.headers.get("Content-Type")).toMatch(/openmetrics-text/);
     } finally {
       await stack.cleanup();
     }

@@ -110,6 +110,10 @@ export type TestStackOptions = {
    *  MUST go through here (real HTTP via `stack.http`/`stack.app.fetch`),
    *  never `createTestDispatcher`. */
   extraRoutes?: import("../api/server").ServerOptions["extraRoutes"];
+  /** Forwarded to buildServer like runProdApp. Without a PrometheusMeter-backed
+   *  `observability` the route answers 503, so spread `resolveObservabilityWiring(token)`
+   *  rather than setting `metrics` alone. */
+  metrics?: import("../api/server").ServerOptions["metrics"];
   /** Inject a MasterKeyProvider for secrets-backed tests. Lands typed in
    *  AppContext — set/delete/get + rotation job pick it up. Omit for
    *  suites that don't touch secrets. */
@@ -410,6 +414,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       eventDedup,
       sseBroker,
       ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
+      ...(options.metrics && { metrics: options.metrics }),
       // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for
       // deterministic drains — no timer-induced flakiness. pollIntervalMs
       // stays short anyway in case a test opts into `.start()`. pgClient
