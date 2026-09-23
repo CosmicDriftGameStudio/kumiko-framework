@@ -78,3 +78,21 @@ receives the seeded-tenant fixture too:
 right before the screenshot. `runMatrix` calls it once per theme × viewport for the same scenario, so
 it must be idempotent — hide or mask an element rather than a one-shot action like clicking a button,
 which would only succeed on the first capture and time out on every one after.
+
+`runMatrix` also supports real device emulation via Playwright projects named after a viewport id
+(`desktop`, `tablet`, `mobile`) with `use.isMobile: true`:
+
+```ts
+projects: [
+  { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+  { name: "tablet", use: { ...devices["iPad Pro 11"] } }, // portrait, WebKit
+  { name: "mobile", use: { ...devices["iPhone 13"] } }, // portrait, WebKit
+]
+```
+
+A device project captures exactly `<name>.png` at the device's native size — no `setViewportSize`,
+which would destroy the emulation. Any other project (the desktop pass) still loops the remaining
+viewports via `setViewportSize`, skipping the ids a device project already covers. Without device
+projects, nothing changes: desktop, tablet and mobile all render through `setViewportSize` as before.
+`SCREENSHOT_VIEWPORTS` still filters both — a filtered-out device project's test is skipped, not run
+empty. CI needs `bunx playwright install webkit` to run device projects that use a WebKit device.

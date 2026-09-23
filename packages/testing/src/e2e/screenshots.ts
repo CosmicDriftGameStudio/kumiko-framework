@@ -166,7 +166,7 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
 }
 
 const VIEWPORT_IDS = ["desktop", "tablet", "mobile"] as const;
-type ViewportId = (typeof VIEWPORT_IDS)[number];
+export type ViewportId = (typeof VIEWPORT_IDS)[number];
 const VIEWPORTS: Record<ViewportId, { readonly width: number; readonly height: number }> = {
   // 1920×1080 instead of the earlier 1280×900: these shots land in the
   // handbook and doc pages, where a 1280 image visibly softens on a HiDPI
@@ -245,6 +245,49 @@ export function findIdenticalThemeScreenshots<T extends string>(
   return violations;
 }
 
+export interface MatrixProjectInfo {
+  readonly name: string;
+  readonly isMobile: boolean;
+}
+
+export type MatrixViewportPlan =
+  | { readonly mode: "device"; readonly viewports: readonly [ViewportId] }
+  | { readonly mode: "desktop"; readonly viewports: readonly ViewportId[] }
+  | { readonly mode: "skip"; readonly reason: string };
+
+function isViewportId(name: string): name is ViewportId {
+  return VIEWPORT_IDS.some((id) => id === name);
+}
+
+// A device project (name === a ViewportId, use.isMobile === true) already
+// renders at its emulated device size, so setViewportSize would destroy that
+// emulation — it captures exactly its own viewport instead of looping. Every
+// other project runs the desktop pass, skipping ids a device project already
+// covers so the same image isn't produced twice.
+export function resolveMatrixViewports(
+  projectName: string,
+  isMobileProject: boolean,
+  projects: readonly MatrixProjectInfo[],
+  allowedViewports: readonly ViewportId[],
+): MatrixViewportPlan {
+  if (isMobileProject && isViewportId(projectName)) {
+    if (!allowedViewports.includes(projectName)) {
+      return {
+        mode: "skip",
+        reason: `SCREENSHOT_VIEWPORTS excludes device project "${projectName}"`,
+      };
+    }
+    return { mode: "device", viewports: [projectName] };
+  }
+  const deviceProjectIds = new Set(
+    projects.filter((p) => p.isMobile && isViewportId(p.name)).map((p) => p.name),
+  );
+  return {
+    mode: "desktop",
+    viewports: allowedViewports.filter((id) => !deviceProjectIds.has(id)),
+  };
+}
+
 export function runMatrix<T extends string>(
   scenarios: readonly Scenario[],
   opts: MatrixOptions<T>,
@@ -273,6 +316,19 @@ export function runMatrix<T extends string>(
       for (const s of scenarios) {
         if (only !== undefined && only !== s.name) continue;
         test(s.name, async ({ page, seedTenant }) => {
+          const info = test.info();
+          const plan = resolveMatrixViewports(
+            info.project.name,
+            info.project.use.isMobile === true,
+            info.config.projects.map((p) => ({ name: p.name, isMobile: p.use.isMobile === true })),
+            viewports,
+          );
+          if (plan.mode === "skip") {
+            test.skip(true, plan.reason);
+            // skip: test.skip() throws; the return only narrows `plan` for TypeScript.
+            return;
+          }
+
           // kumiko:locale drives the boot-time language (before goto); kumiko:theme
           // is cleared so the mode is decided solely by applyTheme.
           await page.addInitScript((lng) => {
@@ -286,8 +342,8 @@ export function runMatrix<T extends string>(
 
           for (const theme of themes) {
             await opts.applyTheme(page, theme);
-            for (const vp of viewports) {
-              await page.setViewportSize(VIEWPORTS[vp]);
+            for (const vp of plan.viewports) {
+              if (plan.mode === "desktop") await page.setViewportSize(VIEWPORTS[vp]);
               await waitForSettledPage(page, inFlightDataRequests);
               if (s.beforeCapture) await s.beforeCapture(page);
               const dir = `${baseDir}/${s.name}/${locale}/${theme}`;
