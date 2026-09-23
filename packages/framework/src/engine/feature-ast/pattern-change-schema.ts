@@ -203,6 +203,23 @@ const escapeHatchSchema = z
   })
   .strict();
 
+const rawRefSentinelSchema = z.object({ __raw: z.string() }).strict();
+
+// Adds the raw-ref-sentinel branch a handler header field accepts when the
+// extractor couldn't resolve it to a literal (see extractors/hooks.ts).
+function orRawRef<T extends z.ZodTypeAny>(schema: T) {
+  return z.union([schema, rawRefSentinelSchema]);
+}
+
+const rateLimitDisabledSchema = z
+  .object({
+    disabled: z.literal(true),
+    reason: z.string().refine((s) => s.trim().length > 0, {
+      message: "reason must be non-empty",
+    }),
+  })
+  .strict();
+
 const rateLimitOptionSchema = z
   .object({
     per: rateLimitPerSchema,
@@ -264,16 +281,17 @@ const QUERY_HANDLER_HEADER_SHAPE = {
 const STREAM_HANDLER_HEADER_SHAPE = {
   access: accessRuleSchema,
   rateLimit: rateLimitOptionSchema,
+  escapeHatch: escapeHatchSchema,
 } satisfies Record<StreamHandlerHeaderKey, z.ZodTypeAny>;
 
 const WRITE_HANDLER_HEADER_KEYS = z.object(WRITE_HANDLER_HEADER_SHAPE).keyof().options;
 const QUERY_HANDLER_HEADER_KEYS = z.object(QUERY_HANDLER_HEADER_SHAPE).keyof().options;
 const STREAM_HANDLER_HEADER_KEYS = z.object(STREAM_HANDLER_HEADER_SHAPE).keyof().options;
 
-// `update`'s set-schema — every header field optional, no handlerName/
-// schemaSource/handlerBody/kind/source, and `.strict()` so an unknown key
-// (e.g. a nested `access` under `definition`) is reported instead of
-// silently ignored.
+// `update`'s set-schema stays exactly as strict as the extractor's own
+// output: Designer/AI-authored values must be structured, never a raw
+// reference or a partially-literal shape — those only ever come from
+// statically parsed source, not from a `set` payload.
 const WRITE_HANDLER_UPDATE_SET_SCHEMA = z.object(WRITE_HANDLER_HEADER_SHAPE).partial().strict();
 const QUERY_HANDLER_UPDATE_SET_SCHEMA = z.object(QUERY_HANDLER_HEADER_SHAPE).partial().strict();
 const STREAM_HANDLER_UPDATE_SET_SCHEMA = z.object(STREAM_HANDLER_HEADER_SHAPE).partial().strict();
@@ -291,6 +309,30 @@ const STREAM_HANDLER_UPDATE_UNSET_ENUM = z
   .object(STREAM_HANDLER_HEADER_SHAPE)
   .omit({ access: true })
   .keyof();
+
+// Full patterns (add/replace) carry whatever the extractor parsed, which
+// may be a RawRefSentinel or a disabled-rate-limit shape it can't resolve
+// to a literal; widen only here, not on UPDATE_SET_SCHEMA above.
+const WRITE_HANDLER_PATTERN_HEADER_SHAPE = {
+  ...WRITE_HANDLER_HEADER_SHAPE,
+  access: orRawRef(accessRuleSchema),
+  agent: orRawRef(agentHandlerHintsSchema),
+  rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  escapeHatch: orRawRef(escapeHatchSchema),
+};
+const QUERY_HANDLER_PATTERN_HEADER_SHAPE = {
+  ...QUERY_HANDLER_HEADER_SHAPE,
+  access: orRawRef(accessRuleSchema),
+  agent: orRawRef(agentHandlerHintsSchema),
+  rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  escapeHatch: orRawRef(escapeHatchSchema),
+};
+const STREAM_HANDLER_PATTERN_HEADER_SHAPE = {
+  ...STREAM_HANDLER_HEADER_SHAPE,
+  access: orRawRef(accessRuleSchema),
+  rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  escapeHatch: orRawRef(escapeHatchSchema),
+};
 
 function requireHandlerBody(
   val: {
@@ -570,7 +612,7 @@ const writeHandlerSchema = z
     handlerName: z.string().optional(),
     schemaSource: sourceBodySchema.optional(),
     handlerBody: sourceBodySchema.optional(),
-    ...z.object(WRITE_HANDLER_HEADER_SHAPE).partial().shape,
+    ...z.object(WRITE_HANDLER_PATTERN_HEADER_SHAPE).partial().shape,
   })
   .strict()
   .superRefine((val, ctx) => requireHandlerBody(val, ctx, WRITE_HANDLER_HEADER_KEYS));
@@ -582,7 +624,7 @@ const queryHandlerSchema = z
     handlerName: z.string().optional(),
     schemaSource: sourceBodySchema.optional(),
     handlerBody: sourceBodySchema.optional(),
-    ...z.object(QUERY_HANDLER_HEADER_SHAPE).partial().shape,
+    ...z.object(QUERY_HANDLER_PATTERN_HEADER_SHAPE).partial().shape,
   })
   .strict()
   .superRefine((val, ctx) => requireHandlerBody(val, ctx, QUERY_HANDLER_HEADER_KEYS));
@@ -594,7 +636,7 @@ const streamHandlerSchema = z
     handlerName: z.string().optional(),
     schemaSource: sourceBodySchema.optional(),
     handlerBody: sourceBodySchema.optional(),
-    ...z.object(STREAM_HANDLER_HEADER_SHAPE).partial().shape,
+    ...z.object(STREAM_HANDLER_PATTERN_HEADER_SHAPE).partial().shape,
   })
   .strict()
   .superRefine((val, ctx) => requireHandlerBody(val, ctx, STREAM_HANDLER_HEADER_KEYS));
@@ -613,7 +655,7 @@ const hookSchema = z
     target: hookTargetSchema,
     fnBody: sourceBodySchema,
     phase: hookPhaseSchema.optional(),
-    escapeHatch: escapeHatchSchema.optional(),
+    escapeHatch: orRawRef(escapeHatchSchema).optional(),
   })
   .strict();
 

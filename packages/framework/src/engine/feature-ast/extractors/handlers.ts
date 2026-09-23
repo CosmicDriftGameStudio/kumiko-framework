@@ -1,3 +1,4 @@
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { CallExpression, Node, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type {
@@ -5,12 +6,20 @@ import type {
   AgentHandlerHints,
   AgentRisk,
   EscapeHatchDeclaration,
-  RateLimitOption,
+  QueryHandlerDef,
+  RateLimitDeclaration,
+  StreamHandlerDef,
+  WriteHandlerDef,
 } from "../../types/handlers";
 import type { QueryHandlerPattern, StreamHandlerPattern, WriteHandlerPattern } from "../patterns";
 import type { SourceLocation } from "../source-location";
 import { sourceLocationFromNode } from "../source-location";
-import { readOptionalAccessRule, readOptionalEscapeHatch, readOptionalRateLimit } from "./hooks";
+import {
+  readHeaderValueOrRaw,
+  readOptionalAccessRule,
+  readOptionalEscapeHatch,
+  readOptionalRateLimit,
+} from "./hooks";
 import {
   type ExtractOutput,
   fail,
@@ -18,9 +27,12 @@ import {
   isPlainObject,
   isRawRefSentinel,
   ok,
+  type RawRefSentinel,
   readBooleanProperty,
   readDataLiteralNode,
   readNameLiteral,
+  readObjectPropertyInitializer,
+  readPropertyKey,
 } from "./shared";
 
 export type ParsedHandlerCall = {
@@ -28,12 +40,12 @@ export type ParsedHandlerCall = {
   readonly handlerName?: string;
   readonly schemaSource?: SourceLocation;
   readonly handlerBody?: SourceLocation;
-  readonly access?: AccessRule;
+  readonly access?: AccessRule | RawRefSentinel;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
-  readonly rateLimit?: RateLimitOption;
+  readonly agent?: AgentHandlerHints | RawRefSentinel;
+  readonly rateLimit?: RateLimitDeclaration | RawRefSentinel;
   readonly unsafeSkipTransitionGuard?: boolean;
-  readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };
 
 export const AGENT_RISK_VALUES: readonly AgentRisk[] = ["low", "mid", "high"];
@@ -53,55 +65,85 @@ export function readOptionalAgentHints(value: unknown): AgentHandlerHints | unde
   };
 }
 
-/**
- * Reads the two AI-agent-manifest slots (`description`, `agent`) off an
- * object-form handler-call literal. Factored out of parseHandlerCall to
- * keep that function's branching flat — both fields are optional and
- * independent of the rest of the header (access/rateLimit/schema/handler).
- */
-function readDescriptionAndAgent(
-  obj: ObjectLiteralExpression,
-): Pick<ParsedHandlerCall, "description" | "agent"> {
-  const descriptionLiteral = obj
-    .getProperty("description")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer()
-    ?.asKind(SyntaxKind.StringLiteral);
-  const agentInit = obj
-    .getProperty("agent")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
-  const agent = agentInit ? readOptionalAgentHints(readDataLiteralNode(agentInit)) : undefined;
-  return {
-    ...(descriptionLiteral !== undefined && { description: descriptionLiteral.getLiteralValue() }),
-    ...(agent !== undefined && { agent }),
-  };
+type KeyClassification = "modeled" | "opaque";
+
+// Record<keyof Def, ...> instead of a looser map: adding a field to
+// WriteHandlerDef/QueryHandlerDef/StreamHandlerDef without classifying it
+// here is a compile error, not a silent drop on render.
+const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> = {
+  name: "modeled",
+  schema: "modeled",
+  handler: "modeled",
+  access: "modeled",
+  description: "modeled",
+  agent: "modeled",
+  unsafeSkipTransitionGuard: "modeled",
+  rateLimit: "modeled",
+  escapeHatch: "modeled",
+  perform: "opaque",
+};
+
+const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> = {
+  name: "modeled",
+  schema: "modeled",
+  handler: "modeled",
+  [ENTITY_CONVENTION_QUERY_BRAND]: "opaque",
+  access: "modeled",
+  description: "modeled",
+  agent: "modeled",
+  rateLimit: "modeled",
+  outputSchema: "opaque",
+  escapeHatch: "modeled",
+};
+
+const STREAM_HANDLER_KEY_KINDS: Record<keyof StreamHandlerDef, KeyClassification> = {
+  name: "modeled",
+  schema: "modeled",
+  handler: "modeled",
+  access: "modeled",
+  rateLimit: "modeled",
+  escapeHatch: "modeled",
+};
+
+const HANDLER_KEY_KINDS = {
+  writeHandler: WRITE_HANDLER_KEY_KINDS,
+  queryHandler: QUERY_HANDLER_KEY_KINDS,
+  streamHandler: STREAM_HANDLER_KEY_KINDS,
+} as const;
+
+function lookupClassification<T extends Record<string, KeyClassification>>(
+  map: T,
+  key: string,
+): KeyClassification | undefined {
+  return key in map ? map[key as keyof T] : undefined;
 }
 
-/**
- * Reads `access`/`rateLimit`/`description`/`agent` off the positional
- * 4th-argument options object (the inline-authoring form). Mirrors
- * readDescriptionAndAgent's role for the object-form branch — keeping
- * parseHandlerCall's positional branch to a single assignment instead of
- * four independent mutable locals.
- */
-function readOptionsFields(
-  options: unknown,
-): Pick<ParsedHandlerCall, "access" | "rateLimit" | "description" | "agent" | "escapeHatch"> {
-  if (!isPlainObject(options)) return {};
-  const access = readOptionalAccessRule(options["access"]);
-  const rateLimit = readOptionalRateLimit(options["rateLimit"]);
-  const description =
-    typeof options["description"] === "string" ? options["description"] : undefined;
-  const agent = readOptionalAgentHints(options["agent"]);
-  const escapeHatch = readOptionalEscapeHatch(options["escapeHatch"]);
-  return {
-    ...(access !== undefined && { access }),
-    ...(description !== undefined && { description }),
-    ...(agent !== undefined && { agent }),
-    ...(rateLimit !== undefined && { rateLimit }),
-    ...(escapeHatch !== undefined && { escapeHatch }),
-  };
+// True when the call's object body/options carry a shape the extractor
+// cannot losslessly model property-by-property (a spread, a method/accessor
+// shorthand, a computed key, or a key outside the classification map above).
+// Callers fall back to the opaque whole-call pattern instead of dropping
+// whatever they can't read.
+function hasUnmodeledShape(
+  obj: ObjectLiteralExpression,
+  methodName: "writeHandler" | "queryHandler" | "streamHandler",
+): boolean {
+  const keyKinds = HANDLER_KEY_KINDS[methodName];
+  for (const prop of obj.getProperties()) {
+    if (prop.getKind() === SyntaxKind.SpreadAssignment) return true;
+    const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+    if (propAssign) {
+      if (propAssign.getNameNode().getKind() === SyntaxKind.ComputedPropertyName) return true;
+      if (lookupClassification(keyKinds, readPropertyKey(propAssign)) !== "modeled") return true;
+      continue;
+    }
+    const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+    if (shorthand) {
+      if (lookupClassification(keyKinds, shorthand.getName()) !== "modeled") return true;
+      continue;
+    }
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -117,6 +159,92 @@ function resolveObjectLiteralArg(node: Node) {
   if (!identifier) return undefined;
   const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
   return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
+
+// Deliberately does NOT resolve identifiers (unlike resolveObjectLiteralArg):
+// an options argument authored as a bare reference has no per-property
+// nodes to read, so parseHandlerCall falls back to the opaque whole-call
+// pattern instead of trying to read headers off it.
+function unwrapObjectLiteral(node: Node): ObjectLiteralExpression | undefined {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const asExpr = node.asKind(SyntaxKind.AsExpression);
+  if (asExpr) return unwrapObjectLiteral(asExpr.getExpression());
+  const satisfiesExpr = node.asKind(SyntaxKind.SatisfiesExpression);
+  if (satisfiesExpr) return unwrapObjectLiteral(satisfiesExpr.getExpression());
+  const paren = node.asKind(SyntaxKind.ParenthesizedExpression);
+  if (paren) return unwrapObjectLiteral(paren.getExpression());
+  return undefined;
+}
+
+function readHeaderField<T>(
+  init: Node | undefined,
+  recognize: (value: unknown) => T | undefined,
+  methodName: "writeHandler" | "queryHandler" | "streamHandler",
+  sourceFile: SourceFile,
+  unrecognizedReason: string,
+): ExtractOutput<T | RawRefSentinel | undefined> {
+  if (!init) return ok(undefined);
+  const result = readHeaderValueOrRaw(init, recognize);
+  if (result.kind === "value") return ok<T | RawRefSentinel | undefined>(result.value);
+  if (result.kind === "raw") return ok<T | RawRefSentinel | undefined>(result.sentinel);
+  return fail(methodName, sourceLocationFromNode(init, sourceFile), unrecognizedReason);
+}
+
+type HandlerHeaderFields = Pick<
+  ParsedHandlerCall,
+  "access" | "rateLimit" | "escapeHatch" | "agent"
+>;
+
+// Shared by the object-form call body and the positional options object,
+// which carry the same header shape.
+function readHandlerHeaderFields(
+  obj: ObjectLiteralExpression,
+  methodName: "writeHandler" | "queryHandler" | "streamHandler",
+  sourceFile: SourceFile,
+): ExtractOutput<HandlerHeaderFields> {
+  const accessResult = readHeaderField(
+    readObjectPropertyInitializer(obj, "access"),
+    readOptionalAccessRule,
+    methodName,
+    sourceFile,
+    "access must be a recognized AccessRule ({ roles: [...] } or { openToAll: { reason } }), or a reference to one",
+  );
+  if (accessResult.kind === "error") return accessResult;
+
+  const rateLimitResult = readHeaderField(
+    readObjectPropertyInitializer(obj, "rateLimit"),
+    readOptionalRateLimit,
+    methodName,
+    sourceFile,
+    "rateLimit must be { per, limit, windowSeconds } or { disabled: true, reason }, or a reference to one",
+  );
+  if (rateLimitResult.kind === "error") return rateLimitResult;
+
+  const escapeHatchResult = readHeaderField(
+    readObjectPropertyInitializer(obj, "escapeHatch"),
+    readOptionalEscapeHatch,
+    methodName,
+    sourceFile,
+    "escapeHatch must be { reason: string }, or a reference to one",
+  );
+  if (escapeHatchResult.kind === "error") return escapeHatchResult;
+
+  const agentResult = readHeaderField(
+    readObjectPropertyInitializer(obj, "agent"),
+    readOptionalAgentHints,
+    methodName,
+    sourceFile,
+    'agent must be { expose?: boolean, risk?: "low" | "mid" | "high" }, or a reference to one',
+  );
+  if (agentResult.kind === "error") return agentResult;
+
+  return ok({
+    ...(accessResult.pattern !== undefined && { access: accessResult.pattern }),
+    ...(rateLimitResult.pattern !== undefined && { rateLimit: rateLimitResult.pattern }),
+    ...(escapeHatchResult.pattern !== undefined && { escapeHatch: escapeHatchResult.pattern }),
+    ...(agentResult.pattern !== undefined && { agent: agentResult.pattern }),
+  });
 }
 
 export function parseHandlerCall(
@@ -136,6 +264,9 @@ export function parseHandlerCall(
 
   const obj = args.length === 1 ? resolveObjectLiteralArg(first) : undefined;
   if (obj) {
+    if (hasUnmodeledShape(obj, methodName)) {
+      return ok({ source: sourceLocationFromNode(call, sourceFile) });
+    }
     const nameLiteral = obj
       .getProperty("name")
       ?.asKind(SyntaxKind.PropertyAssignment)
@@ -178,38 +309,24 @@ export function parseHandlerCall(
         "handler must be an inline arrow function or function expression",
       );
     }
-    const accessInit = obj
-      .getProperty("access")
+    const headerResult = readHandlerHeaderFields(obj, methodName, sourceFile);
+    if (headerResult.kind === "error") return headerResult;
+    const descriptionLiteral = obj
+      .getProperty("description")
       ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    const access = accessInit ? readOptionalAccessRule(readDataLiteralNode(accessInit)) : undefined;
-    const rateLimitInit = obj
-      .getProperty("rateLimit")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    const rateLimit = rateLimitInit
-      ? readOptionalRateLimit(readDataLiteralNode(rateLimitInit))
-      : undefined;
-    const { description, agent } = readDescriptionAndAgent(obj);
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral);
     const skip = readBooleanProperty(obj, "unsafeSkipTransitionGuard");
-    const escapeHatchInit = obj
-      .getProperty("escapeHatch")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    const escapeHatch = escapeHatchInit
-      ? readOptionalEscapeHatch(readDataLiteralNode(escapeHatchInit))
-      : undefined;
     return ok({
       source: sourceLocationFromNode(call, sourceFile),
       handlerName: nameLiteral.getLiteralValue(),
       schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
       handlerBody: sourceLocationFromNode(fn, sourceFile),
-      ...(access !== undefined && { access }),
-      ...(description !== undefined && { description }),
-      ...(agent !== undefined && { agent }),
-      ...(rateLimit !== undefined && { rateLimit }),
+      ...headerResult.pattern,
+      ...(descriptionLiteral !== undefined && {
+        description: descriptionLiteral.getLiteralValue(),
+      }),
       ...(skip === true && { unsafeSkipTransitionGuard: true }),
-      ...(escapeHatch !== undefined && { escapeHatch }),
     });
   }
 
@@ -256,13 +373,30 @@ export function parseHandlerCall(
     );
   }
   const optionsArg = args[3];
-  const optionsFields = optionsArg ? readOptionsFields(readDataLiteralNode(optionsArg)) : {};
+  let headerFields: HandlerHeaderFields = {};
+  let description: string | undefined;
+  if (optionsArg) {
+    const optionsObj = unwrapObjectLiteral(optionsArg);
+    if (!optionsObj || hasUnmodeledShape(optionsObj, methodName)) {
+      return ok({ source: sourceLocationFromNode(call, sourceFile) });
+    }
+    const headerResult = readHandlerHeaderFields(optionsObj, methodName, sourceFile);
+    if (headerResult.kind === "error") return headerResult;
+    headerFields = headerResult.pattern;
+    description = optionsObj
+      .getProperty("description")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.StringLiteral)
+      ?.getLiteralValue();
+  }
   return ok({
     source: sourceLocationFromNode(call, sourceFile),
     handlerName,
     schemaSource: sourceLocationFromNode(schemaArg, sourceFile),
     handlerBody: sourceLocationFromNode(fn, sourceFile),
-    ...optionsFields,
+    ...headerFields,
+    ...(description !== undefined && { description }),
   });
 }
 
@@ -295,6 +429,7 @@ function readHandlerFields(parsed: Extract<ExtractOutput<ParsedHandlerCall>, { k
     handlerBody: parsed.pattern.handlerBody,
     ...(parsed.pattern.access !== undefined && { access: parsed.pattern.access }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
+    ...(parsed.pattern.escapeHatch !== undefined && { escapeHatch: parsed.pattern.escapeHatch }),
   };
 }
 
@@ -309,13 +444,11 @@ export function extractQueryHandler(
     ...readHandlerFields(parsed),
     ...(parsed.pattern.description !== undefined && { description: parsed.pattern.description }),
     ...(parsed.pattern.agent !== undefined && { agent: parsed.pattern.agent }),
-    ...(parsed.pattern.escapeHatch !== undefined && { escapeHatch: parsed.pattern.escapeHatch }),
   });
 }
 
-// streamHandler shares parseHandlerCall with writeHandler/queryHandler, but
-// StreamHandlerDef carries neither `description` nor `agent` at runtime —
-// readHandlerFields intentionally does not forward them here.
+// StreamHandlerDef has no description/agent at runtime, unlike escapeHatch,
+// so readHandlerFields forwards only access/rateLimit/escapeHatch.
 export function extractStreamHandler(
   call: CallExpression,
   sourceFile: SourceFile,

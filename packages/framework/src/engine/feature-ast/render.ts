@@ -436,6 +436,7 @@ function renderStreamHandler(p: StreamHandlerPattern): string {
   lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
+  if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");
   return lines.join("\n");
 }
