@@ -166,20 +166,15 @@ export type UserDataDeleteHook = (
 ) => Promise<UserDataDeleteHookResult>;
 
 /**
- * Komplette Hook-Tafel für EXT_USER_DATA. Sprint 2 user-data-rights
- * deklariert das via `r.extendsRegistrar(EXT_USER_DATA, { hooks: ... })`,
- * konsumierende Features liefern beide Hooks via
- * `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })`.
- *
- * Export-only ist ein legitimer Teil-Vertrag (#972) — siehe `UserDataExtensionOptions`
- * für die tatsächlich akzeptierte Options-Form.
+ * Full hook table for EXT_USER_DATA. Export-only is a legitimate partial
+ * contract, so registrations are typed by `UserDataExtensionOptions`.
  */
 export interface UserDataExtensionHooks {
   readonly export: UserDataExportHook;
   readonly delete: UserDataDeleteHook;
 }
 
-/** Options für EXT_USER_DATA: mindestens einer der beiden Hooks ist Pflicht, ein leeres `{}` nicht. */
+// At least one hook is required: an empty bag would silently register neither export nor forget.
 export type UserDataExtensionOptions = (
   | { readonly export: UserDataExportHook; readonly delete?: UserDataDeleteHook }
   | { readonly export?: UserDataExportHook; readonly delete: UserDataDeleteHook }
