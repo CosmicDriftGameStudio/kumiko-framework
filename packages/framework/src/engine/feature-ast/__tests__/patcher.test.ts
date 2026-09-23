@@ -328,6 +328,7 @@ describe("FeaturePatcher — coverage for the remaining typed adds", () => {
       method: "GET",
       path: "/health",
       handlerSource: "async (c) => c.json({ ok: true })",
+      anonymous: true,
     });
     const result = parseSourceFile(sf);
     expect(result.errors).toEqual([]);

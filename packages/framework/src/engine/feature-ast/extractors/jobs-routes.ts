@@ -210,13 +210,16 @@ export function extractHttpRoute(
       "handler must be an inline arrow function or function expression",
     );
   }
-  const anonymous = readBooleanProperty(arg, "anonymous");
+  // Missing/non-boolean `anonymous` reads as false (the safe side — mounted
+  // behind the session auth chain, not public) so a source file that predates
+  // the required field still parses instead of erroring here.
+  const anonymous = readBooleanProperty(arg, "anonymous") === true;
   return ok({
     kind: "httpRoute",
     source: sourceLocationFromNode(call, sourceFile),
     method: methodValue,
     path: pathLiteral.getLiteralValue(),
     handlerBody: sourceLocationFromNode(fn, sourceFile),
-    ...(anonymous === true && { anonymous: true }),
+    anonymous,
   });
 }

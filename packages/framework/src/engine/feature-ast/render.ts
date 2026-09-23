@@ -558,7 +558,7 @@ function renderHttpRoute(p: HttpRoutePattern): string {
   const lines: string[] = ["r.httpRoute({"];
   lines.push(`  method: ${JSON.stringify(p.method)},`);
   lines.push(`  path: ${JSON.stringify(p.path)},`);
-  if (p.anonymous === true) lines.push("  anonymous: true,");
+  lines.push(`  anonymous: ${p.anonymous},`);
   lines.push(`  handler: ${p.handlerBody.raw},`);
   lines.push("});");
   return lines.join("\n");

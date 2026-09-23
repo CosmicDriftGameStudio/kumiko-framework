@@ -453,6 +453,7 @@ export const httpRouteSchema: PatternFormSchema = {
       path: "anonymous",
       label: { en: "Anonymous (no auth)", de: "Anonym (keine Auth)" },
       input: "boolean",
+      required: true,
     },
     {
       path: "handlerBody",

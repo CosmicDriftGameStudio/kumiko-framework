@@ -149,7 +149,7 @@ export type AddHttpRouteArgs = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly handlerSource: string;
-  readonly anonymous?: boolean;
+  readonly anonymous: boolean;
 };
 
 export type AddDefineEventArgs = {
@@ -480,7 +480,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         method,
         path,
         handlerBody: rawLoc(handlerSource),
-        ...(anonymous === true && { anonymous: true }),
+        anonymous,
       });
     },
 

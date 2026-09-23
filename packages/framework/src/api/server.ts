@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
@@ -59,7 +59,7 @@ import {
   getUser,
   type TenantLifecycleStatusResolver,
 } from "./auth-middleware";
-import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
+import { type AuthRoutesConfig, createAuthRoutes, type LoginRateLimiter } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import {
   type ExtraRouteDefinition,
@@ -723,30 +723,24 @@ export function buildServer(options: ServerOptions): KumikoServer {
     return jwtGuard(c, next);
   });
 
+  // Without anonymousAccess a missing token 401s instead of falling through as anonymous.
+  const sessionOnlyGuard = authMiddleware(jwt, {
+    ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
+    ...(options.auth?.tokenVerifier ? { tokenVerifier: options.auth.tokenVerifier } : {}),
+    ...(tenantLifecycleResolver ? { resolveTenantLifecycleStatus: tenantLifecycleResolver } : {}),
+  });
+
   // PAT rate limiting — runs AFTER the auth guard so the resolved principal is
   // available. Only PAT-authenticated requests are counted (keyed by token id);
   // cookie/JWT users pass through untouched. In-memory limiter is per-instance
   // (see run-prod-app) — a multi-node deployment wanting a shared counter swaps
   // in a Redis-backed LoginRateLimiter.
   const patRateLimiter = options.auth?.patRateLimiter;
-  if (patRateLimiter) {
+  const patRateLimitGuard = patRateLimiter ? buildPatRateLimitGuard(patRateLimiter) : undefined;
+  if (patRateLimitGuard) {
     app.use("/api/*", async (c, next) => {
       if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
-      const pat = getUser(c)?.pat;
-      if (pat && !(await patRateLimiter.check(pat.tokenId))) {
-        return c.json(
-          {
-            error: {
-              code: "pat_rate_limited",
-              httpStatus: 429,
-              message: "personal access token rate limit exceeded",
-              i18nKey: "auth.errors.patRateLimited",
-            },
-          },
-          429,
-        );
-      }
-      return next();
+      return patRateLimitGuard(c, next);
     });
   }
 
@@ -760,8 +754,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // unguarded-subdomain-XSS footgun, not a warn-and-continue case.
   assertOriginGuardConfig(options.auth);
   const allowedOrigins = options.auth?.allowedOrigins;
-  if (allowedOrigins && allowedOrigins.length > 0) {
-    const originGuard = originMiddleware(allowedOrigins);
+  const originGuard =
+    allowedOrigins && allowedOrigins.length > 0 ? originMiddleware(allowedOrigins) : undefined;
+  if (originGuard) {
     app.use("/api/*", async (c, next) => {
       if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
       return originGuard(c, next);
@@ -780,6 +775,14 @@ export function buildServer(options: ServerOptions): KumikoServer {
     if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
     return csrfGuard(c, next);
   });
+
+  // Same order as /api/* above: auth → PAT → origin → CSRF.
+  const sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[] = [
+    sessionOnlyGuard,
+    ...(patRateLimitGuard ? [patRateLimitGuard] : []),
+    ...(originGuard ? [originGuard] : []),
+    csrfGuard,
+  ];
 
   // Public auth routes (login) need to be registered BEFORE the generic
   // api routes so Hono matches them first.
@@ -845,20 +848,25 @@ export function buildServer(options: ServerOptions): KumikoServer {
       const honoHandler = async (c: import("hono").Context): Promise<Response> =>
         route.handler(c, {
           app,
-          // createAnonymousUser, NOT createSystemUser: httpRoute handlers
-          // using systemQuery are, by construction, `anonymous: true`
-          // public routes — the synthesized user must clear the SAME
-          // access gate a real anonymous visitor would, no more. The
-          // system role would ALSO satisfy that gate here, but it can
-          // read fields gated to "system" that "anonymous" can't
-          // (filterReadFields is a plain role-in-map check) — a future
-          // systemQuery caller reading a system-gated field would leak
-          // it into a public response. The forced tenant already comes
-          // from bypassing the HTTP layer entirely; no elevated role
-          // is needed or wanted on top of that.
+          // createAnonymousUser, NOT createSystemUser: systemQuery's
+          // synthesized user must clear the SAME access gate a real
+          // anonymous visitor would, no more — regardless of the route's
+          // own `anonymous` mode. The system role would ALSO satisfy that
+          // gate here, but it can read fields gated to "system" that
+          // "anonymous" can't (filterReadFields is a plain role-in-map
+          // check) — a systemQuery caller reading a system-gated field
+          // would leak it into the response. The forced tenant already
+          // comes from bypassing the HTTP layer entirely; no elevated
+          // role is needed or wanted on top of that.
           systemQuery: makeSystemQuery(c, dispatcher),
         });
-      mountHonoRoute(app, route.method, route.path, honoHandler);
+      mountHonoRoute(
+        app,
+        route.method,
+        route.path,
+        honoHandler,
+        route.anonymous ? [] : sessionOnlyHttpRouteGuards,
+      );
     }
   }
 
@@ -958,7 +966,17 @@ function mountHonoRoute(
   path: string,
   // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
   handler: (c: import("hono").Context<any, any>) => Response | Promise<Response>,
+  middlewares: readonly MiddlewareHandler[] = [],
 ): void {
+  // Guards go into the route's own handler chain, never a method-gated
+  // app.use: Hono serves HEAD through the GET route with c.req.method still
+  // "HEAD", so a `method === c.req.method` gate would skip them for HEAD.
+  if (middlewares.length > 0) {
+    // [path]: only Hono's array-path overload accepts a variable-length handler spread.
+    app.on(method, [path], ...middlewares, handler);
+    // skip: guarded route already mounted with its guard chain
+    return;
+  }
   switch (method) {
     case "GET":
       app.get(path, handler);
@@ -983,6 +1001,27 @@ function mountHonoRoute(
     default:
       assertUnreachable(method, "http method");
   }
+}
+
+// Must run after the auth guard so getUser(c) carries the PAT.
+function buildPatRateLimitGuard(patRateLimiter: LoginRateLimiter): MiddlewareHandler {
+  return async (c, next) => {
+    const pat = getUser(c)?.pat;
+    if (pat && !(await patRateLimiter.check(pat.tokenId))) {
+      return c.json(
+        {
+          error: {
+            code: "pat_rate_limited",
+            httpStatus: 429,
+            message: "personal access token rate limit exceeded",
+            i18nKey: "auth.errors.patRateLimited",
+          },
+        },
+        429,
+      );
+    }
+    return next();
+  };
 }
 
 // Shared systemQuery builder for r.httpRoute and extraRoutes (anonymous +

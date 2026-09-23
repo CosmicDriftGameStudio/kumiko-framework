@@ -508,7 +508,7 @@ export type HttpRoutePattern = {
   readonly source: SourceLocation;
   readonly method: HttpRouteMethod;
   readonly path: string;
-  readonly anonymous?: boolean;
+  readonly anonymous: boolean;
   readonly handlerBody: SourceLocation;
 };
 
