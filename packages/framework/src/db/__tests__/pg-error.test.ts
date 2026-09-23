@@ -18,6 +18,20 @@ describe("extractPgError", () => {
   test("returns null for non-objects", () => {
     expect(extractPgError("nope")).toBeNull();
   });
+
+  test("normalizes Bun.SQL's errno/constraint into code/constraint_name", () => {
+    const info = extractPgError({
+      code: "ERR_POSTGRES_SERVER_ERROR",
+      errno: "23505",
+      constraint: "users_email_uq",
+    });
+    expect(info).toEqual({ code: "23505", constraint_name: "users_email_uq" });
+  });
+
+  test("leaves ERR_POSTGRES_SERVER_ERROR untouched when errno isn't a string", () => {
+    const info = extractPgError({ code: "ERR_POSTGRES_SERVER_ERROR" });
+    expect(info).toEqual({ code: "ERR_POSTGRES_SERVER_ERROR", constraint_name: undefined });
+  });
 });
 
 describe("isUniqueViolation", () => {

@@ -1,31 +1,32 @@
-// #2323: draft-count.ts, owned-file-refs.ts and cleanup.ts read form-draft
-// rows via asRawClient(db).unsafe() directly, bypassing the #1163
-// closed-connection retry that only covered bun-db/query.ts's own
-// selectMany/countWhere. Routed the SELECT-only call sites through
-// unsafeReadRetrying instead — this test mirrors
-// bun-db/__tests__/select-many-retry.test.ts's fake-client pattern to prove
-// the retry now actually fires for each call site.
+// draft-count.ts, owned-file-refs.ts and cleanup.ts read form-draft rows
+// through unsafeReadRetrying; this proves the retry fires per call site
+// using a real captured driver error.
 
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
+import { captureClosedConnectionError } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { selectStaleDraftsBatch } from "../cleanup";
 import { countDraftsByOwner } from "../draft-count";
 import { filterOwnedFileRefs } from "../owned-file-refs";
 
-function closedConnectionError(): Error {
-  return Object.assign(new Error("The connection was closed."), { name: "AbortError" });
-}
+let closedConnectionError: unknown;
+
+beforeAll(async () => {
+  closedConnectionError = await captureClosedConnectionError();
+});
 
 type FakeClient = {
   unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>;
   begin: () => never;
+  options: { max: number };
   calls: number;
 };
 
-function fakeClient(failures: Error[], row: Record<string, unknown>): FakeClient {
+function fakeClient(failures: unknown[], row: Record<string, unknown>): FakeClient {
   const remaining = [...failures];
   const client: FakeClient = {
     calls: 0,
+    options: { max: 1 },
     unsafe: async () => {
       client.calls++;
       const err = remaining.shift();
@@ -39,16 +40,16 @@ function fakeClient(failures: Error[], row: Record<string, unknown>): FakeClient
   return client;
 }
 
-describe("form-draft db/queries — closed-connection retry (#2323)", () => {
+describe("form-draft db/queries — closed-connection retry", () => {
   test("countDraftsByOwner retries once and returns the count", async () => {
-    const db = fakeClient([closedConnectionError()], { count: 4 });
+    const db = fakeClient([closedConnectionError], { count: 4 });
     const result = await countDraftsByOwner(db as never, "t1" as never, "owner1");
     expect(result).toBe(4);
     expect(db.calls).toBe(2);
   });
 
   test("filterOwnedFileRefs retries once and returns rows", async () => {
-    const db = fakeClient([closedConnectionError()], { id: "ref1", storage_key: "key1" });
+    const db = fakeClient([closedConnectionError], { id: "ref1", storage_key: "key1" });
     const rows = await filterOwnedFileRefs(
       db as never,
       "t1" as never,
@@ -63,7 +64,7 @@ describe("form-draft db/queries — closed-connection retry (#2323)", () => {
   });
 
   test("selectStaleDraftsBatch retries once and returns rows", async () => {
-    const db = fakeClient([closedConnectionError()], {
+    const db = fakeClient([closedConnectionError], {
       id: "d1",
       tenant_id: "t1",
       owner_id: "owner1",
@@ -77,11 +78,13 @@ describe("form-draft db/queries — closed-connection retry (#2323)", () => {
     expect(db.calls).toBe(2);
   });
 
-  test("gives up after the single retry when the connection stays closed", async () => {
-    const db = fakeClient([closedConnectionError(), closedConnectionError()], { count: 4 });
-    await expect(countDraftsByOwner(db as never, "t1" as never, "owner1")).rejects.toThrow(
-      "connection was closed",
+  test("gives up after exhausting pool-bounded retries (max: 1 → 3 total calls)", async () => {
+    const db = fakeClient([closedConnectionError, closedConnectionError, closedConnectionError], {
+      count: 4,
+    });
+    await expect(countDraftsByOwner(db as never, "t1" as never, "owner1")).rejects.toBe(
+      closedConnectionError,
     );
-    expect(db.calls).toBe(2);
+    expect(db.calls).toBe(3);
   });
 });
