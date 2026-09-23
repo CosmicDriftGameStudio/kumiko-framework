@@ -38,6 +38,7 @@
   "files": [
     "src",
     "!src/**/__tests__/**",
+    "hooks",
     "README.md",
     "LICENSE"
   ]
