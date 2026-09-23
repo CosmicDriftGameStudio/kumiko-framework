@@ -24,6 +24,9 @@ export const SESSION_REVOKED_AGGREGATE_TYPE = "user-session-revocation" as const
 export const sessionRevokedSchema = z.object({
   userId: z.string().min(1),
   sessionIds: z.array(z.uuid()).min(1),
+  // The caller's own session a "revoke all others" write spared. Optional so
+  // events appended before it existed still replay.
+  keptSessionId: z.uuid().optional(),
 });
 
 export type SessionRevokedPayload = z.infer<typeof sessionRevokedSchema>;

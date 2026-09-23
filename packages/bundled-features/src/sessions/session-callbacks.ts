@@ -244,6 +244,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         const payload = sessionRevokedSchema.parse({
           userId,
           sessionIds: result.map((row: { id: string }) => row.id),
+          keptSessionId: currentSid,
         });
         await append(db, {
           aggregateId: generateId(),

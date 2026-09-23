@@ -490,6 +490,13 @@ function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): strin
   return typeof userId === "string" && userId.length > 0 ? userId : undefined;
 }
 
+// A "revoke all others" write must not cut the caller's own live stream, so
+// session-revoked carries the spared sid. Missing or malformed → userwide.
+function readSessionRevokedKeptSessionId(payload: Record<string, unknown>): string | undefined {
+  const keptSessionId = payload["keptSessionId"];
+  return typeof keptSessionId === "string" && keptSessionId.length > 0 ? keptSessionId : undefined;
+}
+
 export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
     name: ACCESS_INVALIDATION_CONSUMER_NAME,
@@ -511,7 +518,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // poison would otherwise permanently stop access-invalidation for
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
-        sseBroker.publishAccessInvalidation(userId);
+        sseBroker.publishAccessInvalidation(userId, readSessionRevokedKeptSessionId(event.payload));
       }
 
       if (
