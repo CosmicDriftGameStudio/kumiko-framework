@@ -267,6 +267,36 @@ describe("kumiko-pre-push", () => {
     });
   });
 
+  describe("standalone clone without a usable test script refuses the push", () => {
+    test("package.json without scripts.test", () => {
+      const standaloneDir = join(tmp, "standalone-no-test-script");
+      initGitRepo(standaloneDir, tmp);
+      writeFileSync(
+        join(standaloneDir, "package.json"),
+        JSON.stringify({ name: "x", scripts: { lint: "true" } }),
+      );
+
+      const { output, exitCode } = runHook(standaloneDir, tmp);
+
+      expect(exitCode).not.toBe(0);
+      expect(output).toContain('without a package.json "test" script');
+      expect(output).not.toContain("was not found");
+      expect(output).not.toContain("Script not found");
+    });
+
+    test("no package.json at all", () => {
+      const standaloneDir = join(tmp, "standalone-no-package-json");
+      initGitRepo(standaloneDir, tmp);
+
+      const { output, exitCode } = runHook(standaloneDir, tmp);
+
+      expect(exitCode).not.toBe(0);
+      expect(output).toContain('without a package.json "test" script');
+      expect(output).not.toContain("was not found");
+      expect(output).not.toContain("Script not found");
+    });
+  });
+
   describe("scripts/check-wt.sh", () => {
     test("untracked but executable check-wt.sh is not run", () => {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
