@@ -192,13 +192,18 @@ export function RenderList(props: RenderListProps): ReactNode {
   const translate: Translate = translateProp ?? t;
   const { DataTable, Button, Dialog, Input, Text, Banner } = usePrimitives();
 
-  // Local Search-Buffer + Debounce. Externe Änderungen (Browser-Back,
-  // Cross-Component-Reset) spiegeln wir per Sync-Effect zurück; Tipps
-  // im Input feuern onSearchChange erst nach 300ms ohne weitere Tasten.
+  // Local search buffer + debounce. External changes (browser back,
+  // cross-component reset) are mirrored back; typing only fires
+  // onSearchChange after 300ms without further keystrokes.
   const [localQ, setLocalQ] = useState(searchValue ?? "");
-  useEffect(() => {
+  // Sync during render, not in a useEffect: the passive effect also fires on
+  // mount and can flush after a keystroke landing in the same commit,
+  // resetting localQ and swallowing the input.
+  const [syncedSearchValue, setSyncedSearchValue] = useState(searchValue);
+  if (searchValue !== syncedSearchValue) {
+    setSyncedSearchValue(searchValue);
     setLocalQ(searchValue ?? "");
-  }, [searchValue]);
+  }
   useEffect(() => {
     if (onSearchChange === undefined) return;
     if (localQ === (searchValue ?? "")) return;
