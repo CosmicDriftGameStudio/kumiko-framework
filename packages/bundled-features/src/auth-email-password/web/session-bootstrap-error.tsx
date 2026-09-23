@@ -40,7 +40,7 @@ export function SessionBootstrapErrorScreen({
   return (
     <div data-testid="session-bootstrap-error" data-http-status={failure.httpStatus ?? "network"}>
       <AuthCard title={t("auth.sessionBootstrap.errorTitle")}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 px-6 pb-4">
           <Banner variant="error">
             {failure.httpStatus === 429
               ? t("auth.sessionBootstrap.rateLimitedBody")
