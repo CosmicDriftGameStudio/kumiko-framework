@@ -55,6 +55,7 @@ export {
   createKumikoServer,
   type KumikoServerHandle,
   resolveStylesheet,
+  STYLESHEET_WATCH_ENV,
 } from "./create-kumiko-server";
 export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema";
 export type {

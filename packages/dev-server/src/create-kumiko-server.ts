@@ -162,18 +162,24 @@ export type CreateKumikoServerOptions = {
     readonly js: string;
     readonly map: string;
   }>;
-  /** Absolute path to the CSS entry (typischerweise styles.css mit
-   *  @import "tailwindcss"). Der dev-server startet dann den
-   *  Tailwind-CLI als watcher und servt das kompilierte CSS unter
-   *  /styles.css.
+  /** Absolute path to the CSS entry (typically styles.css with
+   *  @import "tailwindcss"). The dev-server builds it with the Tailwind
+   *  CLI and serves the result at /styles.css; `stylesheetWatch` decides
+   *  whether the CLI keeps running with `--watch` afterwards.
    *
-   *  Wenn `undefined` UND `clientEntry` gesetzt: resolve die
-   *  `@cosmicdrift/kumiko-renderer-web/styles.css`-Default via Package-Exports.
-   *  So muss kein Sample mehr den monorepo-relativen Pfad
-   *  ../../packages/renderer-web/src/styles.css hardcoden.
+   *  When `undefined` and a client entry is set, the app's own
+   *  src/styles.css wins, otherwise `@cosmicdrift/kumiko-renderer-web/styles.css`
+   *  resolves via package exports, so no sample hardcodes a monorepo-relative path.
    *
-   *  `stylesheet: false` → CSS-Pipeline explizit deaktivieren. */
+   *  `stylesheet: false` disables the CSS pipeline. */
   readonly stylesheet?: string | false;
+  /** `true`: the Tailwind CLI keeps running with `--watch` after the
+   *  initial build. `false`: CSS is built once at boot, no watcher.
+   *  When `undefined`, env `KUMIKO_DEV_STYLESHEET_WATCH=0` means `false`,
+   *  anything else `true`. `defineAppE2eConfig` sets that env: Tailwind v4
+   *  subscribes to the whole app cwd without a gitignore filter, so every
+   *  Playwright artifact write under test-results/ would trigger a rebuild. */
+  readonly stylesheetWatch?: boolean;
   /** Optional HTML template served at `GET /`. The dev-server injects
    *  a `<script type="module" src="/client.js">` and a reload-listener
    *  snippet into `</body>` if those aren't already there. Defaults to a
@@ -258,6 +264,10 @@ export type KumikoServerHandle = {
 
 const CSRF_COOKIE = "kumiko_csrf";
 const AUTH_COOKIE = "kumiko_auth";
+
+// Duplicated in packages/testing/src/e2e/constants.ts: the Playwright config
+// runs under Node and cannot import this module.
+export const STYLESHEET_WATCH_ENV = "KUMIKO_DEV_STYLESHEET_WATCH";
 
 // Reload snippet injected into every page-load so the browser
 // subscribes to /_reload without the HTML needing to hard-code it.
@@ -661,12 +671,24 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
   }
 }
 
-// Startet den Tailwind-CLI als watch-Prozess. Failure-Mode ist
-// non-fatal (return undefined): kann der CLI nicht resolved werden
-// oder failt der initial-Build (z.B. flakiges Netz, fehlende
-// Dependency), bootet der Server ohne CSS statt zu sterben.
-async function startTailwindWatcher(
+// The E2E template can only reach an app's own server entry through its env,
+// so the env has to count whenever the option is left undefined.
+//
+// @internal — exported for unit tests only, not re-exported from the index.
+export function resolveStylesheetWatch(
+  options: Pick<CreateKumikoServerOptions, "stylesheetWatch">,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  if (options.stylesheetWatch !== undefined) return options.stylesheetWatch;
+  return env[STYLESHEET_WATCH_ENV] !== "0";
+}
+
+// Non-fatal by design (returns undefined): if the CLI can't be resolved or
+// the initial build fails (flaky network, missing dependency), the server
+// boots without CSS instead of dying.
+async function startTailwindPipeline(
   entryCss: string,
+  { watch }: { readonly watch: boolean },
 ): Promise<{ outPath: string; kill: () => void } | undefined> {
   const bunResolver = hasBun
     ? (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun
@@ -681,7 +703,11 @@ async function startTailwindWatcher(
   }
   const outDir = mkdtempSync(join(tmpdir(), "kumiko-tw-"));
   const outPath = join(outDir, "styles.css");
-  logInfo(`[kumiko-server] tailwind watcher → ${outPath}`);
+  logInfo(
+    watch
+      ? `[kumiko-server] tailwind watcher → ${outPath}`
+      : `[kumiko-server] tailwind one-shot build → ${outPath}`,
+  );
   const bunPath = process.argv[0] ?? "bun";
   // Initial-Build blockend, damit der erste /styles.css-Request kein
   // 404 bekommt. Dann den watcher im Hintergrund mit unref() — sonst
@@ -700,6 +726,9 @@ async function startTailwindWatcher(
   } catch (err) {
     logError("[kumiko-server] tailwind one-shot-build fehlgeschlagen — booting ohne CSS:", err);
     return undefined;
+  }
+  if (!watch) {
+    return { outPath, kill: () => {} };
   }
   const watcher = spawn(bunPath, ["run", cliPath, "-i", entryCss, "-o", outPath, "--watch"], {
     stdio: "inherit",
@@ -775,21 +804,20 @@ export async function createKumikoServer(
   }
 
   // --- Tailwind stylesheet (optional) ---
-  // Tailwind-CLI läuft im watch-mode, schreibt in ein temp-file, der
-  // dev-server liest es bei jedem /styles.css-Request frisch. Nicht
-  // Super-Performant, aber keine in-memory-Signal-Gymnastik nötig
-  // und der Browser-Reload kommt eh nur nach Bundle-Rebuild.
+  // The Tailwind CLI writes to a temp file that every /styles.css request
+  // reads fresh: no in-memory signalling needed, and the browser only
+  // reloads after a bundle rebuild anyway.
   //
-  // Default-Resolution: wenn kein `stylesheet` übergeben und ein
-  // `clientEntry` existiert, resolve die styles.css aus
-  // `@cosmicdrift/kumiko-renderer-web` via Package-Exports. Bun.resolveSync liefert
-  // einen absoluten Pfad — funktioniert sowohl im Monorepo (Workspace-
-  // Link) als auch in einer installierten Fremd-App (node_modules).
+  // Without an explicit `stylesheet`, the default resolves through the
+  // package exports of `@cosmicdrift/kumiko-renderer-web`, which works both
+  // for a workspace link and for an installed app (node_modules).
   let stylesheetPath: string | undefined;
   let killTailwind: (() => void) | undefined;
   const resolvedStylesheet = resolveStylesheet(options);
   if (resolvedStylesheet !== undefined) {
-    const handle = await startTailwindWatcher(resolvedStylesheet);
+    const handle = await startTailwindPipeline(resolvedStylesheet, {
+      watch: resolveStylesheetWatch(options),
+    });
     if (handle !== undefined) {
       stylesheetPath = handle.outPath;
       killTailwind = handle.kill;

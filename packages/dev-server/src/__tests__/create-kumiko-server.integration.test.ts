@@ -17,7 +17,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { z } from "zod";
-import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
+import {
+  createKumikoServer,
+  type KumikoServerHandle,
+  STYLESHEET_WATCH_ENV,
+} from "../create-kumiko-server";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -466,6 +470,45 @@ describe("createKumikoServer — stylesheet tailwind failure (graceful)", () => 
       expect(cssRes.status).toBe(404);
       expect(await cssRes.text()).toBe("no stylesheet");
     } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("createKumikoServer — stylesheet watch disabled via env", () => {
+  test("KUMIKO_DEV_STYLESHEET_WATCH=0 serves the built CSS and never spawns a --watch process", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-css-no-watch-"));
+    const entryCss = join(tmpDir, "styles.css");
+    // Plain CSS, no `@import "tailwindcss"` — the marker property survives
+    // the Tailwind CLI/lightningcss pass unchanged, unlike a color value
+    // which lightningcss may renormalize.
+    writeFileSync(entryCss, ".kumiko-probe { --probe-marker: 42; }\n");
+    const previousWatchEnv = process.env[STYLESHEET_WATCH_ENV];
+    process.env[STYLESHEET_WATCH_ENV] = "0";
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        stylesheet: entryCss,
+      });
+
+      const cssRes = await handle.fetch(new Request("http://localhost/styles.css"));
+      expect(cssRes.status).toBe(200);
+      const css = await cssRes.text();
+      expect(css).toContain("--probe-marker: 42");
+
+      // -ww: unwrapped, full argv — a truncated args column would make the
+      // negative assert below pass vacuously. The pid check proves ps
+      // actually returned live process rows on this machine/CI runner.
+      const ps = Bun.spawnSync(["ps", "-A", "-ww", "-o", "pid=,args="]);
+      const psOutput = ps.stdout.toString();
+      const lines = psOutput.split("\n");
+      expect(lines.some((line) => line.includes(String(process.pid)))).toBe(true);
+      expect(lines.some((line) => line.includes(entryCss) && line.includes("--watch"))).toBe(false);
+    } finally {
+      if (previousWatchEnv === undefined) delete process.env[STYLESHEET_WATCH_ENV];
+      else process.env[STYLESHEET_WATCH_ENV] = previousWatchEnv;
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });

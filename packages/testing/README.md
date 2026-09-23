@@ -44,6 +44,9 @@ test("member sees the note", async ({ seedTenant, page }) => {
   workers (`KUMIKO_E2E_WORKERS` overrides) are fixed by the template; projects cannot set them.
 - The seed routes answer only with `KUMIKO_TEST_SEED=1`, outside `NODE_ENV=production`, and with the
   per-run `KUMIKO_TEST_SEED_TOKEN` in the `x-kumiko-test-seed` header. `defineAppE2eConfig` sets all three.
+- The template also sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server builds the app's CSS once and
+  never starts a Tailwind `--watch` process — that watcher would otherwise treat every Playwright artifact
+  write under `test-results/` as a rebuild trigger.
 - App roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })` lets `tenant.addUser(["TenantMember"])` seed them;
   `SystemAdmin` is never seedable and makes the route builder throw.
 - A `SeedPart` receives `{ tenant }` and works against the in-process `seedTenant` and the HTTP tenant alike.
