@@ -6,6 +6,7 @@ import {
   defineFeature,
   EXT_TENANT_DATA,
   EXT_USER_DATA,
+  type ExtensionOptionsArgs,
   type ExtensionOptionsFor,
   type TenantDataDestroyHook,
   type TenantDataHookCtx,
@@ -36,6 +37,14 @@ test("useExtension rejects a tenantData destroy hook with the #3196 wrong ctx sh
   expectTypeOf<
     (ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => Promise<void>
   >().not.toExtend<TenantDataDestroyHook>();
+});
+
+test("useExtension requires options for a known extension name — omitting them is a type error", () => {
+  defineFeature("probe-tenant-data-missing-options", (r) => {
+    // @ts-expect-error tenantData's options are mandatory — a bare (name, entity) call registered no hook, silently.
+    r.useExtension(EXT_TENANT_DATA, "x");
+  });
+  expectTypeOf<[]>().not.toExtend<ExtensionOptionsArgs<typeof EXT_TENANT_DATA>>();
 });
 
 test("useExtension infers the destroy hook's ctx type from context (positional form, no annotation)", () => {
@@ -184,6 +193,15 @@ test("useExtension accepts an unknown extension name with an arbitrary options b
       entityName: "x",
       options: { anything: 42, goes: "here" },
     }),
+  );
+});
+
+test("useExtension accepts an unknown extension name with no options at all", () => {
+  const feature = defineFeature("probe-unknown-name-no-options", (r) => {
+    r.useExtension("someOtherAppPoint", "x");
+  });
+  expect(feature.extensionUsages).toContainEqual(
+    expect.objectContaining({ extensionName: "someOtherAppPoint", entityName: "x" }),
   );
 });
 

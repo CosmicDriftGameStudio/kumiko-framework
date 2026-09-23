@@ -24,7 +24,7 @@ import type {
 } from "./define-handler";
 import type { RegisterEntityCrudOptions } from "./entity-handlers";
 import type { EntityTableMeta } from "./entity-table-meta-types";
-import type { ExtensionOptionsFor } from "./extension-options-map";
+import type { ExtensionOptionsArgs, ExtensionOptionsFor } from "./extension-options-map";
 import type { EntityDefinition } from "./fields";
 import type {
   AccessRule,
@@ -657,7 +657,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   useExtension<N extends string>(
     extensionName: N,
     entity: NameOrRef,
-    options?: ExtensionOptionsFor<N>,
+    ...options: ExtensionOptionsArgs<N>
   ): void;
   useExtension<N extends string>(
     definition: { readonly name: N; readonly entity: NameOrRef } & ExtensionOptionsFor<N>,

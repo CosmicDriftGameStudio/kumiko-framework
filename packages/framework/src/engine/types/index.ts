@@ -74,6 +74,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/event-type-map";
 // Cross-Feature Compile-Time-Type-Map for r.useExtension options — mirrors KumikoEventTypeMap above.
 export type {
+  ExtensionOptionsArgs,
   ExtensionOptionsFor,
   KumikoExtensionOptionsMap,
 } from "@cosmicdrift/kumiko-types/extension-options-map";

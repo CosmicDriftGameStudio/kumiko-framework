@@ -393,6 +393,7 @@ export type {
   EscapeHatchTarget,
   EscapeHatchUseEvent,
   EventDef,
+  ExtensionOptionsArgs,
   ExtensionOptionsFor,
   FeatureDefinition,
   FeatureRegistrar,

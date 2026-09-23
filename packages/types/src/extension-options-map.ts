@@ -14,3 +14,8 @@ export interface KumikoExtensionOptionsMap {}
 export type ExtensionOptionsFor<N extends string> = N extends keyof KumikoExtensionOptionsMap
   ? KumikoExtensionOptionsMap[N] & { readonly escapeHatch?: EscapeHatchDeclaration }
   : Record<string, unknown>;
+
+/** Rest-tuple for useExtension's positional options arg: required for an augmented name, optional otherwise. */
+export type ExtensionOptionsArgs<N extends string> = N extends keyof KumikoExtensionOptionsMap
+  ? [options: ExtensionOptionsFor<N>]
+  : [options?: Record<string, unknown>];
