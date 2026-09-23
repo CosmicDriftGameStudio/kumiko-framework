@@ -4,9 +4,6 @@
 #
 # Aufruf: bun test --config=bunfig.dom.toml --timeout=15000 .test.tsx
 # (bun filtert positional args als Substring auf den Dateipfad.)
-#
-# concurrency=1: shared single-process happy-dom kollidiert unter
-# Parallelität (RAM + React event delegation, #457).
 
 [install]
 linker = "hoisted"
@@ -21,12 +18,12 @@ preload = [
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
   "./test-setup/dom.preload.ts",
 ]
-concurrency = 1
-# No `timeout` key here: bun's bunfig parser has no such key in its [test]
-# section and ignores it silently (#3078, same as #2796 for the integration
-# config). The real 15s budget is `--timeout=15000` on every
-# `bun test --config=bunfig.dom.toml` call — package.json `test:dom` and the
-# DOM steps in bin/kumiko-legacy.ts.
+# No `timeout` or `concurrency` key here: bun's bunfig parser has neither
+# key in its [test] section and ignores both silently (#3078, same as #2796
+# for the integration config). The real 15s budget is `--timeout=15000` on
+# every `bun test --config=bunfig.dom.toml` call — package.json `test:dom`
+# and the DOM steps in bin/kumiko-legacy.ts. Without `--concurrent`, tests
+# run sequentially anyway.
 
 # Coverage für den Badge-Merge — der dom-Lauf ist der EINZige, der die
 # tsx-abgedeckten UI-Dateien (renderer-web, widgets, bundled-features web)

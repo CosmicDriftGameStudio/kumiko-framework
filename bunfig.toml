@@ -14,7 +14,6 @@ preload = [
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
 ]
-concurrency = 8
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet

@@ -22,4 +22,3 @@ preload = [
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
   "./test-setup/dom.preload.ts",
 ]
-concurrency = 1

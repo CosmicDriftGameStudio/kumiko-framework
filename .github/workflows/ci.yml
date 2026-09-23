@@ -299,8 +299,8 @@ jobs:
 
   # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
   # umbenennen. Fährt die ~213
-  # *.integration.test.ts via scripts/run-integration-tests.ts (dir-by-dir,
-  # concurrency=1) gegen den vollen Stack. Wall-clock perf gates laufen
+  # *.integration.test.ts via scripts/run-integration-tests.ts (dir-by-dir)
+  # gegen den vollen Stack. Wall-clock perf gates laufen
   # separat via `test:integration:perf` (KUMIKO_PERF_GATE=1). Der env-Preload von @cosmicdrift/kumiko-testing
   # setzt die localhost-Env-Defaults selbst (kein --env-file nötig).
   # cdgs-runner hat die docker-CLI aber kein compose-v2-Plugin → `docker run`

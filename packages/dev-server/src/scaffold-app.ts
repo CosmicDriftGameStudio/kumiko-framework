@@ -348,7 +348,6 @@ function renderBunfigToml(): string {
 linker = "hoisted"
 
 [test]
-concurrency = 8
 pathIgnorePatterns = [
   "**/e2e/**",
   "**/*.spec.ts",
@@ -362,7 +361,6 @@ function renderBunfigCiToml(): string {
 linker = "hoisted"
 
 [test]
-concurrency = 8
 pathIgnorePatterns = [
   "**/e2e/**",
   "**/*.spec.ts",
