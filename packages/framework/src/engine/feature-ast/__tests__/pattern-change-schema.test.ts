@@ -437,3 +437,208 @@ defineFeature("inventory", (r) => {
     expect(handler?.handlerBody?.raw).toBe("async (event, ctx) => { return { ok: true }; }");
   });
 });
+
+describe('parsePatternChanges — op: "update"', () => {
+  test("F11-form: set access only, no schema/handler body", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { access: { roles: ["TenantAdmin"] } },
+      },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.changes).toEqual([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { access: { roles: ["TenantAdmin"] } },
+      },
+    ]);
+  });
+
+  test("set.handlerBody / set.schemaSource are not header fields — rejected", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { handlerBody: "async () => {}", schemaSource: "z.object({})" },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    const paths = result.issues.map((i) => i.path);
+    expect(paths).toContain("changes[0].set.handlerBody");
+    expect(paths).toContain("changes[0].set.schemaSource");
+  });
+
+  test("id.kind not writeHandler/queryHandler/streamHandler is rejected at id.kind", () => {
+    const result = parsePatternChanges([
+      { op: "update", id: { kind: "entity", entityName: "item" }, set: { access: {} } },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues).toContainEqual(expect.objectContaining({ path: "changes[0].id.kind" }));
+  });
+
+  test("overlap between set and unset is rejected at unset[j]", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { description: "new" },
+        unset: ["description"],
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ path: "changes[0].unset[0]", message: "key is also in set" }),
+    );
+  });
+
+  test("empty set and unset is rejected at changes[i].set", () => {
+    const result = parsePatternChanges([
+      { op: "update", id: { kind: "writeHandler", handlerName: "x" } },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues).toContainEqual(expect.objectContaining({ path: "changes[0].set" }));
+  });
+
+  test('unset: ["access"] is rejected — access is required', () => {
+    const result = parsePatternChanges([
+      { op: "update", id: { kind: "writeHandler", handlerName: "x" }, unset: ["access"] },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        path: "changes[0].unset[0]",
+        message: "access is required and cannot be unset",
+      }),
+    );
+  });
+
+  test("invalid access value is rejected at changes[i].set.access...", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { access: { roles: "Admin" } },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues.some((i) => i.path.startsWith("changes[0].set.access"))).toBe(true);
+  });
+
+  test("streamHandler rejects set.description — not a streamHandler header field", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "streamHandler", handlerName: "x" },
+        set: { description: "not allowed" },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ path: "changes[0].set.description" }),
+    );
+  });
+
+  test("end-to-end: parsePatternChanges → applyChanges → re-parse", () => {
+    const starter = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("inventory", (r) => {
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { openToAll: { reason: "test" } },
+  });
+});
+`;
+    const parsed = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "item:create" },
+        set: { access: { roles: ["TenantAdmin"] } },
+      },
+    ]);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected an ok result");
+
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      skipFileDependencyResolution: true,
+      useInMemoryFileSystem: true,
+    });
+    const sf = project.createSourceFile("e2e.ts", starter);
+    applyChanges(sf, parsed.changes);
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    expect(reparsed.patterns.find((p) => p.kind === "writeHandler")).toMatchObject({
+      access: { roles: ["TenantAdmin"] },
+    });
+  });
+});
+
+describe("escapeHatch.reason must be non-empty after trim", () => {
+  test("update rejects a whitespace-only reason", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { escapeHatch: { reason: "  " } },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues.some((i) => i.path.startsWith("changes[0].set.escapeHatch"))).toBe(true);
+  });
+
+  test("add rejects a whitespace-only reason", () => {
+    const result = parsePatternChanges([
+      {
+        op: "add",
+        pattern: {
+          kind: "writeHandler",
+          handlerName: "x",
+          schemaSource: "z.object({})",
+          handlerBody: "async () => {}",
+          escapeHatch: { reason: "   " },
+        },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues.some((i) => i.path === "changes[0].pattern.escapeHatch.reason")).toBe(
+      true,
+    );
+  });
+
+  test("replace rejects a whitespace-only reason", () => {
+    const result = parsePatternChanges([
+      {
+        op: "replace",
+        id: { kind: "writeHandler", handlerName: "x" },
+        pattern: {
+          kind: "writeHandler",
+          handlerName: "x",
+          schemaSource: "z.object({})",
+          handlerBody: "async () => {}",
+          escapeHatch: { reason: "\t" },
+        },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues.some((i) => i.path === "changes[0].pattern.escapeHatch.reason")).toBe(
+      true,
+    );
+  });
+});
