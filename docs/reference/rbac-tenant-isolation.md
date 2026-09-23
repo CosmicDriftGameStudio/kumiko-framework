@@ -135,6 +135,17 @@ binding that feature code cannot import.
 | `ctx.queryProjection(qn, { unsafeAllTenants: true })` | Call | Lifts the `tenant_id` filter on that one projection query | No — today ungated beyond the caller's own access (tracked as a follow-up issue) | A query handler that must aggregate a projection across every tenant |
 | Jobs, extension hooks, MSP `apply` | Framework-provided | A `DbRunner`/`TenantDb` handed in by construction — there is no `ctx.db.raw` to reach for | N/A | Framework-internal call sites only; feature code never resolves this itself |
 
+`ctx.systemDb` itself exists whenever the *handler* declares `r.systemScope()`.
+That is the grant for the handler's own `unsafeRaw`/`acknowledgeCrossTenant`
+calls; no separate `reason` check applies to the handler. Inside a **hook**
+(e.g. `r.hook("postSave", { allOf }, fn, { escapeHatch })`), the same
+`ctx.systemDb.unsafeRaw(reason)`, including on the `TenantDb` that
+`acknowledgeCrossTenant` hands back, is gated by the *hook's own*
+`escapeHatch: { reason }`, independent of whether the enclosing handler
+declared one. A hook without its own `escapeHatch` gets an `access_denied`
+from `unsafeRaw`, even though `ctx.systemDb` is present and
+`acknowledgeCrossTenant`'s typed CRUD surface still works unconditionally.
+
 `crossTenant: true` on the entity-convention handlers is deprecated: it still
 works, but boot now logs a `deprecation:entity-handler-cross-tenant` warning
 per handler, and its use is audited the same way as `escapeHatch` (also
