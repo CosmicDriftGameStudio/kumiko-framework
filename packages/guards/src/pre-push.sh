@@ -7,7 +7,8 @@
 #      sub-repo only — so a push from one sub-repo doesn't run
 #      Biome/TS/Tests for its siblings as well.
 #   2. Else (standalone clone outside the parent workspace): run the
-#      sub-repo's own package.json `test` script.
+#      sub-repo's own package.json `test` script — refuses the push if that
+#      script is missing.
 #
 # Extension point: a tracked, executable scripts/pre-push-extra.sh runs
 # before the main check in every branch above, with KUMIKO_PUSH_REPO_ROOT
@@ -88,5 +89,15 @@ else
   # `bun test` globs everything the default bunfig doesn't exclude, including
   # integration tests; the package.json `test` script carries the repo's own
   # exclusions (e.g. integration suites needing infra this hook doesn't have).
+  # A missing `test` script would otherwise surface as bun's unhelpful
+  # "Script not found" — check it up front with a clear, actionable message.
+  if ! (cd "$REPO_ROOT" && bun -e '
+    const pkg = await Bun.file("package.json").json().catch(() => null);
+    process.exit(pkg && typeof pkg.scripts?.test === "string" ? 0 : 1);
+  ' >/dev/null 2>&1); then
+    echo "[pre-push] FATAL: standalone clone without a package.json \"test\" script — nothing to run, refusing push." >&2
+    echo "Add a \"test\" script to package.json, or set PRE_PUSH_SKIP=1 to bypass (use sparingly)." >&2
+    exit 1
+  fi
   cd "$REPO_ROOT" && bun run test
 fi
