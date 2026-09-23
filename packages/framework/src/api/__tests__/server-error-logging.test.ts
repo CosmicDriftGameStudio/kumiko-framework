@@ -27,6 +27,14 @@ const boomFeature = defineFeature("boom", (r) => {
     },
     openToAll,
   );
+  r.writeHandler(
+    "explode",
+    z.object({}),
+    async () => {
+      throw new Error("disk on fire during write");
+    },
+    openToAll,
+  );
   r.queryHandler(
     "decode",
     z.object({}),
@@ -135,6 +143,31 @@ describe("HTTP layer logs unexpected 5xx faults", () => {
       expect(logged).toBeDefined();
       expect(logged).toContain("boom:query:explode"); // which handler 500'd
       expect(logged).toContain("disk on fire"); // the cause — the line that was missing in prod
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("a throwing write 500s AND its cause reaches the log (reraise keeps the cause)", async () => {
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "error").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    try {
+      const res = await app.request("/api/write", {
+        method: "POST",
+        headers: await auth(),
+        body: JSON.stringify({ type: "boom:write:explode", payload: {} }),
+      });
+      expect(res.status).toBe(500);
+      const hit = calls.find(
+        (args) => typeof args[0] === "string" && args[0].includes("[api] handler failed"),
+      );
+      const data = hit?.[1];
+      expect(isRecord(data)).toBe(true);
+      if (!isRecord(data)) return;
+      expect(data["type"]).toBe("boom:write:explode");
+      expect(data["cause"]).toBe("disk on fire during write");
     } finally {
       spy.mockRestore();
     }
