@@ -24,7 +24,8 @@
     }
   },
   "bin": {
-    "kumiko-guards": "./src/cli.ts"
+    "kumiko-guards": "./src/cli.ts",
+    "kumiko-pre-push": "./src/pre-push.sh"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
