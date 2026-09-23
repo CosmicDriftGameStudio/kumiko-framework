@@ -101,6 +101,18 @@ describe("scaffoldApp", () => {
     expect(readFileSync(join(dest, "README.md"), "utf-8")).not.toContain("## Testing");
   });
 
+  test("scaffolded bunfig.toml and bunfig.ci.toml have no [test].concurrency key", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    for (const file of ["bunfig.toml", "bunfig.ci.toml"]) {
+      const parsed = Bun.TOML.parse(readFileSync(join(dest, file), "utf-8")) as {
+        test: Record<string, unknown>;
+      };
+      expect(parsed.test["concurrency"]).toBeUndefined();
+    }
+  });
+
   test("testSetup: factory gets name + version, files land (nested dirs) and are reported", async () => {
     const dest = join(tmp, "my-shop");
     let received: { appName: string; frameworkVersion: string } | undefined;

@@ -9,15 +9,12 @@ linker = "hoisted"
 # Integration runs pull service defaults via bunfig.integration.toml →
 # preload/env. DOM/render tests (*.test.tsx) laufen über
 # bunfig.dom.toml (Issue #1330) — hier wird happy-dom nicht mehr geladen.
-# CI: concurrency=1 — single-CPU cdgs-runner. Local dev keeps concurrency=8
-# in bunfig.toml.
 preload = [
   "@cosmicdrift/kumiko-testing/preload/ci-log",
   "./test-setup/app-define-resolver.ts",
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
 ]
-concurrency = 1
 
 # lcov für Codecov-Upload (README-Badge). Kein coverageThreshold gesetzt —
 # der defaultet pro Metrik auf 100% und würde den Run failen.
