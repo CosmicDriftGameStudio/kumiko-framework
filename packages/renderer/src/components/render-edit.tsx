@@ -1134,12 +1134,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         values={snapshot.values}
       />
     ) : undefined;
-  // A projectionDetail is read-only by contract (projection-detail-shim.ts), but its
-  // synthesized entity is empty when every section is an extension or relatedList,
-  // which would otherwise trip the fieldless-form branch and draw a no-op Save.
-  const showsSubmit =
-    screen.entity !== PROJECTION_DETAIL_ENTITY &&
-    (isFormEditable || hasExtensionRegistrations || isFieldless);
+  // A projectionDetail's synthesized entity is empty when every section is an
+  // extension or relatedList; that is not a fieldless submit form, so it must not
+  // draw a no-op Save. Extension registrations still get their Save, since
+  // persistExtensions() runs on the customSubmit path too.
+  const isFieldlessSubmitForm = isFieldless && screen.entity !== PROJECTION_DETAIL_ENTITY;
+  const showsSubmit = isFormEditable || hasExtensionRegistrations || isFieldlessSubmitForm;
   const footerSlot = screen.slots?.footer;
   // Mirrors every branch inside formActions below — without this guard
   // DefaultForm renders an empty footer strip (border + padding, no content)
