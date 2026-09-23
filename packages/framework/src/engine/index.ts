@@ -178,6 +178,7 @@ export type {
   FormFieldLabel,
   FormFieldSpec,
   FormInputType,
+  HandlerHeaderUpdate,
   ParseError,
   ParseResult,
   PatternCategory,
@@ -203,6 +204,7 @@ export {
   renderFeatureFile,
   renderPattern,
   replacePattern,
+  updatePattern,
   VERSION_HEADER,
 } from "./feature-ast";
 export {

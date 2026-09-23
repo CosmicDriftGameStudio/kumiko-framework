@@ -45,7 +45,13 @@ import type { WorkspaceDefinition } from "../types/workspace";
 import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "./entity-field-types";
 import { AGENT_RISK_VALUES } from "./extractors/handlers";
 import { isPlainObject, isRawRefSentinel } from "./extractors/shared";
-import type { PatternChange, PatternId } from "./patch";
+import type {
+  PatternChange,
+  PatternId,
+  QueryHandlerHeaderKey,
+  StreamHandlerHeaderKey,
+  WriteHandlerHeaderKey,
+} from "./patch";
 import { SYNTHETIC_LOC } from "./patcher";
 import type { FeaturePatternKind } from "./patterns";
 import type { SourceLocation, SourcePosition } from "./source-location";
@@ -189,7 +195,13 @@ const mspDeliverySchema = z.enum(
   keysOf<"shared" | "per-instance">({ shared: true, "per-instance": true }),
 );
 
-const escapeHatchSchema = z.object({ reason: z.string() }).strict();
+const escapeHatchSchema = z
+  .object({
+    reason: z.string().refine((s) => s.trim().length > 0, {
+      message: "reason must be non-empty",
+    }),
+  })
+  .strict();
 
 const rateLimitOptionSchema = z
   .object({
@@ -232,29 +244,53 @@ const openToAllAccessRuleSchema = z
 
 const accessRuleSchema = z.union([roleAccessRuleSchema, openToAllAccessRuleSchema]);
 
-// Header keys per handler kind, i.e. every field besides
-// kind/source/handlerName/schemaSource/handlerBody — used to reject an
-// opaque handler reference (no handlerName/schemaSource/handlerBody) that
-// also carries a header field. The renderer only ever emits `source.raw`
-// verbatim for that shape (render.ts's handler fallback), so a header set
-// alongside it would be silently dropped, never reaching the rendered
-// file — reject it at the boundary instead (secure/complete by default).
-const WRITE_HANDLER_HEADER_KEYS = [
-  "access",
-  "description",
-  "agent",
-  "rateLimit",
-  "unsafeSkipTransitionGuard",
-  "escapeHatch",
-] as const;
-const QUERY_HANDLER_HEADER_KEYS = [
-  "access",
-  "description",
-  "agent",
-  "rateLimit",
-  "escapeHatch",
-] as const;
-const STREAM_HANDLER_HEADER_KEYS = ["access", "rateLimit"] as const;
+// Header keys per handler kind — drift pin against patch.ts's *HeaderKey
+// types (via `satisfies`), and the source the schemas below derive from.
+const WRITE_HANDLER_HEADER_SHAPE = {
+  access: accessRuleSchema,
+  description: z.string(),
+  agent: agentHandlerHintsSchema,
+  rateLimit: rateLimitOptionSchema,
+  unsafeSkipTransitionGuard: z.boolean(),
+  escapeHatch: escapeHatchSchema,
+} satisfies Record<WriteHandlerHeaderKey, z.ZodTypeAny>;
+const QUERY_HANDLER_HEADER_SHAPE = {
+  access: accessRuleSchema,
+  description: z.string(),
+  agent: agentHandlerHintsSchema,
+  rateLimit: rateLimitOptionSchema,
+  escapeHatch: escapeHatchSchema,
+} satisfies Record<QueryHandlerHeaderKey, z.ZodTypeAny>;
+const STREAM_HANDLER_HEADER_SHAPE = {
+  access: accessRuleSchema,
+  rateLimit: rateLimitOptionSchema,
+} satisfies Record<StreamHandlerHeaderKey, z.ZodTypeAny>;
+
+const WRITE_HANDLER_HEADER_KEYS = z.object(WRITE_HANDLER_HEADER_SHAPE).keyof().options;
+const QUERY_HANDLER_HEADER_KEYS = z.object(QUERY_HANDLER_HEADER_SHAPE).keyof().options;
+const STREAM_HANDLER_HEADER_KEYS = z.object(STREAM_HANDLER_HEADER_SHAPE).keyof().options;
+
+// `update`'s set-schema — every header field optional, no handlerName/
+// schemaSource/handlerBody/kind/source, and `.strict()` so an unknown key
+// (e.g. a nested `access` under `definition`) is reported instead of
+// silently ignored.
+const WRITE_HANDLER_UPDATE_SET_SCHEMA = z.object(WRITE_HANDLER_HEADER_SHAPE).partial().strict();
+const QUERY_HANDLER_UPDATE_SET_SCHEMA = z.object(QUERY_HANDLER_HEADER_SHAPE).partial().strict();
+const STREAM_HANDLER_UPDATE_SET_SCHEMA = z.object(STREAM_HANDLER_HEADER_SHAPE).partial().strict();
+
+// `unset` may name any header field except `access` (always required).
+const WRITE_HANDLER_UPDATE_UNSET_ENUM = z
+  .object(WRITE_HANDLER_HEADER_SHAPE)
+  .omit({ access: true })
+  .keyof();
+const QUERY_HANDLER_UPDATE_UNSET_ENUM = z
+  .object(QUERY_HANDLER_HEADER_SHAPE)
+  .omit({ access: true })
+  .keyof();
+const STREAM_HANDLER_UPDATE_UNSET_ENUM = z
+  .object(STREAM_HANDLER_HEADER_SHAPE)
+  .omit({ access: true })
+  .keyof();
 
 function requireHandlerBody(
   val: {
@@ -534,12 +570,7 @@ const writeHandlerSchema = z
     handlerName: z.string().optional(),
     schemaSource: sourceBodySchema.optional(),
     handlerBody: sourceBodySchema.optional(),
-    access: accessRuleSchema.optional(),
-    description: z.string().optional(),
-    agent: agentHandlerHintsSchema.optional(),
-    rateLimit: rateLimitOptionSchema.optional(),
-    unsafeSkipTransitionGuard: z.boolean().optional(),
-    escapeHatch: escapeHatchSchema.optional(),
+    ...z.object(WRITE_HANDLER_HEADER_SHAPE).partial().shape,
   })
   .strict()
   .superRefine((val, ctx) => requireHandlerBody(val, ctx, WRITE_HANDLER_HEADER_KEYS));
@@ -551,11 +582,7 @@ const queryHandlerSchema = z
     handlerName: z.string().optional(),
     schemaSource: sourceBodySchema.optional(),
     handlerBody: sourceBodySchema.optional(),
-    access: accessRuleSchema.optional(),
-    description: z.string().optional(),
-    agent: agentHandlerHintsSchema.optional(),
-    rateLimit: rateLimitOptionSchema.optional(),
-    escapeHatch: escapeHatchSchema.optional(),
+    ...z.object(QUERY_HANDLER_HEADER_SHAPE).partial().shape,
   })
   .strict()
   .superRefine((val, ctx) => requireHandlerBody(val, ctx, QUERY_HANDLER_HEADER_KEYS));
@@ -567,8 +594,7 @@ const streamHandlerSchema = z
     handlerName: z.string().optional(),
     schemaSource: sourceBodySchema.optional(),
     handlerBody: sourceBodySchema.optional(),
-    access: accessRuleSchema.optional(),
-    rateLimit: rateLimitOptionSchema.optional(),
+    ...z.object(STREAM_HANDLER_HEADER_SHAPE).partial().shape,
   })
   .strict()
   .superRefine((val, ctx) => requireHandlerBody(val, ctx, STREAM_HANDLER_HEADER_KEYS));
@@ -1051,11 +1077,176 @@ const removeChangeSchema = z
   })
   .strict();
 
+// `set`/`unset` are validated loosely here; the real per-kind check happens
+// in a second pass once `id.kind` is known (see parseUpdateChange).
+const updateChangeSchema = z
+  .object({
+    op: z.literal("update"),
+    id: patternIdSchema,
+    set: z.record(z.string(), z.unknown()).optional(),
+    unset: z.array(z.string()).optional(),
+    rationale: z.string().optional(),
+  })
+  .strict();
+
 const changeSchema = z.discriminatedUnion("op", [
   addChangeSchema,
   replaceChangeSchema,
   removeChangeSchema,
+  updateChangeSchema,
 ]);
+
+function prefixIssuePath(
+  issues: readonly z.core.$ZodIssue[],
+  prefix: PropertyKey,
+): z.core.$ZodIssue[] {
+  return issues.map((issue) => ({ ...issue, path: [prefix, ...issue.path] }));
+}
+
+// Shared per-`unset[j]` checks ("access" is fixed-required, overlap with
+// `set`) ahead of the kind-specific enum parse in parseHeaderSetAndUnset.
+function unsetElementIssue(
+  key: string,
+  j: number,
+  index: number,
+  setKeys: ReadonlySet<string>,
+): PatternChangeIssue | undefined {
+  if (key === "access") {
+    return {
+      path: `changes[${index}].unset[${j}]`,
+      message: "access is required and cannot be unset",
+    };
+  }
+  if (setKeys.has(key)) {
+    return { path: `changes[${index}].unset[${j}]`, message: "key is also in set" };
+  }
+  return undefined;
+}
+
+// Shared set/unset validation for one handler kind's Set-schema/Unset-enum —
+// the only thing that differs per kind (see the switch below).
+function parseHeaderSetAndUnset<
+  SetSchema extends z.ZodType<Record<string, unknown>>,
+  UnsetKey extends string,
+>(
+  setSchema: SetSchema,
+  unsetEnum: z.ZodType<UnsetKey>,
+  kindLabel: string,
+  value: z.output<typeof updateChangeSchema>,
+  index: number,
+  rawItem: unknown,
+):
+  | { readonly ok: true; readonly set: z.output<SetSchema>; readonly unset: readonly UnsetKey[] }
+  | { readonly ok: false; readonly issues: readonly PatternChangeIssue[] } {
+  const issues: PatternChangeIssue[] = [];
+  const setResult = setSchema.safeParse(value.set ?? {});
+  if (!setResult.success) {
+    issues.push(...formatZodIssues(prefixIssuePath(setResult.error.issues, "set"), index, rawItem));
+  }
+  const setKeys = new Set(Object.keys(value.set ?? {}));
+  const unsetInput = value.unset ?? [];
+  const validatedUnset: UnsetKey[] = [];
+  unsetInput.forEach((key, j) => {
+    const preIssue = unsetElementIssue(key, j, index, setKeys);
+    if (preIssue) {
+      issues.push(preIssue);
+      // skip: already reported, no further checks apply to this element
+      return;
+    }
+    const parsed = unsetEnum.safeParse(key);
+    if (!parsed.success) {
+      issues.push({
+        path: `changes[${index}].unset[${j}]`,
+        message: `"${key}" is not a header field of ${kindLabel}`,
+      });
+      // skip: already reported, no further checks apply to this element
+      return;
+    }
+    validatedUnset.push(parsed.data);
+  });
+  const hasSet = value.set !== undefined && Object.keys(value.set).length > 0;
+  if (!hasSet && unsetInput.length === 0) {
+    issues.push({
+      path: `changes[${index}].set`,
+      message: "update needs at least one key in set or unset",
+    });
+  }
+  if (!setResult.success || issues.length > 0) return { ok: false, issues };
+  return { ok: true, set: setResult.data, unset: validatedUnset };
+}
+
+// Per-kind switch so `value.id` narrows and `change` needs no cast.
+function parseUpdateChange(
+  value: z.output<typeof updateChangeSchema>,
+  index: number,
+  rawItem: unknown,
+): { readonly change?: PatternChange; readonly issues: readonly PatternChangeIssue[] } {
+  switch (value.id.kind) {
+    case "writeHandler": {
+      const result = parseHeaderSetAndUnset(
+        WRITE_HANDLER_UPDATE_SET_SCHEMA,
+        WRITE_HANDLER_UPDATE_UNSET_ENUM,
+        "writeHandler",
+        value,
+        index,
+        rawItem,
+      );
+      if (!result.ok) return { issues: result.issues };
+      const change: PatternChange = {
+        op: "update",
+        id: value.id,
+        set: result.set,
+        ...(result.unset.length > 0 ? { unset: result.unset } : {}),
+      };
+      return { change, issues: [] };
+    }
+    case "queryHandler": {
+      const result = parseHeaderSetAndUnset(
+        QUERY_HANDLER_UPDATE_SET_SCHEMA,
+        QUERY_HANDLER_UPDATE_UNSET_ENUM,
+        "queryHandler",
+        value,
+        index,
+        rawItem,
+      );
+      if (!result.ok) return { issues: result.issues };
+      const change: PatternChange = {
+        op: "update",
+        id: value.id,
+        set: result.set,
+        ...(result.unset.length > 0 ? { unset: result.unset } : {}),
+      };
+      return { change, issues: [] };
+    }
+    case "streamHandler": {
+      const result = parseHeaderSetAndUnset(
+        STREAM_HANDLER_UPDATE_SET_SCHEMA,
+        STREAM_HANDLER_UPDATE_UNSET_ENUM,
+        "streamHandler",
+        value,
+        index,
+        rawItem,
+      );
+      if (!result.ok) return { issues: result.issues };
+      const change: PatternChange = {
+        op: "update",
+        id: value.id,
+        set: result.set,
+        ...(result.unset.length > 0 ? { unset: result.unset } : {}),
+      };
+      return { change, issues: [] };
+    }
+    default:
+      return {
+        issues: [
+          {
+            path: `changes[${index}].id.kind`,
+            message: `update is not supported for kind "${value.id.kind}"; use replace`,
+          },
+        ],
+      };
+  }
+}
 
 // =============================================================================
 // Issue formatting
@@ -1164,8 +1355,12 @@ export function parsePatternChanges(input: unknown): PatternChangesParseResult {
       changes.push({ op: "add", pattern: value.pattern });
     } else if (value.op === "replace") {
       changes.push({ op: "replace", id: value.id, pattern: value.pattern });
-    } else {
+    } else if (value.op === "remove") {
       changes.push({ op: "remove", id: value.id });
+    } else {
+      const outcome = parseUpdateChange(value, index, item);
+      issues.push(...outcome.issues);
+      if (outcome.change) changes.push(outcome.change);
     }
   });
 
