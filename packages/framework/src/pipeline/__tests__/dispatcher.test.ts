@@ -1082,5 +1082,10 @@ function createMockIdempotencyGuard() {
       pendingTokens.delete(key);
       results.set(key, JSON.stringify(result));
     },
+    async release(tenantId: string, userId: string, requestId: string, token: string) {
+      const key = `${tenantId}:${userId}:${requestId}`;
+      if (pendingTokens.get(key) !== token) return;
+      pendingTokens.delete(key);
+    },
   };
 }
