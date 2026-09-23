@@ -1,21 +1,49 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { LifecycleHookType } from "../../constants";
-import type { AccessRule, EscapeHatchDeclaration, RateLimitOption } from "../../types/handlers";
+import type {
+  AccessRule,
+  EscapeHatchDeclaration,
+  RateLimitDeclaration,
+} from "../../types/handlers";
 import type { HookPhase } from "../../types/hooks";
 import type { AuthClaimsPattern, HookPattern } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
 import {
+  containsRawRefSentinel,
   type ExtractOutput,
   fail,
   findFunctionLiteral,
   isPlainObject,
   ok,
+  type RawRefSentinel,
   readDataLiteralNode,
   readNameLiteral,
   readNameOrRef,
   readNameOrRefOrList,
+  readObjectPropertyInitializer,
 } from "./shared";
+
+export type HeaderReadResult<T> =
+  | { readonly kind: "value"; readonly value: T }
+  | { readonly kind: "raw"; readonly sentinel: RawRefSentinel }
+  | { readonly kind: "unrecognized" };
+
+// Raw-sentinel check runs before recognize: recognize narrows literals and
+// would silently drop a nested reference (e.g. roles array plus a
+// non-literal personalData) that the whole-object narrowing can't see.
+export function readHeaderValueOrRaw<T>(
+  init: Node,
+  recognize: (value: unknown) => T | undefined,
+): HeaderReadResult<T> {
+  const value = readDataLiteralNode(init);
+  if (value === undefined || containsRawRefSentinel(value)) {
+    return { kind: "raw", sentinel: { __raw: init.getText() } };
+  }
+  const recognized = recognize(value);
+  if (recognized === undefined) return { kind: "unrecognized" };
+  return { kind: "value", value: recognized };
+}
 
 export function isHookType(value: string): value is LifecycleHookType | "validation" {
   return (
@@ -56,12 +84,19 @@ export function readOptionalAccessRule(value: unknown): AccessRule | undefined {
   return undefined;
 }
 
-export function readOptionalRateLimit(value: unknown): RateLimitOption | undefined {
+export function readOptionalRateLimit(value: unknown): RateLimitDeclaration | undefined {
   if (!isPlainObject(value)) return undefined;
+  if (value["disabled"] === true) {
+    // Strict shape: exactly { disabled: true, reason } — anything extra
+    // isn't RateLimitDisabled and falls through to "unrecognized".
+    if (typeof value["reason"] !== "string") return undefined;
+    if (Object.keys(value).length !== 2) return undefined;
+    return { disabled: true, reason: value["reason"] };
+  }
   if (typeof value["per"] !== "string") return undefined;
   if (typeof value["limit"] !== "number") return undefined;
   if (typeof value["windowSeconds"] !== "number") return undefined;
-  return value as unknown as RateLimitOption;
+  return value as unknown as RateLimitDeclaration;
 }
 
 export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration | undefined {
@@ -70,17 +105,37 @@ export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration 
   return { reason: value["reason"] };
 }
 
-// Extracts the `escapeHatch` sub-property node first, not via readDataLiteralNode on the whole object — a sibling property like `handler` (a closure) isn't representable as plain data, which would make the whole-object read return undefined.
-export function readOptionalHookEscapeHatch(
+// Reads the `escapeHatch` sub-property node first, not via readDataLiteralNode
+// on the whole object: a sibling property like `handler` (a closure) isn't
+// representable as plain data, which would make the whole-object read
+// return undefined. undefined means the property is absent, not an error.
+function readOptionalHookEscapeHatch(
   node: Node | undefined,
-): EscapeHatchDeclaration | undefined {
+): HeaderReadResult<EscapeHatchDeclaration> | undefined {
   const obj = node?.asKind(SyntaxKind.ObjectLiteralExpression);
   if (!obj) return undefined;
-  const init = obj
-    .getProperty("escapeHatch")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
-  return init ? readOptionalEscapeHatch(readDataLiteralNode(init)) : undefined;
+  const init = readObjectPropertyInitializer(obj, "escapeHatch");
+  if (!init) return undefined;
+  return readHeaderValueOrRaw(init, readOptionalEscapeHatch);
+}
+
+// Resolves the hook's escapeHatch into either a field to spread into the
+// pattern, or a ParseError for a fully literal but unrecognized shape.
+function readHookEscapeHatch(
+  node: Node | undefined,
+  call: CallExpression,
+  sourceFile: SourceFile,
+): { readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel } | ReturnType<typeof fail> {
+  const result = readOptionalHookEscapeHatch(node);
+  if (!result) return {};
+  if (result.kind === "unrecognized") {
+    return fail(
+      "hook",
+      sourceLocationFromNode(call, sourceFile),
+      "escapeHatch must be { reason: string }, or a reference to one",
+    );
+  }
+  return { escapeHatch: result.kind === "value" ? result.value : result.sentinel };
 }
 
 // r.hook's target: a NameOrRef, a list of them, or an entity-wide
@@ -173,7 +228,8 @@ export function extractHook(
       );
     }
     const phase = readOptionalPhase(obj);
-    const escapeHatch = readOptionalHookEscapeHatch(obj);
+    const escapeHatchOutcome = readHookEscapeHatch(obj, call, sourceFile);
+    if ("kind" in escapeHatchOutcome) return escapeHatchOutcome;
     return ok({
       kind: "hook",
       source: sourceLocationFromNode(call, sourceFile),
@@ -181,7 +237,7 @@ export function extractHook(
       target,
       fnBody: sourceLocationFromNode(fn, sourceFile),
       ...(phase !== undefined && { phase }),
-      ...(escapeHatch !== undefined && { escapeHatch }),
+      ...escapeHatchOutcome,
     });
   }
 
@@ -233,7 +289,8 @@ export function extractHook(
     );
   }
   const phase = readOptionalPhase(args[3]);
-  const escapeHatch = readOptionalHookEscapeHatch(args[3]);
+  const escapeHatchOutcome = readHookEscapeHatch(args[3], call, sourceFile);
+  if ("kind" in escapeHatchOutcome) return escapeHatchOutcome;
   return ok({
     kind: "hook",
     source: sourceLocationFromNode(call, sourceFile),
@@ -241,7 +298,7 @@ export function extractHook(
     target,
     fnBody: sourceLocationFromNode(fn, sourceFile),
     ...(phase !== undefined && { phase }),
-    ...(escapeHatch !== undefined && { escapeHatch }),
+    ...escapeHatchOutcome,
   });
 }
 

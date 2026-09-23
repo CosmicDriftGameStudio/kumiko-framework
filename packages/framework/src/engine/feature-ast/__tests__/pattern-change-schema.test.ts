@@ -549,6 +549,35 @@ describe('parsePatternChanges — op: "update"', () => {
     );
   });
 
+  // update.set stays as strict as the extractor's structured output: a
+  // Designer/AI-authored value must be a literal, never a raw reference or
+  // a header shape that only ever comes from parsed source.
+  test("set.access as a raw sentinel is rejected", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { access: { __raw: "ADMIN" } },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues.some((i) => i.path.startsWith("changes[0].set.access"))).toBe(true);
+  });
+
+  test("set.rateLimit as a disabled shape is rejected", () => {
+    const result = parsePatternChanges([
+      {
+        op: "update",
+        id: { kind: "writeHandler", handlerName: "x" },
+        set: { rateLimit: { disabled: true, reason: "x" } },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.issues.some((i) => i.path.startsWith("changes[0].set.rateLimit"))).toBe(true);
+  });
+
   test("end-to-end: parsePatternChanges → applyChanges → re-parse", () => {
     const starter = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -640,5 +669,123 @@ describe("escapeHatch.reason must be non-empty after trim", () => {
     expect(result.issues.some((i) => i.path === "changes[0].pattern.escapeHatch.reason")).toBe(
       true,
     );
+  });
+});
+
+describe("round-trip guard: handler headers authored as references", () => {
+  const SOURCE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { ADMIN } from "./access-consts";
+import { ROLE_X } from "./roles";
+import { REASON } from "./reasons";
+
+const LOCAL = { roles: ["Admin"] };
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: ADMIN,
+    rateLimit: { disabled: true, reason: "x" },
+  });
+
+  r.queryHandler({
+    name: "y",
+    schema: z.object({}),
+    handler: async () => ({}),
+    access: { roles: [ROLE_X] },
+    escapeHatch: { reason: REASON },
+  });
+
+  r.streamHandler({
+    name: "z",
+    schema: z.object({}),
+    handler: async function* () { yield "token"; },
+    access: LOCAL,
+    escapeHatch: { reason: "r" },
+  });
+
+  r.hook("postSave", "z", async (event, ctx) => {}, { escapeHatch: { reason: REASON } });
+});
+`;
+
+  let fileCounter = 0;
+  function makeSourceFile(content: string): SourceFile {
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      skipFileDependencyResolution: true,
+      useInMemoryFileSystem: true,
+    });
+    fileCounter += 1;
+    return project.createSourceFile(`f-${fileCounter}.ts`, content);
+  }
+
+  test("every handler pattern round-trips through parsePatternChanges", () => {
+    const result = parseSourceFile(makeSourceFile(SOURCE));
+    expect(result.errors).toEqual([]);
+    const handlers = result.patterns.filter(
+      (p) =>
+        p.kind === "writeHandler" ||
+        p.kind === "queryHandler" ||
+        p.kind === "streamHandler" ||
+        p.kind === "hook",
+    );
+    expect(handlers).toHaveLength(4);
+    for (const pattern of handlers) {
+      const parsed = parsePatternChanges([{ op: "add", pattern }]);
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) continue;
+      expect(parsed.changes).toEqual([{ op: "add", pattern }]);
+    }
+  });
+
+  test("a raw sentinel with an extra key is rejected", () => {
+    const result = parsePatternChanges([
+      {
+        op: "add",
+        pattern: {
+          kind: "writeHandler",
+          handlerName: "task:create",
+          access: { __raw: "X", extra: 1 },
+          schemaSource: "z.object({})",
+          handlerBody: "async () => {}",
+        },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  test("a rateLimit disabled shape without reason is rejected", () => {
+    const result = parsePatternChanges([
+      {
+        op: "add",
+        pattern: {
+          kind: "writeHandler",
+          handlerName: "task:create",
+          rateLimit: { disabled: true },
+          schemaSource: "z.object({})",
+          handlerBody: "async () => {}",
+        },
+      },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  test("a rateLimit disabled shape with an empty reason is rejected", () => {
+    const result = parsePatternChanges([
+      {
+        op: "add",
+        pattern: {
+          kind: "writeHandler",
+          handlerName: "task:create",
+          rateLimit: { disabled: true, reason: "  " },
+          schemaSource: "z.object({})",
+          handlerBody: "async () => {}",
+        },
+      },
+    ]);
+    expect(result.ok).toBe(false);
   });
 });

@@ -1871,19 +1871,21 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).not.toHaveProperty("agent");
   });
 
-  test("escapeHatch is NOT part of StreamHandlerPattern's runtime shape (StreamHandlerDef has no escapeHatch)", () => {
+  test("escapeHatch is kept on StreamHandlerPattern (StreamHandlerDef carries it)", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.streamHandler({
     name: "chat:complete",
     schema: z.object({ prompt: z.string() }),
     handler: async function* (input, ctx) { yield "token"; },
-    escapeHatch: { reason: "Should be ignored for streamHandler." },
+    escapeHatch: { reason: "Kept for streamHandler." },
   });
 });
 `);
 
-    expect(result.patterns[0]).not.toHaveProperty("escapeHatch");
+    expect(result.patterns[0]).toMatchObject({
+      escapeHatch: { reason: "Kept for streamHandler." },
+    });
   });
 });
 

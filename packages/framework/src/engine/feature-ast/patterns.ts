@@ -71,7 +71,7 @@ import type {
   AgentHandlerHints,
   ClaimKeyType,
   EscapeHatchDeclaration,
-  RateLimitOption,
+  RateLimitDeclaration,
 } from "../types/handlers";
 import type { HookPhase } from "../types/hooks";
 import type { HttpRouteMethod } from "../types/http-route";
@@ -81,6 +81,7 @@ import type { RelationDefinition } from "../types/relations";
 import type { ScreenDefinition } from "../types/screen";
 import type { TreeActionDef } from "../types/tree-node";
 import type { WorkspaceDefinition } from "../types/workspace";
+import type { RawRefSentinel } from "./extractors/shared";
 import type { SourceLocation } from "./source-location";
 
 // =============================================================================
@@ -367,6 +368,10 @@ export type ScreenPattern = {
 // overrides that derivation explicitly (force-show or force-hide);
 // `agent.risk` ("low" | "mid" | "high") classifies the action's blast
 // radius, defaulting to "mid" for a write handler.
+//
+// access/rateLimit/escapeHatch/agent additionally accept a RawRefSentinel
+// for a non-literal value (imported/same-file const, or a sub-value like
+// `personalData: PD`) that would otherwise lose the reference on render.
 export type WriteHandlerPattern = {
   readonly kind: "writeHandler";
   readonly source: SourceLocation;
@@ -384,12 +389,12 @@ export type WriteHandlerPattern = {
   // handlerBody: the closure body as source text. Always opaque — AI
   // generates raw TypeScript, no DSL interpretation.
   readonly handlerBody?: SourceLocation;
-  readonly access?: AccessRule;
+  readonly access?: AccessRule | RawRefSentinel;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
-  readonly rateLimit?: RateLimitOption;
+  readonly agent?: AgentHandlerHints | RawRefSentinel;
+  readonly rateLimit?: RateLimitDeclaration | RawRefSentinel;
   readonly unsafeSkipTransitionGuard?: boolean;
-  readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };
 
 // `r.queryHandler(...)` — registers a read handler: name, Zod input schema,
@@ -408,25 +413,27 @@ export type QueryHandlerPattern = {
   readonly handlerName?: string;
   readonly schemaSource?: SourceLocation;
   readonly handlerBody?: SourceLocation;
-  readonly access?: AccessRule;
+  readonly access?: AccessRule | RawRefSentinel;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
-  readonly rateLimit?: RateLimitOption;
-  readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly agent?: AgentHandlerHints | RawRefSentinel;
+  readonly rateLimit?: RateLimitDeclaration | RawRefSentinel;
+  readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };
 
 // `r.streamHandler(...)` — registers a streaming read handler: name, Zod
-// input schema, async-generator handler closure, plus optional `access` and
-// `rateLimit` rules. Same header/body split and opaque single-reference
-// case as QueryHandlerPattern.
+// input schema, async-generator handler closure, plus optional `access`,
+// `rateLimit`, and `escapeHatch` rules (StreamHandlerDef carries all three
+// at runtime). Same header/body split and opaque single-reference case as
+// QueryHandlerPattern.
 export type StreamHandlerPattern = {
   readonly kind: "streamHandler";
   readonly source: SourceLocation;
   readonly handlerName?: string;
   readonly schemaSource?: SourceLocation;
   readonly handlerBody?: SourceLocation;
-  readonly access?: AccessRule;
-  readonly rateLimit?: RateLimitOption;
+  readonly access?: AccessRule | RawRefSentinel;
+  readonly rateLimit?: RateLimitDeclaration | RawRefSentinel;
+  readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };
 
 // `r.hook(type, target, fn, options?)` — attaches a lifecycle hook
@@ -447,7 +454,7 @@ export type HookPattern = {
   readonly target: string | readonly string[] | { readonly allOf: string };
   readonly fnBody: SourceLocation;
   readonly phase?: HookPhase;
-  readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };
 
 // `r.job(name, options, handler)` — registers a background job, qualified

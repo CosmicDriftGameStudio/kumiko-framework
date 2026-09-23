@@ -332,6 +332,7 @@ const QUERY_HANDLER_HEADER_KEY_FLAGS: Readonly<Record<QueryHandlerHeaderKey, tru
 const STREAM_HANDLER_HEADER_KEY_FLAGS: Readonly<Record<StreamHandlerHeaderKey, true>> = {
   access: true,
   rateLimit: true,
+  escapeHatch: true,
 };
 
 const HEADER_KEY_FLAGS_BY_HANDLER_KIND: Readonly<
