@@ -191,6 +191,19 @@ function writeParentWorkspace(tmp: string): { parentDir: string; repoDir: string
   return { parentDir, repoDir };
 }
 
+function writeWorktreePackageJson(dir: string, scripts: Record<string, string>): void {
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts }));
+}
+
+// Each script writes a marker file in the cwd it ran with, so tests can
+// confirm the worktree branch ran these in the worktree itself.
+const WORKTREE_MARKER_SCRIPTS = {
+  typecheck: "echo MARKER_TYPECHECK > marker-typecheck.txt",
+  lint: "echo MARKER_LINT > marker-lint.txt",
+  test: "echo MARKER_TEST > marker-test.txt",
+  "test:dom": "echo MARKER_TESTDOM > marker-testdom.txt",
+};
+
 describe("kumiko-pre-push", () => {
   let tmp: string;
 
@@ -207,7 +220,7 @@ describe("kumiko-pre-push", () => {
   });
 
   describe("parent-workspace detection", () => {
-    test("worktree under .wt/<name> takes the parent branch with the repo's real name", () => {
+    test("worktree under .wt/<name> without check-wt.sh runs its own package.json scripts, not the parent branch", () => {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
       initGitRepo(repoDir, tmp);
 
@@ -223,12 +236,22 @@ describe("kumiko-pre-push", () => {
           .trim(),
       ).toStartWith(tmp);
 
+      writeWorktreePackageJson(worktreeDir, WORKTREE_MARKER_SCRIPTS);
+
       const { output, exitCode } = runHook(worktreeDir, tmp);
 
-      expect(output).toContain("bun check (scoped: kumiko-framework)");
-      expect(output).toContain("MAIN_KUMIKO_CLI_SCOPE=kumiko-framework");
+      expect(output).toContain("worktree without scripts/check-wt.sh");
+      expect(output).not.toContain("MAIN_CHECK_RAN");
+      expect(output).not.toContain("bun check (scoped:");
       expect(output).not.toContain("scoped: fw-3152");
-      expect(output).not.toContain("MAIN_KUMIKO_CLI_SCOPE=fw-3152");
+      expect(readFileSync(join(worktreeDir, "marker-typecheck.txt"), "utf-8")).toContain(
+        "MARKER_TYPECHECK",
+      );
+      expect(readFileSync(join(worktreeDir, "marker-lint.txt"), "utf-8")).toContain("MARKER_LINT");
+      expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain("MARKER_TEST");
+      expect(readFileSync(join(worktreeDir, "marker-testdom.txt"), "utf-8")).toContain(
+        "MARKER_TESTDOM",
+      );
       expect(exitCode).toBe(0);
     });
 
@@ -295,6 +318,18 @@ describe("kumiko-pre-push", () => {
       expect(output).not.toContain("was not found");
       expect(output).not.toContain("Script not found");
     });
+
+    test("a throwing top-level bunfig preload does not fake a missing test script", () => {
+      const standaloneDir = join(tmp, "standalone-throwing-preload");
+      writeStandaloneRepo(standaloneDir, tmp);
+      writeFileSync(join(standaloneDir, "bunfig.toml"), 'preload = ["./boom.ts"]\n');
+      writeFileSync(join(standaloneDir, "boom.ts"), 'throw new Error("boom");\n');
+
+      const { output } = runHook(standaloneDir, tmp);
+
+      expect(output).not.toContain('without a package.json "test" script');
+      expect(readFileSync(join(standaloneDir, "marker-a.txt"), "utf-8")).toContain("MARKER_A");
+    });
   });
 
   describe("scripts/check-wt.sh", () => {
@@ -314,7 +349,54 @@ describe("kumiko-pre-push", () => {
 
       expect(output).not.toContain("worktree detected");
       expect(output).not.toContain("CHECKWT_RAN");
-      expect(output).toContain("bun check (scoped: kumiko-framework)");
+      expect(output).toContain("worktree without scripts/check-wt.sh");
+      expect(output).not.toContain("MAIN_CHECK_RAN");
+    });
+  });
+
+  describe("worktree without scripts/check-wt.sh runs package.json scripts", () => {
+    function setupWorktree(scripts: Record<string, string>): string {
+      const { parentDir, repoDir } = writeParentWorkspace(tmp);
+      initGitRepo(repoDir, tmp);
+      const worktreeDir = join(parentDir, ".wt", "fw-3152");
+      runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
+      writeWorktreePackageJson(worktreeDir, scripts);
+      return worktreeDir;
+    }
+
+    test("a failing script is reported, but later declared scripts still run", () => {
+      const worktreeDir = setupWorktree({
+        typecheck: "exit 1",
+        test: WORKTREE_MARKER_SCRIPTS.test,
+      });
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).not.toBe(0);
+      expect(output).toContain("[pre-push] worktree check failed: typecheck");
+      expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain("MARKER_TEST");
+    });
+
+    test("undeclared optional scripts are skipped, only test runs", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain("typecheck: no script, skipped");
+      expect(output).toContain("lint: no script, skipped");
+      expect(output).toContain("test:dom: no script, skipped");
+      expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain("MARKER_TEST");
+    });
+
+    test("a worktree without a test script refuses the push", () => {
+      const worktreeDir = setupWorktree({ lint: "true" });
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).not.toBe(0);
+      expect(output).toContain('FATAL: worktree without a package.json "test" script');
+      expect(output).not.toContain("MAIN_CHECK_RAN");
     });
   });
 

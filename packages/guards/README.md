@@ -24,7 +24,12 @@ without their own `node_modules` resolve via the parent install) and fails
 closed with a `bun install` / `PRE_PUSH_SKIP=1` hint when none exists. Inside
 the cosmicdriftgamestudio parent workspace it runs a scoped `bun check` for
 the pushing repo only; in a standalone clone it runs the repo's own
-`package.json` `test` script. Set `PRE_PUSH_SKIP=1` to bypass.
+`package.json` `test` script. From a `.wt/<name>` worktree under the parent
+workspace it runs a tracked `scripts/check-wt.sh` if present, otherwise the
+worktree's own `package.json` scripts `typecheck`, `lint`, `test`, and
+`test:dom` (whichever are declared), directly in the worktree — the parent's
+`bun check` would otherwise check the main checkout instead. Set
+`PRE_PUSH_SKIP=1` to bypass.
 
 Extension point: a tracked, executable `scripts/pre-push-extra.sh` runs
 before the main check in every branch (worktree, parent-scoped, and
