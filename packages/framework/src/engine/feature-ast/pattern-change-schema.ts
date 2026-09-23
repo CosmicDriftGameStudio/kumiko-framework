@@ -290,6 +290,7 @@ function requireHandlerBody(
         });
       }
     }
+    // skip: opaque handler reference carries no name/schema/body to require
     return;
   }
   if (val.handlerName === undefined || val.handlerName.trim().length === 0) {
@@ -1147,6 +1148,7 @@ export function parsePatternChanges(input: unknown): PatternChangesParseResult {
     const result = changeSchema.safeParse(item);
     if (!result.success) {
       issues.push(...formatZodIssues(result.error.issues, index, item));
+      // skip: schema violations already reported as issues
       return;
     }
     const value = result.data;
@@ -1155,6 +1157,7 @@ export function parsePatternChanges(input: unknown): PatternChangesParseResult {
         path: `changes[${index}].pattern.kind`,
         message: `pattern.kind "${value.pattern.kind}" does not match id.kind "${value.id.kind}"`,
       });
+      // skip: id/pattern kind mismatch already reported as an issue
       return;
     }
     if (value.op === "add") {
