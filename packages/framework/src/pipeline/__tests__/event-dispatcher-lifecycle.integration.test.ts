@@ -3,7 +3,7 @@
 //   1. buildServer returns a live eventDispatcher when consumers are wired.
 //   2. dispatcher.start() delivers without explicit runOnce; a handler
 //      slower than pollIntervalMs doesn't queue overlapping passes
-//      (passInFlight serialisation).
+//      (per-consumer in-flight guard).
 //   3. kumiko_event_consumer_lag_events is emitted per pass.
 //
 // History: this file originally also tested r.postEvent's tenant-scoped
@@ -46,7 +46,7 @@ type Observation = {
 };
 let observations: Observation[] = [];
 // A handler that sleeps a controllable amount of time. Drives the
-// slow-handler / passInFlight test.
+// slow-handler / in-flight guard test.
 let slowHandlerDelayMs = 0;
 let slowHandlerInvocations: Array<{ start: number; end: number }> = [];
 
@@ -126,10 +126,10 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
     }
   });
 
-  test("slow handler doesn't queue overlapping passes (passInFlight serialises)", async () => {
-    // 250ms handler >> 50ms pollIntervalMs — without passInFlight, the
+  test("slow handler doesn't queue overlapping passes (per-consumer in-flight guard)", async () => {
+    // 250ms handler >> 50ms pollIntervalMs — without the in-flight guard, the
     // setInterval would start a new pass every 50ms on top of the one in
-    // flight. passInFlight must coalesce them. We verify: no two passes
+    // flight. The guard must coalesce them. We verify: no two passes
     // ran concurrently.
     slowHandlerDelayMs = 250;
 
@@ -143,7 +143,7 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
       await waitFor(() => slowHandlerInvocations.length >= 3, 5000);
 
       // Check: no invocation overlapped with the next — every pass
-      // finished before the following one started. passInFlight does
+      // finished before the following one started. The guard does
       // its job.
       const sorted = [...slowHandlerInvocations].sort((a, b) => a.start - b.start);
       for (let i = 1; i < sorted.length; i++) {

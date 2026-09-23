@@ -255,17 +255,87 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // NOTIFYs (subscription drop, crash mid-commit).
   let pgUnlisten: (() => Promise<void>) | null = null;
 
-  // Serialises concurrent runOnce() calls from both wake-up sources (timer
-  // + any future explicit nudge). Mirrors outbox-poller's passInFlight
-  // pattern so behaviour under races stays predictable.
-  let passInFlight: Promise<DispatcherPassResult> | null = null;
+  // Bounds how many consumer turns hold a DB transaction at once. Each turn's
+  // db.begin() checks out one pool connection, plus any writes the handler
+  // itself makes via context.db — the app db pool defaults to postgres-js's
+  // max=10 (db/connection.ts, no DATABASE_POOL_MAX override) and is shared
+  // with HTTP request handlers, so turns can't be allowed to claim it all.
+  // A pool no larger than this limit can deadlock: every connection held by
+  // an open turn TX while each handler waits for one more.
+  const MAX_CONCURRENT_CONSUMER_TURNS = 4;
+  let activeConsumerTurns = 0;
+  const consumerTurnWaiters: Array<() => void> = [];
 
-  async function drainPassInFlight(): Promise<void> {
-    if (passInFlight) {
-      await passInFlight.catch(() => {
-        // skip: errors already recorded per-consumer inside the pass
-      });
+  async function acquireConsumerTurnSlot(): Promise<() => void> {
+    if (activeConsumerTurns >= MAX_CONCURRENT_CONSUMER_TURNS) {
+      // The releasing turn hands its slot over directly (count unchanged),
+      // so a synchronous acquire in between cannot overshoot the limit.
+      await new Promise<void>((resolve) => consumerTurnWaiters.push(resolve));
+    } else {
+      activeConsumerTurns++;
     }
+    let released = false;
+    return () => {
+      // skip: already released — finally-blocks calling this twice must not
+      // free the same slot twice
+      if (released) return;
+      released = true;
+      const nextWaiter = consumerTurnWaiters.shift();
+      if (nextWaiter) nextWaiter();
+      else activeConsumerTurns--;
+    };
+  }
+
+  // Per-(consumer, instanceId) turn guard, so one slow consumer never holds
+  // back the others. Keyed like consumerBackoff: a consumer already running
+  // its turn hands back that same promise instead of starting a second one.
+  const inFlightTurns = new Map<string, Promise<{ processed: number; failed: number }>>();
+
+  async function runConsumerTurn(
+    consumer: EventConsumer,
+    effective: ReadonlySet<string> | undefined,
+  ): Promise<{ processed: number; failed: number }> {
+    const key = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
+    const existing = inFlightTurns.get(key);
+    if (existing) return existing;
+
+    // Feature-gate and backoff-gate are resolved synchronously, before any
+    // promise is registered — a gated consumer must resolve without ever
+    // occupying inFlightTurns, or it would look "still running" forever.
+    if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
+      return { processed: 0, failed: 0 };
+    }
+    const backoff = consumerBackoff.get(key);
+    if (backoff && backoff.retryAtMs > Date.now()) {
+      return { processed: 0, failed: 0 };
+    }
+
+    // Registered before awaiting the slot — a turn queued behind the
+    // concurrency limit still counts as in-flight, so it isn't started twice.
+    const turn = (async () => {
+      const releaseSlot = await acquireConsumerTurnSlot();
+      try {
+        return await processConsumer(consumer);
+      } finally {
+        releaseSlot();
+      }
+    })();
+    inFlightTurns.set(key, turn);
+    try {
+      return await turn;
+    } finally {
+      if (inFlightTurns.get(key) === turn) inFlightTurns.delete(key);
+    }
+  }
+
+  async function drainInFlightTurns(): Promise<void> {
+    await Promise.all(
+      [...inFlightTurns.values()].map((turn) =>
+        turn.catch(() => {
+          // skip: errors already recorded per-consumer inside the pass
+        }),
+      ),
+    );
   }
 
   async function runOnce(): Promise<DispatcherPassResult> {
@@ -274,13 +344,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
       );
     }
-    if (passInFlight) return passInFlight;
-    passInFlight = doPass();
-    try {
-      return await passInFlight;
-    } finally {
-      passInFlight = null;
-    }
+    return doPass();
   }
 
   async function doPass(): Promise<DispatcherPassResult> {
@@ -301,30 +365,17 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // SYSTEM_TENANT_ID returnt (typisch: union-of-all-tier-features).
     const effective = context.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
-    // Seriell pro consumer. Parallelisierung wäre möglich (je eigene TX), aber
-    // das einfache Modell reicht für v1 — jeder consumer hat geringe
-    // per-event-Arbeit (network call at worst). Bei hunderten Events pro
-    // Batch lohnt sich Parallelisierung — Optimierung für später.
-    for (const consumer of consumers) {
-      // Feature-gate: consumers tagged with a featureName get paused while
-      // that feature is globally disabled. Cursor stays put — events accumulate
-      // and are re-delivered in order when the feature is re-enabled.
-      if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
-        byConsumer[consumer.name] = { processed: 0, failed: 0 };
-        continue;
-      }
-      // Backoff-gate: a consumer whose last pass threw waits out its
-      // exponential delay before being tried again — see the catch in
-      // processConsumer. Other consumers are unaffected; only this one's
-      // turn is skipped this tick.
-      const backoffKey = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
-      const backoff = consumerBackoff.get(backoffKey);
-      if (backoff && backoff.retryAtMs > Date.now()) {
-        byConsumer[consumer.name] = { processed: 0, failed: 0 };
-        continue;
-      }
-      const perConsumer = await processConsumer(consumer);
-      byConsumer[consumer.name] = perConsumer;
+    // Every consumer runs its own turn concurrently (own TX, own cursor,
+    // own backoff/feature-gate) — a slow consumer no longer blocks the
+    // others' delivery until it commits, see runConsumerTurn.
+    const results = await Promise.all(
+      consumers.map(async (consumer) => {
+        const perConsumer = await runConsumerTurn(consumer, effective);
+        return [consumer.name, perConsumer] as const;
+      }),
+    );
+    for (const [name, perConsumer] of results) {
+      byConsumer[name] = perConsumer;
       totalProcessed += perConsumer.processed;
       totalFailed += perConsumer.failed;
     }
@@ -544,7 +595,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       }
 
       // Drain any in-flight pass so shutdown observes consistent state.
-      await drainPassInFlight();
+      await drainInFlightTurns();
       // preRegistered stays true — the rows survive stop(). runOnce()
       // after a stop() still works (tests stop the timer and then drain
       // deterministically).
@@ -555,7 +606,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       preRegistered = true;
     },
 
-    drain: drainPassInFlight,
+    drain: drainInFlightTurns,
 
     runOnce,
   };

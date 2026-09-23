@@ -339,7 +339,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // the first network call returned) would otherwise fire two writes
       // AND rebase twice — compounding with the stale-submit race below.
       // Serialize: subsequent calls await the in-flight promise. Same
-      // pattern the server-side event-dispatcher uses (passInFlight).
+      // pattern the server-side event-dispatcher uses (inFlightTurns).
       if (submitInFlight) return submitInFlight as Promise<SubmitResult<TData>>;
 
       if (!runValidate(submitCfg.validateScope, { includeRoot: true })) {
