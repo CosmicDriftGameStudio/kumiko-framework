@@ -3,6 +3,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { InternalError } from "../../errors";
 import { testTenantId } from "../../stack";
 import type { DbRunner } from "../connection";
+import { asRawClient } from "../query";
 import { createTenantDb, createUncheckedSystemDb, withUnsafeRawGrant } from "../tenant-db";
 import { tenantDbRunner } from "../tenant-db-runner";
 
@@ -25,6 +26,15 @@ describe("TenantDb has no .raw", () => {
     const tdb = createTenantDb(fakeRunner(), tenantId);
     // @ts-expect-error TenantDb no longer exposes `raw`.
     expect(tdb.raw).toBeUndefined();
+  });
+
+  test("createTenantDb rejects an already tenant-scoped TenantDb: compile error, and raw access throws", () => {
+    const tdb = createTenantDb(fakeRunner(), tenantId);
+    expect(() => {
+      // @ts-expect-error TenantDb is already tenant-scoped; createTenantDb only accepts a raw DbRunner.
+      const rewrapped = createTenantDb(tdb, tenantId);
+      asRawClient(tenantDbRunner(rewrapped));
+    }).toThrow();
   });
 });
 
