@@ -34,9 +34,10 @@ import {
   requireNonEmpty,
   requireSecretSet,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
-import type {
-  MailTransportContext,
-  MailTransportPlugin,
+import {
+  MAIL_TRANSPORT_EXTENSION,
+  type MailTransportContext,
+  type MailTransportPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -114,7 +115,7 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
   const plugin: MailTransportPlugin = {
     build: async (ctx: MailTransportContext, tenantId: string) => buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
   };
-  r.useExtension("mailTransport", "smtp", plugin);
+  r.useExtension(MAIL_TRANSPORT_EXTENSION, "smtp", plugin);
 
   return {
     /** Config-key-handles — typed reads via `ctx.config(...)` in

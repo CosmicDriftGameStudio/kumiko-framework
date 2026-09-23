@@ -11,7 +11,7 @@
 // (sichtbarer breaking change) statt ctx-cast.
 
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
-import type { InboundMailAccountStatus } from "./constants";
+import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants";
 
 /**
  * Slim-Context für Provider-Plugins.
@@ -180,10 +180,17 @@ export function isInboundMailProviderPlugin(o: unknown): o is InboundMailProvide
     typeof o === "object" &&
     o !== null &&
     "verify" in o &&
-    typeof (o as { verify: unknown }).verify === "function" &&
+    typeof o.verify === "function" &&
     "fetch" in o &&
-    typeof (o as { fetch: unknown }).fetch === "function"
+    typeof o.fetch === "function"
   );
+}
+
+// r.useExtension options-shape, co-located since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [INBOUND_MAIL_PROVIDER_EXTENSION]: InboundMailProviderPlugin;
+  }
 }
 
 // =============================================================================

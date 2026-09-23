@@ -4,6 +4,10 @@
 // über das Barrel (../template-resolver), nicht via deep-import.
 import type { RenderKind as RenderKindLocal } from "../template-resolver";
 
+// Extension-point name for renderer plugins (renderer-simple,
+// renderer-mail-html, renderer-puppeteer-client, ...).
+export const RENDERER_EXTENSION = "renderer" as const;
+
 export {
   CONTENT_FORMATS,
   type ContentFormat,

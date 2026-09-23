@@ -3,7 +3,9 @@ import type { OverlayResolverPlugin } from "../derivatives/derivatives-context";
 import type { FileProviderPlugin } from "../files/provider-resolver";
 import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./active-membership";
 import type { TenantDataExtensionHooks } from "./extensions/tenant-data";
+import type { TenantResourceExtensionHooks } from "./extensions/tenant-resource";
 import type { UserDataExtensionOptions } from "./extensions/user-data";
+import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension";
 
 // Standardisierte Extension-Namen fuer Datenschutz-Hook-Achsen.
 //
@@ -62,14 +64,12 @@ export const EXT_USER_DATA_ORDER = {
 export const EXT_TENANT_DATA = "tenantData" as const;
 
 /**
- * `storageProvider` — File-Storage-Plugin-Hooks (Crypto-Shredding fuer Files).
+ * `storageProvider` — file-storage-plugin tenant-destroy hook.
  *
- * Erwartete Hook-Methoden:
- *   - `destroyTenant(tenantId, ctx) => Promise<void>`
- *   - `destroySubject(subject, ctx) => Promise<{ deleted: number }>`
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
  *
- * Registriert von: `storage-encryption` (Sprint 4).
- * Genutzt von: pluggable Provider (Local, MinIO, S3, R2).
+ * Registered by: `files-tenant-data`.
+ * Consumed by: pluggable providers (Local, MinIO, S3, R2).
  */
 export const EXT_STORAGE_PROVIDER = "storageProvider" as const;
 
@@ -155,37 +155,28 @@ export const EXT_DERIVATIVE_PUBLIC_PREDICATE = "derivativePublicPredicate" as co
 export const EXT_DERIVATIVE_OVERLAY_RESOLVER = "derivativeOverlayResolver" as const;
 
 /**
- * `searchAdapter` — Search-Adapter-Forget-Hooks (Meilisearch-Index-Cleanup
- * bei User-Forget oder Tenant-Destroy).
+ * `searchAdapter` — search-index tenant-destroy hook (Meilisearch index
+ * cleanup on tenant-destroy).
  *
- * Erwartete Hook-Methoden:
- *   - `destroyTenant(tenantId, ctx) => Promise<void>`
- *   - `eraseSubject(subject, ctx) => Promise<void>`
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
  *
- * Registriert von: `tenant-lifecycle` (Sprint 5).
- * Genutzt von: Meilisearch- und andere Search-Adapter-Implementierungen.
+ * Consumed by: Meilisearch and other search-adapter implementations.
  */
 export const EXT_SEARCH_ADAPTER = "searchAdapter" as const;
 
 /**
- * `externalResource` — External-Service-Tenant-Cleanup
- * (Webhook-Subscriptions, Brevo-Empfaenger-Listen, Stripe-Customer-Account).
+ * `externalResource` — external-service tenant-destroy hook (webhook
+ * subscriptions, Brevo recipient lists, provider customer accounts).
  *
- * Erwartete Hook-Methoden:
- *   - `destroyTenant(tenantId, ctx) => Promise<void>`
- *
- * Registriert von: `tenant-lifecycle` (Sprint 5).
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
  */
 export const EXT_EXTERNAL_RESOURCE = "externalResource" as const;
 
 /**
- * `infraResource` — Pulumi-managed Resources pro Tenant
- * (Custom-Domain, Cert-Manager-Issuer, dedicated Pod/Volume).
+ * `infraResource` — Pulumi-managed per-tenant resource tenant-destroy hook
+ * (custom domain, cert-manager issuer, dedicated pod/volume).
  *
- * Erwartete Hook-Methoden:
- *   - `destroyTenant(tenantId, ctx) => Promise<void>`
- *
- * Registriert von: `tenant-lifecycle` (Sprint 5).
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
  */
 export const EXT_INFRA_RESOURCE = "infraResource" as const;
 
@@ -216,6 +207,19 @@ export type KumikoExtensionName =
   | typeof EXT_STORAGE_PROVIDER
   | typeof EXT_SEARCH_ADAPTER
   | typeof EXT_EXTERNAL_RESOURCE
+  | typeof EXT_INFRA_RESOURCE
+  | typeof EXT_FILE_PROVIDER
+  | typeof EXT_DERIVATIVE_RENDERER
+  | typeof EXT_DERIVATIVE_PUBLIC_PREDICATE
+  | typeof EXT_DERIVATIVE_OVERLAY_RESOLVER
+  | typeof EXT_PRINCIPAL_STATUS
+  | typeof EXT_TENANT_LIFECYCLE_STATUS;
+
+/** The four `destroyTenant(tenantId, ctx)`-only resource-cleanup extension points. */
+export type TenantResourceExtensionName =
+  | typeof EXT_STORAGE_PROVIDER
+  | typeof EXT_SEARCH_ADAPTER
+  | typeof EXT_EXTERNAL_RESOURCE
   | typeof EXT_INFRA_RESOURCE;
 
 // r.useExtension options-shape for framework-owned extension points; app/bundled-features-owned
@@ -229,5 +233,10 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
     [EXT_DERIVATIVE_OVERLAY_RESOLVER]: OverlayResolverPlugin;
     [EXT_PRINCIPAL_STATUS]: PrincipalStatusPlugin;
     [EXT_TENANT_LIFECYCLE_STATUS]: TenantLifecycleStatusPlugin;
+    [EXT_STORAGE_PROVIDER]: TenantResourceExtensionHooks;
+    [EXT_SEARCH_ADAPTER]: TenantResourceExtensionHooks;
+    [EXT_EXTERNAL_RESOURCE]: TenantResourceExtensionHooks;
+    [EXT_INFRA_RESOURCE]: TenantResourceExtensionHooks;
+    [TENANT_TIER_RESOLVER_EXT]: TierResolverPlugin;
   }
 }

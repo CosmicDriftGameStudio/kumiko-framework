@@ -1,6 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { ContentFormat, RenderKind } from "./constants";
+import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
 // (renderer-foundation api) je nach kind oder explizit. Plugin selbst
@@ -105,5 +105,27 @@ export class RendererError extends Error {
   ) {
     super(message);
     this.name = "RendererError";
+  }
+}
+
+// r.useExtension options-shape: `name` is NOT part of the registration
+// payload — collectRendererPlugins derives it from the usage's entityName.
+export type RendererRegistrationPlugin = Omit<RendererPlugin, "name">;
+
+export function isRendererRegistrationPlugin(o: unknown): o is RendererRegistrationPlugin {
+  return (
+    typeof o === "object" &&
+    o !== null &&
+    "kinds" in o &&
+    Array.isArray(o.kinds) &&
+    "render" in o &&
+    typeof o.render === "function"
+  );
+}
+
+// r.useExtension options-shape, co-located since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [RENDERER_EXTENSION]: RendererRegistrationPlugin;
   }
 }

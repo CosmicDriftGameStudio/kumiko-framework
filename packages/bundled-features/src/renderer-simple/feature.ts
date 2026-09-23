@@ -1,5 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  RENDERER_EXTENSION,
   type RendererContext,
   RendererError,
   type RenderRequest,
@@ -48,7 +49,7 @@ export function createRendererSimpleFeature(): FeatureDefinition {
     r.requires("renderer-foundation");
     r.optionalRequires("template-resolver");
 
-    r.useExtension("renderer", "simple", {
+    r.useExtension(RENDERER_EXTENSION, "simple", {
       kinds: ["notification"] as const,
       render: adaptToFoundation,
     });

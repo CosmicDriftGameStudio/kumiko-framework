@@ -28,3 +28,7 @@ export type TenantDataDestroyHook = (ctx: TenantDataHookCtx) => Promise<void>;
 export interface TenantDataExtensionHooks {
   readonly destroy: TenantDataDestroyHook;
 }
+
+export function isTenantDataExtensionHooks(o: unknown): o is TenantDataExtensionHooks {
+  return typeof o === "object" && o !== null && "destroy" in o && typeof o.destroy === "function";
+}

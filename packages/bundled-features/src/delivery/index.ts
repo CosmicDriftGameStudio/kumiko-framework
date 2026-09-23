@@ -1,5 +1,6 @@
 export type { DeliveryStatusValue } from "./constants";
 export {
+  DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_FEATURE,
   DELIVERY_LOG_SCREEN_ID,
   DeliveryErrors,
@@ -22,17 +23,19 @@ export {
   notificationPreferencesTable,
 } from "./tables";
 export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing";
-export type {
-  ChannelContext,
-  ChannelMessage,
-  ChannelResult,
-  DeliveryChannel,
-  DeliveryChannelMode,
-  DeliveryLogEntry,
-  DeliveryService,
-  NotificationRenderer,
-  RenderedMessage,
-  RendererInput,
+export {
+  type ChannelContext,
+  type ChannelMessage,
+  type ChannelResult,
+  type DeliveryChannel,
+  type DeliveryChannelMode,
+  type DeliveryChannelPlugin,
+  type DeliveryLogEntry,
+  type DeliveryService,
+  isDeliveryChannelPlugin,
+  type NotificationRenderer,
+  type RenderedMessage,
+  type RendererInput,
 } from "./types";
 export {
   createUnsubscribeRoute,

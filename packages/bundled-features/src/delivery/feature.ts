@@ -8,6 +8,7 @@ import {
 import type { z } from "zod";
 import {
   DELIVERY_ATTEMPT_EVENT,
+  DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_LOG_SCREEN_ID,
   DELIVERY_STATUS_CELL_COMPONENT,
   DeliveryJobNames,
@@ -118,7 +119,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // eigenen mehr — channel-email nimmt renderer als direkte
     // Konstruktor-Option (siehe email-channel.ts), nicht via Extension-
     // Usage. Migration 2026-05-19.
-    r.extendsRegistrar("deliveryChannel", {
+    r.extendsRegistrar(DELIVERY_CHANNEL_EXTENSION, {
       onRegister: () => {},
     });
 
