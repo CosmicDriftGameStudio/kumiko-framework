@@ -1361,9 +1361,9 @@ describe("boot gates", () => {
       await second.start();
       await sleep(300);
       expect(gateLog.filter((e) => e === "gate").length).toBe(2);
-      // Same fixed boot job id, still present in Redis from the first start,
-      // so BullMQ drops the second enqueue — that dedup is why runOnBoot
-      // cannot gate a deploy.
+      // The persistent boot-enqueued marker set from the first start is
+      // still present in Redis, so the second start skips re-enqueueing —
+      // that dedup is why runOnBoot cannot gate a deploy.
       expect(gateLog.filter((e) => e === "boot").length).toBe(1);
     } finally {
       await second.stop();

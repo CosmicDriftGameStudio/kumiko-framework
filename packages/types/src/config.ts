@@ -380,8 +380,10 @@ export type JobDefinition = {
   // Enqueue this job once when a runner for its lane starts. Fire-and-forget:
   // the enqueue is awaited, the run is not, so a throwing handler only fails
   // the queue job — the process keeps booting and reports ready.
-  // Deduped on a fixed job id, so it runs at most once per Redis dataset: a
-  // boot job that already ran (or failed) is not retried on a later deploy.
+  // Deduped via a persistent per-queue marker set at enqueue time (not the
+  // fixed job id alone, which BullMQ's bounded retention can evict), so it
+  // runs at most once per Redis dataset: a boot job that already ran (or
+  // failed) is not retried on a later deploy.
   // Never a deploy gate — use `bootGate` for that.
   readonly runOnBoot?: boolean | undefined;
   // Run this job inline while the runner for its lane starts, before cron
