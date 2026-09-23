@@ -8,6 +8,10 @@ export function isCI(env: Readonly<Record<string, string | undefined>> = process
   return env["CI"] === "true";
 }
 
+export function isGitHubActions(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return env["GITHUB_ACTIONS"] === "true";
+}
+
 export type OutputDiagnostics = {
   readonly lines: readonly string[];
   readonly total: number;
@@ -57,12 +61,25 @@ const FAIL_LINE = /^\(fail\)\s/;
 const FAIL_WINDOW_LINES_BEFORE = 40;
 const FAIL_WINDOW_LINES_AFTER = 2;
 const MAX_FAIL_WINDOWS = 5;
+// Bounds the full-output group so one runaway step can't grow the log
+// without limit, while still showing far more than the compact block.
+const FULL_OUTPUT_MAX_LINES = 20_000;
 
-function omissionMarker(omitted: number): string {
-  return `… ${omitted} line(s) omitted (rerun the step locally for the full output) …`;
+function omissionMarker(omitted: number, hint?: string): string {
+  const suffix = hint === undefined || hint === "" ? "" : ` (${hint})`;
+  return `… ${omitted} line(s) omitted${suffix} …`;
 }
 
-export function formatCompactFailure(label: string, code: number, output: string): string {
+export function formatCompactFailure(
+  label: string,
+  code: number,
+  output: string,
+  options: {
+    env?: Readonly<Record<string, string | undefined>>;
+    stopCommandsToken?: string;
+  } = {},
+): string {
+  const env = options.env ?? process.env;
   // Content lines are never dropped or dedup'd — a dedup here would silently
   // drop real, repeated diff lines (e.g. nested closing braces in a toEqual
   // diff). Blank lines are stripped. Capped (head+tail plus windows around
@@ -73,13 +90,41 @@ export function formatCompactFailure(label: string, code: number, output: string
     .map((rawLine) => rawLine.replace(ANSI_ESCAPE, "").trimEnd())
     .filter((line) => line.length > 0);
   const header = `  ✗ ${label} (exit ${code}; ${lines.length} line(s))`;
-  const body = capLines(lines, MAX_FAILURE_LINES);
-  return `${header}\n${body.map((line) => `    ${line}`).join("\n")}\n`;
+  const isCapped = lines.length > MAX_FAILURE_LINES;
+  const willGroup = isCapped && isGitHubActions(env);
+  const body = capLines(lines, MAX_FAILURE_LINES, (omitted) =>
+    omissionMarker(omitted, willGroup ? `see the 'Full output: ${label}' group below` : undefined),
+  );
+  const compact = `${header}\n${body.map((line) => `    ${line}`).join("\n")}\n`;
+  if (!willGroup) return compact;
+
+  // The full dump goes into the job log (not an artifact) so registered
+  // secrets stay masked, and `gh run view --log-failed` still returns it in
+  // full. ::stop-commands:: disarms workflow-command parsing for the dump so
+  // a test's own output (e.g. a literal "::error::" in an assertion message)
+  // can't be misread as a real command; ::<token>:: re-arms it before
+  // ::endgroup::.
+  const token = options.stopCommandsToken ?? crypto.randomUUID();
+  const fullLines = capLines(lines, FULL_OUTPUT_MAX_LINES, (omitted) =>
+    omissionMarker(omitted, `full output exceeds the ${FULL_OUTPUT_MAX_LINES}-line cap`),
+  );
+  const group = [
+    `::group::Full output: ${label} (${lines.length} lines)`,
+    `::stop-commands::${token}`,
+    fullLines.map((line) => `    ${line}`).join("\n"),
+    `::${token}::`,
+    `::endgroup::`,
+  ].join("\n");
+  return `${compact}${group}\n`;
 }
 
 type LineRange = { start: number; end: number };
 
-function capLines(lines: readonly string[], max: number): readonly string[] {
+function capLines(
+  lines: readonly string[],
+  max: number,
+  markerFor: (omitted: number) => string,
+): readonly string[] {
   if (lines.length <= max) return lines;
 
   const failIndexes: number[] = [];
@@ -115,7 +160,7 @@ function capLines(lines: readonly string[], max: number): readonly string[] {
       if (line !== undefined) result.push(line);
     }
     const next = merged[i + 1];
-    if (next !== undefined) result.push(omissionMarker(next.start - range.end - 1));
+    if (next !== undefined) result.push(markerFor(next.start - range.end - 1));
   }
   return result;
 }
