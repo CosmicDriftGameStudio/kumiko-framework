@@ -14,6 +14,7 @@ import {
   REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
+  STYLESHEET_WATCH_ENV,
 } from "./constants";
 import { screenshotSpecsIgnore } from "./screenshot-dir";
 import { E2E_TIMEOUT_MS } from "./timeouts";
@@ -27,7 +28,7 @@ const TEMPLATE_OWNED_PROJECT_KEYS = [
 ] as const;
 const TEMPLATE_OWNED_USE_KEYS = ["actionTimeout", "navigationTimeout"] as const;
 const REAL_SPEC_GLOB = "**/*.real.spec.ts";
-const RESERVED_ENV_KEYS = ["PORT", SEED_ENABLE_ENV, SEED_TOKEN_ENV] as const;
+const RESERVED_ENV_KEYS = ["PORT", SEED_ENABLE_ENV, SEED_TOKEN_ENV, STYLESHEET_WATCH_ENV] as const;
 
 type ProjectUse = Partial<PlaywrightTestOptions & PlaywrightWorkerOptions>;
 
@@ -142,6 +143,10 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
         PORT: String(port),
         [SEED_ENABLE_ENV]: "1",
         [SEED_TOKEN_ENV]: seedTokenForRun(),
+        // A Tailwind --watch process subscribes to the whole app cwd
+        // recursively (Tailwind v4, no gitignore filter); every Playwright
+        // artifact write under test-results/ would then count as a rebuild.
+        [STYLESHEET_WATCH_ENV]: "0",
       },
       reuseExistingServer: false,
       timeout: E2E_TIMEOUT_MS.webServer,

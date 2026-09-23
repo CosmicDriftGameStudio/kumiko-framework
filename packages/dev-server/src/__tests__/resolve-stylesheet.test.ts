@@ -11,7 +11,11 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveStylesheet } from "../create-kumiko-server";
+import {
+  resolveStylesheet,
+  resolveStylesheetWatch,
+  STYLESHEET_WATCH_ENV,
+} from "../create-kumiko-server";
 
 describe("resolveStylesheet", () => {
   test("string → resolved absolute path", () => {
@@ -106,5 +110,23 @@ describe("resolveStylesheet", () => {
       process.chdir(cwdBefore);
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("resolveStylesheetWatch", () => {
+  test("an explicit option wins over the env", () => {
+    expect(resolveStylesheetWatch({ stylesheetWatch: false }, {})).toBe(false);
+    expect(resolveStylesheetWatch({ stylesheetWatch: true }, { [STYLESHEET_WATCH_ENV]: "0" })).toBe(
+      true,
+    );
+  });
+
+  test("no option, env=0 → false", () => {
+    expect(resolveStylesheetWatch({}, { [STYLESHEET_WATCH_ENV]: "0" })).toBe(false);
+  });
+
+  test("no option, no or other env value → true", () => {
+    expect(resolveStylesheetWatch({}, {})).toBe(true);
+    expect(resolveStylesheetWatch({}, { [STYLESHEET_WATCH_ENV]: "1" })).toBe(true);
   });
 });

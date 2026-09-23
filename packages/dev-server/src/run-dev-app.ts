@@ -196,6 +196,8 @@ export type RunDevAppOptions = {
   /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer-web/styles.css`
    *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
   readonly stylesheet?: string | false;
+  /** Tailwind `--watch` process on/off, see `CreateKumikoServerOptions.stylesheetWatch`. */
+  readonly stylesheetWatch?: boolean;
   /** Eigenes HTML-Template; sonst minimal-Default (#root + client.js).
    *  Im Multi-Entry-Mode ist es das Fallback-Template, wenn ein einzelner
    *  Entry kein eigenes htmlPath setzt. */
@@ -479,6 +481,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(options.hostDispatch !== undefined && { hostDispatch: options.hostDispatch }),
     ...(options.resolvePageHead !== undefined && { resolvePageHead: options.resolvePageHead }),
     ...(options.stylesheet !== undefined && { stylesheet: options.stylesheet }),
+    ...(options.stylesheetWatch !== undefined && { stylesheetWatch: options.stylesheetWatch }),
     ...(options.htmlPath !== undefined && { htmlPath: options.htmlPath }),
     ...(options.port !== undefined && { port: options.port }),
     ...(options.watchDirs !== undefined && { watchDirs: options.watchDirs }),

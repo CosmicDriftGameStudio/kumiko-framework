@@ -18,6 +18,11 @@ export const E2E_WORKERS_ENV = "KUMIKO_E2E_WORKERS";
 // Same literal as the framework's requireRealProviders(), which does not export it.
 export const REAL_PROVIDERS_ENV = "KUMIKO_REAL_PROVIDERS";
 
+// Same literal as kumiko-dev-server's createKumikoServer (STYLESHEET_WATCH_ENV),
+// duplicated because the Playwright config runs under Node and can't import
+// that Bun-toolchain-adjacent module.
+export const STYLESHEET_WATCH_ENV = "KUMIKO_DEV_STYLESHEET_WATCH";
+
 export const SEED_ROUTE_PREFIX = "/__test";
 
 export const SEED_ROUTES = {
