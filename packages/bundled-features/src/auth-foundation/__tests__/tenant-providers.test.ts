@@ -92,6 +92,7 @@ describe("validateTenantResolverMultiplicity", () => {
 
   test("malformed (no trust) → throws", () => {
     const broken = defineFeature("mock-broken-resolver", (r) => {
+      // @ts-expect-error malformed plugin (no trust) — proves the runtime guard rejects it too.
       r.useExtension(EXT_TENANT_RESOLVER, "broken", { build: () => () => null });
     });
     const registry = createRegistry([authFoundationFeature, broken]);

@@ -58,6 +58,13 @@ function isDerivativePublicPredicatePlugin(o: unknown): o is DerivativePublicPre
   return typeof o === "object" && o !== null && "isPublic" in o && typeof o.isPublic === "function";
 }
 
+// r.useExtension options-shape, co-located since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [EXT_DERIVATIVE_PUBLIC_PREDICATE]: DerivativePublicPredicatePlugin;
+  }
+}
+
 // Full QN this handler is registered under once mounted into the
 // "file-derivatives" feature (short name below + registry qualification —
 // see qualifyEntityName). Kept as a separate literal, not derived, so

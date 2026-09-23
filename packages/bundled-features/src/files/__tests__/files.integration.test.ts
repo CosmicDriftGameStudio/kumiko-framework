@@ -65,7 +65,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
         // Stub-Hooks: in Sprint 2 werden diese die echte Forget-/Export-
         // Logik tragen. Hier reicht: useExtension findet die fileRef-
         // Entity in der Registry → kein Boot-Error.
-        export: async () => [],
+        export: async () => null,
         delete: async () => undefined,
       });
     });
@@ -87,7 +87,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     const consumer = defineFeature("test-broken-consumer", (r) => {
       r.requires("test-user-data-provider-2");
       // GHOSTLY: useExtension auf "ghostEntity" gibt es nirgends.
-      r.useExtension(EXT_USER_DATA, "ghostEntity", {});
+      r.useExtension(EXT_USER_DATA, "ghostEntity", { export: async () => null });
     });
 
     // Boot soll laufen — es ist NICHT der Job des Boot-Validators zu

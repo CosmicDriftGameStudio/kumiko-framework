@@ -34,6 +34,10 @@
       "types": "./src/event-type-map.ts",
       "default": "./src/event-type-map.ts"
     },
+    "./extension-options-map": {
+      "types": "./src/extension-options-map.ts",
+      "default": "./src/extension-options-map.ts"
+    },
     "./http-route": {
       "types": "./src/http-route.ts",
       "default": "./src/http-route.ts"

@@ -127,6 +127,7 @@ describe("validateTokenVerifierMultiplicity", () => {
 
   test("wrong-shape registration → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken", (r) => {
+      // @ts-expect-error malformed plugin (no build) — proves the runtime guard rejects it too.
       r.useExtension(EXT_TOKEN_VERIFIER, "broken", { shape: { kind: "prefix" } });
     });
     const registry = createRegistry([authFoundationFeature, broken]);
@@ -138,6 +139,7 @@ describe("validateTokenVerifierMultiplicity", () => {
   test("malformed shape (build present, prefix missing) → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken-shape", (r) => {
       r.useExtension(EXT_TOKEN_VERIFIER, "broken-shape", {
+        // @ts-expect-error malformed shape (prefix missing) — proves the runtime guard rejects it too.
         shape: { kind: "prefix" },
         build: () => async () => null,
       });

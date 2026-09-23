@@ -1,3 +1,10 @@
+import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
+import type { OverlayResolverPlugin } from "../derivatives/derivatives-context";
+import type { FileProviderPlugin } from "../files/provider-resolver";
+import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./active-membership";
+import type { TenantDataExtensionHooks } from "./extensions/tenant-data";
+import type { UserDataExtensionOptions } from "./extensions/user-data";
+
 // Standardisierte Extension-Namen fuer Datenschutz-Hook-Achsen.
 //
 // Features registrieren Extensions via:
@@ -210,3 +217,17 @@ export type KumikoExtensionName =
   | typeof EXT_SEARCH_ADAPTER
   | typeof EXT_EXTERNAL_RESOURCE
   | typeof EXT_INFRA_RESOURCE;
+
+// r.useExtension options-shape for framework-owned extension points; app/bundled-features-owned
+// points augment co-located with their owner, since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [EXT_TENANT_DATA]: TenantDataExtensionHooks;
+    [EXT_USER_DATA]: UserDataExtensionOptions;
+    [EXT_FILE_PROVIDER]: FileProviderPlugin;
+    [EXT_DERIVATIVE_RENDERER]: DerivativeRendererPlugin;
+    [EXT_DERIVATIVE_OVERLAY_RESOLVER]: OverlayResolverPlugin;
+    [EXT_PRINCIPAL_STATUS]: PrincipalStatusPlugin;
+    [EXT_TENANT_LIFECYCLE_STATUS]: TenantLifecycleStatusPlugin;
+  }
+}
