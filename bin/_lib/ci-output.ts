@@ -52,12 +52,22 @@ export function formatCompactSuccess(label: string, output: string): string {
 }
 
 const MAX_FAILURE_LINES = 200;
+// bun prints diff and stack BEFORE the "(fail) <name>" line, hence the backward window.
+const FAIL_LINE = /^\(fail\)\s/;
+const FAIL_WINDOW_LINES_BEFORE = 40;
+const FAIL_WINDOW_LINES_AFTER = 2;
+const MAX_FAIL_WINDOWS = 5;
+
+function omissionMarker(omitted: number): string {
+  return `… ${omitted} line(s) omitted (rerun the step locally for the full output) …`;
+}
 
 export function formatCompactFailure(label: string, code: number, output: string): string {
   // Content lines are never dropped or dedup'd — a dedup here would silently
   // drop real, repeated diff lines (e.g. nested closing braces in a toEqual
-  // diff). Blank lines are stripped. Capped (head+tail, not dedup'd) so one
-  // runaway step can't blow up the log.
+  // diff). Blank lines are stripped. Capped (head+tail plus windows around
+  // any "(fail) ..." line, never dedup'd) so one runaway step can't blow up
+  // the log while still keeping buried failures visible.
   const lines = output
     .split("\n")
     .map((rawLine) => rawLine.replace(ANSI_ESCAPE, "").trimEnd())
@@ -67,15 +77,47 @@ export function formatCompactFailure(label: string, code: number, output: string
   return `${header}\n${body.map((line) => `    ${line}`).join("\n")}\n`;
 }
 
+type LineRange = { start: number; end: number };
+
 function capLines(lines: readonly string[], max: number): readonly string[] {
   if (lines.length <= max) return lines;
+
+  const failIndexes: number[] = [];
+  for (let i = 0; i < lines.length && failIndexes.length < MAX_FAIL_WINDOWS; i++) {
+    const line = lines[i];
+    if (line !== undefined && FAIL_LINE.test(line.trim())) failIndexes.push(i);
+  }
+
   const half = Math.floor(max / 2);
-  const omitted = lines.length - max;
-  return [
-    ...lines.slice(0, half),
-    `… ${omitted} line(s) omitted (full log in the job's raw output) …`,
-    ...lines.slice(lines.length - half),
-  ];
+  const ranges: LineRange[] = [
+    { start: 0, end: half - 1 },
+    { start: lines.length - half, end: lines.length - 1 },
+    ...failIndexes.map((idx) => ({
+      start: Math.max(0, idx - FAIL_WINDOW_LINES_BEFORE),
+      end: Math.min(lines.length - 1, idx + FAIL_WINDOW_LINES_AFTER),
+    })),
+  ].sort((a, b) => a.start - b.start);
+
+  const merged: LineRange[] = [];
+  for (const range of ranges) {
+    const last = merged.at(-1);
+    if (last !== undefined && range.start <= last.end + 1) {
+      last.end = Math.max(last.end, range.end);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+
+  const result: string[] = [];
+  for (const [i, range] of merged.entries()) {
+    for (let j = range.start; j <= range.end; j++) {
+      const line = lines[j];
+      if (line !== undefined) result.push(line);
+    }
+    const next = merged[i + 1];
+    if (next !== undefined) result.push(omissionMarker(next.start - range.end - 1));
+  }
+  return result;
 }
 
 function formatIntegrationSummary(output: string): string | undefined {
