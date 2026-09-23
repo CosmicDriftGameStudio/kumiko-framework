@@ -11,6 +11,7 @@ import {
   buildSharedProject,
   cliFlagsError,
   explainGuards,
+  filesForGuard,
   isSecurityGuard,
   printGuardKitBanner,
   reportResults,
@@ -95,31 +96,61 @@ export const GUARD_FLAGS = [
   "--explain",
   "--write-security-baseline",
   "--strict-security-baseline",
+  "--write-baseline",
 ] as const;
+
+const GUARD_NAME_PREFIX = "--guard=";
 
 // Shared by the direct `bun run-guards.ts` invocation below and by the
 // `guards` subcommand in cli.ts — one place for the flag behavior so the
 // two entry points can never drift.
 export function runGuardsCli(argv: readonly string[]): number {
-  const flagsError = cliFlagsError("guards", argv, GUARD_FLAGS);
+  const guardNameArg = argv.find((arg) => arg.startsWith(GUARD_NAME_PREFIX));
+  const flags = guardNameArg === undefined ? argv : argv.filter((arg) => arg !== guardNameArg);
+  const flagsError = cliFlagsError("guards", flags, GUARD_FLAGS);
   if (flagsError !== undefined) {
     console.error(flagsError);
     return 1;
   }
-  if (argv.includes("--explain")) {
+  if (flags.includes("--explain")) {
     for (const line of explainGuards(GUARDS, buildSharedProject(GUARDS))) {
       console.log(line);
     }
     return 0;
   }
-  if (argv.includes("--write-security-baseline")) {
+  if (flags.includes("--write-security-baseline")) {
     writeSecurityBaselines(
       GUARDS.filter(isSecurityGuard),
       buildSharedProject(GUARDS.filter(isSecurityGuard)),
     );
     return 0;
   }
-  const strictSecurityBaseline = argv.includes("--strict-security-baseline");
+  // --write-baseline always needs --guard=<name> — baselines get frozen
+  // deliberately, one at a time, never as a drive-by "refreeze everything".
+  if (flags.includes("--write-baseline")) {
+    if (guardNameArg === undefined) {
+      console.error(
+        "--write-baseline needs --guard=<name>. Freeze a baseline only deliberately, one guard at a time — fix the cause first (docs/guides/test-failures.md).",
+      );
+      return 1;
+    }
+    const guardName = guardNameArg.slice(GUARD_NAME_PREFIX.length);
+    const target = GUARDS.find((g) => g.name === guardName);
+    if (target === undefined) {
+      console.error(
+        `Unknown guard "${guardName}". Known guard names: ${GUARDS.map((g) => g.name).join(", ")}`,
+      );
+      return 1;
+    }
+    if (target.writeBaseline === undefined) {
+      console.error(`Guard "${guardName}" has no ratchet baseline to write.`);
+      return 1;
+    }
+    const project = buildSharedProject([target]);
+    target.writeBaseline(filesForGuard(project, target));
+    return 0;
+  }
+  const strictSecurityBaseline = flags.includes("--strict-security-baseline");
   const guards = strictSecurityBaseline ? GUARDS.filter(isSecurityGuard) : GUARDS;
   const project = buildSharedProject(guards);
   printGuardKitBanner(guards.length, project);

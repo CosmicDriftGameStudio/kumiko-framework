@@ -183,8 +183,7 @@ export const guard: AstGuard = {
   name: "Write-Handler-QN Guard",
   scan: SCAN,
   hint: "Typo in the write-handler QN? Check feature name + handler name.",
-  run(files) {
-    const roots = resolveRepoRoots();
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const knownQnsByRepo = loadKnownQnsByRepo(roots);
 
     const violations: Array<{

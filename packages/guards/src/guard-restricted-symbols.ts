@@ -113,9 +113,8 @@ export const guard: AstGuard = {
   name: "Restricted-Symbols Guard",
   scan: SCAN,
   hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
-  run(files) {
+  run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
-    const roots = resolveRepoRoots();
 
     for (const sf of files) {
       const file = sf.getFilePath();

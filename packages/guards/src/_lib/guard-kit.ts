@@ -52,7 +52,10 @@ export type AstGuard = {
   readonly hint?: string;
   /** Security guards fail on every finding not frozen in the per-repo security baseline — no skip flag. */
   readonly security?: boolean;
-  run(files: readonly SourceFile[]): GuardOutcome;
+  /** `roots` are the same roots `runGuards` scanned `files` with — a guard classifying paths against repo roots (`relFromRepoRoot`) must use these, not re-derive its own single-repo `resolveRepoRoots()`, or a multi-root caller's roots never reach it. */
+  run(files: readonly SourceFile[], roots?: readonly RepoRoot[]): GuardOutcome;
+  /** Ratchet guards only: freeze the current findings into that guard's own baseline file. */
+  writeBaseline?(files: readonly SourceFile[]): void;
 };
 
 export function isSecurityGuard(guard: Pick<AstGuard, "security">): boolean {
@@ -309,7 +312,7 @@ export function runGuards(
       const scans = scan(guard, roots);
       const paths = [...new Set(scans.flatMap((s) => s.files))].sort();
       const files = paths.map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p));
-      const outcome = guard.run(files);
+      const outcome = guard.run(files, roots);
       // Security guards get no skip flag: every finding must clear the baseline.
       const securityResult = isSecurityGuard(guard)
         ? applySecurityBaseline({

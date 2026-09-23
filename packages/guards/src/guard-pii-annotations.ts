@@ -37,9 +37,11 @@ import {
   type GuardOutcome,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
@@ -89,8 +91,8 @@ const PII_USER_OWNED_NAME_HINTS = new Set([
   "notes",
 ]);
 
-function relFile(sf: SourceFile): string {
-  return path.relative(ROOT, sf.getFilePath());
+function relFile(sf: SourceFile, roots: readonly RepoRoot[]): string {
+  return relFromRepoRoot(sf.getFilePath(), roots);
 }
 
 function fieldFactoryOptions(call: CallExpression): ObjectLiteralExpression | undefined {
@@ -149,7 +151,7 @@ export interface Finding {
   hint: string;
 }
 
-function scanFieldFactories(sf: SourceFile): Finding[] {
+function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding[] {
   const findings: Finding[] = [];
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression().getText();
@@ -171,15 +173,19 @@ function scanFieldFactories(sf: SourceFile): Finding[] {
     if (!hint) continue;
 
     const line = call.getStartLineNumber();
-    findings.push({ file: relFile(sf), line, fieldName, hint });
+    const file = relFile(sf, roots);
+    findings.push({ file, line, fieldName, hint });
     console.warn(
-      `  [pii-annotations WARN] ${relFile(sf)}:${line}  field "${fieldName}" looks like PII — mark ${hint}`,
+      `  [pii-annotations WARN] ${file}:${line}  field "${fieldName}" looks like PII — mark ${hint}`,
     );
   }
   return findings;
 }
 
-function scan(files: readonly SourceFile[]): {
+function scan(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): {
   findings: Finding[];
   scanned: number;
 } {
@@ -188,7 +194,7 @@ function scan(files: readonly SourceFile[]): {
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
     scanned++;
-    findings.push(...scanFieldFactories(sf));
+    findings.push(...scanFieldFactories(sf, roots));
   }
   return { findings, scanned };
 }
@@ -224,14 +230,18 @@ function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
     baselineCounts(findings),
     `Annotate the field ({ personal: ... } / { pii: true } / { userOwned: ... } / { tenantOwned: true } / { allowPlaintext: "..." }).`,
     {
-      formatDriftRemediation: `Run \`bun guards/guard-pii-annotations.ts --write-baseline\` once.`,
+      formatDriftRemediation: `Run \`kumiko-guards guards --write-baseline --guard="PII-Annotations Guard"\` once.`,
       resolveLine,
     },
   );
 }
 
-function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
-  const { findings } = scan(files);
+function analyse(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+  compareBaseline: boolean,
+): GuardOutcome {
+  const { findings } = scan(files, roots);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
@@ -242,8 +252,9 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
 export const guard: AstGuard = {
   name: "PII-Annotations Guard",
   scan: SCAN,
-  hint: "after a deliberate annotation: `bun guards/guard-pii-annotations.ts --write-baseline`",
-  run: (files) => analyse(files, true),
+  hint: 'after a deliberate annotation: `kumiko-guards guards --write-baseline --guard="PII-Annotations Guard"`',
+  run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
+  writeBaseline: (files) => piiBaseline.write(baselineCounts(scan(files).findings)),
 };
 
 // Flags werden NUR hier gelesen, nicht in run() — der Shared-Runner
@@ -260,7 +271,7 @@ if (import.meta.main) {
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), false);
+    analyse(filesForGuard(project, guard), resolveRepoRoots(), false);
     process.exit(0);
   }
   runStandalone(guard);

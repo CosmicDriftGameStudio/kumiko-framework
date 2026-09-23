@@ -72,7 +72,7 @@ export type ScaffoldAppOptions = {
   readonly cwd?: string;
   /** npm-version-pin for @cosmicdrift/* deps. Default "*" for latest. */
   readonly frameworkVersion?: string;
-  /** Bundled-features to mount in run-config.ts. Default: secrets + sessions
+  /** Bundled-features to mount in run-config.ts. Default: secrets + auth-foundation + sessions
    *  (the historical foundation). create-kumiko-app passes the picker output
    *  here so the generated APP_FEATURES reflects the user's selection. */
   readonly features?: ReadonlyArray<ScaffoldFeatureEntry>;
@@ -385,6 +385,13 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
     importPath: "@cosmicdrift/kumiko-bundled-features/secrets",
     exportName: "createSecretsFeature",
     callExpression: "createSecretsFeature()",
+  },
+  // sessions' `sessionStore` extension requires auth-foundation to be mounted.
+  {
+    name: "auth-foundation",
+    importPath: "@cosmicdrift/kumiko-bundled-features/auth-foundation",
+    exportName: "authFoundationFeature",
+    callExpression: "authFoundationFeature",
   },
   {
     name: "sessions",
@@ -790,7 +797,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - kumiko-pg:/var/lib/postgresql/data
+      - kumiko-pg:/var/lib/postgresql
   redis:
     image: redis:7
     ports:

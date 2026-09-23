@@ -13,18 +13,17 @@
  * Ignore: // kumiko-lint-ignore i18n-locale-terminology
  */
 
-import { relative as pathRelative } from "node:path";
 import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   type AstGuard,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
-
-const ROOT = process.cwd();
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
   scope: "source",
@@ -106,9 +105,9 @@ export const guard: AstGuard = {
   name: "i18n-Locale-Terminology Guard",
   scan: SCAN,
   hint: "DE: Mandant statt Tenant/Organisation; ES: Organización statt tenant-Loanword. Rollen wie TenantAdmin sind OK.",
-  run(files) {
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations = findViolations(files)
-      .map((v) => ({ ...v, file: pathRelative(ROOT, v.file) }))
+      .map((v) => ({ ...v, file: relFromRepoRoot(v.file, roots) }))
       .filter(isLocalFinding);
     return { violations };
   },

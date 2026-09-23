@@ -26,7 +26,7 @@ import {
   mentionsAsWord,
   nameForms,
 } from "./_lib/handler-name-forms";
-import { resolveRepoRoots } from "./_lib/roots";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 const SCAN: ScanSpec = {
@@ -118,16 +118,15 @@ export const guard: AstGuard = {
   scan: SCAN,
   security: true,
   hint: "Role-restricted write handlers need a test that references the handler and asserts a caller without the role is rejected (AccessDeniedError / access_denied / 403). Existing gaps are frozen in the security baseline; after closing one: `bun guards/run-guards.ts --write-security-baseline`.",
-  run(files) {
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     // consumer CI scans only its own repo, so a sibling repo's test must not count as coverage
-    const violations: GuardViolation[] = findHandlersWithoutAccessDeniedTest(
-      files,
-      resolveRepoRoots(),
-    ).map((h) => ({
-      file: path.relative(ROOT, h.file),
-      line: h.line,
-      message: `role-restricted write handler "${h.name}" has no access-denied test — add a test that references the handler and asserts a caller without the role is rejected (AccessDeniedError / access_denied / 403).`,
-    }));
+    const violations: GuardViolation[] = findHandlersWithoutAccessDeniedTest(files, roots).map(
+      (h) => ({
+        file: path.relative(ROOT, h.file),
+        line: h.line,
+        message: `role-restricted write handler "${h.name}" has no access-denied test — add a test that references the handler and asserts a caller without the role is rejected (AccessDeniedError / access_denied / 403).`,
+      }),
+    );
     return { violations };
   },
 };

@@ -29,7 +29,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
-import { resolveRepoRoots } from "./_lib/roots";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
   scope: "source",
@@ -123,9 +123,8 @@ export const guard: AstGuard = {
     'Same-origin path literal (`"/api/..."`) is allowed; otherwise put `// guard-allow: same-origin fetch` on the line above. ' +
     "Local bindings named fetch are flagged (false positive — unblock via that marker or ALLOWLIST in infra/guards/guard-direct-fetch.ts). " +
     'Known gap: bracket access (globalThis["fetch"](...)).',
-  run(files) {
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
-    const roots = resolveRepoRoots();
 
     for (const sf of files) {
       const file = sf.getFilePath();

@@ -83,6 +83,78 @@ export function renderBunfig(variant: BunfigVariant, opts: BunfigOptions = {}): 
   return `${lines.join("\n")}\n`;
 }
 
+type BunfigBlock = { readonly header: string; readonly lines: readonly string[] };
+
+// Splits on un-indented `[header]` lines only — real bunfig files never
+// indent a table header, and TOML array/inline-table values that happen to
+// contain "[" are never alone on their own line.
+function splitBunfigBlocks(content: string): readonly BunfigBlock[] {
+  const blocks: { header: string; lines: string[] }[] = [];
+  let current: { header: string; lines: string[] } | undefined;
+  for (const line of content.split("\n")) {
+    const match = /^\[([^\]]+)\]\s*$/.exec(line);
+    if (match?.[1] !== undefined) {
+      if (current !== undefined) blocks.push(current);
+      current = { header: match[1], lines: [] };
+      continue;
+    }
+    current?.lines.push(line);
+  }
+  if (current !== undefined) blocks.push(current);
+  return blocks;
+}
+
+function keysIn(lines: readonly string[]): readonly string[] {
+  const keys: string[] = [];
+  for (const line of lines) {
+    const match = /^([A-Za-z_][\w-]*)\s*=/.exec(line.trim());
+    if (match?.[1] !== undefined) keys.push(match[1]);
+  }
+  return keys;
+}
+
+export type UnknownBunfigKey = { readonly section: string; readonly key: string };
+
+export type BunfigMergeResult =
+  | { readonly ok: true; readonly content: string }
+  | { readonly ok: false; readonly unknownKeys: readonly UnknownBunfigKey[] };
+
+/**
+ * Merges freshly generated bunfig content with whatever an app already has
+ * on disk. A section this run's `generated` output doesn't touch at all
+ * (e.g. `[install]` when `--install` wasn't passed, or `[install.scopes]`
+ * for a private-registry token, which renderBunfig never emits) is kept
+ * verbatim, appended after the generated content — so a section the
+ * template doesn't own this run is never silently dropped. A key inside a
+ * section the template DOES emit that isn't in this run's own version of
+ * that section (e.g. `concurrency`, `timeout`, kumiko-framework#3120) fails
+ * the merge instead of silently disappearing.
+ */
+export function mergeBunfig(generated: string, existingContent: string): BunfigMergeResult {
+  const generatedKeysBySection = new Map(
+    splitBunfigBlocks(generated).map((block) => [block.header, new Set(keysIn(block.lines))]),
+  );
+  const blocks = splitBunfigBlocks(existingContent);
+  const unknownKeys: UnknownBunfigKey[] = [];
+  const foreignBlocks: BunfigBlock[] = [];
+  for (const block of blocks) {
+    const allowed = generatedKeysBySection.get(block.header);
+    if (allowed === undefined) {
+      foreignBlocks.push(block);
+      continue;
+    }
+    for (const key of keysIn(block.lines)) {
+      if (!allowed.has(key)) unknownKeys.push({ section: block.header, key });
+    }
+  }
+  if (unknownKeys.length > 0) return { ok: false, unknownKeys };
+  if (foreignBlocks.length === 0) return { ok: true, content: generated };
+  const foreignText = foreignBlocks
+    .map((block) => `[${block.header}]\n${block.lines.join("\n").replace(/\n+$/, "")}\n`)
+    .join("\n");
+  return { ok: true, content: `${generated}\n${foreignText}` };
+}
+
 export function renderBunfigFiles(opts: BunfigOptions = {}): Readonly<Record<string, string>> {
   const { dom, ...shared } = opts;
   return {

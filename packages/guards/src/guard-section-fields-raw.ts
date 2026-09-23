@@ -44,9 +44,11 @@ import {
   type GuardOutcome,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
@@ -100,8 +102,8 @@ const ARRAY_READS = new Set([
   "values",
 ]);
 
-function relFile(sf: SourceFile): string {
-  return path.relative(ROOT, sf.getFilePath());
+function relFile(sf: SourceFile, roots: readonly RepoRoot[]): string {
+  return relFromRepoRoot(sf.getFilePath(), roots);
 }
 
 function hasReasonedIgnoreTag(node: Node): boolean {
@@ -129,7 +131,10 @@ export interface Finding {
   snippet: string;
 }
 
-export function scanRawSectionFieldReads(sf: SourceFile): Finding[] {
+export function scanRawSectionFieldReads(
+  sf: SourceFile,
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Finding[] {
   const findings: Finding[] = [];
   for (const access of sf.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
     if (access.getName() !== "fields") continue;
@@ -137,19 +142,23 @@ export function scanRawSectionFieldReads(sf: SourceFile): Finding[] {
     if (!isSequenceRead(access)) continue;
     if (hasReasonedIgnoreTag(access)) continue;
     const line = access.getStartLineNumber();
-    findings.push({ file: relFile(sf), line, snippet: access.getText().slice(0, 80) });
+    const file = relFile(sf, roots);
+    findings.push({ file, line, snippet: access.getText().slice(0, 80) });
     console.warn(
-      `  [section-fields-raw WARN] ${relFile(sf)}:${line}  raw read of ${access.getText().slice(0, 80)} — use sectionFieldSpecs(section)`,
+      `  [section-fields-raw WARN] ${file}:${line}  raw read of ${access.getText().slice(0, 80)} — use sectionFieldSpecs(section)`,
     );
   }
   return findings;
 }
 
-function scan(files: readonly SourceFile[]): Finding[] {
+function scan(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Finding[] {
   const findings: Finding[] = [];
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
-    findings.push(...scanRawSectionFieldReads(sf));
+    findings.push(...scanRawSectionFieldReads(sf, roots));
   }
   return findings;
 }
@@ -169,8 +178,12 @@ export function baselineCounts(findings: readonly Finding[]): Record<string, num
   return counts;
 }
 
-function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
-  const findings = scan(files);
+function analyse(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+  compareBaseline: boolean,
+): GuardOutcome {
+  const findings = scan(files, roots);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
@@ -180,7 +193,8 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
     baselineCounts(findings),
     REMEDIATION,
     {
-      formatDriftRemediation: "Run `bun guards/guard-section-fields-raw.ts --write-baseline` once.",
+      formatDriftRemediation:
+        'Run `kumiko-guards guards --write-baseline --guard="Raw section.fields Guard"` once.',
       resolveLine: (file) => local.find((f) => f.file === file)?.line ?? 1,
     },
   );
@@ -190,8 +204,9 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
 export const guard: AstGuard = {
   name: "Raw section.fields Guard",
   scan: SCAN,
-  hint: `${REMEDIATION} Known gap: \`section.fields.length\` is not flagged. After a deliberate change: \`bun guards/guard-section-fields-raw.ts --write-baseline\`.`,
-  run: (files) => analyse(files, true),
+  hint: `${REMEDIATION} Known gap: \`section.fields.length\` is not flagged. After a deliberate change: \`kumiko-guards guards --write-baseline --guard="Raw section.fields Guard"\`.`,
+  run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
+  writeBaseline: (files) => sectionFieldsRawBaseline.write(baselineCounts(scan(files))),
 };
 
 // Flags are read only here, never in run() — the shared runner drives every
@@ -206,7 +221,7 @@ if (import.meta.main) {
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), false);
+    analyse(filesForGuard(project, guard), resolveRepoRoots(), false);
     process.exit(0);
   }
   runStandalone(guard);

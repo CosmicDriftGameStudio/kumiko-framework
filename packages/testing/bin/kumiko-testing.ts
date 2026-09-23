@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 // biome-ignore-all lint/suspicious/noConsole: CLI script, console is the interface.
 
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { Glob } from "bun";
-import { BUNFIG_FILES, renderBunfigFiles } from "../src/bunfig";
+import { BUNFIG_FILES, mergeBunfig, renderBunfigFiles } from "../src/bunfig";
 import { buildIntegrationTestArgs, selectIntegrationFiles } from "../src/integration-runner";
 
 const USAGE = `kumiko-testing <command>
@@ -31,11 +31,25 @@ function runBunfig(args: readonly string[]): number {
     coverage: values.coverage === true,
     ...(values.hoisted === true && { install: { linker: "hoisted" } }),
   });
+  let blocked = false;
   for (const [name, content] of Object.entries(files)) {
-    writeFileSync(name, content);
+    let toWrite = content;
+    if (existsSync(name)) {
+      const merged = mergeBunfig(content, readFileSync(name, "utf-8"));
+      if (!merged.ok) {
+        const keys = merged.unknownKeys.map((k) => `${k.section}.${k.key}`).join(", ");
+        console.error(
+          `${name} has key(s) kumiko-testing does not manage: ${keys}. Regenerating would drop them silently — remove them from ${name} or move them out of [install]/[test], then rerun.`,
+        );
+        blocked = true;
+        continue;
+      }
+      toWrite = merged.content;
+    }
+    writeFileSync(name, toWrite);
     console.log(`wrote ${name}`);
   }
-  return 0;
+  return blocked ? 1 : 0;
 }
 
 async function runIntegration(args: readonly string[]): Promise<number> {

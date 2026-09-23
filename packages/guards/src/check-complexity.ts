@@ -41,10 +41,12 @@ import {
   type GuardOutcome,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
@@ -153,8 +155,11 @@ export function computeComplexity(fn: Node): number {
   return complexity;
 }
 
-export function collectHotspots(sf: SourceFile): Hotspot[] {
-  const file = path.relative(ROOT, sf.getFilePath());
+export function collectHotspots(
+  sf: SourceFile,
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Hotspot[] {
+  const file = relFromRepoRoot(sf.getFilePath(), roots);
   const hotspots: Hotspot[] = [];
   for (const kind of FUNCTION_KINDS) {
     for (const fn of sf.getDescendantsOfKind(kind)) {
@@ -192,7 +197,10 @@ export function countHotspotsByFile(hotspots: readonly Hotspot[]): Record<string
   return counts;
 }
 
-function scan(files: readonly SourceFile[]): {
+function scan(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): {
   hotspots: Hotspot[];
   scanned: number;
 } {
@@ -201,7 +209,7 @@ function scan(files: readonly SourceFile[]): {
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
     scanned++;
-    hotspots.push(...collectHotspots(sf));
+    hotspots.push(...collectHotspots(sf, roots));
   }
   hotspots.sort((a, b) => b.complexity - a.complexity);
   return { hotspots, scanned };
@@ -245,14 +253,18 @@ function checkBaseline(scanned: readonly Hotspot[]): GuardViolation[] {
     countHotspotsByFile(hotspots),
     `Split the function, or allow it with "// ${BUDGET_TAG} <reason>".`,
     {
-      formatDriftRemediation: `Run \`bun guards/check-complexity.ts --write-baseline\` once.`,
+      formatDriftRemediation: `Run \`kumiko-guards guards --write-baseline --guard="Complexity Check"\` once.`,
       resolveLine: (file) => resolveHotspotLine(hotspots, file),
     },
   );
 }
 
-function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
-  const { hotspots, scanned } = scan(files);
+function analyse(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+  compareBaseline: boolean,
+): GuardOutcome {
+  const { hotspots, scanned } = scan(files, roots);
   report(hotspots, scanned);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
@@ -267,8 +279,13 @@ export const guard: AstGuard = {
   // Kein Remediation-Text hier: reportResults haengt hint an JEDEN Fail, auch
   // an Format-Drift, wo "Funktion aufteilen" in die Irre fuehrt. Der konkrete
   // Rat steht deshalb in der jeweiligen Violation-Message.
-  hint: "after a deliberate change: `bun guards/check-complexity.ts --write-baseline`",
-  run: (files) => analyse(files, true),
+  hint: 'after a deliberate change: `kumiko-guards guards --write-baseline --guard="Complexity Check"`',
+  run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
+  writeBaseline: (files) => {
+    const { hotspots, scanned } = scan(files);
+    report(hotspots, scanned);
+    complexityBaseline.write(countHotspotsByFile(localHotspots(hotspots)));
+  },
 };
 
 // Flags werden NUR hier gelesen, nicht in run() — der Shared-Runner
@@ -285,7 +302,7 @@ if (import.meta.main) {
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), false);
+    analyse(filesForGuard(project, guard), resolveRepoRoots(), false);
     process.exit(0);
   }
   runStandalone(guard);

@@ -18,7 +18,7 @@
  *   bun guards/guard-i18n-locale-mount.ts
  */
 
-import { dirname, join, relative as pathRelative } from "node:path";
+import { dirname, join } from "node:path";
 import {
   type FileSystemHost,
   type Identifier,
@@ -30,11 +30,12 @@ import {
   type AstGuard,
   type GuardViolation,
   isLocalFinding,
+  relFromRepoRoot,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
-const ROOT = process.cwd();
 const LOCALE_DE_DEP = "@cosmicdrift/kumiko-locale-de";
 
 const SCAN: ScanSpec = {
@@ -306,9 +307,9 @@ export const guard: AstGuard = {
   name: "i18n-Locale-Mount Guard",
   scan: SCAN,
   hint: "Mount point (createKumikoApp/createPublicSurface/LocaleProvider) without a German locale feature — add localeDeClient() to clientFeatures, or localeDe() to the server feature list.",
-  run(files) {
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations = findViolations(files)
-      .map((v) => ({ ...v, file: pathRelative(ROOT, v.file) }))
+      .map((v) => ({ ...v, file: relFromRepoRoot(v.file, roots) }))
       .filter(isLocalFinding);
     return { violations };
   },
