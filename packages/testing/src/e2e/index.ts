@@ -3,6 +3,7 @@ export {
   apiCommand,
   apiQuery,
   apiWrite,
+  clearSession,
   createHttpApi,
   csrfFetch,
   csrfHeaderFromCookies,

@@ -48,9 +48,16 @@ export async function loginViaApi(
   }
 }
 
+// Leaves the app page first: an app page still open while its cookies vanish redirects itself
+// to /login?next=… on its next request, racing whatever the test navigates to next.
+export async function clearSession(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.context().clearCookies();
+}
+
 export async function loginViaUi(page: Page, credentials: LoginCredentials): Promise<void> {
   // seedTenant already logged the context in, and an authenticated session never renders /login.
-  await page.context().clearCookies();
+  await clearSession(page);
   await page.goto("/login");
   await page.locator("#login-email").fill(credentials.email);
   await page.locator("#login-password").fill(credentials.password);
