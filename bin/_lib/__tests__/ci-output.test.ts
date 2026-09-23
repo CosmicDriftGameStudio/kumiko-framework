@@ -96,6 +96,78 @@ describe("CI output formatting", () => {
     expect(result).toContain("line 499");
   });
 
+  test("keeps a buried bun test failure visible despite heavy React act() noise", () => {
+    const noiseLine = "Warning: An update to Component inside a test was not wrapped in act(...).";
+    const before = Array.from({ length: 300 }, () => noiseLine);
+    const failureBlock = [
+      "packages/renderer-web/src/__tests__/zz-probe.test.tsx:",
+      '1 | import { expect, test } from "bun:test";',
+      '2 | test("zz probe fails", () => {',
+      "3 |   expect({ a: 1 }).toEqual({ a: 2 });",
+      "                       ^",
+      "error: expect(received).toEqual(expected)",
+      "  {",
+      '-   "a": 2,',
+      '+   "a": 1,',
+      "  }",
+      "- Expected  - 1",
+      "+ Received  + 1",
+      "      at <anonymous> (/abs/path/zz-probe.test.tsx:3:20)",
+      "(fail) zz probe fails [1.56ms]",
+    ];
+    const after = Array.from({ length: 300 }, () => noiseLine);
+    const output = [...before, ...failureBlock, ...after].join("\n");
+
+    const result = formatCompactFailure("DOM Tests (framework)", 1, output);
+
+    expect(result).toContain("(fail) zz probe fails");
+    expect(result).toContain("error: expect(received).toEqual(expected)");
+    expect(result).toContain("at <anonymous> (/abs/path/zz-probe.test.tsx:3:20)");
+  });
+
+  test("caps buried failures to the first 5 windows once more than 5 tests fail", () => {
+    const noiseLine = "Warning: act() noise";
+    const failLine = (n: number) => `(fail) probe ${n} fails [1ms]`;
+    const segments: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      segments.push(...Array.from({ length: 150 }, () => noiseLine));
+      segments.push(failLine(i));
+    }
+    segments.push(...Array.from({ length: 150 }, () => noiseLine));
+    const output = segments.join("\n");
+
+    const result = formatCompactFailure("Huge failure", 1, output);
+
+    for (let i = 0; i < 5; i++) expect(result).toContain(failLine(i));
+    expect(result).not.toContain(failLine(5));
+    // MAX_FAILURE_LINES (200) + 5 windows * 43 lines = 415 content lines, plus
+    // header, indentation and a handful of omission markers.
+    expect(result.split("\n").length).toBeLessThanOrEqual(430);
+  });
+
+  test("leaves a short failure output unmodified with no omission marker", () => {
+    const output = Array.from({ length: 50 }, (_, i) => `line ${i}`).join("\n");
+
+    const result = formatCompactFailure("Small failure", 1, output);
+
+    expect(result).not.toContain("omitted");
+    expect(result).toContain("line 0");
+    expect(result).toContain("line 49");
+  });
+
+  test("keeps repeated identical lines inside a failure window without deduping", () => {
+    const noiseLine = "Warning: act() noise";
+    const before = Array.from({ length: 300 }, () => noiseLine);
+    const failureBlock = ["error: same", "error: same", "(fail) probe fails [1ms]"];
+    const after = Array.from({ length: 300 }, () => noiseLine);
+    const output = [...before, ...failureBlock, ...after].join("\n");
+
+    const result = formatCompactFailure("Dup lines", 1, output);
+    const occurrences = result.split("error: same").length - 1;
+
+    expect(occurrences).toBe(2);
+  });
+
   test("does not classify an @cosmicdrift package line as a diagnostic", () => {
     const diagnostics = findOutputDiagnostics("+ @cosmicdrift/kumiko-framework@0.284.0\nSaved lockfile");
 
