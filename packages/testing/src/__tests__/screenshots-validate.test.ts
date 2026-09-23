@@ -20,6 +20,12 @@ describe("validateScenarios", () => {
     expect(() => validateScenarios([{ name: "ok", flow: async () => {} }])).not.toThrow();
   });
 
+  test("accepts a flow that takes the seedTenant fixture as its second parameter", () => {
+    expect(() =>
+      validateScenarios([{ name: "ok", flow: async (_page, _fixtures) => {} }]),
+    ).not.toThrow();
+  });
+
   test("rejects a scenario with neither url nor flow", () => {
     expect(() => validateScenarios([{ name: "broken" }])).toThrow(
       /Scenario "broken" needs either url or flow/,

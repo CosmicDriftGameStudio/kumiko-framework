@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
-import { expect, type Page, type Request, test } from "@playwright/test";
+import { expect, type Page, type Request } from "@playwright/test";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir } from "./screenshot-dir";
+import { type SeedTenantFixture, test } from "./seeded-tenant-fixture";
 
 // runScreenshots: one image per scenario → $SCREENSHOT_DIR/<name>.png.
 // runMatrix: every scenario × locale × theme × viewport in ONE run →
@@ -30,10 +31,16 @@ export interface Scenario {
   readonly name: string;
   readonly description?: string;
   readonly url?: string;
-  readonly flow?: (page: Page) => Promise<void>;
+  readonly flow?: (page: Page, fixtures: { seedTenant: SeedTenantFixture }) => Promise<void>;
   readonly waitFor?: string;
   readonly fullPage?: boolean;
   readonly viewport?: { readonly width: number; readonly height: number };
+  // Runs after the viewport is set and the page has settled, right before the
+  // screenshot. runMatrix calls this once per theme × viewport combination for
+  // the scenario — it must be idempotent (e.g. hide/mask an element) rather
+  // than a one-shot action like clicking a dismiss button, which would only
+  // succeed on the first capture and time out on every one after.
+  readonly beforeCapture?: (page: Page) => Promise<void>;
   // runMatrix only: opt out of the identical-theme-screenshot check for
   // scenarios that legitimately render the same pixels across themes — e.g.
   // a plain server-rendered content page with no client-side theme wiring.
@@ -93,8 +100,9 @@ async function openScenario(
   page: Page,
   s: Scenario,
   inFlightDataRequests: () => number,
+  fixtures: { seedTenant: SeedTenantFixture },
 ): Promise<void> {
-  if (s.flow) await s.flow(page);
+  if (s.flow) await s.flow(page, fixtures);
   else if (s.url) await page.goto(s.url);
   else throw new Error(`Scenario "${s.name}" needs either url or flow`);
 
@@ -140,15 +148,19 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
     // unreachable from Playwright (context.locale and --lang both no-op there). #1851
     if (opts.pinLocale) test.use({ locale: "en-US" });
     for (const s of scenarios) {
-      test(s.description ? `${s.name} — ${s.description}` : s.name, async ({ page }) => {
-        if (opts.pinLocale) await pinEnglishLocale(page);
-        const inFlightDataRequests = countInFlightDataRequests(page);
-        if (s.viewport) await page.setViewportSize(s.viewport);
-        await openScenario(page, s, inFlightDataRequests);
-        const path = `${outDir}/${s.name}.png`;
-        await page.screenshot({ path, fullPage: s.fullPage ?? false });
-        expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
-      });
+      test(
+        s.description ? `${s.name} — ${s.description}` : s.name,
+        async ({ page, seedTenant }) => {
+          if (opts.pinLocale) await pinEnglishLocale(page);
+          const inFlightDataRequests = countInFlightDataRequests(page);
+          if (s.viewport) await page.setViewportSize(s.viewport);
+          await openScenario(page, s, inFlightDataRequests, { seedTenant });
+          if (s.beforeCapture) await s.beforeCapture(page);
+          const path = `${outDir}/${s.name}.png`;
+          await page.screenshot({ path, fullPage: s.fullPage ?? false });
+          expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
+        },
+      );
     }
   });
 }
@@ -260,7 +272,7 @@ export function runMatrix<T extends string>(
 
       for (const s of scenarios) {
         if (only !== undefined && only !== s.name) continue;
-        test(s.name, async ({ page }) => {
+        test(s.name, async ({ page, seedTenant }) => {
           // kumiko:locale drives the boot-time language (before goto); kumiko:theme
           // is cleared so the mode is decided solely by applyTheme.
           await page.addInitScript((lng) => {
@@ -268,7 +280,7 @@ export function runMatrix<T extends string>(
             localStorage.removeItem("kumiko:theme");
           }, locale);
           const inFlightDataRequests = countInFlightDataRequests(page);
-          await openScenario(page, s, inFlightDataRequests);
+          await openScenario(page, s, inFlightDataRequests, { seedTenant });
 
           const digests: ThemeScreenshotDigest<T>[] = [];
 
@@ -277,6 +289,7 @@ export function runMatrix<T extends string>(
             for (const vp of viewports) {
               await page.setViewportSize(VIEWPORTS[vp]);
               await waitForSettledPage(page, inFlightDataRequests);
+              if (s.beforeCapture) await s.beforeCapture(page);
               const dir = `${baseDir}/${s.name}/${locale}/${theme}`;
               mkdirSync(dir, { recursive: true });
               const path = `${dir}/${vp}.png`;

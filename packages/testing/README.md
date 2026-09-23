@@ -52,6 +52,26 @@ test("member sees the note", async ({ seedTenant, page }) => {
   when the seed condition holds: `...(isE2eSeedingEnabled() ? createE2eSeedRoutes() : [])` in its own
   `extraRoutes` — prod then never registers the routes at all, not just a per-request 404.
   `isE2eSeedingEnabled` is exported from `@cosmicdrift/kumiko-testing/e2e/seed-route`.
-- App-wide defaults after tenant creation (e.g. a completed onboarding) belong in a `postSave` hook on
-  the `"tenant"` entity (`r.hook("postSave", { allOf: "tenant" }, ...)`), fired via
-  `seedTenant(db, options, { registry, context })` — not in `seedTenant()` itself, which stays a blank tenant.
+- App-wide defaults for tests (e.g. a completed onboarding) belong in a `SeedPart` passed to
+  `seedTenant({ with: [defaults] })` — never in a `postSave` hook on the `"tenant"` entity, since that
+  hook also fires on every real signup in prod.
+
+## Screenshots (`./e2e`)
+
+`runScreenshots`/`runMatrix` register their tests on the same `test` as above, so a scenario's `flow`
+receives the seeded-tenant fixture too:
+
+```ts
+{ name: "dispatch", flow: async (page, { seedTenant }) => {
+    const tenant = await seedTenant({ users: 1 });
+    await tenant.loginAs(page, tenant.members[0]!);
+    await page.goto("/dispatch");
+  },
+  beforeCapture: async (page) => page.addStyleTag({ content: ".live-clock { visibility: hidden }" }),
+}
+```
+
+`beforeCapture?: (page) => Promise<void>` runs after the viewport is set and the page has settled,
+right before the screenshot. `runMatrix` calls it once per theme × viewport for the same scenario, so
+it must be idempotent — hide or mask an element rather than a one-shot action like clicking a button,
+which would only succeed on the first capture and time out on every one after.
