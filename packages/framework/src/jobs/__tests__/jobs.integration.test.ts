@@ -1390,4 +1390,39 @@ describe("boot gates", () => {
     });
     expect(() => createRegistry([sequentialGate])).toThrow(/bootGate with concurrency/);
   });
+
+  test("object-form backoff.delayMs must be a positive integer", () => {
+    for (const badDelayMs of [0, -5, 1.5]) {
+      const feature = defineFeature("badbackoff", (r) => {
+        r.job(
+          "check",
+          { trigger: { manual: true }, backoff: { type: "fixed", delayMs: badDelayMs } },
+          async () => {
+            gateLog.push("never");
+          },
+        );
+      });
+      expect(() => createRegistry([feature])).toThrow(
+        /backoff\.delayMs must be a positive integer/,
+      );
+    }
+
+    const validObjectForm = defineFeature("goodbackoffobject", (r) => {
+      r.job(
+        "check",
+        { trigger: { manual: true }, backoff: { type: "exponential", delayMs: 100 } },
+        async () => {
+          gateLog.push("never");
+        },
+      );
+    });
+    expect(() => createRegistry([validObjectForm])).not.toThrow();
+
+    const validStringForm = defineFeature("goodbackoffstring", (r) => {
+      r.job("check", { trigger: { manual: true }, backoff: "fixed" }, async () => {
+        gateLog.push("never");
+      });
+    });
+    expect(() => createRegistry([validStringForm])).not.toThrow();
+  });
 });

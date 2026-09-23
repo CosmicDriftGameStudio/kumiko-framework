@@ -34,6 +34,7 @@ import {
   validateExtensionSelectors,
   validateExtensionUsageTargets,
   validateFieldAccessHandlersAreEntityMapped,
+  validateJobBackoff,
   validateJobTriggers,
   validateLifecycleHookTargets,
   validateProjectionApplyKeys,
@@ -83,6 +84,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateEntityHookTargets(state, features);
   validateJobTriggers(state);
   validateBootGates(state);
+  validateJobBackoff(state);
   validateExtensionUsageTargets(state);
   computeHasRateLimitedHandler(state);
   publishEventPiiCatalog(state);
