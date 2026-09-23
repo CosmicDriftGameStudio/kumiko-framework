@@ -10,6 +10,14 @@ verified: 2026-09-23
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.301.0
+
+### billing-foundation
+
+**billing-foundation no longer exports SystemWriteResult (removed in 0.298.0 without a changelog note)**
+
+**Migration:** SystemWriteResult was exported from @cosmicdrift/kumiko-bundled-features/billing-foundation up to 0.297.0 and was dropped in 0.298.0 together with the dispatchSystemWrite dep of createSubscriptionTierSync; there is no alias. Code that still imports it fails with "has no exported member 'SystemWriteResult'". If the type is only used for a dispatchSystemWrite dep passed to createSubscriptionTierSync, drop that dep and the type together (see the 0.298.0 webhook-wiring migration: extraRoutes: [createSubscriptionTierSync({ ... }).createWebhookRoute()]). Where a system-write result type is still needed, import type { WriteResult } from "@cosmicdrift/kumiko-framework/engine" and use WriteResult<unknown>; it is a discriminated union ({ isSuccess: true; data } | WriteFailure), so narrow on isSuccess before reading data or error.
+
 ## 0.300.0
 
 ### auth-email-password
