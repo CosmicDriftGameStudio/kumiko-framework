@@ -16,6 +16,11 @@ export {
   createSafeMetricsHandle,
   createUnboundMetricsHandle,
 } from "./metrics-handle";
+export {
+  type ObservabilityWiring,
+  prometheusMetricsEnvSchema,
+  resolveObservabilityWiring,
+} from "./metrics-wiring";
 export { createNoopProvider } from "./noop-provider";
 export {
   createPrometheusMeter,
