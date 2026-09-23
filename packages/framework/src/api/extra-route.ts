@@ -26,6 +26,12 @@ export type AnonymousExtraRouteDeps = {
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
+  /** Runs as the session the /api chain resolved for this request —
+   *  anonymous when no token is sent, the authenticated user otherwise.
+   *  Never more than that caller could already do via /api/write: same
+   *  user, same request-resolved tenant (never overridable), only under
+   *  "/api/" (the only path that populates a session user). */
+  readonly write: (type: string, payload: unknown) => Promise<WriteResult>;
 };
 
 export type AnonymousExtraRoute = {

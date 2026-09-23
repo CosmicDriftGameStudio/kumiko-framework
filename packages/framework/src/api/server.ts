@@ -1022,6 +1022,25 @@ export function makeDispatchSystemQuery(
     dispatcher.query(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
 }
 
+// Same dispatcher.write(...) as entry:"user", but the user is getUser(c) —
+// see AnonymousExtraRouteDeps.write for the privilege/tenant contract.
+function makeAnonymousWrite(
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+  c: import("hono").Context<any, any>,
+  dispatcher: Dispatcher,
+): (type: string, payload: unknown) => Promise<WriteResult> {
+  return (type, payload) => {
+    const user = getUser(c);
+    if (!user) {
+      throw new Error(
+        '[kumiko] extraRoutes: entry:"anonymous" deps.write requires this route to be mounted ' +
+          'under "/api/" with anonymousAccess wired — no request-resolved session user was found.',
+      );
+    }
+    return dispatcher.write(type, payload, user);
+  };
+}
+
 function isKnownExtraRouteEntry(entry: unknown): entry is ExtraRouteEntry {
   return (
     entry === ExtraRouteEntries.anonymous ||
@@ -1079,6 +1098,7 @@ function buildExtraRouteHonoHandler(
           app: shared.app,
           registry: shared.registry,
           systemQuery: makeSystemQuery(c, shared.dispatcher),
+          write: makeAnonymousWrite(c, shared.dispatcher),
         });
     case ExtraRouteEntries.user:
       return async (c) => {
