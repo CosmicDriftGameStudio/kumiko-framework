@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createUncheckedSystemDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { requireSystemDb } from "../feature";
 
 // Minimal TenantDb stub — only .tenantId is read by assertTenantMatch /
-// createUncheckedSystemDb; the real db-query methods are never called by
+// createSystemDbView; the real db-query methods are never called by
 // requireSystemDb itself.
 function fakeTenantDb(tenantId: TenantId): TenantDb {
   return { tenantId, mode: "system" } as unknown as TenantDb;
@@ -16,7 +16,7 @@ function fakeTenantDb(tenantId: TenantId): TenantDb {
 function contextStub(db: TenantDb, withSystemDb: boolean): HandlerContext {
   return {
     db,
-    systemDb: withSystemDb ? createUncheckedSystemDb(db) : undefined,
+    systemDb: withSystemDb ? createSystemDbView(db) : undefined,
     // biome-ignore lint/suspicious/noExplicitAny: rest of HandlerContext isn't touched by requireSystemDb.
   } as any;
 }

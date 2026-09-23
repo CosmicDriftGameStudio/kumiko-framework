@@ -25,8 +25,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
   insertOne,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -205,7 +205,11 @@ async function runResumeDueRunsJob(tenantId: string): Promise<void> {
   const systemUser = createSystemUser(tenantId);
   const ctx: JobContext = {
     db: createTenantDb(stack.db, tenantId),
-    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, tenantId, "system")),
+    systemDb: createSystemDbView(
+      createTenantDb(stack.db, tenantId, "system", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      }),
+    ),
     registry: stack.registry,
     systemUser,
     log: noopLogger,

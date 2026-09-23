@@ -155,7 +155,7 @@ export {
 export type { TenantDb, TenantDbGrants, TenantDbMode, UncheckedSystemDb } from "./tenant-db";
 export {
   castTenantRows,
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
   SYSTEM_SCOPE_CHECK_BRAND,
 } from "./tenant-db";

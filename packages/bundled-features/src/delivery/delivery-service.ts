@@ -1,6 +1,6 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb, createUncheckedSystemDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   EscapeHatchAuditSink,
   NotifyPriority,
@@ -177,18 +177,41 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       sink: escapeHatchAuditSink,
       log,
     });
-    const tenantDb = createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
-      report,
-    });
-    // Hand-built context, not routed through the dispatcher — tenantUserIdsQuery is
-    // typically an r.systemScope() handler, fail-closed on ctx.db, so this needs both.
+    // Mirrors buildHandlerContext (pipeline/dispatch-shared.ts): a non-systemScope
+    // tenantUserIdsQuery must get the same tenant-filtered db/no-systemDb context
+    // the real dispatcher would give it — handing it "system" mode + a systemDb
+    // view regardless would grant cross-tenant reach the dispatcher never would.
+    const isSystem = registry.isHandlerSystemScoped(tenantUserIdsQuery);
+    const tenantDb = createTenantDb(
+      db,
+      tenantId,
+      isSystem ? "system" : "tenant",
+      undefined,
+      undefined,
+      undefined,
+      { report },
+    );
+    // The dispatcher grants a systemScope handler's ctx.systemDb.unsafeRaw() ungated —
+    // the grant comes from the handler's own r.systemScope() registration, not from this
+    // caller. ctx.db/dbOutsideTransaction stay on the grant-less tenantDb above; only the
+    // systemDb view's own source TenantDb carries the grant, so it can't leak onto ctx.db.
+    const systemDbSourceTenantDb = isSystem
+      ? createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
+          report,
+          unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },
+        })
+      : undefined;
+    // Hand-built context, not routed through the dispatcher — this needs both
+    // db and dbOutsideTransaction wired directly.
     // @cast-boundary engine-payload — generic query-handler return for typed convention
     return (await handler.handler(
       { type: tenantUserIdsQuery, payload: { tenantId }, user: systemUser },
       {
         db: tenantDb,
         dbOutsideTransaction: tenantDb,
-        systemDb: createUncheckedSystemDb(tenantDb, undefined, report),
+        systemDb: systemDbSourceTenantDb
+          ? createSystemDbView(systemDbSourceTenantDb, undefined, report)
+          : undefined,
         registry,
         ...bridgeStub(),
       },

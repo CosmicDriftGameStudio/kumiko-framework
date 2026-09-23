@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -87,7 +87,7 @@ const billingFeature = defineFeature("billing", (r) => {
           {
             db: tenantDb,
             dbOutsideTransaction: tenantDb,
-            systemDb: createUncheckedSystemDb(tenantDb),
+            systemDb: createSystemDbView(tenantDb),
             registry: reg,
             configResolver: ctx["configResolver"] as ConfigResolver,
             ...bridgeStub(),
@@ -177,7 +177,7 @@ describe("SYSTEM_USER in jobs", () => {
       {
         db: adminTenantDb,
         dbOutsideTransaction: adminTenantDb,
-        systemDb: createUncheckedSystemDb(adminTenantDb),
+        systemDb: createSystemDbView(adminTenantDb),
         registry,
         configResolver: resolver,
         ...bridgeStub(),

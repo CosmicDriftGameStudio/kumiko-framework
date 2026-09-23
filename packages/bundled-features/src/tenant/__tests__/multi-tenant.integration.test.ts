@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
 import {
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -102,7 +102,7 @@ beforeAll(async () => {
         {
           db: systemModeDb,
           dbOutsideTransaction: systemModeDb,
-          systemDb: createUncheckedSystemDb(systemModeDb),
+          systemDb: createSystemDbView(systemModeDb),
           registry,
           ...bridgeStub(),
         },
