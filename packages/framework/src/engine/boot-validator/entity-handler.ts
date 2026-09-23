@@ -181,6 +181,7 @@ export function validateNoAllRoleInHandlerAccess(
 ): void {
   // skip: openToAll has no roles list to check
   if (!("roles" in access)) return;
+  // skip: no "all" in the roles list, nothing unreachable to report
   if (!access.roles.includes("all")) return;
   throw new Error(
     `${kind} handler "${featureName}:${kind}:${handlerName}" declares access: { roles: ["all"] } — ` +
