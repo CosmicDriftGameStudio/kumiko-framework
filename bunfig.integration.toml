@@ -14,8 +14,8 @@ preload = [
 # `--timeout=15000` on every `bun test --config=bunfig.integration.toml` call
 # (scripts/run-integration-tests.ts, package.json test:integration:perf:*).
 
-# Same product-code scope as bunfig.ci.toml (integration coverage pass
-# enables --coverage on the CLI against this config).
+# Same product-code scope as bunfig.ci.toml (run-integration-tests.ts adds
+# --coverage on the CLI when KUMIKO_INTEGRATION_COVERAGE=1).
 coveragePathIgnorePatterns = [
   "**/scripts/**",
   "**/bin/**",

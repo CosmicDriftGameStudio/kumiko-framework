@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /** Runs all `*.integration.test.ts` files with integration preload + env defaults. */
 
-import { readdirSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, relative } from "node:path";
 import { Glob } from "bun";
 import {
@@ -14,6 +14,55 @@ import {
   isIntegrationPerfFile,
   parseBunTestRunOutput,
 } from "../bin/_lib/integration-test";
+
+const INTEGRATION_COVERAGE_OUT = "coverage/integration";
+const INTEGRATION_COVERAGE_PARTS = `${INTEGRATION_COVERAGE_OUT}/parts`;
+
+// bun's lcov reporter overwrites its output dir per invocation, so each
+// per-dir run needs its own coverage-dir; merge by line-level union
+// afterwards (a shared file exercised by different lines in different
+// directories needs the union of hit lines, not a per-file max).
+function mergeIntegrationCoverage(dirCount: number): void {
+  const perFileLines = new Map<string, Map<number, number>>();
+  for (let i = 0; i < dirCount; i++) {
+    let content: string;
+    try {
+      content = readFileSync(`${INTEGRATION_COVERAGE_PARTS}/${i}/lcov.info`, "utf8");
+    } catch {
+      continue;
+    }
+    for (const rec of content.split("end_of_record")) {
+      const sf = /SF:(.+)/.exec(rec)?.[1]?.trim();
+      if (!sf) continue;
+      const lines = perFileLines.get(sf) ?? new Map<number, number>();
+      for (const m of rec.matchAll(/^DA:(\d+),(\d+)/gm)) {
+        const line = Number(m[1]);
+        const count = Number(m[2]);
+        lines.set(line, Math.max(lines.get(line) ?? 0, count));
+      }
+      perFileLines.set(sf, lines);
+    }
+  }
+
+  const lcovOut: string[] = [];
+  let totalLf = 0;
+  let totalLh = 0;
+  for (const [sf, lines] of [...perFileLines.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const sorted = [...lines.entries()].sort(([a], [b]) => a - b);
+    const lh = sorted.filter(([, c]) => c > 0).length;
+    totalLf += sorted.length;
+    totalLh += lh;
+    lcovOut.push(
+      `SF:${sf}`,
+      ...sorted.map(([line, count]) => `DA:${line},${count}`),
+      `LF:${sorted.length}`,
+      `LH:${lh}`,
+      "end_of_record",
+    );
+  }
+  writeFileSync(`${INTEGRATION_COVERAGE_OUT}/lcov.info`, `${lcovOut.join("\n")}\n`);
+  console.log(`\nMerged ${perFileLines.size} files → ${INTEGRATION_COVERAGE_OUT}/lcov.info (${totalLh}/${totalLf} lines)`);
+}
 
 function unitTestIgnorePatterns(dir: string): string[] {
   const patterns: string[] = [];
@@ -148,10 +197,13 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
     return 1;
   }
 
+  const collectCoverage = mode === "bulk" && process.env.KUMIKO_INTEGRATION_COVERAGE === "1";
+  if (collectCoverage) mkdirSync(INTEGRATION_COVERAGE_PARTS, { recursive: true });
+
   let lastCode = 0;
   const dirResults: DirRunResult[] = [];
 
-  for (const dir of discovery.includedDirs) {
+  for (const [dirIndex, dir] of discovery.includedDirs.entries()) {
     const relDir = `./${relative(process.cwd(), dir)}`;
     const args = [
       "test",
@@ -171,6 +223,13 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
       for (const perfFile of perfFiles) {
         if (dirname(perfFile) !== dir) continue;
         args.push("--path-ignore-patterns", `**/${basename(perfFile)}`);
+      }
+      if (collectCoverage) {
+        args.push(
+          "--coverage",
+          "--coverage-reporter=lcov",
+          `--coverage-dir=${INTEGRATION_COVERAGE_PARTS}/${dirIndex}`,
+        );
       }
       args.push(relDir);
     }
@@ -217,6 +276,8 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
     dirResults.push({ kind: "ran", dir: relDir, totals, exitCode: code });
     if (code !== 0) lastCode = code;
   }
+
+  if (collectCoverage) mergeIntegrationCoverage(discovery.includedDirs.length);
 
   const { exitCode: summaryCode } = printIntegrationSummary(discovery, dirResults, mode);
   return lastCode !== 0 ? lastCode : summaryCode;
