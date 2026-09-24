@@ -1,6 +1,33 @@
-import { Meilisearch } from "meilisearch";
+import { type EnqueuedTaskPromise, ErrorStatusCode, Meilisearch, type Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers";
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
+
+// meilisearch's waitTask() RESOLVES (never rejects) once the server task
+// reaches a terminal state, even "failed" — a rejected doc (e.g. an id over
+// Meili's 511-byte limit) otherwise fails silently and the caller thinks
+// the write succeeded. Route every waitTask() through here so a non-
+// "succeeded" status always throws, except for the error codes a caller
+// declares as an already-reached end state.
+async function awaitSucceededTask(
+  enqueued: EnqueuedTaskPromise,
+  toleratedErrorCodes: readonly string[] = [],
+): Promise<Task> {
+  const task = await enqueued.waitTask();
+  const tolerated = task.error ? toleratedErrorCodes.includes(task.error.code) : false;
+  if (task.status !== "succeeded" && !tolerated) {
+    const detail = task.error ? `${task.error.code}: ${task.error.message}` : "no error detail";
+    throw new Error(
+      `Meilisearch task ${task.uid} (${task.type}) ended with status "${task.status}": ${detail}`,
+    );
+  }
+  return task;
+}
+
+// A tenant whose index was never created (no default config, nothing ever
+// indexed) has nothing to delete: the remove's end state already holds.
+// Without this, a delete event or a DSGVO subject purge for such a tenant
+// would fail forever.
+const REMOVE_TOLERATED_ERROR_CODES: readonly string[] = [ErrorStatusCode.INDEX_NOT_FOUND];
 
 export type MeilisearchAdapterOptions = {
   url: string;
@@ -34,9 +61,9 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
   async function applyConfig(tenantId: TenantId, config: SearchAdapterConfig): Promise<void> {
     const index = client.index(meilisearchTenantIndex(prefix, tenantId));
     const fields = config.rankingFields ?? config.searchableFields;
-    await index.updateSearchableAttributes([...fields]).waitTask();
-    await index.updateFilterableAttributes(["_type", "_weight"]).waitTask();
-    await index.updateSortableAttributes(["_weight"]).waitTask();
+    await awaitSucceededTask(index.updateSearchableAttributes([...fields]));
+    await awaitSucceededTask(index.updateFilterableAttributes(["_type", "_weight"]));
+    await awaitSucceededTask(index.updateSortableAttributes(["_weight"]));
   }
 
   // Lazily configures a tenant's index off the default config on its first
@@ -82,8 +109,8 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async index(tenantId, doc) {
       await ensureConfigured(tenantId);
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      await index
-        .addDocuments(
+      await awaitSucceededTask(
+        index.addDocuments(
           [
             {
               _id: meilisearchDocId(doc.entityType, doc.entityId),
@@ -94,8 +121,8 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
             },
           ],
           { primaryKey: "_id" },
-        )
-        .waitTask();
+        ),
+      );
     },
 
     async indexBatch(tenantId, docs) {
@@ -113,7 +140,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       // Single Meilisearch task covering all N docs. Meilisearch processes
       // the payload server-side as one indexing job — waitTask blocks until
       // that job is done, but it's one round-trip instead of N.
-      await index.addDocuments(payload, { primaryKey: "_id" }).waitTask();
+      await awaitSucceededTask(index.addDocuments(payload, { primaryKey: "_id" }));
     },
 
     async removeBatch(tenantId, items) {
@@ -122,7 +149,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       await ensureConfigured(tenantId);
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       const ids = items.map((i) => meilisearchDocId(i.entityType, i.entityId));
-      await index.deleteDocuments(ids).waitTask();
+      await awaitSucceededTask(index.deleteDocuments(ids), REMOVE_TOLERATED_ERROR_CODES);
     },
 
     async search(tenantId, query, options) {
@@ -153,7 +180,10 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async remove(tenantId, entityType, entityId) {
       await ensureConfigured(tenantId);
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-      await index.deleteDocument(meilisearchDocId(entityType, entityId)).waitTask();
+      await awaitSucceededTask(
+        index.deleteDocument(meilisearchDocId(entityType, entityId)),
+        REMOVE_TOLERATED_ERROR_CODES,
+      );
     },
   };
 }

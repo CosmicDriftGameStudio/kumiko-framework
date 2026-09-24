@@ -28,6 +28,7 @@ export type {
   ConsumerRecoveryState,
   DispatcherPassResult,
   EventConsumer,
+  EventConsumerBatchHandler,
   EventConsumerHandler,
   EventDispatcher,
   EventDispatcherOptions,

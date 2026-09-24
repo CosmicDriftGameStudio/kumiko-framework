@@ -67,6 +67,21 @@ import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pendin
 
 export type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Promise<void>;
 
+// Batch variant of EventConsumerHandler — receives all events of one
+// delivery turn in id order, meant for side-effect sinks (search index,
+// bulk fan-out) that can collapse a turn into one round-trip. `handler`
+// stays mandatory and is the fallback: if the batch throws, the dispatcher
+// re-delivers the same events one by one through `handler`, so errorPolicy
+// (maxAttempts, skipApplyErrors, dead-lettering) applies per event exactly
+// as before. The batch handler must therefore be replay-safe — a partially
+// applied batch gets re-applied event by event under the same idempotency
+// rule as `handler`. Events appended from inside a batch handler carry the
+// LAST event's causation id only.
+export type EventConsumerBatchHandler = (
+  events: readonly StoredEvent[],
+  ctx: AppContext,
+) => Promise<void>;
+
 // Per-consumer error policy. When skipApplyErrors is true and handler throws,
 // the dispatcher logs the error, advances the cursor past the offending event,
 // and keeps delivering — instead of the default retry + dead-letter flow.
@@ -84,6 +99,9 @@ export type EventConsumerErrorPolicy = {
 export type EventConsumer = {
   readonly name: string;
   readonly handler: EventConsumerHandler;
+  // Optional batch fast-path for this turn's events — see
+  // EventConsumerBatchHandler for the fallback and replay-safety contract.
+  readonly batchHandler?: EventConsumerBatchHandler;
   readonly errorPolicy?: EventConsumerErrorPolicy;
   // Owning feature — when present, the dispatcher skips this consumer's
   // pass while the feature is globally disabled. Events remain in the store

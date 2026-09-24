@@ -2,7 +2,7 @@
 // `Temporal` TYPE that ConsumerStateRow.updatedAt/StoredEventRow.createdAt
 // resolve against (same #1438 dual-package-hazard pattern as event-store.ts).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
-import { requestContext } from "../api/request-context";
+import { type RequestContextData, requestContext } from "../api/request-context";
 import type { DbConnection, DbTx } from "../db/connection";
 import {
   insertConsumerIfAbsent,
@@ -20,7 +20,7 @@ import {
 import { coerceRow, extractTableInfo } from "../db/query";
 import { qnScope } from "../engine/qualified-name";
 import type { AppContext } from "../engine/types";
-import { eventsTable, toStoredEvent as rowToStoredEvent } from "../event-store";
+import { eventsTable, toStoredEvent as rowToStoredEvent, type StoredEvent } from "../event-store";
 import {
   emitDispatcherError,
   emitEventConsumerLag,
@@ -230,12 +230,15 @@ export type DeliveryOutcome = {
   readonly resolvedPendingIds: readonly bigint[];
 };
 
-// Deliver events to the consumer's handler in events.id order. Halt-on-
-// poison: a throw breaks the loop, the cursor stays at the last successful
-// event, and attempts climb. At the consumer's effectiveMaxAttempts
-// (errorPolicy.maxAttempts ?? maxAttempts) the caller persists status=
-// "dead" and the consumer is parked until ops intervenes (see
-// restartConsumer / skipPoisonEvent).
+// Deliver events to the consumer's handler in events.id order, or — when
+// the consumer wires a batchHandler — through it in one call first. Halt-
+// on-poison: a throw breaks the per-event loop, the cursor stays at the
+// last successful event, and attempts climb. At the consumer's
+// effectiveMaxAttempts (errorPolicy.maxAttempts ?? maxAttempts) the caller
+// persists status="dead" and the consumer is parked until ops intervenes
+// (see restartConsumer / skipPoisonEvent). A batch that throws falls back
+// to the same per-event loop for the same events — the batch failure
+// itself does not bump attempts, only a per-event failure does.
 export async function deliverEvents(
   consumer: EventConsumer,
   events: ReadonlyArray<StoredEventRow>,
@@ -262,6 +265,17 @@ export async function deliverEvents(
     lastError = null;
   };
 
+  if (consumer.batchHandler && events.length > 0) {
+    const batchSucceeded = await tryApplyBatch(consumer, events, context);
+    if (batchSucceeded) {
+      for (const row of events) resolve(row.id);
+      processed = events.length;
+      return { cursor, attempts, lastError, deadLettered, processed, failed, resolvedPendingIds };
+    }
+    // fall through to the per-event loop below; the batch failure itself
+    // does NOT bump attempts — only a per-event failure does.
+  }
+
   for (const row of events) {
     try {
       await applyEvent(consumer, row, context);
@@ -285,42 +299,89 @@ export async function deliverEvents(
   return { cursor, attempts, lastError, deadLettered, processed, failed, resolvedPendingIds };
 }
 
+// Shared requestContext scope for one apply — event-derived fields
+// (correlationId, causationId, writeOrigin) come from `causationSource`;
+// applyEvent uses the event itself, applyBatch uses the LAST event of the
+// turn (see applyBatch for why). requestId falls back to a fresh id
+// because the dispatcher runs outside any HTTP request (background poll),
+// and a stable log-correlation handle is still useful for debugging.
+// #3043 — an event this apply writes is attributed to the consumer, not
+// to whatever wrote the triggering event; causationId already links back.
+function buildConsumerRequestScope(
+  consumer: EventConsumer,
+  causationSource: StoredEvent,
+): RequestContextData {
+  const correlationId = causationSource.metadata.correlationId ?? requestContext.generateId();
+  const causationId = String(causationSource.id);
+  const requestId = requestContext.generateId();
+  // The job-trigger consumer's handleEvent stamps event-triggered jobs from this.
+  const rawStoredWriteOrigin = causationSource.metadata.writeOrigin;
+  const writeOrigin =
+    rawStoredWriteOrigin === undefined
+      ? undefined
+      : (parseWriteOrigin(rawStoredWriteOrigin) ?? UNPARSEABLE_STORED_WRITE_ORIGIN);
+  return {
+    requestId,
+    correlationId,
+    causationId,
+    handler: consumer.name,
+    feature: consumer.featureName ?? qnScope(consumer.name),
+    writeOrigin,
+  };
+}
+
 async function applyEvent(
   consumer: EventConsumer,
   row: StoredEventRow,
   context: AppContext,
 ): Promise<void> {
-  // Propagate causation: if the handler calls ctx.appendEvent, the new
-  // event should record THIS event as its cause. correlationId is
-  // inherited unchanged — it survives the hop across streams by design.
-  // requestId falls back to a fresh id because the dispatcher runs
-  // outside any HTTP request (background poll), and a stable log-
-  // correlation handle is still useful for debugging.
   const stored = rowToStoredEvent(row);
-  const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
-  const causationId = String(stored.id);
-  const requestId = requestContext.generateId();
-  // The job-trigger consumer's handleEvent stamps event-triggered jobs from this.
-  const rawStoredWriteOrigin = stored.metadata.writeOrigin;
-  const writeOrigin =
-    rawStoredWriteOrigin === undefined
-      ? undefined
-      : (parseWriteOrigin(rawStoredWriteOrigin) ?? UNPARSEABLE_STORED_WRITE_ORIGIN);
-  // #3043 — an event this apply writes is attributed to the consumer, not
-  // to whatever wrote the triggering event; causationId already links back.
-  await requestContext.run(
-    {
-      requestId,
-      correlationId,
-      causationId,
-      handler: consumer.name,
-      feature: consumer.featureName ?? qnScope(consumer.name),
-      writeOrigin,
-    },
-    async () => {
-      await consumer.handler(stored, context);
-    },
-  );
+  await requestContext.run(buildConsumerRequestScope(consumer, stored), async () => {
+    await consumer.handler(stored, context);
+  });
+}
+
+// Runs the consumer's batchHandler for the whole turn under one
+// requestContext scope, attempted before the per-event loop. Returns
+// false on failure instead of rethrowing — the caller falls back to
+// per-event delivery for the exact same events, so a batch failure must
+// not itself count as an applyEvent failure or bump attempts.
+async function tryApplyBatch(
+  consumer: EventConsumer,
+  events: ReadonlyArray<StoredEventRow>,
+  context: AppContext,
+): Promise<boolean> {
+  try {
+    await applyBatch(consumer, events, context);
+    return true;
+  } catch (e) {
+    const errMessage = e instanceof Error ? e.message : String(e);
+    context.log?.warn(
+      `event-dispatcher: ${consumer.name} batch of ${events.length} failed, falling back to per-event delivery: ${errMessage}`,
+    );
+    return false;
+  }
+}
+
+async function applyBatch(
+  consumer: EventConsumer,
+  events: ReadonlyArray<StoredEventRow>,
+  context: AppContext,
+): Promise<void> {
+  const batchHandler = consumer.batchHandler;
+  // skip: deliverEvents only calls this for consumers that wire a batchHandler.
+  if (!batchHandler) return;
+  const stored = events.map((row) => rowToStoredEvent(row));
+  // correlationId/causationId/writeOrigin come from the LAST row — a
+  // batch-appended event's causation is attributed to the turn's most
+  // recent input, same as chaining N applyEvent calls would leave the
+  // requestContext at after the final one.
+  const lastStored = stored.at(-1);
+  // skip: deliverEvents never calls this with an empty turn.
+  if (!lastStored) return;
+  await requestContext.run(buildConsumerRequestScope(consumer, lastStored), async () => {
+    await batchHandler(stored, context);
+  });
 }
 
 // Best-effort mode: record the error on the skip counter so ops can alert on
