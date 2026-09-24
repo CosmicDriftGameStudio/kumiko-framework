@@ -369,6 +369,7 @@ async function purgeHardDeleteRowsWithFiles(args: {
   });
   const reasonsSeen = new Set<RetentionCleanupSkip["reason"]>();
   const onSkip = (reason: "missing_file_storage" | "file_delete_failed") => {
+    // skip: reason already reported for this entity in this run
     if (reasonsSeen.has(reason)) return;
     reasonsSeen.add(reason);
     args.skipped.push({ entityName: args.entityName, reason });
