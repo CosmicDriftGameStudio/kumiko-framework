@@ -3,6 +3,8 @@ import {
   markConsumerRebuildFailed,
   resetConsumerForMspRebuild,
   selectConsumerForUpdate,
+  selectEventIdHorizonWithMissingRanges,
+  selectSnapshotXmax,
   updateConsumerRebuildCursor,
 } from "../db/queries/event-consumer";
 import {
@@ -28,6 +30,7 @@ import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
+import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "./pending-gap-ranges";
 import type { RebuildResult } from "./projection-rebuild";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
@@ -60,6 +63,20 @@ import type { RebuildResult } from "./projection-rebuild";
 //     apply(event, tx, ctx) with search_path pointed at the shadow schema.
 //   - Advance cursor to last processed event id, status=idle.
 //   - Swap the shadow into public (brief ACCESS EXCLUSIVE, not the replay).
+//
+// Handoff to the live dispatcher (#3231): the replay horizon (MAX(id) at the
+// time selectEventIdHorizonWithMissingRanges ran) plus the id gaps open below
+// it in that same snapshot are read up front and the replay is bounded to
+// `id <= horizon`. A transaction holding a lower id can still be in-flight
+// during replay — its row is invisible here and, once committed, would sit
+// below the cursor with no live-dispatcher gap tracking to ever revisit it.
+// Seeding pending_gaps closes that: ids actually read during replay are
+// carved out (delivered here, so a live pass must never redeliver them), and
+// whatever survives is capped below the written cursor — the live dispatcher
+// owns everything from `id > cursor` onward on its own. Those surviving
+// ranges are the shape of the snapshot taken before the replay, but their
+// xmax is read after the replay — a later xmax can only delay when the live
+// dispatcher burns the gap, never make it burn a still-in-flight range early.
 //
 // Failure: outer catch writes status="dead" + lastError so ops sees the
 // failure after the TX rolled back. Use restartConsumer to clear dead.
@@ -145,9 +162,12 @@ export async function rebuildMultiStreamProjection(
     // Outside the rebuild tx, like the schema: idempotent DDL colliding
     // inside the tx would roll the whole replay back.
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
+    const replayedIds: bigint[] = [];
     await db.begin(async (tx: DbTx) => {
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
+
+      const { horizon, gaps: seededGaps } = await selectEventIdHorizonWithMissingRanges(tx);
 
       await assertLiveColumnsMatchMeta(tx, meta, mspName);
       await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, mspName);
@@ -168,10 +188,13 @@ export async function rebuildMultiStreamProjection(
           createdAt: Temporal.Instant;
           createdBy: string;
         };
+        // Events past `horizon` are the live dispatcher's to deliver via
+        // `id > cursor` — bounding the replay here is what keeps the two
+        // paths from ever double-applying the same event.
         const events = await selectMany<EventRow>(
           tx,
           eventsTable,
-          { type: [...subscribedTypes] },
+          { type: [...subscribedTypes], id: { lte: horizon } },
           { orderBy: { col: "id", direction: "asc" } },
         );
 
@@ -194,6 +217,7 @@ export async function rebuildMultiStreamProjection(
             db: tx,
             tenantId: row.tenantId,
           });
+          replayedIds.push(row.id);
           const applyFn = msp.apply[row.type];
           if (!applyFn) continue;
           if (skipApplyErrors) {
@@ -221,11 +245,25 @@ export async function rebuildMultiStreamProjection(
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, mspName, skipped);
       }
+      // Every id actually read this replay (applied or skip-applied) is
+      // resolved — a live pass must never redeliver it. Anything surviving
+      // that subtraction is capped below the written cursor: a gap at or
+      // above it is the live dispatcher's own `id > cursor` territory, not
+      // pending_gaps'. No events replayed (cursor stays 0) means no gap can
+      // sit below it either.
+      const survivingGaps = subtractSortedIdsFromRanges(seededGaps, replayedIds);
+      const cappedGaps = capPendingGapsBelowCursor(survivingGaps, lastProcessedEventId);
+      const postReplayXmax = cappedGaps.length > 0 ? await selectSnapshotXmax(tx) : null;
+      const pendingGaps =
+        postReplayXmax === null
+          ? cappedGaps
+          : cappedGaps.map((gap) => ({ ...gap, xmax: postReplayXmax }));
       await updateConsumerRebuildCursor(
         tx,
         mspName,
         SHARED_INSTANCE_SENTINEL,
         lastProcessedEventId,
+        pendingGaps,
       );
       await swapShadowIntoLive(tx, meta.tableName);
     });

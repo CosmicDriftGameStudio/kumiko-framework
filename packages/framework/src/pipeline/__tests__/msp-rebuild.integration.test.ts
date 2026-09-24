@@ -18,6 +18,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";
+import type { DbConnection, DbTx } from "../../db/connection";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany, updateMany } from "../../db/query";
@@ -35,6 +36,8 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { waitFor } from "../../testing";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
@@ -69,6 +72,10 @@ const sagaStateTable = pgTable("read_mspreb_saga_state", {
   id: pgUuid("id").primaryKey(),
 });
 
+// Captured for the raw-SQL out-of-order-commit test below, which appends
+// events directly (bypassing the write handler) to control commit timing.
+let invoiceBilledEventName = "";
+
 const feature = defineFeature("mspreb", (r) => {
   r.entity("msp-reb-invoice", invoiceEntity);
   r.entity("msp-reb-payment", paymentEntity);
@@ -78,6 +85,7 @@ const feature = defineFeature("mspreb", (r) => {
     z.object({ customer: z.uuid(), cents: z.number().int() }),
     { piiFields: "none" },
   );
+  invoiceBilledEventName = invoiceBilled.name;
   const paymentReceived = r.defineEvent(
     "payment-received",
     z.object({ customer: z.uuid(), cents: z.number().int() }),
@@ -231,6 +239,47 @@ async function runFullDispatcher(): Promise<void> {
   await stack.eventDispatcher?.runOnce();
 }
 
+// Appends an invoice-billed event directly (not via the write handler) so
+// the caller controls exactly when its id is committed and visible. `version`
+// must be distinct per call for the SAME aggregateId — a repeated version on
+// an uncommitted row makes Postgres block the second INSERT until the first
+// transaction resolves (unique-constraint ambiguity), which would deadlock
+// against a caller still holding that first transaction open.
+async function insertInvoiceBilledEvent(
+  db: DbConnection | DbTx,
+  customer: string,
+  cents: number,
+  version: number,
+): Promise<void> {
+  await asRawClient(db).unsafe(
+    `INSERT INTO "kumiko_events"
+       (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+     VALUES ($1::uuid, 'msp-reb-invoice', $2::uuid, $3, $4, $5::jsonb, '{}'::jsonb, 'test')`,
+    [
+      customer,
+      admin.tenantId,
+      version,
+      invoiceBilledEventName,
+      JSON.stringify({ customer, cents }),
+    ],
+  );
+}
+
+async function readPendingGaps(
+  consumerName: string,
+): Promise<ReadonlyArray<{ from: string; to: string; xmax: string }>> {
+  const rows = (await asRawClient(stack.db).unsafe(
+    `SELECT "pending_gaps", jsonb_typeof("pending_gaps") AS kind FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2`,
+    [consumerName, SHARED_INSTANCE_SENTINEL],
+  )) as ReadonlyArray<{
+    pending_gaps: ReadonlyArray<{ from: string; to: string; xmax: string }>;
+    kind: string;
+  }>;
+  // A double-encoded write lands as a jsonb string scalar, not an array.
+  if (rows[0] && rows[0].kind !== "array") throw new Error(`pending_gaps is jsonb ${rows[0].kind}`);
+  return rows[0]?.pending_gaps ?? [];
+}
+
 // --- Tests ---
 
 describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
@@ -309,6 +358,72 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
 
     const [row] = await selectMany(stack.db, balanceTable, { customer: carol });
     expect(row).toMatchObject({ invoicesCents: 42_00, paymentsCents: 0 });
+  });
+
+  test("rebuild handoff seeds a pending gap for a lower-id write still open during replay, and the live dispatcher delivers it exactly once (#3231)", async () => {
+    const frank = "00000000-0000-4000-8000-00000000f106";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+
+    // Tx A grabs the LOW id first but holds its transaction open —
+    // uncommitted, so it's invisible to the rebuild's horizon read below.
+    let releaseA!: () => void;
+    const aGate = new Promise<void>((resolve) => {
+      releaseA = resolve;
+    });
+    let markAInserted!: () => void;
+    const aInserted = new Promise<void>((resolve) => {
+      markAInserted = resolve;
+    });
+    const aDone = stack.db
+      .begin(async (tx: DbTx) => {
+        await insertInvoiceBilledEvent(tx, frank, 1_00, 1);
+        markAInserted();
+        await aGate;
+      })
+      .catch(() => {});
+    await aInserted;
+
+    // Commits AFTER A grabbed its id, so it's the higher, only-visible id
+    // when the rebuild reads its horizon.
+    await insertInvoiceBilledEvent(stack.db, frank, 100_00, 2);
+
+    try {
+      const result = await rebuildMultiStreamProjection(BALANCE_MSP, {
+        db: stack.db,
+        registry: stack.registry,
+      });
+      // Only the visible (higher-id) event was replayed — A's row is still
+      // invisible, so it must not be double-counted once it does arrive.
+      const [afterRebuild] = await selectMany(stack.db, balanceTable, { customer: frank });
+      expect(afterRebuild).toMatchObject({ invoicesCents: 100_00 });
+      expect(result.lastProcessedEventId).toBeGreaterThan(0n);
+
+      const gapsAfterRebuild = await readPendingGaps(BALANCE_MSP);
+      expect(gapsAfterRebuild).not.toEqual([]);
+    } finally {
+      releaseA();
+      await aDone;
+    }
+
+    // A commits now — the live dispatcher must deliver it exactly once via
+    // the seeded pending gap, landing at 1_00 + 100_00, not double-applied.
+    await waitFor(
+      async () => {
+        await runFullDispatcher();
+        const [row] = await selectMany(stack.db, balanceTable, { customer: frank });
+        expect(row).toMatchObject({ invoicesCents: 101_00 });
+        expect(await readPendingGaps(BALANCE_MSP)).toEqual([]);
+      },
+      { delays: [20, 100, 500, 1000, 3000] },
+    );
+
+    const [finalRow] = await selectMany(stack.db, balanceTable, { customer: frank });
+    expect(finalRow).toMatchObject({ invoicesCents: 101_00 });
   });
 });
 

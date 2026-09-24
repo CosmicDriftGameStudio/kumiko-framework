@@ -13,12 +13,12 @@
 // event-triggered workflow hits in production.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { DbTx } from "../../db/connection";
-import { insertOne } from "../../db/query";
+import type { DbConnection, DbTx } from "../../db/connection";
+import { asRawClient, insertOne } from "../../db/query";
 import type { AppContext } from "../../engine/types";
 import { eventsTable } from "../../event-store";
 import { createTestDb, type TestDb, TestUsers } from "../../stack";
-import { createEventConsumerStateTable } from "../event-consumer-state";
+import { createEventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
 import { createEventDispatcher, type EventConsumer, getConsumerState } from "../event-dispatcher";
 import { fetchPendingEvents } from "../event-dispatcher-delivery";
 
@@ -47,6 +47,40 @@ async function appendHistoricalEvent(type: string): Promise<void> {
     createdBy: admin.id,
   });
   historicalEventCount += 1;
+}
+
+// Grabs an id (like appendHistoricalEvent) but never commits — the row
+// stays invisible until the caller releases and awaits the enclosing tx.
+async function appendEventRawHoldingTx(tx: DbTx, type: string): Promise<void> {
+  await asRawClient(tx).unsafe(
+    `INSERT INTO "kumiko_events"
+       (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+     VALUES ($1::uuid, 'start-from-test-source', $2::uuid, 1, $3, '{}'::jsonb, '{}'::jsonb, 'test')`,
+    [crypto.randomUUID(), admin.tenantId, type],
+  );
+}
+
+async function selectVisibleMaxEventId(): Promise<bigint> {
+  const rows = (await asRawClient(testDb.db).unsafe(
+    `SELECT COALESCE(MAX("id"), 0)::text AS max FROM "kumiko_events"`,
+  )) as ReadonlyArray<{ max: string }>;
+  return BigInt(rows[0]?.max ?? "0");
+}
+
+async function readPendingGaps(
+  db: DbConnection,
+  consumerName: string,
+): Promise<ReadonlyArray<{ from: string; to: string; xmax: string }>> {
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT "pending_gaps", jsonb_typeof("pending_gaps") AS kind FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2`,
+    [consumerName, SHARED_INSTANCE_SENTINEL],
+  )) as ReadonlyArray<{
+    pending_gaps: ReadonlyArray<{ from: string; to: string; xmax: string }>;
+    kind: string;
+  }>;
+  // A double-encoded write lands as a jsonb string scalar, not an array.
+  if (rows[0] && rows[0].kind !== "array") throw new Error(`pending_gaps is jsonb ${rows[0].kind}`);
+  return rows[0]?.pending_gaps ?? [];
 }
 
 beforeAll(async () => {
@@ -172,5 +206,71 @@ describe("EventConsumer.startFrom", () => {
 
     const afterRedeploy = await getConsumerState(testDb.db, consumer.name);
     expect(afterRedeploy?.lastProcessedEventId).toBe(advanced?.lastProcessedEventId);
+  });
+
+  test("'now' registered while a lower-id write is still uncommitted seeds a pending gap and later delivers it", async () => {
+    const captured: string[] = [];
+    const consumer: EventConsumer = {
+      name: "test:consumer:now-out-of-order",
+      startFrom: "now",
+      handler: async (event) => {
+        captured.push(event.type);
+      },
+    };
+
+    // Tx A grabs the LOW id first but holds its transaction open — invisible
+    // to insertConsumerIfAbsent's horizon read below, same mechanic as the
+    // live-dispatcher out-of-order case in event-dispatcher-commit-order.
+    let releaseA!: () => void;
+    const aGate = new Promise<void>((resolve) => {
+      releaseA = resolve;
+    });
+    let markAInserted!: () => void;
+    const aInserted = new Promise<void>((resolve) => {
+      markAInserted = resolve;
+    });
+    const aDone = testDb.db
+      .begin(async (tx: DbTx) => {
+        await appendEventRawHoldingTx(tx, "start-from-test.low-id");
+        markAInserted();
+        await aGate;
+      })
+      .catch(() => {});
+    await aInserted;
+
+    // Tx B commits AFTER A grabbed its id, so B's id is the higher, visible
+    // MAX(id) when the consumer is registered below. A's still-open tx
+    // already consumed a sequence value, so B's actual id is one past
+    // historicalEventCount, not equal to it — read the real MAX(id).
+    await appendHistoricalEvent("start-from-test.high-id");
+    const headAtMount = await selectVisibleMaxEventId();
+
+    const dispatcher = createEventDispatcher({
+      db: testDb.db,
+      consumers: [consumer],
+      context: stubContext(),
+    });
+
+    try {
+      await dispatcher.ensureRegistered();
+
+      const seeded = await getConsumerState(testDb.db, consumer.name);
+      expect(seeded?.lastProcessedEventId).toBe(headAtMount);
+      expect(await readPendingGaps(testDb.db, consumer.name)).not.toEqual([]);
+
+      // Nothing to deliver yet — A's transaction hasn't committed.
+      const passWhileOpen = await dispatcher.runOnce();
+      expect(passWhileOpen.byConsumer[consumer.name]).toEqual({ processed: 0, failed: 0 });
+    } finally {
+      releaseA();
+      await aDone;
+    }
+
+    // A commits now — its lower id is delivered as a resolved pending gap,
+    // even though the cursor already sits above it from registration.
+    const pass = await dispatcher.runOnce();
+    expect(pass.byConsumer[consumer.name]).toEqual({ processed: 1, failed: 0 });
+    expect(captured).toEqual(["start-from-test.low-id"]);
+    expect(await readPendingGaps(testDb.db, consumer.name)).toEqual([]);
   });
 });
