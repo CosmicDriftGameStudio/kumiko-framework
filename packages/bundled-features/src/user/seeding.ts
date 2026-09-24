@@ -105,6 +105,7 @@ export async function reconcileSeededUserEmailVerified(
   existingRow: Record<string, unknown>,
   by: SessionUser,
 ): Promise<void> {
+  // skip: already verified, nothing to reconcile
   if (existingRow["emailVerified"] === true) return;
   // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
   // liefert die Projection-Row als Record<string, unknown>.
