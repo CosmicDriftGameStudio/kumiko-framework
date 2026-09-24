@@ -1,13 +1,54 @@
 # Changelog
 
-All notable changes to Kumiko are documented here. The format loosely follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning will
-track [Semantic Versioning](https://semver.org) once we cut a 0.1.0 tag —
-until then the framework is pre-release and breaking changes land on `main`
-with migration notes in the relevant commit message.
+Kumiko is released with [Changesets](https://github.com/changesets/changesets).
+All published packages share one version (a `fixed` group), so a release bumps
+every package together. Kumiko is pre-1.0: a minor bump can contain breaking
+changes. See the [stability policy](docs/reference/stability-policy.md).
 
-## Unreleased
+## Where the release notes live
 
+Each package keeps its own changelog, generated on every release:
+
+| Package | Changelog |
+|---------|-----------|
+| `@cosmicdrift/kumiko-framework` | [packages/framework/CHANGELOG.md](packages/framework/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-types` | [packages/types/CHANGELOG.md](packages/types/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-bundled-features` | [packages/bundled-features/CHANGELOG.md](packages/bundled-features/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-server-runtime` | [packages/server-runtime/CHANGELOG.md](packages/server-runtime/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-dev-server` | [packages/dev-server/CHANGELOG.md](packages/dev-server/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-http` | [packages/http/CHANGELOG.md](packages/http/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-dispatcher-live` | [packages/dispatcher-live/CHANGELOG.md](packages/dispatcher-live/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-headless` | [packages/headless/CHANGELOG.md](packages/headless/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-renderer` | [packages/renderer/CHANGELOG.md](packages/renderer/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-renderer-web` | [packages/renderer-web/CHANGELOG.md](packages/renderer-web/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-locale-de` | [packages/locale-de/CHANGELOG.md](packages/locale-de/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-locale-es` | [packages/locale-es/CHANGELOG.md](packages/locale-es/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-cli` | [packages/cli/CHANGELOG.md](packages/cli/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-testing` | [packages/testing/CHANGELOG.md](packages/testing/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-guards` | [packages/guards/CHANGELOG.md](packages/guards/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-repo-manifest` | [packages/repo-manifest/CHANGELOG.md](packages/repo-manifest/CHANGELOG.md) |
+| `create-kumiko-app` | [packages/create-kumiko-app/CHANGELOG.md](packages/create-kumiko-app/CHANGELOG.md) |
+
+Most API changes land in `kumiko-framework`, `kumiko-types` and
+`kumiko-bundled-features`; start there.
+
+Breaking changes carry a migration note in the changelog entry. The same notes
+are collected in each package's `changes.json`, which the upgrade tool reads.
+
+## Upgrading an app
+
+```bash
+bunx kumiko-upgrade                  # what changed since your installed version
+bunx kumiko-upgrade --from 0.300.0   # ... since a specific version
+bunx kumiko-upgrade --apply          # run the codemods of pending breaking changes
+```
+
+Pin exact versions and read every entry between your current and target
+version, not only the latest one.
+
+## History before Changesets
+
+Notes from before per-package changelogs existed (pre-0.1, May 2026).
 
 ### Added
 - **Async event-dispatcher (AsyncDaemon pattern).** Cursor-based delivery of
@@ -22,7 +63,7 @@ with migration notes in the relevant commit message.
   registrar, which was removed in Sprint E.2.
 - **`r.projection()` with custom read-models.** Inline projections fed from
   aggregate events inside the write TX. Includes `rebuildProjection()` for
-  full replays and a CLI (`yarn kumiko project list|status|rebuild`).
+  full replays and a CLI (`bun kumiko project list|status|rebuild`).
 - **Event-sourced CRUD executor.** `r.crud()` now appends events to the
   events table in the same TX as the entity write; full event log with
   tenant isolation, unique `(aggregate_id, version)` constraint, request-id

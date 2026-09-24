@@ -87,7 +87,7 @@ bun create kumiko-app my-app
 cd my-app
 cp .env.example .env   # set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1
 bun install
-bun run boot
+bun dev
 ```
 
 The interactive picker wires bundled features (auth, tenant, files, notifications, …) and resolves hard dependencies for you.
@@ -100,13 +100,13 @@ kumiko add feature product-catalog
 
 ### Framework repo (contributors)
 
-**Prerequisites:** [Bun](https://bun.sh/) ≥ 1.4.0, [Docker](https://www.docker.com/) (PostgreSQL + Redis)
+**Prerequisites:** [Bun](https://bun.sh/) ≥ 1.4.0, [Docker](https://www.docker.com/) (PostgreSQL, Redis, Meilisearch, MinIO)
 
 ```bash
 git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
 cd kumiko-framework
 bun install
-bun kumiko dev      # Postgres :15432, Redis :16379
+bun kumiko dev      # Postgres :15432, Redis :16379, Meilisearch :17700, MinIO :19000
 bun kumiko check    # Biome + TypeScript + tests + guards
 ```
 
@@ -191,7 +191,7 @@ Full docs: [docs.kumiko.rocks](https://docs.kumiko.rocks).
 
 ## Status
 
-Pre-1.0 — actively developed. APIs may change between minor versions until 1.0. Breaking-change policy and migration guides documented per release in [CHANGELOG.md](./CHANGELOG.md).
+Pre-1.0 — actively developed. APIs may change between minor versions until 1.0 ([stability policy](docs/reference/stability-policy.md)). Every breaking change ships with a migration note in its package changelog, indexed in [CHANGELOG.md](./CHANGELOG.md). In an app, `bunx kumiko-upgrade` lists what changed since your installed version and `--apply` runs the codemods.
 
 Used in production at [publicstatus.eu](https://publicstatus.eu) and [show-pony.kumiko.rocks](https://show-pony.kumiko.rocks).
 
