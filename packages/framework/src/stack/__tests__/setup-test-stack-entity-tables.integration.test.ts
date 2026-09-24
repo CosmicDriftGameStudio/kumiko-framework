@@ -10,14 +10,14 @@ import { setupTestStack, type TestStack } from "../test-stack";
 const widgetEntity = createEntity({
   table: "widgets",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
 const gadgetEntity = createEntity({
   table: "gadgets",
   fields: {
-    label: createTextField({ required: true }),
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
