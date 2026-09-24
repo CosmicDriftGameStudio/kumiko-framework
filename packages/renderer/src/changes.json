@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.306.0",
+    "type": "fix",
+    "title": "List search no longer drops input typed while the list mounts"
+  },
+  {
+    "version": "0.306.0",
+    "type": "fix",
+    "title": "projectionDetail without a fields section no longer shows a no-op Save; extension tabs no longer repeat their title",
+    "detail": "A projectionDetail layout of only extension/relatedList sections synthesized a fieldless entity and drew a Save that did nothing. Extensions that register with the form host still get their Save. In layout.mode tabs, extension sections now honour hideSectionTitles like relatedList and writeForm."
+  },
+  {
     "version": "0.296.0",
     "type": "improvement",
     "title": "entityEdit accepts layout.mode \"tabs\" (fw#3134)",
