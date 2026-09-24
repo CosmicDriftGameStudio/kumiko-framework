@@ -996,7 +996,10 @@ function DefaultDataTable({
   const emptyBlock: ReactNode = (
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
-      className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
+      className={cn(
+        "flex flex-col items-center justify-center p-12 text-sm text-muted-foreground gap-3",
+        chromeless !== true && "rounded-md border border-dashed",
+      )}
     >
       {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}
     </div>
@@ -1086,6 +1089,7 @@ function DefaultDataTable({
                       translate={tableTranslate}
                       locale={tableLocale}
                       {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                      {...(col.grouping !== undefined && { grouping: col.grouping })}
                       {...(onCellChange !== undefined && {
                         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
                       })}
@@ -1177,6 +1181,7 @@ function DefaultDataTable({
               {...(titleColumn.optionLabels !== undefined && {
                 optionLabels: titleColumn.optionLabels,
               })}
+              {...(titleColumn.grouping !== undefined && { grouping: titleColumn.grouping })}
               {...(onCellChange !== undefined && {
                 onChange: (value: unknown) => onCellChange(row.id, titleColumn.field, value),
               })}
@@ -1200,6 +1205,7 @@ function DefaultDataTable({
                   translate={tableTranslate}
                   locale={tableLocale}
                   {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                  {...(col.grouping !== undefined && { grouping: col.grouping })}
                   {...(onCellChange !== undefined && {
                     onChange: (value: unknown) => onCellChange(row.id, col.field, value),
                   })}
@@ -1343,10 +1349,19 @@ function DefaultDataTable({
     // `screenPadding`: on a list screen this wrapper IS the screen container,
     // so it takes the same token as FormScreenShell/PageSection instead of its
     // own inset — a list ends at the same footer distance as a form (fw#2640).
+    // Explicit `false` (vs. the default/omitted case) means a host that
+    // already pads its own children — a relatedList section nested in a
+    // tabs-mode Card (fw#3234 round 3) — so this wrapper adds no inset of its
+    // own, or its content would sit ~24px deeper than sibling banners in the
+    // same Card body.
     <div
       className={cn(
         "flex flex-col gap-4 w-full",
-        screenPadding === true ? screenPaddingClassName : "p-6",
+        screenPadding === true
+          ? screenPaddingClassName
+          : screenPadding === false
+            ? undefined
+            : "p-6",
         // No flex-1: this wrapper sizes to its content (toolbar + table) and
         // only shrinks (min-h-0) once its ancestor chain is itself
         // height-constrained — the actual scroll surface is tableInner/
@@ -2061,6 +2076,7 @@ export function defaultCellRender(
   optionLabels?: Readonly<Record<string, string>>,
   locale?: string,
   columnKey?: string,
+  grouping = true,
 ): string {
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
@@ -2068,7 +2084,7 @@ export function defaultCellRender(
     return applyFormatSpec({ format: type, locale }, value);
   }
   if (type === "number" || type === "decimal" || type === "bigInt") {
-    return applyFormatSpec({ format: type, locale }, value);
+    return applyFormatSpec({ format: type, locale, grouping }, value);
   }
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
@@ -2128,6 +2144,7 @@ type DataTableCellProps = {
   readonly onChange?: (value: unknown) => void;
   readonly translate?: (key: string, params?: Readonly<Record<string, unknown>>) => string;
   readonly locale?: string;
+  readonly grouping?: boolean;
 };
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
@@ -2149,6 +2166,7 @@ function DataTableCell({
   onChange,
   translate,
   locale,
+  grouping = true,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
@@ -2214,7 +2232,7 @@ function DataTableCell({
       </Badge>
     );
   }
-  return defaultCellRender(value, type, optionLabels, locale, field);
+  return defaultCellRender(value, type, optionLabels, locale, field, grouping);
 }
 
 // ---- Form + Section + Grid + Text ----
@@ -2659,7 +2677,10 @@ function DefaultSection({
   // shadcn CardTitle+CardDescription-Muster).
   // icon only renders alongside a title — a title-less section has nothing
   // for a lone icon to sit next to, so it stays as-is (no heading grows).
-  const header =
+  // actions render top-right in this same title row, never a
+  // footer — a title-less section still draws the row when actions are
+  // present, so a hideTitle tabs-Section with `actions` isn't stranded.
+  const titleBlock =
     title !== undefined || subtitle !== undefined ? (
       <div className="flex flex-col gap-1">
         {title !== undefined && (
@@ -2681,10 +2702,23 @@ function DefaultSection({
         )}
       </div>
     ) : null;
+  const header =
+    titleBlock !== null || actions !== undefined ? (
+      <div className="flex items-start justify-between gap-4">
+        {titleBlock}
+        {actions !== undefined && (
+          <div
+            data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+            className="ml-auto flex shrink-0 items-center gap-2"
+          >
+            {actions}
+          </div>
+        )}
+      </div>
+    ) : null;
 
   // Innerhalb eines Forms: divider-loser Abschnitt OHNE eigene Card-Fläche.
   // Die Trennlinien ZWISCHEN Sections macht der divide-y-Wrapper im Form.
-  // actions hier = rechtsbündige Reihe (das Form trägt den eigenen Footer).
   if (insideForm) {
     return (
       <section
@@ -2700,25 +2734,17 @@ function DefaultSection({
       >
         {header}
         {children}
-        {actions !== undefined && (
-          <div
-            data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-            className="flex items-center justify-end gap-2"
-          >
-            {actions}
-          </div>
-        )}
       </section>
     );
   }
 
   // Standalone: own card, header flows into the body (no divider).
-  // actions = raised footer row (cardFooterBorder, same as DefaultForm).
-  // overflow-hidden clips the footer-corner radius correctly for portaled
-  // overlays (Combobox/Select/Tooltip escape to document.body, unaffected).
-  // A non-portaled overlay (e.g. a custom dropdown built directly into
-  // `children`) WOULD get silently clipped — verify this against any new
-  // standalone-section content that renders its own non-portaled overlay.
+  // overflow-hidden clips the card's own corner radius correctly for
+  // portaled overlays (Combobox/Select/Tooltip escape to document.body,
+  // unaffected). A non-portaled overlay (e.g. a custom dropdown built
+  // directly into `children`) WOULD get silently clipped — verify this
+  // against any new standalone-section content that renders its own
+  // non-portaled overlay.
   return (
     <div
       data-slot="card"
@@ -2733,14 +2759,6 @@ function DefaultSection({
         {header}
         {children}
       </div>
-      {actions !== undefined && (
-        <div
-          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          className={cn(cardFooter, cardFooterBorder)}
-        >
-          {actions}
-        </div>
-      )}
     </div>
   );
 }
@@ -2951,19 +2969,35 @@ export function DefaultCard({
   const padded = options?.padded ?? true;
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
+  const fillHeight = options?.fillHeight ?? false;
   const s = slots ?? {};
   const defaultHeader =
-    s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined ? (
-      <div className="flex flex-wrap items-start justify-between gap-3 px-[var(--card-padding)] pt-6 pb-4">
-        <div className="flex flex-col gap-1">
-          {s.title !== undefined && (
-            <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
-          )}
-          {s.subtitle !== undefined && (
-            <p className="text-sm text-muted-foreground">{s.subtitle}</p>
-          )}
-        </div>
-        {s.headerActions}
+    s.title !== undefined ||
+    s.subtitle !== undefined ||
+    s.headerContent !== undefined ||
+    s.headerActions !== undefined ? (
+      <div
+        className={cn(
+          "flex flex-col gap-3 px-[var(--card-padding)] pt-6 pb-4",
+          fillHeight && "shrink-0",
+        )}
+      >
+        {(s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined) && (
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              {s.title !== undefined && (
+                <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
+              )}
+              {s.subtitle !== undefined && (
+                <p className="text-sm text-muted-foreground">{s.subtitle}</p>
+              )}
+            </div>
+            {s.headerActions}
+          </div>
+        )}
+        {/* Own full-width row: beside the actions, block content would end at
+            a different right edge than the card body below it. */}
+        {s.headerContent}
       </div>
     ) : null;
   const header = s.header ?? defaultHeader;
@@ -2973,7 +3007,15 @@ export function DefaultCard({
       data-slot="card"
       {...dataAttributes}
       data-testid={testId}
-      className={cn(cardSurface({ radius }), "overflow-hidden", className)}
+      className={cn(
+        cardSurface({ radius }),
+        "overflow-hidden",
+        // Same "no flex-1" reasoning as DefaultForm's own fillHeight card
+        // (fw#2722/#2778): sizes to content and only shrinks (min-h-0) once
+        // an ancestor is itself height-constrained.
+        fillHeight && "min-h-0 flex flex-col",
+        className,
+      )}
     >
       {header}
       {/* != null covers undefined AND explicit null; a `false` child (from
@@ -2986,13 +3028,21 @@ export function DefaultCard({
               (hasHeader
                 ? "px-[var(--card-padding)] pb-[var(--card-padding)]"
                 : "p-[var(--card-padding)]"),
+            // The one region allowed to shrink and scroll internally — mirrors
+            // FormSections' fillHeight === true && "min-h-0" treatment of the
+            // section it wraps.
+            fillHeight && "min-h-0 flex flex-col",
           )}
         >
           {children}
         </div>
       )}
       {s.footer !== undefined && (
-        <div className={cn(cardFooter, footerBordered && cardFooterBorder)}>{s.footer}</div>
+        <div
+          className={cn(cardFooter, footerBordered && cardFooterBorder, fillHeight && "shrink-0")}
+        >
+          {s.footer}
+        </div>
       )}
     </div>
   );

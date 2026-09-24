@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-30
+verified: 2026-09-24
 evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/headless/src/format"
 ---
 
@@ -39,6 +39,15 @@ dediziert typisiert, kein offener `string`).
   `buildOptionLabels`).
 - Einsatz: `projectionDetail`-Felder und `entityList`/`projectionList`/
   `relatedList`-Column-Werte, die sonst nackte Option-Werte zeigten.
+
+## `number` / `decimal` / `bigInt` grouping (fw#3234)
+
+Tausendertrennzeichen sind standardmäßig an (`Intl.NumberFormat`s
+`useGrouping`), locale-abhängig über `spec.locale` bzw. die aktive
+App-Locale. `{ format: "number", grouping: false }` schaltet sie ab. Gilt
+sowohl im headless `applyFormatSpec`-Pfad (Columns) als auch im read-only
+`RenderField`-Pfad (`field.grouping`, ohne eigenen `renderer`) — beide teilen
+dieselbe `Intl.NumberFormat`-Semantik, unabhängig voneinander implementiert.
 
 ## Anwendung
 

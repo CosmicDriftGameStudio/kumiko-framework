@@ -123,10 +123,12 @@ export type RenderListProps = {
    *  scrolls rows internally instead of growing the page (relatedList in a
    *  tabs-mode section, fw#2722). Default false. */
   readonly scrollBody?: boolean;
-  /** Forwarded to `DataTableProps.screenPadding` — the table carries the
-   *  shared screen padding because it is the screen body (entityList/
-   *  projectionList, fw#2640). Not set for an embedded relatedList.
-   *  Default false. */
+  /** Forwarded to `DataTableProps.screenPadding` — `true`: the table carries
+   *  the shared screen padding because it is the screen body (entityList/
+   *  projectionList, fw#2640). Explicit `false`: no padding at all — the
+   *  host already pads its own children (relatedList in a tabs-mode Card,
+   *  fw#3234). Omitted: legacy `p-6` fallback for a standalone table with no
+   *  padded host. */
   readonly screenPadding?: boolean;
 };
 

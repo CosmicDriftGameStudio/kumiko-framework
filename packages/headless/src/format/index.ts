@@ -70,10 +70,10 @@ function formatDateCell(
 // No `locale` fallback to a browser API here (headless has none) — passing
 // `undefined` to Intl.NumberFormat resolves the runtime's default locale,
 // the same value a browser's navigator.language-based guess would produce.
-function formatNumberCell(value: unknown, locale?: string): string {
+function formatNumberCell(value: unknown, locale?: string, grouping = true): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
   try {
-    return new Intl.NumberFormat(locale).format(value);
+    return new Intl.NumberFormat(locale, { useGrouping: grouping }).format(value);
   } catch {
     // Malformed BCP-47 locale tag — mirrors formatDateCell's fallback above.
     return String(value);
@@ -179,7 +179,11 @@ export function applyFormatSpec(
     case "number":
     case "decimal":
     case "bigInt":
-      return formatNumberCell(value, spec["locale"] as string | undefined);
+      return formatNumberCell(
+        value,
+        spec["locale"] as string | undefined,
+        (spec["grouping"] as boolean | undefined) ?? true,
+      );
     case "unit":
       return formatUnitCell(
         value,

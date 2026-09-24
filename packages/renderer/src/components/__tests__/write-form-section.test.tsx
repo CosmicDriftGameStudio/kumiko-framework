@@ -17,6 +17,7 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults";
 import {
   type BannerProps,
   type ButtonProps,
+  type CardProps,
   type CorePrimitives,
   PrimitivesProvider,
   type SectionProps,
@@ -66,6 +67,27 @@ const testSection: ComponentType<SectionProps> = ({ testId, subtitle, children, 
   </div>
 );
 
+// Mirrors DefaultCard's slots (title/subtitle/headerActions) closely enough
+// to distinguish "framed via Card" from "framed via Section" in tests —
+// tabs mode (hideTitle) uses Card because Section flattens inside this
+// component's host Form.
+const testCard: ComponentType<CardProps> = ({ testId, slots, children }) => (
+  <div data-testid={testId}>
+    {slots?.title !== undefined && (
+      <h3 data-testid={testId !== undefined ? `${testId}-title` : undefined}>{slots.title}</h3>
+    )}
+    {slots?.subtitle !== undefined && (
+      <p data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}>{slots.subtitle}</p>
+    )}
+    <div data-testid={testId !== undefined ? `${testId}-body` : undefined}>{children}</div>
+    {slots?.headerActions !== undefined && (
+      <div data-testid={testId !== undefined ? `${testId}-actions` : undefined}>
+        {slots.headerActions}
+      </div>
+    )}
+  </div>
+);
+
 function testPrimitives(): CorePrimitives {
   return {
     Button: testButton,
@@ -75,7 +97,7 @@ function testPrimitives(): CorePrimitives {
     DataTable: noop,
     Form: noop,
     Section: testSection,
-    Card: passChildren,
+    Card: testCard,
     Grid: passChildren,
     GridCell: passChildren,
     Text: noop,
@@ -241,6 +263,37 @@ describe("WriteFormSection", () => {
 
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.payload).toEqual({ orderId: "order-42", note: "hi" });
+  });
+});
+
+// Tabs mode (hideTitle) frames through Card instead of Section — Section
+// flattens to a borderless divider inside the host RenderEdit's own Form,
+// which would otherwise leave the submit button with no card chrome.
+describe("WriteFormSection — tabs mode (hideTitle)", () => {
+  test("renders via Card, no title text, submit button lands in headerActions", () => {
+    const { dispatcher } = stubDispatcher();
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={testPrimitives()}>
+            <WriteFormSection
+              section={noteSection}
+              featureName="orders"
+              onSubmitted={noop}
+              hideTitle
+            />
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    expect(rtlScreen.queryByTestId("write-form-Add note-title")).toBeNull();
+    const actions = rtlScreen.getByTestId("write-form-Add note-actions");
+    const button = rtlScreen.getByTestId("write-form-section-submit");
+    expect(actions.contains(button)).toBe(true);
   });
 });
 

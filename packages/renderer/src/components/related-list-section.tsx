@@ -25,6 +25,7 @@ import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
   buildProjectionToolbarActions,
+  buildRecordActions,
   runProjectionRowNavigate,
 } from "../app/row-actions";
 import { findEditScreenFor } from "../app/screen-access";
@@ -36,6 +37,7 @@ import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
 import { type DataTableFacet, usePrimitives } from "../primitives";
 import { sortByAccessor } from "../sort-by-accessor";
+import { RenderEditActionButton } from "./render-edit-action-button";
 import { RenderList } from "./render-list";
 
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
@@ -64,6 +66,17 @@ function synthesizeRelatedListEntity(
   return { fields } as unknown as EntityDefinition;
 }
 
+// Mirrors row-actions.ts's own warnDrawerActionDropped (module-private
+// there, so not reusable directly) — a drawer-kind emptyState.action with no
+// onOpenDrawer wired is dropped (not rendered) with a dev warning, same as a
+// drawer-kind rowAction/toolbarAction without one.
+function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
+  // biome-ignore lint/suspicious/noConsole: dev-time warning, same pattern as row-actions.ts
+  console.warn(
+    `[kumiko] relatedList emptyState.action "${actionId}" is kind: "drawer" but no onOpenDrawer was supplied — dropped.`,
+  );
+}
+
 export function RelatedListSection({
   section,
   parentId,
@@ -72,6 +85,7 @@ export function RelatedListSection({
   translate,
   hideTitle,
   onOpenDrawer,
+  actions,
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
@@ -89,8 +103,14 @@ export function RelatedListSection({
     action: RowActionDrawer,
     initialValues: Readonly<Record<string, unknown>> | undefined,
   ) => void;
+  /** section.actions, already resolved into buttons by the caller —
+   *  rendered in the Section's title row. Only reachable in the standalone
+   *  (non-`hideTitle`) branch below — `hideTitle` uses `FillContainer`, which
+   *  has no title row to render actions into (see the comment on that branch). */
+  readonly actions?: ReactNode;
 }): ReactNode {
-  const { Banner, Section, FillContainer } = usePrimitives();
+  const { Banner, Section, FillContainer, Text, Button, Dialog } = usePrimitives();
+  const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
@@ -301,6 +321,58 @@ export function RelatedListSection({
     ],
   );
 
+  // emptyState.action is a RowAction — the same record-bound action shape
+  // (and evalRowExtractor payload/params evaluation) screen-level and
+  // section-level actions already use via buildRecordActions, NOT the
+  // toolbar-action builder (whose `payload` is a literal Record, not a
+  // RowFieldExtractor — casting a RowAction into it would silently skip the
+  // declared `pick`/`map` evaluation). "Row" here is the parent record: a
+  // relatedList's emptyState has no row of its own.
+  const emptyStateActionButton = useMemo(() => {
+    const action = section.emptyState?.action;
+    if (action === undefined) return undefined;
+    if (action.kind === "drawer" && onOpenDrawer === undefined) {
+      warnRelatedListEmptyStateDrawerDropped(action.id);
+      return undefined;
+    }
+    return buildRecordActions({
+      actions: [action],
+      record,
+      translate: effectiveTranslate,
+      nav,
+      host,
+      dispatcher,
+      openDrawer: onOpenDrawer ?? (() => {}),
+      onWriteSuccess: rowsQuery.refetch,
+    })?.[0];
+  }, [
+    section.emptyState,
+    record,
+    effectiveTranslate,
+    nav,
+    host,
+    dispatcher,
+    onOpenDrawer,
+    rowsQuery.refetch,
+  ]);
+  const emptyStateContent =
+    section.emptyState !== undefined ? (
+      <>
+        <Text>{section.emptyState.title}</Text>
+        {section.emptyState.description !== undefined && (
+          <Text variant="small">{section.emptyState.description}</Text>
+        )}
+        {emptyStateActionButton !== undefined && (
+          <RenderEditActionButton
+            action={emptyStateActionButton}
+            Button={Button}
+            Dialog={Dialog}
+            onError={setEmptyStateActionError}
+          />
+        )}
+      </>
+    ) : undefined;
+
   // A truncated fetch means `sortedRows` is a sort of a partial set, not of
   // the full related-row set — the client-side sort above (or even plain
   // unsorted display) would silently claim "these are the top N" when they
@@ -327,6 +399,11 @@ export function RelatedListSection({
             })}
           </Banner>
         )}
+        {emptyStateActionError !== null && (
+          <Banner variant="error" testId="related-list-empty-state-action-error">
+            {emptyStateActionError}
+          </Banner>
+        )}
         <RenderList
           screen={listScreen}
           entity={entity}
@@ -349,23 +426,21 @@ export function RelatedListSection({
           {...(onRowClick !== undefined && { onRowClick })}
           {...(rowActions !== undefined && { rowActions })}
           {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
-          {...(hideTitle === true && { scrollBody: true })}
+          {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
+          {...(hideTitle === true && { scrollBody: true, screenPadding: false, chromeless: true })}
         />
       </>
     );
 
-  // hideTitle (tabs mode) → the tab panel is already the boundary: no
-  // Section card wrapper here — the table keeps its own frame to match the
-  // list-screen look; `scrollBody` caps it to the panel height. `FillContainer` is this section's
-  // link in RenderEdit's `fillHeight` chain (see render-edit.tsx): it is
-  // always this section's own root whenever hideTitle is set, since tabs
-  // mode narrows RenderEdit to exactly this one active section. A platform
-  // primitive (not a raw `<div>`) because `renderer` stays DOM-free —
-  // `Section`/`Card` were rejected for this spot in favor of a dedicated
-  // chromeless primitive; see `FillContainerProps` in primitives.tsx.
-  // Stacked (non-tabs) sections keep the card frame and document-flow
-  // height since they render a visible title and aren't confined to a tab
-  // panel.
+  // hideTitle (tabs mode) → the caller (render-edit.tsx) already wraps this
+  // component's own return value in the same Card frame every other tab
+  // kind gets — no card here, or the two would nest. `scrollBody` caps the
+  // table to the panel height; `FillContainer` is this section's link in the
+  // fillHeight flex chain that Card's `options.fillHeight` continues (see
+  // render-edit.tsx). A platform primitive (not a raw `<div>`) because
+  // `renderer` stays DOM-free. Stacked (non-tabs) sections keep their own
+  // Section card and document-flow height since they render a visible title
+  // and aren't confined to a tab panel.
   const bridges = <ReferenceFacetBridges specs={facetSpecs} onOptions={handleFacetOptions} />;
 
   if (hideTitle) {
@@ -380,7 +455,11 @@ export function RelatedListSection({
   return (
     <>
       {bridges}
-      <Section title={section.title} testId={`related-list-${section.title}`}>
+      <Section
+        title={section.title}
+        {...(actions !== undefined && { actions })}
+        testId={`related-list-${section.title}`}
+      >
         {content}
       </Section>
     </>

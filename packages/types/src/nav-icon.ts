@@ -8,88 +8,97 @@
 // checked against this same union via `satisfies`, so the two can't drift —
 // add a key here only together with its lucide-react entry there, and vice
 // versa.
-export type NavIconKey =
-  | "dashboard"
-  | "layout-grid"
-  | "book-open"
-  | "clipboard-list"
-  | "package"
-  | "gauge"
-  | "list"
-  | "table"
-  | "layers"
-  | "building"
-  | "calculator"
-  | "wallet"
-  | "coins"
-  | "credit-card"
-  | "piggy-bank"
-  | "receipt"
-  | "chart"
-  | "bar-chart"
-  | "trending"
-  | "sparkles"
-  | "wand"
-  | "calendar"
-  | "file"
-  | "folder"
-  | "folder-open"
-  | "home"
-  | "bell"
-  | "shield"
-  | "shield-check"
-  | "send"
-  | "settings"
-  | "users"
-  | "user"
-  | "search"
-  | "tag"
-  | "key"
-  | "link"
-  | "palette"
-  | "share"
-  | "server"
-  | "mail"
-  | "lock"
-  | "hash"
-  | "download"
-  | "upload"
-  | "rocket"
-  | "plus"
-  | "languages"
-  | "trash"
-  | "x"
-  | "check"
-  | "arrow-left"
-  | "arrow-right"
-  | "copy"
-  | "pencil"
-  | "eye"
-  | "eye-off"
-  | "filter"
-  | "refresh"
-  | "more-horizontal"
-  | "more-vertical"
-  | "external-link"
-  | "chevron-down"
-  | "chevron-right"
-  | "save"
-  | "undo"
-  | "archive"
-  | "star"
-  | "flag"
-  | "clock"
-  | "map-pin"
-  | "phone"
-  | "printer"
-  | "alert-triangle"
-  | "info"
-  | "check-circle"
-  | "x-circle"
-  | "loader"
-  | "mic"
-  | "circle-stop"
-  | "image";
+//
+// Declared as a runtime tuple (not just a type) so callers that sit outside
+// this repo's `tsc --build` project graph (e.g. samples, external consumers
+// resolving from a stale published type) still get a runtime-checkable
+// vocabulary — the boot-validator's validateActionHasIcon checks a declared
+// icon against NAV_ICON_KEYS instead of trusting "not undefined".
+export const NAV_ICON_KEYS = [
+  "dashboard",
+  "layout-grid",
+  "book-open",
+  "clipboard-list",
+  "package",
+  "gauge",
+  "list",
+  "table",
+  "layers",
+  "building",
+  "calculator",
+  "wallet",
+  "coins",
+  "credit-card",
+  "piggy-bank",
+  "receipt",
+  "chart",
+  "bar-chart",
+  "trending",
+  "sparkles",
+  "wand",
+  "calendar",
+  "file",
+  "folder",
+  "folder-open",
+  "home",
+  "bell",
+  "shield",
+  "shield-check",
+  "send",
+  "settings",
+  "users",
+  "user",
+  "search",
+  "tag",
+  "key",
+  "link",
+  "palette",
+  "share",
+  "server",
+  "mail",
+  "lock",
+  "hash",
+  "download",
+  "upload",
+  "rocket",
+  "plus",
+  "languages",
+  "trash",
+  "x",
+  "check",
+  "arrow-left",
+  "arrow-right",
+  "copy",
+  "pencil",
+  "eye",
+  "eye-off",
+  "filter",
+  "refresh",
+  "more-horizontal",
+  "more-vertical",
+  "external-link",
+  "chevron-down",
+  "chevron-right",
+  "save",
+  "undo",
+  "archive",
+  "star",
+  "flag",
+  "clock",
+  "map-pin",
+  "phone",
+  "printer",
+  "alert-triangle",
+  "info",
+  "check-circle",
+  "x-circle",
+  "loader",
+  "mic",
+  "circle-stop",
+  "image",
+] as const;
+
+export type NavIconKey = (typeof NAV_ICON_KEYS)[number];
 
 // Alias kept because the union stopped being nav-only — actions and fields
 // (added on this branch) also key their icons against it.

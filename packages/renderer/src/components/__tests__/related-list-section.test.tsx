@@ -189,7 +189,7 @@ function renderRelatedList(
 }
 
 describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
-  test("hideTitle (tabs mode) renders the list without a Section wrapper, keeps the table frame, and marks scrollBody", async () => {
+  test("hideTitle (tabs mode) renders the list without a Section wrapper, drops the table frame (the tab card frames it), and marks scrollBody", async () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
     let capturedScrollBody: boolean | undefined;
@@ -221,7 +221,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.queryByTestId(`related-list-${historySection.title}`)).toBeNull();
-    expect(capturedChromeless).toBeUndefined();
+    expect(capturedChromeless).toBe(true);
     expect(capturedScrollBody).toBe(true);
   });
 

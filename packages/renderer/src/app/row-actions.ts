@@ -1,6 +1,5 @@
 import type {
   EntityEditScreenDefinition,
-  IconKey,
   RelatedListToolbarAction,
   RowAction,
   RowActionDrawer,
@@ -11,6 +10,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, ListRowViewModel, Translate } from "@cosmicdrift/kumiko-headless";
+import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
+import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
+import type { RenderEditAction } from "../components/render-edit-types";
 import type { ToolbarActionButton } from "../components/render-list";
 import type { DataTableRowAction } from "../primitives";
 import type { NavApi, ScreenTarget } from "./nav";
@@ -46,61 +48,6 @@ export function evalRowExtractor(
 
 export function isWriteHandlerRowAction(action: RowAction): action is RowActionWriteHandler {
   return action.kind === "writeHandler" || action.kind === undefined;
-}
-
-// Part B (fw-ui-defaults): id-derived default icon for actions that never
-// declared one — a screen author still gets a recognizable glyph instead of
-// a bare label. Checked against the actually registered IconKey vocabulary
-// (nav-icon.ts) — no entry for verbs without a matching icon (e.g. "start",
-// "pause").
-const ACTION_ICON_BY_ID: Readonly<Partial<Record<string, IconKey>>> = {
-  delete: "trash",
-  edit: "pencil",
-  create: "plus",
-  new: "plus",
-  add: "plus",
-  view: "eye",
-  open: "eye",
-  cancel: "x",
-  reject: "x",
-  complete: "check",
-  resolve: "check",
-  approve: "check",
-  archive: "archive",
-  publish: "upload",
-  duplicate: "copy",
-  copy: "copy",
-  download: "download",
-  refresh: "refresh",
-  retry: "refresh",
-  settings: "settings",
-  share: "share",
-  send: "send",
-};
-
-// Ids are kebab-case (RowAction.id doc): aggregate-object-verb
-// ("order-ship") or verb-prefix ("add-item").
-function kebabLastSegment(id: string): string {
-  const idx = id.lastIndexOf("-");
-  return idx === -1 ? id : id.slice(idx + 1);
-}
-
-function kebabFirstSegment(id: string): string {
-  const idx = id.indexOf("-");
-  return idx === -1 ? id : id.slice(0, idx);
-}
-
-// Resolution order: author-declared `icon` wins, then the id-derived
-// default (full id, then its last kebab segment, then its first kebab
-// segment). `declared` is `undefined` for ToolbarAction, which has no
-// author-facing icon field.
-export function resolveActionIcon(id: string, declared?: IconKey): IconKey | undefined {
-  if (declared !== undefined) return declared;
-  return (
-    ACTION_ICON_BY_ID[id] ??
-    ACTION_ICON_BY_ID[kebabLastSegment(id)] ??
-    ACTION_ICON_BY_ID[kebabFirstSegment(id)]
-  );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -470,6 +417,218 @@ export function buildProjectionToolbarActions(options: {
     // writeHandler — skip without a dispatcher instead of crashing (same as rowActions).
     if (dispatcher === undefined) continue;
     out.push(buildWriteHandlerToolbarAction(action, translate, refetch, dispatcher));
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function buildNavigateRecordAction(
+  action: RowActionNavigate,
+  options: {
+    readonly record: Readonly<Record<string, unknown>>;
+    readonly translate: Translate;
+    readonly nav: NavApi;
+    readonly host: ReturnHost | undefined;
+    readonly actionIcon: IconKey | undefined;
+    readonly defaultScreenTargetEntityId: string | undefined;
+    readonly sameEntityScreenId: ((targetScreen: string) => string | undefined) | undefined;
+  },
+): RenderEditAction | undefined {
+  const {
+    record,
+    translate,
+    nav,
+    host,
+    actionIcon,
+    defaultScreenTargetEntityId,
+    sameEntityScreenId,
+  } = options;
+  const runParams = (): void => {
+    const params =
+      action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
+    if (params !== undefined) nav.setSearchParams(stringifyNavParams(params));
+  };
+  if (action.entity !== undefined) {
+    const targetEntity = action.entity;
+    const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
+    return {
+      id: action.id,
+      label: translate(action.label),
+      ...(action.style !== undefined && { style: action.style }),
+      confirmRequired: false,
+      ...(actionIcon !== undefined && { icon: actionIcon }),
+      onPress: () => {
+        // No entityId on record (id === "") → nothing to navigate to.
+        if (id !== "") {
+          nav.navigate({ entity: targetEntity, id });
+          runParams();
+        }
+      },
+    };
+  }
+  if (action.screen !== undefined) {
+    const explicit =
+      action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
+    const fallback = sameEntityScreenId?.(action.screen) ?? defaultScreenTargetEntityId;
+    const navEntityId = explicit ?? fallback;
+    const targetScreen = action.screen;
+    return {
+      id: action.id,
+      label: translate(action.label),
+      ...(action.style !== undefined && { style: action.style }),
+      confirmRequired: false,
+      ...(actionIcon !== undefined && { icon: actionIcon }),
+      onPress: () => {
+        const target: ScreenTarget = {
+          screenId: targetScreen,
+          ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
+        };
+        const params =
+          action.params !== undefined
+            ? stringifyNavParams(evalRowExtractor(action.params, record))
+            : undefined;
+        navigateWithReturnTo(nav, target, host, params);
+      },
+    };
+  }
+  return undefined;
+}
+
+function buildDrawerRecordAction(
+  action: RowActionDrawer,
+  options: {
+    readonly record: Readonly<Record<string, unknown>>;
+    readonly translate: Translate;
+    readonly actionIcon: IconKey | undefined;
+    readonly openDrawer: (
+      action: RowActionDrawer,
+      initialValues: Readonly<Record<string, unknown>> | undefined,
+    ) => void;
+  },
+): RenderEditAction {
+  const { record, translate, actionIcon, openDrawer } = options;
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    confirmRequired: false,
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    onPress: () => {
+      const initialValues =
+        action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
+      openDrawer(action, initialValues);
+    },
+  };
+}
+
+function buildWriteHandlerRecordAction(
+  action: RowActionWriteHandler,
+  options: {
+    readonly record: Readonly<Record<string, unknown>>;
+    readonly translate: Translate;
+    readonly actionIcon: IconKey | undefined;
+    readonly dispatcher: Dispatcher;
+    readonly onWriteSuccess: () => void | Promise<void>;
+  },
+): RenderEditAction {
+  const { record, translate, actionIcon, dispatcher, onWriteSuccess } = options;
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
+    ...(action.confirmLabel !== undefined && {
+      confirmLabel: translate(action.confirmLabel),
+    }),
+    onPress: async () => {
+      const payload =
+        action.payload !== undefined
+          ? evalRowExtractor(action.payload, record)
+          : { id: record["id"] };
+      const result = await dispatcher.write(action.handler, payload);
+      if (!result.isSuccess) {
+        throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
+      }
+      await onWriteSuccess();
+    },
+  };
+}
+
+// Shared builder for a RowAction[] evaluated against one "record"
+// context (not a specific list row) — a head card's `screen.actions`, an
+// entityEdit's own `screen.actions`, and any section-level
+// `actions`/`emptyState.action` are all this same shape: a RowAction
+// resolved against the record currently being viewed/edited, independent of
+// any table row.
+export function buildRecordActions(options: {
+  readonly actions: readonly RowAction[];
+  readonly record: Readonly<Record<string, unknown>>;
+  readonly translate: Translate;
+  readonly nav: NavApi;
+  readonly host: ReturnHost | undefined;
+  readonly dispatcher: Dispatcher | undefined;
+  readonly openDrawer: (
+    action: RowActionDrawer,
+    initialValues: Readonly<Record<string, unknown>> | undefined,
+  ) => void;
+  /** Called after a writeHandler action succeeds (refetch/reload). */
+  readonly onWriteSuccess: () => void | Promise<void>;
+  /** Screen-target navigate default entityId when the action declares no
+   *  explicit `entityId` field-source. A caller editing a fixed entity can
+   *  pass its own `entityId` here directly (the record it already is). A
+   *  caller whose shown record may differ from the navigate target's entity
+   *  resolves this per-target via `sameEntityScreenId` instead. */
+  readonly defaultScreenTargetEntityId?: string;
+  /** Given a navigate action's target screen id, returns the record id to
+   *  default to IF that screen edits the same entity the current record
+   *  belongs to (cross-feature lookup) — undefined otherwise. Omitted by
+   *  callers with no such cross-screen lookup. */
+  readonly sameEntityScreenId?: (targetScreen: string) => string | undefined;
+}): readonly RenderEditAction[] | undefined {
+  const {
+    actions,
+    record,
+    translate,
+    nav,
+    host,
+    dispatcher,
+    openDrawer,
+    onWriteSuccess,
+    defaultScreenTargetEntityId,
+    sameEntityScreenId,
+  } = options;
+  const out: RenderEditAction[] = [];
+  for (const action of actions) {
+    if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) continue;
+    const actionIcon = resolveActionIcon(action.id, action.icon);
+    if (action.kind === "navigate") {
+      const built = buildNavigateRecordAction(action, {
+        record,
+        translate,
+        nav,
+        host,
+        actionIcon,
+        defaultScreenTargetEntityId,
+        sameEntityScreenId,
+      });
+      if (built !== undefined) out.push(built);
+      continue;
+    }
+    if (action.kind === "drawer") {
+      out.push(buildDrawerRecordAction(action, { record, translate, actionIcon, openDrawer }));
+      continue;
+    }
+    // writeHandler — skip without a dispatcher instead of crashing.
+    if (dispatcher === undefined) continue;
+    out.push(
+      buildWriteHandlerRecordAction(action, {
+        record,
+        translate,
+        actionIcon,
+        dispatcher,
+        onWriteSuccess,
+      }),
+    );
   }
   return out.length > 0 ? out : undefined;
 }

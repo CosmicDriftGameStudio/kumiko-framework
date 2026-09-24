@@ -195,6 +195,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "const StatCard = () => <div>x</div>;\nexport const T = () => <StatCard />;",
     expectedMessage: /App-local UI primitive "StatCard"/,
   },
+  "No-Framed-Extension-Sections Guard": {
+    path: `${FEAT}/x/web/client-plugin.tsx`,
+    code: 'function NotesSection() { return <Card slots={{ title: "Notes" }}>x</Card>; }\nexport function demoClient() {\n\treturn { extensionSectionComponents: { notes: NotesSection } };\n}',
+    expectedMessage: /Extension-section component "NotesSection" renders its own <Card>/,
+  },
   "No-Raw-Hooks Guard (App-Repos)": {
     path: `${APP}/features/x/web/screen.tsx`,
     code: 'import { useEffect } from "react";\nexport const S = () => { useEffect(() => {}, []); return null; };',

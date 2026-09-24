@@ -4673,6 +4673,40 @@ describe("boot-validator", () => {
       );
     });
 
+    test("projectionDetail tabs-mode fields section with both groups and actions → throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order-detail",
+          layout: {
+            mode: "tabs",
+            sections: [
+              {
+                id: "billing",
+                title: "Billing",
+                fields: [],
+                groups: [{ title: "Amounts", fields: ["name"] }],
+                actions: [
+                  { kind: "navigate", id: "edit", label: "actions.edit", screen: "order-detail" },
+                ],
+              },
+              {
+                id: "positions",
+                kind: "relatedList",
+                title: "Positions",
+                query: "shop:query:order-positions",
+                columns: [{ field: "name" }],
+              },
+            ],
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /section "billing" declares both groups and actions in tabs mode/,
+      );
+    });
+
     test("projectionDetail relatedList defaultSort.field not a listed column → throw", () => {
       const feature = defineFeature("shop", (r) => {
         r.screen({

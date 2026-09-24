@@ -38,6 +38,27 @@ describe("applyFormatSpec — boolean/currency", () => {
   });
 });
 
+describe("applyFormatSpec — number grouping (fw#3234)", () => {
+  test("groups thousands by default", () => {
+    expect(applyFormatSpec({ format: "number" }, 2021)).toBe("2,021");
+    expect(applyFormatSpec({ format: "number", locale: "de-DE" }, 2021)).toBe("2.021");
+  });
+
+  test("grouping: false renders no thousands separator", () => {
+    expect(applyFormatSpec({ format: "number", grouping: false }, 2021)).toBe("2021");
+    expect(applyFormatSpec({ format: "number", locale: "de-DE", grouping: false }, 2021)).toBe(
+      "2021",
+    );
+  });
+
+  test("decimal/bigInt share the same grouping path", () => {
+    expect(applyFormatSpec({ format: "decimal", locale: "de-DE" }, 2021)).toBe("2.021");
+    expect(applyFormatSpec({ format: "bigInt", locale: "de-DE", grouping: false }, 2021)).toBe(
+      "2021",
+    );
+  });
+});
+
 describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
   // Mittag UTC: das Datum kippt in keiner Zeitzone UTC-11..UTC+11 —
   // deterministisch auf CI (UTC) und lokal (CET).

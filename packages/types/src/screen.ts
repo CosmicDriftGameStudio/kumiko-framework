@@ -55,9 +55,11 @@ export interface FieldFormatRegistry {
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
   currency: { readonly symbol?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
-  number: { readonly locale?: string };
-  decimal: { readonly locale?: string };
-  bigInt: { readonly locale?: string };
+  /** `grouping: false` renders without thousands-separators (e.g. a model
+   *  year: "2021", not "2.021"). Default `true`. */
+  number: { readonly locale?: string; readonly grouping?: boolean };
+  decimal: { readonly locale?: string; readonly grouping?: boolean };
+  bigInt: { readonly locale?: string; readonly grouping?: boolean };
   // Value is percent *points* (12 → "12 %"), not a 0..1 ratio — Intl
   // style:"unit"/unit:"percent" does NOT multiply by 100 (unlike style:"percent").
   unit: {
@@ -925,6 +927,11 @@ export type EditFieldsSection = {
    *  Ignored outside tabs mode or when the field's value is not a finite
    *  number. */
   readonly countField?: string;
+  /** Rendered top-right in the section's Card title row — same
+   *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
+   *  evaluated against the same record. Every action must resolve an icon
+   *  (declared or id-derived); the boot-validator rejects one that doesn't. */
+  readonly actions?: readonly RowAction[];
 };
 
 export type EditExtensionSection = {
@@ -951,6 +958,11 @@ export type EditExtensionSection = {
    *  Ignored outside tabs mode or when the field's value is not a finite
    *  number. */
   readonly countField?: string;
+  /** Rendered top-right in the section's Card title row — same
+   *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
+   *  evaluated against the same record. Every action must resolve an icon
+   *  (declared or id-derived); the boot-validator rejects one that doesn't. */
+  readonly actions?: readonly RowAction[];
 };
 
 // Read-only list of related records, driven by its own query — for a
@@ -1019,6 +1031,22 @@ export type EditRelatedListSection = {
    *  Ignored outside tabs mode or when the field's value is not a finite
    *  number. */
   readonly countField?: string;
+  /** Rendered top-right in the section's Card title row — same
+   *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
+   *  evaluated against the parent record. Every action must resolve an icon
+   *  (declared or id-derived); the boot-validator rejects one that doesn't.
+   *  Distinct from `toolbarActions` (rendered inside the DataTable toolbar) —
+   *  this is the Card-level title-row action. */
+  readonly actions?: readonly RowAction[];
+  /** Rendered inside the section's Card in place of the table when this
+   *  section's query returns zero rows. Omitted: the DataTable default
+   *  ("kumiko.list.no-entries") applies. `action`'s icon must resolve, same
+   *  as `actions` above. */
+  readonly emptyState?: {
+    readonly title: string;
+    readonly description?: string;
+    readonly action?: RowAction;
+  };
 };
 
 // A declarative, self-persisting form section for `projectionDetail`
@@ -1057,6 +1085,11 @@ export type EditWriteFormSection = {
   readonly handler: string;
   /** i18n-key for the submit button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
+  /** Rendered top-right in the section's Card title row — same
+   *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
+   *  evaluated against the same record. Every action must resolve an icon
+   *  (declared or id-derived); the boot-validator rejects one that doesn't. */
+  readonly actions?: readonly RowAction[];
 };
 
 // Max width of the form container (see FormScreenShell in renderer-web).

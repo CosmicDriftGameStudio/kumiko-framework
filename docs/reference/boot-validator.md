@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-30
+verified: 2026-09-24
 evidence: "kumiko-framework#2509 (screen field refs vs query handler outputSchema); engine/boot-validator/*"
 ---
 
@@ -44,6 +44,17 @@ Row-Schema. Fehlt das `rows`-Feld, meldet der Validator:
 
 Das ist der typische Fehler: man übergibt das Row-Schema statt der Envelope.
 (`checkPagedHandlerOutputSchemaShape`)
+
+## Action-Icons (fw#3234)
+
+Jede Action, die als Button in einer `projectionDetail`/`entityEdit`-Card-
+Titelzeile landet — Screen-`actions`, Section-`actions`, und `relatedList`
+`emptyState.action` — muss ein auflösbares Icon haben
+(`validateActionHasIcon`, `packages/framework/src/engine/boot-validator/screens.ts`).
+Auflösung: explizites `icon` auf der Action, sonst ein Default über die
+`id`-Konvention (z. B. ein `deletion`-Segment in der id → `trash`). Fehlt
+beides, stoppt der Boot mit einer Meldung, die Screen, Section (falls
+zutreffend) und Action-id nennt.
 
 ## Kernregel für Feature-Autoren
 

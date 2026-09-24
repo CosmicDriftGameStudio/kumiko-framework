@@ -236,6 +236,12 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
     expect(screen.queryByTestId("section-Contact-title")).toBeNull();
     expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
+    // fw#3234 round 3: the Card itself must draw no title either (fw#3218 —
+    // the Tab strip right above already names this panel). The section had
+    // no actions, so its Card renders with no header row at all.
+    const card = screen.getByTestId("section-Contact");
+    expect(card.querySelector("h3")).toBeNull();
+    expect(card.textContent).not.toContain("Contact");
   });
 
   // S2: a fields-kind section's `groups` splits it into its own titled cards
@@ -4185,5 +4191,30 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
     expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
     expect(screen.getByTestId("field-count-errors")).toBeTruthy();
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
+  });
+
+  // fw#3234 only sets `hideSectionTitles` for projectionDetail
+  // (ProjectionDetailBody, kumiko-screen.tsx) — entityEdit's RenderEdit call
+  // never passes it, so entityEdit tabs mode is unaffected by the per-tab
+  // Card unification: every tab keeps sharing the ONE head Card the form
+  // title/actions/footer already live in, with plain (non-Card) Sections per
+  // tab. This test guards that fw#3234 didn't regress entityEdit into either
+  // per-tab Cards (wrong frame count) or a titleless head Card (parity with
+  // the non-tabs entityEdit case above).
+  test("stays on the single shared head Card across tabs — unaffected by projectionDetail's per-tab Card unification (fw#3234)", () => {
+    const { container } = render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(1);
+    expect(container.querySelectorAll('[data-testid^="section-"]').length).toBe(2);
   });
 });

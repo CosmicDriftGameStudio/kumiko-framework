@@ -679,6 +679,71 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(within(screen.getByTestId("section-extension-Notes")).queryByText("Notes")).toBeNull();
   });
 
+  test("layout.mode: 'tabs' — the active extension tab renders inside its own card, not flat", async () => {
+    const tabsExtensionScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Session", fields: ["userId"] },
+          {
+            id: "notes",
+            kind: "extension",
+            title: "Notes",
+            component: { react: { __component: "SessionNotes" } },
+            entityName: "user-session",
+          },
+        ],
+      },
+    };
+    const tabsExtensionSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsExtensionScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+    const nav: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: { tab: "notes" },
+      setSearchParams: () => {},
+    };
+
+    const { container } = render(
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <ExtensionSectionsProvider value={{ SessionNotes }}>
+            <KumikoScreen
+              schema={tabsExtensionSchema}
+              qn="sessions:screen:session-detail"
+              entityId="sess-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => screen.getByTestId("session-notes"));
+    // The section is flattened inside RenderEdit's own Form (no own card) —
+    // tabs mode frames it via an outer Card instead, so exactly one card
+    // renders for the active extension tab.
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
+    // The tab strip already labels the panel — the framing Card must not
+    // repeat that label as its own title (only one "Notes" on screen).
+    expect(screen.getAllByText("Notes")).toHaveLength(1);
+    // Padding parity (fw#3234 review 2): a nested <section> would carry its
+    // own px-6 py-4 (DefaultSection, insideForm) on top of the Card's own
+    // padding, indenting the extension tab further than the fields tab
+    // (Grid sits directly in the Card there, no <section> in between).
+    expect(container.querySelector('[data-slot="card"] section')).toBeNull();
+  });
+
   test("layout.mode: 'tabs' with a header — the head card plus one card for the active tab's fields", async () => {
     const tabsHeaderScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -728,6 +793,122 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     // Head card plus one titled card for the fields tab — checked via the
     // card's structural marker, not a Tailwind class string.
     expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
+  });
+
+  test("layout.mode: 'tabs' — the active relatedList tab renders inside the same Card frame as other tab kinds", async () => {
+    const tabsRelatedListScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Session", fields: ["userId"] },
+          {
+            id: "payments",
+            kind: "relatedList",
+            title: "Payments",
+            query: "sessions:query:user-session:payments",
+            columns: [{ field: "amount", label: "Amount" }],
+          },
+        ],
+      },
+    };
+    const tabsRelatedListSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsRelatedListScreen],
+    };
+    const query = (async (type: string) => {
+      if (type === "sessions:query:user-session:detail") {
+        return {
+          isSuccess: true,
+          data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+        };
+      }
+      return { isSuccess: true, data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null } };
+    }) as unknown as Dispatcher["query"];
+    const dispatcher: Dispatcher = createMockDispatcher({ query });
+    const nav: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: { tab: "payments" },
+      setSearchParams: () => {},
+    };
+
+    const { container } = render(
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={tabsRelatedListSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => screen.getByTestId("row-pay-1"));
+    // Acceptance criterion: the relatedList tab must sit in exactly the same
+    // Card frame every other tab kind gets, not a bare FillContainer.
+    const card = container.querySelector('[data-slot="card"]');
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
+    // fw#3234 round 3: the table's own DataTable wrapper must not add a
+    // second p-6 inset on top of the Card's own body padding — it must start
+    // at the same left edge as a sibling Banner in the same Card.
+    expect(card?.querySelector(".p-6")).toBeNull();
+  });
+
+  test("layout.mode: 'tabs' — the active writeForm tab renders inside the same Card frame as other tab kinds", async () => {
+    const tabsWriteFormScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Session", fields: ["userId"] },
+          {
+            id: "note",
+            kind: "writeForm",
+            title: "Add note",
+            fieldDefs: { body: { type: "text" } },
+            fields: ["body"],
+            handler: "sessions:write:add-note",
+          },
+        ],
+      },
+    };
+    const tabsWriteFormSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsWriteFormScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+    const nav: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: { tab: "note" },
+      setSearchParams: () => {},
+    };
+
+    const { container } = render(
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={tabsWriteFormSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => screen.getByTestId("write-form-section-submit"));
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
   });
 
   test("layout.mode: 'tabs' with countField — tab label carries the record's count, sections without it stay unchanged", async () => {
@@ -1071,6 +1252,84 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
   });
 });
 
+// fw#3234: a fields section's own `actions` render in that section's Card
+// title row (not the screen-level head region fw#2713 covers below) and
+// dispatch against the same record, with the same navigate/params
+// evaluation as a screen-level action.
+describe("KumikoScreen / projectionDetail section actions (fw#3234)", () => {
+  test("a section action renders in the section's title row and navigates with record-derived params", async () => {
+    const sectionActionScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          {
+            title: "Session",
+            fields: ["userId", "createdAt"],
+            actions: [
+              {
+                kind: "navigate",
+                id: "open-user",
+                label: "sessions.detail.action.openUser",
+                entity: "user",
+                entityId: "userId",
+                params: { pick: ["createdAt"] },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const sectionActionSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [sectionActionScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+    let navigated: NavTarget | undefined;
+    let searchParams: Record<string, string | null> | undefined;
+    const nav: NavApi = {
+      route: undefined,
+      navigate: (target) => {
+        navigated = target;
+      },
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: (params) => {
+        searchParams = params;
+      },
+    };
+
+    render(
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={sectionActionSchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const actionButton = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
+    // Renders inside the section's own Card, in its title row — not the
+    // screen-level head region (fw#2713's own actions render there instead).
+    expect(
+      actionButton.closest('[data-slot="card"]')?.querySelector('[data-testid="field-userId"]'),
+    ).not.toBeNull();
+
+    fireEvent.click(actionButton);
+    expect(navigated).toEqual({ entity: "user", id: "user-42" });
+    expect(searchParams).toEqual({ createdAt: "2026-07-01T00:00:00Z" });
+  });
+});
+
 // fw#2713: `actions` are on the record the head shows, not on whichever tab
 // is open — they used to render in the card footer, below the active tab's
 // content, so a long tab pushed them off-screen and they visually "moved"
@@ -1084,6 +1343,46 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
       isSuccess: true,
       data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
     })) as unknown as Dispatcher["query"],
+  });
+
+  test("slots.header shares one card with the header actions (fw#3234)", async () => {
+    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
+    const screenWithSlot: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: { mode: "tabs", sections: detailScreen.layout.sections },
+      slots: { header: { react: { __component: "HubHeader" } } },
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
+    };
+    const schemaWithSlot: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [screenWithSlot],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ HubHeader }}>
+          <KumikoScreen
+            schema={schemaWithSlot}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const slot = await waitFor(() => screen.getByTestId("hub-header"));
+    const actionButton = screen.getByTestId("render-edit-action-open-user");
+    const slotCard = slot.closest('[data-slot="card"]');
+    expect(slotCard).not.toBeNull();
+    expect(actionButton.closest('[data-slot="card"]')).toBe(slotCard);
   });
 
   test("with actions declared: the action button renders in the head region, before the tab content, not in the form footer", async () => {
@@ -1117,6 +1416,10 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     );
 
     const actionButton = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
+    // "open" resolves to the "eye" icon via ACTION_ICON_BY_ID (no explicit
+    // icon declared) — the header action button must actually draw it, not
+    // just carry it as unused data (fw#3234 round 3).
+    expect(actionButton.querySelector("svg")).toBeTruthy();
     // The footer regions RenderEdit's Form would otherwise draw the action
     // into are gone entirely — the action moved out, it didn't just gain a
     // second home.

@@ -913,7 +913,9 @@ function readOnlyDisplayText(field: EditFieldViewModel, appLocale: string): stri
     case "bigInt":
     case "decimal": {
       const n = numberValue(value);
-      return n === "" ? "—" : new Intl.NumberFormat(appLocale).format(n);
+      return n === ""
+        ? "—"
+        : new Intl.NumberFormat(appLocale, { useGrouping: field.grouping ?? true }).format(n);
     }
     case "money": {
       const currency = resolveMoneyCurrency(value, field.currency);

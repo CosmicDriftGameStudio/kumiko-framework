@@ -174,6 +174,10 @@
       "types": "./src/nav-icon.ts",
       "default": "./src/nav-icon.ts"
     },
+    "./action-icon": {
+      "types": "./src/action-icon.ts",
+      "default": "./src/action-icon.ts"
+    },
     "./field-icon": {
       "types": "./src/field-icon.ts",
       "default": "./src/field-icon.ts"

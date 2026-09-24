@@ -100,7 +100,12 @@ export function StatCard({
   readonly children?: ReactNode;
 }): ReactNode {
   const { Card } = usePrimitives();
+  // StatCard is a reusable small-tile widget (a metrics dashboard grid, not
+  // a whole-section frame) — an extension section mounting several of
+  // these renders a grid of tiles inside its own host Card, not a
+  // duplicate outer frame around the section's full content.
   return (
+    // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
     <Card options={{ padded: false }} className="p-4" testId={testId}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-muted-foreground">

@@ -5,9 +5,14 @@
 //   2. `metrics` renders a labeled band of key numbers from the same row —
 //      labels come from `fieldLabels`, there is no fallback to the raw
 //      column name.
-//   3. `layout.mode: "tabs"` splits the record into three tabs: two
+//   3. `layout.mode: "tabs"` splits the record into four tabs: two
 //      `relatedList` sections (own query, own pagination, mounts only when
-//      active) and one `fields` section (master data from the detail row).
+//      active), one `fields` section (master data from the detail row), and
+//      one `extension` section (a plugin-mounted component, fw#3234 padding-
+//      parity check — every tab kind must sit in the same Card padding, no
+//      section carries extra chrome of its own).
+//   4. A screen-level `actions` entry (fw#3234) renders next to the header,
+//      not inside any tab's Card.
 //
 // projectionDetail has no entity — it binds to an explicit query instead, so
 // every field name below (header, metrics, fields) is a column of that
@@ -111,8 +116,24 @@ export function createOrderDeskFeature(): FeatureDefinition {
             title: "order-desk.tab.details",
             fields: ["shippingAddress", "billingAddress", "salesRep"],
           },
+          {
+            id: "internal-note",
+            kind: "extension",
+            title: "order-desk.tab.internalNote",
+            component: { react: { __component: "OrderInternalNote" } },
+            entityName: "order",
+          },
         ],
       },
+      actions: [
+        {
+          kind: "navigate",
+          id: "refresh-order",
+          label: "order-desk.action.refreshOrder",
+          screen: "order-detail",
+          icon: "refresh",
+        },
+      ],
       access: { roles: ["Support", "Admin"] },
     });
   });

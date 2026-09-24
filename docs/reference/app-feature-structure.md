@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-30
+verified: 2026-09-24
 evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature (dev-server); framework#2509 (boot-validator outputSchema); framework#2501 (projectionDetail header/metrics/tabs)"
 ---
 
@@ -59,6 +59,22 @@ src/features/<name>/
   Boot-Validator gegen das `outputSchema` des Query-Handlers geprüft; paged
   Handler müssen ihr Schema als Envelope `{ rows, nextCursor, total? }`
   beschreiben. Siehe `docs/reference/boot-validator.md`.
+- **`projectionDetail` rahmt Header und Tab-Sections einheitlich (fw#3234)**:
+  jede Section (Feld-Gruppe, `extension`, `relatedList`, `writeForm`) im
+  Tabs-Modus (`layout.mode: "tabs"`) sitzt im selben `Card`-Frame wie der
+  Head-Card — eine einzige `Card`-Implementierung (`usePrimitives().Card`),
+  nicht pro Section-Art dupliziert. Screen- und Section-`actions` rendern als
+  Buttons in der jeweiligen Card-Titelzeile (`RenderEditActionButton`); jede
+  Action ohne auflösbares Icon (explizit oder über die id-Konvention)
+  schlägt am Boot fehl (`validateActionHasIcon`, siehe
+  `docs/reference/boot-validator.md`). `relatedList` trägt dabei zusätzlich
+  `options.fillHeight` auf der Card, damit die fw#2722/#2778-Flex-Kette bis
+  zur Tabelle durchgereicht wird (Panel-Höhe statt Dokumentfluss-Höhe) und
+  ein leerer `relatedList`-Tab sein eigenes `emptyState` (`title`,
+  `description`, optionale `action`) statt der leeren Tabelle zeigt.
+  `entityEdit` bleibt unverändert auf dem einen Head-Card + Section-pro-Tab-
+  Muster — `hideSectionTitles` wird ausschließlich für `projectionDetail`
+  gesetzt.
 - **Kein `web.tsx`/`web.ts`-Monolith am Feature-Root** — Client-Definition und
   Screens leben unter `web/`.
 - **UI aus dem Framework**: Widgets (`StatCard`, `SectionCard`, `StatusBadge`,

@@ -1993,6 +1993,15 @@ describe("DataTable screenPadding", () => {
     render(<DataTable columns={cols} rows={oneRow} testId="embedded-table" />);
     expect(paddingClasses(paddingWrapperOf("embedded-table"))).toEqual(["p-6"]);
   });
+
+  // fw#3234 round 3: a relatedList section nested in a tabs-mode Card already
+  // sits inside the Card's own padded body — DataTable's own p-6 wrapper then
+  // pushed the table 24px deeper than a sibling Banner in the same Card,
+  // visibly misaligning their left edges.
+  test("screenPadding=false: no wrapper inset at all (host Card already pads)", () => {
+    render(<DataTable columns={cols} rows={oneRow} testId="flush-table" screenPadding={false} />);
+    expect(paddingClasses(paddingWrapperOf("flush-table"))).toEqual([]);
+  });
 });
 
 describe("JsonView", () => {

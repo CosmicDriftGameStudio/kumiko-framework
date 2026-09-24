@@ -52,6 +52,10 @@ export type WriteFormSectionProps = {
    *  record (a new one now exists) via a full RenderEdit remount, see
    *  ProjectionDetailBody's reloadNonce/key in kumiko-screen.tsx. */
   readonly onSubmitted: () => void;
+  /** section.actions, already resolved into buttons by the caller —
+   *  rendered alongside (before) the section's own submit button in the
+   *  title-row actions slot. */
+  readonly actions?: ReactNode;
 };
 
 // A self-persisting form section for projectionDetail (see
@@ -65,8 +69,9 @@ export function WriteFormSection({
   translate,
   hideTitle,
   onSubmitted,
+  actions,
 }: WriteFormSectionProps): ReactNode {
-  const { Section, Grid, GridCell, Button, Banner } = usePrimitives();
+  const { Section, Card, Grid, GridCell, Button, Banner } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
@@ -149,15 +154,43 @@ export function WriteFormSection({
     </Button>
   );
 
+  const titleRowActions =
+    actions !== undefined ? (
+      <>
+        {actions}
+        {submitButton}
+      </>
+    ) : (
+      submitButton
+    );
+
+  // Section always flattens to a borderless divider when rendered inside
+  // RenderEdit's own <Form> in tabs mode (hideTitle) — Card frames it there
+  // instead, same reason render-edit.tsx's tabs-mode fields/extension
+  // branches stay on Card.
+  if (hideTitle) {
+    return (
+      <Card
+        slots={{
+          ...(section.description !== undefined && { subtitle: section.description }),
+          headerActions: titleRowActions,
+        }}
+        testId={`write-form-${section.title ?? "section"}`}
+      >
+        {content}
+      </Card>
+    );
+  }
+
   // Routed through Section's `actions` slot (same mechanism render-edit.tsx
   // uses via Form's `actions`) so the button gets the established right-
   // aligned footer treatment instead of stretching full-width inline.
   return (
     <Section
-      {...(!hideTitle && section.title !== undefined && { title: section.title })}
+      {...(section.title !== undefined && { title: section.title })}
       {...(section.description !== undefined && { subtitle: section.description })}
       {...(section.icon !== undefined && { icon: section.icon })}
-      actions={submitButton}
+      actions={titleRowActions}
       testId={`write-form-${section.title ?? "section"}`}
     >
       {content}

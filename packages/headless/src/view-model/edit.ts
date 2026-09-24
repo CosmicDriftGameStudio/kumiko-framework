@@ -1,9 +1,11 @@
 import type {
+  EditExtensionSection,
   EditRelatedListSection,
   EditWriteFormSection,
   EntityDefinition,
   EntityEditScreenDefinition,
   FieldCondition,
+  ParsedRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
@@ -111,6 +113,7 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
     ...(sectionSpec.submitLabel !== undefined && {
       submitLabel: translate(sectionSpec.submitLabel),
     }),
+    ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
   };
 }
 
@@ -134,6 +137,332 @@ function computeRelatedListSectionViewModel(
     ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
     ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
+    ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
+    ...(sectionSpec.emptyState !== undefined && {
+      emptyState: {
+        title: translate(sectionSpec.emptyState.title),
+        ...(sectionSpec.emptyState.description !== undefined && {
+          description: translate(sectionSpec.emptyState.description),
+        }),
+        // Action stays untranslated, same convention as rowActions/
+        // toolbarActions above — the renderer's row-actions builder
+        // translates `action.label` at button-build time.
+        ...(sectionSpec.emptyState.action !== undefined && {
+          action: sectionSpec.emptyState.action,
+        }),
+      },
+    }),
+  };
+}
+
+// --- Per-field-type view-model hints ------------------------------------
+// Split out of the field-map callback below (was one function covering
+// every field type's derivation, growing into a single complexity hotspot)
+// so each field-type family stays its own small, independently reviewable
+// unit. Pure data derivation, no side effects — each returns only the keys
+// its own field type ever sets.
+
+type EntityFieldDef = NonNullable<EntityDefinition["fields"][string]>;
+type NormalizedEditField = ReturnType<typeof normalizeEditField>;
+
+type SelectFieldHints = Pick<
+  EditFieldViewModel,
+  "options" | "optionLabels" | "display" | "columns" | "maxRows"
+>;
+
+function deriveSelectFieldHints(
+  fieldDef: EntityFieldDef,
+  translate: Translate,
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+): SelectFieldHints {
+  const options =
+    fieldDef.type === "select" || fieldDef.type === "multiSelect"
+      ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
+      : undefined;
+  const optionLabels =
+    options !== undefined
+      ? buildOptionLabels(
+          translate,
+          (value) => fieldOptionLabelKey(featureName, entityName, fieldName, value),
+          options,
+        )
+      : undefined;
+  const display =
+    fieldDef.type === "multiSelect" || fieldDef.type === "select" ? fieldDef.display : undefined;
+  const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
+  const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
+  return {
+    ...(options !== undefined && { options }),
+    ...(optionLabels !== undefined && { optionLabels }),
+    ...(display !== undefined && { display }),
+    ...(columns !== undefined && { columns }),
+    ...(maxRows !== undefined && { maxRows }),
+  };
+}
+
+type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format">;
+
+function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
+  const multiline =
+    fieldDef.type === "text" || fieldDef.type === "longText"
+      ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
+      : undefined;
+  const format =
+    fieldDef.type === "text"
+      ? (fieldDef as unknown as { format?: "email" | "url" | "phone" | "password" }).format
+      : undefined;
+  return {
+    ...(multiline !== undefined && { multiline }),
+    ...(format !== undefined && { format }),
+  };
+}
+
+type DateFieldHints = Pick<EditFieldViewModel, "wallClock" | "min" | "max" | "dateLocale">;
+
+function deriveDateFieldHints(fieldDef: EntityFieldDef): DateFieldHints {
+  const wallClock =
+    fieldDef.type === "timestamp" &&
+    (fieldDef as unknown as { locatedBy?: string }).locatedBy !== undefined
+      ? true
+      : undefined;
+  const dateBounds =
+    fieldDef.type === "date" ||
+    fieldDef.type === "timestamp" ||
+    fieldDef.type === "locatedTimestamp"
+      ? (fieldDef as unknown as { min?: string; max?: string; locale?: string })
+      : undefined;
+  return {
+    ...(wallClock !== undefined && { wallClock }),
+    ...(dateBounds?.min !== undefined && { min: dateBounds.min }),
+    ...(dateBounds?.max !== undefined && { max: dateBounds.max }),
+    ...(dateBounds?.locale !== undefined && { dateLocale: dateBounds.locale }),
+  };
+}
+
+type NumericFieldHints = Pick<EditFieldViewModel, "grouping" | "currency" | "unit">;
+
+function deriveNumericFieldHints(
+  fieldDef: EntityFieldDef,
+  resolvedCurrency: string,
+): NumericFieldHints {
+  const grouping = fieldDef.type === "number" ? fieldDef.grouping : undefined;
+  return {
+    ...(grouping !== undefined && { grouping }),
+    ...(fieldDef.type === "money" && { currency: resolvedCurrency }),
+    ...(fieldDef.type === "number" && fieldDef.unit !== undefined && { unit: fieldDef.unit }),
+  };
+}
+
+type ReferenceFieldHints = Pick<
+  EditFieldViewModel,
+  "refEntity" | "refFeature" | "refLabelField" | "refOptionsQuery" | "refMultiple"
+>;
+
+// Declared reference metadata (EditFieldSpec.refEntity) takes priority over
+// fieldDef.type — see computeEditViewModel's effectiveType, same reasoning.
+function deriveReferenceFieldHints(
+  fieldDef: EntityFieldDef,
+  normalized: NormalizedEditField,
+  declaredRefTarget: ParsedRefTarget | undefined,
+  featureName: string,
+): ReferenceFieldHints {
+  const refRaw =
+    declaredRefTarget === undefined && fieldDef.type === "reference"
+      ? (fieldDef as unknown as { entity?: string }).entity
+      : undefined;
+  const refTarget =
+    declaredRefTarget ?? (refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined);
+  const refLabelField =
+    declaredRefTarget !== undefined
+      ? (normalized.refLabelField ?? "id")
+      : fieldDef.type === "reference"
+        ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
+        : undefined;
+  return {
+    ...(refTarget?.entityName !== undefined && { refEntity: refTarget.entityName }),
+    ...(refTarget?.featureName !== undefined && { refFeature: refTarget.featureName }),
+    ...(refLabelField !== undefined && { refLabelField }),
+    ...deriveReferenceMultiHints(fieldDef, declaredRefTarget),
+  };
+}
+
+type ReferenceMultiHints = Pick<EditFieldViewModel, "refOptionsQuery" | "refMultiple">;
+
+// Declared reference metadata has no `multiple` or `optionsQuery` concept
+// (it targets row-meta/derived fields, always single-valued and resolved
+// through the target entity) — only a real ReferenceFieldDef carries them.
+function deriveReferenceMultiHints(
+  fieldDef: EntityFieldDef,
+  declaredRefTarget: ParsedRefTarget | undefined,
+): ReferenceMultiHints {
+  const ownReferenceDef =
+    declaredRefTarget === undefined && fieldDef.type === "reference"
+      ? (fieldDef as unknown as { multiple?: boolean; optionsQuery?: string })
+      : undefined;
+  const refMultiple =
+    ownReferenceDef === undefined ? undefined : (ownReferenceDef.multiple ?? false);
+  return {
+    ...(ownReferenceDef?.optionsQuery !== undefined && {
+      refOptionsQuery: ownReferenceDef.optionsQuery,
+    }),
+    ...(refMultiple !== undefined && { refMultiple }),
+  };
+}
+
+type FileFieldHints = Pick<
+  EditFieldViewModel,
+  "accept" | "maxSize" | "entityType" | "fieldName" | "imageVariant" | "capture"
+>;
+
+// file/image: entityType/fieldName travel with the upload POST so the
+// endpoint validates against the right field definition.
+function deriveFileFieldHints(
+  fieldDef: EntityFieldDef,
+  entityName: string,
+  fieldName: string,
+): FileFieldHints {
+  const isFileType =
+    fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.type === "images";
+  const fileDef = isFileType
+    ? (fieldDef as unknown as {
+        accept?: readonly string[];
+        maxSize?: string;
+        variants?: Readonly<Record<string, unknown>>;
+        capture?: "environment" | "user";
+      })
+    : undefined;
+  const imageVariant =
+    fieldDef.type === "image" || fieldDef.type === "images"
+      ? Object.keys(fileDef?.variants ?? {})[0]
+      : undefined;
+  const capture = fieldDef.type === "image" ? fileDef?.capture : undefined;
+  return {
+    ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
+    ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
+    ...(isFileType && { entityType: entityName, fieldName }),
+    ...(imageVariant !== undefined && { imageVariant }),
+    ...(capture !== undefined && { capture }),
+  };
+}
+
+type EmbeddedListHints = Pick<
+  EditFieldViewModel,
+  | "embeddedListCells"
+  | "embeddedListMinItems"
+  | "embeddedListMaxItems"
+  | "embeddedListDerived"
+  | "embeddedListTotals"
+  | "embeddedListCurrency"
+>;
+
+// Embedded-LIST field (`multiple: true`) — per-cell metadata for a renderer
+// to draw one row per array item (invoice-positions-style table). A plain
+// (non-list) embedded field emits none of this; the renderer tells the two
+// apart by whether embeddedListCells is set, not by `type` (which stays
+// "embedded" either way).
+function deriveEmbeddedListHints(
+  fieldDef: EntityFieldDef,
+  translate: Translate,
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  resolvedCurrency: string,
+): EmbeddedListHints {
+  const isEmbeddedList =
+    fieldDef.type === "embedded" &&
+    (fieldDef as unknown as { multiple?: boolean }).multiple === true;
+  const embeddedListDef = isEmbeddedList
+    ? (fieldDef as unknown as {
+        schema: Readonly<Record<string, EmbeddedSubFieldShape>>;
+        minItems?: number;
+        maxItems?: number;
+        derived?: Readonly<
+          Record<
+            string,
+            { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
+          >
+        >;
+        totals?: readonly string[];
+      })
+    : undefined;
+  const embeddedListCells: readonly EmbeddedListCellViewModel[] | undefined =
+    embeddedListDef !== undefined
+      ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) => {
+          const cellLabel = translate(
+            embeddedCellLabelKey(featureName, entityName, fieldName, subFieldName),
+          );
+          const cellOptions = subField.type === "select" ? (subField.options ?? []) : undefined;
+          const cellOptionLabels =
+            cellOptions !== undefined
+              ? buildOptionLabels(
+                  translate,
+                  (value) =>
+                    embeddedCellOptionLabelKey(
+                      featureName,
+                      entityName,
+                      fieldName,
+                      subFieldName,
+                      value,
+                    ),
+                  cellOptions,
+                )
+              : undefined;
+          const cellRef = subField.type === "reference" ? subField : undefined;
+          const cellRefTarget =
+            cellRef?.entity !== undefined ? parseRefTarget(cellRef.entity, featureName) : undefined;
+          const cell: EmbeddedListCellViewModel = {
+            field: subFieldName,
+            label: cellLabel,
+            type: subField.type,
+            required: subField.required === true,
+            ...(cellOptions !== undefined && { options: cellOptions }),
+            ...(cellOptionLabels !== undefined && { optionLabels: cellOptionLabels }),
+            ...(cellRefTarget !== undefined && { refEntity: cellRefTarget.entityName }),
+            ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
+            ...(cellRef?.labelField !== undefined && { refLabelField: cellRef.labelField }),
+            ...(cellRef?.optionsQuery !== undefined && {
+              refOptionsQuery: cellRef.optionsQuery,
+            }),
+            ...(subField.type === "decimal" &&
+              subField.scale !== undefined && { scale: subField.scale }),
+          };
+          return cell;
+        })
+      : undefined;
+  return {
+    ...(embeddedListCells !== undefined && { embeddedListCells }),
+    ...(embeddedListDef?.minItems !== undefined && {
+      embeddedListMinItems: embeddedListDef.minItems,
+    }),
+    ...(embeddedListDef?.maxItems !== undefined && {
+      embeddedListMaxItems: embeddedListDef.maxItems,
+    }),
+    ...(embeddedListDef?.derived !== undefined && {
+      embeddedListDerived: embeddedListDef.derived,
+    }),
+    ...(embeddedListDef?.totals !== undefined && {
+      embeddedListTotals: embeddedListDef.totals,
+    }),
+    // Currency lives on the head aggregate (entity.defaultCurrency), not per
+    // row — one value for the whole embedded list.
+    ...(embeddedListDef !== undefined && { embeddedListCurrency: resolvedCurrency }),
+  };
+}
+
+function buildExtensionSectionViewModel(
+  sectionSpec: EditExtensionSection,
+  translate: Translate,
+): Extract<EditSectionViewModel, { kind: "extension" }> {
+  return {
+    kind: "extension" as const,
+    ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
+    title: translate(sectionSpec.title),
+    component: sectionSpec.component,
+    contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
+    ...(sectionSpec.entityName !== undefined && { entityName: sectionSpec.entityName }),
+    ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
   };
 }
 
@@ -147,14 +476,7 @@ export function computeEditViewModel<
 
   const sections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
     if (isExtensionEditSection(sectionSpec)) {
-      return {
-        kind: "extension" as const,
-        ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
-        title: translate(sectionSpec.title),
-        component: sectionSpec.component,
-        contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
-        ...(sectionSpec.entityName !== undefined && { entityName: sectionSpec.entityName }),
-      };
+      return buildExtensionSectionViewModel(sectionSpec, translate);
     }
     if (isWriteFormEditSection(sectionSpec)) {
       return computeWriteFormSectionViewModel(
@@ -205,187 +527,36 @@ export function computeEditViewModel<
       // collects less up-front) respects the screen override.
       const entityRequired = (fieldDef as unknown as { required?: boolean }).required === true;
       const required = evalCondition(normalized.required, entityRequired, values);
-      // Select-Optionen bei `type: "select"` mitnehmen — der Renderer
-      // braucht sie für das Dropdown ohne nochmal die EntityDefinition
-      // zu reichen. Plus translated Labels (gleiche Convention wie der
-      // List-Builder), damit Form-Selects und List-Cells dieselbe
-      // i18n-Quelle teilen.
-      const options =
-        fieldDef.type === "select" || fieldDef.type === "multiSelect"
-          ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
-          : undefined;
-      const optionLabels =
-        options !== undefined
-          ? buildOptionLabels(
-              translate,
-              (value) => fieldOptionLabelKey(featureName, screen.entity, normalized.field, value),
-              options,
-            )
-          : undefined;
-      // Checkbox-grid rendering hint for `type: "multiSelect"` and the
-      // radio-vs-dropdown hint for `type: "select"` — pass through unchanged
-      // so the renderer can skip its own layout heuristic.
-      const display =
-        fieldDef.type === "multiSelect" || fieldDef.type === "select"
-          ? fieldDef.display
-          : undefined;
-      const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
-      const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
-      // Multiline hint for `type: "text"` — the renderer then switches to a
-      // textarea. `type: "longText"` always renders a textarea regardless
-      // of this hint; it's only carried through as an optional `{ rows }`
-      // override (#1925).
-      const multiline =
-        fieldDef.type === "text" || fieldDef.type === "longText"
-          ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
-          : undefined;
-      // format hint for `type: "text"` — "password" makes the renderer mask
-      // the input (#2548).
-      const format =
-        fieldDef.type === "text"
-          ? (fieldDef as unknown as { format?: "email" | "url" | "phone" | "password" }).format
-          : undefined;
-      // Wall-Clock-Hint bei `type: "timestamp"` mit locatedBy — der
-      // Renderer emittiert dann lokale Zeit ohne `Z` statt UTC-Instant.
-      const wallClock =
-        fieldDef.type === "timestamp" &&
-        (fieldDef as unknown as { locatedBy?: string }).locatedBy !== undefined
-          ? true
-          : undefined;
-      // Datumsgrenzen + Format/Locale-Override bei date/timestamp — der
-      // Renderer begrenzt damit den Picker. Quelle: Date/TimestampFieldDef.
-      const dateBounds =
-        fieldDef.type === "date" ||
-        fieldDef.type === "timestamp" ||
-        fieldDef.type === "locatedTimestamp"
-          ? (fieldDef as unknown as { min?: string; max?: string; locale?: string })
-          : undefined;
-      const min = dateBounds?.min;
-      const max = dateBounds?.max;
-      const dateLocale = dateBounds?.locale;
-      // Tier 2.7e-3: Reference-Field — refEntity + refLabelField travel into
-      // the view model so the renderer can build the lookup query without
-      // touching the EntityDefinition again. The entity-string can be
-      // same-feature ("user") or cross-feature ("users:user"); parseRefTarget
-      // splits that, the renderer builds the lookup QN from
-      // (refFeature, refEntity). Declared metadata (declaredRefTarget) takes
-      // priority, same as effectiveType above.
-      const refRaw =
-        declaredRefTarget === undefined && fieldDef.type === "reference"
-          ? (fieldDef as unknown as { entity?: string }).entity
-          : undefined;
-      const refTarget =
-        declaredRefTarget ??
-        (refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined);
-      const refEntity = refTarget?.entityName;
-      const refFeature = refTarget?.featureName;
-      const refLabelField =
-        declaredRefTarget !== undefined
-          ? (normalized.refLabelField ?? "id")
-          : fieldDef.type === "reference"
-            ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
-            : undefined;
-      // Declared reference metadata has no `multiple` or `optionsQuery`
-      // concept (it targets row-meta/derived fields, always single-valued and
-      // resolved through the target entity) — only a real ReferenceFieldDef
-      // carries them.
-      const ownReferenceDef =
-        declaredRefTarget === undefined && fieldDef.type === "reference"
-          ? (fieldDef as unknown as { multiple?: boolean; optionsQuery?: string })
-          : undefined;
-      const refOptionsQuery = ownReferenceDef?.optionsQuery;
-      const refMultiple =
-        ownReferenceDef === undefined ? undefined : (ownReferenceDef.multiple ?? false);
-      // file/image: accept/maxSize ins ViewModel + entityType/fieldName für
-      // den Upload-POST (Endpoint validiert gegen die richtige Field-Def).
-      const isFileType =
-        fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.type === "images";
       // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
       // framework/src/engine/field-helpers.ts — headless has no dependency
       // on that module, so the literal is duplicated here instead of
       // importing it just for one fallback string.
       const resolvedCurrency = entity.defaultCurrency ?? "EUR";
-      const fileDef = isFileType
-        ? (fieldDef as unknown as {
-            accept?: readonly string[];
-            maxSize?: string;
-            variants?: Readonly<Record<string, unknown>>;
-            capture?: "environment" | "user";
-          })
-        : undefined;
-      const imageVariant =
-        fieldDef.type === "image" || fieldDef.type === "images"
-          ? Object.keys(fileDef?.variants ?? {})[0]
-          : undefined;
-      const capture = fieldDef.type === "image" ? fileDef?.capture : undefined;
-      // Embedded-LIST field (`multiple: true`) — per-cell metadata for a
-      // renderer to draw one row per array item (invoice-positions-style
-      // table). A plain (non-list) embedded field emits none of this; the
-      // renderer tells the two apart by whether embeddedListCells is set,
-      // not by `type` (which stays "embedded" either way).
-      const isEmbeddedList =
-        fieldDef.type === "embedded" &&
-        (fieldDef as unknown as { multiple?: boolean }).multiple === true;
-      const embeddedListDef = isEmbeddedList
-        ? (fieldDef as unknown as {
-            schema: Readonly<Record<string, EmbeddedSubFieldShape>>;
-            minItems?: number;
-            maxItems?: number;
-            derived?: Readonly<
-              Record<
-                string,
-                { readonly op: "multiply" | "sum" | "subtract"; readonly from: readonly string[] }
-              >
-            >;
-            totals?: readonly string[];
-          })
-        : undefined;
-      const embeddedListCells: readonly EmbeddedListCellViewModel[] | undefined =
-        embeddedListDef !== undefined
-          ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) => {
-              const cellLabel = translate(
-                embeddedCellLabelKey(featureName, screen.entity, normalized.field, subFieldName),
-              );
-              const cellOptions = subField.type === "select" ? (subField.options ?? []) : undefined;
-              const cellOptionLabels =
-                cellOptions !== undefined
-                  ? buildOptionLabels(
-                      translate,
-                      (value) =>
-                        embeddedCellOptionLabelKey(
-                          featureName,
-                          screen.entity,
-                          normalized.field,
-                          subFieldName,
-                          value,
-                        ),
-                      cellOptions,
-                    )
-                  : undefined;
-              const cellRef = subField.type === "reference" ? subField : undefined;
-              const cellRefTarget =
-                cellRef?.entity !== undefined
-                  ? parseRefTarget(cellRef.entity, featureName)
-                  : undefined;
-              const cell: EmbeddedListCellViewModel = {
-                field: subFieldName,
-                label: cellLabel,
-                type: subField.type,
-                required: subField.required === true,
-                ...(cellOptions !== undefined && { options: cellOptions }),
-                ...(cellOptionLabels !== undefined && { optionLabels: cellOptionLabels }),
-                ...(cellRefTarget !== undefined && { refEntity: cellRefTarget.entityName }),
-                ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
-                ...(cellRef?.labelField !== undefined && { refLabelField: cellRef.labelField }),
-                ...(cellRef?.optionsQuery !== undefined && {
-                  refOptionsQuery: cellRef.optionsQuery,
-                }),
-                ...(subField.type === "decimal" &&
-                  subField.scale !== undefined && { scale: subField.scale }),
-              };
-              return cell;
-            })
-          : undefined;
+      const selectHints = deriveSelectFieldHints(
+        fieldDef,
+        translate,
+        featureName,
+        screen.entity,
+        normalized.field,
+      );
+      const textHints = deriveTextFieldHints(fieldDef);
+      const dateHints = deriveDateFieldHints(fieldDef);
+      const numericHints = deriveNumericFieldHints(fieldDef, resolvedCurrency);
+      const referenceHints = deriveReferenceFieldHints(
+        fieldDef,
+        normalized,
+        declaredRefTarget,
+        featureName,
+      );
+      const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field);
+      const embeddedListHints = deriveEmbeddedListHints(
+        fieldDef,
+        translate,
+        featureName,
+        screen.entity,
+        normalized.field,
+        resolvedCurrency,
+      );
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -396,46 +567,14 @@ export function computeEditViewModel<
         required,
         ...(normalized.span !== undefined && { span: normalized.span }),
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
-        ...(options !== undefined && { options }),
-        ...(optionLabels !== undefined && { optionLabels }),
-        ...(display !== undefined && { display }),
-        ...(columns !== undefined && { columns }),
-        ...(maxRows !== undefined && { maxRows }),
-        ...(multiline !== undefined && { multiline }),
-        ...(format !== undefined && { format }),
-        ...(wallClock !== undefined && { wallClock }),
-        ...(min !== undefined && { min }),
-        ...(max !== undefined && { max }),
-        ...(dateLocale !== undefined && { dateLocale }),
-        ...(refEntity !== undefined && { refEntity }),
-        ...(refFeature !== undefined && { refFeature }),
-        ...(refLabelField !== undefined && { refLabelField }),
-        ...(refOptionsQuery !== undefined && { refOptionsQuery }),
-        ...(refMultiple !== undefined && { refMultiple }),
-        ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
-        ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
-        ...(isFileType && { entityType: screen.entity, fieldName: normalized.field }),
-        ...(imageVariant !== undefined && { imageVariant }),
-        ...(capture !== undefined && { capture }),
+        ...selectHints,
+        ...textHints,
+        ...dateHints,
+        ...numericHints,
+        ...referenceHints,
+        ...fileHints,
         ...(normalized.icon !== undefined && { icon: normalized.icon }),
-        ...(embeddedListCells !== undefined && { embeddedListCells }),
-        ...(embeddedListDef?.minItems !== undefined && {
-          embeddedListMinItems: embeddedListDef.minItems,
-        }),
-        ...(embeddedListDef?.maxItems !== undefined && {
-          embeddedListMaxItems: embeddedListDef.maxItems,
-        }),
-        ...(embeddedListDef?.derived !== undefined && {
-          embeddedListDerived: embeddedListDef.derived,
-        }),
-        ...(embeddedListDef?.totals !== undefined && {
-          embeddedListTotals: embeddedListDef.totals,
-        }),
-        // Currency lives on the head aggregate (entity.defaultCurrency), not
-        // per row — one value for the whole embedded list.
-        ...(embeddedListDef !== undefined && { embeddedListCurrency: resolvedCurrency }),
-        ...(fieldDef.type === "money" && { currency: resolvedCurrency }),
-        ...(fieldDef.type === "number" && fieldDef.unit !== undefined && { unit: fieldDef.unit }),
+        ...embeddedListHints,
       };
       return view;
     });
@@ -474,6 +613,7 @@ export function computeEditViewModel<
       fields,
       ...(groups !== undefined && { groups }),
       ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
+      ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
     };
   });
 

@@ -68,6 +68,10 @@ export type ListColumnViewModel = {
    *  multi-year statement grid. DataTable renders it with a distinct
    *  header/cell background. */
   readonly highlighted?: boolean;
+  /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
+   *  `true`). `false` renders without thousands-separators (e.g. a model
+   *  year). */
+  readonly grouping?: boolean;
 };
 
 export type ListRowViewModel = {
@@ -179,6 +183,10 @@ export type EditFieldViewModel = {
   readonly min?: string;
   readonly max?: string;
   readonly dateLocale?: string;
+  /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
+   *  `true`). `false` renders without thousands-separators (e.g. a model
+   *  year). */
+  readonly grouping?: boolean;
   /** Nur bei `type: "reference"` gesetzt — Tier 2.7e-3.
    *  Die referenced Entity (kurz, ohne feature-prefix). Der Renderer
    *  baut die Query-QN als `<refFeature>:query:<refEntity>:list`. */
@@ -291,6 +299,9 @@ export type EditFieldsSectionViewModel = {
   /** From `EditFieldsSection.icon` — closed IconKey vocabulary, renders
    *  left of the title. No effect without `title`. */
   readonly icon?: IconKey;
+  /** From `EditFieldsSection.actions` — rendered in the Section's
+   *  title row, same slot as the projectionDetail head card's actions. */
+  readonly actions?: readonly RowAction[];
 };
 
 export type EditExtensionSectionViewModel = {
@@ -303,6 +314,8 @@ export type EditExtensionSectionViewModel = {
   readonly contributesToFormSubmit: boolean;
   /** Section-declared override — see `EditExtensionSection.entityName`. */
   readonly entityName?: string;
+  /** From `EditExtensionSection.actions`. */
+  readonly actions?: readonly RowAction[];
 };
 
 // Mirrors EditRelatedListSection verbatim — no per-row/query resolution
@@ -322,6 +335,17 @@ export type EditRelatedListSectionViewModel = {
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
   readonly rowActions?: readonly RowAction[];
   readonly toolbarActions?: readonly RelatedListToolbarAction[];
+  /** From `EditRelatedListSection.actions` — rendered in the
+   *  Section's title row, distinct from `toolbarActions` (which render
+   *  above the table itself). */
+  readonly actions?: readonly RowAction[];
+  /** From `EditRelatedListSection.emptyState` — forwarded to the
+   *  DataTable's `emptyState` prop when the section has zero rows. */
+  readonly emptyState?: {
+    readonly title: string;
+    readonly description?: string;
+    readonly action?: RowAction;
+  };
 };
 
 // Mirrors EditWriteFormSection, except `fields` is already resolved through
@@ -337,6 +361,8 @@ export type EditWriteFormSectionViewModel = {
   readonly icon?: IconKey;
   readonly handler: string;
   readonly submitLabel?: string;
+  /** From `EditWriteFormSection.actions`. */
+  readonly actions?: readonly RowAction[];
 };
 
 export type EditViewModel = {

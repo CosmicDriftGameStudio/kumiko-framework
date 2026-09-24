@@ -48,7 +48,7 @@ export function NotesSection({
   readonly entityName: string;
   readonly entityId: string | null;
 }): ReactNode {
-  const { Banner, Button, Card, Grid, Text, Input } = usePrimitives();
+  const { Banner, Button, Grid, Heading, Text, Input } = usePrimitives();
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
@@ -117,43 +117,44 @@ export function NotesSection({
     })();
   };
 
+  // No own Card/SectionCard here — the host (ExtensionSectionMount) already
+  // frames this whole component in one card; a nested card would double the
+  // border/padding. "New note" and "History" are sub-headers within that
+  // single frame instead.
   return (
     <Grid columns={1} testId="notes-section">
-      <Card slots={{ title: t("notesHistory.section.newNoteTitle") }} testId="notes-section-new">
-        <Grid columns={1}>
-          <Input
-            kind="textarea"
-            id="notes-section-draft"
-            name="draft"
-            value={draft}
-            onChange={setDraft}
-            onSubmitShortcut={() => {
-              if (!busy && draft.trim() !== "") addNote();
-            }}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <Text variant="small">{t("notesHistory.section.shortcutHint")}</Text>
-            <Button
-              variant="primary"
-              disabled={busy || draft.trim() === ""}
-              onClick={() => addNote()}
-              testId="notes-section-add"
-            >
-              {busy ? t("notesHistory.section.working") : t("notesHistory.section.add")}
-            </Button>
-          </div>
-          {errorKey !== null && (
-            <Banner variant="error" testId="notes-section-action-error">
-              <Text>{t(errorKey)}</Text>
-            </Banner>
-          )}
-        </Grid>
-      </Card>
+      <div className="flex flex-col gap-3" data-testid="notes-section-new">
+        <Heading variant="section">{t("notesHistory.section.newNoteTitle")}</Heading>
+        <Input
+          kind="textarea"
+          id="notes-section-draft"
+          name="draft"
+          value={draft}
+          onChange={setDraft}
+          onSubmitShortcut={() => {
+            if (!busy && draft.trim() !== "") addNote();
+          }}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <Text variant="small">{t("notesHistory.section.shortcutHint")}</Text>
+          <Button
+            variant="primary"
+            disabled={busy || draft.trim() === ""}
+            onClick={() => addNote()}
+            testId="notes-section-add"
+          >
+            {busy ? t("notesHistory.section.working") : t("notesHistory.section.add")}
+          </Button>
+        </div>
+        {errorKey !== null && (
+          <Banner variant="error" testId="notes-section-action-error">
+            <Text>{t(errorKey)}</Text>
+          </Banner>
+        )}
+      </div>
 
-      <Card
-        slots={{ title: t("notesHistory.section.historyTitle") }}
-        testId="notes-section-history"
-      >
+      <div className="flex flex-col gap-3" data-testid="notes-section-history">
+        <Heading variant="section">{t("notesHistory.section.historyTitle")}</Heading>
         {rows.length === 0 ? (
           <Text variant="small">{t("notesHistory.section.empty")}</Text>
         ) : (
@@ -178,7 +179,7 @@ export function NotesSection({
             ))}
           </div>
         )}
-      </Card>
+      </div>
     </Grid>
   );
 }
