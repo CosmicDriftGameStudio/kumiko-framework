@@ -1,9 +1,7 @@
-// collectTableMetas — kanonische ENTITY_METAS-Quelle für `kumiko schema
-// generate`. Erfasst dieselben Tabellen-Quellen wie der setupTestStack-
-// auto-push (entities, storeTables, projections, multiStreamProjections) —
-// die frühere Template-Variante sammelte nur entities + storeTables, wodurch
-// projection-only-Tabellen (z.B. billing-foundation read_subscriptions) nie
-// in Migrations landeten und der erste Prod-Write crashte (#255).
+// collectTableMetas — kanonische Tabellen-Quelle für `kumiko schema
+// generate` UND setupTestStack (entities, storeTables, projections,
+// multiStreamProjections). Eine geteilte Quelle, damit Test-DB-Push und
+// Migrations nicht mehr auseinanderdriften können (#255, #3102).
 
 import type { FeatureDefinition } from "../engine/types";
 import { compareByCodepoint } from "../utils";

@@ -1,9 +1,8 @@
 // Single enumeration of every table-bearing registration on a feature
 // (r.projection, r.multiStreamProjection with table, r.storeTable).
-// Consumed by BOTH the setupTestStack auto-push and collectTableMetas —
-// one list, so test-DB-push and `kumiko schema generate` cannot drift
-// apart again (#255).
-// A new table-bearing registrar must be added HERE, not in the consumers.
+// Consumed by collectTableMetas's Pass 2 (`kumiko schema generate` and
+// setupTestStack both go through collectTableMetas — see there).
+// A new table-bearing registrar must be added HERE, not in the consumer.
 
 import type { FeatureDefinition } from "../engine/types";
 

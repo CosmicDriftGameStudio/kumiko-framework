@@ -4,7 +4,6 @@ import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker, type SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
-import { extractTableInfo } from "../db/query";
 import { validateOwnershipBoot } from "../engine/boot-validator/ownership";
 import { createRegistry } from "../engine/registry";
 import type { AppContext, FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
@@ -239,44 +238,17 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     await unsafePushTables(testDb.db, { fileRefsTable });
   }
 
-  // Projection-/MSP-/raw-tables: the executor (or async dispatcher) writes
-  // into them as soon as the first matching event flows, so the DDL must
-  // exist before setupTestStack returns. The source list is shared with
-  // collectTableMetas (`kumiko schema generate`) — divergence between the
-  // two was exactly the #255 prod-crash. Two registrations backed by the
-  // same physical table (e.g. an alternative apply-shape for the same
-  // read-model in a test feature) are deduped by table reference so we
-  // emit only one CREATE TABLE per physical table.
-  const { enumerateFeatureTableSources } = await import("../db/feature-table-sources");
-  const projectionTables: Record<string, unknown> = {};
-  // Dedup by NAME, matching collectTableMetas — by-reference alone let two
-  // distinct table objects with the same name slip through as a double
-  // CREATE TABLE while schema-generate emitted only one meta (silent
-  // test-vs-schema divergence).
-  const seenTableNames = new Set<string>();
-  for (const feature of options.features) {
-    for (const { table, origin } of enumerateFeatureTableSources(feature)) {
-      const name = extractTableInfo(table).name;
-      if (seenTableNames.has(name)) continue;
-      seenTableNames.add(name);
-      projectionTables[origin] = table;
-    }
+  // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
+  // was the #255 prod-crash and the #3102 missing r.entity() tables.
+  const { collectTableMetas } = await import("../db/collect-table-metas");
+  const { tableExists } = await import("../db/schema-inspection");
+  const missing: Record<string, unknown> = {};
+  for (const meta of collectTableMetas(options.features)) {
+    if (await tableExists(testDb.db, `public.${meta.tableName}`)) continue;
+    missing[meta.tableName] = meta;
   }
-  if (Object.keys(projectionTables).length > 0) {
-    // unsafePushTables emits raw CREATE TABLE — fine for ephemeral test DBs but
-    // collides on re-boot against a persistent DB whose projection tables
-    // were created during a previous run. Filter out the ones that already
-    // exist so the re-boot doesn't fail on duplicate CREATE TABLE.
-    const { tableExists } = await import("../db/schema-inspection");
-    const missing: Record<string, unknown> = {};
-    for (const [key, tbl] of Object.entries(projectionTables)) {
-      const physical = extractTableInfo(tbl).name;
-      if (await tableExists(testDb.db, `public.${physical}`)) continue;
-      missing[key] = tbl;
-    }
-    if (Object.keys(missing).length > 0) {
-      await unsafePushTables(testDb.db, missing);
-    }
+  if (Object.keys(missing).length > 0) {
+    await unsafePushTables(testDb.db, missing);
   }
 
   const searchAdapter = createInMemorySearchAdapter();
