@@ -7,6 +7,8 @@ dist-server/
 # Claude Code session state (pro Run regeneriert + lokales worktree-staging).
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+# lean-ctx writes its tool-preference rules here on every setup; local only.
+.claude/rules/
 
 # /platform ist Symlink zu ~/code/kumiko-platform (eigenes Repo).
 # Im Hauptrepo nur for-eyes sichtbar, nicht versioned. Anchor zu root,
