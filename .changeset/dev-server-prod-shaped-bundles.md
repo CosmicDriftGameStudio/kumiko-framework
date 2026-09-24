@@ -7,6 +7,6 @@
 
 <!-- kumiko-changes
 feature: dev-server
-type: feat
+type: improvement
 title: Dev server can build prod-shaped client bundles, E2E uses them
 -->
