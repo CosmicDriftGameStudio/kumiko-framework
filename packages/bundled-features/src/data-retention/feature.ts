@@ -109,6 +109,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
           tenantId,
           tenantPreset,
           now: T.Now.instant(),
+          files: ctx.files,
         });
         if (result.skipped.length > 0) {
           // biome-ignore lint/suspicious/noConsole: operator-visibility for skipped entities
