@@ -255,3 +255,94 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter (live)", () => {
     });
   });
 });
+
+// Lazy tenant-index configuration off setDefaultConfig, with no
+// explicit per-tenant configure() call from the app.
+describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => {
+  let lazyClient: Meilisearch;
+  let lazyPrefix: string;
+
+  beforeAll(() => {
+    lazyClient = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
+    lazyPrefix = `test_lazy_${uuid()}_`;
+  });
+
+  afterAll(async () => {
+    const indices = await lazyClient.getIndexes();
+    for (const idx of indices.results) {
+      if (idx.uid.startsWith(lazyPrefix)) {
+        try {
+          await lazyClient.index(idx.uid).delete().waitTask();
+        } catch {
+          /* ok */
+        }
+      }
+    }
+  });
+
+  test("first access via index() configures the tenant index off the default config", async () => {
+    const tenant = uuid();
+    const lazyAdapter = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: lazyPrefix,
+    });
+    lazyAdapter.setDefaultConfig?.({ searchableFields: ["firstName"] });
+
+    await lazyAdapter.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { firstName: "Lazy" },
+    });
+
+    // Mutation-check target: without ensureConfigured() in index(), Meili
+    // auto-creates the index on addDocuments but never sets filterable/
+    // searchable attributes — assert those directly instead of relying on
+    // adapter.search(), which would itself lazily configure the index and
+    // mask the mutation.
+    const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
+    expect(await index.getFilterableAttributes()).toEqual(
+      expect.arrayContaining(["_type", "_weight"]),
+    );
+    expect(await index.getSearchableAttributes()).toEqual(["firstName"]);
+
+    const results = await lazyAdapter.search(tenant, "lazy", { filterType: "user" });
+    expect(results.some((r) => r.entityId === 1 && r.entityType === "user")).toBe(true);
+  });
+
+  test("first access via search() with filterType on a never-written tenant returns empty, not an error", async () => {
+    const tenant = uuid();
+    const lazyAdapter = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: lazyPrefix,
+    });
+    lazyAdapter.setDefaultConfig?.({ searchableFields: ["firstName"] });
+
+    const results = await lazyAdapter.search(tenant, "anything", { filterType: "user" });
+    expect(results).toEqual([]);
+  });
+
+  test("explicit configure() wins over a later setDefaultConfig() — never overwritten", async () => {
+    const tenant = uuid();
+    const lazyAdapter = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: lazyPrefix,
+    });
+
+    await lazyAdapter.configure(tenant, { searchableFields: ["a"] });
+    lazyAdapter.setDefaultConfig?.({ searchableFields: ["b"] });
+
+    await lazyAdapter.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { a: "value" },
+    });
+
+    const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
+    expect(await index.getSearchableAttributes()).toEqual(["a"]);
+  });
+});
