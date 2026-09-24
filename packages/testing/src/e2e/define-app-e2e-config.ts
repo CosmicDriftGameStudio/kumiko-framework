@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { cpus } from "node:os";
+import { availableParallelism } from "node:os";
 import {
   defineConfig,
   devices,
@@ -54,7 +54,9 @@ function mutableTestMatch(
 
 export function resolveE2eWorkers(
   env: Readonly<Record<string, string | undefined>> = process.env,
-  cpuCount: number = cpus().length,
+  // cpus() reports every host core inside a CPU-limited container (1.5 CPU CI
+  // pods got 4 workers); availableParallelism() honours the cgroup quota.
+  cpuCount: number = availableParallelism(),
 ): number {
   const override = env[E2E_WORKERS_ENV];
   if (override === undefined || override === "") {
