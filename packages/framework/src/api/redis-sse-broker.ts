@@ -1,4 +1,5 @@
 import { createRedisPubSubSignal } from "../redis/pubsub-signal";
+import type { AccessInvalidationScope } from "./sse-broker";
 import { createSseBroker, type SseBroker, type SseEvent } from "./sse-broker";
 
 // Channel namespace for cross-replica fanout (fw#2625). Every pod publishes
@@ -60,15 +61,54 @@ function isSseEvent(value: unknown): value is SseEvent {
   );
 }
 
-// Invalidation payload: `1` means userwide, `{ keptSessionId }` spares that one
-// session. Anything else falls back to userwide. Older pods never read the
-// payload and invalidate userwide, which keeps a mixed rolling deploy safe.
-function extractInvalidationKeptSessionId(payload: unknown): string | undefined {
-  if (typeof payload !== "object" || payload === null || !("keptSessionId" in payload)) {
-    return undefined;
+// Invalidation payload: `1` means userwide, `{ keptSessionId }` spares that
+// one session (all-except-session), `{ scope: "sessions", sessionIds }` /
+// `{ scope: "pat-tokens", tokenIds }` narrow to those credentials. A newer
+// scope payload NEVER carries a `keptSessionId` key, by construction —
+// that's what makes it safe for an older pod (which only ever reads
+// `keptSessionId`) to treat any of these as userwide instead of silently
+// sparing something it doesn't understand: fail-closed on a mixed rolling
+// deploy. Anything malformed also falls back to userwide.
+function parseInvalidationScope(payload: unknown): AccessInvalidationScope {
+  if (typeof payload !== "object" || payload === null) return { kind: "user" };
+  const record = payload as Record<string, unknown>;
+
+  if ("scope" in record) {
+    const { scope } = record;
+    if (scope === "sessions") {
+      const sessionIds = readNonEmptyStringArray(record["sessionIds"]);
+      if (sessionIds) return { kind: "sessions", sessionIds };
+    }
+    if (scope === "pat-tokens") {
+      const tokenIds = readNonEmptyStringArray(record["tokenIds"]);
+      if (tokenIds) return { kind: "pat-tokens", tokenIds };
+    }
+    return { kind: "user" };
   }
-  const { keptSessionId } = payload;
-  return typeof keptSessionId === "string" && keptSessionId.length > 0 ? keptSessionId : undefined;
+
+  if ("keptSessionId" in record) {
+    const { keptSessionId } = record;
+    if (typeof keptSessionId === "string" && keptSessionId.length > 0) {
+      return { kind: "all-except-session", keptSessionId };
+    }
+    return { kind: "user" };
+  }
+
+  return { kind: "user" };
+}
+
+function readNonEmptyStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.every((v): v is string => typeof v === "string") ? value : undefined;
+}
+
+// Mirror of parseInvalidationScope's wire shapes. "sessions"/"pat-tokens"
+// deliberately never include a `keptSessionId` key — see the parser comment.
+function encodeInvalidationScope(scope: AccessInvalidationScope | undefined): unknown {
+  if (scope === undefined || scope.kind === "user") return 1;
+  if (scope.kind === "all-except-session") return { keptSessionId: scope.keptSessionId };
+  if (scope.kind === "sessions") return { scope: "sessions", sessionIds: scope.sessionIds };
+  return { scope: "pat-tokens", tokenIds: scope.tokenIds };
 }
 
 // Transport layer around a local `createSseBroker()` — all client/listener
@@ -102,7 +142,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     if (channel.startsWith(INVALIDATION_PREFIX)) {
       inner.publishAccessInvalidation(
         channel.slice(INVALIDATION_PREFIX.length),
-        extractInvalidationKeptSessionId(payload),
+        parseInvalidationScope(payload),
       );
     }
   });
@@ -122,8 +162,8 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     // stream must close on every replica, not just the one that observed
     // the revocation event. Publishing (rather than calling inner directly,
     // like the in-memory broker does) is what makes that true here.
-    publishAccessInvalidation(userId, keptSessionId) {
-      signal.publish(`${INVALIDATION_PREFIX}${userId}`, keptSessionId ? { keptSessionId } : 1);
+    publishAccessInvalidation(userId, scope) {
+      signal.publish(`${INVALIDATION_PREFIX}${userId}`, encodeInvalidationScope(scope));
     },
 
     close: signal.close,

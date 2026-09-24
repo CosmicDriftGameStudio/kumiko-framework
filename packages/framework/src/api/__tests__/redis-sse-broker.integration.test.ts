@@ -127,7 +127,7 @@ describe("createRedisSseBroker", () => {
     expect(invalidatedA).toBe(false);
   });
 
-  test("publishAccessInvalidation with a keptSessionId spares only the listener whose own sid matches exactly", async () => {
+  test("publishAccessInvalidation with an all-except-session scope spares only the listener whose own sid matches exactly", async () => {
     const podA = trackedBroker();
     const podB = trackedBroker();
     const userId = `user-${generateId()}`;
@@ -142,9 +142,9 @@ describe("createRedisSseBroker", () => {
       () => {
         invalidatedKept = true;
       },
-      sidKept,
+      { sid: sidKept },
     );
-    // No ownSid — mirrors a PAT/bearer stream, always invalidated (fail-closed).
+    // No sid — mirrors a PAT/bearer stream, always invalidated (fail-closed).
     podA.subscribeAccessInvalidation(userId, () => {
       invalidatedSidless = true;
     });
@@ -155,17 +155,60 @@ describe("createRedisSseBroker", () => {
       () => {
         invalidatedAlreadyRevoked = true;
       },
-      sidAlreadyRevoked,
+      { sid: sidAlreadyRevoked },
     );
 
     await waitFor(() => {
-      podB.publishAccessInvalidation(userId, sidKept);
+      podB.publishAccessInvalidation(userId, {
+        kind: "all-except-session",
+        keptSessionId: sidKept,
+      });
       return invalidatedSidless && invalidatedAlreadyRevoked;
     });
     // Asserted only after the control listeners above already fired for the
     // same publish — proves the pipe delivered the message at all, so a
     // false here means the sid really was spared, not that delivery is slow.
     expect(invalidatedKept).toBe(false);
+  });
+
+  test("publishAccessInvalidation with a sessions scope closes only the matching sid, spares an unrelated sid and a PAT listener", async () => {
+    const podA = trackedBroker();
+    const podB = trackedBroker();
+    const userId = `user-${generateId()}`;
+    const sidTarget = `sid-target-${generateId()}`;
+    const sidOther = `sid-other-${generateId()}`;
+    let invalidatedTarget = false;
+    let invalidatedOther = false;
+    let invalidatedPat = false;
+
+    podA.subscribeAccessInvalidation(
+      userId,
+      () => {
+        invalidatedTarget = true;
+      },
+      { sid: sidTarget },
+    );
+    podA.subscribeAccessInvalidation(
+      userId,
+      () => {
+        invalidatedOther = true;
+      },
+      { sid: sidOther },
+    );
+    podA.subscribeAccessInvalidation(
+      userId,
+      () => {
+        invalidatedPat = true;
+      },
+      { patTokenId: `tok-${generateId()}` },
+    );
+
+    await waitFor(() => {
+      podB.publishAccessInvalidation(userId, { kind: "sessions", sessionIds: [sidTarget] });
+      return invalidatedTarget;
+    });
+    expect(invalidatedOther).toBe(false);
+    expect(invalidatedPat).toBe(false);
   });
 
   test("a legacy unscoped invalidation message (bare `1`, pre-scoping pod) still invalidates every listener, sid or not", async () => {
@@ -179,7 +222,7 @@ describe("createRedisSseBroker", () => {
       () => {
         invalidatedWithSid = true;
       },
-      `sid-${generateId()}`,
+      { sid: `sid-${generateId()}` },
     );
 
     try {
@@ -188,6 +231,30 @@ describe("createRedisSseBroker", () => {
         return invalidatedWithSid;
       });
       expect(invalidatedWithSid).toBe(true);
+    } finally {
+      publisherRaw.disconnect();
+    }
+  });
+
+  test("a malformed sessions-scope wire payload (empty sessionIds, no keptSessionId key) falls back to userwide", async () => {
+    const podA = trackedBroker();
+    const publisherRaw = new (await import("ioredis")).default(testRedis.redisUrl);
+    const userId = `user-${generateId()}`;
+    let invalidated = false;
+
+    podA.subscribeAccessInvalidation(userId, () => {
+      invalidated = true;
+    });
+
+    try {
+      await waitFor(async () => {
+        await publisherRaw.publish(
+          `kumiko:sse:inval:${userId}`,
+          JSON.stringify({ scope: "sessions", sessionIds: [] }),
+        );
+        return invalidated;
+      });
+      expect(invalidated).toBe(true);
     } finally {
       publisherRaw.disconnect();
     }

@@ -11,6 +11,7 @@ import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create
 import { listPatQuery } from "./handlers/list.query";
 import { revokePatWrite } from "./handlers/revoke.write";
 import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n";
+import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event";
 import { createPatResolver } from "./resolver";
 import { apiTokenEntity } from "./schema/api-token";
 import type { PatScopeConfig } from "./scopes";
@@ -113,6 +114,15 @@ export function createPersonalAccessTokensFeature(
       // create.write encrypts `name` via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,
     });
+
+    // Custom domain-event for cross-instance access-invalidation,
+    // mirroring sessions' SESSION_REVOKED_EVENT_SHORT. r.defineEvent
+    // registers the schema so ctx.unsafeAppendEvent (revoke) enforces it at
+    // append time. revoke-for-user.ts appends via the low-level append()
+    // instead (needs to anchor on SYSTEM_TENANT_ID) — same guarantee via a
+    // different path. No projection: the payload IS the read, consumed
+    // directly off the event-store NOTIFY.
+    r.defineEvent(PAT_REVOKED_EVENT_SHORT, patRevokedSchema, { piiFields: "none" });
 
     // Password-change auto-revoke — mirrors sessions' own
     // autoRevokeOnPasswordChange postSave hook, including WHY it's a

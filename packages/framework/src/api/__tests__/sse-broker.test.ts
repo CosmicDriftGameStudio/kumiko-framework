@@ -1,5 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createSseBroker, type SseBroker, type SseEvent } from "../sse-broker";
+import {
+  createSseBroker,
+  type SseBroker,
+  type SseEvent,
+  shouldInvalidateListener,
+} from "../sse-broker";
 
 function requireAccessInvalidation(broker: SseBroker) {
   const subscribe = broker.subscribeAccessInvalidation;
@@ -122,52 +127,141 @@ describe("SSE broker", () => {
     expect(() => publish("nobody-listening")).not.toThrow();
   });
 
-  test("publishAccessInvalidation with a keptSessionId spares only the listener whose own sid matches exactly", () => {
+  test("publishAccessInvalidation with an all-except-session scope spares only the listener whose own sid matches exactly", () => {
     const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const spared = mock();
     const unrelated = mock();
 
-    subscribe("user-a", spared, "sid-kept");
-    subscribe("user-a", unrelated, "sid-other");
-    publish("user-a", "sid-kept");
+    subscribe("user-a", spared, { sid: "sid-kept" });
+    subscribe("user-a", unrelated, { sid: "sid-other" });
+    publish("user-a", { kind: "all-except-session", keptSessionId: "sid-kept" });
 
     expect(spared).not.toHaveBeenCalled();
     expect(unrelated).toHaveBeenCalledTimes(1);
   });
 
-  test("publishAccessInvalidation with a keptSessionId still closes a listener whose sid was already revoked through an eventless path (keep-list, not a kill-list)", () => {
+  test("all-except-session still closes a listener whose sid was already revoked through an eventless path (keep-list, not a kill-list)", () => {
     const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const alreadyRevoked = mock();
 
     // Simulates a stream from a session logged out earlier via a path that
     // never appended session-revoked — the keep-list must not accidentally
     // exempt it just because its sid isn't the freshly-kept one.
-    subscribe("user-a", alreadyRevoked, "sid-logged-out-earlier");
-    publish("user-a", "sid-kept");
+    subscribe("user-a", alreadyRevoked, { sid: "sid-logged-out-earlier" });
+    publish("user-a", { kind: "all-except-session", keptSessionId: "sid-kept" });
 
     expect(alreadyRevoked).toHaveBeenCalledTimes(1);
   });
 
-  test("publishAccessInvalidation with a keptSessionId still fires a listener with no sid of its own (fail-closed, e.g. a PAT/bearer stream)", () => {
+  test("all-except-session still fires a listener with no sid of its own (fail-closed, e.g. a PAT/bearer stream)", () => {
     const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const sidless = mock();
 
     subscribe("user-a", sidless);
-    publish("user-a", "sid-kept");
+    publish("user-a", { kind: "all-except-session", keptSessionId: "sid-kept" });
 
     expect(sidless).toHaveBeenCalledTimes(1);
   });
 
-  test("publishAccessInvalidation with no keptSessionId (unscoped) still invalidates every listener, matching pre-scoping behavior", () => {
+  test("no scope (unscoped) still invalidates every listener, matching pre-scoping behavior", () => {
     const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
     const first = mock();
     const second = mock();
 
-    subscribe("user-a", first, "sid-1");
-    subscribe("user-a", second, "sid-2");
+    subscribe("user-a", first, { sid: "sid-1" });
+    subscribe("user-a", second, { sid: "sid-2" });
     publish("user-a");
 
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  test("sessions scope closes only the matching sid, spares an unrelated sid and a PAT listener", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const matching = mock();
+    const otherSid = mock();
+    const patListener = mock();
+
+    subscribe("user-a", matching, { sid: "sid-1" });
+    subscribe("user-a", otherSid, { sid: "sid-2" });
+    subscribe("user-a", patListener, { patTokenId: "tok-1" });
+    publish("user-a", { kind: "sessions", sessionIds: ["sid-1"] });
+
+    expect(matching).toHaveBeenCalledTimes(1);
+    expect(otherSid).not.toHaveBeenCalled();
+    expect(patListener).not.toHaveBeenCalled();
+  });
+
+  test("sessions scope closes a credential-less listener (fail-closed)", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const credentialless = mock();
+
+    subscribe("user-a", credentialless);
+    publish("user-a", { kind: "sessions", sessionIds: ["sid-1"] });
+
+    expect(credentialless).toHaveBeenCalledTimes(1);
+  });
+
+  test("pat-tokens scope closes only the matching tokenId, spares an unrelated PAT and a session listener", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const matching = mock();
+    const otherToken = mock();
+    const sessionListener = mock();
+
+    subscribe("user-a", matching, { patTokenId: "tok-1" });
+    subscribe("user-a", otherToken, { patTokenId: "tok-2" });
+    subscribe("user-a", sessionListener, { sid: "sid-1" });
+    publish("user-a", { kind: "pat-tokens", tokenIds: ["tok-1"] });
+
+    expect(matching).toHaveBeenCalledTimes(1);
+    expect(otherToken).not.toHaveBeenCalled();
+    expect(sessionListener).not.toHaveBeenCalled();
+  });
+
+  test("pat-tokens scope closes a credential-less listener (fail-closed)", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const credentialless = mock();
+
+    subscribe("user-a", credentialless);
+    publish("user-a", { kind: "pat-tokens", tokenIds: ["tok-1"] });
+
+    expect(credentialless).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("shouldInvalidateListener matrix", () => {
+  const sidListener = { sid: "sid-1" };
+  const patListener = { patTokenId: "tok-1" };
+  const bareListener = {};
+
+  test("user scope always closes", () => {
+    const scope = { kind: "user" as const };
+    expect(shouldInvalidateListener(sidListener, scope)).toBe(true);
+    expect(shouldInvalidateListener(patListener, scope)).toBe(true);
+    expect(shouldInvalidateListener(bareListener, scope)).toBe(true);
+  });
+
+  test("all-except-session spares only the exact kept sid, closes everything else including credential-less", () => {
+    const scope = { kind: "all-except-session" as const, keptSessionId: "sid-1" };
+    expect(shouldInvalidateListener(sidListener, scope)).toBe(false);
+    expect(shouldInvalidateListener({ sid: "sid-2" }, scope)).toBe(true);
+    expect(shouldInvalidateListener(patListener, scope)).toBe(true);
+    expect(shouldInvalidateListener(bareListener, scope)).toBe(true);
+  });
+
+  test("sessions scope closes a matching sid and a credential-less listener, spares everything else", () => {
+    const scope = { kind: "sessions" as const, sessionIds: ["sid-1"] };
+    expect(shouldInvalidateListener(sidListener, scope)).toBe(true);
+    expect(shouldInvalidateListener({ sid: "sid-2" }, scope)).toBe(false);
+    expect(shouldInvalidateListener(patListener, scope)).toBe(false);
+    expect(shouldInvalidateListener(bareListener, scope)).toBe(true);
+  });
+
+  test("pat-tokens scope closes a matching tokenId and a credential-less listener, spares everything else", () => {
+    const scope = { kind: "pat-tokens" as const, tokenIds: ["tok-1"] };
+    expect(shouldInvalidateListener(patListener, scope)).toBe(true);
+    expect(shouldInvalidateListener({ patTokenId: "tok-2" }, scope)).toBe(false);
+    expect(shouldInvalidateListener(sidListener, scope)).toBe(false);
+    expect(shouldInvalidateListener(bareListener, scope)).toBe(true);
   });
 });

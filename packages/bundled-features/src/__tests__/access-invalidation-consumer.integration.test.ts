@@ -44,6 +44,11 @@ import { createAuthEmailPasswordFeature } from "../auth-email-password/feature";
 import { createConfigFeature } from "../config";
 import { createConfigResolver } from "../config/resolver";
 import { configValuesTable } from "../config/table";
+import { PatHandlers } from "../personal-access-tokens/constants";
+import { createPersonalAccessTokensFeature } from "../personal-access-tokens/feature";
+import { revokeAllPatTokensForUser } from "../personal-access-tokens/revoke-for-user";
+import { apiTokenEntity, apiTokenTable } from "../personal-access-tokens/schema/api-token";
+import type { PatScopeConfig } from "../personal-access-tokens/scopes";
 import { makeSessionHelpers } from "../sessions/__tests__/test-helpers";
 import { SessionHandlers } from "../sessions/constants";
 import { createSessionsFeature } from "../sessions/feature";
@@ -65,6 +70,10 @@ const callbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 
 const encryptionKey = randomBytes(32).toString("base64");
 const TENANT = testTenantId(1);
+
+const PAT_SCOPES: PatScopeConfig = {
+  probe: { label: "Probe", read: ["personal-access-tokens:query:mine"] },
+};
 
 // Collects every userId the consumer pushed an invalidation for during the
 // running test, in push order. Reset in beforeEach.
@@ -90,6 +99,10 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
       authFoundationFeature,
       createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
+      createPersonalAccessTokensFeature({
+        scopes: PAT_SCOPES,
+        autoRevokeOnPasswordChange: (userId) => revokeAllPatTokensForUser(stack.db, userId),
+      }),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -107,6 +120,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, apiTokenEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
@@ -119,6 +133,7 @@ beforeEach(async () => {
     userTable,
     tenantMembershipsTable,
     userSessionTable,
+    apiTokenTable,
     eventsTable,
   ]);
   invalidated = [];
@@ -308,5 +323,97 @@ describe("access-invalidation event consumer", () => {
     });
     expect(sessionRow).toBeTruthy();
     expect(sessionRow?.revokedAt).not.toBeNull();
+  });
+
+  test("session-revoked via logout (sessionRevoker, streamScope: revoked-sessions) still pushes an invalidation for that user", async () => {
+    const { userId } = await h.seedUser("logout-invalidates@example.com", "pw-long-enough");
+    const { token } = await h.login("logout-invalidates@example.com", "pw-long-enough");
+    trackInvalidation(userId);
+
+    // The raw sessionRevoker callback behind /api/auth/logout used to append
+    // no event at all — it now sets streamScope: "revoked-sessions"
+    // instead of the old userwide default, but a broad
+    // subscribeAccessInvalidation listener (no credential passed here, same
+    // as every other test in this file) still fires: this proves the new
+    // narrow scope still reaches the consumer, not just the pre-existing
+    // userwide paths above.
+    const logoutRes = await h.authedPost("/api/auth/logout", token);
+    expect(logoutRes.status).toBe(200);
+
+    const events = await selectMany(stack.db, eventsTable, {
+      type: "sessions:event:session-revoked",
+    });
+    expect(events.length).toBeGreaterThan(0);
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(invalidated).toEqual([userId]);
+  });
+
+  test("pat-revoked (self-service PAT revoke) pushes an invalidation for that user", async () => {
+    const { userId } = await h.seedUser("pat-revoke-invalidates@example.com", "pw-long-enough");
+    const { token } = await h.login("pat-revoke-invalidates@example.com", "pw-long-enough");
+    trackInvalidation(userId);
+
+    const mint = await h.authedPost("/api/write", token, {
+      type: PatHandlers.create,
+      payload: {
+        name: "probe",
+        scopes: ["probe:read"],
+        currentPassword: "pw-long-enough",
+      },
+    });
+    expect(mint.status).toBe(200);
+    const { data } = (await mint.json()) as { data: { id: string } };
+
+    const revokeRes = await h.authedPost("/api/write", token, {
+      type: PatHandlers.revoke,
+      payload: { id: data.id },
+    });
+    expect(revokeRes.status).toBe(200);
+
+    const events = await selectMany(stack.db, eventsTable, {
+      type: "personal-access-tokens:event:pat-revoked",
+    });
+    expect(events.length).toBeGreaterThan(0);
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(invalidated).toEqual([userId]);
+  });
+
+  test("revokeAllPatTokensForUser (password-change auto-revoke) pushes an invalidation for that user", async () => {
+    const { userId } = await h.seedUser("pat-mass-invalidates@example.com", "old-pw-long-enough");
+    const { token } = await h.login("pat-mass-invalidates@example.com", "old-pw-long-enough");
+    trackInvalidation(userId);
+
+    const mint = await h.authedPost("/api/write", token, {
+      type: PatHandlers.create,
+      payload: {
+        name: "probe",
+        scopes: ["probe:read"],
+        currentPassword: "old-pw-long-enough",
+      },
+    });
+    expect(mint.status).toBe(200);
+
+    const res = await h.authedPost("/api/write", token, {
+      type: AuthHandlers.changePassword,
+      payload: { oldPassword: "old-pw-long-enough", newPassword: "new-pw-long-enough" },
+    });
+    expect(res.status).toBe(200);
+
+    const events = await selectMany(stack.db, eventsTable, {
+      type: "personal-access-tokens:event:pat-revoked",
+    });
+    expect(events.length).toBeGreaterThan(0);
+
+    await stack.eventDispatcher?.runOnce();
+
+    // A password change fires both sessionMassRevoker (userwide,
+    // session-revoked) and this suite's PAT autoRevokeOnPasswordChange
+    // (pat-tokens-scoped, pat-revoked) — the broad listener here (no
+    // credential passed) fires once per publish, so twice for the same user.
+    expect(invalidated).toEqual([userId, userId]);
   });
 });
