@@ -4,6 +4,7 @@ import type { EntityDefinition } from "../../types/fields";
 import type { NavDefinition } from "../../types/nav";
 import type { RelationDefinition } from "../../types/relations";
 import type { WorkspaceDefinition } from "../../types/workspace";
+import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types";
 import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
 import {
@@ -53,10 +54,21 @@ export function extractEntity(
       );
     }
     const { name: _name, ...defWithoutName } = definition;
+    const unknownTypes = findUnknownEntityFieldTypes(defWithoutName);
+    const firstUnknown = unknownTypes[0];
+    if (firstUnknown) {
+      return fail(
+        "entity",
+        sourceLocationFromNode(call, sourceFile),
+        `definition.fields.${firstUnknown.fieldName}.type: ${describeUnknownFieldType(firstUnknown)}`,
+      );
+    }
     return ok({
       kind: "entity",
       source: sourceLocationFromNode(call, sourceFile),
       entityName: nameInit.getLiteralValue(),
+      // Field-type membership is checked above; the cast is the extractor's
+      // existing narrowing contract (readDataLiteralNode returns unknown).
       definition: defWithoutName as EntityDefinition,
     });
   }
@@ -83,6 +95,15 @@ export function extractEntity(
       "entity",
       sourceLocationFromNode(call, sourceFile),
       "definition could not be read as a plain object (contains functions or identifiers)",
+    );
+  }
+  const unknownTypes = findUnknownEntityFieldTypes(definition);
+  const firstUnknown = unknownTypes[0];
+  if (firstUnknown) {
+    return fail(
+      "entity",
+      sourceLocationFromNode(call, sourceFile),
+      `definition.fields.${firstUnknown.fieldName}.type: ${describeUnknownFieldType(firstUnknown)}`,
     );
   }
   return ok({

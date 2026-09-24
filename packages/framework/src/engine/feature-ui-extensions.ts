@@ -229,9 +229,9 @@ export function buildUiExtensionsMethods<TName extends string>(
     useExtension(
       extensionNameOrDefinition:
         | string
-        | ({ readonly name: string; readonly entity: NameOrRef } & Record<string, unknown>),
+        | ({ readonly name: string; readonly entity: NameOrRef } & object),
       entityRef?: NameOrRef,
-      options?: Record<string, unknown>,
+      options?: object,
     ): void {
       const [extensionName, resolvedEntityRef, resolvedOptions] =
         typeof extensionNameOrDefinition === "string"
@@ -241,11 +241,12 @@ export function buildUiExtensionsMethods<TName extends string>(
               return [name, entity, rest] as const;
             })();
       const resolvedEntityName = resolveName(resolvedEntityRef);
+      // @cast-boundary engine-bridge — typed per-extension options → erased registration bag
+      const optionsBag = resolvedOptions as Record<string, unknown> | undefined;
       // fw#2914 — cross-cutting escapeHatch convention for hook-context db
-      // access (mirrors r.hook's validation above). Not part of a typed
-      // per-extension options shape: useExtension's bag stays generic, but
-      // this one key is validated for every extension the same way.
-      const escapeHatch = resolvedOptions?.["escapeHatch"];
+      // access (mirrors r.hook's validation above). Validated the same way
+      // for every extension regardless of its typed hook shape.
+      const escapeHatch = optionsBag?.["escapeHatch"];
       if (escapeHatch !== undefined) {
         const reason =
           typeof escapeHatch === "object" && escapeHatch !== null
@@ -261,7 +262,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       state.extensionUsages.push({
         extensionName,
         entityName: resolvedEntityName,
-        options: resolvedOptions,
+        options: optionsBag,
       });
     },
     extensionSelector(extensionName: string, key: { readonly name: string } | string): void {

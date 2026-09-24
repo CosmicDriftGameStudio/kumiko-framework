@@ -66,6 +66,15 @@ export function isRawRefSentinel(value: unknown): value is RawRefSentinel {
   );
 }
 
+// Deep check over arrays/plain objects, the only container shapes
+// readDataLiteralNode produces.
+export function containsRawRefSentinel(value: unknown): boolean {
+  if (isRawRefSentinel(value)) return true;
+  if (Array.isArray(value)) return value.some(containsRawRefSentinel);
+  if (isPlainObject(value)) return Object.values(value).some(containsRawRefSentinel);
+  return false;
+}
+
 export function readDataLiteralNode(node: Node): unknown {
   const kind = node.getKind();
   switch (kind) {

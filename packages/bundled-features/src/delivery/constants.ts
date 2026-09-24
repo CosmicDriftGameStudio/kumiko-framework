@@ -2,6 +2,10 @@ import type { NotifyPriority } from "@cosmicdrift/kumiko-framework/engine";
 import { QnTypes, qn } from "@cosmicdrift/kumiko-framework/engine";
 import { DELIVERY_FEATURE, DeliveryJobNames } from "./public-names";
 
+// Extension-point name for delivery-channel plugins (channel-email,
+// channel-in-app, channel-push, ...).
+export const DELIVERY_CHANNEL_EXTENSION = "deliveryChannel" as const;
+
 export {
   DELIVERY_ATTEMPT_EVENT,
   DELIVERY_FEATURE,

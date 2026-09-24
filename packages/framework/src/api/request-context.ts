@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { generateId } from "../utils";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
@@ -48,6 +49,9 @@ export type RequestContextData = {
   // performance.now() at request entry, so a failing request can report how
   // long it ran. Monotonic — a wall-clock step cannot make it negative.
   readonly startedAt?: number;
+  // Only ever a gated origin. Read by job enqueue and event-store.append();
+  // dispatch roots never narrow from it, only jobs inherit explicitly.
+  readonly writeOrigin?: WriteOrigin;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
@@ -83,6 +87,26 @@ export function runWithOrigin<T>(
       correlationId: current?.correlationId ?? requestId,
       feature: origin.feature,
       handler: origin.handler,
+    },
+    fn,
+  );
+}
+
+// An ungated origin never mints a scope: seeds and boot writes keep their missing context.
+export function runWithWriteOrigin<T>(origin: WriteOrigin, fn: () => T): T {
+  const current = requestContext.get();
+  if (!isPersonalDataGated(origin)) {
+    if (!current?.writeOrigin) return fn();
+    const { writeOrigin: _writeOrigin, ...rest } = current;
+    return requestContext.run(rest, fn);
+  }
+  const requestId = current?.requestId ?? requestContext.generateId();
+  return requestContext.run(
+    {
+      ...current,
+      requestId,
+      correlationId: current?.correlationId ?? requestId,
+      writeOrigin: origin,
     },
     fn,
   );

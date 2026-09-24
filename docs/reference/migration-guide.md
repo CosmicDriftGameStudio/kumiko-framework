@@ -2,13 +2,69 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-23
+verified: 2026-09-24
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.306.0
+
+### enterprise:testing
+
+**mailCapture and the /__test/inbox route read tenantless mail via a new mailOutbox option**
+
+Apps sending Dev/E2E mail through a raw createInMemoryTransport() (signup,
+forgot-password, magic-link — flows with no tenant) had no way to read it
+through the seed inbox route, which required tenantId and only checked
+mailTransportInMemoryFeature's per-tenant buffer. createE2eSeedRoutes()
+now accepts mailOutbox: { sent: readonly EmailMessage[] } (the raw
+transport's own array); inboxQuerySchema's tenantId is optional. The route
+reads whichever source(s) are configured, filters by to, and returns each
+source newest-first instead of oldest-first.
+
+**Migration:** mailCapture(request, tenantId, to) -> mailCapture(request, to, { tenantId }),
+and it now resolves to a single CapturedMail (the newest match) instead of
+a readonly CapturedMail[]. Pass match: (mail) => boolean to pick a mail
+other than the newest at that address. Apps with their own ungated debug
+route for a raw transport (e.g. /_debug/mails.json) pass that transport as
+createE2eSeedRoutes({ mailOutbox: transport }) and delete the app-local
+route; tenantId becomes optional wherever only mailOutbox is used. Any
+direct reader of GET /__test/inbox must expect newest-first ordering.
+
+### framework-core
+
+**A lifecycle hook's own escapeHatch now gates ctx.systemDb.unsafeRaw (fw#3198)**
+
+**Migration:** Hooks, die in r.systemScope()-Handlern ctx.systemDb.unsafeRaw nutzen, deklarieren escapeHatch: { reason } in den r.hook-Optionen
+
+**createUncheckedSystemDb is no longer exported from /db; use createSystemDbView, whose unsafeRaw follows the source TenantDb's escapeHatch gate (fw#3205)**
+
+**Migration:** Import auf createSystemDbView umstellen; wer unsafeRaw auf einem selbstgebauten systemDb braucht, übergibt eine TenantDb mit unsafeRaw-Grant (createTenantDb(..., { unsafeRaw: { reason } })).
+Delivery: ein tenantUserIdsQuery-Handler ohne r.systemScope() bekommt jetzt wie im Dispatcher eine tenant-mode ctx.db und kein ctx.systemDb; Handler, die Cross-Tenant-Zugriff brauchen, deklarieren r.systemScope().
+
+**r.useExtension options are typed per extension point; a hook with the wrong ctx signature is a compile error**
+
+**Migration:** Registrations of known extension points (tenantData, userData, fileProvider, derivativeRenderer, derivativeOverlayResolver, derivativePublicPredicate, principalStatus, tenantLifecycleStatus, tokenVerifier, sessionStore, tenantResolver, tenantExistence) now type-check their options, and options are required for them. Fix the reported mismatches: tenantData destroy hooks take TenantDataHookCtx and use ctx.db.* methods. For raw access such as archiveStream, declare escapeHatch: { reason } on the r.useExtension registration (runtime grant), call declareEscapeHatch({ reason }) as a direct statement in the hook body (Escape-Hatch-Declared guard), then use ctx.db.unsafeRaw(reason). userData registrations need at least one of export/delete (plus optional order). PrincipalStatusPlugin needs resolveProfile, FileProviderPlugin fakes need list(). App-owned points can opt in by augmenting KumikoExtensionOptionsMap via declare module "@cosmicdrift/kumiko-framework/engine"; unknown names keep the untyped options bag.
+
+**Tenant-resource and tenantTierResolver extension options are typed; invalid registrations fail tenant destroy loudly**
+
+**Migration:** Registrations of storageProvider, searchAdapter, externalResource and infraResource now require options of type TenantResourceExtensionHooks (destroyTenant(tenantId, ctx) => Promise<void>); tenantTierResolver requires a TierResolverPlugin with build. StorageProvider* types remain as aliases of the new TenantResource* types. A tenantData or tenant-resource registration whose destroy hook is missing now fails the destruction stage with the extension and entity name instead of being skipped.
+
+**Idempotent retries re-run after a rolled-back 5xx instead of replaying it**
+
+Because the retry re-runs, non-transactional side effects of the failed attempt (writes through `ctx.dbOutsideTransaction`, external calls made inside the handler) run again.
+`IdempotencyGuard` has a new required method `release(tenantId, userId, requestId, token)` that frees the in-progress lock (token-guarded, like `store`) instead of persisting a result.
+
+**Migration:** Custom IdempotencyGuard implementations must add release(tenantId, userId, requestId, token), which deletes the pending lock only if it still holds that token
+
+### renderer-foundation
+
+**Bundled extension points (renderer, deliveryChannel, mailTransport, inboundMailProvider, subscriptionProvider) are typed**
+
+**Migration:** r.useExtension options for renderer ({ kinds, render }), deliveryChannel ({ mode, resolve, render?, send, accept? }), mailTransport (MailTransportPlugin), inboundMailProvider (InboundMailProviderPlugin) and subscriptionProvider (SubscriptionProviderPlugin) are now type-checked and required; renderer and deliveryChannel registrations do not pass name (it comes from the entity name). Prefer the new constants RENDERER_EXTENSION, DELIVERY_CHANNEL_EXTENSION and MAIL_TRANSPORT_EXTENSION over string literals. A registration whose options do not match the plugin shape now throws with the entity name when channels or renderers are collected.
 
 ## 0.305.0
 

@@ -51,6 +51,41 @@ const declaredUnsafeRawRunners = new WeakMap<
 // (withUnsafeRawGrant, acknowledgeConventionCrossTenant) carry it too.
 const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
 
+// Lets createTenantDb(ctx.db.unsafeRaw(reason), ...) inherit the gate. Keyed by a
+// per-grant proxy, never the shared pool/tx: tagging that would gate every sibling TenantDb.
+const runnerPersonalDataGates = new WeakMap<DbRunner, PersonalDataGate>();
+
+function gatedRunner(runner: DbRunner, gate: PersonalDataGate): DbRunner {
+  const proxy = new Proxy(runner as object, {
+    // Tagged-template calls need the real driver object as `this`.
+    apply(target, _thisArg, args) {
+      return Reflect.apply(target as (...callArgs: unknown[]) => unknown, target, args);
+    },
+    get(target, prop, _receiver) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== "function") return value;
+      if (prop === "begin" || prop === "savepoint") {
+        // createTenantDb(tx, ...) inside the callback must inherit the gate too.
+        return (...args: unknown[]) => {
+          const callback = args[args.length - 1];
+          if (typeof callback !== "function") {
+            return Reflect.apply(value, target, args);
+          }
+          const gatedArgs = [
+            ...args.slice(0, -1),
+            (tx: unknown) => callback(gatedRunner(tx as DbRunner, gate)),
+          ];
+          return Reflect.apply(value, target, gatedArgs);
+        };
+      }
+      return value.bind(target);
+    },
+    // @cast-boundary proxy-erasure — Proxy<object> re-tags as the wrapped DbRunner shape.
+  }) as DbRunner;
+  runnerPersonalDataGates.set(proxy, gate);
+  return proxy;
+}
+
 // The executor passes its entity so the check does not depend on the table-name lookup.
 export function assertPersonalDataWrite(
   db: TenantDb,
@@ -73,8 +108,8 @@ export function unsafeRawForDeclaredStep(
   if (!runner) {
     throw new InternalError({
       message:
-        "unsafeRawForDeclaredStep received a holder not built by createTenantDb or " +
-        "createUncheckedSystemDb — no declared unsafeRaw runner bound.",
+        "unsafeRawForDeclaredStep received a holder not built by createTenantDb, " +
+        "createUncheckedSystemDb, or createSystemDbView — no declared unsafeRaw runner bound.",
     });
   }
   return runner(reason);
@@ -98,14 +133,24 @@ export function withSystemDbUnsafeRawGrant(
 }
 
 // Ungated when `gate` is absent (the handler's own ctx.systemDb — systemScope() is
-// itself the grant there). Gated by a hook's own escapeHatch when `gate` is present:
-// unsafeRaw then denies without `hasGrant(gate.grant)`, same error shape as
-// ctx.db.unsafeRaw's denial in createTenantDb below.
+// itself the grant there). Gated by a hook's own escapeHatch when `gate.kind` is
+// "hook-grant": unsafeRaw then denies without `hasGrant(gate.grant)`, same error shape
+// as ctx.db.unsafeRaw's denial in createTenantDb below. Gated by the source TenantDb's
+// own escapeHatch when `gate.kind` is "source-tenant-db" (createSystemDbView): unsafeRaw
+// defers entirely to db's own declared runner (reason/memberReadOnly/grant check and
+// report) — the view's own `report` is never called for unsafe-raw in that mode, and a
+// source not built by createTenantDb fails closed.
 function buildUncheckedSystemDb(
   db: TenantDb,
   dbOutsideTransaction: TenantDb | undefined,
   report: EscapeHatchReporter,
-  gate?: { readonly grant: EscapeHatchDeclaration | undefined; readonly deniedCallerLabel: string },
+  gate?:
+    | {
+        readonly kind: "hook-grant";
+        readonly grant: EscapeHatchDeclaration | undefined;
+        readonly deniedCallerLabel: string;
+      }
+    | { readonly kind: "source-tenant-db" },
 ): UncheckedSystemDb {
   const allowedTenantIds: readonly TenantId[] = [db.tenantId, SYSTEM_TENANT_ID];
 
@@ -127,6 +172,9 @@ function buildUncheckedSystemDb(
   }
 
   function grantedUnsafeRawRunner(reason: string): DbRunner {
+    if (gate?.kind === "source-tenant-db") {
+      return unsafeRawForDeclaredStep(db, reason);
+    }
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
     }
@@ -138,7 +186,9 @@ function buildUncheckedSystemDb(
       });
     }
     report("unsafe-raw", reason);
-    return tenantDbRunner(db);
+    const runner = tenantDbRunner(db);
+    const personalDataGate = personalDataGates.get(db);
+    return personalDataGate ? gatedRunner(runner, personalDataGate) : runner;
   }
 
   const uncheckedSystemDb: UncheckedSystemDb = {
@@ -199,34 +249,50 @@ function buildUncheckedSystemDb(
     },
   };
   declaredUnsafeRawRunners.set(uncheckedSystemDb, grantedUnsafeRawRunner);
-  systemDbRebinders.set(uncheckedSystemDb, (grant, deniedCallerLabel) =>
-    buildUncheckedSystemDb(
-      withUnsafeRawGrant(db, grant),
-      dbOutsideTransaction && withUnsafeRawGrant(dbOutsideTransaction, grant),
-      report,
-      { grant, deniedCallerLabel },
-    ),
-  );
+  if (gate?.kind !== "source-tenant-db") {
+    systemDbRebinders.set(uncheckedSystemDb, (grant, deniedCallerLabel) =>
+      buildUncheckedSystemDb(
+        withUnsafeRawGrant(db, grant),
+        dbOutsideTransaction && withUnsafeRawGrant(dbOutsideTransaction, grant),
+        report,
+        { kind: "hook-grant", grant, deniedCallerLabel },
+      ),
+    );
+  }
   return uncheckedSystemDb;
 }
 
-// buildHandlerContext (pipeline/dispatch-shared.ts) always builds "system"
-// mode from the caller's own tenantId, never a foreign one.
+// Framework-private (not re-exported from db/index.ts): buildHandlerContext
+// (pipeline/dispatch-shared.ts) always builds "system" mode from the caller's
+// own tenantId, never a foreign one.
 //
 // dbOutsideTransaction is optional so every existing single-arg call site
-// (jobs, tests, delivery-service.ts) keeps compiling — those callers have no
+// (jobs/job-runner.ts, tests) keeps compiling — those callers have no
 // outside-tx source to hand in and never needed one. Only
 // buildHandlerContext passes it, which is also the only place `.outsideTransaction`
 // is reachable through `ctx.systemDb`.
 //
 // Ungated here (the handler's own systemScope() is the grant); a hook's own
-// escapeHatch is layered on afterwards via withSystemDbUnsafeRawGrant.
+// escapeHatch is layered on afterwards via withSystemDbUnsafeRawGrant. Public
+// callers use createSystemDbView instead, whose unsafeRaw follows the source
+// TenantDb's own escapeHatch gate.
 export function createUncheckedSystemDb(
   db: TenantDb,
   dbOutsideTransaction?: TenantDb,
   report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
 ): UncheckedSystemDb {
   return buildUncheckedSystemDb(db, dbOutsideTransaction, report);
+}
+
+// Public: must never grant more raw access than the source TenantDb — unlike
+// createUncheckedSystemDb (framework-private; r.systemScope()/a job IS the
+// declaration), this view's unsafeRaw defers entirely to db's own escapeHatch gate.
+export function createSystemDbView(
+  db: TenantDb,
+  dbOutsideTransaction?: TenantDb,
+  report: EscapeHatchReporter = fallbackEscapeHatchReporter(db.tenantId),
+): UncheckedSystemDb {
+  return buildUncheckedSystemDb(db, dbOutsideTransaction, report, { kind: "source-tenant-db" });
 }
 
 // @cast-boundary tenant-db-row
@@ -323,6 +389,7 @@ export function createTenantDb(
 ): TenantDb {
   if (meter) registerStandardMetrics(meter);
   const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
+  const personalDataGate = grants?.personalDataGate ?? runnerPersonalDataGates.get(db);
 
   function withDbSpan<T>(
     operation: "select" | "insert" | "update" | "delete",
@@ -423,9 +490,9 @@ export function createTenantDb(
     table: Table | EntityTableMeta,
     keys: readonly string[],
   ): AccessDeniedError | undefined {
-    if (!grants?.personalDataGate) return undefined;
+    if (!personalDataGate) return undefined;
     try {
-      grants.personalDataGate(tableNameOf(table), keys);
+      personalDataGate(tableNameOf(table), keys);
       return undefined;
     } catch (e) {
       if (e instanceof AccessDeniedError) return e;
@@ -524,7 +591,7 @@ export function createTenantDb(
       });
     }
     report("unsafe-raw", reason);
-    return db;
+    return personalDataGate ? gatedRunner(db, personalDataGate) : db;
   }
 
   const tenantDb: TenantDb = {
@@ -619,7 +686,7 @@ export function createTenantDb(
     return createTenantDb(db, tenantId, "system", tracer, meter, signal, grants);
   });
   bindTenantDbRunner(tenantDb, db);
-  if (grants?.personalDataGate) personalDataGates.set(tenantDb, grants.personalDataGate);
+  if (personalDataGate) personalDataGates.set(tenantDb, personalDataGate);
   return tenantDb;
 }
 

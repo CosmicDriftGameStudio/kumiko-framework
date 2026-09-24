@@ -12,8 +12,8 @@ import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -138,10 +138,18 @@ function capturingLog(captured: CapturedLog): TestJobLog {
 
 function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
   const log = captured ? capturingLog(captured) : noopLog;
-  const systemModeDb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
+  const systemModeDb = createTenantDb(
+    stack.db,
+    SYSTEM_TENANT_ID,
+    "system",
+    undefined,
+    undefined,
+    undefined,
+    { unsafeRaw: { reason: "test: job context mirrors systemScope() grant" } },
+  );
   return {
     db: systemModeDb,
-    systemDb: createUncheckedSystemDb(systemModeDb),
+    systemDb: createSystemDbView(systemModeDb),
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: cipher,

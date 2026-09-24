@@ -1,5 +1,5 @@
 // Regression guard for kumiko-framework#2072: the KEK-rotation job's
-// systemScope() fail-closed checks — createUncheckedSystemDb().
+// systemScope() fail-closed checks — createSystemDbView().
 // acknowledgeCrossTenant() gating the initial cross-tenant scan,
 // assertRowsTenant() re-verifying each per-tenant slice before it's served
 // to the write loop — must not block legitimate multi-tenant rotation. A
@@ -14,8 +14,8 @@ import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -117,7 +117,11 @@ function capturingLog(captured: CapturedLog): TestJobLog {
 function jobCtx(captured: CapturedLog): Parameters<typeof reencryptJob>[1] {
   return {
     db: createTenantDb(stack.db, SYSTEM_TENANT_ID),
-    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, SYSTEM_TENANT_ID, "system")),
+    systemDb: createSystemDbView(
+      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      }),
+    ),
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: cipher,

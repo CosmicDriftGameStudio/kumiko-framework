@@ -836,6 +836,38 @@ export type FieldDefinition =
   | FilesFieldDef
   | ImagesFieldDef;
 
+// Exhaustive catalogue of `FieldDefinition["type"]` values, derived from a
+// `Record` so an added/removed union member fails to compile here instead of
+// silently drifting out of sync with the runtime validator that consults
+// this list (feature-ast's pattern-change-schema). Plain array, not a Set —
+// same rationale as NO_WIDGET_FIELD_TYPES (guard-types-class-free.test.ts).
+const FIELD_TYPE_NAME_FLAGS: Record<FieldDefinition["type"], true> = {
+  text: true,
+  longText: true,
+  boolean: true,
+  select: true,
+  multiSelect: true,
+  number: true,
+  bigInt: true,
+  decimal: true,
+  money: true,
+  reference: true,
+  embedded: true,
+  jsonb: true,
+  date: true,
+  timestamp: true,
+  tz: true,
+  locatedTimestamp: true,
+  file: true,
+  image: true,
+  files: true,
+  images: true,
+};
+
+export const FIELD_TYPE_NAMES: readonly FieldDefinition["type"][] = Object.keys(
+  FIELD_TYPE_NAME_FLAGS,
+) as FieldDefinition["type"][];
+
 /** FieldDefinition as an entity-less inline form screen (actionForm,
  *  secretMint) may declare it: a `money` field there has no entity to borrow
  *  `defaultCurrency` from, so it must name its own currency source, or the

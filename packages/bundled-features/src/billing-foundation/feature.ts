@@ -81,7 +81,12 @@ import {
   paymentsProjectionTable,
   subscriptionsProjectionTable,
 } from "./projection";
-import { paymentTenantDestroyHook, subscriptionTenantDestroyHook } from "./tenant-destroy-hook";
+import {
+  PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
+  paymentTenantDestroyHook,
+  SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON,
+  subscriptionTenantDestroyHook,
+} from "./tenant-destroy-hook";
 
 export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
   r.describe(
@@ -169,8 +174,10 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
 
   r.useExtension(EXT_TENANT_DATA, "subscription", {
     destroy: subscriptionTenantDestroyHook,
+    escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON },
   });
   r.useExtension(EXT_TENANT_DATA, "payment", {
     destroy: paymentTenantDestroyHook,
+    escapeHatch: { reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON },
   });
 });

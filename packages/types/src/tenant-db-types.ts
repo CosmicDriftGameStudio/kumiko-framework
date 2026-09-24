@@ -108,7 +108,7 @@ export type UncheckedSystemDb = {
   // durability writes that must survive a rollback of the handler's own
   // transaction. Throws if the dispatch has no outside-transaction source
   // configured (e.g. a hand-built UncheckedSystemDb that only ever passed
-  // the in-tx db to createUncheckedSystemDb).
+  // the in-tx db, as createSystemDbView callers do).
   readonly outsideTransaction: {
     assertTenantMatch(tenantId: TenantId): TenantDb;
     acknowledgeCrossTenant(reason: string): TenantDb;

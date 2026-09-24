@@ -13,13 +13,21 @@ export type {
 export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library";
 export type { ParseError, ParseResult } from "./parse";
 export { parseFeatureFile, parseSourceFile } from "./parse";
-export type { PatternChange, PatternId } from "./patch";
+export type {
+  HandlerHeaderUpdate,
+  PatternChange,
+  PatternId,
+  QueryHandlerHeaderKey,
+  StreamHandlerHeaderKey,
+  WriteHandlerHeaderKey,
+} from "./patch";
 export {
   addPattern,
   applyChanges,
   removePattern,
   replacePattern,
   SINGLETON_KINDS,
+  updatePattern,
 } from "./patch";
 export type {
   AddAuthClaimsArgs,
@@ -52,6 +60,8 @@ export type {
   FeaturePatcher,
 } from "./patcher";
 export { createFeaturePatcher } from "./patcher";
+export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema";
+export { parsePatternChanges } from "./pattern-change-schema";
 export type {
   AuthClaimsPattern,
   ClaimKeyPattern,

@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-types",
-  "version": "0.305.0",
+  "version": "0.306.0",
   "description": "Framework-Type-Definitions für Kumiko — FeatureDefinition, BootCheck-Types und die reinen Engine-Types. Erlaubt Downstream-Konsumenten, gegen die Type-Contracts zu bauen, ohne das ganze Framework-Package zu importieren. Enthaelt keine identitaets-sensitiven Runtime-Werte mehr (Error-Klassen leben seit #1629 in kumiko-framework, Brand-Symbole nutzen Symbol.for) und ist deshalb eine plain dependency, keine peerDependency.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -33,6 +33,10 @@
     "./event-type-map": {
       "types": "./src/event-type-map.ts",
       "default": "./src/event-type-map.ts"
+    },
+    "./extension-options-map": {
+      "types": "./src/extension-options-map.ts",
+      "default": "./src/extension-options-map.ts"
     },
     "./http-route": {
       "types": "./src/http-route.ts",

@@ -1,6 +1,8 @@
 // The static check in boot-validator/access-declarations.ts only sees a handler's own
 // input schema; writes reached via ctx.write/writeAs/queryAs, hooks or foreign-feature
 // tables are only visible at the actual write, so the gate runs there at runtime.
+import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import { z } from "zod";
 import { buildEntityTable } from "../db/table-builder";
 import { type PersonalDataGate, tableNameOf } from "../db/tenant-db";
 import {
@@ -15,12 +17,29 @@ import { AccessDeniedError } from "../errors";
 import { FrameworkReasons } from "../errors/reasons";
 import { toSnakeCase } from "../utils/case";
 
-export type WriteOrigin = {
-  readonly rootHandler: string;
-  readonly anonymousRoot: boolean;
-  // Only a write-handler root can declare public-intake; a query/stream root never does.
-  readonly publicIntake: boolean;
-};
+export { isPersonalDataGated, type WriteOrigin };
+
+// Only narrows: an inherited origin can add a gate, never lift the root's.
+export function effectiveWriteOrigin(root: WriteOrigin, inherited?: WriteOrigin): WriteOrigin {
+  if (!inherited) return root;
+  if (isPersonalDataGated(root)) return root;
+  if (isPersonalDataGated(inherited)) return inherited;
+  return root;
+}
+
+const writeOriginSchema = z
+  .object({
+    rootHandler: z.string(),
+    anonymousRoot: z.boolean(),
+    publicIntake: z.boolean(),
+    viaJob: z.string().optional(),
+  })
+  .strict();
+
+export function parseWriteOrigin(value: unknown): WriteOrigin | undefined {
+  const parsed = writeOriginSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
 
 function declaresPublicIntake(access: AccessRule): boolean {
   return accessAllowsAnonymous(access) && declaredPersonalData(access) === "public-intake";
@@ -67,7 +86,7 @@ function personalDataTableMap(registry: Registry): ReadonlyMap<string, ReadonlyS
 }
 
 // Names fields only, never values: the error reaches the anonymous HTTP caller.
-function publicIntakeRequiredError(
+export function publicIntakeRequiredError(
   origin: WriteOrigin,
   target: string,
   fields: readonly string[],
@@ -75,14 +94,16 @@ function publicIntakeRequiredError(
   return new AccessDeniedError({
     message:
       `Anonymous root handler "${origin.rootHandler}" wrote personal-data field(s) ` +
-      `${fields.map((f) => `"${f}"`).join(", ")} on "${target}". Declare ` +
-      'access: { roles: [..., "anonymous"], personalData: "public-intake" } on ' +
+      `${fields.map((f) => `"${f}"`).join(", ")} on "${target}"` +
+      (origin.viaJob ? ` via job "${origin.viaJob}"` : "") +
+      '. Declare access: { roles: [..., "anonymous"], personalData: "public-intake" } on ' +
       `"${origin.rootHandler}" to allow anonymous callers to write personal data.`,
     details: {
       reason: FrameworkReasons.publicIntakeRequired,
       rootHandler: origin.rootHandler,
       target,
       fields,
+      ...(origin.viaJob !== undefined && { job: origin.viaJob }),
     },
   });
 }
@@ -93,7 +114,7 @@ export function buildPersonalDataGate(
   registry: Registry,
   origin: WriteOrigin,
 ): PersonalDataGate | undefined {
-  if (!origin.anonymousRoot || origin.publicIntake) return undefined;
+  if (!isPersonalDataGated(origin)) return undefined;
   const map = personalDataTableMap(registry);
   return (tableName, keys, entity) => {
     const personalFields = entity ? personalColumnNames(entity) : map.get(tableName);

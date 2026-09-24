@@ -14,12 +14,13 @@
 //      and stay readable without the new fields.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { UNATTRIBUTED_ORIGIN } from "@cosmicdrift/kumiko-types/event-store-types";
+import { UNATTRIBUTED_ORIGIN, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
+import type { TenantId } from "../../engine/types";
 import {
   resetEventStore,
   setupTestStack,
@@ -43,8 +44,11 @@ const orderTable = buildEntityTable("attr-order", orderEntity);
 
 const PLACED = "attribution:event:placed";
 const CONFIRMED = "attribution:event:confirmed";
+const PROBED = "attribution:event:probed";
 const PLACE_HANDLER = "attribution:write:order:place";
+const PROBE_HANDLER = "attribution:write:order:probe";
 const CONFIRMER_MSP = "attribution:projection:confirmer";
+const TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
 
 const attributionFeature = defineFeature("attribution", (r) => {
   r.entity("attr-order", orderEntity);
@@ -75,6 +79,26 @@ const attributionFeature = defineFeature("attribution", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  const probed = r.defineEvent("probed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
+
+  // Anonymous, no public-intake declared, no PII field written (nothing to gate).
+  r.writeHandler(
+    "order:probe",
+    z.object({ item: z.string() }),
+    async (event, ctx) => {
+      const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
+      if (!created.isSuccess) return created;
+      await ctx.unsafeAppendEvent({
+        aggregateId: String(created.data.id),
+        aggregateType: "attr-order",
+        type: probed.name,
+        payload: { orderId: String(created.data.id) },
+      });
+      return created;
+    },
+    { access: { roles: ["anonymous"] } },
+  );
+
   r.multiStreamProjection({
     name: "confirmer",
     apply: {
@@ -95,7 +119,11 @@ let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [attributionFeature], systemHooks: [] });
+  stack = await setupTestStack({
+    features: [attributionFeature],
+    systemHooks: [],
+    anonymousAccess: { defaultTenantId: TENANT_ID },
+  });
   await unsafeCreateEntityTable(stack.db, orderEntity, "attr-order");
 });
 
@@ -107,7 +135,7 @@ afterEach(async () => {
   await resetEventStore(stack, ["read_attribution_orders"]);
 });
 
-type Origin = { feature?: string; handler?: string };
+type Origin = { feature?: string; handler?: string; writeOrigin?: WriteOrigin };
 
 async function originOf(type: string): Promise<Origin> {
   const rows = await selectMany(stack.db, eventsTable);
@@ -162,6 +190,28 @@ describe("#3043 — event attribution from the execution scope", () => {
     expect(await originOf(PLACED)).toMatchObject({
       feature: UNATTRIBUTED_ORIGIN,
       handler: UNATTRIBUTED_ORIGIN,
+    });
+  });
+
+  test("authenticated write: the event carries no writeOrigin at all", async () => {
+    await stack.http.writeOk(PLACE_HANDLER, { item: "cog" }, admin);
+
+    const origin = await originOf(PLACED);
+    expect(origin.writeOrigin).toBeUndefined();
+  });
+
+  test("anonymous non-intake write: the event is stamped with the gated origin", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: PROBE_HANDLER,
+      payload: { item: "washer" },
+    });
+    expect(res.status).toBe(200);
+
+    const origin = await originOf(PROBED);
+    expect(origin.writeOrigin).toMatchObject({
+      rootHandler: PROBE_HANDLER,
+      anonymousRoot: true,
+      publicIntake: false,
     });
   });
 

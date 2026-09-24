@@ -1,4 +1,4 @@
-// Patch operations: apply add/replace/remove changes to a feature-file's
+// Patch operations: apply add/replace/remove/update changes to a feature-file's
 // SourceFile in-place, working at the r.*-call granularity. Custom code
 // (helpers, comments, imports, anything between calls) survives every
 // patch unchanged — the patcher only touches the spans it owns.
@@ -14,6 +14,9 @@
 //   - addPattern → appended at the end of the setup callback
 //   - replacePattern → in place, same indentation as the original call
 //   - removePattern → call + leading blank-line whitespace gone
+//   - updatePattern → only the named header properties of a handler's
+//     inline object literal change; everything else, comments included,
+//     stays byte-identical (no re-render)
 //
 // **Renderer-driven output.** Every pattern lands in canonical Object-
 // Form (single-arg literal, see render.ts). Existing patterns in legacy
@@ -30,10 +33,22 @@
 // roadmap C-Notes for the canonical-comment-attach Pattern that would
 // preserve prefixed `// kumiko-comment:` markers across roundtrips.
 
-import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type CallExpression,
+  type Node,
+  type ObjectLiteralExpression,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { readNameLiteral, readNameOrRef, resolveSameFileObjectLiteral } from "./extractors/shared";
-import type { FeaturePattern, FeaturePatternKind } from "./patterns";
-import { indent, PATTERN_INDENT, renderPattern } from "./render";
+import type {
+  FeaturePattern,
+  FeaturePatternKind,
+  QueryHandlerPattern,
+  StreamHandlerPattern,
+  WriteHandlerPattern,
+} from "./patterns";
+import { indent, PATTERN_INDENT, renderPattern, renderValue } from "./render";
 
 // =============================================================================
 // PatternId — natural-key per pattern kind
@@ -92,10 +107,48 @@ export type PatternId =
 // Change ops — generic apply API
 // =============================================================================
 
+// Header-field keys per handler kind, derived from the pattern types so an
+// added/renamed field changes these automatically.
+export type WriteHandlerHeaderKey = Exclude<
+  keyof WriteHandlerPattern,
+  "kind" | "source" | "handlerName" | "schemaSource" | "handlerBody"
+>;
+export type QueryHandlerHeaderKey = Exclude<
+  keyof QueryHandlerPattern,
+  "kind" | "source" | "handlerName" | "schemaSource" | "handlerBody"
+>;
+export type StreamHandlerHeaderKey = Exclude<
+  keyof StreamHandlerPattern,
+  "kind" | "source" | "handlerName" | "schemaSource" | "handlerBody"
+>;
+
+// One member per handler kind so `set`/`unset` are typed against that
+// kind's actual header fields.
+export type HandlerHeaderUpdate =
+  | {
+      readonly op: "update";
+      readonly id: Extract<PatternId, { readonly kind: "writeHandler" }>;
+      readonly set: Partial<Pick<WriteHandlerPattern, WriteHandlerHeaderKey>>;
+      readonly unset?: readonly Exclude<WriteHandlerHeaderKey, "access">[];
+    }
+  | {
+      readonly op: "update";
+      readonly id: Extract<PatternId, { readonly kind: "queryHandler" }>;
+      readonly set: Partial<Pick<QueryHandlerPattern, QueryHandlerHeaderKey>>;
+      readonly unset?: readonly Exclude<QueryHandlerHeaderKey, "access">[];
+    }
+  | {
+      readonly op: "update";
+      readonly id: Extract<PatternId, { readonly kind: "streamHandler" }>;
+      readonly set: Partial<Pick<StreamHandlerPattern, StreamHandlerHeaderKey>>;
+      readonly unset?: readonly Exclude<StreamHandlerHeaderKey, "access">[];
+    };
+
 export type PatternChange =
   | { readonly op: "add"; readonly pattern: FeaturePattern }
   | { readonly op: "replace"; readonly id: PatternId; readonly pattern: FeaturePattern }
-  | { readonly op: "remove"; readonly id: PatternId };
+  | { readonly op: "remove"; readonly id: PatternId }
+  | HandlerHeaderUpdate;
 
 /**
  * Apply a sequence of changes to the source file in-place. The list is
@@ -117,6 +170,9 @@ export function applyChanges(sourceFile: SourceFile, changes: readonly PatternCh
         break;
       case "remove":
         removePattern(sourceFile, change.id);
+        break;
+      case "update":
+        updatePattern(sourceFile, change);
         break;
       default: {
         const _exhaustive: never = change;
@@ -252,6 +308,283 @@ export function removePattern(sourceFile: SourceFile, id: PatternId): void {
     const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
     sourceFile.replaceText([collapseStart, endPos + 1], "");
   }
+}
+
+// =============================================================================
+// Update — patch a subset of a handler pattern's header fields in place
+// =============================================================================
+
+const WRITE_HANDLER_HEADER_KEY_FLAGS: Readonly<Record<WriteHandlerHeaderKey, true>> = {
+  access: true,
+  description: true,
+  agent: true,
+  rateLimit: true,
+  unsafeSkipTransitionGuard: true,
+  escapeHatch: true,
+};
+const QUERY_HANDLER_HEADER_KEY_FLAGS: Readonly<Record<QueryHandlerHeaderKey, true>> = {
+  access: true,
+  description: true,
+  agent: true,
+  rateLimit: true,
+  escapeHatch: true,
+};
+const STREAM_HANDLER_HEADER_KEY_FLAGS: Readonly<Record<StreamHandlerHeaderKey, true>> = {
+  access: true,
+  rateLimit: true,
+  escapeHatch: true,
+};
+
+const HEADER_KEY_FLAGS_BY_HANDLER_KIND: Readonly<
+  Record<"writeHandler" | "queryHandler" | "streamHandler", Readonly<Record<string, true>>>
+> = {
+  writeHandler: WRITE_HANDLER_HEADER_KEY_FLAGS,
+  queryHandler: QUERY_HANDLER_HEADER_KEY_FLAGS,
+  streamHandler: STREAM_HANDLER_HEADER_KEY_FLAGS,
+};
+
+type TextEdit = { readonly start: number; readonly end: number; readonly text: string };
+
+function propertyName(prop: Node): string | undefined {
+  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) return readNameLiteral(assign.getNameNode()) ?? assign.getNameNode().getText();
+  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) return shorthand.getName();
+  return undefined;
+}
+
+// Append after the literal's last property, skipping any property this
+// same change is about to unset — avoids interleaving the two edits' spans.
+function lastRemainingProperty(
+  obj: ObjectLiteralExpression,
+  unsetKeys: ReadonlySet<string>,
+): Node | undefined {
+  const props = obj.getProperties();
+  for (let i = props.length - 1; i >= 0; i--) {
+    const prop = props[i];
+    if (prop === undefined) continue;
+    const name = propertyName(prop);
+    if (name !== undefined && unsetKeys.has(name)) continue;
+    return prop;
+  }
+  return undefined;
+}
+
+function buildSetEdit(
+  obj: ObjectLiteralExpression,
+  key: string,
+  value: unknown,
+  unsetKeys: ReadonlySet<string>,
+): TextEdit {
+  const sourceFile = obj.getSourceFile();
+  const existing = obj.getProperty(key);
+  const assign = existing?.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) {
+    const init = assign.getInitializer();
+    if (init) {
+      // Column of the *property*, not the initializer — the initializer's
+      // further-right column would misalign a multi-line rendered value.
+      const col = sourceFile.getLineAndColumnAtPos(assign.getStart()).column;
+      return { start: init.getStart(), end: init.getEnd(), text: renderValue(value, col - 1) };
+    }
+  }
+  const shorthand = existing?.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) {
+    const col = sourceFile.getLineAndColumnAtPos(shorthand.getStart()).column;
+    return {
+      start: shorthand.getStart(),
+      end: shorthand.getEnd(),
+      text: `${key}: ${renderValue(value, col - 1)}`,
+    };
+  }
+
+  const last = lastRemainingProperty(obj, unsetKeys);
+  const fullText = sourceFile.getFullText();
+  const isSingleLineLiteral = !obj.getText().includes("\n");
+
+  if (!last) {
+    // Empty (or fully-unset) literal — insert right after the opening brace.
+    const openBrace = obj.getFirstChildByKindOrThrow(SyntaxKind.OpenBraceToken);
+    return {
+      start: openBrace.getEnd(),
+      end: openBrace.getEnd(),
+      text: ` ${key}: ${renderValue(value, 0)} `,
+    };
+  }
+
+  if (isSingleLineLiteral) {
+    let pos = last.getEnd();
+    const hasComma = fullText[pos] === ",";
+    if (hasComma) pos++;
+    return {
+      start: pos,
+      end: pos,
+      text: `${hasComma ? "" : ","} ${key}: ${renderValue(value, 0)}`,
+    };
+  }
+
+  const col = sourceFile.getLineAndColumnAtPos(last.getStart()).column;
+  const indentStr = " ".repeat(col - 1);
+  const valueEnd = last.getEnd();
+  const hasComma = fullText[valueEnd] === ",";
+  const contentStart = hasComma ? valueEnd + 1 : valueEnd;
+  const lineEndPos = lineEnd(sourceFile, contentStart);
+  // Rest of the line after the value/comma — normally empty, or a trailing comment.
+  const restOfLine = fullText.slice(contentStart, lineEndPos);
+  const restIsBlankOrComment = restOfLine.trim().length === 0 || restOfLine.trim().startsWith("//");
+  if (!restIsBlankOrComment) {
+    // Last property shares its line with other content (e.g. `});`) —
+    // appending here would land after it. Narrower than replace; bail.
+    throw new Error(
+      "updatePattern: cannot append a header field — the handler literal's last property shares a line with other code; use replace",
+    );
+  }
+  // Reconstruct the comma here (not inserted after the value) so it lands
+  // right after the value, never inside a trailing `//` comment.
+  return {
+    start: valueEnd,
+    end: lineEndPos,
+    text: `,${restOfLine}\n${indentStr}${key}: ${renderValue(value, col - 1)},`,
+  };
+}
+
+// Whole-line delete: property was alone on its line (with its indentation
+// and trailing newline) — used when nothing else shares that line.
+function buildWholeLineUnsetEdit(
+  sourceFile: SourceFile,
+  lineStartPos: number,
+  afterPos: number,
+): TextEdit {
+  const text = sourceFile.getFullText();
+  let end = afterPos;
+  while (end < text.length && text[end] !== "\n") end++;
+  if (end < text.length) end++;
+  return { start: lineStartPos, end, text: "" };
+}
+
+// Inline delete: property shares its line with other content — remove only
+// the property plus its trailing comma+space, or (last on the line, no
+// trailing comma) the preceding comma+space.
+function buildInlineUnsetEdit(
+  text: string,
+  propStart: number,
+  afterPos: number,
+  hasTrailingComma: boolean,
+): TextEdit {
+  let start = propStart;
+  let end = afterPos;
+  if (hasTrailingComma && text[end] === " ") end++;
+  if (!hasTrailingComma) {
+    let precedingStart = propStart;
+    while (precedingStart > 0 && text[precedingStart - 1] === " ") precedingStart--;
+    if (text[precedingStart - 1] === ",") start = precedingStart - 1;
+  }
+  return { start, end, text: "" };
+}
+
+function buildUnsetEdit(obj: ObjectLiteralExpression, key: string): TextEdit | undefined {
+  const prop = obj.getProperty(key);
+  if (!prop) return undefined; // no-op: nothing to remove, unset is idempotent
+  const sourceFile = obj.getSourceFile();
+  const text = sourceFile.getFullText();
+
+  const propStart = prop.getStart();
+  const lineStartPos = lineStart(sourceFile, propStart);
+  const beforeOnLine = text.slice(lineStartPos, propStart);
+
+  let afterPos = prop.getEnd();
+  const hasTrailingComma = text[afterPos] === ",";
+  if (hasTrailingComma) afterPos++;
+  let probe = afterPos;
+  while (probe < text.length && (text[probe] === " " || text[probe] === "\t")) probe++;
+  const restOfLine = text.slice(probe, lineEnd(sourceFile, probe));
+
+  // Whole-line delete only when the property is alone on its line — else
+  // this would eat sibling properties or the enclosing call's `});`.
+  const aloneOnLine =
+    beforeOnLine.trim().length === 0 &&
+    (restOfLine.trim().length === 0 || restOfLine.trim().startsWith("//"));
+  if (aloneOnLine) return buildWholeLineUnsetEdit(sourceFile, lineStartPos, afterPos);
+  return buildInlineUnsetEdit(text, propStart, afterPos, hasTrailingComma);
+}
+
+/**
+ * Apply a `HandlerHeaderUpdate` to the header fields named in `set`/`unset`
+ * only, via targeted text edits — `schemaSource`, `handlerBody`, comments,
+ * and every unnamed field stay byte-identical (narrower than replacePattern).
+ */
+export function updatePattern(sourceFile: SourceFile, change: HandlerHeaderUpdate): void {
+  const call = findCallForId(sourceFile, change.id);
+  if (!call) {
+    throw new Error(`updatePattern: no call found for ${describeId(change.id)}`);
+  }
+
+  const args = call.getArguments();
+  if (args.length !== 1) {
+    throw new Error(
+      `updatePattern: ${describeId(change.id)} uses the positional call form; update requires the object form; use replace`,
+    );
+  }
+  const arg0 = args[0];
+  if (!arg0) {
+    throw new Error(`updatePattern: no call found for ${describeId(change.id)}`);
+  }
+  const obj = arg0.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj) {
+    throw new Error(
+      `updatePattern: ${describeId(change.id)} is not an inline object literal; use replace`,
+    );
+  }
+
+  if (obj.getProperties().some((prop) => prop.isKind(SyntaxKind.SpreadAssignment))) {
+    throw new Error(
+      "updatePattern: cannot update a handler literal containing a spread; use replace",
+    );
+  }
+
+  const headerFlags = HEADER_KEY_FLAGS_BY_HANDLER_KIND[change.id.kind];
+  const setEntries: [string, unknown][] = Object.entries(change.set).filter(
+    ([, v]) => v !== undefined,
+  );
+  for (const [key] of setEntries) {
+    if (!Object.hasOwn(headerFlags, key)) {
+      throw new Error(`updatePattern: "${key}" is not a header field of ${change.id.kind}`);
+    }
+  }
+  // Widen to `string`: this is a runtime boundary, re-check even though the
+  // static type already excludes "access" from `unset`.
+  const unsetKeyList: readonly string[] = change.unset ?? [];
+  const setKeySet = new Set(setEntries.map(([key]) => key));
+  for (const key of unsetKeyList) {
+    if (!Object.hasOwn(headerFlags, key)) {
+      throw new Error(`updatePattern: "${key}" is not a header field of ${change.id.kind}`);
+    }
+    if (key === "access") {
+      throw new Error("updatePattern: access is required and cannot be unset");
+    }
+    if (setKeySet.has(key)) {
+      throw new Error(`updatePattern: "${key}" is in both set and unset`);
+    }
+  }
+
+  // Dedupe: two identical `unset` entries would otherwise produce two
+  // overlapping deletes, the second eating text past the first's shrink.
+  const unsetKeys = new Set<string>(unsetKeyList);
+  const edits: TextEdit[] = [
+    ...setEntries.map(([key, value]) => buildSetEdit(obj, key, value, unsetKeys)),
+    ...[...unsetKeys]
+      .map((key) => buildUnsetEdit(obj, key))
+      .filter((edit): edit is TextEdit => edit !== undefined),
+  ];
+
+  // Apply from the highest offset down so an earlier edit's positions,
+  // captured above against the pre-edit text, stay valid.
+  edits
+    .slice()
+    .sort((a, b) => b.start - a.start)
+    .forEach((edit) => {
+      sourceFile.replaceText([edit.start, edit.end], edit.text);
+    });
 }
 
 // =============================================================================

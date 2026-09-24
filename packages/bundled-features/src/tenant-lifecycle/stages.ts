@@ -14,9 +14,12 @@ import {
   EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
   extensionUsageEscapeHatchReason,
+  isTenantDataExtensionHooks,
+  isTenantResourceExtensionHooks,
   type Registry,
   type TenantDataHookCtx,
   type TenantId,
+  type TenantResourceExtensionName,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -63,28 +66,29 @@ const tenantMembershipCrud = createEventStoreExecutor(
 
 async function runExtensionDestroyHooks(
   registry: Registry,
-  extensionName: string,
-  hookKey: "destroyTenant",
+  extensionName: TenantResourceExtensionName,
   ctx: DestructionStageCtx,
 ): Promise<void> {
   const usages = registry.getExtensionUsages(extensionName);
   for (const usage of usages) {
-    const hook = usage.options?.[hookKey];
-    if (typeof hook !== "function") continue;
-    await (hook as (tenantId: TenantId, hookCtx: DestructionStageCtx) => Promise<void>)(
-      ctx.tenantId,
-      ctx,
-    );
+    if (!isTenantResourceExtensionHooks(usage.options)) {
+      throw new Error(
+        `${extensionName} registration for "${usage.entityName}" has no destroy function`,
+      );
+    }
+    await usage.options.destroyTenant(ctx.tenantId, ctx);
   }
 }
 
 async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<void> {
   const usages = ctx.registry.getExtensionUsages(EXT_TENANT_DATA);
   for (const usage of usages) {
-    const destroy = usage.options?.["destroy"] as
-      | ((hookCtx: TenantDataHookCtx) => Promise<void>)
-      | undefined;
-    if (!destroy) continue;
+    if (!isTenantDataExtensionHooks(usage.options)) {
+      throw new Error(
+        `${EXT_TENANT_DATA} registration for "${usage.entityName}" has no destroy function`,
+      );
+    }
+    const destroy = usage.options.destroy;
     const reason = extensionUsageEscapeHatchReason(usage);
     const report = createEscapeHatchReporter({
       handler: `${EXT_TENANT_DATA}:${usage.entityName}`,
@@ -179,13 +183,12 @@ export const DESTRUCTION_STAGES: readonly DestructionStage[] = [
   {
     name: "external-resources",
     maxAttempts: 3,
-    run: (ctx) =>
-      runExtensionDestroyHooks(ctx.registry, EXT_EXTERNAL_RESOURCE, "destroyTenant", ctx),
+    run: (ctx) => runExtensionDestroyHooks(ctx.registry, EXT_EXTERNAL_RESOURCE, ctx),
   },
   {
     name: "search-indices",
     maxAttempts: 3,
-    run: (ctx) => runExtensionDestroyHooks(ctx.registry, EXT_SEARCH_ADAPTER, "destroyTenant", ctx),
+    run: (ctx) => runExtensionDestroyHooks(ctx.registry, EXT_SEARCH_ADAPTER, ctx),
   },
   {
     name: "cache",
@@ -205,13 +208,12 @@ export const DESTRUCTION_STAGES: readonly DestructionStage[] = [
   {
     name: "files",
     maxAttempts: 3,
-    run: (ctx) =>
-      runExtensionDestroyHooks(ctx.registry, EXT_STORAGE_PROVIDER, "destroyTenant", ctx),
+    run: (ctx) => runExtensionDestroyHooks(ctx.registry, EXT_STORAGE_PROVIDER, ctx),
   },
   {
     name: "infra-resources",
     maxAttempts: 3,
-    run: (ctx) => runExtensionDestroyHooks(ctx.registry, EXT_INFRA_RESOURCE, "destroyTenant", ctx),
+    run: (ctx) => runExtensionDestroyHooks(ctx.registry, EXT_INFRA_RESOURCE, ctx),
   },
   {
     name: "tenant-row",

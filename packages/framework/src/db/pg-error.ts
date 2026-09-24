@@ -21,6 +21,19 @@ export function extractPgError(e: unknown): PgErrorInfo | null {
     // @cast-boundary error-details — postgres-js error shape (code, constraint_name)
     const code = (layer as { code?: string }).code;
     const constraintName = (layer as { constraint_name?: string }).constraint_name; // @cast-boundary error-details
+    // Bun.SQL carries the SQLSTATE in `errno` (string) and the constraint name
+    // in `constraint`, not in postgres-js's `code`/`constraint_name`.
+    if (code === "ERR_POSTGRES_SERVER_ERROR") {
+      const errno = (layer as { errno?: unknown }).errno; // @cast-boundary error-details
+      const constraint = (layer as { constraint?: unknown }).constraint; // @cast-boundary error-details
+      if (typeof errno === "string") {
+        return {
+          code: errno,
+          constraint_name:
+            constraintName ?? (typeof constraint === "string" ? constraint : undefined),
+        };
+      }
+    }
     if (code !== undefined || constraintName !== undefined) {
       return { code, constraint_name: constraintName };
     }

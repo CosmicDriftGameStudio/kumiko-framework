@@ -1,5 +1,6 @@
 import {
   type EventMetadata,
+  isPersonalDataGated,
   type StoredEvent,
   UNATTRIBUTED_ORIGIN,
 } from "@cosmicdrift/kumiko-types/event-store-types";
@@ -130,12 +131,15 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
 // bypass this deliberately — they replay historical rows verbatim.
 function stampOrigin(event: EventToAppend): EventToAppend {
   const origin = requestContext.get();
+  const { writeOrigin: _droppedCallerWriteOrigin, ...restMetadata } = event.metadata;
   return {
     ...event,
     metadata: {
-      ...event.metadata,
+      ...restMetadata,
       feature: origin?.feature ?? UNATTRIBUTED_ORIGIN,
       handler: origin?.handler ?? UNATTRIBUTED_ORIGIN,
+      ...(origin?.writeOrigin &&
+        isPersonalDataGated(origin.writeOrigin) && { writeOrigin: origin.writeOrigin }),
     },
   };
 }

@@ -91,6 +91,7 @@ import {
 } from "./projection";
 import { runInboundMailRetention } from "./retention-sweep";
 import {
+  INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
   mailAccountTenantDestroyHook,
   mailThreadTenantDestroyHook,
@@ -195,12 +196,15 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
   // prueft die EXT_TENANT_DATA-Registrierung pro tenant-subject-Entity.
   r.useExtension(EXT_TENANT_DATA, "mail-account", {
     destroy: mailAccountTenantDestroyHook,
+    escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
   });
   r.useExtension(EXT_TENANT_DATA, "inbound-message", {
     destroy: inboundMessageTenantDestroyHook,
+    escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
   });
   r.useExtension(EXT_TENANT_DATA, "mail-thread", {
     destroy: mailThreadTenantDestroyHook,
+    escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
   });
 
   // Data-Retention (#957) — perTenant fan-out (one run per tenant, like

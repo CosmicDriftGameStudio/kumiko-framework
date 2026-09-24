@@ -1,3 +1,4 @@
+import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { type JobsOptions, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
@@ -18,6 +19,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "../engine/types";
+import { InternalError } from "../errors";
 import { isKumikoError } from "../errors/kumiko-error";
 import { createFileContext } from "../files/file-handle";
 import { createFallbackLogger } from "../logging";
@@ -33,7 +35,21 @@ import {
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
 import { RedisKeys } from "../pipeline/redis-keys";
+import {
+  buildPersonalDataGate,
+  isPersonalDataGated,
+  parseWriteOrigin,
+} from "../pipeline/write-origin";
 import { bridgeStub } from "../testing/handler-context";
+
+// A payload's own `_writeOrigin` is never trusted; only the ambient gated origin is stamped.
+function stampGatedWriteOrigin(data: Record<string, unknown>): void {
+  delete data["_writeOrigin"];
+  const origin = requestContext.get()?.writeOrigin;
+  if (origin && isPersonalDataGated(origin)) {
+    data["_writeOrigin"] = origin;
+  }
+}
 
 // Queue-name convention: <prefix>-<lane>. The prefix is fixed in prod
 // ("kumiko-jobs") — it must match between enqueuers and consumers, and an
@@ -85,8 +101,10 @@ function legacySchedulerIdForJobName(jobName: string): string {
 // for the same trigger (retry after failure, a Redis drop, an instance
 // restarting mid-run) re-derives the *same* child ids, and BullMQ's
 // existing-jobId add() no-ops the second batch instead of creating
-// duplicates — the same dedup-on-id mechanism bootJobIdForJobName already
-// relies on above. Same colon-in-BullMQ-id hazard as schedulerIdForJobName
+// duplicates — safe only as long as the child job hash outlives the
+// wrapper's retry window, enforced at construction against
+// COMPLETED_JOB_RETENTION_AGE_SEC (see the invariant check in
+// createJobRunner). Same colon-in-BullMQ-id hazard as schedulerIdForJobName
 // (fw#1603/#1604) — the wrapper id already contains ":", so strip
 // separators from both halves before joining instead of interpolating raw.
 function perTenantChildJobId(wrapperJobId: string, tenantId: string): string {
@@ -225,6 +243,13 @@ export type JobRunnerOptions = {
   // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
   // to keep an unreachable-Redis assertion fast.
   bootRedisTimeoutMs?: number | undefined;
+  // Override how long completed/failed jobs stay in Redis before BullMQ's
+  // lazy queue-wide sweep evicts them. Defaults to
+  // COMPLETED_JOB_RETENTION_AGE_SEC / FAILED_JOB_RETENTION_AGE_SEC; tests
+  // shrink both to exercise the sweep without a real 24h/7d wait.
+  jobRetention?:
+    | { completedAgeSec?: number | undefined; failedAgeSec?: number | undefined }
+    | undefined;
   getActiveTenantIds?: () => Promise<TenantId[]>;
   onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
   onJobComplete?: (
@@ -342,6 +367,34 @@ function buildRetryBullOpts(jobDef: JobDefinition): Pick<JobsOptions, "attempts"
   return opts;
 }
 
+// BullMQ sweeps queue-wide: any job finishing with keepJobs set can evict
+// OTHER jobs in the same completed/failed zset (moveToFinished lua,
+// removeJobsByMaxAge/removeJobsByMaxCount), not just the finishing job, and
+// the sweep only runs lazily on a later finish into that set. Per-job
+// retention is therefore meaningless on a shared queue — only queue-wide,
+// age-only retention (no count) is safe: a count would evict perTenant
+// children still inside their wrapper's retry window, and boot jobs. The
+// completed age must stay above every perTenant wrapper's own worst-case
+// retry window (see maxRetryWindowMs and the invariant check in
+// createJobRunner below), because child dedup (perTenantChildJobId) relies
+// on the children still existing in Redis when a wrapper retry re-derives
+// their ids. The margin here is generous — queue wait time isn't bounded by
+// backoff — to cover realistic windows. Audit trail lives in read_job_runs,
+// not BullMQ (fw#3199).
+const COMPLETED_JOB_RETENTION_AGE_SEC = 86_400; // 24h
+const FAILED_JOB_RETENTION_AGE_SEC = 604_800; // 7d
+
+// Total wall-clock time BullMQ can hold a perTenant wrapper across all its
+// retries, consistent with buildRetryBullOpts's own backoff computation.
+function maxRetryWindowMs(jobDef: JobDefinition): number {
+  if (!jobDef.backoff || jobDef.retries === undefined) return 0;
+  const delayMs =
+    (typeof jobDef.backoff === "string" ? undefined : jobDef.backoff.delayMs) ??
+    DEFAULT_JOB_BACKOFF_DELAY_MS;
+  const type = typeof jobDef.backoff === "string" ? jobDef.backoff : jobDef.backoff.type;
+  return type === "exponential" ? delayMs * (2 ** jobDef.retries - 1) : jobDef.retries * delayMs;
+}
+
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const { registry, context, redisUrl, consumerLane } = options;
   const queueNamePrefix = options.queueNamePrefix ?? DEFAULT_QUEUE_NAME_PREFIX;
@@ -398,6 +451,49 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   const allJobs = registry.getAllJobs();
 
+  function positiveIntRetentionSec(
+    value: number | undefined,
+    fallback: number,
+    label: string,
+  ): number {
+    const resolved = value ?? fallback;
+    if (!Number.isInteger(resolved) || resolved <= 0) {
+      throw new Error(
+        `job-runner: jobRetention.${label} must be a positive integer, got ${resolved}`,
+      );
+    }
+    return resolved;
+  }
+  const completedAgeSec = positiveIntRetentionSec(
+    options.jobRetention?.completedAgeSec,
+    COMPLETED_JOB_RETENTION_AGE_SEC,
+    "completedAgeSec",
+  );
+  const failedAgeSec = positiveIntRetentionSec(
+    options.jobRetention?.failedAgeSec,
+    FAILED_JOB_RETENTION_AGE_SEC,
+    "failedAgeSec",
+  );
+
+  // perTenant child dedup (perTenantChildJobId) only holds as long as the
+  // children are still in Redis when a wrapper retry re-derives their ids,
+  // which requires the completed-job retention to outlast the wrapper's own
+  // worst-case retry window. Enforced here, before any Redis connection
+  // opens below, so a misconfigured job fails boot loudly instead of
+  // silently losing dedup in prod.
+  for (const [name, jobDef] of allJobs) {
+    if (!jobDef.perTenant) continue;
+    const windowMs = maxRetryWindowMs(jobDef);
+    if (windowMs >= completedAgeSec * 1000) {
+      throw new Error(
+        `job-runner: perTenant job "${name}" has a retry window of ${windowMs}ms, which is >= ` +
+          `the completed-job retention (${completedAgeSec}s). Child dedup relies on children ` +
+          "staying in Redis for the whole retry window — lower retries/backoff or raise " +
+          "jobRetention.completedAgeSec.",
+      );
+    }
+  }
+
   // Resolve the lane for a job — "worker" is the default because that's the
   // sensible prod lane (heavy async off the request path). Jobs that opted
   // into "api" must have been validated at registry boot already.
@@ -441,9 +537,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // queue matching the target job's runIn. Client-creation is cheap (shared
   // ioredis connection via bullmq), so this doesn't scale with number of
   // processes.
+  // Queue-wide, age-only retention (see COMPLETED_JOB_RETENTION_AGE_SEC
+  // above for why) — merged into every add()/addBulk()/upsertJobScheduler()
+  // template on both lanes.
+  const jobRetentionOpts: Pick<JobsOptions, "removeOnComplete" | "removeOnFail"> = {
+    removeOnComplete: { age: completedAgeSec },
+    removeOnFail: { age: failedAgeSec },
+  };
   const queues: Readonly<Record<JobRunIn, Queue>> = {
-    api: new Queue(queueNameFor(queueNamePrefix, "api"), { connection: redisOpts }),
-    worker: new Queue(queueNameFor(queueNamePrefix, "worker"), { connection: redisOpts }),
+    api: new Queue(queueNameFor(queueNamePrefix, "api"), {
+      connection: redisOpts,
+      defaultJobOptions: jobRetentionOpts,
+    }),
+    worker: new Queue(queueNameFor(queueNamePrefix, "worker"), {
+      connection: redisOpts,
+      defaultJobOptions: jobRetentionOpts,
+    }),
   };
   // Same unhandled-'error'-crash hazard as lockRedis above, just via
   // BullMQ's internal ioredis client (fw#1805).
@@ -540,7 +649,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           {
             ...buildRetryBullOpts(actualDef),
             // Dedup over wrapper retries only holds as long as the children
-            // stay in Redis for the wrapper's whole retry window.
+            // stay in Redis for the wrapper's whole retry window — see the
+            // COMPLETED_JOB_RETENTION_AGE_SEC invariant check above.
             ...(wrapperJobId !== undefined
               ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
               : {}),
@@ -637,6 +747,21 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // multi-trigger dispatch; exposed as jobContext.triggerName so handlers
     // don't dig through the raw payload themselves.
     const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
+
+    // Absent = legacy or ungated root; present but invalid fails the run closed.
+    const rawWriteOrigin = rawData["_writeOrigin"]; // @cast-boundary dynamic-key
+    let jobOrigin: WriteOrigin | undefined;
+    let writeOriginInvalid = false;
+    if (rawWriteOrigin !== undefined) {
+      const parsed = parseWriteOrigin(rawWriteOrigin);
+      if (parsed) {
+        jobOrigin = { ...parsed, viaJob: jobName };
+      } else {
+        writeOriginInvalid = true;
+      }
+    }
+    const jobPersonalDataGate = jobOrigin ? buildPersonalDataGate(registry, jobOrigin) : undefined;
+
     // Mirror dispatch-shared.ts buildHandlerContext: ctx.files must resolve
     // through the same _fileProviderResolver for jobs as for write-handlers,
     // otherwise event-triggered jobs silently get an unresolved ctx.files.
@@ -655,8 +780,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // systemScope() status (pre-existing, not something this change alters)
     // — isSystemJob below is what actually keeps ctx.systemDb off a
     // non-system job; it is the only thing standing between this db and an
-    // unchecked cross-tenant escape hatch for such a job.
-    const tenantScopedDb = configDb ? createTenantDb(configDb, tenantId, "system") : undefined;
+    // unchecked cross-tenant escape hatch for such a job. Gated like jobDb so
+    // ctx.systemDb, built from it, is gated too.
+    const tenantScopedDb = configDb
+      ? createTenantDb(
+          configDb,
+          tenantId,
+          "system",
+          undefined,
+          undefined,
+          undefined,
+          jobPersonalDataGate ? { personalDataGate: jobPersonalDataGate } : undefined,
+        )
+      : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
     // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
     const reportEscapeHatch = createEscapeHatchReporter({
@@ -674,6 +810,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
           unsafeRaw: jobDef.escapeHatch,
           report: reportEscapeHatch,
+          ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })
       : undefined;
     const config =
@@ -724,7 +861,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "JobContext.write called before dispatcher attached — call attachDispatcher() first",
           );
         }
-        return dispatchWriteRef.write(jobSystemUser, qn, payload);
+        return dispatchWriteRef.write(jobSystemUser, qn, payload, jobOrigin);
       },
       writeAs: (user: SessionUser, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
@@ -732,7 +869,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "JobContext.writeAs called before dispatcher attached — call attachDispatcher() first",
           );
         }
-        return dispatchWriteRef.write(user, qn, payload);
+        return dispatchWriteRef.write(user, qn, payload, jobOrigin);
       },
       queryAs: (user: SessionUser, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
@@ -740,7 +877,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "JobContext.queryAs called before dispatcher attached — call attachDispatcher() first",
           );
         }
-        return dispatchWriteRef.queryAs(user, qn, payload);
+        return dispatchWriteRef.queryAs(user, qn, payload, jobOrigin);
       },
       queryAsMember: (userId: string, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
@@ -772,6 +909,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     const runInSpan = async (): Promise<void> => {
       try {
+        if (writeOriginInvalid) {
+          throw new InternalError({
+            message:
+              `Job "${jobName}" received an unparseable _writeOrigin — refusing to run without ` +
+              "a trustworthy anonymous-root gate.",
+          });
+        }
         await requestContext.run(
           {
             requestId: jobRequestId,
@@ -779,6 +923,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             // #3043 — events a job writes carry the job as their origin.
             handler: jobName,
             feature: qnScope(jobName),
+            writeOrigin: jobOrigin,
           },
           () => jobDef.handler(payload, jobContext),
         );
@@ -925,9 +1070,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             {
               name: jobDef.perTenant ? `_perTenant:${name}` : name,
               data: {},
+              // Queue-level defaultJobOptions (jobRetentionOpts) covers
+              // retention; a count here would sweep queue-wide again and
+              // evict perTenant children and boot jobs.
               opts: {
-                removeOnComplete: { count: 100 },
-                removeOnFail: { count: 50 },
                 ...buildRetryBullOpts(jobDef),
               },
             },
@@ -935,18 +1081,37 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         }
       }
 
+      // Persistent marker outside the swept completed/failed sets: a plain
+      // Redis hash at one key per consumer queue, fields = boot job ids
+      // already enqueued (BullMQ's IRedisClient has no set commands, only
+      // hash/hexists — a hash with dummy values does the same job). The job
+      // hash itself (removeOnComplete/-Fail: age-bound) is not a safe dedup
+      // target any more — retention now evicts it eventually, which would
+      // otherwise re-run a boot job "once per dataset" every time it ages
+      // out. Order matters: HEXISTS check, then add(), then HSET.
+      // Concurrent starts still dedupe on the existing job hash from add()'s
+      // own jobId no-op; a crash between add() and HSET dedupes again on the
+      // *next* boot (the job hash is still there) instead of losing the
+      // boot job forever, which HSET-first would risk if the process died
+      // before add() ran.
+      const bootEnqueuedKey = consumerQueue.toKey("kumiko-boot-enqueued");
       for (const [name, jobDef] of allJobs) {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if (jobDef.runOnBoot) {
           const bootName = jobDef.perTenant ? `_perTenant:${name}` : name;
+          const bootJobId = bootJobIdForJobName(name);
+          const client = await consumerQueue.client;
+          const alreadyEnqueued = await client.hexists(bootEnqueuedKey, bootJobId);
+          if (alreadyEnqueued) continue;
           await consumerQueue.add(
             bootName,
             {},
             {
-              jobId: bootJobIdForJobName(name),
+              jobId: bootJobId,
               ...buildRetryBullOpts(jobDef),
             },
           );
+          await client.hset(bootEnqueuedKey, { [bootJobId]: 1 });
         }
       }
 
@@ -993,9 +1158,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
       // perTenant: dispatch the fan-out wrapper instead
       if (jobDef.perTenant) {
+        const perTenantData: Record<string, unknown> = { ...(payload ?? {}) };
+        stampGatedWriteOrigin(perTenantData);
         const job = await targetQueue.add(
           `_perTenant:${jobName}`,
-          payload ?? {},
+          perTenantData,
           buildRetryBullOpts(jobDef),
         );
         return job.id ?? "unknown";
@@ -1070,6 +1237,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // stamp the same correlation as the HTTP request that scheduled it.
       const reqCtx = requestContext.get();
       if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
+      stampGatedWriteOrigin(data);
 
       const job = await targetQueue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
@@ -1114,6 +1282,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             continue;
           }
         }
+        stampGatedWriteOrigin(data);
         // Route to the job's declared lane, not a fixed queue — that's
         // the whole reason both queues are held.
         await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));

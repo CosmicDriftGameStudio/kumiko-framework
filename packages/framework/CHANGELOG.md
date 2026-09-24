@@ -1,5 +1,128 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.306.0
+
+### Minor Changes
+
+- fdf9377: A lifecycle hook's own escapeHatch now gates ctx.systemDb.unsafeRaw (fw#3198)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: A lifecycle hook's own escapeHatch now gates ctx.systemDb.unsafeRaw (fw#3198)
+  migration: |
+    Hooks, die in r.systemScope()-Handlern ctx.systemDb.unsafeRaw nutzen, deklarieren escapeHatch: { reason } in den r.hook-Optionen
+  -->
+
+- 2e332a3: createUncheckedSystemDb is no longer exported from /db; use createSystemDbView, whose unsafeRaw follows the source TenantDb's escapeHatch gate (fw#3205)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createUncheckedSystemDb is no longer exported from /db; use createSystemDbView, whose unsafeRaw follows the source TenantDb's escapeHatch gate (fw#3205)
+  migration: |
+    Import auf createSystemDbView umstellen; wer unsafeRaw auf einem selbstgebauten systemDb braucht, übergibt eine TenantDb mit unsafeRaw-Grant (createTenantDb(..., { unsafeRaw: { reason } })).
+    Delivery: ein tenantUserIdsQuery-Handler ohne r.systemScope() bekommt jetzt wie im Dispatcher eine tenant-mode ctx.db und kein ctx.systemDb; Handler, die Cross-Tenant-Zugriff brauchen, deklarieren r.systemScope().
+  -->
+
+- cb31fad: PatternChange gets an update op that changes individual handler header fields (access, rateLimit, description, agent, escapeHatch, unsafeSkipTransitionGuard) without resending schema or handler bodies
+
+  applyChanges/updatePattern edit only the named properties of a write/query/stream handler's inline object literal; bodies, comments and all other properties stay byte-identical. parsePatternChanges validates set/unset per handler kind with exact paths (access cannot be unset). escapeHatch.reason must now be non-empty in PatternChange input, matching the boot validator.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PatternChange gets an update op that changes individual handler header fields (access, rateLimit, description, agent, escapeHatch, unsafeSkipTransitionGuard) without resending schema or handler bodies
+  -->
+
+- b43fe63: r.useExtension options are typed per extension point; a hook with the wrong ctx signature is a compile error
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: r.useExtension options are typed per extension point; a hook with the wrong ctx signature is a compile error
+  migration: |
+    Registrations of known extension points (tenantData, userData, fileProvider, derivativeRenderer, derivativeOverlayResolver, derivativePublicPredicate, principalStatus, tenantLifecycleStatus, tokenVerifier, sessionStore, tenantResolver, tenantExistence) now type-check their options, and options are required for them. Fix the reported mismatches: tenantData destroy hooks take TenantDataHookCtx and use ctx.db.* methods. For raw access such as archiveStream, declare escapeHatch: { reason } on the r.useExtension registration (runtime grant), call declareEscapeHatch({ reason }) as a direct statement in the hook body (Escape-Hatch-Declared guard), then use ctx.db.unsafeRaw(reason). userData registrations need at least one of export/delete (plus optional order). PrincipalStatusPlugin needs resolveProfile, FileProviderPlugin fakes need list(). App-owned points can opt in by augmenting KumikoExtensionOptionsMap via declare module "@cosmicdrift/kumiko-framework/engine"; unknown names keep the untyped options bag.
+  -->
+
+- 946f7e7: Tenant-resource and tenantTierResolver extension options are typed; invalid registrations fail tenant destroy loudly
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Tenant-resource and tenantTierResolver extension options are typed; invalid registrations fail tenant destroy loudly
+  migration: |
+    Registrations of storageProvider, searchAdapter, externalResource and infraResource now require options of type TenantResourceExtensionHooks (destroyTenant(tenantId, ctx) => Promise<void>); tenantTierResolver requires a TierResolverPlugin with build. StorageProvider* types remain as aliases of the new TenantResource* types. A tenantData or tenant-resource registration whose destroy hook is missing now fails the destruction stage with the extension and entity name instead of being skipped.
+  -->
+
+- c6013bd: A write, batch or command retry with the same `requestId` no longer replays a cached 500 for 300s after a rolled-back transient server error (e.g. a closed Postgres connection). The dispatcher releases the idempotency lock instead, so the retry re-runs the write. A deterministic 4xx rejection still returns the identical cached response, and a failure during COMMIT (outcome unknown) stays cached rather than risk running an already-applied write twice.
+
+  Because the retry re-runs, non-transactional side effects of the failed attempt (writes through `ctx.dbOutsideTransaction`, external calls made inside the handler) run again.
+
+  `IdempotencyGuard` has a new required method `release(tenantId, userId, requestId, token)` that frees the in-progress lock (token-guarded, like `store`) instead of persisting a result.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Idempotent retries re-run after a rolled-back 5xx instead of replaying it
+  migration: |
+    Custom IdempotencyGuard implementations must add release(tenantId, userId, requestId, token), which deletes the pending lock only if it still holds that token
+  -->
+
+### Patch Changes
+
+- 499b9c2: BullMQ jobs no longer stay in Redis forever: completed jobs are kept 24h, failed jobs 7d (fw#3199)
+
+  Both job-runner lane queues now set age-only retention via defaultJobOptions, so dispatch(), handleEvent(), perTenant wrappers and children, cron, runOnBoot and sequential re-enqueues are all covered. BullMQ sweeps retention queue-wide, so there is no count limit and no per-job retention: the cron template's count-based removeOnComplete/removeOnFail is gone because it evicted boot jobs and perTenant children in the same queue. runOnBoot now dedupes via a persistent per-queue marker, so it still runs at most once per Redis dataset after its job hash ages out. On existing datasets a boot job re-runs once only if its job hash was already evicted. A perTenant job whose retry window reaches the completed retention now fails at job-runner construction. Cron iterations scheduled before the deploy keep the old template options for one more run.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: BullMQ jobs no longer stay in Redis forever: completed jobs are kept 24h, failed jobs 7d (fw#3199)
+  -->
+
+- 4f96ced: A client that disconnects mid-request no longer produces `[api] handler failed` with `cause: "The connection was closed."`. That message is Bun's `Request.signal` abort reason, not a closed database connection.
+
+  - Queries: a failure caused by this request's own abort signal now answers `499` and logs `[api] request aborted by client` on warn instead of a 5xx server fault.
+  - Writes (`/api/write`, `/api/batch`, `command`): write dispatch no longer receives the request's abort signal, so a disconnect can't roll back a transaction halfway and leave a cached 500 under the request's idempotency key. `ctx.signal` is `undefined` inside write handlers and their hooks.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Client disconnects answer 499 on queries and no longer abort writes
+  -->
+
+- 5785f57: Feature-AST keeps referenced handler access/rateLimit headers
+
+  Handler headers (access, rateLimit, escapeHatch, agent on write/query/stream handlers, and escapeHatch on r.hook) authored as an imported or same-file const now round-trip verbatim through the feature AST instead of being silently dropped. `rateLimit: { disabled: true, reason }` is now extracted. streamHandler's escapeHatch is now extracted and rendered. A new ParseError: a fully literal header value with an unrecognized shape (used to silently drop the header instead). Handler calls whose object/options contain a spread, an unmodeled key (e.g. `outputSchema`, `perform`) or a non-literal options argument are now kept verbatim as an opaque pattern instead of losing those parts on render. `parsePatternChanges` accepts these reference and disabled-rate-limit shapes too.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Feature-AST keeps referenced handler access/rateLimit headers
+  -->
+
+- cbbbb19: Read retry recognizes real closed pool connections instead of client aborts
+
+  The closed-connection read retry now checks driver error codes (postgres-js CONNECTION_CLOSED, Bun ERR_POSTGRES_CONNECTION_CLOSED, SQLSTATE 57P01) instead of an AbortError name and message. It retries up to pool size plus one attempt, never retries a genuine client abort, and never retries on a transaction or reserved handle. extractPgError/isUniqueViolation/constraintOf now also work against Bun.SQL errors.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Read retry recognizes real closed pool connections instead of client aborts
+  -->
+
+- 659c575: Fix: cron-scheduled jobs, `runOnBoot` jobs, the `perTenant` fan-out wrapper and its fanned-out children, and the sequential concurrency re-enqueue path now all pass through a job definition's `retries`/`backoff` when enqueuing into BullMQ. Previously only `dispatch()` and `handleEvent()` built these options via `buildRetryBullOpts(jobDef)` — a job with `retries` set that was reached through any of the other paths still failed for good on its very first error. All enqueue paths now share the same helper.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cron, runOnBoot, perTenant and sequential re-enqueued jobs now retry per their retries/backoff (fw#3184)
+  -->
+
+  - @cosmicdrift/kumiko-http@0.306.0
+  - @cosmicdrift/kumiko-types@0.306.0
+
 ## 0.305.0
 
 ### Minor Changes

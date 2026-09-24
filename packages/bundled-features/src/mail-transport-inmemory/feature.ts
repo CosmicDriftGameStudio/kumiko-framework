@@ -26,9 +26,10 @@ import type {
   EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import type {
-  MailTransportContext,
-  MailTransportPlugin,
+import {
+  MAIL_TRANSPORT_EXTENSION,
+  type MailTransportContext,
+  type MailTransportPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -92,5 +93,5 @@ export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
       return getOrCreateTransportForTenant(tenantId);
     }, // @wrapper-known semantic-alias
   };
-  r.useExtension("mailTransport", "inmemory", plugin);
+  r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
 });

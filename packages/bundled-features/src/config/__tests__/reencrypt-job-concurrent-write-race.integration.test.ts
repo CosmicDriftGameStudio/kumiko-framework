@@ -19,8 +19,8 @@ import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
+  createSystemDbView,
   createTenantDb,
-  createUncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -157,12 +157,23 @@ function racyJobCtx(
   };
   return {
     db: createTenantDb(stack.db, SYSTEM_TENANT_ID),
-    systemDb: createUncheckedSystemDb(createTenantDb(stack.db, SYSTEM_TENANT_ID, "system")),
+    systemDb: createSystemDbView(
+      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system", undefined, undefined, undefined, {
+        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      }),
+    ),
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: racyCipher,
     log,
-  } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log
+    // Without a sink, the job's escape-hatch reporter warn-logs through `log` and its
+    // report is deduped by the framework's process-wide window (escape-hatch-report.ts),
+    // so whether the unconditional per-run scan ack reaches `log.warn` here depends on
+    // unrelated sibling tests' order in the same process. A sink (mirrors production,
+    // where the audit feature wires one) routes that report away from `log` entirely,
+    // isolating this test from that shared window.
+    _escapeHatchAuditSink: async () => {},
+  } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log/_escapeHatchAuditSink
 }
 
 beforeAll(async () => {

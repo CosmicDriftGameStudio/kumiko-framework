@@ -3,6 +3,7 @@ import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engi
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createRendererFoundationApi } from "../api";
+import { RENDERER_EXTENSION, type RenderKind } from "../constants";
 import { collectRendererPlugins, createRendererFoundationFeature } from "../feature";
 import type { RenderRequest, RenderResponse } from "../types";
 
@@ -12,10 +13,10 @@ let stack: TestStack;
 
 // Mini-Plugin via defineFeature + r.useExtension — wie ein echter
 // renderer-plugin (renderer-simple, renderer-mail-html) sich registriert.
-function createTestPluginFeature(name: string, kinds: ReadonlyArray<string>) {
+function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>) {
   return defineFeature(`renderer-${name}`, (r) => {
     r.requires("renderer-foundation");
-    r.useExtension("renderer", name, {
+    r.useExtension(RENDERER_EXTENSION, name, {
       kinds,
       render: async (req: RenderRequest): Promise<RenderResponse> => {
         if (req.kind === "notification") return { kind: "notification", html: `via:${name}` };
@@ -83,6 +84,27 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "document-pdf" }).name).toBe(
       "puppeteer",
     );
+  });
+
+  test("collectRendererPlugins fails loud on a registration with invalid options", async () => {
+    const brokenStack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        defineFeature("renderer-broken", (r) => {
+          r.requires("renderer-foundation");
+          // @ts-expect-error kinds/render are required — proves the guard rejects an empty options bag instead of silently dropping the plugin
+          r.useExtension(RENDERER_EXTENSION, "broken", {});
+        }),
+      ],
+    });
+    try {
+      expect(() => collectRendererPlugins(brokenStack.registry)).toThrow(
+        `${RENDERER_EXTENSION} registration for "broken" has invalid options`,
+      );
+    } finally {
+      await brokenStack.cleanup();
+    }
   });
 
   test("Plugin.render mit echtem Pool fließt end-to-end durch", async () => {

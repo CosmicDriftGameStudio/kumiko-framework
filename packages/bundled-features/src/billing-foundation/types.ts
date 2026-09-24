@@ -26,7 +26,12 @@
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import type { BillingEventKinds, SubscriptionEventType, SubscriptionStatus } from "./constants";
+import {
+  type BillingEventKinds,
+  SUBSCRIPTION_PROVIDER_EXTENSION,
+  type SubscriptionEventType,
+  type SubscriptionStatus,
+} from "./constants";
 
 // =============================================================================
 // Normalisierter Webhook-Event
@@ -215,3 +220,10 @@ export type SubscriptionProviderPlugin = {
     providerSubscriptionId: string,
   ) => Promise<void>;
 };
+
+// r.useExtension options-shape, co-located since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [SUBSCRIPTION_PROVIDER_EXTENSION]: SubscriptionProviderPlugin;
+  }
+}

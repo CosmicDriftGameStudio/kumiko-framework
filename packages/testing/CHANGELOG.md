@@ -1,5 +1,76 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.306.0
+
+### Minor Changes
+
+- 0d5eef7: `GET /__test/inbox` and `mailCapture` now read tenantless mail (signup, forgot-password, magic-link) from an app's raw `createInMemoryTransport()` outbox, not just `mailTransportInMemoryFeature`'s per-tenant buffer.
+
+  `inboxQuerySchema`'s `tenantId` is now optional (`to` stays required). `createE2eSeedRoutes({ mailOutbox })` accepts `{ readonly sent: readonly EmailMessage[] }` — an app's raw transport passed through as-is. The route reads both sources when both are configured, filters each by `to` (case-insensitive), and returns the tenant buffer before the outbox, each **newest first**; two mails to the same address no longer come back oldest-first. With neither `mailTransportInMemoryFeature`+`tenantId` nor `mailOutbox` available, the route now names both ways to fix it in its 501.
+
+  `mailCapture(request, tenantId, to)` returning `Promise<CapturedMail[]>` is now `mailCapture(request, to, { tenantId?, match? })` returning `Promise<CapturedMail>` — the first mail in that order matching `to` (and `match`, if given), i.e. the newest one per source.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: mailCapture and the /__test/inbox route read tenantless mail via a new mailOutbox option
+  detail: |
+    Apps sending Dev/E2E mail through a raw createInMemoryTransport() (signup,
+    forgot-password, magic-link — flows with no tenant) had no way to read it
+    through the seed inbox route, which required tenantId and only checked
+    mailTransportInMemoryFeature's per-tenant buffer. createE2eSeedRoutes()
+    now accepts mailOutbox: { sent: readonly EmailMessage[] } (the raw
+    transport's own array); inboxQuerySchema's tenantId is optional. The route
+    reads whichever source(s) are configured, filters by to, and returns each
+    source newest-first instead of oldest-first.
+  migration: |
+    mailCapture(request, tenantId, to) -> mailCapture(request, to, { tenantId }),
+    and it now resolves to a single CapturedMail (the newest match) instead of
+    a readonly CapturedMail[]. Pass match: (mail) => boolean to pick a mail
+    other than the newest at that address. Apps with their own ungated debug
+    route for a raw transport (e.g. /_debug/mails.json) pass that transport as
+    createE2eSeedRoutes({ mailOutbox: transport }) and delete the app-local
+    route; tenantId becomes optional wherever only mailOutbox is used. Any
+    direct reader of GET /__test/inbox must expect newest-first ordering.
+  -->
+
+- 7d17b0e: `runMatrix` now supports real device emulation: a Playwright project named after a viewport id (`desktop`, `tablet`, `mobile`) with `use.isMobile: true` captures exactly `<name>.png` at the device's native size instead of looping `setViewportSize`, which would destroy the emulation. Any other project still runs the desktop pass, skipping the viewport ids a device project already covers. Without device projects, nothing changes. `SCREENSHOT_VIEWPORTS` filters both — a filtered-out device project's test is skipped with a reason, not run empty. Device projects using a WebKit device need `bunx playwright install webkit` in CI.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: runMatrix supports device-emulation Playwright projects for real native-size screenshots
+  -->
+
+### Patch Changes
+
+- 0d5eef7: New `clearSession(page)` in `@cosmicdrift/kumiko-testing/e2e`: navigates to `about:blank` before clearing cookies. Clearing cookies while an app page is still open lets that page redirect itself to `/login?next=…` on its next request, racing the test's next navigation (flaky session switches at 4 workers). `loginViaUi` now uses it. Apps replace `page.context().clearCookies()` with `clearSession(page)`.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: clearSession(page) for race-free session switches in E2E
+  -->
+
+- Updated dependencies [b43fe63]
+- Updated dependencies [8b4d672]
+- Updated dependencies [fdf9377]
+- Updated dependencies [499b9c2]
+- Updated dependencies [4f96ced]
+- Updated dependencies [2e332a3]
+- Updated dependencies [5785f57]
+- Updated dependencies [cb31fad]
+- Updated dependencies [b43fe63]
+- Updated dependencies [cbbbb19]
+- Updated dependencies [946f7e7]
+- Updated dependencies [c6013bd]
+- Updated dependencies [b43fe63]
+- Updated dependencies [659c575]
+- Updated dependencies [946f7e7]
+  - @cosmicdrift/kumiko-bundled-features@0.306.0
+  - @cosmicdrift/kumiko-framework@0.306.0
+  - @cosmicdrift/kumiko-dev-server@0.306.0
+
 ## 0.305.0
 
 ### Patch Changes

@@ -98,6 +98,9 @@ const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", 
       async exists() {
         return true;
       },
+      async list() {
+        return [];
+      },
       // **kein** getSignedUrl — pinst den 422-Pfad
     }),
   });
