@@ -1,12 +1,5 @@
 [
   {
-    "version": "0.307.0",
-    "type": "improvement",
-    "title": "computeEditViewModel threads section.actions and EditRelatedListSection.emptyState into the view model (fw#3234)",
-    "detail": "EditFieldsSectionViewModel, EditExtensionSectionViewModel, EditRelatedListSectionViewModel and EditWriteFormSectionViewModel all carry the spec's optional `actions` unchanged; EditRelatedListSectionViewModel's `emptyState.title`/`description` are translated the same way section.title already is.",
-    "migration": "Additive — a view model without actions/emptyState in its spec is unaffected."
-  },
-  {
     "version": "0.289.0",
     "type": "improvement",
     "title": "headless gains resolveAndInjectPageHead/injectPageHead for per-request head injection",

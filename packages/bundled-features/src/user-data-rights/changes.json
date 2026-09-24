@@ -1,11 +1,5 @@
 [
   {
-    "version": "0.307.0",
-    "type": "fix",
-    "title": "The privacy-center screen's \"restrict\" action declares an explicit icon",
-    "detail": "The boot validator now requires every projectionDetail action to resolve an icon (fw#3234); \"restrict\" resolved none from the shared id-derived map, so it now declares `icon: \"lock\"` explicitly. \"request-deletion\" needed no change — it now resolves via the shared map's new `deletion: \"trash\"` entry (@cosmicdrift/kumiko-types)."
-  },
-  {
     "version": "0.289.0",
     "type": "improvement",
     "title": "Deletion tokens are genuinely single-use, and a losing redeem no longer leaks status",
