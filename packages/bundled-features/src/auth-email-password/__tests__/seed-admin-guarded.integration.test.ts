@@ -179,4 +179,35 @@ describe("seedAdminGuarded (offlot#114)", () => {
     expect(await userIds()).toHaveLength(2);
     expect((await userIds()).slice().sort()).toEqual([unrelated.id, admin.id].sort());
   });
+
+  test("a KMS without a blind-index key aborts instead of seeding a blind duplicate", async () => {
+    await seedAdminGuarded(stack.db, seedOptions);
+    resetBlindIndexKeyForTests();
+
+    await expect(seedAdminGuarded(stack.db, seedOptions)).rejects.toThrow(/blind-index key/);
+    expect(await userIds()).toHaveLength(1);
+  });
+
+  test("existing-user branch reconciles emailVerified onto the canonical row", async () => {
+    const first = await seedAdminGuarded(stack.db, seedOptions);
+    await blankBlindIndex();
+
+    const second = await seedAdminGuarded(stack.db, { ...seedOptions, emailVerified: true });
+
+    expect(second.id).toBe(first.id);
+    expect(await userIds()).toEqual([first.id]);
+    const rows = await selectMany<{ id: string; emailVerified: boolean }>(stack.db, userTable);
+    expect(rows.find((r) => r.id === first.id)?.emailVerified).toBe(true);
+  });
+
+  test("without a configured KMS, seeding runs the plaintext path unguarded", async () => {
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+
+    const first = await seedAdminGuarded(stack.db, seedOptions);
+    const second = await seedAdminGuarded(stack.db, seedOptions);
+
+    expect(second.id).toBe(first.id);
+    expect(await userIds()).toEqual([first.id]);
+  });
 });
