@@ -1,3 +1,5 @@
+import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import { runWithWriteOrigin } from "../api/request-context";
 import type { SseBroker } from "../api/sse-broker";
 import type { buildEntityTable } from "../db/table-builder";
 import {
@@ -18,7 +20,7 @@ import type {
   WriteResult,
 } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
-import { reraiseAsKumikoError } from "../errors";
+import { InternalError, reraiseAsKumikoError } from "../errors";
 import { getFallbackMeter, getFallbackTracer, registerStandardMetrics } from "../observability";
 import { createEscapeHatchReportWindow } from "../observability/escape-hatch-report";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
@@ -32,7 +34,7 @@ import type { IdempotencyGuard } from "./idempotency";
 import type { LifecycleHooks } from "./lifecycle-pipeline";
 import { createMemberReaderFn } from "./member-reader";
 import { createTenantTimezoneCache } from "./tenant-timezone-cache";
-import { rootWriteOrigin } from "./write-origin";
+import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
@@ -111,12 +113,55 @@ export type Dispatcher = {
   createMemberReader(tenantId: TenantId): MemberReader;
 };
 
+// Kept off the public Dispatcher type: only a job may pass an inherited origin.
+type DispatcherInternals = {
+  writeWithOrigin: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    inheritedOrigin: WriteOrigin,
+  ) => Promise<WriteResult>;
+  queryWithOrigin: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    inheritedOrigin: WriteOrigin,
+  ) => Promise<unknown>;
+};
+
+const dispatcherInternals = new WeakMap<Dispatcher, DispatcherInternals>();
+
 // Adapts Dispatcher's (type, payload, user) call shape to DispatchWriteRef's
 // (user, qn, payload) — JobRunner.attachDispatcher needs the latter.
 export function dispatcherToWriteRef(dispatcher: Dispatcher): DispatchWriteRef {
+  const internals = dispatcherInternals.get(dispatcher);
   return {
-    write: (user, qn, payload) => dispatcher.write(qn, payload, user),
-    queryAs: (user, qn, payload) => dispatcher.query(qn, payload, user),
+    write: (user, qn, payload, inheritedOrigin) => {
+      if (inheritedOrigin && isPersonalDataGated(inheritedOrigin)) {
+        if (!internals) {
+          throw new InternalError({
+            message:
+              `JobContext.write("${qn}") carries a gated origin but this dispatcher has no ` +
+              "registered origin-aware internals — refusing to fall open to the ungated path.",
+          });
+        }
+        return internals.writeWithOrigin(qn, payload, user, inheritedOrigin);
+      }
+      return dispatcher.write(qn, payload, user);
+    },
+    queryAs: (user, qn, payload, inheritedOrigin) => {
+      if (inheritedOrigin && isPersonalDataGated(inheritedOrigin)) {
+        if (!internals) {
+          throw new InternalError({
+            message:
+              `JobContext.queryAs("${qn}") carries a gated origin but this dispatcher has no ` +
+              "registered origin-aware internals — refusing to fall open to the ungated path.",
+          });
+        }
+        return internals.queryWithOrigin(qn, payload, user, inheritedOrigin);
+      }
+      return dispatcher.query(qn, payload, user);
+    },
     createMemberReader: (tenantId) => dispatcher.createMemberReader(tenantId),
   };
 }
@@ -173,7 +218,7 @@ export function createDispatcher(
     membershipQuery,
   };
 
-  return {
+  const dispatcher: Dispatcher = {
     async write(typeOrRef, payload, user, requestId?) {
       const type = resolveType(typeOrRef);
       // Idempotency handled inside runBatch (caches BatchResult under requestId).
@@ -185,7 +230,8 @@ export function createDispatcher(
 
     query: (typeOrRef, payload, user) => {
       const type = resolveType(typeOrRef);
-      return executeQuery(ctx, type, payload, user, rootWriteOrigin(registry, type, user));
+      const origin = rootWriteOrigin(registry, type, user);
+      return runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin));
     },
 
     stream: (typeOrRef, payload, user) => {
@@ -210,4 +256,23 @@ export function createDispatcher(
 
     createMemberReader: (tenantId) => createMemberReaderFn(ctx, tenantId),
   };
+
+  dispatcherInternals.set(dispatcher, {
+    writeWithOrigin: async (type, payload, user, inheritedOrigin) => {
+      const batchResult = await runBatch(
+        ctx,
+        [{ type, payload }],
+        user,
+        undefined,
+        inheritedOrigin,
+      );
+      return unwrapSingle(batchResult);
+    },
+    queryWithOrigin: (type, payload, user, inheritedOrigin) => {
+      const origin = effectiveWriteOrigin(rootWriteOrigin(registry, type, user), inheritedOrigin);
+      return runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin));
+    },
+  });
+
+  return dispatcher;
 }

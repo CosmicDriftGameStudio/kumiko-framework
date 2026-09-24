@@ -1,4 +1,5 @@
-import { requestContext } from "../api/request-context";
+import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import { requestContext, runWithWriteOrigin } from "../api/request-context";
 import type { DbConnection } from "../db/connection";
 import { transaction } from "../db/query";
 import type { DeleteContext, SaveContext, SessionUser, WriteResult } from "../engine/types";
@@ -14,7 +15,20 @@ import {
   isLifecycleResult,
   wrapToKumiko,
 } from "./dispatcher-utils";
-import { rootWriteOrigin } from "./write-origin";
+import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin";
+
+// afterCommit hooks fire in flushAfterCommit, outside the command's scope.
+function rewrapHooksWithOrigin(
+  afterCommitHooks: AfterCommitHook[],
+  fromIndex: number,
+  origin: WriteOrigin,
+): void {
+  for (let i = fromIndex; i < afterCommitHooks.length; i++) {
+    const original = afterCommitHooks[i];
+    if (!original) continue;
+    afterCommitHooks[i] = () => runWithWriteOrigin(origin, original);
+  }
+}
 
 // Core batch logic extracted so write() and command() can reuse it
 // (a single write = batch of one, running in its own transaction).
@@ -23,15 +37,18 @@ export async function runBatch(
   commands: readonly BatchCommand[],
   user: SessionUser,
   requestId?: string,
+  inheritedOrigin?: WriteOrigin,
 ): Promise<BatchResult> {
   const current = requestContext.get();
   if (!current?.signal) {
-    return runBatchBody(ctx, commands, user, requestId);
+    return runBatchBody(ctx, commands, user, requestId, inheritedOrigin);
   }
   // Strip the signal: a disconnect would roll back the tx, idempotency would
   // cache a 500 for the uncommitted write and afterCommit effects would be lost.
   const { signal: _signal, ...withoutSignal } = current;
-  return requestContext.run(withoutSignal, () => runBatchBody(ctx, commands, user, requestId));
+  return requestContext.run(withoutSignal, () =>
+    runBatchBody(ctx, commands, user, requestId, inheritedOrigin),
+  );
 }
 
 async function runBatchBody(
@@ -39,6 +56,7 @@ async function runBatchBody(
   commands: readonly BatchCommand[],
   user: SessionUser,
   requestId?: string,
+  inheritedOrigin?: WriteOrigin,
 ): Promise<BatchResult> {
   const { idempotency, lifecycle, appContext: context } = ctx;
   if (commands.length === 0) {
@@ -109,10 +127,12 @@ async function runBatchBody(
     }
   };
 
+  const origins: WriteOrigin[] = [];
+
   // Fires the batch-level system hooks with every successful save/delete
   // context from this run. Called after flushAfterCommit so per-save hooks
   // have all completed first; errors are isolated inside lifecycleHooks.
-  const flushBatchHooks = async () => {
+  const flushBatchHooksInner = async () => {
     try {
       const saves: SaveContext[] = [];
       const deletes: DeleteContext[] = [];
@@ -133,6 +153,14 @@ async function runBatchBody(
     }
   };
 
+  // Batch hooks see every command's saves, so they run under the strictest origin.
+  const flushBatchHooks = async () => {
+    const strictest = origins.find(isPersonalDataGated) ?? origins[0];
+    // skip: no command ran, so batch hooks have no saves or deletes to see
+    if (!strictest) return;
+    await runWithWriteOrigin(strictest, flushBatchHooksInner);
+  };
+
   // batch() opens its own outer transaction — needs the top-level
   // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
   const db = resolveDbSource(ctx, undefined) as DbConnection | undefined;
@@ -143,15 +171,16 @@ async function runBatchBody(
     for (let i = 0; i < commands.length; i++) {
       const cmd = commands[i];
       if (!cmd) continue;
-      const res = await executeNestedWrite(
-        ctx,
-        cmd.type,
-        cmd.payload,
-        user,
+      const origin = effectiveWriteOrigin(
         rootWriteOrigin(ctx.registry, cmd.type, user),
-        undefined,
-        afterCommitHooks,
+        inheritedOrigin,
       );
+      origins.push(origin);
+      const hookStart = afterCommitHooks.length;
+      const res = await runWithWriteOrigin(origin, () =>
+        executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, undefined, afterCommitHooks),
+      );
+      rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
       results.push(res);
       if (!res.isSuccess) {
         // No tx means no rollback — but we still drop afterCommit hooks,
@@ -170,15 +199,16 @@ async function runBatchBody(
       for (let i = 0; i < commands.length; i++) {
         const cmd = commands[i];
         if (!cmd) continue;
-        const res = await executeNestedWrite(
-          ctx,
-          cmd.type,
-          cmd.payload,
-          user,
+        const origin = effectiveWriteOrigin(
           rootWriteOrigin(ctx.registry, cmd.type, user),
-          tx,
-          afterCommitHooks,
+          inheritedOrigin,
         );
+        origins.push(origin);
+        const hookStart = afterCommitHooks.length;
+        const res = await runWithWriteOrigin(origin, () =>
+          executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+        );
+        rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
         results.push(res);
         if (!res.isSuccess) {
           throw new BatchRollback(i, res.error);

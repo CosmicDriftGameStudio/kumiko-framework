@@ -45,7 +45,22 @@ export type EventMetadata = {
   // every new row carries both, falling back to UNATTRIBUTED_ORIGIN.
   readonly feature?: string;
   readonly handler?: string;
+  // Only set under an anonymous root without public-intake, so event-triggered
+  // jobs keep the personal-data gate.
+  readonly writeOrigin?: WriteOrigin;
 };
+
+export type WriteOrigin = {
+  readonly rootHandler: string;
+  readonly anonymousRoot: boolean;
+  // Only a write-handler root can declare public-intake; a query/stream root never does.
+  readonly publicIntake: boolean;
+  readonly viaJob?: string;
+};
+
+export function isPersonalDataGated(origin: WriteOrigin): boolean {
+  return origin.anonymousRoot && !origin.publicIntake;
+}
 
 // Stamped when an append runs outside any attributed scope (seed scripts,
 // tests, direct event-store use). A distinct value, not an omission —

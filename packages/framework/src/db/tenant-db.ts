@@ -51,6 +51,41 @@ const declaredUnsafeRawRunners = new WeakMap<
 // (withUnsafeRawGrant, acknowledgeConventionCrossTenant) carry it too.
 const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
 
+// Lets createTenantDb(ctx.db.unsafeRaw(reason), ...) inherit the gate. Keyed by a
+// per-grant proxy, never the shared pool/tx: tagging that would gate every sibling TenantDb.
+const runnerPersonalDataGates = new WeakMap<DbRunner, PersonalDataGate>();
+
+function gatedRunner(runner: DbRunner, gate: PersonalDataGate): DbRunner {
+  const proxy = new Proxy(runner as object, {
+    // Tagged-template calls need the real driver object as `this`.
+    apply(target, _thisArg, args) {
+      return Reflect.apply(target as (...callArgs: unknown[]) => unknown, target, args);
+    },
+    get(target, prop, _receiver) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== "function") return value;
+      if (prop === "begin" || prop === "savepoint") {
+        // createTenantDb(tx, ...) inside the callback must inherit the gate too.
+        return (...args: unknown[]) => {
+          const callback = args[args.length - 1];
+          if (typeof callback !== "function") {
+            return Reflect.apply(value, target, args);
+          }
+          const gatedArgs = [
+            ...args.slice(0, -1),
+            (tx: unknown) => callback(gatedRunner(tx as DbRunner, gate)),
+          ];
+          return Reflect.apply(value, target, gatedArgs);
+        };
+      }
+      return value.bind(target);
+    },
+    // @cast-boundary proxy-erasure — Proxy<object> re-tags as the wrapped DbRunner shape.
+  }) as DbRunner;
+  runnerPersonalDataGates.set(proxy, gate);
+  return proxy;
+}
+
 // The executor passes its entity so the check does not depend on the table-name lookup.
 export function assertPersonalDataWrite(
   db: TenantDb,
@@ -151,7 +186,9 @@ function buildUncheckedSystemDb(
       });
     }
     report("unsafe-raw", reason);
-    return tenantDbRunner(db);
+    const runner = tenantDbRunner(db);
+    const personalDataGate = personalDataGates.get(db);
+    return personalDataGate ? gatedRunner(runner, personalDataGate) : runner;
   }
 
   const uncheckedSystemDb: UncheckedSystemDb = {
@@ -352,6 +389,7 @@ export function createTenantDb(
 ): TenantDb {
   if (meter) registerStandardMetrics(meter);
   const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
+  const personalDataGate = grants?.personalDataGate ?? runnerPersonalDataGates.get(db);
 
   function withDbSpan<T>(
     operation: "select" | "insert" | "update" | "delete",
@@ -452,9 +490,9 @@ export function createTenantDb(
     table: Table | EntityTableMeta,
     keys: readonly string[],
   ): AccessDeniedError | undefined {
-    if (!grants?.personalDataGate) return undefined;
+    if (!personalDataGate) return undefined;
     try {
-      grants.personalDataGate(tableNameOf(table), keys);
+      personalDataGate(tableNameOf(table), keys);
       return undefined;
     } catch (e) {
       if (e instanceof AccessDeniedError) return e;
@@ -553,7 +591,7 @@ export function createTenantDb(
       });
     }
     report("unsafe-raw", reason);
-    return db;
+    return personalDataGate ? gatedRunner(db, personalDataGate) : db;
   }
 
   const tenantDb: TenantDb = {
@@ -648,7 +686,7 @@ export function createTenantDb(
     return createTenantDb(db, tenantId, "system", tracer, meter, signal, grants);
   });
   bindTenantDbRunner(tenantDb, db);
-  if (grants?.personalDataGate) personalDataGates.set(tenantDb, grants.personalDataGate);
+  if (personalDataGate) personalDataGates.set(tenantDb, personalDataGate);
   return tenantDb;
 }
 
