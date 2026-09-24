@@ -1,5 +1,5 @@
 import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { DEFAULT_LEDGER_ACCESS } from "../constants";
 import { accountTable, transactionTable } from "../executor";
 import {

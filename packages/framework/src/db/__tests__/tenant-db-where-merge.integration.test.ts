@@ -6,7 +6,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { selectMany } from "../../bun-db";
 import {
   createEntity,

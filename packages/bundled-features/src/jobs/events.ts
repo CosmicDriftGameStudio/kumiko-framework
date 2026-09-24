@@ -4,7 +4,7 @@
 // jobRunsTable/jobRunLogsTable, so an out-of-dispatcher write still gets the
 // same validation guarantee ctx.appendEvent used to give it.
 
-import { z } from "zod";
+import * as z from "zod";
 
 export const jobLogEntrySchema = z.object({
   level: z.enum(["info", "warn", "error"]),

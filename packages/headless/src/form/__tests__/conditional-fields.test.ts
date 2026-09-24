@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createFormController } from "../form-controller";
 
 describe("conditional fields — FieldState resolution", () => {

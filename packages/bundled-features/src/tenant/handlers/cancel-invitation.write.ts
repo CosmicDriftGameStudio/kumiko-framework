@@ -14,7 +14,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
 import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store";
 import {

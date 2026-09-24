@@ -5,7 +5,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { AuthErrors } from "../../auth-email-password";
 import { decryptStoredPii, verifyPassword } from "../../shared";
 import { UserErrors, UserHandlers, UserQueries } from "../../user";

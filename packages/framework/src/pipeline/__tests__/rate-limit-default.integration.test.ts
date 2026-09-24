@@ -4,7 +4,7 @@
 // rate-limit/__tests__/dispatcher-l3.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createSystemUser, defineFeature } from "../../engine";
 import type { RateLimitConfig, RateLimitDecision, RateLimitResolver } from "../../rate-limit";
 import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack";

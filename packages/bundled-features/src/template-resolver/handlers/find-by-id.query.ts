@@ -1,6 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
 
 // Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/

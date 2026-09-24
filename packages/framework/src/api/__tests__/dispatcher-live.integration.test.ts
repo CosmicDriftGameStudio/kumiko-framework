@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { generateToken } from "../../api/tokens";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";

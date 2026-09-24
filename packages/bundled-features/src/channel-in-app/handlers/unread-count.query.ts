@@ -1,6 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { inAppMessagesTable } from "../tables";
 
 export const unreadCountQuery = defineQueryHandler({

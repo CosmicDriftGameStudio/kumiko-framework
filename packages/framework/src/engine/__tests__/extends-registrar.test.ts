@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { AccessDeniedError } from "../../errors";
 import { createGatedIdentitySwitch, type QueryAsFn } from "../../pipeline/system-identity-switch";
 import {

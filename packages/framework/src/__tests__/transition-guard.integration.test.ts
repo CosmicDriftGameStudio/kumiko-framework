@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable } from "../db/table-builder";
 import {

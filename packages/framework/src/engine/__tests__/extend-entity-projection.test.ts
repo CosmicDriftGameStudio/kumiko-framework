@@ -3,7 +3,7 @@
 // custom-fields/__tests__/custom-fields.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../define-feature";
 import { createEntity, createTextField } from "../factories";
 import { createRegistry } from "../registry";

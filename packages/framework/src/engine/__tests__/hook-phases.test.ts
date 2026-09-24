@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEntity, createRegistry, defineFeature, HookPhases } from "../index";
 import type { AppContext, PostSaveHookFn, SaveContext } from "../types";
 

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createFormController } from "../form-controller";
 
 describe("createFormController — core state machine", () => {

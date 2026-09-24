@@ -8,7 +8,7 @@
 //      im Browser-Bundle.
 
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";

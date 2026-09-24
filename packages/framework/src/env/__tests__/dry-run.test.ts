@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../engine/define-feature";
 import { prometheusMetricsEnvSchema } from "../../observability/metrics-wiring";
 import { renderDryRun } from "../dry-run";

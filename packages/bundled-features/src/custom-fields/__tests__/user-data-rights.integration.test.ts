@@ -40,7 +40,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { z } from "zod";
+import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";

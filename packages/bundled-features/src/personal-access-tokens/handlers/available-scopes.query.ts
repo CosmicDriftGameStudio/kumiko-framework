@@ -1,5 +1,5 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import type { PatScopeConfig } from "../scopes";
 
 // Returns the app-declared scope domains ({name, label, canWrite}) so the mint

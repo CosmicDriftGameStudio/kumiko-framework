@@ -7,7 +7,7 @@
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
-import { z } from "zod";
+import * as z from "zod";
 
 export const reindexEntityPayloadSchema = z.object({
   entity: z.string().min(1),

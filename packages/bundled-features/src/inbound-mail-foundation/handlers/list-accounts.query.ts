@@ -12,7 +12,7 @@ import {
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { MAIL_ACCOUNT_PII_FIELDS } from "../entities";
 import { mailAccountsProjectionTable } from "../projection";
 import { isVisibleToCaller } from "./scope-visibility";

@@ -1,6 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { parseRetentionOverrideOrNull } from "../_internal/parse-override";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "../resolver";
 import { tenantRetentionOverrideTable } from "../schema/tenant-retention-override";

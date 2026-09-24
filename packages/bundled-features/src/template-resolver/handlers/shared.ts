@@ -1,5 +1,5 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { z } from "zod";
+import * as z from "zod";
 import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../constants";
 import { templateResourceEntity, templateResourcesTable } from "../table";
 

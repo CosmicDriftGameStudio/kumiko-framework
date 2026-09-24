@@ -8,7 +8,7 @@
 //      consecutive versions without re-reading the DB.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient } from "../../db/query-api";
 import { buildEntityTable } from "../../db/table-builder";

@@ -4,7 +4,7 @@ import {
   crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import {
   type CollectionEntryRow,
   collectionStore,

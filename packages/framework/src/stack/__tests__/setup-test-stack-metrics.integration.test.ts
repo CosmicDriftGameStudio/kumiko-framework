@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { resolveObservabilityWiring } from "../../observability/metrics-wiring";
 import { setupTestStack, type TestStack } from "../test-stack";

@@ -1,6 +1,6 @@
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { inAppMessagesTable } from "../tables";
 
 export const markAllReadWrite = defineWriteHandler({

@@ -15,7 +15,7 @@ import {
   useExtensionFormSubmit,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../../renderer/src/components/render-edit";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives";
 import {

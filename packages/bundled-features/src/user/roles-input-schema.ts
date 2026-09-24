@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 /** Accept string[] or a JSON-encoded string[]; reject bare non-JSON strings. */
 export const rolesInputSchema = z.union([

@@ -14,7 +14,7 @@
 // Without meta, defaults: `camelCase(envVarName)` for the Pulumi key,
 // `<set-me>` placeholder for the value, no `--secret` flag.
 
-import { z } from "zod";
+import * as z from "zod";
 import type { FeatureDefinition } from "../engine/types/feature";
 import { zodDef, zodDescription, zodMeta, zodShape, zodShapeField } from "./_zod-introspect";
 

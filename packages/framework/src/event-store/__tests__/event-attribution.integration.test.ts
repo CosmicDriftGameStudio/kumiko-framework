@@ -15,7 +15,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { UNATTRIBUTED_ORIGIN, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";

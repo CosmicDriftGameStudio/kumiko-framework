@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { defaultPrimitives } from "../primitives";
 import type { LocatedTimestampValue } from "../primitives/located-timestamp-input";
 import { render } from "./test-utils";

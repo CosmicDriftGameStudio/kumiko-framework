@@ -5,7 +5,7 @@
 // handler on a parentRef entity must fail boot rather than leak silently.
 
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../define-feature";
 import { defineEntityDetailHandler, defineEntityListHandler } from "../../entity-handlers";
 import { createEntity, createTextField } from "../../factories";

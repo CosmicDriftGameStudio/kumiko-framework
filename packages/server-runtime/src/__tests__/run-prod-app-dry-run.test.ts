@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
-import { z } from "zod";
+import * as z from "zod";
 import { runProdApp } from "../run-prod-app";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
 

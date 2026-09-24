@@ -30,7 +30,7 @@ import {
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens";
 import { USER_STATUS } from "../../user";
 import {

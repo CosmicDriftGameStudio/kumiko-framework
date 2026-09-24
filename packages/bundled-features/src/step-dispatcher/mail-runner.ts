@@ -2,7 +2,7 @@
 // Production wiring (mail-foundation transport) is a follow-up; the
 // default impl throws so a missing setMailRunner is loud, not silent.
 
-import { z } from "zod";
+import * as z from "zod";
 
 export const mailSpecSchema = z.object({
   to: z.union([z.string(), z.array(z.string())]),

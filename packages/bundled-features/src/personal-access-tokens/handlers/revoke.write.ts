@@ -3,7 +3,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { PatErrors } from "../constants";
 import { PAT_REVOKED_AGGREGATE_TYPE, PAT_REVOKED_EVENT_QN } from "../pat-revoked-event";
 import { apiTokenTable } from "../schema/api-token";

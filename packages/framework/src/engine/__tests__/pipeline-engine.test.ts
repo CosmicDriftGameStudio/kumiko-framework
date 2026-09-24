@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
+import * as z from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";
 import { defineStep } from "../define-step";

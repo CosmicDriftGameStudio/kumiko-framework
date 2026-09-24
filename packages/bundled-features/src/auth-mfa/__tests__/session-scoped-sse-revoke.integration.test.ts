@@ -45,7 +45,7 @@ import {
   createTestEnvelopeCipher,
   resetTestTables,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createConfigFeature } from "../../config";

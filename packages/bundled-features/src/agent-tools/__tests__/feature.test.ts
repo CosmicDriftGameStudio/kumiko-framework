@@ -1,6 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { AGENT_TOOLS_FEATURE_NAME, createAgentToolsFeature } from "../feature";
 
 async function noopWriteHandler() {

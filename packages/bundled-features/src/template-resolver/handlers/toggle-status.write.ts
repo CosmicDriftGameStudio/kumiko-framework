@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
 import { executor } from "./shared";

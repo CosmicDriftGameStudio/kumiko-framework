@@ -34,7 +34,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { startDevJobRunners } from "../job-run-logger";
 
 let testDb: TestDb;

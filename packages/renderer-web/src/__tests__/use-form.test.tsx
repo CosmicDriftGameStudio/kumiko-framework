@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, useForm } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { act, createMockDispatcher, renderHook } from "./test-utils";
 
 type Values = { title: string; count?: number };

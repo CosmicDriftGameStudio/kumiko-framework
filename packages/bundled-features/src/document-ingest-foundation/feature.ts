@@ -18,7 +18,7 @@ import {
   defineFeature,
   EXT_TENANT_DATA,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { documentExtractEntity } from "./entity";
 import {
   DOCUMENT_INGEST_AGGREGATE_TYPE,

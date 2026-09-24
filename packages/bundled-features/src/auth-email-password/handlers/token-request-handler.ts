@@ -15,7 +15,7 @@
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { UserQueries } from "../../user";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";
 import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "../email-templates";

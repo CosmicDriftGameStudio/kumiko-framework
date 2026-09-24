@@ -10,7 +10,7 @@ import { executeRawQuery } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { redeemRowBoundGrant, signRowBoundGrant } from "../row-bound-grant";
 
 const TABLE = "row_bound_grant_demo";

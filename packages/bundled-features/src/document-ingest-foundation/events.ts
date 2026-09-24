@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // documentIngest — own aggregate-type for the ingest-request stream, one
 // stream per fileRef (aggregateId = fileRefId). Not backed by an r.entity;

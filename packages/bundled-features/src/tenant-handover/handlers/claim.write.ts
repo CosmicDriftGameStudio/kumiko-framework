@@ -7,7 +7,7 @@ import {
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { redeemRowBoundGrant } from "../../shared";
 import { TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE, TENANT_HANDOVER_CLAIMED_EVENT_QN } from "../events";
 import { tenantHandoverPurpose } from "../grant";

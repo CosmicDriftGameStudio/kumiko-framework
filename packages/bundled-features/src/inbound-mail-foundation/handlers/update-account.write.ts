@@ -5,7 +5,7 @@
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { InboundMailAccountStatuses } from "../constants";
 import {
   MAIL_ACCOUNT_AGGREGATE_TYPE,

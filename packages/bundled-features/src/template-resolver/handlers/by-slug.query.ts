@@ -3,7 +3,7 @@ import {
   crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
 

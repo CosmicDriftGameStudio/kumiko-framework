@@ -10,7 +10,7 @@ import {
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { LOCALE_HEADER_NAME } from "../api-constants";
 
 const localeProbe = defineFeature("locale-probe", (r) => {

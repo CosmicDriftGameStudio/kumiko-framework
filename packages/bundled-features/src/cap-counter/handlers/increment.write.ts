@@ -1,5 +1,5 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage";
 
 const incrementSchema = z.object({

@@ -16,7 +16,7 @@
 // msp-multi-hop.integration.ts.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { requestContext } from "../../api/request-context";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { selectMany } from "../../db/query";

@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo, useState } from "react";
-import { z } from "zod";
+import * as z from "zod";
 import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema";
 import { dispatcherErrorText } from "../app/write-failed-error";
 import { useForm } from "../hooks/use-form";

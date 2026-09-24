@@ -6,7 +6,7 @@
 // All helpers accept the *runtime* Zod instance — TypeScript wrapper
 // (`z.ZodType`) and core (`$ZodType`) are the same object at runtime.
 
-import type { z } from "zod";
+import type * as z from "zod";
 
 export type ZodDef = {
   readonly innerType?: z.ZodType;

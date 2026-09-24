@@ -4,7 +4,7 @@ import {
   defineWriteHandler,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { hashPassword, verifyPassword } from "../../shared";
 import { UserHandlers, UserQueries } from "../../user";
 import { invalidCredentials } from "../errors";

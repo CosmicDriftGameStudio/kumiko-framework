@@ -15,7 +15,7 @@
 // resolved den Tenant.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
 import type { SubscriptionProviderPlugin } from "../types";
 

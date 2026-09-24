@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
 import { rowMetaFieldNames } from "../../db/table-builder";

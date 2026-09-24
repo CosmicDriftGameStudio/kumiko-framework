@@ -32,7 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { z } from "zod";
+import * as z from "zod";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
 import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
 import { exportDownloadTokensTable } from "../schema/download-token";

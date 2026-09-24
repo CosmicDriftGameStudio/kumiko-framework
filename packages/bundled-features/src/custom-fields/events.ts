@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // Domain-Events für custom-field-VALUES. customField.set + .cleared leben
 // auf der host-aggregate stream (Plan-Doc v2 ES-Option-B: customField-Events

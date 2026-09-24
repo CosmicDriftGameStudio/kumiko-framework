@@ -26,7 +26,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createChannelEmailFeature } from "../../channel-email/feature";
 import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types";
 import { InAppHandlers, InAppQueries } from "../../channel-in-app/constants";

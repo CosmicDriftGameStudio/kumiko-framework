@@ -10,7 +10,7 @@
 // accounting-export, churn-analytics) listenen direkt auf den event-
 // type ohne payload-discriminator.
 
-import { z } from "zod";
+import * as z from "zod";
 import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants";
 
 // Aggregate-type für den event-store. Eine subscription pro Tenant ist

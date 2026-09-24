@@ -7,7 +7,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
-import { z } from "zod";
+import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, TenantId } from "../../engine/types";
 import { createTestRedis, type TestRedis } from "../../stack";

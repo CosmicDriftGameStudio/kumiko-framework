@@ -13,7 +13,7 @@
 // fallback auf Preset/Entity-Default), aber WAS gesetzt ist muss
 // gueltig sein.
 
-import { z } from "zod";
+import * as z from "zod";
 
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 

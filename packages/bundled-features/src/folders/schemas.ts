@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // set-folder + clear-folder share the (entity) reference shape; set-folder adds
 // the target folderId. Folder catalog CRUD (create/update/delete) uses the

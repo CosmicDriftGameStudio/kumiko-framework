@@ -17,7 +17,7 @@ import {
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
 import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities";

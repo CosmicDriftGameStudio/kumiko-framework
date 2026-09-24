@@ -1,5 +1,5 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { MANAGED_PAGES_CSS_FEATURE, readBranding, readCustomCss } from "../branding";
 
 // Public branding read for the server-render path. Anonymous-capable: the

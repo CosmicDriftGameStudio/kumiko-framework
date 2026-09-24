@@ -10,7 +10,7 @@
 // so a >= assertion is flake-free without inflating waitFor's budget.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { waitFor } from "../../testing";

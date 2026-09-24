@@ -4,7 +4,7 @@
 // context slot and isn't guaranteed by this test passing.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { InternalError, writeFailure } from "../../errors";
 import { waitFor } from "../../testing";

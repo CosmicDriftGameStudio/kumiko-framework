@@ -12,7 +12,7 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";

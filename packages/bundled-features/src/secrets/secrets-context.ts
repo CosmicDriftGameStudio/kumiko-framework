@@ -34,7 +34,7 @@ import {
   withDekCache,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { selectTenantSecretEnvelope } from "./db/queries/read";
 import {
   type StoredEnvelope,

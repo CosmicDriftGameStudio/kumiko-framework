@@ -1,6 +1,6 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { RateLimitErrors } from "../constants";
 import { bucketAccessDenied } from "./bucket-access";
 

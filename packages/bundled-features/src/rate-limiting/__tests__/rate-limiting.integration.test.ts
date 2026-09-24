@@ -13,7 +13,7 @@ import {
   TestUsers,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createRateLimitingFeature } from "../feature";
 
 let stack: TestStack;

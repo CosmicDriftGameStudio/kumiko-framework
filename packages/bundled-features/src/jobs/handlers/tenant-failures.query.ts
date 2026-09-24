@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantJobFailuresTable } from "../tenant-job-failure-table";
 
 type TenantJobFailureRow = {

@@ -6,7 +6,7 @@ import {
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { userTable } from "../../user";
 import { tenantMembershipsTable } from "../membership-table";

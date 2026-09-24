@@ -24,7 +24,7 @@ import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver";

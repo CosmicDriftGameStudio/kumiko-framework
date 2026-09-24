@@ -23,7 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import * as jose from "jose";
-import { z } from "zod";
+import * as z from "zod";
 import type { KumikoServerHandle } from "../create-kumiko-server";
 import { runDevApp } from "../run-dev-app";
 

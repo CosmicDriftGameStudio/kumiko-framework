@@ -31,7 +31,7 @@ import {
   updateRows,
   waitFor,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

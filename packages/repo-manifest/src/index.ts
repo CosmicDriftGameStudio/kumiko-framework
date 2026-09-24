@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { z } from "zod";
+import * as z from "zod";
 
 export const REPO_MANIFEST_FILE = "kumiko.json";
 

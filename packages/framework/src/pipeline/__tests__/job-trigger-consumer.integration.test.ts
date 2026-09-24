@@ -17,7 +17,7 @@
 // produce, not something exercised end-to-end by any test today.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { entityEventName } from "../../db";
 import { defineFeature } from "../../engine";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files";

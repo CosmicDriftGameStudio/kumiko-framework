@@ -17,7 +17,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { mergeConfigResolverDefault } from "../run-dev-app";
 
 // Pins runDevApp's ENV→config-app-override wiring: mergeConfigResolverDefault

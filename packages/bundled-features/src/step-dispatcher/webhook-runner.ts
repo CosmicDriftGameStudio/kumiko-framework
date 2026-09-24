@@ -1,7 +1,7 @@
 // Webhook execution logic — separated from feature.ts so tests can stub
 // the fetch without touching the MSP wiring.
 
-import { z } from "zod";
+import * as z from "zod";
 
 export const webhookSpecSchema = z.object({
   url: z.string(),

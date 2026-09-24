@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { userTable } from "../schema/user";
 
 // Privileged auth lookup: returns the full user row — including passwordHash —

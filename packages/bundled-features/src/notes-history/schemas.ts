@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // entityType/entityId are app-supplied — mirror tags' NO_PIPE guard isn't
 // needed here since note-entry has no deterministic aggregate-id derived

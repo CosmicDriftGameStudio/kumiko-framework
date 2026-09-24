@@ -4,7 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { z } from "zod";
+import * as z from "zod";
 import { createRegistry, defineFeature, type TenantId } from "../../engine";
 import { RateLimitError } from "../../errors";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";

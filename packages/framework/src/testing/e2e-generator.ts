@@ -24,7 +24,7 @@
 // "not supported yet" — wir füllen nach, wenn ein echter Caller es braucht.
 // Fake-komplexe-Werte würden nur False-Green-Tests produzieren.
 
-import type { z } from "zod";
+import type * as z from "zod";
 import {
   type EntityDefinition,
   type EntityEditScreenDefinition,

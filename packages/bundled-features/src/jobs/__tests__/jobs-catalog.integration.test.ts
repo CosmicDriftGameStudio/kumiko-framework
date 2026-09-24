@@ -9,7 +9,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { JobErrors, JobHandlers, JobQueries } from "../constants";
 import { createJobsFeature } from "../feature";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";

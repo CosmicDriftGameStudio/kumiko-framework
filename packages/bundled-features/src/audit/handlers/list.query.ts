@@ -15,7 +15,7 @@ import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 
 const MAX_LIMIT = 100;
 

@@ -9,7 +9,7 @@
 // to the actor rather than to SYSTEM.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { ROLES } from "../../auth/roles";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";

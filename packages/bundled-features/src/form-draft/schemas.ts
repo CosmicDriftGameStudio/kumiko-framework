@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { FORM_DRAFT_KEY_MAX_LENGTH, FORM_DRAFT_VALUES_MAX_BYTES } from "./constants";
 
 const draftKeySchema = z.string().trim().min(1).max(FORM_DRAFT_KEY_MAX_LENGTH);

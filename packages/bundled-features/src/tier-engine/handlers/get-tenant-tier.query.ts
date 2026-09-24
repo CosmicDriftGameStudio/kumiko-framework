@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
 
 // Liest das Tier-Assignment eines BELIEBIGEN Tenants (cross-tenant) für den

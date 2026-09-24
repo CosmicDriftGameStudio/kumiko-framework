@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
-import { z } from "zod";
+import * as z from "zod";
 import { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "../env-schema";
 
 // Statt Sentinel-throw IM try (ein nicht-werfender parseEnv ließe den

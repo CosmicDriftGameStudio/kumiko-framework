@@ -7,7 +7,7 @@
 // Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import type { AnonymousAccessConfig } from "../api/auth-middleware";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { asRawClient, selectMany } from "../db/query";

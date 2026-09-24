@@ -1,5 +1,6 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
-import type { ZodType, z } from "zod";
+import type * as z from "zod";
+import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder";
 import {
   isEntityConventionQueryHandler,

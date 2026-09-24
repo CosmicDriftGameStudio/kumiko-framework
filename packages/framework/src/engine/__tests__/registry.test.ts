@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
 import { createEntity, createTextField } from "../factories";

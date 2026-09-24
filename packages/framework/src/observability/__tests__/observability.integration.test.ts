@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import type { TableColumns } from "../../db/dialect";
 import { buildEntityTable } from "../../db/table-builder";
 import { createRegistry, defineFeature } from "../../engine";

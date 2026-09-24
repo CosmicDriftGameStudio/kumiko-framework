@@ -1,5 +1,5 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { SEO_CONFIG_QN } from "../constants";
 
 // Public read of the seo feature's own tenant-config values, for the

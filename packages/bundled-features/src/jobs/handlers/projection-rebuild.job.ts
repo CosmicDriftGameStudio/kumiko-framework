@@ -4,7 +4,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
-import { z } from "zod";
+import * as z from "zod";
 
 export const projectionRebuildPayloadSchema = z.object({
   projection: z.string().min(1),

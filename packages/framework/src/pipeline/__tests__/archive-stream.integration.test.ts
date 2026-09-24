@@ -6,7 +6,7 @@
 // streams never pay for extra metadata writes.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";

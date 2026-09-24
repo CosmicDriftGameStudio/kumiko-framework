@@ -25,7 +25,7 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { z } from "zod";
+import * as z from "zod";
 import {
   ACTIVE_JOB_CONSTRAINT,
   EXPORT_JOB_STATUS,

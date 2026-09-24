@@ -1,5 +1,5 @@
 import { access, defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 
 // Logout — JWT is stateless, so server-side we only return OK. A future
 // revocation list / session table can land here without changing the

@@ -14,7 +14,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { assertNotLastTenantAdmin } from "../last-tenant-admin";
 import {
   findForbiddenMembershipRole,

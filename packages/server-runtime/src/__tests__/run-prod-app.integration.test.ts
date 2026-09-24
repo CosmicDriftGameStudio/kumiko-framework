@@ -54,7 +54,7 @@ import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Queue } from "bullmq";
 import postgres from "postgres";
-import { z } from "zod";
+import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
 
 // tmp-Verzeichnisse pro Test, in afterEach geräumt. Tests die staticDir

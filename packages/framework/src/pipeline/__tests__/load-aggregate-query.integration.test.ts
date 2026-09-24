@@ -10,7 +10,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import type { DbConnection, DbTx } from "../../db/connection";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";

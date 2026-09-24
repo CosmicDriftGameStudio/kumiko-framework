@@ -8,7 +8,7 @@ import { describe, expect, it } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
-import { z } from "zod";
+import * as z from "zod";
 import { frameworkCoreEnvSchema } from "../env-schema";
 import * as devServerPublicApi from "../index";
 

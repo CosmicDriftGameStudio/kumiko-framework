@@ -1,5 +1,5 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
 
 // Anonymous-readable status for the (unauthenticated) signup page: lets it

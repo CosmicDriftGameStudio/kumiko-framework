@@ -16,7 +16,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import {
   createKumikoServer,
   type KumikoServerHandle,

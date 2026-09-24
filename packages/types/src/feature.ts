@@ -1,4 +1,5 @@
-import type { ZodType, z } from "zod";
+import type * as z from "zod";
+import type { ZodType } from "zod";
 import type {
   ConfigKeyDefinition,
   ConfigKeyHandle,

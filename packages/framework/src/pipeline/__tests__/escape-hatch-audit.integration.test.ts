@@ -4,7 +4,7 @@
 // system-identity-switch.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineUnmanagedTable } from "../../db/entity-table-meta";
 import { executeRawQuery } from "../../db/queries/raw-sql";
 import { createSystemUser, defineFeature } from "../../engine";

@@ -4,7 +4,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { ReadinessQueries } from "../constants";
 
 export type ReadinessMissingSecret = { readonly key: string };

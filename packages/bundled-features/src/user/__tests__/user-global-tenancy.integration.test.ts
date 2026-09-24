@@ -13,7 +13,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { UserHandlers } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";

@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants";

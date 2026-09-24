@@ -5,7 +5,7 @@ import {
   defineQueryHandler,
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { requireConfigResolver, requireSystemDb } from "../feature";
 import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction";
 import { hasConfigAccess } from "../write-helpers";

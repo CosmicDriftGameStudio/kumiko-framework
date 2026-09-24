@@ -2,7 +2,7 @@
 // input schema; writes reached via ctx.write/writeAs/queryAs, hooks or foreign-feature
 // tables are only visible at the actual write, so the gate runs there at runtime.
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { z } from "zod";
+import * as z from "zod";
 import { buildEntityTable } from "../db/table-builder";
 import { type PersonalDataGate, tableNameOf } from "../db/tenant-db";
 import {

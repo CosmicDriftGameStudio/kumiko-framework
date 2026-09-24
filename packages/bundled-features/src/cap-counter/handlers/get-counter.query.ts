@@ -1,5 +1,5 @@
 import { createEntityExecutor, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { capCounterEntity } from "../entity";
 
 const { table } = createEntityExecutor("cap-counter", capCounterEntity);

@@ -1,6 +1,7 @@
 import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
-import type { ZodType, z } from "zod";
+import type * as z from "zod";
+import type { ZodType } from "zod";
 import type { ContainsSecret } from "../secrets/types";
 import { runPipeline } from "./run-pipeline";
 import type { HandlerContext, KumikoEventTypeMap, WriteEvent, WriteResult } from "./types";

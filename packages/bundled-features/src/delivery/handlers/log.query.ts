@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii } from "../../shared";
 import type { DeliveryStatusValue } from "../constants";
 import { deliveryAttemptsTable } from "../tables";

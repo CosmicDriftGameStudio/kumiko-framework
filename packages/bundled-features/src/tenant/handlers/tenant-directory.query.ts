@@ -5,7 +5,7 @@ import {
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantTable } from "../schema/tenant";
 import { isSystemAdmin } from "./is-system-admin";
 

@@ -1,7 +1,7 @@
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import { type APIRequestContext, type APIResponse, expect, type Page } from "@playwright/test";
-import { z } from "zod";
+import * as z from "zod";
 import type { BoundApi } from "../seed-types";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "./constants";
 

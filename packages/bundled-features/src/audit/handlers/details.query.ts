@@ -5,7 +5,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { z } from "zod";
+import * as z from "zod";
 
 export const detailsQuery = defineQueryHandler({
   name: "details",

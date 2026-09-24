@@ -10,7 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { verifyDummyPassword, verifyPassword } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";

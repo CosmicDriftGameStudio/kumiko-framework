@@ -1,4 +1,5 @@
-import type { ZodType, z } from "zod";
+import type * as z from "zod";
+import type { ZodType } from "zod";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type {
   AccessRule,

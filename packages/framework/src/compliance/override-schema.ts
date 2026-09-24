@@ -17,7 +17,7 @@
 // Schema — wer die overriden will, würde die Profile-Identitaet
 // zerstören.
 
-import { z } from "zod";
+import * as z from "zod";
 
 // DurationSpec: { days } | { hours } — strict bedeutet beide Forms
 // muessen exakt 1 property haben (kein "{ days: 30, hours: 1 }").

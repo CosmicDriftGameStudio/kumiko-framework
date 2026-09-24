@@ -7,7 +7,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
-import { z } from "zod";
+import * as z from "zod";
 import { JobErrors } from "../constants";
 import { isManualTrigger } from "../is-manual-trigger";
 

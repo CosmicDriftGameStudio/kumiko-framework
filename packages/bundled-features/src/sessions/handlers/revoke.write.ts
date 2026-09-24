@@ -3,7 +3,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { SessionErrors } from "../constants";
 import { userSessionTable } from "../schema/user-session";
 import { SESSION_REVOKED_AGGREGATE_TYPE, SESSION_REVOKED_EVENT_QN } from "../session-revoked-event";

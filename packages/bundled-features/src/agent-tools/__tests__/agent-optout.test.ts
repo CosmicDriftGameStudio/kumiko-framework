@@ -7,7 +7,7 @@ import {
   defineEntityListHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { authFoundationFeature } from "../../auth-foundation";
 import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa";
 import { createConfigFeature } from "../../config";

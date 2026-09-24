@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
 import { validateBoot as validateBootRaw } from "../boot-validator";
 import { defineFeature } from "../define-feature";

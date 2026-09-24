@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
-import type { z } from "zod";
+import type * as z from "zod";
 import { parseFeatureFile, parseSourceFile } from "../parse";
 import { applyChanges, type PatternId } from "../patch";
 import {

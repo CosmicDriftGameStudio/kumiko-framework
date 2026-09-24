@@ -15,7 +15,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { requireConfigEncryption, requireSystemDb } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";
 import {

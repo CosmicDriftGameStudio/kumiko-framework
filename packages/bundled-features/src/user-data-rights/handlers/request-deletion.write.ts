@@ -2,7 +2,7 @@ import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/m
 import type { DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { USER_STATUS } from "../../user";
 import {
   type GdprMailDefaults,

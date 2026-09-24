@@ -6,7 +6,7 @@ import {
   type QueryHandlerDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { tierAssignmentEntity } from "../../tier-engine";
 import { MY_CAPS_ACCESS_ROLES } from "../access";
 import type { CapSpec, CapUsageWithMeta } from "../types";

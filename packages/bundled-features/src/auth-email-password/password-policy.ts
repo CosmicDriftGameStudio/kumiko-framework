@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // Top-10k common-password list (SecLists, MIT license). Filtered to length // kumiko-lint-ignore comment-lang "MIT" false-positives the DE-word regex
 // >=8, since shorter entries are already rejected by `.min(8)` below (keeps

@@ -18,7 +18,7 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
 import sharp from "sharp";
-import { z } from "zod";
+import * as z from "zod";
 import { createConfigFeature } from "../../config";
 import { fileDerivativesFeature } from "../../file-derivatives";
 import { fileFoundationFeature } from "../../file-foundation";

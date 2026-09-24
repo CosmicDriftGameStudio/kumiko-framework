@@ -8,7 +8,7 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { encryptForDirectWrite, verifyPassword } from "../../shared";
 import { UserQueries } from "../../user";
 import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../constants";

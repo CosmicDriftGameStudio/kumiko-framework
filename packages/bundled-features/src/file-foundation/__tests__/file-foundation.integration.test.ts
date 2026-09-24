@@ -28,7 +28,7 @@ import {
   createTestEnvelopeCipher,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { createConfigFeature } from "../../config";
 import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory } from "../../config/feature";

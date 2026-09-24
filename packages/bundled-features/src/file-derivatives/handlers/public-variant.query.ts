@@ -28,7 +28,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { z } from "zod";
+import * as z from "zod";
 
 type FileRefRow = {
   readonly entityType: string | null;

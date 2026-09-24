@@ -11,7 +11,7 @@
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { selectMany } from "../../db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";

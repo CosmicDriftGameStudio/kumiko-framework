@@ -10,7 +10,7 @@
 // projections-runner fires on appendEvent, dispatcher routes appendEvent to
 // the aggregate stream), any of the assertions below go red.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import {
   integer as pgInteger,
   table as pgTable,

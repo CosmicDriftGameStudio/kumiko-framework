@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { ACCOUNT_TYPES, TRANSACTION_STATUS } from "./constants";
 
 // A posting line. amount is integer minor units (cents), SIGNED: Soll/debit > 0,

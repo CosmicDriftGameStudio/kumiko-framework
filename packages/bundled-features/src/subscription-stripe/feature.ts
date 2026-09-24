@@ -38,7 +38,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import {
   STRIPE_API_KEY_CONFIG,
   STRIPE_BILLING_LIVE_CONFIG,

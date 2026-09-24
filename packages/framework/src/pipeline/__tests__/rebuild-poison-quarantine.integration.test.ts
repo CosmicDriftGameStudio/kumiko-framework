@@ -15,7 +15,7 @@
 //   - SQL error (aborts the tx → proves the savepoint is load-bearing)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient } from "../../db/query";

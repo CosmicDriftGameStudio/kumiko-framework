@@ -22,7 +22,7 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
 import {
   INVITATION_STATUS,

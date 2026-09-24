@@ -4,7 +4,7 @@
 // escape-hatch.integration.test.ts (fw#2855).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { executeRawQuery } from "../../db/queries/raw-sql";
 import { defineFeature } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack } from "../../stack";

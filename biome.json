@@ -134,6 +134,26 @@
           }
         }
       }
+    },
+    {
+      "includes": ["packages/*/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "zod": {
+                    "importNames": ["z"],
+                    "message": "import * as z from \"zod\" instead — { z } pulls the whole namespace (all locales, json-schema) into client bundles."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

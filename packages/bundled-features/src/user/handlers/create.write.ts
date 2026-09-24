@@ -14,7 +14,7 @@ import {
 import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { UserErrors } from "../constants";
 import { rolesInputSchema } from "../roles-input-schema";
 import { userEntity, userTable } from "../schema/user";

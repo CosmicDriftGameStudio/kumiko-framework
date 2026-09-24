@@ -2,7 +2,7 @@ import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantComplianceProfileTable } from "../schema/profile-selection";
 
 // Onboarding banner trigger for tenant admin.

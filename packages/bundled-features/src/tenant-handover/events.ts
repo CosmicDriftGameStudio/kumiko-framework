@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // Audit trail for a completed claim (kumiko-framework#3035's audit-entry
 // requirement: names the source tenant, destination tenant, entities and

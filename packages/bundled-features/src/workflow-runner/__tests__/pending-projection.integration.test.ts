@@ -21,7 +21,7 @@ import {
   WORKFLOW_WAITING_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { workflowRunAggregateId } from "../aggregate-id";
 import { workflowRunnerFeature } from "../feature";
 import { workflowRunPendingTable } from "../tables";
