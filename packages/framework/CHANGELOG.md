@@ -1,5 +1,56 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.307.0
+
+### Minor Changes
+
+- cc23d3d: The public-intake gate now also covers jobs, event-triggered jobs, anonymous query roots and TenantDbs built from ctx.db.unsafeRaw (fw#3185)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: The public-intake gate now also covers jobs, event-triggered jobs, anonymous query roots and TenantDbs built from ctx.db.unsafeRaw (fw#3185)
+  migration: |
+    An anonymous handler (roles include "anonymous") without personalData: "public-intake" now fails when personal data (pii / userOwned / recordOwned) is written through any of these paths: a job it enqueues (write or query root), a job triggered by its handler event or by an r.defineEvent it appends, a job chained from such a job, a job ctx.write/writeAs into another handler, or a TenantDb built with createTenantDb on a ctx.db.unsafeRaw / ctx.systemDb.unsafeRaw runner (including savepoints on it). The error is AccessDeniedError with details.reason "public_intake_required"; for jobs details.job names the job and the job run fails. Declare access: { roles: [..., "anonymous"], personalData: "public-intake" } on the root write handler if the anonymous intake is intended, otherwise stop writing the field from that path. A query root cannot declare public-intake: move the enqueue from an anonymous query handler into a write handler that declares it. Raw SQL through unsafeRaw stays escapeHatch plus audit. Jobs without a stamped origin (cron, boot, jobs dispatched outside a request, jobs queued before this release) run as before; a job whose _writeOrigin is present but invalid fails before its handler runs.
+  -->
+
+### Patch Changes
+
+- c5c5ddb: The event-dispatcher's cursor advanced to the highest `events.id` seen in a poll, but ids are assigned at INSERT time, not commit time — two concurrent writers could grab ids N and N+1 and commit out of order, and once the cursor passed N+1 it never revisited N once that transaction finally committed. The dispatcher now tracks ids below the cursor that were invisible on some earlier turn as pending gaps, retries them alongside the normal window, and only drops one once a later snapshot proves its writer has finished without ever committing.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Event dispatcher no longer skips events that commit out of id order
+  -->
+
+- e682776: The event-dispatcher's poll pass used a single dispatcher-wide in-flight guard, so a consumer with a slow handler (an external search index, for example) delayed the delivery of every other registered consumer until its own transaction committed. Each consumer now runs its own turn behind its own in-flight guard, bounded by a small concurrency limit so turns don't exhaust the db pool.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A slow event consumer no longer delays every other consumer
+  -->
+
+- 4179f26: A "revoke every other session" write (auth-mfa enable-confirm, disable, regenerate-recovery, sessions revoke-all-others) no longer closes the caller's own SSE stream, so a live status panel now sees the change. `session-revoked` carries a new optional `keptSessionId`; only that one session's streams are spared, every other stream of the user still closes, including one from a session already logged out. All other invalidation reasons stay userwide, and anything without a valid `keptSessionId` fails closed to userwide, which also keeps a mixed rolling deploy safe.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Revoking all other sessions no longer closes the caller's own live stream
+  -->
+
+- aae3f5d: A custom write whose `ctx.appendEvent`/`stream.append` loses an optimistic-concurrency race now answers 409 `version_conflict` instead of 500 `internal_error`, matching the CRUD executor.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Version conflicts from custom writes return 409 instead of 500
+  -->
+
+  - @cosmicdrift/kumiko-http@0.307.0
+  - @cosmicdrift/kumiko-types@0.307.0
+
 ## 0.306.0
 
 ### Minor Changes

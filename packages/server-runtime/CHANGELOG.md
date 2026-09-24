@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.307.0
+
+### Patch Changes
+
+- a3f00b0: Dev-server boots now use a per-boot BullMQ queue-name prefix (stable per persistent dev DB, random per ephemeral boot) instead of the shared prod default, so parallel dev/e2e servers on the same Redis no longer steal each other's jobs.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Dev-server job queues no longer collide across parallel boots
+  -->
+
+- Updated dependencies [cc23d3d]
+- Updated dependencies [0ce171d]
+- Updated dependencies [c5c5ddb]
+- Updated dependencies [e682776]
+- Updated dependencies [cc23d3d]
+- Updated dependencies [4179f26]
+- Updated dependencies [aae3f5d]
+  - @cosmicdrift/kumiko-bundled-features@0.307.0
+  - @cosmicdrift/kumiko-framework@0.307.0
+  - @cosmicdrift/kumiko-headless@0.307.0
+
 ## 0.306.0
 
 ### Patch Changes

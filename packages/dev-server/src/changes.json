@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.307.0",
+    "type": "fix",
+    "title": "Dev-server job queues no longer collide across parallel boots"
+  },
+  {
     "version": "0.305.0",
     "type": "improvement",
     "title": "createKumikoServer/runDevApp gain stylesheetWatch (env KUMIKO_DEV_STYLESHEET_WATCH=0) to build Tailwind CSS once without a --watch process",

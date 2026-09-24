@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.307.0",
+    "type": "improvement",
+    "title": "enforceCap accepts an amount for multi-unit bookings"
+  },
+  {
     "version": "0.278.0",
     "type": "improvement",
     "title": "bookCapUsage/markCapSoftWarned/readRollingCapUsage — in-process calendar-cap booking bound to the caller's own tenant (fw#2854).",

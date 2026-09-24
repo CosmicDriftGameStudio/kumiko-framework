@@ -1,5 +1,47 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.307.0
+
+### Minor Changes
+
+- cc23d3d: Anonymous signup-confirm and invite-signup-complete (auth-email-password) and verify / enable-confirm-preauth (auth-mfa) declare personalData: public-intake, since they write personal data through a TenantDb derived from ctx.db.unsafeRaw (fw#3185)
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Anonymous signup-confirm and invite-signup-complete (auth-email-password) and verify / enable-confirm-preauth (auth-mfa) declare personalData: public-intake, since they write personal data through a TenantDb derived from ctx.db.unsafeRaw (fw#3185)
+  -->
+
+### Patch Changes
+
+- 0ce171d: `enforceCap` and `enforceCapAndMaybeNotify` take an optional `amount`, matching `bookCapUsage`: a caller booking several units checks them in one read with the same outcome as checking them one by one, instead of looping check-then-book per unit.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: enforceCap accepts an amount for multi-unit bookings
+  -->
+
+- 4179f26: A "revoke every other session" write (auth-mfa enable-confirm, disable, regenerate-recovery, sessions revoke-all-others) no longer closes the caller's own SSE stream, so a live status panel now sees the change. `session-revoked` carries a new optional `keptSessionId`; only that one session's streams are spared, every other stream of the user still closes, including one from a session already logged out. All other invalidation reasons stay userwide, and anything without a valid `keptSessionId` fails closed to userwide, which also keeps a mixed rolling deploy safe.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Revoking all other sessions no longer closes the caller's own live stream
+  -->
+
+- Updated dependencies [c5c5ddb]
+- Updated dependencies [e682776]
+- Updated dependencies [cc23d3d]
+- Updated dependencies [4179f26]
+- Updated dependencies [aae3f5d]
+  - @cosmicdrift/kumiko-framework@0.307.0
+  - @cosmicdrift/kumiko-headless@0.307.0
+  - @cosmicdrift/kumiko-renderer@0.307.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.307.0
+  - @cosmicdrift/kumiko-renderer-web@0.307.0
+  - @cosmicdrift/kumiko-types@0.307.0
+
 ## 0.306.0
 
 ### Minor Changes
