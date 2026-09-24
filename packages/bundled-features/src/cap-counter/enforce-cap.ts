@@ -93,6 +93,9 @@ export async function enforceCap(
     readonly periodStartIso: string;
     readonly limit: number;
     readonly profile: CapToleranceProfileName;
+    // Units the caller is about to book in one go (default 1), checked with
+    // the same outcome as booking them one by one.
+    readonly amount?: number;
   },
 ): Promise<EnforceCapResult> {
   if (!ctx.db) {
@@ -110,7 +113,9 @@ export async function enforceCap(
   );
 
   const row = rows[0];
-  const value = row ? (row["value"] as number) : 0; // @cast-boundary db-row
+  const storedValue = row ? (row["value"] as number) : 0; // @cast-boundary db-row
+  // The last of `amount` units sees this value before its own increment.
+  const value = storedValue + (options.amount ?? 1) - 1;
 
   if (value >= hardThreshold) {
     throw new CapExceededError(options.capName, options.limit, value, tolerance);
@@ -285,6 +290,7 @@ export async function enforceCapAndMaybeNotify(
     readonly limit: number;
     readonly profile: CapToleranceProfileName;
     readonly notify: SoftHitNotifier;
+    readonly amount?: number;
   },
 ): Promise<EnforceCapResult> {
   const result = await enforceCap(ctx, {
@@ -292,6 +298,7 @@ export async function enforceCapAndMaybeNotify(
     periodStartIso: options.periodStartIso,
     limit: options.limit,
     profile: options.profile,
+    ...(options.amount !== undefined && { amount: options.amount }),
   });
 
   if (result.state === "soft-hit" && result.crossed) {

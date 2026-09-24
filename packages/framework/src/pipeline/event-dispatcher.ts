@@ -1,4 +1,5 @@
 import type { DbTx, PgClient } from "../db/connection";
+import { selectSnapshotXmax, selectSnapshotXmin } from "../db/queries/event-consumer";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store";
@@ -11,18 +12,21 @@ import {
   type Meter,
   type Tracer,
 } from "../observability";
-import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
+import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import {
   acquireConsumerState,
   consumerInstanceId,
+  type DeliveryOutcome,
   deliverEvents,
   emitLagFromTx,
   fetchPendingEvents,
   markProcessing,
+  type PersistedConsumerOutcome,
   persistConsumerOutcome,
   persistConsumerPassFailure,
   preRegisterConsumers,
 } from "./event-dispatcher-delivery";
+import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -37,7 +41,9 @@ import {
 //   2. SELECT state row FOR UPDATE SKIP LOCKED
 //      — multi-instance-safe: if another poller holds the lock, this pass
 //        skips this consumer and tries the next. No duplicate delivery.
-//   3. SELECT events WHERE id > lastProcessedEventId ORDER BY id ASC LIMIT batchSize
+//   3. SELECT events WHERE id > lastProcessedEventId, PLUS any ranges still
+//      tracked in pending_gaps (ids invisible on an earlier turn that may
+//      have committed since) — ORDER BY id ASC LIMIT batchSize
 //   4. For each event: call the consumer's handler
 //        - handler throws → increment attempts, mark status="dead" at
 //          maxAttempts, surface lastError, STOP this consumer's pass
@@ -255,17 +261,87 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // NOTIFYs (subscription drop, crash mid-commit).
   let pgUnlisten: (() => Promise<void>) | null = null;
 
-  // Serialises concurrent runOnce() calls from both wake-up sources (timer
-  // + any future explicit nudge). Mirrors outbox-poller's passInFlight
-  // pattern so behaviour under races stays predictable.
-  let passInFlight: Promise<DispatcherPassResult> | null = null;
+  // Bounds how many consumer turns hold a DB transaction at once. Each turn's
+  // db.begin() checks out one pool connection, plus any writes the handler
+  // itself makes via context.db — the app db pool defaults to postgres-js's
+  // max=10 (db/connection.ts, no DATABASE_POOL_MAX override) and is shared
+  // with HTTP request handlers, so turns can't be allowed to claim it all.
+  // A pool no larger than this limit can deadlock: every connection held by
+  // an open turn TX while each handler waits for one more.
+  const MAX_CONCURRENT_CONSUMER_TURNS = 4;
+  let activeConsumerTurns = 0;
+  const consumerTurnWaiters: Array<() => void> = [];
 
-  async function drainPassInFlight(): Promise<void> {
-    if (passInFlight) {
-      await passInFlight.catch(() => {
-        // skip: errors already recorded per-consumer inside the pass
-      });
+  async function acquireConsumerTurnSlot(): Promise<() => void> {
+    if (activeConsumerTurns >= MAX_CONCURRENT_CONSUMER_TURNS) {
+      // The releasing turn hands its slot over directly (count unchanged),
+      // so a synchronous acquire in between cannot overshoot the limit.
+      await new Promise<void>((resolve) => consumerTurnWaiters.push(resolve));
+    } else {
+      activeConsumerTurns++;
     }
+    let released = false;
+    return () => {
+      // skip: already released — finally-blocks calling this twice must not
+      // free the same slot twice
+      if (released) return;
+      released = true;
+      const nextWaiter = consumerTurnWaiters.shift();
+      if (nextWaiter) nextWaiter();
+      else activeConsumerTurns--;
+    };
+  }
+
+  // Per-(consumer, instanceId) turn guard, so one slow consumer never holds
+  // back the others. Keyed like consumerBackoff: a consumer already running
+  // its turn hands back that same promise instead of starting a second one.
+  const inFlightTurns = new Map<string, Promise<{ processed: number; failed: number }>>();
+
+  async function runConsumerTurn(
+    consumer: EventConsumer,
+    effective: ReadonlySet<string> | undefined,
+  ): Promise<{ processed: number; failed: number }> {
+    const key = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
+    const existing = inFlightTurns.get(key);
+    if (existing) return existing;
+
+    // Feature-gate and backoff-gate are resolved synchronously, before any
+    // promise is registered — a gated consumer must resolve without ever
+    // occupying inFlightTurns, or it would look "still running" forever.
+    if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
+      return { processed: 0, failed: 0 };
+    }
+    const backoff = consumerBackoff.get(key);
+    if (backoff && backoff.retryAtMs > Date.now()) {
+      return { processed: 0, failed: 0 };
+    }
+
+    // Registered before awaiting the slot — a turn queued behind the
+    // concurrency limit still counts as in-flight, so it isn't started twice.
+    const turn = (async () => {
+      const releaseSlot = await acquireConsumerTurnSlot();
+      try {
+        return await processConsumer(consumer);
+      } finally {
+        releaseSlot();
+      }
+    })();
+    inFlightTurns.set(key, turn);
+    try {
+      return await turn;
+    } finally {
+      if (inFlightTurns.get(key) === turn) inFlightTurns.delete(key);
+    }
+  }
+
+  async function drainInFlightTurns(): Promise<void> {
+    await Promise.all(
+      [...inFlightTurns.values()].map((turn) =>
+        turn.catch(() => {
+          // skip: errors already recorded per-consumer inside the pass
+        }),
+      ),
+    );
   }
 
   async function runOnce(): Promise<DispatcherPassResult> {
@@ -274,13 +350,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
       );
     }
-    if (passInFlight) return passInFlight;
-    passInFlight = doPass();
-    try {
-      return await passInFlight;
-    } finally {
-      passInFlight = null;
-    }
+    return doPass();
   }
 
   async function doPass(): Promise<DispatcherPassResult> {
@@ -301,30 +371,17 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // SYSTEM_TENANT_ID returnt (typisch: union-of-all-tier-features).
     const effective = context.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
-    // Seriell pro consumer. Parallelisierung wäre möglich (je eigene TX), aber
-    // das einfache Modell reicht für v1 — jeder consumer hat geringe
-    // per-event-Arbeit (network call at worst). Bei hunderten Events pro
-    // Batch lohnt sich Parallelisierung — Optimierung für später.
-    for (const consumer of consumers) {
-      // Feature-gate: consumers tagged with a featureName get paused while
-      // that feature is globally disabled. Cursor stays put — events accumulate
-      // and are re-delivered in order when the feature is re-enabled.
-      if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
-        byConsumer[consumer.name] = { processed: 0, failed: 0 };
-        continue;
-      }
-      // Backoff-gate: a consumer whose last pass threw waits out its
-      // exponential delay before being tried again — see the catch in
-      // processConsumer. Other consumers are unaffected; only this one's
-      // turn is skipped this tick.
-      const backoffKey = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
-      const backoff = consumerBackoff.get(backoffKey);
-      if (backoff && backoff.retryAtMs > Date.now()) {
-        byConsumer[consumer.name] = { processed: 0, failed: 0 };
-        continue;
-      }
-      const perConsumer = await processConsumer(consumer);
-      byConsumer[consumer.name] = perConsumer;
+    // Every consumer runs its own turn concurrently (own TX, own cursor,
+    // own backoff/feature-gate) — a slow consumer no longer blocks the
+    // others' delivery until it commits, see runConsumerTurn.
+    const results = await Promise.all(
+      consumers.map(async (consumer) => {
+        const perConsumer = await runConsumerTurn(consumer, effective);
+        return [consumer.name, perConsumer] as const;
+      }),
+    );
+    for (const [name, perConsumer] of results) {
+      byConsumer[name] = perConsumer;
       totalProcessed += perConsumer.processed;
       totalFailed += perConsumer.failed;
     }
@@ -376,20 +433,80 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         // staying permanently suppressed by this process's Set.
         reportedDeadConsumers.delete(`${consumer.name}:${instanceId}`);
 
-        const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
-        // skip: nothing to deliver — no markProcessing/persistConsumerOutcome write,
-        // so an idle consumer doesn't burn a WAL record on every poll tick.
-        if (events.length === 0) {
+        const oldCursor = acquired.state.lastProcessedEventId;
+        const pendingGaps = acquired.state.pendingGaps;
+        // xmin BEFORE the fetch: a range is provably burnt only once this has
+        // passed the xmax recorded with it. Only needed when ranges exist.
+        const xminNow = pendingGaps.length > 0 ? await selectSnapshotXmin(tx) : "0";
+        const events = await fetchPendingEvents(tx, oldCursor, batchSize, toIdRanges(pendingGaps));
+        const fetchedIds = events.map((e) => e.id);
+        const truncated = events.length === batchSize;
+
+        // Burnt: no visible id this turn, the fetch is proven to have
+        // covered the range (LIMIT can otherwise cut it off early), and
+        // xmin passed its recorded xmax — every xact that could still
+        // produce a row has finished without one ever appearing.
+        const { burnt: burntGaps, surviving: survivingGaps } = partitionBurntGaps(
+          pendingGaps,
+          fetchedIds,
+          truncated,
+          xminNow,
+        );
+
+        // skip: nothing to deliver and no burnt gap to clean up — no
+        // markProcessing/persistConsumerOutcome write, so an idle consumer
+        // doesn't burn a WAL record on every poll tick.
+        if (events.length === 0 && burntGaps.length === 0) {
           span.setAttribute("consumer.skip_reason", "no_pending_events");
           return;
         }
         await markProcessing(tx, consumer.name, instanceId);
 
-        const outcome = await deliverEvents(consumer, events, context, maxAttempts, acquired.state);
+        const outcome: DeliveryOutcome =
+          events.length > 0
+            ? await deliverEvents(consumer, events, context, maxAttempts, acquired.state)
+            : {
+                cursor: oldCursor,
+                attempts: acquired.state.attempts,
+                lastError: acquired.state.lastError,
+                deadLettered: false,
+                processed: 0,
+                failed: 0,
+                resolvedPendingIds: [],
+              };
         processed = outcome.processed;
         failed = outcome.failed;
 
-        await persistConsumerOutcome(tx, consumer.name, instanceId, outcome);
+        // Carve delivered/skip-applied ids out of the surviving ranges —
+        // an id still fetched-but-unresolved (halt-on-poison stopped before
+        // it) stays put, since it's below the cursor and only pending_gaps
+        // will ever retry it.
+        const keptGaps = survivingGaps.flatMap((gap) =>
+          splitRangeExcludingIds(gap, outcome.resolvedPendingIds),
+        );
+        // New gaps as ranges between consecutive fetched ids, so a huge id
+        // jump (retention prune) costs one entry, not one per missing id.
+        // Their xmax is read after the fetch; any later read is only more
+        // conservative, so it is fetched lazily.
+        const newWindowIds = fetchedIds.filter((id) => id > oldCursor && id <= outcome.cursor);
+        const newGapBounds: Array<readonly [bigint, bigint]> = [];
+        let prev = oldCursor;
+        for (const id of newWindowIds) {
+          if (id > prev + 1n) newGapBounds.push([prev + 1n, id - 1n]);
+          prev = id;
+        }
+        const xmaxNow = newGapBounds.length > 0 ? await selectSnapshotXmax(tx) : "";
+        const newGaps: PendingGapEntry[] = newGapBounds.map(([from, to]) => ({
+          from: from.toString(),
+          to: to.toString(),
+          xmax: xmaxNow,
+        }));
+        const persistedOutcome: PersistedConsumerOutcome = {
+          ...outcome,
+          pendingGaps: [...keptGaps, ...newGaps],
+        };
+
+        await persistConsumerOutcome(tx, consumer.name, instanceId, persistedOutcome);
         await emitLagFromTx(tx, consumer.name, instanceId, outcome.cursor, meter);
       });
 
@@ -544,7 +661,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       }
 
       // Drain any in-flight pass so shutdown observes consistent state.
-      await drainPassInFlight();
+      await drainInFlightTurns();
       // preRegistered stays true — the rows survive stop(). runOnce()
       // after a stop() still works (tests stop the timer and then drain
       // deterministically).
@@ -555,7 +672,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       preRegistered = true;
     },
 
-    drain: drainPassInFlight,
+    drain: drainInFlightTurns,
 
     runOnce,
   };

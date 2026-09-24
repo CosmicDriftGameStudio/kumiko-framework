@@ -24,9 +24,26 @@ export type SseBroker = {
   // access-teardown security control (#1561) into a no-op — a revoked
   // session keeps receiving live SSE data with no error or log. A no-op
   // stub is one line for a broker that genuinely doesn't need it.
-  subscribeAccessInvalidation(userId: string, onInvalidate: () => void): () => void;
-  publishAccessInvalidation(userId: string): void;
+  subscribeAccessInvalidation(
+    userId: string,
+    onInvalidate: () => void,
+    ownSid?: string,
+  ): () => void;
+  // `keptSessionId` spares exactly one stream: the caller's own session on a
+  // "revoke all others" write. It is a keep-list, not a list of revoked
+  // sessions, so a stream of a session already revoked without an event
+  // (plain logout) still closes. Every other reason stays userwide.
+  publishAccessInvalidation(userId: string, keptSessionId?: string): void;
 };
+
+// Fail-closed: without a kept sid, or for a listener without its own sid
+// (PAT/bearer), nothing is spared.
+function isSparedByKeptSessionId(
+  ownSid: string | undefined,
+  keptSessionId: string | undefined,
+): boolean {
+  return keptSessionId !== undefined && ownSid === keptSessionId;
+}
 
 export function createSseBroker(): SseBroker {
   // Purely local: no cross-replica fanout. buildServer wraps this in
@@ -34,11 +51,11 @@ export function createSseBroker(): SseBroker {
   // makes pushToChannel/publishAccessInvalidation reach every replica's
   // clients — this reference implementation stays single-process only.
   const channels = new Map<string, Map<string, SseClient>>();
-  // Set, not Map<listenerId, fn> — dedup key is callback reference. Every
-  // subscriber must pass a distinct closure (dispatch-stream.ts does, one
-  // per stream). Two subscribes with the SAME reference for the same user
+  // Keyed by callback reference, value is the subscriber's own sid. Every
+  // subscriber must pass a distinct closure (dispatch-stream.ts does, one per
+  // stream). Two subscribes with the SAME reference for the same user
   // collapse into one listener, and the first unsubscribe kills both.
-  const accessInvalidationListeners = new Map<string, Set<() => void>>();
+  const accessInvalidationListeners = new Map<string, Map<() => void, string | undefined>>();
 
   function getOrCreateChannel(channel: string): Map<string, SseClient> {
     let clients = channels.get(channel);
@@ -86,14 +103,14 @@ export function createSseBroker(): SseBroker {
       return total;
     },
 
-    subscribeAccessInvalidation(userId, onInvalidate) {
+    subscribeAccessInvalidation(userId, onInvalidate, ownSid) {
       const channel = userAccessChannel(userId);
       let listeners = accessInvalidationListeners.get(channel);
       if (!listeners) {
-        listeners = new Set();
+        listeners = new Map();
         accessInvalidationListeners.set(channel, listeners);
       }
-      listeners.add(onInvalidate);
+      listeners.set(onInvalidate, ownSid);
       return () => {
         const current = accessInvalidationListeners.get(channel);
         // skip: already unsubscribed (e.g. stream ended after a publish already fired)
@@ -103,14 +120,15 @@ export function createSseBroker(): SseBroker {
       };
     },
 
-    publishAccessInvalidation(userId) {
+    publishAccessInvalidation(userId, keptSessionId) {
       const channel = userAccessChannel(userId);
       const listeners = accessInvalidationListeners.get(channel);
       // skip: no live stream is watching this user right now
       if (!listeners) return;
       // Snapshot before iterating — a fired listener unsubscribes itself,
       // which would mutate `listeners` mid-iteration otherwise.
-      for (const onInvalidate of [...listeners]) {
+      for (const [onInvalidate, ownSid] of [...listeners]) {
+        if (isSparedByKeptSessionId(ownSid, keptSessionId)) continue;
         onInvalidate();
       }
     },

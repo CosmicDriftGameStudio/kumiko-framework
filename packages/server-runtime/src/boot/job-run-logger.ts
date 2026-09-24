@@ -20,6 +20,10 @@ export async function startDevJobRunners(opts: {
   readonly context: AppContext;
   readonly redisUrl: string;
   readonly dispatcher: Dispatcher;
+  // Redis is shared across boots and apps (unlike the ephemeral per-boot
+  // test DB); no silent default here so every caller is forced to pick a
+  // prefix that isolates its own queues.
+  readonly queueNamePrefix: string;
 }): Promise<{ readonly runners: readonly JobRunner[]; readonly stop: () => Promise<void> }> {
   const jobs = [...opts.registry.getAllJobs().values()];
   if (opts.registry.getFeature("jobs") === undefined || jobs.length === 0) {
@@ -38,6 +42,7 @@ export async function startDevJobRunners(opts: {
       registry: opts.registry,
       context: { ...opts.context, db: opts.db },
       redisUrl: opts.redisUrl,
+      queueNamePrefix: opts.queueNamePrefix,
       consumerLane: lane,
       ...logger,
     });

@@ -5,6 +5,7 @@ import {
   index,
   instant,
   integer,
+  jsonb,
   table as pgTable,
   primaryKey,
   sql,
@@ -64,6 +65,21 @@ export const SHARED_INSTANCE_SENTINEL = "__shared__";
 // The default(sql`0`) on lastProcessedEventId mirrors projection-state.ts:
 // drizzle-kit's JSON snapshot generator can't serialise a bigint literal, so
 // the server-side default is specified as raw SQL instead of .default(0n).
+
+// A contiguous run of ids below the cursor invisible on some earlier turn,
+// not yet resolved (delivered) or proven burnt (see event-dispatcher.ts's
+// processConsumer). Ranges, not individual ids — a large historical gap
+// (retention prune, or a new consumer starting "beginning" over pruned
+// history) then costs O(1) entries instead of one per missing id. xmax is
+// the pg_snapshot_xmax() captured when the range was recorded: once a later
+// turn's xmin passes it, every xact that could still produce a row in this
+// range has finished, so it's provably rolled back, not just slow.
+// bigint/xid8 travel as strings — JS bigint doesn't round-trip through jsonb.
+export type PendingGapEntry = {
+  readonly from: string;
+  readonly to: string;
+  readonly xmax: string;
+};
 export const eventConsumerStateTable = pgTable(
   "kumiko_event_consumers",
   {
@@ -82,6 +98,7 @@ export const eventConsumerStateTable = pgTable(
     // poisoned), as does a manual restartConsumer()/enableConsumer()/
     // skipPoisonEvent() — an operator vouching the consumer is healthy.
     rearmCount: integer("rearm_count").notNull().default(0),
+    pendingGaps: jsonb("pending_gaps").$type<PendingGapEntry[]>().default([]).notNull(),
     lastError: text("last_error"),
     updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
   },
@@ -139,6 +156,15 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
       "rearm_count",
       "integer",
       " DEFAULT 0",
+      " NOT NULL",
+      /* ifNotExists */ true,
+    );
+    await alterTableAddColumn(
+      db,
+      "kumiko_event_consumers",
+      "pending_gaps",
+      "jsonb",
+      " DEFAULT '[]'::jsonb",
       " NOT NULL",
       /* ifNotExists */ true,
     );

@@ -55,6 +55,7 @@ export const revokeAllOthersWrite = defineWriteHandler({
         payload: {
           userId: event.user.id,
           sessionIds: updated.map((row) => row.id),
+          keptSessionId: keepSid,
         },
       });
     }

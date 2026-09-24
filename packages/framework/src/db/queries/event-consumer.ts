@@ -1,5 +1,29 @@
+import type { PendingGapEntry } from "../../pipeline/event-consumer-state";
 import type { AnyDb } from "../query";
 import { asRawClient } from "../query";
+
+// Per-turn snapshot bounds for pending-gap finality (event-dispatcher.ts's
+// processConsumer). pg_current_snapshot() is this transaction's MVCC view;
+// xmin is the oldest still-in-progress xact id in it, xmax the next
+// unassigned one. Both travel as strings — bigint/xid8 doesn't round-trip
+// through the driver as a JS number.
+export async function selectSnapshotXmin(db: AnyDb): Promise<string> {
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT pg_snapshot_xmin(pg_current_snapshot())::text AS xmin`,
+  )) as ReadonlyArray<{ xmin: string }>;
+  const xmin = rows[0]?.xmin;
+  if (xmin === undefined) throw new Error("selectSnapshotXmin: no row returned");
+  return xmin;
+}
+
+export async function selectSnapshotXmax(db: AnyDb): Promise<string> {
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT pg_snapshot_xmax(pg_current_snapshot())::text AS xmax`,
+  )) as ReadonlyArray<{ xmax: string }>;
+  const xmax = rows[0]?.xmax;
+  if (xmax === undefined) throw new Error("selectSnapshotXmax: no row returned");
+  return xmax;
+}
 
 /** Serialise against consumer-bootstrap INSERTs during event retention prune. */
 export async function lockEventConsumersShareMode(db: AnyDb): Promise<void> {
@@ -116,6 +140,7 @@ export type ConsumerDeliveryOutcome = {
   readonly lastError: string | null;
   readonly deadLettered: boolean;
   readonly processed: number;
+  readonly pendingGaps: readonly PendingGapEntry[];
 };
 
 export async function updateConsumerDeliveryOutcome(
@@ -136,14 +161,17 @@ export async function updateConsumerDeliveryOutcome(
        "status" = $3,
        "last_error" = $4,
        "rearm_count" = CASE WHEN $5 THEN 0 ELSE "rearm_count" END,
+       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
+       "pending_gaps" = $6::text::jsonb,
        "updated_at" = now()
-     WHERE "name" = $6 AND "instance_id" = $7`,
+     WHERE "name" = $7 AND "instance_id" = $8`,
     [
       outcome.cursor,
       outcome.attempts,
       outcome.deadLettered ? "dead" : "idle",
       outcome.lastError,
       resetRearmCount,
+      JSON.stringify(outcome.pendingGaps),
       name,
       instanceId,
     ],
@@ -192,13 +220,14 @@ export async function resetConsumerForMspRebuild(
   instanceId: string,
 ): Promise<void> {
   await asRawClient(db).unsafe(
-    `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "last_processed_event_id", "status")
-     VALUES ($1, $2, 0, 'idle')
+    `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "last_processed_event_id", "status", "pending_gaps")
+     VALUES ($1, $2, 0, 'idle', '[]'::jsonb)
      ON CONFLICT ("name", "instance_id") DO UPDATE SET
        "last_processed_event_id" = 0,
        "status" = 'idle',
        "attempts" = 0,
        "last_error" = NULL,
+       "pending_gaps" = '[]'::jsonb,
        "updated_at" = now()`,
     [name, instanceId],
   );
@@ -266,6 +295,31 @@ export async function rearmDeadConsumer(
      WHERE "name" = $1 AND "instance_id" = $2
      RETURNING *`,
     [name, instanceId],
+  )) as ReadonlyArray<Record<string, unknown>>;
+  return rows[0];
+}
+
+// skipPoisonEvent's pending-gap branch: the poison is a pending id below the
+// cursor, so it's removed from pending_gaps directly instead of advancing
+// last_processed_event_id (advancing it here would be a regression — the
+// cursor already sits above this id).
+export async function removePendingGapReturning(
+  db: AnyDb,
+  name: string,
+  instanceId: string,
+  newPendingGaps: readonly PendingGapEntry[],
+): Promise<Record<string, unknown> | undefined> {
+  const rows = (await asRawClient(db).unsafe(
+    `UPDATE "kumiko_event_consumers" SET
+       "pending_gaps" = $1::text::jsonb,
+       "status" = 'idle',
+       "attempts" = 0,
+       "last_error" = NULL,
+       "rearm_count" = 0,
+       "updated_at" = now()
+     WHERE "name" = $2 AND "instance_id" = $3
+     RETURNING *`,
+    [JSON.stringify(newPendingGaps), name, instanceId],
   )) as ReadonlyArray<Record<string, unknown>>;
   return rows[0];
 }

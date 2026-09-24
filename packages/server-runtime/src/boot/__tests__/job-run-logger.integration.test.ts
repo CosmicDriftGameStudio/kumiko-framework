@@ -71,6 +71,7 @@ describe("startDevJobRunners", () => {
       db,
       context: {},
       redisUrl: testRedis.redisUrl,
+      queueNamePrefix: `test-lane-default-${crypto.randomUUID()}`,
       // Construction-only — this job never calls ctx.write/ctx.queryAs, so a
       // dispatcher built against a bare `{}` context is enough to satisfy
       // the (now required) opts.dispatcher without wiring a full stack.
@@ -152,11 +153,12 @@ describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", (
   });
 
   test("a dev-run job's ctx.write and ctx.queryAs both succeed", async () => {
+    const attachQueueNamePrefix = `test-attach-dispatcher-${crypto.randomUUID()}`;
     const stack = await setupTestStack({
       features: [attachDispatcherFeature, createJobsFeature()],
       // Enqueuer-only — startDevJobRunners below is the sole consumer,
       // mirroring create-kumiko-server.ts.
-      jobs: {},
+      jobs: { queueNamePrefix: attachQueueNamePrefix },
     });
     await unsafeCreateEntityTable(stack.db, attachNoteEntity);
 
@@ -167,6 +169,7 @@ describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", (
         context: stack.context,
         redisUrl: stack.redis.redisUrl,
         dispatcher: stack.dispatcher,
+        queueNamePrefix: attachQueueNamePrefix,
       });
 
       try {
@@ -189,4 +192,71 @@ describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", (
       await stack.cleanup();
     }
   }, 15000);
+});
+
+// Regression guard for the shared-Redis job-queue-collision bug: two boots
+// (e.g. two parallel dev/e2e servers) that don't set distinct
+// queueNamePrefix values consume from the same BullMQ queue names and steal
+// each other's jobs ("Unknown job: ..."). Both registries below register the
+// SAME feature/job name on purpose — if the queues were shared, runner B
+// would recognize and execute jobs meant for runner A (proving the
+// collision), not just fail to run them. Distinct prefixes must keep every
+// dispatched job on runner A's side.
+describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
+  test("two runners with distinct prefixes on the same Redis don't cross-consume", async () => {
+    const runsA: string[] = [];
+    const runsB: string[] = [];
+
+    const isoFeatureA = defineFeature("iso", (r) => {
+      r.job("mark", { trigger: { manual: true } }, async (payload) => {
+        runsA.push((payload as { note: string }).note);
+      });
+    });
+    const isoFeatureB = defineFeature("iso", (r) => {
+      r.job("mark", { trigger: { manual: true } }, async (payload) => {
+        runsB.push((payload as { note: string }).note);
+      });
+    });
+
+    const registryA = createRegistry([isoFeatureA, createJobsFeature()]);
+    const registryB = createRegistry([isoFeatureB, createJobsFeature()]);
+
+    const runnerA = await startDevJobRunners({
+      registry: registryA,
+      db,
+      context: {},
+      redisUrl: testRedis.redisUrl,
+      queueNamePrefix: `test-iso-a-${crypto.randomUUID()}`,
+      dispatcher: createDispatcher(registryA, {}),
+    });
+    const runnerB = await startDevJobRunners({
+      registry: registryB,
+      db,
+      context: {},
+      redisUrl: testRedis.redisUrl,
+      queueNamePrefix: `test-iso-b-${crypto.randomUUID()}`,
+      dispatcher: createDispatcher(registryB, {}),
+    });
+
+    try {
+      const dispatchA = runnerA.runners[0];
+      if (dispatchA === undefined) throw new Error("expected a runner for registry A");
+
+      const notes = Array.from({ length: 10 }, (_, i) => `from-a-${i}`);
+      for (const note of notes) {
+        await dispatchA.dispatch("iso:job:mark", { note });
+      }
+
+      // If the queues were shared, some of these 10 jobs would land on
+      // runner B instead — runsA would never reach length 10 and this
+      // would time out rather than pass.
+      await waitFor(() => {
+        expect(runsA).toHaveLength(10);
+      });
+      expect(runsB).toEqual([]);
+    } finally {
+      await runnerA.stop();
+      await runnerB.stop();
+    }
+  });
 });

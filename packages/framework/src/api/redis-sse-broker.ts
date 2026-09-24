@@ -60,6 +60,17 @@ function isSseEvent(value: unknown): value is SseEvent {
   );
 }
 
+// Invalidation payload: `1` means userwide, `{ keptSessionId }` spares that one
+// session. Anything else falls back to userwide. Older pods never read the
+// payload and invalidate userwide, which keeps a mixed rolling deploy safe.
+function extractInvalidationKeptSessionId(payload: unknown): string | undefined {
+  if (typeof payload !== "object" || payload === null || !("keptSessionId" in payload)) {
+    return undefined;
+  }
+  const { keptSessionId } = payload;
+  return typeof keptSessionId === "string" && keptSessionId.length > 0 ? keptSessionId : undefined;
+}
+
 // Transport layer around a local `createSseBroker()` — all client/listener
 // state lives in `inner`, this only moves events across the Redis wire via
 // the shared PubSubSignal. `pushToChannel`/`publishAccessInvalidation` never
@@ -89,7 +100,10 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     }
 
     if (channel.startsWith(INVALIDATION_PREFIX)) {
-      inner.publishAccessInvalidation(channel.slice(INVALIDATION_PREFIX.length));
+      inner.publishAccessInvalidation(
+        channel.slice(INVALIDATION_PREFIX.length),
+        extractInvalidationKeptSessionId(payload),
+      );
     }
   });
 
@@ -108,8 +122,8 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     // stream must close on every replica, not just the one that observed
     // the revocation event. Publishing (rather than calling inner directly,
     // like the in-memory broker does) is what makes that true here.
-    publishAccessInvalidation(userId) {
-      signal.publish(`${INVALIDATION_PREFIX}${userId}`, 1);
+    publishAccessInvalidation(userId, keptSessionId) {
+      signal.publish(`${INVALIDATION_PREFIX}${userId}`, keptSessionId ? { keptSessionId } : 1);
     },
 
     close: signal.close,

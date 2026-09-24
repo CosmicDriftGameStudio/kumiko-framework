@@ -16,7 +16,7 @@ import {
   type SeedTenantOptions,
   withSession,
 } from "../seed-types";
-import { createHttpApi, loginViaApi } from "./auth-kit";
+import { clearSession, createHttpApi, loginViaApi } from "./auth-kit";
 import { SEED_ROUTES } from "./constants";
 import { seedRouteHeaders } from "./mail-capture";
 import {
@@ -93,7 +93,7 @@ export async function provideSeedTenant(
   };
 
   const loginAs = async (page: Page, user: SeededUser): Promise<void> => {
-    await page.context().clearCookies();
+    await clearSession(page);
     await loginViaApi(page.context().request, user);
   };
 

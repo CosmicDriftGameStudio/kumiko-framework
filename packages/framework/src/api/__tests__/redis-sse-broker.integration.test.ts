@@ -127,6 +127,72 @@ describe("createRedisSseBroker", () => {
     expect(invalidatedA).toBe(false);
   });
 
+  test("publishAccessInvalidation with a keptSessionId spares only the listener whose own sid matches exactly", async () => {
+    const podA = trackedBroker();
+    const podB = trackedBroker();
+    const userId = `user-${generateId()}`;
+    const sidKept = `sid-kept-${generateId()}`;
+    const sidAlreadyRevoked = `sid-already-revoked-${generateId()}`;
+    let invalidatedKept = false;
+    let invalidatedSidless = false;
+    let invalidatedAlreadyRevoked = false;
+
+    podA.subscribeAccessInvalidation(
+      userId,
+      () => {
+        invalidatedKept = true;
+      },
+      sidKept,
+    );
+    // No ownSid — mirrors a PAT/bearer stream, always invalidated (fail-closed).
+    podA.subscribeAccessInvalidation(userId, () => {
+      invalidatedSidless = true;
+    });
+    // Not the kept sid — mirrors a session already revoked through an
+    // eventless path (plain logout): the keep-list must still close it.
+    podA.subscribeAccessInvalidation(
+      userId,
+      () => {
+        invalidatedAlreadyRevoked = true;
+      },
+      sidAlreadyRevoked,
+    );
+
+    await waitFor(() => {
+      podB.publishAccessInvalidation(userId, sidKept);
+      return invalidatedSidless && invalidatedAlreadyRevoked;
+    });
+    // Asserted only after the control listeners above already fired for the
+    // same publish — proves the pipe delivered the message at all, so a
+    // false here means the sid really was spared, not that delivery is slow.
+    expect(invalidatedKept).toBe(false);
+  });
+
+  test("a legacy unscoped invalidation message (bare `1`, pre-scoping pod) still invalidates every listener, sid or not", async () => {
+    const podA = trackedBroker();
+    const publisherRaw = new (await import("ioredis")).default(testRedis.redisUrl);
+    const userId = `user-${generateId()}`;
+    let invalidatedWithSid = false;
+
+    podA.subscribeAccessInvalidation(
+      userId,
+      () => {
+        invalidatedWithSid = true;
+      },
+      `sid-${generateId()}`,
+    );
+
+    try {
+      await waitFor(async () => {
+        await publisherRaw.publish(`kumiko:sse:inval:${userId}`, JSON.stringify(1));
+        return invalidatedWithSid;
+      });
+      expect(invalidatedWithSid).toBe(true);
+    } finally {
+      publisherRaw.disconnect();
+    }
+  });
+
   test("a malformed message on the channel namespace is dropped, not thrown, and does not kill delivery", async () => {
     const podA = trackedBroker();
     const publisherRaw = new (await import("ioredis")).default(testRedis.redisUrl);

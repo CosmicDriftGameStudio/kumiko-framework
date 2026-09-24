@@ -121,4 +121,53 @@ describe("SSE broker", () => {
     const { publish } = requireAccessInvalidation(createSseBroker());
     expect(() => publish("nobody-listening")).not.toThrow();
   });
+
+  test("publishAccessInvalidation with a keptSessionId spares only the listener whose own sid matches exactly", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const spared = mock();
+    const unrelated = mock();
+
+    subscribe("user-a", spared, "sid-kept");
+    subscribe("user-a", unrelated, "sid-other");
+    publish("user-a", "sid-kept");
+
+    expect(spared).not.toHaveBeenCalled();
+    expect(unrelated).toHaveBeenCalledTimes(1);
+  });
+
+  test("publishAccessInvalidation with a keptSessionId still closes a listener whose sid was already revoked through an eventless path (keep-list, not a kill-list)", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const alreadyRevoked = mock();
+
+    // Simulates a stream from a session logged out earlier via a path that
+    // never appended session-revoked — the keep-list must not accidentally
+    // exempt it just because its sid isn't the freshly-kept one.
+    subscribe("user-a", alreadyRevoked, "sid-logged-out-earlier");
+    publish("user-a", "sid-kept");
+
+    expect(alreadyRevoked).toHaveBeenCalledTimes(1);
+  });
+
+  test("publishAccessInvalidation with a keptSessionId still fires a listener with no sid of its own (fail-closed, e.g. a PAT/bearer stream)", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const sidless = mock();
+
+    subscribe("user-a", sidless);
+    publish("user-a", "sid-kept");
+
+    expect(sidless).toHaveBeenCalledTimes(1);
+  });
+
+  test("publishAccessInvalidation with no keptSessionId (unscoped) still invalidates every listener, matching pre-scoping behavior", () => {
+    const { subscribe, publish } = requireAccessInvalidation(createSseBroker());
+    const first = mock();
+    const second = mock();
+
+    subscribe("user-a", first, "sid-1");
+    subscribe("user-a", second, "sid-2");
+    publish("user-a");
+
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
 });

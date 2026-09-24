@@ -470,7 +470,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
 
     // Pre-register consumer state rows so tests can call runOnce() directly
     // without a preceding explicit start(). Timer fires at pollIntervalMs=50
-    // but passInFlight serialises concurrent passes — tests that drain via
+    // but each consumer runs at most one turn at a time — tests that drain via
     // runOnce() remain deterministic. Tests that specifically exercise the
     // timer loop call start() again (idempotent) after setup.
     if (eventDispatcher) await eventDispatcher.ensureRegistered();
