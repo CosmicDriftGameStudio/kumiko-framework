@@ -18,6 +18,7 @@ import type {
   SessionUser,
   TenantId,
 } from "../engine/types";
+import type { StoredEvent } from "../event-store";
 import type { SearchAdapter, SearchDocument } from "../search/types";
 import type { EventConsumer } from "./event-dispatcher";
 
@@ -50,10 +51,170 @@ import type { EventConsumer } from "./event-dispatcher";
 // instead, so the same sensitive+searchable boot-guard (entity-handler.ts)
 // keeps them out there too.
 //
-// No batch variant right now — every event triggers its own index() call.
-// If a scale measurement later calls for it, the event-dispatcher could
-// grow a batch-handler variant.
+// batchHandler collapses a turn's events to one search-op per
+// (tenantId, entityType, entityId) and issues one indexBatch/removeBatch
+// call per tenant instead of one round-trip per event; handler stays the
+// per-event fallback the dispatcher falls back to when a batch throws.
 export const SEARCH_CONSUMER_NAME = "system:consumer:search";
+
+// #3227 — one resolved search operation for a single event: either the
+// document to (re-)index or the entityType/entityId to remove. A
+// discriminated union so the batch collapse step (last op per key wins)
+// doesn't need to special-case index vs remove.
+export type SearchOperation =
+  | { readonly kind: "index"; readonly tenantId: TenantId; readonly doc: SearchDocument }
+  | {
+      readonly kind: "remove";
+      readonly tenantId: TenantId;
+      readonly entityType: string;
+      readonly entityId: EntityId;
+    };
+
+// Resolves what one event implies for the search index, without touching
+// the adapter — same decision tree the old per-event handler ran inline.
+async function resolveSearchOperation(
+  event: StoredEvent,
+  ctx: AppContext,
+  registry: Registry,
+): Promise<SearchOperation | undefined> {
+  const entityName = event.aggregateType;
+  const verb = event.type.split(".").pop();
+  const tenantId = event.tenantId;
+
+  // skip: delete/forgotten remove the index entry — reconstruct only
+  // makes sense for created/updated/restored (field data in payload).
+  if (verb === "deleted" || verb === "forgotten") {
+    return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
+  }
+
+  let state: Record<string, unknown>;
+  if (verb === "created" || verb === "updated" || verb === "restored") {
+    state = reconstructStateForSearch(event.payload, verb);
+  } else {
+    // #2765 — named domain event: no fixed payload shape to reconstruct
+    // state from. Only worth a projection read when the entity actually
+    // declared searchable fields/extensions — same check
+    // buildSearchDocument makes below, done here first so a non-
+    // searchable entity's named events stay a no-op like before.
+    const entity = registry.getEntity(entityName);
+    const isSearchable =
+      entity !== undefined &&
+      (registry.getSearchableFields(entityName).length > 0 ||
+        registry.getSearchPayloadExtensions(entityName).length > 0);
+    // skip: entity declares no searchable fields/extensions — nothing to
+    // index, stays a no-op with no extra query, same as before #2765.
+    if (!entity || !isSearchable) return undefined;
+
+    const row = await readProjectionRowForSearch(
+      ctx,
+      registry,
+      entityName,
+      entity,
+      tenantId,
+      event.aggregateId,
+    );
+    // skip: no live row (hard-deleted stream, or soft-deleted) — same
+    // outcome as the deleted/forgotten branch above.
+    if (!row) {
+      return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
+    }
+    state = row;
+  }
+
+  state = await decryptSearchableSubjectFields(entityName, state, registry);
+  // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
+  if (hasErasedSearchableSubjectField(entityName, state, registry)) {
+    return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
+  }
+  const doc = await buildSearchDocument(entityName, event.aggregateId, state, registry);
+  // skip: entity isn't searchable (no searchable fields declared)
+  if (!doc) return undefined;
+  return { kind: "index", tenantId, doc };
+}
+
+async function applySearchOperation(
+  searchAdapter: SearchAdapter,
+  op: SearchOperation,
+): Promise<void> {
+  if (op.kind === "index") {
+    await searchAdapter.index(op.tenantId, op.doc);
+  } else {
+    await searchAdapter.remove(op.tenantId, op.entityType, op.entityId);
+  }
+}
+
+// Collapse key for one search op — same (tenant, entity) target as the old
+// per-event index()/remove() calls addressed, index and remove share the
+// key so a later op in the same turn always overwrites an earlier one
+// (update-then-delete ⇒ remove wins, delete-then-restore ⇒ index wins).
+function searchOperationKey(op: SearchOperation): string {
+  const entityType = op.kind === "index" ? op.doc.entityType : op.entityType;
+  const entityId = op.kind === "index" ? op.doc.entityId : op.entityId;
+  return `${op.tenantId}\u0000${entityType}\u0000${String(entityId)}`;
+}
+
+type SearchOperationsByTenant = Map<
+  TenantId,
+  { toIndex: SearchDocument[]; toRemove: { entityType: string; entityId: EntityId }[] }
+>;
+
+// Resolves every event's op sequentially (the named-event path does DB
+// reads, so resolving in parallel would fan out uncapped concurrent
+// queries for one turn) and collapses to the last op per
+// (tenantId, entityType, entityId) — update-then-delete ⇒ remove wins,
+// delete-then-restore ⇒ index wins.
+async function resolveSearchOperationsByTenant(
+  events: readonly StoredEvent[],
+  ctx: AppContext,
+  registry: Registry,
+): Promise<SearchOperationsByTenant> {
+  const byKey = new Map<string, SearchOperation>();
+  for (const event of events) {
+    const op = await resolveSearchOperation(event, ctx, registry);
+    if (!op) continue;
+    byKey.set(searchOperationKey(op), op);
+  }
+
+  const perTenant: SearchOperationsByTenant = new Map();
+  for (const op of byKey.values()) {
+    let bucket = perTenant.get(op.tenantId);
+    if (!bucket) {
+      bucket = { toIndex: [], toRemove: [] };
+      perTenant.set(op.tenantId, bucket);
+    }
+    if (op.kind === "index") bucket.toIndex.push(op.doc);
+    else bucket.toRemove.push({ entityType: op.entityType, entityId: op.entityId });
+  }
+  return perTenant;
+}
+
+// Flushes one tenant's collapsed ops — indexBatch/removeBatch when the
+// adapter implements them, otherwise falls back to looping the single-doc
+// methods for that group. Keys were already made disjoint by the collapse
+// in resolveSearchOperationsByTenant, so index-vs-remove order here
+// doesn't matter.
+async function flushSearchOperationsForTenant(
+  searchAdapter: SearchAdapter,
+  tenantId: TenantId,
+  bucket: { toIndex: SearchDocument[]; toRemove: { entityType: string; entityId: EntityId }[] },
+): Promise<void> {
+  if (bucket.toIndex.length > 0) {
+    if (searchAdapter.indexBatch) {
+      await searchAdapter.indexBatch(tenantId, bucket.toIndex);
+    } else {
+      for (const doc of bucket.toIndex) await searchAdapter.index(tenantId, doc);
+    }
+  }
+  if (bucket.toRemove.length > 0) {
+    if (searchAdapter.removeBatch) {
+      await searchAdapter.removeBatch(tenantId, bucket.toRemove);
+    } else {
+      for (const item of bucket.toRemove) {
+        await searchAdapter.remove(tenantId, item.entityType, item.entityId);
+      }
+    }
+  }
+}
 
 export function createSearchEventConsumer(
   searchAdapter: SearchAdapter,
@@ -69,64 +230,14 @@ export function createSearchEventConsumer(
     // dead-lettering in event-dispatcher-delivery.ts if 2min isn't enough.
     errorPolicy: { maxAttempts: 1200 },
     handler: async (event, ctx) => {
-      const entityName = event.aggregateType;
-      const verb = event.type.split(".").pop();
-      const tenantId = event.tenantId;
-
-      // skip: delete/forgotten remove the index entry — reconstruct only
-      // makes sense for created/updated/restored (field data in payload).
-      if (verb === "deleted" || verb === "forgotten") {
-        await searchAdapter.remove(tenantId, entityName, event.aggregateId);
-        return;
+      const op = await resolveSearchOperation(event, ctx, registry);
+      if (op) await applySearchOperation(searchAdapter, op);
+    },
+    batchHandler: async (events, ctx) => {
+      const perTenant = await resolveSearchOperationsByTenant(events, ctx, registry);
+      for (const [tenantId, bucket] of perTenant) {
+        await flushSearchOperationsForTenant(searchAdapter, tenantId, bucket);
       }
-
-      let state: Record<string, unknown>;
-      if (verb === "created" || verb === "updated" || verb === "restored") {
-        state = reconstructStateForSearch(event.payload, verb);
-      } else {
-        // #2765 — named domain event: no fixed payload shape to reconstruct
-        // state from. Only worth a projection read when the entity actually
-        // declared searchable fields/extensions — same check
-        // buildSearchDocument makes below, done here first so a non-
-        // searchable entity's named events stay a no-op like before.
-        const entity = registry.getEntity(entityName);
-        const isSearchable =
-          entity !== undefined &&
-          (registry.getSearchableFields(entityName).length > 0 ||
-            registry.getSearchPayloadExtensions(entityName).length > 0);
-        // skip: entity declares no searchable fields/extensions — nothing to
-        // index, stays a no-op with no extra query, same as before #2765.
-        if (!entity || !isSearchable) return;
-
-        const row = await readProjectionRowForSearch(
-          ctx,
-          registry,
-          entityName,
-          entity,
-          tenantId,
-          event.aggregateId,
-        );
-        // skip: no live row (hard-deleted stream, or soft-deleted) — same
-        // outcome as the deleted/forgotten branch above.
-        if (!row) {
-          await searchAdapter.remove(tenantId, entityName, event.aggregateId);
-          return;
-        }
-        state = row;
-      }
-
-      state = await decryptSearchableSubjectFields(entityName, state, registry);
-      // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
-      if (hasErasedSearchableSubjectField(entityName, state, registry)) {
-        await searchAdapter.remove(tenantId, entityName, event.aggregateId);
-        return;
-      }
-      const doc = await buildSearchDocument(entityName, event.aggregateId, state, registry);
-      if (!doc) {
-        // skip: entity isn't searchable (no searchable fields declared)
-        return;
-      }
-      await searchAdapter.index(tenantId, doc);
     },
   };
 }
