@@ -24,6 +24,12 @@ export type SearchOptions = {
 
 export type SearchAdapter = {
   configure(tenantId: TenantId, config: SearchAdapterConfig): Promise<void>;
+  // The adapter is built before the registry exists (app boot order), so it
+  // can't derive this itself. The framework hands it the registry-derived
+  // config once the registry is available; the adapter uses it to configure
+  // each tenant index lazily on that tenant's first access instead of
+  // requiring every app to call `configure` per tenant up front.
+  setDefaultConfig?(config: SearchAdapterConfig): void;
   index(tenantId: TenantId, doc: SearchDocument): Promise<void>;
   search(tenantId: TenantId, query: string, options?: SearchOptions): Promise<SearchResult[]>;
   remove(tenantId: TenantId, entityType: string, entityId: EntityId): Promise<void>;

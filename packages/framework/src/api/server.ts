@@ -50,6 +50,7 @@ import {
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
 } from "../rate-limit";
+import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config";
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
 import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS } from "./api-constants";
@@ -488,6 +489,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // @cast-boundary engine-bridge — searchAdapter is an optional context-extension
   const searchAdapter = (contextWithObservability as { searchAdapter?: SearchAdapter })
     .searchAdapter;
+  // Adapter is built before the registry exists (app boot order) — hand it
+  // the registry-derived default config here so it can lazily configure
+  // each tenant index on first access instead of requiring per-tenant app
+  // wiring.
+  const derivedSearchConfig = searchAdapter
+    ? deriveSearchAdapterConfig(options.registry)
+    : undefined;
+  if (searchAdapter && derivedSearchConfig) {
+    searchAdapter.setDefaultConfig?.(derivedSearchConfig);
+  }
 
   const sseConsumerEnabled = options.eventDispatcher?.systemConsumers?.sse ?? true;
   const searchConsumerEnabled = options.eventDispatcher?.systemConsumers?.search ?? true;

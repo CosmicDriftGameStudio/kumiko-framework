@@ -2,6 +2,7 @@
 // Damit lädt der Main-Barrel keinen Meilisearch-Client beim bloßen Anfassen
 // von SearchAdapter-Types. Apps die Meilisearch nicht nutzen, ziehen den
 // Client-Code nicht mit rein.
+export { deriveSearchAdapterConfig } from "./derive-search-adapter-config";
 export { createInMemorySearchAdapter } from "./in-memory-adapter";
 export { purgeSearchDocumentsForSubject } from "./purge-subject";
 export type {
