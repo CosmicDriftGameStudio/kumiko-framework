@@ -187,6 +187,11 @@ describe("workflow-runner event-trigger", () => {
     // The registrar namespaces every MSP as `<feature>:projection:<name>`.
     const consumerName = `workflow-runner-integration-test-triggers:projection:workflow-${failingWorkflow.name}`;
 
+    // Consumers run their turns concurrently, so events an earlier test's
+    // workflow emitted may still be ahead of this consumer's cursor; drain
+    // them first so `processed` below counts only this test's trigger.
+    while (((await stack.eventDispatcher?.runOnce())?.processed ?? 0) > 0) {}
+
     await insertOne(stack.db, eventsTable, {
       aggregateId: crypto.randomUUID(),
       aggregateType: "wr-test-source",
