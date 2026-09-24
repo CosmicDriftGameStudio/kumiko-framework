@@ -1,13 +1,15 @@
 import type { DbConnection, DbTx } from "../db/connection";
 import {
   advanceConsumerPastEventReturning,
+  removePendingGapReturning,
   updateConsumerStatusReturning,
 } from "../db/queries/event-consumer";
-import { selectNextEventIdAfter } from "../db/queries/event-store";
+import { selectNextEventIdAfter, selectSmallestVisibleIdInRanges } from "../db/queries/event-store";
 import { coerceRow, extractTableInfo, selectMany } from "../db/query";
 import { getEventsHighWaterMark } from "../event-store";
 import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery";
+import { rangeContainsId, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges";
 
 // --- Ops recovery surface ---
 //
@@ -129,10 +131,13 @@ export async function enableConsumer(
   return applyConsumerStatusTransition(db, name, instanceId, "idle");
 }
 
-// skipPoisonEvent advances the cursor past the first event after the
-// current cursor. Single TX so concurrent dispatcher passes can't double-
-// advance. If no event exists past the cursor, there is nothing to skip —
-// treat as idempotent no-op (cursor already at head).
+// skipPoisonEvent advances past whatever is currently blocking the consumer.
+// If the smallest visible id inside pending_gaps exists, THAT'S the poison —
+// halt-on-poison walks gap ids before any id past the cursor — so it's split
+// out of its range directly; the cursor stays put (it's already above this
+// id). Otherwise the poison is the usual next event after the cursor. Single
+// TX so concurrent dispatcher passes can't double-advance. Neither exists →
+// idempotent no-op.
 export async function skipPoisonEvent(
   db: DbConnection,
   name: string,
@@ -140,6 +145,28 @@ export async function skipPoisonEvent(
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
   const before = await requireConsumerRow(db, name, instanceId);
   return db.begin(async (tx: DbTx) => {
+    const pendingGaps = before.pendingGaps;
+    const smallestVisiblePending = await selectSmallestVisibleIdInRanges(
+      tx,
+      toIdRanges(pendingGaps),
+    );
+
+    if (smallestVisiblePending !== null) {
+      const newPendingGaps = pendingGaps.flatMap((gap) =>
+        rangeContainsId(gap, smallestVisiblePending)
+          ? splitRangeExcludingIds(gap, [smallestVisiblePending])
+          : [gap],
+      );
+      const raw = await removePendingGapReturning(tx, name, instanceId, newPendingGaps);
+      const updated =
+        raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+      if (!updated)
+        throw new Error(
+          `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
+        );
+      return { ...normalizeConsumerState(updated), skippedEventId: smallestVisiblePending };
+    }
+
     const poisonId = await selectNextEventIdAfter(tx, before.lastProcessedEventId);
     if (poisonId === null) {
       const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, {

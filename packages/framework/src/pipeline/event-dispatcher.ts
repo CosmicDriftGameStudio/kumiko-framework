@@ -1,4 +1,5 @@
 import type { DbTx, PgClient } from "../db/connection";
+import { selectSnapshotXmax, selectSnapshotXmin } from "../db/queries/event-consumer";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store";
@@ -11,18 +12,21 @@ import {
   type Meter,
   type Tracer,
 } from "../observability";
-import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
+import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import {
   acquireConsumerState,
   consumerInstanceId,
+  type DeliveryOutcome,
   deliverEvents,
   emitLagFromTx,
   fetchPendingEvents,
   markProcessing,
+  type PersistedConsumerOutcome,
   persistConsumerOutcome,
   persistConsumerPassFailure,
   preRegisterConsumers,
 } from "./event-dispatcher-delivery";
+import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -37,7 +41,9 @@ import {
 //   2. SELECT state row FOR UPDATE SKIP LOCKED
 //      — multi-instance-safe: if another poller holds the lock, this pass
 //        skips this consumer and tries the next. No duplicate delivery.
-//   3. SELECT events WHERE id > lastProcessedEventId ORDER BY id ASC LIMIT batchSize
+//   3. SELECT events WHERE id > lastProcessedEventId, PLUS any ranges still
+//      tracked in pending_gaps (ids invisible on an earlier turn that may
+//      have committed since) — ORDER BY id ASC LIMIT batchSize
 //   4. For each event: call the consumer's handler
 //        - handler throws → increment attempts, mark status="dead" at
 //          maxAttempts, surface lastError, STOP this consumer's pass
@@ -427,20 +433,80 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         // staying permanently suppressed by this process's Set.
         reportedDeadConsumers.delete(`${consumer.name}:${instanceId}`);
 
-        const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
-        // skip: nothing to deliver — no markProcessing/persistConsumerOutcome write,
-        // so an idle consumer doesn't burn a WAL record on every poll tick.
-        if (events.length === 0) {
+        const oldCursor = acquired.state.lastProcessedEventId;
+        const pendingGaps = acquired.state.pendingGaps;
+        // xmin BEFORE the fetch: a range is provably burnt only once this has
+        // passed the xmax recorded with it. Only needed when ranges exist.
+        const xminNow = pendingGaps.length > 0 ? await selectSnapshotXmin(tx) : "0";
+        const events = await fetchPendingEvents(tx, oldCursor, batchSize, toIdRanges(pendingGaps));
+        const fetchedIds = events.map((e) => e.id);
+        const truncated = events.length === batchSize;
+
+        // Burnt: no visible id this turn, the fetch is proven to have
+        // covered the range (LIMIT can otherwise cut it off early), and
+        // xmin passed its recorded xmax — every xact that could still
+        // produce a row has finished without one ever appearing.
+        const { burnt: burntGaps, surviving: survivingGaps } = partitionBurntGaps(
+          pendingGaps,
+          fetchedIds,
+          truncated,
+          xminNow,
+        );
+
+        // skip: nothing to deliver and no burnt gap to clean up — no
+        // markProcessing/persistConsumerOutcome write, so an idle consumer
+        // doesn't burn a WAL record on every poll tick.
+        if (events.length === 0 && burntGaps.length === 0) {
           span.setAttribute("consumer.skip_reason", "no_pending_events");
           return;
         }
         await markProcessing(tx, consumer.name, instanceId);
 
-        const outcome = await deliverEvents(consumer, events, context, maxAttempts, acquired.state);
+        const outcome: DeliveryOutcome =
+          events.length > 0
+            ? await deliverEvents(consumer, events, context, maxAttempts, acquired.state)
+            : {
+                cursor: oldCursor,
+                attempts: acquired.state.attempts,
+                lastError: acquired.state.lastError,
+                deadLettered: false,
+                processed: 0,
+                failed: 0,
+                resolvedPendingIds: [],
+              };
         processed = outcome.processed;
         failed = outcome.failed;
 
-        await persistConsumerOutcome(tx, consumer.name, instanceId, outcome);
+        // Carve delivered/skip-applied ids out of the surviving ranges —
+        // an id still fetched-but-unresolved (halt-on-poison stopped before
+        // it) stays put, since it's below the cursor and only pending_gaps
+        // will ever retry it.
+        const keptGaps = survivingGaps.flatMap((gap) =>
+          splitRangeExcludingIds(gap, outcome.resolvedPendingIds),
+        );
+        // New gaps as ranges between consecutive fetched ids, so a huge id
+        // jump (retention prune) costs one entry, not one per missing id.
+        // Their xmax is read after the fetch; any later read is only more
+        // conservative, so it is fetched lazily.
+        const newWindowIds = fetchedIds.filter((id) => id > oldCursor && id <= outcome.cursor);
+        const newGapBounds: Array<readonly [bigint, bigint]> = [];
+        let prev = oldCursor;
+        for (const id of newWindowIds) {
+          if (id > prev + 1n) newGapBounds.push([prev + 1n, id - 1n]);
+          prev = id;
+        }
+        const xmaxNow = newGapBounds.length > 0 ? await selectSnapshotXmax(tx) : "";
+        const newGaps: PendingGapEntry[] = newGapBounds.map(([from, to]) => ({
+          from: from.toString(),
+          to: to.toString(),
+          xmax: xmaxNow,
+        }));
+        const persistedOutcome: PersistedConsumerOutcome = {
+          ...outcome,
+          pendingGaps: [...keptGaps, ...newGaps],
+        };
+
+        await persistConsumerOutcome(tx, consumer.name, instanceId, persistedOutcome);
         await emitLagFromTx(tx, consumer.name, instanceId, outcome.cursor, meter);
       });
 

@@ -12,8 +12,12 @@ import {
   selectConsumerForUpdateSkipLocked,
   updateConsumerDeliveryOutcome,
 } from "../db/queries/event-consumer";
-import { selectEventsHeadId } from "../db/queries/event-store";
-import { coerceRow, extractTableInfo, selectMany } from "../db/query";
+import {
+  type PendingIdRange,
+  selectEventsHeadId,
+  selectPendingAndNewEventRows,
+} from "../db/queries/event-store";
+import { coerceRow, extractTableInfo } from "../db/query";
 import { qnScope } from "../engine/qualified-name";
 import type { AppContext } from "../engine/types";
 import { eventsTable, toStoredEvent as rowToStoredEvent } from "../event-store";
@@ -26,6 +30,7 @@ import {
 import {
   ConsumerStatuses,
   eventConsumerStateTable,
+  type PendingGapEntry,
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state";
 import type { EventConsumer } from "./event-dispatcher";
@@ -46,6 +51,7 @@ export type ConsumerStateRowShape = {
   readonly status: string;
   readonly attempts: number;
   readonly rearmCount: number;
+  readonly pendingGaps: readonly PendingGapEntry[];
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 };
@@ -186,17 +192,20 @@ export async function markProcessing(tx: DbTx, name: string, instanceId: string)
   await markConsumerProcessing(tx, name, instanceId);
 }
 
+// `pendingRanges` are id ranges below `cursor` the consumer is still
+// watching as gaps (invisible on an earlier turn — see event-dispatcher.ts's
+// processConsumer). Fetching them alongside the plain `id > cursor` window
+// means a row that committed late becomes visible and deliverable the next
+// time this consumer's turn runs, instead of being permanently skipped.
 export async function fetchPendingEvents(
   tx: DbTx,
   cursor: bigint,
   batchSize: number,
+  pendingRanges: readonly PendingIdRange[] = [],
 ): Promise<ReadonlyArray<StoredEventRow>> {
-  return (await selectMany(
-    tx,
-    eventsTable,
-    { id: { gt: cursor } },
-    { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
-  )) as ReadonlyArray<StoredEventRow>; // @cast-boundary db-row
+  const rawRows = await selectPendingAndNewEventRows(tx, cursor, pendingRanges, batchSize);
+  const info = extractTableInfo(eventsTable);
+  return rawRows.map((row) => coerceRow(row, info) as StoredEventRow); // @cast-boundary db-row
 }
 
 export type DeliveryOutcome = {
@@ -206,6 +215,11 @@ export type DeliveryOutcome = {
   readonly deadLettered: boolean;
   readonly processed: number;
   readonly failed: number;
+  // Which of the *pending* ids in `events` (id <= the cursor this delivery
+  // started from) got resolved this pass — delivered or skip-applied. The
+  // caller (event-dispatcher.ts) splits exactly these out of pending_gaps;
+  // everything else in the input batch was a "new" row past the old cursor.
+  readonly resolvedPendingIds: readonly bigint[];
 };
 
 // Deliver events to the consumer's handler in events.id order. Halt-on-
@@ -221,15 +235,18 @@ export async function deliverEvents(
   maxAttempts: number,
   state: ConsumerStateRow,
 ): Promise<DeliveryOutcome> {
-  let cursor = state.lastProcessedEventId;
+  const startCursor = state.lastProcessedEventId;
+  let cursor = startCursor;
   let attempts = state.attempts;
   let lastError: string | null = state.lastError ?? null;
   let deadLettered = false;
   const effectiveMaxAttempts = consumer.errorPolicy?.maxAttempts ?? maxAttempts;
   let processed = 0;
   let failed = 0;
+  const resolvedPendingIds: bigint[] = [];
 
   for (const row of events) {
+    const isPendingRow = row.id <= startCursor;
     try {
       // Propagate causation: if the handler calls ctx.appendEvent, the new
       // event should record THIS event as its cause. correlationId is
@@ -255,7 +272,12 @@ export async function deliverEvents(
           await consumer.handler(stored, context);
         },
       );
-      cursor = row.id;
+      // A pending row's id is below startCursor by definition — never move
+      // the cursor backward for it, just resolve the gap. events.id order
+      // (the SQL fetch's ORDER BY) means every pending row is walked before
+      // any row that does advance the cursor.
+      if (row.id > cursor) cursor = row.id;
+      if (isPendingRow) resolvedPendingIds.push(row.id);
       attempts = 0;
       lastError = null;
       processed += 1;
@@ -276,7 +298,8 @@ export async function deliverEvents(
         context.log?.warn(
           `event-dispatcher: ${consumer.name} skipped event ${row.id} (${errorClass}): ${errMessage}`,
         );
-        cursor = row.id;
+        if (row.id > cursor) cursor = row.id;
+        if (isPendingRow) resolvedPendingIds.push(row.id);
         attempts = 0;
         lastError = null;
         failed += 1;
@@ -290,14 +313,18 @@ export async function deliverEvents(
     }
   }
 
-  return { cursor, attempts, lastError, deadLettered, processed, failed };
+  return { cursor, attempts, lastError, deadLettered, processed, failed, resolvedPendingIds };
 }
+
+export type PersistedConsumerOutcome = DeliveryOutcome & {
+  readonly pendingGaps: readonly PendingGapEntry[];
+};
 
 export async function persistConsumerOutcome(
   tx: DbTx,
   name: string,
   instanceId: string,
-  outcome: DeliveryOutcome,
+  outcome: PersistedConsumerOutcome,
 ): Promise<void> {
   await updateConsumerDeliveryOutcome(tx, name, instanceId, outcome);
 }

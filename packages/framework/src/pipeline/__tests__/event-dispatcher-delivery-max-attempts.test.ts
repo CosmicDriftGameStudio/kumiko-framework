@@ -51,6 +51,7 @@ function stubState(): ConsumerStateRow {
     status: "idle",
     attempts: 0,
     rearmCount: 0,
+    pendingGaps: [],
     lastError: null,
     updatedAt: Temporal.Now.instant(),
   };

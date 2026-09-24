@@ -15,8 +15,8 @@ import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
 import {
+  claimXactIdAndNotify,
   insertSubsequentEventRow,
-  notifyPgChannel,
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
@@ -93,15 +93,17 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   const eventVersion = toStore.eventVersion ?? 1;
 
   try {
+    // Gap-finality (event-dispatcher pending_gaps) needs THIS holder of the
+    // about-to-be-assigned event id to already have a real xact id before the
+    // INSERT — see claimXactIdAndNotify. NOTIFY in the same statement fires
+    // on commit regardless of position (PG buffers it per-TX and drops it on
+    // rollback), so bundling it here costs nothing.
+    await claimXactIdAndNotify(db, EVENTS_PUBSUB_CHANNEL);
+
     const row =
       toStore.expectedVersion === 0
         ? await insertFirstEvent(db, toStore, newVersion, eventVersion)
         : await insertSubsequentEvent(db, toStore, newVersion, eventVersion);
-
-    // NOTIFY fires on commit (PG buffers NOTIFY per TX), so subscribers never
-    // see a wake-up for an event that later rolled back. Harmless no-op when
-    // no LISTENer is attached.
-    await notifyPgChannel(db, EVENTS_PUBSUB_CHANNEL);
 
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
@@ -380,9 +382,11 @@ export async function loadAllEventsByType(
 
 // Stream every event for an aggregate_type across all tenants, batchwise
 // instead of buffered. Memory-bounded: never more than `batchSize` rows
-// resident. Cursor walks `events.id` (bigserial monotonic — concurrent
-// inserts get distinct ids in commit order, so no duplicates and no skips
-// past the cursor).
+// resident. Cursor walks `events.id` (bigserial monotonic, but ids are
+// assigned at INSERT time, not commit time — a sweep can overtake a still-
+// open transaction and its lower id, same gap the event-dispatcher's
+// pending_gaps tracks). Fine for this generator's use case: history sweeps
+// (projection-rebuild, tests) that don't need live, just-committed rows.
 //
 // Use case: projection-rebuild on a large event log (>100k events per
 // aggregate-type). loadAllEventsByType would OOM; this iterator yields

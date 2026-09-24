@@ -7,9 +7,18 @@ import {
 import type { AnyDb } from "../query";
 import { asRawClient, unsafeReadRetrying } from "../query";
 
-/** NOTIFY on commit — wakes LISTEN subscribers (event-dispatcher). */
-export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void> {
-  await asRawClient(db).unsafe(`SELECT pg_notify($1, '')`, [channel]);
+// Gap-finality (event-dispatcher pending_gaps) needs every holder of an
+// event id to already have a *real* xact id by the time it inserts — Postgres
+// assigns those lazily on first write, so a bare INSERT alone doesn't
+// guarantee one exists yet for comparison against a later snapshot's
+// xmin/xmax. pg_current_xact_id() forces the allocation.
+export async function claimXactId(db: AnyDb): Promise<void> {
+  await asRawClient(db).unsafe(`SELECT pg_current_xact_id()`);
+}
+
+/** claimXactId() + NOTIFY in one round-trip — NOTIFY only fires on commit. */
+export async function claimXactIdAndNotify(db: AnyDb, channel: string): Promise<void> {
+  await asRawClient(db).unsafe(`SELECT pg_current_xact_id(), pg_notify($1, '')`, [channel]);
 }
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
@@ -282,4 +291,64 @@ export async function upsertArchivedStream(db: AnyDb, params: ArchiveStreamParam
        "reason" = $5`,
     [params.tenantId, params.aggregateId, params.aggregateType, params.archivedBy, params.reason],
   );
+}
+
+export type PendingIdRange = { readonly from: bigint; readonly to: bigint };
+
+// Per-consumer turn fetch: the plain `id > cursor` window plus any ranges the
+// consumer is still watching as pending gaps (ids invisible on an earlier
+// turn that may have become visible since). Raw SQL — the typed builder's
+// WhereObject is an AND of fields, it can't express this OR.
+export async function selectPendingAndNewEventRows(
+  db: AnyDb,
+  cursor: bigint,
+  pendingRanges: readonly PendingIdRange[],
+  batchSize: number,
+): Promise<ReadonlyArray<Record<string, unknown>>> {
+  if (pendingRanges.length === 0) {
+    return unsafeReadRetrying(
+      db,
+      `SELECT * FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT $2`,
+      [cursor, batchSize],
+    );
+  }
+  return unsafeReadRetrying(
+    db,
+    // UNION ALL of two primary-key range scans: an `id > $1 OR EXISTS (…)`
+    // predicate can't use the index and would seq-scan kumiko_events per turn.
+    // Ranges sit below $1, so the branches never overlap.
+    `(SELECT e.* FROM unnest($2::bigint[], $3::bigint[]) AS g(f, t)
+       CROSS JOIN LATERAL (
+         SELECT * FROM "kumiko_events" WHERE "id" BETWEEN g.f AND g.t ORDER BY "id" ASC LIMIT $4
+       ) e)
+     UNION ALL
+     (SELECT * FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT $4)
+     ORDER BY "id" ASC LIMIT $4`,
+    [
+      cursor,
+      pendingRanges.map((r) => r.from.toString()),
+      pendingRanges.map((r) => r.to.toString()),
+      batchSize,
+    ],
+  );
+}
+
+// Smallest committed-and-visible id inside any pending range — lets
+// skipPoisonEvent (event-dispatcher-admin.ts) tell a live poison apart from
+// a still-invisible gap without pulling full rows.
+export async function selectSmallestVisibleIdInRanges(
+  db: AnyDb,
+  pendingRanges: readonly PendingIdRange[],
+): Promise<bigint | null> {
+  if (pendingRanges.length === 0) return null;
+  const rows = (await unsafeReadRetrying(
+    db,
+    `SELECT MIN("id")::text AS id FROM "kumiko_events"
+     WHERE EXISTS (
+       SELECT 1 FROM unnest($1::bigint[], $2::bigint[]) AS g(f, t) WHERE "id" BETWEEN g.f AND g.t
+     )`,
+    [pendingRanges.map((r) => r.from.toString()), pendingRanges.map((r) => r.to.toString())],
+  )) as ReadonlyArray<{ id: string | null }>;
+  const id = rows[0]?.id;
+  return id === null || id === undefined ? null : BigInt(id);
 }

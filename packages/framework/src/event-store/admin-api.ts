@@ -9,6 +9,7 @@
 
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
+import { claimXactId } from "../db/queries/event-store";
 import {
   eventPredecessorExists,
   findExistingEventVersion,
@@ -54,6 +55,9 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
   const eventVersion = event.eventVersion ?? 1;
 
   try {
+    // See db/queries/event-store.ts's claimXactId — gap-finality needs a
+    // real xact id assigned before this holder's insert.
+    await claimXactId(runner);
     if (event.expectedVersion === 0) {
       await insertRawFirst(runner, event, newVersion, eventVersion);
     } else {
@@ -145,6 +149,7 @@ export async function appendRawBatch(
   });
 
   try {
+    await claimXactId(runner);
     await insertRawEventBatch(runner, valuesClauses.join(", "), params);
   } catch (e) {
     if (isUniqueViolation(e)) {
