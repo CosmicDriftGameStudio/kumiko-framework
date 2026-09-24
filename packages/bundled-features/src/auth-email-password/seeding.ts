@@ -14,6 +14,7 @@
 
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  configuredBlindIndexKey,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   type LocalKeyKmsAdapter,
@@ -28,7 +29,7 @@ import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenan
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
 import { USER_STATUS, userTable } from "../user/schema/user";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { seedUser } from "../user/seeding";
+import { reconcileSeededUserEmailVerified, seedUser } from "../user/seeding";
 
 // Re-export für ergonomische Single-Import-Site in tests/seed-scripts.
 // Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit
@@ -257,8 +258,8 @@ export async function seedAdmin(
 // seedAdminGuarded is a separate, additive boot-seed guard — NOT a change
 // to seedUser/seedAdmin/provisionSignupAccount, which also run on every
 // real self-signup request and can't afford a decrypt-scan fallback there.
-// Use this only where seedAdmin already runs (dev-boot / sample-server /
-// bootstrap scripts), never as a login or signup hot path.
+// It's what runProdApp/runDevApp call for their admin boot-seed; keep it
+// off the login/signup hot path.
 
 type ActiveUserRow = {
   readonly id: string;
@@ -332,10 +333,22 @@ export async function seedAdminGuarded(
   const kms = configuredPiiSubjectKms();
   if (kms === undefined) return seedAdmin(db, options);
 
+  // Without a bidx key every row seeded here gets a NULL email_bidx, which
+  // neither seedAdmin's lookup nor the partial unique index can ever see.
+  if (configuredBlindIndexKey() === undefined) {
+    throw new Error(
+      "seedAdminGuarded: a PII KMS is configured but no blind-index key — the email lookup would be blind and the seed would insert a duplicate admin. Configure KUMIKO_BLIND_INDEX_KEY.",
+    );
+  }
+
   const existingId = await findExistingUserIdForEmail(db, kms, options.email);
   if (existingId === undefined) return seedAdmin(db, options);
 
   const by = options.by ?? TestUsers.systemAdmin;
+  if (options.emailVerified === true) {
+    const existingRow = await fetchOne(db, userTable, { id: existingId });
+    if (existingRow) await reconcileSeededUserEmailVerified(db, existingRow, by);
+  }
   for (const m of options.memberships) {
     await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, by });
     await seedTenantMembership(db, {

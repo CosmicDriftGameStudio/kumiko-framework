@@ -53,7 +53,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
-  seedAdmin,
+  seedAdminGuarded,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
   EXT_SESSION_STORE,
@@ -1254,7 +1254,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    preconditions. Config-seeds rely on a deterministic
   //    aggregate-id so re-boot becomes a version_conflict skip.
   if (effectiveAuth) {
-    await seedAdmin(db, effectiveAuth.admin);
+    await seedAdminGuarded(db, effectiveAuth.admin);
   }
   await applyBootSeeds({
     registry,

@@ -71,26 +71,8 @@ export async function seedUser(
   // liefert die Projection-Row als Record<string, unknown>.
   if (existing) {
     const id = existing["id"] as string;
-    // Reconcile emailVerified on an already-seeded row: a persistent dev DB
-    // (or a re-run bootstrap) can carry a User seeded before this flag
-    // existed or before it flipped to true — without this, "seed with
-    // emailVerified: true" only ever takes effect on the very first insert
-    // and the flag silently does nothing on every re-run after (#1687).
-    // Goes through the executor (a real `.updated` event), never a direct
-    // write.
-    if (options.emailVerified === true && existing["emailVerified"] !== true) {
-      const result = await userExecutor.update(
-        { id, version: existing["version"] as number, changes: { emailVerified: true } },
-        by,
-        tdb,
-      );
-      // version_conflict = a concurrent write already changed the row —
-      // fine for a seed helper, don't fail the whole seed run over it.
-      if (!result.isSuccess && result.error.code !== "version_conflict") {
-        throw new Error(
-          `seedUser emailVerified reconcile failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
-        );
-      }
+    if (options.emailVerified === true) {
+      await reconcileSeededUserEmailVerified(db, existing, by);
     }
     return { id };
   }
@@ -114,6 +96,32 @@ export async function seedUser(
   }
   await fireEntityPostSave(hooks, "user:seed", result.data);
   return { id: extractId(result.data, "seedUser") };
+}
+
+// A re-run seed onto a row created before emailVerified flipped to true must
+// still set it (#1687) — via the executor, so it lands as a real `.updated` event.
+export async function reconcileSeededUserEmailVerified(
+  db: DbConnection,
+  existingRow: Record<string, unknown>,
+  by: SessionUser,
+): Promise<void> {
+  if (existingRow["emailVerified"] === true) return;
+  // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
+  // liefert die Projection-Row als Record<string, unknown>.
+  const id = existingRow["id"] as string;
+  const tdb = createTenantDb(db, by.tenantId, "system");
+  const result = await userExecutor.update(
+    { id, version: existingRow["version"] as number, changes: { emailVerified: true } },
+    by,
+    tdb,
+  );
+  // version_conflict = a concurrent write already changed the row —
+  // fine for a seed helper, don't fail the whole seed run over it.
+  if (!result.isSuccess && result.error.code !== "version_conflict") {
+    throw new Error(
+      `reconcileSeededUserEmailVerified failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+    );
+  }
 }
 
 // Extrahiert die `id`-Spalte aus dem executor.create-Result. Der

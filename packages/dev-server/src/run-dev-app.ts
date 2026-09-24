@@ -1,7 +1,7 @@
 // runDevApp — high-level dev-server wrapper für Sample-Apps und
 // Showcases. Mischt die Standard-Features (config/user/tenant/auth-
 // email-password) automatisch dazu wenn auth-mode aktiv ist, wired das
-// AuthRoutesConfig + Login-Error-Map, und ruft seedAdmin() im
+// AuthRoutesConfig + Login-Error-Map, und ruft seedAdminGuarded() im
 // onAfterSetup. Reduziert den Sample-Bootstrap von 50 Zeilen auf 5-10.
 //
 // Auto-mix passiert NUR im auth-mode. Ohne `auth`-Block bleibt der
@@ -16,7 +16,7 @@
 import { AuthErrors, AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
-  seedAdmin,
+  seedAdminGuarded,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
   EXT_SESSION_STORE,
@@ -209,7 +209,7 @@ export type RunDevAppOptions = {
   /** SIGINT/SIGTERM-Handler installieren (Default true; in Tests auf
    *  false damit repeated boots keine Listener akkumulieren). */
   readonly installSignalHandlers?: boolean;
-  /** Auth-Mode: Standard-Features dazu, Auth-Routes wired, seedAdmin
+  /** Auth-Mode: Standard-Features dazu, Auth-Routes wired, seedAdminGuarded
    *  läuft im onAfterSetup. Ohne `auth` läuft der Server im Auto-Mint-
    *  JWT-Modus. */
   readonly auth?: RunDevAppAuthOptions;
@@ -598,7 +598,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         );
       }
       if (effectiveAuth) {
-        await seedAdmin(stack.db, effectiveAuth.admin);
+        await seedAdminGuarded(stack.db, effectiveAuth.admin);
       }
       // Apply r.config({ seeds }) declared by any registered feature.
       // Runs before user-supplied seed callbacks so those can read /

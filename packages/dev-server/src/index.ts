@@ -10,7 +10,7 @@
 //   - runDevApp (high-level)
 //     Mischt die Standard-Features (config/user/tenant/auth-email-
 //     password) automatisch dazu wenn `auth` gesetzt ist, wired die
-//     Login-Routes + Error-Map, ruft seedAdmin im onAfterSetup. Default
+//     Login-Routes + Error-Map, ruft seedAdminGuarded im onAfterSetup. Default
 //     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
 
 export {
