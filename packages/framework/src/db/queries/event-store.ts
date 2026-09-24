@@ -16,9 +16,9 @@ export async function claimXactId(db: AnyDb): Promise<void> {
   await asRawClient(db).unsafe(`SELECT pg_current_xact_id()`);
 }
 
-/** claimXactId() + NOTIFY in one round-trip — NOTIFY only fires on commit. */
-export async function claimXactIdAndNotify(db: AnyDb, channel: string): Promise<void> {
-  await asRawClient(db).unsafe(`SELECT pg_current_xact_id(), pg_notify($1, '')`, [channel]);
+/** NOTIFY on commit — wakes LISTEN subscribers (event-dispatcher). */
+export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void> {
+  await asRawClient(db).unsafe(`SELECT pg_notify($1, '')`, [channel]);
 }
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.

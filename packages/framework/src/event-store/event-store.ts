@@ -15,8 +15,9 @@ import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { constraintOf, isUniqueViolation } from "../db/pg-error";
 import {
-  claimXactIdAndNotify,
+  claimXactId,
   insertSubsequentEventRow,
+  notifyPgChannel,
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
@@ -93,17 +94,17 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   const eventVersion = toStore.eventVersion ?? 1;
 
   try {
-    // Gap-finality (event-dispatcher pending_gaps) needs THIS holder of the
-    // about-to-be-assigned event id to already have a real xact id before the
-    // INSERT — see claimXactIdAndNotify. NOTIFY in the same statement fires
-    // on commit regardless of position (PG buffers it per-TX and drops it on
-    // rollback), so bundling it here costs nothing.
-    await claimXactIdAndNotify(db, EVENTS_PUBSUB_CHANNEL);
+    await claimXactId(db);
 
     const row =
       toStore.expectedVersion === 0
         ? await insertFirstEvent(db, toStore, newVersion, eventVersion)
         : await insertSubsequentEvent(db, toStore, newVersion, eventVersion);
+
+    // NOTIFY after the INSERT: outside a transaction each statement commits
+    // on its own, so a NOTIFY sent first would wake the dispatcher before
+    // the row exists.
+    await notifyPgChannel(db, EVENTS_PUBSUB_CHANNEL);
 
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
