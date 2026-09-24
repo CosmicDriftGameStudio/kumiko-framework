@@ -63,7 +63,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       setupToken: z.string().min(1),
       code: z.string().length(6),
     }),
-    access: { roles: ["anonymous"] },
+    access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:
