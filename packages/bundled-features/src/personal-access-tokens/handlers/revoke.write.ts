@@ -1,9 +1,11 @@
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { PatErrors } from "../constants";
+import { PAT_REVOKED_AGGREGATE_TYPE, PAT_REVOKED_EVENT_QN } from "../pat-revoked-event";
 import { apiTokenTable } from "../schema/api-token";
 
 // Revoke one of the caller's own tokens. Ownership is enforced in the WHERE
@@ -30,7 +32,21 @@ export const revokePatWrite = defineWriteHandler({
       { revokedAt: Temporal.Now.instant() },
       { id: event.payload.id, userId: event.user.id, revokedAt: null },
     );
-    if (updated.length > 0) return { isSuccess: true, data: { id: event.payload.id } };
+    if (updated.length > 0) {
+      // Lightweight append alongside the direct-write above, mirroring
+      // sessions' revoke.write.ts. NOT a lifecycle event for
+      // store_api_tokens (that table stays an unmanaged direct-write store,
+      // see feature.ts). Without this, the access-invalidation consumer
+      // never hears about the revoke and an already-open SSE stream
+      // authenticated by this exact token survives it.
+      await ctx.unsafeAppendEvent({
+        aggregateId: generateId(),
+        aggregateType: PAT_REVOKED_AGGREGATE_TYPE,
+        type: PAT_REVOKED_EVENT_QN,
+        payload: { userId: event.user.id, tokenIds: [event.payload.id] },
+      });
+      return { isSuccess: true, data: { id: event.payload.id } };
+    }
     return writeFailure(
       new UnprocessableError(PatErrors.ownershipDenied, {
         i18nKey: "errors.ownershipDenied",

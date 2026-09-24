@@ -12,6 +12,26 @@ export type SseEvent = {
   data: Record<string, unknown>;
 };
 
+// What a publish invalidates. "user" is the broadest (and the historical
+// default — every scope narrower than this is an opt-in from a caller that
+// knows exactly which credential(s) it revoked).
+export type AccessInvalidationScope =
+  | { readonly kind: "user" }
+  | { readonly kind: "all-except-session"; readonly keptSessionId: string }
+  | { readonly kind: "sessions"; readonly sessionIds: readonly string[] }
+  | { readonly kind: "pat-tokens"; readonly tokenIds: readonly string[] };
+
+// What a stream's own listener is authenticated as — used to decide whether
+// a narrow scope (sessions/pat-tokens) applies to it. A listener with
+// neither field (should not normally happen — dispatch-stream.ts always
+// passes at least one) is treated as unidentifiable and closed by every
+// narrow scope, same fail-closed stance as a PAT stream facing a
+// sessions-scope.
+export type AccessInvalidationCredential = {
+  readonly sid?: string;
+  readonly patTokenId?: string;
+};
+
 export type SseBroker = {
   addClient(channel: string, send: (event: SseEvent) => void, close: () => void): string;
   removeClient(channel: string, clientId: string): void;
@@ -27,22 +47,37 @@ export type SseBroker = {
   subscribeAccessInvalidation(
     userId: string,
     onInvalidate: () => void,
-    ownSid?: string,
+    credential?: AccessInvalidationCredential,
   ): () => void;
-  // `keptSessionId` spares exactly one stream: the caller's own session on a
-  // "revoke all others" write. It is a keep-list, not a list of revoked
-  // sessions, so a stream of a session already revoked without an event
-  // (plain logout) still closes. Every other reason stays userwide.
-  publishAccessInvalidation(userId: string, keptSessionId?: string): void;
+  // `scope` narrows which credential(s) close; omitted = userwide (every
+  // listener), the historical default and still what unrelated
+  // reasons (role change, membership removal) use.
+  publishAccessInvalidation(userId: string, scope?: AccessInvalidationScope): void;
 };
 
-// Fail-closed: without a kept sid, or for a listener without its own sid
-// (PAT/bearer), nothing is spared.
-function isSparedByKeptSessionId(
-  ownSid: string | undefined,
-  keptSessionId: string | undefined,
+// Fail-closed: a narrow scope only spares/limits a listener it can positively
+// match against its own credential. A listener with neither sid nor
+// patTokenId of its own can't be matched by "sessions"/"pat-tokens", so it
+// closes — same reasoning "all-except-session" already used for a sidless
+// (PAT/bearer) listener.
+export function shouldInvalidateListener(
+  credential: AccessInvalidationCredential,
+  scope: AccessInvalidationScope,
 ): boolean {
-  return keptSessionId !== undefined && ownSid === keptSessionId;
+  switch (scope.kind) {
+    case "user":
+      return true;
+    case "all-except-session":
+      return credential.sid !== scope.keptSessionId;
+    case "sessions":
+      return credential.sid !== undefined
+        ? scope.sessionIds.includes(credential.sid)
+        : credential.patTokenId === undefined;
+    case "pat-tokens":
+      return credential.patTokenId !== undefined
+        ? scope.tokenIds.includes(credential.patTokenId)
+        : credential.sid === undefined;
+  }
 }
 
 export function createSseBroker(): SseBroker {
@@ -51,11 +86,14 @@ export function createSseBroker(): SseBroker {
   // makes pushToChannel/publishAccessInvalidation reach every replica's
   // clients — this reference implementation stays single-process only.
   const channels = new Map<string, Map<string, SseClient>>();
-  // Keyed by callback reference, value is the subscriber's own sid. Every
-  // subscriber must pass a distinct closure (dispatch-stream.ts does, one per
-  // stream). Two subscribes with the SAME reference for the same user
-  // collapse into one listener, and the first unsubscribe kills both.
-  const accessInvalidationListeners = new Map<string, Map<() => void, string | undefined>>();
+  // Keyed by callback reference, value is the subscriber's own credential.
+  // Every subscriber must pass a distinct closure (dispatch-stream.ts does,
+  // one per stream). Two subscribes with the SAME reference for the same
+  // user collapse into one listener, and the first unsubscribe kills both.
+  const accessInvalidationListeners = new Map<
+    string,
+    Map<() => void, AccessInvalidationCredential>
+  >();
 
   function getOrCreateChannel(channel: string): Map<string, SseClient> {
     let clients = channels.get(channel);
@@ -103,14 +141,14 @@ export function createSseBroker(): SseBroker {
       return total;
     },
 
-    subscribeAccessInvalidation(userId, onInvalidate, ownSid) {
+    subscribeAccessInvalidation(userId, onInvalidate, credential) {
       const channel = userAccessChannel(userId);
       let listeners = accessInvalidationListeners.get(channel);
       if (!listeners) {
         listeners = new Map();
         accessInvalidationListeners.set(channel, listeners);
       }
-      listeners.set(onInvalidate, ownSid);
+      listeners.set(onInvalidate, credential ?? {});
       return () => {
         const current = accessInvalidationListeners.get(channel);
         // skip: already unsubscribed (e.g. stream ended after a publish already fired)
@@ -120,15 +158,16 @@ export function createSseBroker(): SseBroker {
       };
     },
 
-    publishAccessInvalidation(userId, keptSessionId) {
+    publishAccessInvalidation(userId, scope) {
       const channel = userAccessChannel(userId);
       const listeners = accessInvalidationListeners.get(channel);
       // skip: no live stream is watching this user right now
       if (!listeners) return;
+      const resolvedScope: AccessInvalidationScope = scope ?? { kind: "user" };
       // Snapshot before iterating — a fired listener unsubscribes itself,
       // which would mutate `listeners` mid-iteration otherwise.
-      for (const [onInvalidate, ownSid] of [...listeners]) {
-        if (isSparedByKeptSessionId(ownSid, keptSessionId)) continue;
+      for (const [onInvalidate, credential] of [...listeners]) {
+        if (!shouldInvalidateListener(credential, resolvedScope)) continue;
         onInvalidate();
       }
     },

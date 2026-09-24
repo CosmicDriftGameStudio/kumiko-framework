@@ -27,6 +27,11 @@ export const sessionRevokedSchema = z.object({
   // The caller's own session a "revoke all others" write spared. Optional so
   // events appended before it existed still replay.
   keptSessionId: z.uuid().optional(),
+  // Set only by the raw sessionRevoker callback (logout / tenant-switch) —
+  // tells the access-invalidation consumer to close exactly `sessionIds`
+  // instead of the userwide default every other source keeps using.
+  // Optional so events appended before it existed still replay unscoped.
+  streamScope: z.literal("revoked-sessions").optional(),
 });
 
 export type SessionRevokedPayload = z.infer<typeof sessionRevokedSchema>;

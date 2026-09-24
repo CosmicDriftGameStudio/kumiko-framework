@@ -10,6 +10,13 @@ export {
 } from "./feature";
 export type { CreatePatOptions, PatMfaVerifyResult } from "./handlers/create.write";
 export { hashPatToken, mintPatToken } from "./hash";
+export {
+  PAT_REVOKED_AGGREGATE_TYPE,
+  PAT_REVOKED_EVENT_QN,
+  PAT_REVOKED_EVENT_SHORT,
+  type PatRevokedPayload,
+  patRevokedSchema,
+} from "./pat-revoked-event";
 export { createPatResolver } from "./resolver";
 export { revokeAllPatTokensForUser } from "./revoke-for-user";
 export { apiTokenEntity, apiTokenTable } from "./schema/api-token";

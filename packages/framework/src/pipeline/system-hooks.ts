@@ -1,4 +1,4 @@
-import type { SseBroker } from "../api/sse-broker";
+import type { AccessInvalidationScope, SseBroker } from "../api/sse-broker";
 import {
   collectSearchableSubjectFields,
   configuredPiiSubjectKms,
@@ -451,11 +451,19 @@ export function createJobTriggerEventConsumer(
 //
 //   "sessions:event:session-revoked" — payload.userId direct (own aggregate,
 //     see bundled-features/sessions/session-revoked-event.ts). Fired for
-//     both self-service revoke and the privileged cross-tenant
-//     revoke-all-for-user (SYSTEM_TENANT_ID-anchored DSGVO Art.18 freeze).
+//     self-service revoke, the privileged cross-tenant revoke-all-for-user
+//     (SYSTEM_TENANT_ID-anchored DSGVO Art.18 freeze), and the raw
+//     sessionRevoker callback (logout / tenant-switch — the only source
+//     that also sets payload.streamScope, see readSessionRevokedScope below).
 //     fetchPendingEvents has no tenant predicate, so the SYSTEM_TENANT_ID-
 //     anchored event reaches this consumer the same as any other — routing
 //     is purely on payload.userId, never on event.tenantId.
+//   "personal-access-tokens:event:pat-revoked" — payload.userId direct (own
+//     aggregate, see bundled-features/personal-access-tokens/pat-revoked-event.ts).
+//     Fired by both the self-service revoke handler and
+//     revokeAllPatTokensForUser (password-change / MFA-toggle / DSGVO
+//     forget-subject). Always scoped to payload.tokenIds — a PAT revoke
+//     never touches another credential's stream.
 //   "tenant-membership.updated" / "tenant-membership.deleted" — role change
 //     or member removal. userId isn't in payload.changes (update only
 //     carries the changed fields, e.g. { roles }) so it's read from
@@ -480,6 +488,7 @@ export function createJobTriggerEventConsumer(
 export const ACCESS_INVALIDATION_CONSUMER_NAME = "system:consumer:access-invalidation";
 
 const SESSION_REVOKED_EVENT_TYPE = "sessions:event:session-revoked";
+const PAT_REVOKED_EVENT_TYPE = "personal-access-tokens:event:pat-revoked";
 const TENANT_MEMBERSHIP_UPDATED_EVENT_TYPE = "tenant-membership.updated";
 const TENANT_MEMBERSHIP_DELETED_EVENT_TYPE = "tenant-membership.deleted";
 
@@ -490,11 +499,38 @@ function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): strin
   return typeof userId === "string" && userId.length > 0 ? userId : undefined;
 }
 
-// A "revoke all others" write must not cut the caller's own live stream, so
-// session-revoked carries the spared sid. Missing or malformed → userwide.
-function readSessionRevokedKeptSessionId(payload: Record<string, unknown>): string | undefined {
+function readNonEmptyStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.every((v): v is string => typeof v === "string") ? value : undefined;
+}
+
+// session-revoked's scope resolution, in order:
+//   1. streamScope === "revoked-sessions" with a non-empty sessionIds array
+//      (only the raw sessionRevoker callback sets this) → narrow "sessions"
+//      scope, closes exactly those sids.
+//   2. Otherwise, a non-empty keptSessionId ("revoke all others") → spares
+//      that one sid, same as before streamScope existed.
+//   3. Otherwise → userwide. Events appended before streamScope existed have
+//      neither field and fall straight through to this same userwide default
+//      they always had — a replay is unaffected.
+function readSessionRevokedScope(payload: Record<string, unknown>): AccessInvalidationScope {
+  if (payload["streamScope"] === "revoked-sessions") {
+    const sessionIds = readNonEmptyStringArray(payload["sessionIds"]);
+    if (sessionIds) return { kind: "sessions", sessionIds };
+  }
   const keptSessionId = payload["keptSessionId"];
-  return typeof keptSessionId === "string" && keptSessionId.length > 0 ? keptSessionId : undefined;
+  if (typeof keptSessionId === "string" && keptSessionId.length > 0) {
+    return { kind: "all-except-session", keptSessionId };
+  }
+  return { kind: "user" };
+}
+
+// pat-revoked is always narrow — a PAT revoke never has a reason to close
+// another credential's stream. Malformed tokenIds fail closed to userwide
+// rather than silently dropping the invalidation.
+function readPatRevokedScope(payload: Record<string, unknown>): AccessInvalidationScope {
+  const tokenIds = readNonEmptyStringArray(payload["tokenIds"]);
+  return tokenIds ? { kind: "pat-tokens", tokenIds } : { kind: "user" };
 }
 
 export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): EventConsumer {
@@ -518,7 +554,15 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // poison would otherwise permanently stop access-invalidation for
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
-        sseBroker.publishAccessInvalidation(userId, readSessionRevokedKeptSessionId(event.payload));
+        sseBroker.publishAccessInvalidation(userId, readSessionRevokedScope(event.payload));
+      }
+
+      if (event.type === PAT_REVOKED_EVENT_TYPE) {
+        const userId = event.payload["userId"];
+        // skip: malformed pat-revoked payload — same fail-open reasoning as
+        // session-revoked above.
+        if (typeof userId !== "string" || userId.length === 0) return;
+        sseBroker.publishAccessInvalidation(userId, readPatRevokedScope(event.payload));
       }
 
       if (
