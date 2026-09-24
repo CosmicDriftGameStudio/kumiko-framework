@@ -1,6 +1,6 @@
 // Regression test for #255-class drift: storeTables must appear in
-// enumerateFeatureTableSources so setupTestStack's auto-push and
-// collectTableMetas see the exact same table set. Before this fix,
+// enumerateFeatureTableSources so collectTableMetas (shared by setupTestStack's
+// auto-push and `kumiko schema generate`) sees the exact same table set. Before this fix,
 // unmanaged tables were only handled by collectTableMetas directly, so any
 // app relying on setupTestStack's ephemeral DB (Playwright/e2e) never got
 // its store tables created — e.g. the bundled "sessions" feature's

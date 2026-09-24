@@ -16,8 +16,6 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
-  unsafeCreateEntityTable,
-  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createTestEnvelopeCipher,
@@ -27,18 +25,16 @@ import {
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
-  tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
 import { createSessionsFeature } from "../../sessions";
-import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant";
+import { userSessionTable } from "../../sessions/schema/user-session";
+import { tenantMembershipsTable } from "../../tenant";
 import { TenantHandlers, TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { tenantTable } from "../../tenant/schema/tenant";
 import { seedTenantMembership } from "../../tenant/testing";
 import { createUserFeature } from "../../user/feature";
 import {
@@ -85,12 +81,6 @@ beforeAll(async () => {
     } as import("@cosmicdrift/kumiko-framework/api").AuthRoutesConfig,
   });
   db = stack.db;
-
-  await unsafeCreateEntityTable(db, tenantEntity);
-  await unsafeCreateEntityTable(db, userSessionEntity);
-  await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
-  await unsafeCreateEntityTable(db, tenantMembershipEntity);
-  await unsafePushTables(db, { configValuesTable });
 });
 
 afterAll(async () => {
@@ -175,6 +165,11 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
     const err = await stack.http.writeErr(REQUEST, {}, member);
     expect(err.httpStatus).toBe(403);
   });
+
+  test("authenticated read against an unseeded tenant doesn't 500 on a missing read_tenants table (fw#3102)", async () => {
+    const res = await stack.http.query(TenantQueries.me, {}, tenantAdmin);
+    expect(res.status).toBe(200);
+  });
 });
 
 function createPoisonTenantDataFeature() {
@@ -210,9 +205,6 @@ describe("tenant-lifecycle :: pipeline abandon / destroyFailed", () => {
         },
       } as import("@cosmicdrift/kumiko-framework/api").AuthRoutesConfig,
     });
-    await unsafeCreateEntityTable(poisonStack.db, tenantEntity);
-    await unsafeCreateEntityTable(poisonStack.db, tenantComplianceProfileEntity);
-    await unsafePushTables(poisonStack.db, { configValuesTable });
   });
 
   afterAll(async () => {
@@ -416,9 +408,6 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
       ],
       extraContext: { configResolver: resolver, configEncryption: encryption },
     });
-    await unsafeCreateEntityTable(isolationStack.db, tenantEntity);
-    await unsafeCreateEntityTable(isolationStack.db, tenantComplianceProfileEntity);
-    await unsafePushTables(isolationStack.db, { configValuesTable });
   });
 
   afterAll(async () => {
@@ -483,11 +472,6 @@ describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () =>
       ],
       extraContext: { configResolver: resolver, configEncryption: encryption },
     });
-    await unsafeCreateEntityTable(derivedStack.db, tenantEntity);
-    await unsafeCreateEntityTable(derivedStack.db, userSessionEntity);
-    await unsafeCreateEntityTable(derivedStack.db, tenantComplianceProfileEntity);
-    await unsafeCreateEntityTable(derivedStack.db, tenantMembershipEntity);
-    await unsafePushTables(derivedStack.db, { configValuesTable });
   });
 
   afterAll(async () => {
