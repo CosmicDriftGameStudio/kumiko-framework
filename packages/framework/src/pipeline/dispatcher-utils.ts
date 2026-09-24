@@ -6,7 +6,14 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
-import { type FieldIssue, toKumikoError, type WriteErrorInfo } from "../errors";
+import {
+  type FieldIssue,
+  type KumikoError,
+  toKumikoError,
+  VersionConflictError,
+  type WriteErrorInfo,
+} from "../errors";
+import { VersionConflictError as EventStoreVersionConflictError } from "../event-store/errors";
 
 export type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 
@@ -177,4 +184,16 @@ export function resolveType(type: HandlerType): string {
   return typeof type === "string" ? type : type.name;
 }
 
-export const wrapToKumiko = toKumikoError;
+// A custom write losing an append race (ctx.appendEvent, stream.append) is a
+// retryable 409 like the CRUD executor's, not an internal error. Mapped here
+// because errors/ is client code and must not import the event store.
+// currentVersion -1 is the executor's "not looked up" sentinel.
+export function wrapToKumiko(e: unknown): KumikoError {
+  if (e instanceof EventStoreVersionConflictError) {
+    return new VersionConflictError(
+      { entityId: e.aggregateId, expectedVersion: e.expectedVersion, currentVersion: -1 },
+      { cause: e },
+    );
+  }
+  return toKumikoError(e);
+}

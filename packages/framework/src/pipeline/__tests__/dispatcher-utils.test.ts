@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createSystemUser } from "../../engine/system-user";
 import { InternalError } from "../../errors";
+import { VersionConflictError as EventStoreVersionConflictError } from "../../event-store/errors";
 import {
   describeShape,
   dispatcherSpanAttributes,
@@ -114,6 +115,13 @@ describe("wrapToKumiko", () => {
     const wrapped = wrapToKumiko(new TypeError("boom"));
     expect(wrapped.code).toBe("internal_error");
     expect(wrapped.cause).toBeInstanceOf(TypeError);
+  });
+
+  test("maps an event-store version conflict to a 409 version_conflict", () => {
+    const wrapped = wrapToKumiko(new EventStoreVersionConflictError("agg-1", 3));
+    expect(wrapped.code).toBe("version_conflict");
+    expect(wrapped.httpStatus).toBe(409);
+    expect(wrapped.details).toMatchObject({ entityId: "agg-1", expectedVersion: 3 });
   });
 });
 

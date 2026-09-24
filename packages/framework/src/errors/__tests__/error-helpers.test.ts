@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { VersionConflictError as EventStoreVersionConflict } from "../../event-store/errors";
 import { NotFoundError } from "../classes";
 import { AgentReasons as BarrelAgentReasons } from "../index";
 import { AgentReasons, FrameworkReasons } from "../reasons";
-import { toKumikoError } from "../to-kumiko-error";
 import { buildInvalidTransitionDetails } from "../transition-details";
 import { reraiseAsKumikoError, toWriteErrorInfo, writeFailure } from "../write-error-info";
 
@@ -13,19 +11,6 @@ describe("writeFailure", () => {
     expect(failure.isSuccess).toBe(false);
     expect(failure.error.code).toBe("not_found");
     expect(failure.error.httpStatus).toBe(404);
-  });
-});
-
-describe("toKumikoError", () => {
-  test("maps an event-store version conflict to a 409 version_conflict", () => {
-    const err = toKumikoError(new EventStoreVersionConflict("agg-1", 3));
-    expect(err.code).toBe("version_conflict");
-    expect(err.httpStatus).toBe(409);
-    expect(err.details).toMatchObject({ entityId: "agg-1", expectedVersion: 3 });
-  });
-
-  test("keeps any other plain Error an internal_error", () => {
-    expect(toKumikoError(new Error("boom")).code).toBe("internal_error");
   });
 });
 
