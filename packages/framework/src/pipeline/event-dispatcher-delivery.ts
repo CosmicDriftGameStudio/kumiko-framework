@@ -245,75 +245,85 @@ export async function deliverEvents(
   let failed = 0;
   const resolvedPendingIds: bigint[] = [];
 
+  // A pending row sits below startCursor: it resolves its gap but never moves
+  // the cursor backward. ORDER BY id walks all pending rows first.
+  const resolve = (id: bigint): void => {
+    if (id > cursor) cursor = id;
+    if (id <= startCursor) resolvedPendingIds.push(id);
+    attempts = 0;
+    lastError = null;
+  };
+
   for (const row of events) {
-    const isPendingRow = row.id <= startCursor;
     try {
-      // Propagate causation: if the handler calls ctx.appendEvent, the new
-      // event should record THIS event as its cause. correlationId is
-      // inherited unchanged — it survives the hop across streams by design.
-      // requestId falls back to a fresh id because the dispatcher runs
-      // outside any HTTP request (background poll), and a stable log-
-      // correlation handle is still useful for debugging.
-      const stored = rowToStoredEvent(row);
-      const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
-      const causationId = String(stored.id);
-      const requestId = requestContext.generateId();
-      // #3043 — an event this apply writes is attributed to the consumer, not
-      // to whatever wrote the triggering event; causationId already links back.
-      await requestContext.run(
-        {
-          requestId,
-          correlationId,
-          causationId,
-          handler: consumer.name,
-          feature: consumer.featureName ?? qnScope(consumer.name),
-        },
-        async () => {
-          await consumer.handler(stored, context);
-        },
-      );
-      // A pending row's id is below startCursor by definition — never move
-      // the cursor backward for it, just resolve the gap. events.id order
-      // (the SQL fetch's ORDER BY) means every pending row is walked before
-      // any row that does advance the cursor.
-      if (row.id > cursor) cursor = row.id;
-      if (isPendingRow) resolvedPendingIds.push(row.id);
-      attempts = 0;
-      lastError = null;
+      await applyEvent(consumer, row, context);
+      resolve(row.id);
       processed += 1;
     } catch (e) {
       const errMessage = e instanceof Error ? e.message : String(e);
+      failed += 1;
       if (consumer.errorPolicy?.skipApplyErrors) {
-        // Best-effort mode: record the error on the skip counter so ops
-        // can alert on a spike of skipped events, advance the cursor past
-        // the bad event, keep going. The consumer stays "idle", not "dead".
-        // Also emit a warn-level log line — the metric tells ops THAT events
-        // are being dropped, the log tells them WHICH events. Without this
-        // a poisoned-then-skipped event is invisible to forensic search.
-        const errorClass = e instanceof Error ? e.constructor.name : "UnknownError";
-        emitDispatcherError(context.meter ?? getFallbackMeter(), {
-          handler: consumer.name,
-          errorClass,
-        });
-        context.log?.warn(
-          `event-dispatcher: ${consumer.name} skipped event ${row.id} (${errorClass}): ${errMessage}`,
-        );
-        if (row.id > cursor) cursor = row.id;
-        if (isPendingRow) resolvedPendingIds.push(row.id);
-        attempts = 0;
-        lastError = null;
-        failed += 1;
+        reportSkippedEvent(consumer, row.id, e, errMessage, context);
+        resolve(row.id);
         continue;
       }
       attempts += 1;
       lastError = errMessage;
-      failed += 1;
       if (attempts >= effectiveMaxAttempts) deadLettered = true;
       break;
     }
   }
 
   return { cursor, attempts, lastError, deadLettered, processed, failed, resolvedPendingIds };
+}
+
+async function applyEvent(
+  consumer: EventConsumer,
+  row: StoredEventRow,
+  context: AppContext,
+): Promise<void> {
+  // Propagate causation: if the handler calls ctx.appendEvent, the new
+  // event should record THIS event as its cause. correlationId is
+  // inherited unchanged — it survives the hop across streams by design.
+  // requestId falls back to a fresh id because the dispatcher runs
+  // outside any HTTP request (background poll), and a stable log-
+  // correlation handle is still useful for debugging.
+  const stored = rowToStoredEvent(row);
+  const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
+  const causationId = String(stored.id);
+  const requestId = requestContext.generateId();
+  // #3043 — an event this apply writes is attributed to the consumer, not
+  // to whatever wrote the triggering event; causationId already links back.
+  await requestContext.run(
+    {
+      requestId,
+      correlationId,
+      causationId,
+      handler: consumer.name,
+      feature: consumer.featureName ?? qnScope(consumer.name),
+    },
+    async () => {
+      await consumer.handler(stored, context);
+    },
+  );
+}
+
+// Best-effort mode: record the error on the skip counter so ops can alert on
+// a spike of skipped events; the consumer stays "idle", not "dead". The
+// warn-level log line tells them WHICH events — without it a
+// poisoned-then-skipped event is invisible to forensic search.
+function reportSkippedEvent(
+  consumer: EventConsumer,
+  eventId: bigint,
+  e: unknown,
+  errMessage: string,
+  context: AppContext,
+): void {
+  const errorClass = e instanceof Error ? e.constructor.name : "UnknownError";
+  emitDispatcherError(context.meter ?? getFallbackMeter(), { handler: consumer.name, errorClass });
+  context.log?.warn(
+    `event-dispatcher: ${consumer.name} skipped event ${eventId} (${errorClass}): ${errMessage}`,
+  );
 }
 
 export type PersistedConsumerOutcome = DeliveryOutcome & {

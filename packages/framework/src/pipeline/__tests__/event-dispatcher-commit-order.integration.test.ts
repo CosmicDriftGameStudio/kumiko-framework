@@ -26,7 +26,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
 import { generateId } from "../../utils";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
 
@@ -217,11 +217,14 @@ describe("event-dispatcher — commit order vs. id order", () => {
     let pendingGaps = await readPendingGaps(db, consumer.name);
     // xmin is cluster-wide, so a parallel test's open transaction can hold it
     // back briefly; wait for the condition, not a fixed number of passes.
-    for (const deadline = Date.now() + 5_000; pendingGaps.length > 0 && Date.now() < deadline; ) {
-      await dispatcher.runOnce();
-      pendingGaps = await readPendingGaps(db, consumer.name);
-      if (pendingGaps.length > 0) await Bun.sleep(20);
-    }
+    await waitFor(
+      async () => {
+        await dispatcher.runOnce();
+        pendingGaps = await readPendingGaps(db, consumer.name);
+        expect(pendingGaps).toEqual([]);
+      },
+      { delays: [20, 100, 500, 1000, 3000] },
+    );
 
     expect(pendingGaps).toEqual([]);
     // The burnt id was never delivered — only "real" ever was.
@@ -262,11 +265,14 @@ describe("event-dispatcher — commit order vs. id order", () => {
     let pendingGaps = await readPendingGaps(db, consumer.name);
     // xmin is cluster-wide, so a parallel test's open transaction can hold it
     // back briefly; wait for the condition, not a fixed number of passes.
-    for (const deadline = Date.now() + 5_000; pendingGaps.length > 0 && Date.now() < deadline; ) {
-      await dispatcher.runOnce();
-      pendingGaps = await readPendingGaps(db, consumer.name);
-      if (pendingGaps.length > 0) await Bun.sleep(20);
-    }
+    await waitFor(
+      async () => {
+        await dispatcher.runOnce();
+        pendingGaps = await readPendingGaps(db, consumer.name);
+        expect(pendingGaps).toEqual([]);
+      },
+      { delays: [20, 100, 500, 1000, 3000] },
+    );
     expect(pendingGaps).toEqual([]);
   });
 });
