@@ -16,14 +16,15 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { appendAttemptEvent, logAttempt } from "./attempt-log";
 import { buildChannelContext } from "./channel-context";
-import { DeliveryJobs, deliveryPriorityRank } from "./constants";
+import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs, deliveryPriorityRank } from "./constants";
 import { selectNotificationPreferences } from "./db/queries/preferences";
-import type {
-  ChannelContext,
-  ChannelMessage,
-  DeliveryChannel,
-  DeliveryLogEntry,
-  DeliveryService,
+import {
+  type ChannelContext,
+  type ChannelMessage,
+  type DeliveryChannel,
+  type DeliveryLogEntry,
+  type DeliveryService,
+  isDeliveryChannelPlugin,
 } from "./types";
 
 export type RateLimitConfig = {
@@ -58,22 +59,14 @@ export type DeliveryServiceOptions = {
 
 // Build channel list from registry extension usages
 export function collectChannels(registry: Registry): DeliveryChannel[] {
-  const usages = registry.getExtensionUsages("deliveryChannel");
+  const usages = registry.getExtensionUsages(DELIVERY_CHANNEL_EXTENSION);
   return usages.map((usage) => {
-    // @cast-boundary engine-payload — extension-usage carries unknown options
-    const opts = usage.options as {
-      mode: DeliveryChannel["mode"];
-      resolve: DeliveryChannel["resolve"];
-      render?: DeliveryChannel["render"];
-      send: DeliveryChannel["send"];
-    };
-    return {
-      name: usage.entityName,
-      mode: opts.mode,
-      resolve: opts.resolve,
-      render: opts.render,
-      send: opts.send,
-    };
+    if (!isDeliveryChannelPlugin(usage.options)) {
+      throw new Error(
+        `${DELIVERY_CHANNEL_EXTENSION} registration for "${usage.entityName}" has invalid options`,
+      );
+    }
+    return { name: usage.entityName, ...usage.options };
   });
 }
 

@@ -358,7 +358,7 @@ describe("boot-validator", () => {
     const self = defineFeature("tier-stub", (r) => {
       r.extendsRegistrar("tenantTierResolver", { onRegister: () => {} });
       r.entity("dummy", createEntity({ table: "Dummies", fields: {} }));
-      r.useExtension("tenantTierResolver", "dummy");
+      r.useExtension("tenantTierResolver", "dummy", { build: async () => () => new Set() });
     });
     expect(() => validateBoot([self])).not.toThrow();
   });

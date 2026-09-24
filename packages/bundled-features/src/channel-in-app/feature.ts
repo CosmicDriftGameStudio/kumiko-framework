@@ -1,3 +1,4 @@
+import { DELIVERY_CHANNEL_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { inboxQuery } from "./handlers/inbox.query";
 import { markAllReadWrite } from "./handlers/mark-all-read.write";
@@ -23,7 +24,7 @@ export function createChannelInAppFeature(): FeatureDefinition {
     });
 
     // Register as delivery channel via extension system
-    r.useExtension("deliveryChannel", "inApp", {
+    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "inApp", {
       mode: inAppChannel.mode,
       resolve: inAppChannel.resolve,
       send: inAppChannel.send,

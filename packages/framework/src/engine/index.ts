@@ -98,7 +98,7 @@ export {
 export { declareEscapeHatch } from "./escape-hatch-declaration";
 export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";
-export type { KumikoExtensionName } from "./extension-names";
+export type { KumikoExtensionName, TenantResourceExtensionName } from "./extension-names";
 export {
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
@@ -124,11 +124,18 @@ export type {
   StorageProviderExtensionHooks,
   StorageProviderHookCtx,
 } from "./extensions/storage-provider";
-export type {
-  TenantDataDestroyHook,
-  TenantDataExtensionHooks,
-  TenantDataHookCtx,
+export {
+  isTenantDataExtensionHooks,
+  type TenantDataDestroyHook,
+  type TenantDataExtensionHooks,
+  type TenantDataHookCtx,
 } from "./extensions/tenant-data";
+export {
+  isTenantResourceExtensionHooks,
+  type TenantResourceDestroyHook,
+  type TenantResourceExtensionHooks,
+  type TenantResourceHookCtx,
+} from "./extensions/tenant-resource";
 export type {
   TenantUserModel,
   UserDataDeleteHook,

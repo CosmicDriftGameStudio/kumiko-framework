@@ -46,6 +46,10 @@ import {
 
 const FEATURE_NAME = "mail-foundation";
 
+// Extension-point name for transport-provider plugins (mail-transport-smtp,
+// mail-transport-brevo-api, ...).
+export const MAIL_TRANSPORT_EXTENSION = "mailTransport" as const;
+
 // =============================================================================
 // Plugin-Interface — what a Provider-Plugin must implement
 // =============================================================================
@@ -104,6 +108,13 @@ export function isMailTransportPlugin(o: unknown): o is MailTransportPlugin {
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
+// r.useExtension options-shape, co-located since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [MAIL_TRANSPORT_EXTENSION]: MailTransportPlugin;
+  }
+}
+
 // =============================================================================
 // Feature-definition
 // =============================================================================
@@ -122,7 +133,7 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   // Plugin extension-point. Provider-features register here. The
   // entityName at registration time becomes the value tenants pick in
   // `provider` config-key (e.g. "smtp", "brevo-api").
-  r.extendsRegistrar("mailTransport", {
+  r.extendsRegistrar(MAIL_TRANSPORT_EXTENSION, {
     onRegister: () => {
       // No side-effects at register-time — the registry stores the
       // usage, factory looks it up at request-time. Same shape as
@@ -150,7 +161,7 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   );
   // Readiness gating: transport-plugins' required keys/secrets count only
   // while their plugin is the one this key selects.
-  r.extensionSelector("mailTransport", providerConfigKey);
+  r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);
 
   return {
     /** Config-key-handle for the provider-selector. */
@@ -194,7 +205,7 @@ export async function createTransportForTenant(
     "provider",
   ) as string; // @cast-boundary engine-payload
   if (provider.length === 0) {
-    const usages = ctx.registry.getExtensionUsages("mailTransport");
+    const usages = ctx.registry.getExtensionUsages(MAIL_TRANSPORT_EXTENSION);
     const known = usages.map((u) => u.entityName).join(", ") || "<none>";
     throw new Error(
       `${FEATURE_NAME}: no provider selected — set the 'provider' config-key to one of: ${known}. ` +
@@ -202,7 +213,7 @@ export async function createTransportForTenant(
     );
   }
 
-  const usages = ctx.registry.getExtensionUsages("mailTransport");
+  const usages = ctx.registry.getExtensionUsages(MAIL_TRANSPORT_EXTENSION);
   const usage = usages.find((u) => u.entityName === provider);
   if (!usage) {
     const known = usages.map((u) => u.entityName).join(", ") || "<none>";

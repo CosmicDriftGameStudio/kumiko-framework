@@ -10,6 +10,7 @@
 export {
   createTransportForTenant,
   isMailTransportPlugin,
+  MAIL_TRANSPORT_EXTENSION,
   type MailTransportContext,
   type MailTransportPlugin,
   mailFoundationFeature,

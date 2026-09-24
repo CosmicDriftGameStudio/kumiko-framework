@@ -10,6 +10,7 @@
 // createTransportForTenant(ctx, ...).
 
 import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import { MAIL_TRANSPORT_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { hasMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
@@ -34,7 +35,7 @@ export type GdprMailDefaults = {
 // kann ohnehin nichts versendet werden und die App bleibt beim bisherigen
 // "kein Callback → keine Email"-Verhalten.
 export function isMailTransportAvailable(registry: Registry): boolean {
-  return registry.getExtensionUsages("mailTransport").length > 0;
+  return registry.getExtensionUsages(MAIL_TRANSPORT_EXTENSION).length > 0;
 }
 
 type TransportResolver = (tenantId: string) => Promise<EmailTransport>;

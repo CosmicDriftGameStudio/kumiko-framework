@@ -1,5 +1,6 @@
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
-import type { RendererPlugin } from "./types";
+import { RENDERER_EXTENSION } from "./constants";
+import { isRendererRegistrationPlugin, type RendererPlugin } from "./types";
 
 // renderer-foundation — Plugin-Foundation für Renderer (Notification,
 // HTML-Mail, PDF, Image). Plan-Doc:
@@ -21,7 +22,7 @@ export function createRendererFoundationFeature() {
     });
     r.requires("template-resolver");
 
-    r.extendsRegistrar("renderer", {
+    r.extendsRegistrar(RENDERER_EXTENSION, {
       onRegister: () => {
         // Plugin-Konformitäts-Check könnte hier: shape-validation der
         // options (kinds, render-Funktion present). Aktuell kein
@@ -39,17 +40,13 @@ export function createRendererFoundationFeature() {
 //
 // Symmetrisch zu collectChannels / collectRenderers in delivery-service.
 export function collectRendererPlugins(registry: Registry): RendererPlugin[] {
-  const usages = registry.getExtensionUsages("renderer");
+  const usages = registry.getExtensionUsages(RENDERER_EXTENSION);
   return usages.map((usage) => {
-    // @cast-boundary engine-payload — extension-usage carries unknown options
-    const opts = usage.options as {
-      kinds: RendererPlugin["kinds"];
-      render: RendererPlugin["render"];
-    };
-    return {
-      name: usage.entityName,
-      kinds: opts.kinds,
-      render: opts.render,
-    };
+    if (!isRendererRegistrationPlugin(usage.options)) {
+      throw new Error(
+        `${RENDERER_EXTENSION} registration for "${usage.entityName}" has invalid options`,
+      );
+    }
+    return { name: usage.entityName, ...usage.options };
   });
 }

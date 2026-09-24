@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { access, isOpenToAllGranted, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createRegistry,
+  defineFeature,
+  isOpenToAllGranted,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/feature";
 import { createTenantFeature } from "../../tenant/feature";
-import { DELIVERY_LOG_SCREEN_ID } from "../constants";
+import { DELIVERY_CHANNEL_EXTENSION, DELIVERY_LOG_SCREEN_ID } from "../constants";
+import { collectChannels } from "../delivery-service";
 import { createDeliveryFeature } from "../feature";
 
 describe("delivery screens + handler access alignment", () => {
@@ -36,6 +43,17 @@ describe("delivery screens + handler access alignment", () => {
     const delivery = createDeliveryFeature({ access: access.systemAdmin });
     const preferencesAccess = delivery.queryHandlers["preferences"]?.access;
     expect(preferencesAccess !== undefined && isOpenToAllGranted(preferencesAccess)).toBe(true);
+  });
+
+  test("collectChannels fails loud on a registration with invalid options", () => {
+    const broken = defineFeature("broken-channel", (r) => {
+      // @ts-expect-error resolve/send are required — proves the guard rejects a malformed options bag instead of silently dropping the channel
+      r.useExtension(DELIVERY_CHANNEL_EXTENSION, "bad-entity", { anything: 1 });
+    });
+    const registry = createRegistry([...features, broken]);
+    expect(() => collectChannels(registry)).toThrow(
+      `${DELIVERY_CHANNEL_EXTENSION} registration for "bad-entity" has invalid options`,
+    );
   });
 
   test("boot-validates with a narrowed access option", () => {

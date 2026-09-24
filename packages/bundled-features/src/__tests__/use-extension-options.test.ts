@@ -1,9 +1,11 @@
 // Imports only via package specifiers so the KumikoExtensionOptionsMap augmentation is proven to reach
 // consumers. Each @ts-expect-error has a positive control next to it, so an unrelated error cannot satisfy it.
 import { expect, expectTypeOf, test } from "bun:test";
+import { MAIL_TRANSPORT_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
+  EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
   EXT_USER_DATA,
   type ExtensionOptionsArgs,
@@ -11,6 +13,8 @@ import {
   type TenantDataDestroyHook,
   type TenantDataHookCtx,
   type TenantId,
+  type TenantResourceDestroyHook,
+  type TenantResourceHookCtx,
   type UserDataDeleteHook,
   type UserDataDeleteStrategy,
   type UserDataExportHook,
@@ -217,4 +221,58 @@ test("useExtension accepts a string-typed extension name with an arbitrary optio
       options: { anything: 42 },
     }),
   );
+});
+
+test("useExtension accepts a well-typed storageProvider destroyTenant hook", () => {
+  defineFeature("probe-storage-provider-ok", (r) => {
+    r.useExtension(EXT_STORAGE_PROVIDER, "x", {
+      destroyTenant: async (tenantId: TenantId, ctx: TenantResourceHookCtx) => {
+        expectTypeOf(tenantId).toBeString();
+        expectTypeOf(ctx.db).not.toBeAny();
+      },
+    });
+  });
+});
+
+test("useExtension infers the storageProvider destroyTenant hook's arg types from context", () => {
+  defineFeature("probe-storage-provider-contextual", (r) => {
+    r.useExtension(EXT_STORAGE_PROVIDER, "x", {
+      destroyTenant: async (tenantId, ctx) => {
+        expectTypeOf(tenantId).toEqualTypeOf<TenantId>();
+        expectTypeOf(ctx).toEqualTypeOf<TenantResourceHookCtx>();
+      },
+    });
+  });
+});
+
+test("useExtension rejects a storageProvider destroyTenant hook shaped like the tenantData (ctx)-only hook", () => {
+  defineFeature("probe-storage-provider-wrong-shape", (r) => {
+    r.useExtension(EXT_STORAGE_PROVIDER, "x", {
+      // @ts-expect-error storageProvider's destroyTenant takes (tenantId, ctx) — a tenantData-style (ctx)-only hook is missing the tenantId arg.
+      destroyTenant: async (_ctx: TenantDataHookCtx) => {},
+    });
+  });
+  expectTypeOf<
+    (ctx: TenantDataHookCtx) => Promise<void>
+  >().not.toExtend<TenantResourceDestroyHook>();
+});
+
+test("useExtension rejects a storageProvider registration without destroyTenant", () => {
+  defineFeature("probe-storage-provider-missing-hook", (r) => {
+    // @ts-expect-error storageProvider requires destroyTenant — an empty bag silently registered no cleanup hook.
+    r.useExtension(EXT_STORAGE_PROVIDER, "x", {});
+  });
+  expectTypeOf<Record<string, never>>().not.toExtend<
+    ExtensionOptionsFor<typeof EXT_STORAGE_PROVIDER>
+  >();
+});
+
+test("useExtension rejects a mailTransport registration without build", () => {
+  defineFeature("probe-mail-transport-missing-build", (r) => {
+    // @ts-expect-error mailTransport requires build — an empty bag silently registered no transport factory.
+    r.useExtension(MAIL_TRANSPORT_EXTENSION, "x", {});
+  });
+  expectTypeOf<Record<string, never>>().not.toExtend<
+    ExtensionOptionsFor<typeof MAIL_TRANSPORT_EXTENSION>
+  >();
 });

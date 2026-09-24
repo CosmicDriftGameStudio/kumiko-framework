@@ -7,6 +7,7 @@ import type {
   SessionUser,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { DELIVERY_CHANNEL_EXTENSION } from "./constants";
 
 // --- Channel Interface ---
 
@@ -92,3 +93,26 @@ export type DeliveryService = {
     tenantId: TenantId,
   ): Promise<void>;
 };
+
+// r.useExtension options-shape: `name` is NOT part of the registration
+// payload — collectChannels derives it from the usage's entityName instead.
+export type DeliveryChannelPlugin = Omit<DeliveryChannel, "name">;
+
+export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin {
+  return (
+    typeof o === "object" &&
+    o !== null &&
+    "mode" in o &&
+    "resolve" in o &&
+    typeof o.resolve === "function" &&
+    "send" in o &&
+    typeof o.send === "function"
+  );
+}
+
+// r.useExtension options-shape, co-located since the framework never imports upward.
+declare module "@cosmicdrift/kumiko-framework/engine" {
+  interface KumikoExtensionOptionsMap {
+    [DELIVERY_CHANNEL_EXTENSION]: DeliveryChannelPlugin;
+  }
+}
