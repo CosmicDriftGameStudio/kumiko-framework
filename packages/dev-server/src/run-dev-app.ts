@@ -1,8 +1,7 @@
-// runDevApp — high-level dev-server wrapper für Sample-Apps und
-// Showcases. Mischt die Standard-Features (config/user/tenant/auth-
-// email-password) automatisch dazu wenn auth-mode aktiv ist, wired das
-// AuthRoutesConfig + Login-Error-Map, und ruft seedAdminGuarded() im
-// onAfterSetup. Reduziert den Sample-Bootstrap von 50 Zeilen auf 5-10.
+// High-level dev-server wrapper for sample apps and showcases. In auth mode it
+// mixes in the standard features (config/user/tenant/auth-email-password),
+// wires AuthRoutesConfig plus the login error map and calls seedAdminGuarded()
+// in onAfterSetup, cutting a sample bootstrap from ~50 lines to 5-10.
 //
 // Auto-mix passiert NUR im auth-mode. Ohne `auth`-Block bleibt der
 // Server im Auto-Mint-JWT-Modus (Dev-Default) und mischt nichts dazu —
@@ -209,9 +208,8 @@ export type RunDevAppOptions = {
   /** SIGINT/SIGTERM-Handler installieren (Default true; in Tests auf
    *  false damit repeated boots keine Listener akkumulieren). */
   readonly installSignalHandlers?: boolean;
-  /** Auth-Mode: Standard-Features dazu, Auth-Routes wired, seedAdminGuarded
-   *  läuft im onAfterSetup. Ohne `auth` läuft der Server im Auto-Mint-
-   *  JWT-Modus. */
+  /** Auth mode: standard features mixed in, auth routes wired, seedAdminGuarded
+   *  runs in onAfterSetup. Without `auth` the server stays in auto-mint JWT mode. */
   readonly auth?: RunDevAppAuthOptions;
   /** Eigene Seed-Funktionen, laufen nach dem Admin (wenn auth) in
    *  Array-Reihenfolge. */
