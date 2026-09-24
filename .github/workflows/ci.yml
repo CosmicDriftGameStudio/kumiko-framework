@@ -345,8 +345,8 @@ jobs:
             -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
             getmeili/meilisearch:v1.12
           docker run -d --name kumiko-ci-minio --network kumiko-ci -p 19000:9000 \
-            -e MINIO_ROOT_USER=kumiko -e MINIO_ROOT_PASSWORD=kumiko-dev-secret \
-            quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z server /data
+            -e RUSTFS_ACCESS_KEY=kumiko -e RUSTFS_SECRET_KEY=kumiko-dev-secret \
+            rustfs/rustfs:1.0.0 /data
           for i in $(seq 1 30); do
             if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
             sleep 2
@@ -366,11 +366,16 @@ jobs:
             sleep 2
           done
           docker exec kumiko-ci-meili wget -q --spider http://127.0.0.1:7700/health
+          aws_ci() {
+            docker run --rm --network kumiko-ci \
+              -e AWS_ACCESS_KEY_ID=kumiko -e AWS_SECRET_ACCESS_KEY=kumiko-dev-secret -e AWS_DEFAULT_REGION=us-east-1 \
+              amazon/aws-cli:2.37.1 --endpoint-url http://kumiko-ci-minio:9000 "$@"
+          }
           for i in $(seq 1 30); do
-            if docker run --rm --network kumiko-ci --entrypoint sh quay.io/minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc mb --ignore-existing local/kumiko-dev" >/dev/null 2>&1; then break; fi
+            if aws_ci s3 mb s3://kumiko-dev >/dev/null 2>&1; then break; fi
             sleep 2
           done
-          docker run --rm --network kumiko-ci --entrypoint sh quay.io/minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc ls local/kumiko-dev"
+          aws_ci s3 ls s3://kumiko-dev
 
       - name: Run integration tests
         env:

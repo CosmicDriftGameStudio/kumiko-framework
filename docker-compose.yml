@@ -54,17 +54,22 @@ services:
       timeout: 3s
       retries: 10
 
+  # MinIO pulled its images from Docker Hub and quay.io; RustFS is an
+  # S3-compatible drop-in that also answers /minio/health/live. The service
+  # keeps its name so MINIO_* envs and `docker compose up minio` still work.
   minio:
-    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
-    command: server /data --console-address ":9001"
+    image: rustfs/rustfs:1.0.0
+    command: /data
     environment:
-      MINIO_ROOT_USER: kumiko
-      MINIO_ROOT_PASSWORD: kumiko-dev-secret
+      RUSTFS_ACCESS_KEY: kumiko
+      RUSTFS_SECRET_KEY: kumiko-dev-secret
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports:
       - "${KUMIKO_MINIO_PORT:-19000}:9000"
       - "${KUMIKO_MINIO_CONSOLE_PORT:-19001}:9001"
     volumes:
-      - minio_data:/data
+      # New volume: RustFS cannot read the old MinIO on-disk format.
+      - rustfs_data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
@@ -73,15 +78,19 @@ services:
 
   # One-shot bucket bootstrap for S3 integration tests (files-provider-s3).
   minio-init:
-    image: minio/mc:RELEASE.2025-01-17T23-25-50Z
+    image: amazon/aws-cli:2.37.1
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: kumiko
+      AWS_SECRET_ACCESS_KEY: kumiko-dev-secret
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: /bin/sh
     command: >
       -c "
-      mc alias set local http://minio:9000 kumiko kumiko-dev-secret &&
-      mc mb --ignore-existing local/kumiko-dev
+      aws --endpoint-url http://minio:9000 s3 ls s3://kumiko-dev ||
+      aws --endpoint-url http://minio:9000 s3 mb s3://kumiko-dev
       "
     restart: "no"
 
@@ -156,6 +165,6 @@ volumes:
   postgres_data:
   redis_data:
   meili_data:
-  minio_data:
+  rustfs_data:
   ollama_data:
   whisper_cache:
