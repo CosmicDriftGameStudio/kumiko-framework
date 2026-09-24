@@ -10,6 +10,7 @@ import {
   rearmDeadConsumer,
   recordConsumerPassFailure,
   selectConsumerForUpdateSkipLocked,
+  selectProvablyIdleConsumerPairs,
   updateConsumerDeliveryOutcome,
 } from "../db/queries/event-consumer";
 import {
@@ -157,6 +158,39 @@ export async function acquireConsumerState(
     return { state: null, skip: "dead" };
   }
   return { state, skip: null };
+}
+
+// Read-only pre-check run once per doPass, before any consumer's turn opens
+// a transaction (event-dispatcher.ts's doPass/runConsumerTurn). Keyed like
+// consumerBackoff/inFlightTurns: `${name}:${instanceId}`. Consumers not
+// provably idle (missing row, dead, pending gaps, or an event past cursor)
+// simply don't appear in the result — the caller falls through to the
+// existing acquireConsumerState/FOR UPDATE SKIP LOCKED path unchanged.
+//
+// Race: an event that commits between this query and the next tick CAN
+// make this snapshot stale — that's expected, not a bug. What it can't do
+// is get silently lost: the append fires NOTIFY (or the next poll tick
+// fires regardless), triggering a fresh doPass. That pass's own pre-check
+// sees the new head id and excludes the consumer from "idle"; a new
+// pending_gap only ever gets created when a later turn's fetch (id > the
+// old cursor) walks past the row that committed late, and this same
+// pre-check reads pending_gaps live on every pass, so it observes that gap
+// too. In short: this can under-report idleness for one tick, never
+// over-report it.
+export async function selectIdleConsumerKeys(
+  db: DbConnection,
+  pairs: ReadonlyArray<{ readonly name: string; readonly instanceId: string }>,
+): Promise<ReadonlySet<string>> {
+  if (pairs.length === 0) return new Set();
+  const names = pairs.map((p) => p.name);
+  const instanceIds = pairs.map((p) => p.instanceId);
+  const idlePairs = await selectProvablyIdleConsumerPairs(
+    db,
+    names,
+    instanceIds,
+    ConsumerStatuses.dead,
+  );
+  return new Set(idlePairs.map((p) => `${p.name}:${p.instanceId}`));
 }
 
 // Shared pre-registration: one row per (consumer, shard), cursor = 0,

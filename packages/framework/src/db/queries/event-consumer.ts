@@ -83,6 +83,37 @@ export async function deleteOrphanedPerInstanceConsumerRows(
   );
 }
 
+// Lock-free pre-check for doPass: which (name, instance_id) pairs are
+// provably idle — no locking, no xid, no WAL. A pair only qualifies when its
+// row exists, its status isn't dead (dead must still go through
+// acquireConsumerState for auto-rearm), it has no pending_gaps, and no event
+// exists past its cursor. Paired via unnest so the two positional arrays
+// zip element-wise into rows instead of a cartesian product.
+//
+// `deadStatus` is passed in rather than imported from event-consumer-state.ts
+// (which defines ConsumerStatuses) — that module already imports from this
+// one, so importing back would be a require cycle (same pattern as
+// deleteOrphanedPerInstanceConsumerRows above).
+export async function selectProvablyIdleConsumerPairs(
+  db: AnyDb,
+  names: readonly string[],
+  instanceIds: readonly string[],
+  deadStatus: string,
+): Promise<ReadonlyArray<{ readonly name: string; readonly instanceId: string }>> {
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT c."name" AS name, c."instance_id" AS instance_id
+     FROM "kumiko_event_consumers" c
+     WHERE ("name", "instance_id") = ANY (SELECT * FROM unnest($1::text[], $2::text[]))
+       AND "status" != $3
+       AND "pending_gaps" = '[]'::jsonb
+       AND NOT EXISTS (
+         SELECT 1 FROM "kumiko_events" e WHERE e."id" > c."last_processed_event_id"
+       )`,
+    [names, instanceIds, deadStatus],
+  )) as ReadonlyArray<{ name: string; instance_id: string }>;
+  return rows.map((r) => ({ name: r.name, instanceId: r.instance_id }));
+}
+
 export async function selectConsumerForUpdateSkipLocked(
   db: AnyDb,
   name: string,

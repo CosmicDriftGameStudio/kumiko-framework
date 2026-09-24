@@ -25,6 +25,7 @@ import {
   persistConsumerOutcome,
   persistConsumerPassFailure,
   preRegisterConsumers,
+  selectIdleConsumerKeys,
 } from "./event-dispatcher-delivery";
 import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges";
 
@@ -246,6 +247,15 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // entry — the next failure (if any) starts a fresh backoff from scratch.
   const consumerBackoff = new Map<string, { consecutiveFailures: number; retryAtMs: number }>();
 
+  // Dedup flag for the idle pre-check's error log (doPass) — a broken
+  // pre-check falls back to the expensive-but-correct path silently on
+  // every tick (see doPass), which must not mean silently in the logs too:
+  // ops needs to see it degrade once, not have every poll tick spam the
+  // same line. Cleared the moment the pre-check succeeds again, so a later,
+  // unrelated outage gets its own fresh log line instead of staying
+  // permanently suppressed by this process's flag.
+  let idlePreCheckErrorLogged = false;
+
   let running = false;
   // Separate from `running` on purpose: pre-registration of consumer state
   // rows is a one-time boot action, while running/timer/LISTEN is a
@@ -300,19 +310,32 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   async function runConsumerTurn(
     consumer: EventConsumer,
     effective: ReadonlySet<string> | undefined,
+    idleKeys: ReadonlySet<string>,
   ): Promise<{ processed: number; failed: number }> {
     const key = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
     const existing = inFlightTurns.get(key);
     if (existing) return existing;
 
-    // Feature-gate and backoff-gate are resolved synchronously, before any
-    // promise is registered — a gated consumer must resolve without ever
-    // occupying inFlightTurns, or it would look "still running" forever.
+    // Feature-gate, backoff-gate and idle-gate are resolved synchronously,
+    // before any promise is registered — a gated consumer must resolve
+    // without ever occupying inFlightTurns, or it would look "still
+    // running" forever.
     if (effective && consumer.featureName && !effective.has(consumer.featureName)) {
       return { processed: 0, failed: 0 };
     }
     const backoff = consumerBackoff.get(key);
     if (backoff && backoff.retryAtMs > Date.now()) {
+      return { processed: 0, failed: 0 };
+    }
+    // Idle-gate: doPass already proved this consumer has nothing to do
+    // (see selectIdleConsumerKeys) — skip the turn without ever opening a
+    // db.begin/FOR UPDATE SKIP LOCKED (see doPass for why that matters).
+    // Clear any prior backoff same as a successful pass would: the
+    // backoff-gate above already confirmed retryAtMs has elapsed, and
+    // "provably nothing to deliver" is itself proof the consumer isn't
+    // presently failing.
+    if (idleKeys.has(key)) {
+      consumerBackoff.delete(key);
       return { processed: 0, failed: 0 };
     }
 
@@ -371,12 +394,53 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // SYSTEM_TENANT_ID returnt (typisch: union-of-all-tier-features).
     const effective = context.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
+    // Lock-free pre-check, once per pass: which consumers are provably idle
+    // (no locking, no xid, no WAL — see selectIdleConsumerKeys). Read
+    // outside any transaction, before a single db.begin/FOR UPDATE SKIP
+    // LOCKED opens — an idle deployment (most consumers, most ticks)
+    // otherwise pays a row lock + WAL record + commit fsync per consumer
+    // per tick for nothing.
+    //
+    // A failure here (e.g. a transient DB blip) must not abort the whole
+    // pass — timer/LISTEN callers swallow doPass()'s rejection silently
+    // (see start()), which would mean no log, no persistConsumerPassFailure,
+    // and no backoff for every consumer this tick. Falling back to "nothing
+    // proven idle" instead routes every consumer through its normal
+    // acquireConsumerState path, whose own try/catch already covers this.
+    let idleKeys: ReadonlySet<string>;
+    try {
+      idleKeys = await selectIdleConsumerKeys(
+        db,
+        consumers.map((consumer) => ({
+          name: consumer.name,
+          instanceId: consumerInstanceId(consumer, options.instanceId),
+        })),
+      );
+      idlePreCheckErrorLogged = false;
+    } catch (e) {
+      idleKeys = new Set();
+      // Log once per outage, not once per poll tick — see
+      // idlePreCheckErrorLogged above. Every consumer still gets delivered
+      // correctly this tick (fallback above), so this is a degradation
+      // signal for ops, not a delivery failure.
+      if (!idlePreCheckErrorLogged) {
+        idlePreCheckErrorLogged = true;
+        const msg = e instanceof Error ? e.message : String(e);
+        const logMsg = `[event-dispatcher] idle pre-check failed, falling back to per-consumer locking every tick until it recovers: ${msg}`;
+        if (context.log) {
+          context.log.error(logMsg);
+        } else {
+          console.error(logMsg);
+        }
+      }
+    }
+
     // Every consumer runs its own turn concurrently (own TX, own cursor,
-    // own backoff/feature-gate) — a slow consumer no longer blocks the
-    // others' delivery until it commits, see runConsumerTurn.
+    // own backoff/feature-gate/idle-gate) — a slow consumer no longer
+    // blocks the others' delivery until it commits, see runConsumerTurn.
     const results = await Promise.all(
       consumers.map(async (consumer) => {
-        const perConsumer = await runConsumerTurn(consumer, effective);
+        const perConsumer = await runConsumerTurn(consumer, effective, idleKeys);
         return [consumer.name, perConsumer] as const;
       }),
     );
@@ -453,9 +517,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           xminNow,
         );
 
-        // skip: nothing to deliver and no burnt gap to clean up — no
-        // markProcessing/persistConsumerOutcome write, so an idle consumer
-        // doesn't burn a WAL record on every poll tick.
+        // skip: nothing to deliver and no burnt gap to clean up. The
+        // doPass idle pre-check (selectIdleConsumerKeys) already keeps the
+        // common idle case out of this transaction entirely — reaching
+        // here with an empty fetch means the pre-check couldn't prove
+        // idleness (pending gaps forced a fetch, or a race window). By this
+        // point acquireConsumerState's FOR UPDATE has already taken the
+        // lock, so skipping markProcessing/persistConsumerOutcome only
+        // avoids extra writes, not that lock's own WAL record.
         if (events.length === 0 && burntGaps.length === 0) {
           span.setAttribute("consumer.skip_reason", "no_pending_events");
           return;
