@@ -14,7 +14,11 @@ export async function setupAppTestStack(
   options: SetupAppTestStackOptions = {},
 ): Promise<TestStack> {
   const { registryTables = true, includeBundled = true, ...stackOptions } = options;
-  const stack = await setupTestStackFromFeatures(features, { ...stackOptions, includeBundled });
+  const stack = await setupTestStackFromFeatures(features, {
+    ...stackOptions,
+    includeBundled,
+    entityTables: registryTables,
+  });
   if (!registryTables) return stack;
   try {
     await pushEntityProjectionTables(stack, stack.registry);
