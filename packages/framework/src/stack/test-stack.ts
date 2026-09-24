@@ -180,6 +180,10 @@ export type TestStackOptions = {
    *  out (e.g. 60_000) so the polling timer can't land inside the
    *  assertion window and mask a dead subscription — see E.4 (#2042). */
   eventDispatcherPollIntervalMs?: number;
+  /** Opt out of auto-created r.entity() tables for callers that create/migrate
+   *  them themselves. Default true — false pushes only projection/MSP/
+   *  storeTable sources, same as before fw#3102. */
+  entityTables?: boolean;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -214,41 +218,72 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     createTestRedis(),
   ]);
 
-  // Every ES-entity writes events via createEventStoreExecutor in the
-  // feature's write handlers. Auto-create the events table so every
-  // setupTestStack call is ready for writes without needing a manual
-  // createEventsTable().
-  await createEventsTable(testDb.db);
-  // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
-  // loadAggregate's default-skip. Idempotent, so production boot running
-  // the same call is fine.
-  await createArchivedStreamsTable(testDb.db);
+  // Any throw in this DDL region must still drop the just-created ephemeral
+  // DB/Redis — the caller never gets the stack object back to call
+  // cleanup() itself (same "leaked ephemeral DB" failure class as the later
+  // try/catch below, but for setup that runs before that try starts).
+  try {
+    // Every ES-entity writes events via createEventStoreExecutor in the
+    // feature's write handlers. Auto-create the events table so every
+    // setupTestStack call is ready for writes without needing a manual
+    // createEventsTable().
+    await createEventsTable(testDb.db);
+    // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
+    // loadAggregate's default-skip. Idempotent, so production boot running
+    // the same call is fine.
+    await createArchivedStreamsTable(testDb.db);
 
-  // Framework state for projection rebuild/status + event-consumer cursors.
-  // Idempotent — production boot flows run the same calls.
-  const { createProjectionStateTable, createEventConsumerStateTable } = await import("../pipeline");
-  await createProjectionStateTable(testDb.db);
-  await createEventConsumerStateTable(testDb.db);
+    // Framework state for projection rebuild/status + event-consumer cursors.
+    // Idempotent — production boot flows run the same calls.
+    const { createProjectionStateTable, createEventConsumerStateTable } = await import(
+      "../pipeline"
+    );
+    await createProjectionStateTable(testDb.db);
+    await createEventConsumerStateTable(testDb.db);
 
-  // Files support: when a provider is registered, the fileRefs table must
-  // exist before the first upload. Skipped when no provider — the table
-  // stays off tenant test DBs that never touch files.
-  if (options.files) {
-    const { fileRefsTable } = await import("../files");
-    await unsafePushTables(testDb.db, { fileRefsTable });
-  }
+    // Files support: when a provider is registered, the fileRefs table must
+    // exist before the first upload. Skipped when no provider — the table
+    // stays off tenant test DBs that never touch files.
+    if (options.files) {
+      const { fileRefsTable } = await import("../files");
+      await unsafePushTables(testDb.db, { fileRefsTable });
+    }
 
-  // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
-  // was the #255 prod-crash and the #3102 missing r.entity() tables.
-  const { collectTableMetas } = await import("../db/collect-table-metas");
-  const { tableExists } = await import("../db/schema-inspection");
-  const missing: Record<string, unknown> = {};
-  for (const meta of collectTableMetas(options.features)) {
-    if (await tableExists(testDb.db, `public.${meta.tableName}`)) continue;
-    missing[meta.tableName] = meta;
-  }
-  if (Object.keys(missing).length > 0) {
-    await unsafePushTables(testDb.db, missing);
+    // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
+    // was the #255 prod-crash and the #3102 missing r.entity() tables.
+    const { collectTableMetas } = await import("../db/collect-table-metas");
+    const { tableExists } = await import("../db/schema-inspection");
+    let metas = collectTableMetas(options.features);
+    if (options.entityTables === false) {
+      const { enumerateFeatureTableSources } = await import("../db/feature-table-sources");
+      const { extractTableInfo } = await import("../db/query");
+      const nonEntityNames = new Set(
+        options.features.flatMap((f) =>
+          enumerateFeatureTableSources(f).map((s) => extractTableInfo(s.table).name),
+        ),
+      );
+      metas = metas.filter((m) => nonEntityNames.has(m.tableName));
+    }
+    const missing: Record<string, unknown> = {};
+    for (const meta of metas) {
+      if (await tableExists(testDb.db, `public.${meta.tableName}`)) continue;
+      missing[meta.tableName] = meta;
+    }
+    if (Object.keys(missing).length > 0) {
+      await unsafePushTables(testDb.db, missing);
+    }
+  } catch (error) {
+    try {
+      await testDb.cleanup();
+    } catch {
+      // ignore — `error` is the one that matters
+    }
+    try {
+      await testRedis.cleanup();
+    } catch {
+      // ignore — `error` is the one that matters
+    }
+    throw error;
   }
 
   const searchAdapter = createInMemorySearchAdapter();
