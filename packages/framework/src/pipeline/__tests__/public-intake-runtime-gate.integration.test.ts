@@ -4,10 +4,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db";
+import type { DbRunner } from "../../db/connection";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
+import { asRawClient, runInSavepoint, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
-import type { TenantDb } from "../../db/tenant-db";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createSystemUser, createTextField, defineFeature } from "../../engine";
 import { SYSTEM_ROLE } from "../../engine/system-user";
 import type { TenantId } from "../../engine/types";
@@ -273,6 +274,185 @@ const featureA = defineFeature("intakea", (r) => {
     },
     { access: { roles: ["anonymous", "Admin"] }, rateLimit: RATE_LIMIT },
   );
+
+  // (g) createTenantDb() built by the HANDLER ITSELF from ctx.db.unsafeRaw(reason) — the
+  // returned runner carries no TenantDb of its own, so without gate inheritance on the
+  // runner (tenant-db.ts's runnerPersonalDataGates) this fresh TenantDb would have no gate.
+  const UNSAFE_RAW_REASON =
+    "test: proves createTenantDb() built from ctx.db.unsafeRaw() inherits the caller's personal-data gate";
+
+  r.writeHandler(
+    "unsafe-raw-tenant-db-no-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+        contactTable as unknown as SchemaTable,
+        { email: "leak-unsafe-raw@example.com", note: event.payload.note },
+      );
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+    {
+      access: { roles: ["anonymous"] },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
+
+  r.writeHandler(
+    "unsafe-raw-tenant-db-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+        contactTable as unknown as SchemaTable,
+        { email: "leak-unsafe-raw-declared@example.com", note: event.payload.note },
+      );
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+    {
+      access: { roles: ["anonymous"], personalData: "public-intake" },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
+
+  // Nested tx: the handler already runs inside the request's own transaction, so its
+  // unsafeRaw runner is a tx handle (.savepoint, not .begin — see asRawClient's own
+  // comment). The savepoint-scoped tx a callback receives must inherit the same gate,
+  // otherwise a handler could dodge the gate by moving the write inside a savepoint.
+  r.writeHandler(
+    "unsafe-raw-savepoint-tenant-db-no-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      await runInSavepoint(raw, async (sp) => {
+        await createTenantDb(sp as DbRunner, event.user.tenantId, "system").insertOne(
+          contactTable as unknown as SchemaTable,
+          { email: "leak-unsafe-raw-tx@example.com", note: event.payload.note },
+        );
+      });
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+    {
+      access: { roles: ["anonymous"] },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
+
+  r.writeHandler(
+    "unsafe-raw-savepoint-tenant-db-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      await runInSavepoint(raw, async (sp) => {
+        await createTenantDb(sp as DbRunner, event.user.tenantId, "system").insertOne(
+          contactTable as unknown as SchemaTable,
+          { email: "leak-unsafe-raw-tx-declared@example.com", note: event.payload.note },
+        );
+      });
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+    {
+      access: { roles: ["anonymous"], personalData: "public-intake" },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
+
+  // Raw SQL through the gated proxy itself must stay ungated (decision: unsafeRaw's raw SQL
+  // is an escape hatch + audit trail, not something the personal-data gate blocks) — this
+  // just proves the proxy stays transparent for a direct tagged-template call.
+  r.writeHandler(
+    "unsafe-raw-tagged-query-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      // @cast-boundary test-fixture — DbRunner's RawClient arm has no tagged-template call
+      // signature; the underlying driver instance (postgres-js/Bun.SQL) does.
+      const tagged = raw as unknown as (
+        strings: TemplateStringsArray,
+        ...values: unknown[]
+      ) => Promise<readonly Record<string, unknown>[]>;
+      const rows = await tagged`SELECT 1 AS one`;
+      if (rows[0]?.["one"] !== 1) throw new Error("tagged query through the proxy failed");
+      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+        contactTable as unknown as SchemaTable,
+        { email: "leak-unsafe-raw-tagged@example.com", note: event.payload.note },
+      );
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+    {
+      access: { roles: ["anonymous"], personalData: "public-intake" },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
+
+  // Authenticated session: same ctx.db.unsafeRaw() -> createTenantDb() path, but the root
+  // isn't anonymous, so ctx.db carries no personal-data gate to inherit — unaffected.
+  r.writeHandler(
+    "unsafe-raw-tenant-db-authenticated",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+        contactTable as unknown as SchemaTable,
+        { email: "leak-unsafe-raw-authenticated@example.com", note: event.payload.note },
+      );
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+    { access: { roles: ["Admin"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
+  );
+
+  // The CRUD executor writes through tenantDbRunner + assertPersonalDataWrite, not
+  // insertOne — a TenantDb inheriting its gate only from the runner (not from an explicit
+  // grants.personalDataGate) must gate the executor path too, not just direct insertOne.
+  r.writeHandler(
+    "unsafe-raw-executor-no-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const scopedDb = createTenantDb(
+        ctx.db.unsafeRaw(UNSAFE_RAW_REASON),
+        event.user.tenantId,
+        "system",
+      );
+      const crud = createEventStoreExecutor(contactTable, contactEntity, { entityName: "contact" });
+      return crud.create(
+        { email: "leak-unsafe-raw-executor@example.com", note: event.payload.note },
+        event.user,
+        scopedDb,
+      );
+    },
+    {
+      access: { roles: ["anonymous"] },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
+
+  // Same inherited-gate TenantDb, but only a non-PII field — proves the proxy/executor
+  // combination still appends events and lets the projection run when there is nothing
+  // for the gate to block, not merely that it throws.
+  r.writeHandler(
+    "unsafe-raw-executor-non-pii-no-declare",
+    z.object({ note: z.string() }),
+    async (event, ctx) => {
+      const scopedDb = createTenantDb(
+        ctx.db.unsafeRaw(UNSAFE_RAW_REASON),
+        event.user.tenantId,
+        "system",
+      );
+      const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
+      return crud.create({ note: event.payload.note }, event.user, scopedDb);
+    },
+    {
+      access: { roles: ["anonymous"] },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: UNSAFE_RAW_REASON },
+    },
+  );
 });
 
 describe("public-intake runtime gate", () => {
@@ -421,5 +601,84 @@ describe("public-intake runtime gate", () => {
     );
     expect(res.status).toBe(200);
     expect(await rowCount()).toBe(1);
+  });
+
+  test("(g) createTenantDb(ctx.db.unsafeRaw(reason), ...) — blocked without declaration", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-tenant-db-no-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { details: { reason: string } } };
+    expect(body.error.details.reason).toBe("public_intake_required");
+    expect(await rowCount()).toBe(0);
+  });
+
+  test("(g) createTenantDb(ctx.db.unsafeRaw(reason), ...) — allowed once declared", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-tenant-db-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(200);
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("(g) createTenantDb(tx, ...) inside savepoint() — blocked without declaration", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-savepoint-tenant-db-no-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { details: { reason: string } } };
+    expect(body.error.details.reason).toBe("public_intake_required");
+    expect(await rowCount()).toBe(0);
+  });
+
+  test("(g) createTenantDb(tx, ...) inside savepoint() — allowed once declared", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-savepoint-tenant-db-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(200);
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("(g) a tagged-template query through the gated unsafeRaw proxy still works", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-tagged-query-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(200);
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("(g) authenticated session on the same unsafeRaw->createTenantDb path — unaffected", async () => {
+    const res = await stack.http.write(
+      "intakea:write:unsafe-raw-tenant-db-authenticated",
+      { note: "x" },
+      TestUsers.admin,
+    );
+    expect(res.status).toBe(200);
+    expect(await rowCount()).toBe(1);
+  });
+
+  test("(g) createEventStoreExecutor.create through an inherited-gate TenantDb — blocked without declaration", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-executor-no-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { details: { reason: string } } };
+    expect(body.error.details.reason).toBe("public_intake_required");
+    expect(await rowCount()).toBe(0);
+  });
+
+  test("(g) createEventStoreExecutor.create of a non-PII field through the same inherited-gate TenantDb — allowed", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "intakea:write:unsafe-raw-executor-non-pii-no-declare",
+      payload: { note: "x" },
+    });
+    expect(res.status).toBe(200);
+    expect(await probeRowCount()).toBe(1);
   });
 });

@@ -45,7 +45,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
   return defineWriteHandler({
     name: "verify",
     schema: z.object({ challengeToken: z.string().min(1), code: z.string().min(6).max(9) }),
-    access: { roles: ["anonymous"] },
+    access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
       reason:

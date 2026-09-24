@@ -4,6 +4,7 @@ import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./co
 import type { DbConnection } from "./db-connection";
 import type { DerivativesContext } from "./derivatives-types";
 import type { EntityCache } from "./entity-cache";
+import type { WriteOrigin } from "./event-store-types";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { FileContext } from "./file-handle-types";
 import type { FileProviderResolver } from "./file-provider-resolver-types";
@@ -260,8 +261,20 @@ export type JobRunnerRef = {
 // singleton, not bound to one caller's identity. Only write+queryAs — no
 // .query/.stream/.command/.batch/.resolveAuthClaims, that stays Dispatcher-only.
 export type DispatchWriteRef = {
-  readonly write: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
-  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
+  // A job under a gated anonymous origin passes it, else the target would
+  // reset to the job's own non-anonymous root.
+  readonly write: (
+    user: SessionUser,
+    qn: string,
+    payload: unknown,
+    inheritedOrigin?: WriteOrigin,
+  ) => Promise<WriteResult>;
+  readonly queryAs: (
+    user: SessionUser,
+    qn: string,
+    payload: unknown,
+    inheritedOrigin?: WriteOrigin,
+  ) => Promise<unknown>;
   // Builds a tenant-scoped MemberReader — one per JobContext.queryAsMember
   // caller (job-runner.ts lazily creates one per job run).
   readonly createMemberReader: (tenantId: TenantId) => MemberReader;

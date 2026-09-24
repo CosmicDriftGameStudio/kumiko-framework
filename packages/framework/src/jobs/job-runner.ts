@@ -1,3 +1,4 @@
+import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { type JobsOptions, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context";
@@ -18,6 +19,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "../engine/types";
+import { InternalError } from "../errors";
 import { isKumikoError } from "../errors/kumiko-error";
 import { createFileContext } from "../files/file-handle";
 import { createFallbackLogger } from "../logging";
@@ -33,7 +35,21 @@ import {
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
 import { RedisKeys } from "../pipeline/redis-keys";
+import {
+  buildPersonalDataGate,
+  isPersonalDataGated,
+  parseWriteOrigin,
+} from "../pipeline/write-origin";
 import { bridgeStub } from "../testing/handler-context";
+
+// A payload's own `_writeOrigin` is never trusted; only the ambient gated origin is stamped.
+function stampGatedWriteOrigin(data: Record<string, unknown>): void {
+  delete data["_writeOrigin"];
+  const origin = requestContext.get()?.writeOrigin;
+  if (origin && isPersonalDataGated(origin)) {
+    data["_writeOrigin"] = origin;
+  }
+}
 
 // Queue-name convention: <prefix>-<lane>. The prefix is fixed in prod
 // ("kumiko-jobs") — it must match between enqueuers and consumers, and an
@@ -731,6 +747,21 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // multi-trigger dispatch; exposed as jobContext.triggerName so handlers
     // don't dig through the raw payload themselves.
     const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
+
+    // Absent = legacy or ungated root; present but invalid fails the run closed.
+    const rawWriteOrigin = rawData["_writeOrigin"]; // @cast-boundary dynamic-key
+    let jobOrigin: WriteOrigin | undefined;
+    let writeOriginInvalid = false;
+    if (rawWriteOrigin !== undefined) {
+      const parsed = parseWriteOrigin(rawWriteOrigin);
+      if (parsed) {
+        jobOrigin = { ...parsed, viaJob: jobName };
+      } else {
+        writeOriginInvalid = true;
+      }
+    }
+    const jobPersonalDataGate = jobOrigin ? buildPersonalDataGate(registry, jobOrigin) : undefined;
+
     // Mirror dispatch-shared.ts buildHandlerContext: ctx.files must resolve
     // through the same _fileProviderResolver for jobs as for write-handlers,
     // otherwise event-triggered jobs silently get an unresolved ctx.files.
@@ -749,8 +780,19 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // systemScope() status (pre-existing, not something this change alters)
     // — isSystemJob below is what actually keeps ctx.systemDb off a
     // non-system job; it is the only thing standing between this db and an
-    // unchecked cross-tenant escape hatch for such a job.
-    const tenantScopedDb = configDb ? createTenantDb(configDb, tenantId, "system") : undefined;
+    // unchecked cross-tenant escape hatch for such a job. Gated like jobDb so
+    // ctx.systemDb, built from it, is gated too.
+    const tenantScopedDb = configDb
+      ? createTenantDb(
+          configDb,
+          tenantId,
+          "system",
+          undefined,
+          undefined,
+          undefined,
+          jobPersonalDataGate ? { personalDataGate: jobPersonalDataGate } : undefined,
+        )
+      : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
     // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
     const reportEscapeHatch = createEscapeHatchReporter({
@@ -768,6 +810,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
           unsafeRaw: jobDef.escapeHatch,
           report: reportEscapeHatch,
+          ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })
       : undefined;
     const config =
@@ -818,7 +861,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "JobContext.write called before dispatcher attached — call attachDispatcher() first",
           );
         }
-        return dispatchWriteRef.write(jobSystemUser, qn, payload);
+        return dispatchWriteRef.write(jobSystemUser, qn, payload, jobOrigin);
       },
       writeAs: (user: SessionUser, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
@@ -826,7 +869,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "JobContext.writeAs called before dispatcher attached — call attachDispatcher() first",
           );
         }
-        return dispatchWriteRef.write(user, qn, payload);
+        return dispatchWriteRef.write(user, qn, payload, jobOrigin);
       },
       queryAs: (user: SessionUser, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
@@ -834,7 +877,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             "JobContext.queryAs called before dispatcher attached — call attachDispatcher() first",
           );
         }
-        return dispatchWriteRef.queryAs(user, qn, payload);
+        return dispatchWriteRef.queryAs(user, qn, payload, jobOrigin);
       },
       queryAsMember: (userId: string, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
@@ -866,6 +909,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     const runInSpan = async (): Promise<void> => {
       try {
+        if (writeOriginInvalid) {
+          throw new InternalError({
+            message:
+              `Job "${jobName}" received an unparseable _writeOrigin — refusing to run without ` +
+              "a trustworthy anonymous-root gate.",
+          });
+        }
         await requestContext.run(
           {
             requestId: jobRequestId,
@@ -873,6 +923,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             // #3043 — events a job writes carry the job as their origin.
             handler: jobName,
             feature: qnScope(jobName),
+            writeOrigin: jobOrigin,
           },
           () => jobDef.handler(payload, jobContext),
         );
@@ -1107,9 +1158,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
       // perTenant: dispatch the fan-out wrapper instead
       if (jobDef.perTenant) {
+        const perTenantData: Record<string, unknown> = { ...(payload ?? {}) };
+        stampGatedWriteOrigin(perTenantData);
         const job = await targetQueue.add(
           `_perTenant:${jobName}`,
-          payload ?? {},
+          perTenantData,
           buildRetryBullOpts(jobDef),
         );
         return job.id ?? "unknown";
@@ -1184,6 +1237,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // stamp the same correlation as the HTTP request that scheduled it.
       const reqCtx = requestContext.get();
       if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
+      stampGatedWriteOrigin(data);
 
       const job = await targetQueue.add(jobName, data, bullOpts);
       return job.id ?? "unknown";
@@ -1228,6 +1282,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             continue;
           }
         }
+        stampGatedWriteOrigin(data);
         // Route to the job's declared lane, not a fixed queue — that's
         // the whole reason both queues are held.
         await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));

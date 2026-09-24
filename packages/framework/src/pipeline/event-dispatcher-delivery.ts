@@ -29,6 +29,14 @@ import {
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state";
 import type { EventConsumer } from "./event-dispatcher";
+import { parseWriteOrigin } from "./write-origin";
+
+// Fails closed without throwing: a throw would poison the event for every consumer.
+const UNPARSEABLE_STORED_WRITE_ORIGIN = {
+  rootHandler: "<unknown>",
+  anonymousRoot: true,
+  publicIntake: false,
+} as const;
 
 // Per-consumer pass mechanics: acquire the state row, fetch pending events,
 // hand them to the consumer's handler in order, persist the outcome. Split
@@ -241,6 +249,12 @@ export async function deliverEvents(
       const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
       const causationId = String(stored.id);
       const requestId = requestContext.generateId();
+      // The job-trigger consumer's handleEvent stamps event-triggered jobs from this.
+      const rawStoredWriteOrigin = stored.metadata.writeOrigin;
+      const writeOrigin =
+        rawStoredWriteOrigin === undefined
+          ? undefined
+          : (parseWriteOrigin(rawStoredWriteOrigin) ?? UNPARSEABLE_STORED_WRITE_ORIGIN);
       // #3043 — an event this apply writes is attributed to the consumer, not
       // to whatever wrote the triggering event; causationId already links back.
       await requestContext.run(
@@ -250,6 +264,7 @@ export async function deliverEvents(
           causationId,
           handler: consumer.name,
           feature: consumer.featureName ?? qnScope(consumer.name),
+          writeOrigin,
         },
         async () => {
           await consumer.handler(stored, context);
