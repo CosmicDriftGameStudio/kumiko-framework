@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.308.0
+
+### Patch Changes
+
+- 1b64375: `createKumikoServer` can now build its client bundle prod-shaped (splitting, no sourcemap, `NODE_ENV=production`) behind the opt-in `KUMIKO_DEV_PROD_BUNDLES` env var — `bun dev` is unaffected. `defineAppE2eConfig` sets it for the Playwright web server, so E2E now exercises the bundle shape that actually ships instead of a single dev bundle with React's development build, every lazy chunk inlined and a regenerated sourcemap per boot (publicstatus admin: 2.2 MB + 9.2 MB map → 0.87 MB entry; E2E suite −15 % on a 1.5 CPU runner).
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Dev server can build prod-shaped client bundles, E2E uses them
+  -->
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [49e07f5]
+- Updated dependencies [ad701ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [3ae4b82]
+- Updated dependencies [9816d20]
+- Updated dependencies [6b8b0ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-framework@0.308.0
+  - @cosmicdrift/kumiko-headless@0.308.0
+  - @cosmicdrift/kumiko-bundled-features@0.308.0
+  - @cosmicdrift/kumiko-server-runtime@0.308.0
+
 ## 0.307.0
 
 ### Patch Changes

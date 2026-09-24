@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.308.0
+
+### Minor Changes
+
+- 6e5ed00: projectionDetail/entityEdit-tabs sections render through one Card frame, get section-level actions and a relatedList emptyState (fw#3234)
+
+  Every section kind in a tabs-mode layout (fields, extension, relatedList, writeForm) now renders inside exactly one card — extension and writeForm sections previously fell back to a borderless divider there because Section always flattens when rendered inside RenderEdit's own <Form>, so their content (and, for writeForm, its submit button) had no card chrome. EditFieldsSection, EditExtensionSection, EditRelatedListSection and EditWriteFormSection all gain an optional `actions?: readonly RowAction[]`, rendered as buttons in that section's own title row (never a footer). EditRelatedListSection also gains an optional `emptyState?: { title, description?, action? }`, forwarded to the related list's DataTable when it has zero rows. RenderEdit gains a `buildSectionActions` prop the caller uses to resolve a section's RowAction[] against the record being viewed/edited — kumiko-screen.tsx wires this via a new shared `buildRecordActions` helper (row-actions.ts), replacing what used to be two separately maintained header-actions builders.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail/entityEdit-tabs sections render through one Card frame, get section-level actions and a relatedList emptyState (fw#3234)
+  migration: |
+    Additive: existing screens are unaffected. A projectionDetail/entityEdit-tabs screen with an extension or writeForm section previously relying on the flattened (no card) look in tabs mode now sees that section framed like every other section kind.
+  -->
+
+### Patch Changes
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [49e07f5]
+- Updated dependencies [ad701ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [3ae4b82]
+- Updated dependencies [9816d20]
+- Updated dependencies [6b8b0ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-framework@0.308.0
+  - @cosmicdrift/kumiko-headless@0.308.0
+  - @cosmicdrift/kumiko-types@0.308.0
+
 ## 0.307.0
 
 ### Patch Changes

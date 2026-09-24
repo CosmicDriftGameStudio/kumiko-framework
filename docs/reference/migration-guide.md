@@ -10,6 +10,26 @@ verified: 2026-09-24
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.308.0
+
+### framework-core
+
+**Boot validator rejects a projectionDetail screen/section/emptyState action with no resolvable icon (fw#3234)**
+
+**Migration:** Every screen.actions / section.actions / section.emptyState.action entry on a projectionDetail screen, and every section.actions entry on an entityEdit screen, must resolve an icon: either an explicit `icon` on the action, or an id the shared action-icon map (@cosmicdrift/kumiko-types resolveActionIcon) already derives from the full id or its last/first kebab segment. entityEdit's own screen-level `actions` are not checked (unchanged, out of scope for this rule). An action that fails this now fails boot instead of rendering without an icon; give it an explicit `icon` or rename it to an id the map covers.
+
+**Session and PAT revoke now close their own credential's open SSE stream, not just other reasons' userwide invalidations**
+
+**Migration:** An app-injected SseBroker implementation must update its subscribeAccessInvalidation/publishAccessInvalidation signatures: the third parameter of subscribeAccessInvalidation is now an AccessInvalidationCredential object (`{ sid?, patTokenId? }`) instead of a bare sid string, and the second parameter of publishAccessInvalidation is now an AccessInvalidationScope object (`{ kind: "user" } | { kind: "all-except-session"; keptSessionId } | { kind: "sessions"; sessionIds } | { kind: "pat-tokens"; tokenIds }`) instead of a bare keptSessionId string. Example: `subscribeAccessInvalidation(userId, cb, sid)` becomes `subscribeAccessInvalidation(userId, cb, { sid })`, and `publishAccessInvalidation(userId, keptSessionId)` becomes `publishAccessInvalidation(userId, { kind: "all-except-session", keptSessionId })`.
+
+### notes-history
+
+**NotesSection no longer wraps its own "new note" / "history" blocks in a Card (fw#3234)**
+
+As an extension section (its documented usage: `component: { react: { __component: NOTES_SECTION_EXTENSION_NAME } }`), NotesSection was already mounted inside the host's own section frame — its two internal Cards doubled the border/padding there. Both blocks now use a plain container with a `Heading variant="section"` sub-header instead.
+
+**Migration:** A standalone `<NotesSection entityName={...} entityId={id} />` mount (outside a screen-schema extension section) now renders both blocks without their own card chrome — wrap it in a `Section`/`Card` if the standalone mount needs one.
+
 ## 0.307.0
 
 ### framework-core

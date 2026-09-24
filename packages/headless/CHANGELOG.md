@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.308.0
+
+### Minor Changes
+
+- 6e5ed00: computeEditViewModel threads section.actions and EditRelatedListSection.emptyState into the view model (fw#3234)
+
+  EditFieldsSectionViewModel, EditExtensionSectionViewModel, EditRelatedListSectionViewModel and EditWriteFormSectionViewModel all carry the spec's optional `actions` unchanged; EditRelatedListSectionViewModel's `emptyState.title`/`description` are translated the same way section.title already is.
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: computeEditViewModel threads section.actions and EditRelatedListSection.emptyState into the view model (fw#3234)
+  migration: |
+    Additive — a view model without actions/emptyState in its spec is unaffected.
+  -->
+
+### Patch Changes
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [49e07f5]
+- Updated dependencies [ad701ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [3ae4b82]
+- Updated dependencies [9816d20]
+- Updated dependencies [6b8b0ed]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-framework@0.308.0
+
 ## 0.307.0
 
 ### Patch Changes

@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.308.0
+
+### Patch Changes
+
+- 6e5ed00: The DefaultTabs strip scrolls horizontally in itself instead of widening the page (fw#3234)
+
+  A tab strip with more tabs than fit the viewport previously pushed the page's own width out. The strip now sits in its own overflow-x-auto container (`min-w-0` on both the Tabs root and that container, so the flex child can actually shrink below its content width for overflow-x-auto to take effect).
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: The DefaultTabs strip scrolls horizontally in itself instead of widening the page (fw#3234)
+  -->
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-headless@0.308.0
+  - @cosmicdrift/kumiko-renderer@0.308.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.308.0
+
 ## 0.307.0
 
 ### Patch Changes

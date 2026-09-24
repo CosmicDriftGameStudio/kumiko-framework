@@ -1,5 +1,55 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.308.0
+
+### Patch Changes
+
+- 1b64375: `createKumikoServer` can now build its client bundle prod-shaped (splitting, no sourcemap, `NODE_ENV=production`) behind the opt-in `KUMIKO_DEV_PROD_BUNDLES` env var — `bun dev` is unaffected. `defineAppE2eConfig` sets it for the Playwright web server, so E2E now exercises the bundle shape that actually ships instead of a single dev bundle with React's development build, every lazy chunk inlined and a regenerated sourcemap per boot (publicstatus admin: 2.2 MB + 9.2 MB map → 0.87 MB entry; E2E suite −15 % on a 1.5 CPU runner).
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Dev server can build prod-shaped client bundles, E2E uses them
+  -->
+
+- 1b64375: `resolveE2eWorkers` defaulted to a minimum of 2 workers. On a 1.5 CPU CI pod (publicstatus, 59 E2E tests) 1/2/4 workers measured 2.6/2.6/2.7 minutes — the runner is already CPU-saturated at 1 worker, so a higher minimum only adds scheduling overhead. The floor is now 1.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: E2E default worker count no longer floors at 2
+  -->
+
+- 765f01b: `defineAppE2eConfig` derived its default worker count from `os.cpus()`, which reports the host's cores inside a CPU-limited container. CI runner pods capped at 1.5 CPU therefore started 4 Playwright workers, so heavier apps hit the 30s test timeout. The default now uses `os.availableParallelism()`, which honours the cgroup CPU quota.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: E2E worker default respects the container CPU limit
+  -->
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [1b64375]
+- Updated dependencies [49e07f5]
+- Updated dependencies [ad701ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [3ae4b82]
+- Updated dependencies [9816d20]
+- Updated dependencies [6b8b0ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-dev-server@0.308.0
+  - @cosmicdrift/kumiko-framework@0.308.0
+  - @cosmicdrift/kumiko-bundled-features@0.308.0
+
 ## 0.307.0
 
 ### Patch Changes

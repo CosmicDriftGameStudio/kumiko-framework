@@ -1,5 +1,69 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.308.0
+
+### Minor Changes
+
+- 6e5ed00: NotesSection no longer wraps its own "new note" / "history" blocks in a Card (fw#3234)
+
+  As an extension section (its documented usage: `component: { react: { __component: NOTES_SECTION_EXTENSION_NAME } }`), NotesSection was already mounted inside the host's own section frame — its two internal Cards doubled the border/padding there. Both blocks now use a plain container with a `Heading variant="section"` sub-header instead.
+
+  <!-- kumiko-changes
+  feature: notes-history
+  type: breaking
+  title: NotesSection no longer wraps its own "new note" / "history" blocks in a Card (fw#3234)
+  migration: |
+    A standalone `<NotesSection entityName={...} entityId={id} />` mount (outside a screen-schema extension section) now renders both blocks without their own card chrome — wrap it in a `Section`/`Card` if the standalone mount needs one.
+  -->
+
+- 6b8b0ed: Logout, tenant-switch and personal-access-token revoke now close the exact credential's open SSE stream instead of leaving it running until the JWT/token expires on its own. `sessionRevoker` (the raw callback behind logout/tenant-switch) and PAT revoke (`revoke.write.ts`, `revokeAllPatTokensForUser`) now append an access-invalidation event scoped to the revoked session id(s)/token id(s), and the access-invalidation consumer closes only the matching stream(s) instead of doing nothing at all.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Session and PAT revoke now close their own credential's open SSE stream, not just other reasons' userwide invalidations
+  migration: |
+    An app-injected SseBroker implementation must update its subscribeAccessInvalidation/publishAccessInvalidation signatures: the third parameter of subscribeAccessInvalidation is now an AccessInvalidationCredential object (`{ sid?, patTokenId? }`) instead of a bare sid string, and the second parameter of publishAccessInvalidation is now an AccessInvalidationScope object (`{ kind: "user" } | { kind: "all-except-session"; keptSessionId } | { kind: "sessions"; sessionIds } | { kind: "pat-tokens"; tokenIds }`) instead of a bare keptSessionId string. Example: `subscribeAccessInvalidation(userId, cb, sid)` becomes `subscribeAccessInvalidation(userId, cb, { sid })`, and `publishAccessInvalidation(userId, keptSessionId)` becomes `publishAccessInvalidation(userId, { kind: "all-except-session", keptSessionId })`.
+  -->
+
+### Patch Changes
+
+- 6e5ed00: The privacy-center screen's "restrict" action declares an explicit icon
+
+  The boot validator now requires every projectionDetail action to resolve an icon (fw#3234); "restrict" resolved none from the shared id-derived map, so it now declares `icon: "lock"` explicitly. "request-deletion" needed no change — it now resolves via the shared map's new `deletion: "trash"` entry (@cosmicdrift/kumiko-types).
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: The privacy-center screen's "restrict" action declares an explicit icon
+  -->
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [49e07f5]
+- Updated dependencies [ad701ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [3ae4b82]
+- Updated dependencies [9816d20]
+- Updated dependencies [6b8b0ed]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-framework@0.308.0
+  - @cosmicdrift/kumiko-headless@0.308.0
+  - @cosmicdrift/kumiko-renderer@0.308.0
+  - @cosmicdrift/kumiko-renderer-web@0.308.0
+  - @cosmicdrift/kumiko-types@0.308.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.308.0
+
 ## 0.307.0
 
 ### Minor Changes
