@@ -6,7 +6,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { TEMPLATE_KINDS, TEXT_BLOCK_KIND } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
 import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared";

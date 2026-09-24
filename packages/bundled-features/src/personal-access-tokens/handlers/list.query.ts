@@ -1,6 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii } from "../../shared";
 import { isExpiredAt } from "../expiry";
 import { apiTokenTable } from "../schema/api-token";

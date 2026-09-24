@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import type Redis from "ioredis";
-import { z } from "zod";
+import * as z from "zod";
 import { buildSessionRoles } from "../engine/membership-roles";
 import { createAnonymousUser, createSystemUser } from "../engine/system-user";
 import {

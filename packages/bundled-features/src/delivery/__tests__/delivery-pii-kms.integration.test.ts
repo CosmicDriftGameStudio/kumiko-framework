@@ -28,7 +28,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { createChannelEmailFeature } from "../../channel-email/feature";
 import { createInMemoryTransport } from "../../channel-email/types";
 import { createConfigFeature } from "../../config/feature";

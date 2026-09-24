@@ -4,7 +4,7 @@
 // stack.http.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { NotFoundError, UnprocessableError, writeFailure } from "../../errors";
 import { setupTestStack, type TestStack } from "../test-stack";

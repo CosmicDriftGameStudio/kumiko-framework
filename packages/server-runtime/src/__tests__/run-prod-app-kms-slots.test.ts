@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { ComposedEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { z } from "zod";
+import * as z from "zod";
 import { runProdApp } from "../run-prod-app";
 import { withClearedBootEnv } from "./boot-probe-fixture";
 

@@ -5,7 +5,7 @@ import {
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user";
 import { redeemDeletionToken } from "../deletion-token";
 import { startDeletionGracePeriod } from "./deletion-grace-period";

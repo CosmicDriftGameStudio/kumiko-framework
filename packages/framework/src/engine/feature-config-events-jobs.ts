@@ -1,5 +1,6 @@
 import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
-import { ZodObject, type ZodType, type z } from "zod";
+import type * as z from "zod";
+import { ZodObject, type ZodType } from "zod";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { resolveName } from "./handler-helpers";
 import { splitNamedDefinition, unwrapArrayForm } from "./object-form";

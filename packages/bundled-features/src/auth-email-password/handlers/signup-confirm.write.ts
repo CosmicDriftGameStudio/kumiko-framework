@@ -29,7 +29,7 @@ import {
 import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
 import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors";

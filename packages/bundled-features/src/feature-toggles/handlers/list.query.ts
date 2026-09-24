@@ -1,5 +1,5 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 

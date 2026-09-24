@@ -1,5 +1,5 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { markCapSoftWarned } from "../book-cap-usage";
 
 // mark-soft-warned — sets lastSoftWarnedAt on the counter so subsequent

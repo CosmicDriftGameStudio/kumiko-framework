@@ -27,7 +27,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { AuditQueries } from "../../audit/constants";
 import { createAuditFeature } from "../../audit/feature";
 import { createConfigFeature } from "../../config";

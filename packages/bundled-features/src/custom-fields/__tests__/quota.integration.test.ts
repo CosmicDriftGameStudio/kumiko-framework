@@ -21,7 +21,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";

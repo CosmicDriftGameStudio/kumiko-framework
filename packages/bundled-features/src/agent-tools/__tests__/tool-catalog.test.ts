@@ -6,7 +6,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { buildAgentManifest } from "../agent-manifest";
 import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
 import type { AgentManifest, AgentToolMode, RegistrySearchView } from "../types";

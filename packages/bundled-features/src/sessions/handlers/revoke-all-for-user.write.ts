@@ -5,7 +5,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { userSessionTable } from "../schema/user-session";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,

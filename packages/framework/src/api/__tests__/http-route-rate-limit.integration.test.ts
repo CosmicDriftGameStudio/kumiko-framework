@@ -5,7 +5,7 @@
 // httpRoute, same client IP, DO hit the limit.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
 import { RateLimitError } from "../../errors";

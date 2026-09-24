@@ -4,7 +4,7 @@ import {
   crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { type PageRow, pagesTable } from "../table";
 
 // Public-Read aller published Pages eines Tenants — Discovery-Quelle für

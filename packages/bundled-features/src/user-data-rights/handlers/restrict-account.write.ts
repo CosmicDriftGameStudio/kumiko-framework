@@ -4,7 +4,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user";
 import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant";
 import { isAdminActor } from "../lib/is-admin-actor";

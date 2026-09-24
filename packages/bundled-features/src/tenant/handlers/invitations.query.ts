@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
 

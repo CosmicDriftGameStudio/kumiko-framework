@@ -52,7 +52,7 @@ import {
   type FeatureRegistrar,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import {
   CUSTOM_FIELD_CLEARED_EVENT,
   CUSTOM_FIELD_SET_EVENT,

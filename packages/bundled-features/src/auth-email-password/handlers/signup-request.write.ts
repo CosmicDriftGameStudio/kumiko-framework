@@ -25,7 +25,7 @@ import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
 import { renderActivationEmail } from "../email-templates";

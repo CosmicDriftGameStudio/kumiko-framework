@@ -11,7 +11,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { createConfigResolver } from "../resolver";
 import { configValuesTable } from "../table";

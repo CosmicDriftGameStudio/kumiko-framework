@@ -1,6 +1,6 @@
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { base32Encode } from "../base32";
 import { MFA_SETUP_TOKEN_TTL_MINUTES } from "../constants";
 import { findUserMfaRow } from "../db/queries";

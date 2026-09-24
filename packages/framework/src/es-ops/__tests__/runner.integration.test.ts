@@ -17,7 +17,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";

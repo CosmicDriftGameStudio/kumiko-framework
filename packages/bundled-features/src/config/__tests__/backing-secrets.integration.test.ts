@@ -14,7 +14,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createSecretsContext } from "../../secrets/secrets-context";
 import { tenantSecretsTable } from "../../secrets/table";
 import { ConfigHandlers, ConfigQueries } from "../constants";

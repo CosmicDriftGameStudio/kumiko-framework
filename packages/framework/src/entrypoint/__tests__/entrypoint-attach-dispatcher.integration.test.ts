@@ -10,7 +10,7 @@
 // throws the #2043 stub).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
 import { createRegistry, defineFeature } from "../../engine";

@@ -8,7 +8,7 @@
 // The same schema introspection (`classifyField`, `readKumikoMeta`) used
 // by parseEnv drives the output here — single source of truth.
 
-import type { z } from "zod";
+import type * as z from "zod";
 import { zodShape } from "./_zod-introspect";
 import {
   type ComposedEnvSchema,

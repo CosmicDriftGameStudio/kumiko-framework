@@ -3,7 +3,7 @@ import {
   type FieldDefinition,
   fieldToZod,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { z } from "zod";
+import type * as z from "zod";
 import { SUPPORTED_FIELD_TYPES } from "../constants";
 
 // Builds a Zod schema that validates a custom-field VALUE against its

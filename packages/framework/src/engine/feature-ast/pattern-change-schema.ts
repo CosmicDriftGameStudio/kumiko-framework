@@ -22,7 +22,7 @@
 // additionally checked for field-type membership via the shared
 // `findUnknownEntityFieldTypes` helper (kept in sync with `extractEntity`).
 
-import { z } from "zod";
+import * as z from "zod";
 import { type LifecycleHookType, LifecycleHookTypes } from "../constants";
 import type {
   ConfigKeyDefinition,

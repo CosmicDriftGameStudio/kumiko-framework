@@ -48,7 +48,7 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import {
   isResumableSuspension,
   type WorkflowRunCompletedPayload,

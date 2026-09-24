@@ -13,7 +13,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";

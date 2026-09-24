@@ -15,7 +15,7 @@ import {
   validationErrorFromZod,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,

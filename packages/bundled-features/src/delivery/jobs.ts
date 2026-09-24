@@ -14,7 +14,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
-import { z } from "zod";
+import * as z from "zod";
 import { appendAttemptEvent } from "./attempt-log";
 import { buildChannelContext } from "./channel-context";
 import { DeliveryJobs, deliveryPriorityRank } from "./constants";

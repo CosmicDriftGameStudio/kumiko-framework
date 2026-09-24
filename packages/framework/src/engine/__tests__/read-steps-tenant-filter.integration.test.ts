@@ -8,7 +8,7 @@
 // escape-hatch-audit.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { table, text, uuid } from "../../db/dialect";
 import { insertOne } from "../../db/query";
 import { defineFeature, defineWriteHandler } from "../../engine";

@@ -6,7 +6,7 @@ import {
   defineEntityCreateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 
 const noteEntity = createEntity({
   table: "read_testing_notes",

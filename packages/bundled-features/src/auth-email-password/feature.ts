@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { MIN_HMAC_SECRET_LENGTH } from "./constants";
 import type { AuthMailLocale } from "./email-templates";
 import { changePasswordWrite } from "./handlers/change-password.write";

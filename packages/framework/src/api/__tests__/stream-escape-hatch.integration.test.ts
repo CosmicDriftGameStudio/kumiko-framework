@@ -6,7 +6,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
-import { z } from "zod";
+import * as z from "zod";
 import { generateToken } from "../../api/tokens";
 import { createSystemUser, defineFeature } from "../../engine";
 import type { SessionUser } from "../../engine/types";

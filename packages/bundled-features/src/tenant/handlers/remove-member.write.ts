@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { assertNotLastTenantAdmin } from "../last-tenant-admin";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 

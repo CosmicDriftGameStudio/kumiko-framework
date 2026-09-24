@@ -2,7 +2,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { EscapeHatchAuditSink, EscapeHatchKind } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 
 export const ESCAPE_HATCH_USED_EVENT = "audit:event:escape-hatch-used";
 export const ESCAPE_HATCH_USE_AGGREGATE_TYPE = "escapeHatchUse";

@@ -31,7 +31,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
-import { z } from "zod";
+import * as z from "zod";
 import { JobQueries } from "../constants";
 import { createJobsFeature } from "../feature";
 import { createJobRunLogger } from "../job-run-logger";

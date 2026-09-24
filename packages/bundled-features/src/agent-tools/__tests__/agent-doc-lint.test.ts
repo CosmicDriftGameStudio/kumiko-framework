@@ -4,7 +4,7 @@ import {
   defineWriteHandler,
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "../agent-doc-lint";
 
 const OPEN_ACCESS = {

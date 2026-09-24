@@ -5,7 +5,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { requireSystemDb } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";
 import { findConfigRow, prepareConfigWrite } from "../write-helpers";

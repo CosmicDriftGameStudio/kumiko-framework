@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable, decodeCursor, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation";
 import { tenantTable } from "../../tenant";
 import { tierAssignmentEntity } from "../../tier-engine";

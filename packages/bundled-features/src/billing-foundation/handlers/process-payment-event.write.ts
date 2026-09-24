@@ -15,7 +15,7 @@ import {
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { paymentAggregateId } from "../aggregate-id";
 import { PAYMENT_PII_FIELDS, paymentEntity } from "../entities";
 import {

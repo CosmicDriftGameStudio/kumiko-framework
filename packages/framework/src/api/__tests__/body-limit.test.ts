@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "../api-constants";
 import { buildServer } from "../server";

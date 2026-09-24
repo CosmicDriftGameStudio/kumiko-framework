@@ -1,5 +1,5 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { z } from "zod";
+import * as z from "zod";
 
 export const SEEDABLE_ROLES = [ROLES.TenantAdmin, ROLES.Member] as const;
 export const MAX_SEED_MEMBERS = 10;

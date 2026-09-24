@@ -24,7 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import postgres from "postgres";
-import { z } from "zod";
+import * as z from "zod";
 import { makeDispatchSystemWrite } from "../extra-routes-deps";
 import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app";
 

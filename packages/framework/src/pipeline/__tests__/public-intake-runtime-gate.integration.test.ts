@@ -2,7 +2,7 @@
 // so the static boot check passes and only the runtime gate can stop the write.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import type { SchemaTable } from "../../db";
 import type { DbRunner } from "../../db/connection";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

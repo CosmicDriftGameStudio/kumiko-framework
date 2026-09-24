@@ -9,7 +9,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { z } from "zod";
+import * as z from "zod";
 import { authFoundationFeature } from "../../auth-foundation";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
 import { createConfigFeature } from "../../config/feature";

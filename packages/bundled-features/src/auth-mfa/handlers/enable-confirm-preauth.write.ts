@@ -8,7 +8,7 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { base32Decode } from "../base32";

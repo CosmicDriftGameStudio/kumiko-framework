@@ -1,7 +1,7 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { downloadAttemptsTable } from "../schema/download-attempt";
 
 // Operator-Query: invalid Download-Attempts (S2.U7).

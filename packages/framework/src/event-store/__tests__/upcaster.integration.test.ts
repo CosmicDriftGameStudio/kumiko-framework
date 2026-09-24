@@ -9,7 +9,7 @@
 //      can never silently hand half-migrated data to consumers.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, insertOne, selectMany } from "../../db/query";

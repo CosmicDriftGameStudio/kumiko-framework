@@ -11,7 +11,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
-import type { z } from "zod";
+import type * as z from "zod";
 
 export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly screen: EntityEditScreenDefinition;

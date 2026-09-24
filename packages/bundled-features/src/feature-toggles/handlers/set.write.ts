@@ -6,7 +6,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import {
   FEATURE_TOGGLE_AGGREGATE_TYPE,
   FEATURE_TOGGLE_CROSS_TENANT_REASON,

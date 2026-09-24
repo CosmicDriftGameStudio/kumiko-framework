@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import type { TenantId } from "../../engine";
 import { defineQueryHandler } from "../../engine/define-handler";
 import { type ContainsSecret, createSecret, type Secret } from "../index";

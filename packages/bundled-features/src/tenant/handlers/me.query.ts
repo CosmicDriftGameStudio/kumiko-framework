@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantTable } from "../schema/tenant";
 
 // Direct query — query handlers don't have a tenant-crud handle. A direct

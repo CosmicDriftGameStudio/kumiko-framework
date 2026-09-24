@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import type { SseBroker } from "../../api/sse-broker";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";

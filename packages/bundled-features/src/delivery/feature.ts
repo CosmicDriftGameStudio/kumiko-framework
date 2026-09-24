@@ -5,7 +5,7 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { z } from "zod";
+import type * as z from "zod";
 import {
   DELIVERY_ATTEMPT_EVENT,
   DELIVERY_CHANNEL_EXTENSION,

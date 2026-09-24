@@ -1,6 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii } from "../../shared";
 import { userSessionTable } from "../schema/user-session";
 

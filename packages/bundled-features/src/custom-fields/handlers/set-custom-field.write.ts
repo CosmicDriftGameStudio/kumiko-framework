@@ -1,6 +1,6 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { DEFAULT_VALUE_WRITE_ROLES } from "../constants";
 import { customFieldsFeature } from "../feature";
 import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access";

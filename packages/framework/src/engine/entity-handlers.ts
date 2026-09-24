@@ -1,5 +1,6 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
-import { type ZodType, z } from "zod";
+import type { ZodType } from "zod";
+import * as z from "zod";
 import type { DbRow } from "../db/connection";
 import {
   collectReferenceFields,

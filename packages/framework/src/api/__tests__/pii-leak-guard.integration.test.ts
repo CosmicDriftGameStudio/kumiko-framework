@@ -5,7 +5,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto";
 import { defineFeature } from "../../engine/define-feature";
 import { defineQueryHandler } from "../../engine/define-handler";

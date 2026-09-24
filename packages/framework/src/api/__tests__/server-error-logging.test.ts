@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { RateLimitError, UnprocessableError } from "../../errors";
 import { TestUsers } from "../../stack";

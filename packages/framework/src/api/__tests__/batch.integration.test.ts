@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import type { TableColumns } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";

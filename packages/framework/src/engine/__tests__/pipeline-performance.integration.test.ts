@@ -23,7 +23,7 @@
 // here with a longer-pipeline handler variant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";

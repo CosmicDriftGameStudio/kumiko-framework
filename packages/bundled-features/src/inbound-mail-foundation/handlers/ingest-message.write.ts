@@ -29,7 +29,7 @@ import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db"
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
 import {
   INBOUND_MESSAGE_PII_FIELDS,

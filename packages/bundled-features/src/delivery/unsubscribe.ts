@@ -2,7 +2,7 @@ import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Hono } from "hono";
 import * as jose from "jose";
-import { z } from "zod";
+import * as z from "zod";
 import { upsertPreference } from "./upsert-preference";
 
 // Shape des verified-JWT-payloads. tenantId kommt als string aus jose und

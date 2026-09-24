@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
+import * as z from "zod";
 import { table as pgTable, text, uuid } from "../../db/dialect";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";

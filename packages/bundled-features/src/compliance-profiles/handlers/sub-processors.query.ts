@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { z } from "zod";
+import * as z from "zod";
 
 // Public Sub-Processor-Liste — anonymous accessible (Memory:
 // project_anonymous_access). Matched die DSGVO Art. 28(2) Pflicht

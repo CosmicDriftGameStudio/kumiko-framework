@@ -4,7 +4,7 @@
 // and docs promise. If you change the contract, this is the file that moves.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { asRawClient } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";

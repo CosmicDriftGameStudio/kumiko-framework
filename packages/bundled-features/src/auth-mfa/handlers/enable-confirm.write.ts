@@ -2,7 +2,7 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { burnToken } from "../../shared";
 import { base32Decode } from "../base32";
 import { findUserMfaRow } from "../db/queries";

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { moneyPayloadToMinorUnits } from "../db/money";
 import { isValidIanaTimeZone } from "../time";
 import { assertUnreachable } from "../utils";

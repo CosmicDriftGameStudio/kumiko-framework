@@ -1,7 +1,7 @@
 // buildServer boot-time guards + httpRoute verb wiring (PUT branch).
 
 import { describe, expect, spyOn, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import {
   createEntity,
   createFileField,

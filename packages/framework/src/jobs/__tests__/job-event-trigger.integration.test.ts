@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Hono } from "hono";
-import { z } from "zod";
+import * as z from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine";

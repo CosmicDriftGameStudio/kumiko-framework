@@ -1,5 +1,5 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { DEFAULT_SECRETS_ACCESS } from "../constants";
 import { tenantSecretsTable } from "../table";
 

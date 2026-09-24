@@ -5,7 +5,7 @@ import {
   resolveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { parseComplianceProfileOverride } from "../_internal/parse-override";
 import { tenantComplianceProfileTable } from "../schema/profile-selection";
 

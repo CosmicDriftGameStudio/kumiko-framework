@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { composeEnvSchema, readKumikoMeta } from "../../env";
 import { prometheusMetricsEnvSchema, resolveObservabilityWiring } from "../metrics-wiring";
 

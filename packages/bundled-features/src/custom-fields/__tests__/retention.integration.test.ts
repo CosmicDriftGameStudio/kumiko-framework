@@ -26,7 +26,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { z } from "zod";
+import * as z from "zod";
 import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";

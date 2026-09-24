@@ -19,7 +19,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { z } from "zod";
+import * as z from "zod";
 import { tierAssignmentEntity } from "../entity";
 import { tierEngineFeature } from "../feature";
 import { createTierResolver } from "../tier-resolver";

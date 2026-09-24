@@ -13,7 +13,7 @@ import {
   type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 
 export function makeProbeFeature(opts: {
   readonly name: string;

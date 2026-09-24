@@ -11,7 +11,7 @@
 //   5. ctx.loadAggregate reads the triggering stream's full history.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";

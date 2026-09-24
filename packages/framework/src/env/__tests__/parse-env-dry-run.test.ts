@@ -2,7 +2,7 @@
 // undefined. parseEnvDryRun liefert stattdessen ein ehrliches Partial.
 
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { parseEnvDryRun } from "../index";
 
 const schema = z.object({

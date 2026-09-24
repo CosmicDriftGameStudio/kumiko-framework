@@ -15,7 +15,7 @@
 //              (M365/Gmail, Phase 4/5); der imap-Provider konsumiert
 //              nur einen gültigen Access-Token aus dem Slot.
 
-import { z } from "zod";
+import * as z from "zod";
 
 export const imapCredentialDocumentSchema = z.object({
   host: z.string().min(1).max(255),

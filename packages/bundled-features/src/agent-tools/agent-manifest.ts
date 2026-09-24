@@ -15,7 +15,7 @@ import {
   isAgentVisibleScreen,
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import type {
   AgentManifest,
   AgentManifestEntity,

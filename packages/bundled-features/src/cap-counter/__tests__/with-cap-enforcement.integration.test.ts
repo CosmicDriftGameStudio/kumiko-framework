@@ -24,7 +24,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import { bookCapUsage, readRollingCapUsage } from "../book-cap-usage";
 import { CapCounterQueries } from "../constants";
 import type { SoftHitNotifier } from "../enforce-cap";

@@ -6,7 +6,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { type PageRow, pageEntity, pagesTable } from "../table";
 
 const slugSchema = z

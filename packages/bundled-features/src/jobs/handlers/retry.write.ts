@@ -9,7 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii } from "../../shared";
 import { JobErrors } from "../constants";
 import { jobRunsTable } from "../job-run-table";

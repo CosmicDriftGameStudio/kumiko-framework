@@ -6,7 +6,7 @@ import {
   NotFoundError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantEntity, tenantTable } from "../schema/tenant";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });

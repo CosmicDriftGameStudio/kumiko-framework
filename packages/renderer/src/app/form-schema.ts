@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition, NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-framework/ui-types";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
-import { z } from "zod";
+import * as z from "zod";
 import { layoutEditFields } from "./layout-fields";
 
 // `required` means "has a value", not "is truthy" — `false` and `0` count

@@ -19,7 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { InboundMailAccountStatuses, InboundMailAuthMethods } from "../constants";
 import { MAIL_ACCOUNT_PII_FIELDS, mailAccountEntity } from "../entities";
 import {

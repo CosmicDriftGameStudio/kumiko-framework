@@ -42,7 +42,7 @@
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createMollieClient } from "@mollie/api-client";
-import { z } from "zod";
+import * as z from "zod";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants";
 import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods";
 import { type MollieClientShape, verifyAndParseMollieWebhook } from "./verify-webhook";

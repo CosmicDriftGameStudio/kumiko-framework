@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
-import { z } from "zod";
+import * as z from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
 import {

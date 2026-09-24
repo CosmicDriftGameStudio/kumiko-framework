@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { SUPPORTED_FIELD_TYPES } from "./constants";
 
 // Field-Type-Validator — pinnt valid type-Werte für fieldDefinition.

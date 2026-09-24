@@ -14,7 +14,7 @@
 //                        + handler-access mit ROLES.TenantAdmin
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { ROLES } from "../../auth";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";

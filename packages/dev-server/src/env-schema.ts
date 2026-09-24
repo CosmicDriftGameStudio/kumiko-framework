@@ -15,7 +15,7 @@
 // Feature-specific vars (JWT_SECRET, KUMIKO_SECRETS_MASTER_KEY_*) live
 // in their owning feature's envSchema — Phase 2 (bundled-features).
 
-import { z } from "zod";
+import * as z from "zod";
 
 /** Env-vars read by framework-core (api/server, db/connection,
  *  dev-server/run-prod-app). NOT including feature-specific vars.

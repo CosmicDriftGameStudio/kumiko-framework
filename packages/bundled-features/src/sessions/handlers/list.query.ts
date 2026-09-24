@@ -4,7 +4,7 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii } from "../../shared";
 import { userSessionTable } from "../schema/user-session";
 

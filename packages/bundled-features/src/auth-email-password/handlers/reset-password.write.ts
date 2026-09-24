@@ -1,6 +1,6 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { hashPassword } from "../../shared";
 import { AuthErrors } from "../constants";
 import { invalidResetToken } from "../errors";

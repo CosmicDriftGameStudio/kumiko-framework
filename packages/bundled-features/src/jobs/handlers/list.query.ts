@@ -1,7 +1,7 @@
 import { countWhere, selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared";
 import { jobRunsTable } from "../job-run-table";
 

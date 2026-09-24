@@ -29,7 +29,7 @@ import {
 import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { z } from "zod";
+import * as z from "zod";
 import { createFeatureTogglesFeature } from "../feature";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import { GlobalFeatureToggleRuntime } from "../toggle-runtime";

@@ -5,7 +5,7 @@ import {
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 
 // Liefert alle waehlbaren Compliance-Profile fuer das Tenant-Onboarding.
 // Pure In-Memory-Read der Constants — keine DB-Abfrage. Kein Caching

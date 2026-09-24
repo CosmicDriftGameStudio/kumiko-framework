@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
-import { z } from "zod";
+import * as z from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { ConsumerStateRow, StoredEventRow } from "../../pipeline/event-dispatcher-delivery";
 import { deliverEvents } from "../../pipeline/event-dispatcher-delivery";

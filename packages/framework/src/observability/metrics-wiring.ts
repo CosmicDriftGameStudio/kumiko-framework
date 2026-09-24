@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { createNoopProvider } from "./noop-provider";
 import { createPrometheusMeter, type PrometheusMeter } from "./prometheus-meter";
 import type { ObservabilityProvider } from "./types";

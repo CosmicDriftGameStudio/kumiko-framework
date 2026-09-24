@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { requiredKeysFromScreen } from "../../i18n/required-surface-keys";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";

@@ -6,7 +6,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature, EXT_DERIVATIVE_RENDERER } from "../../engine";
 import { InternalError, NotFoundError, writeFailure } from "../../errors";
 import { createFilesFeature } from "../../files/feature";

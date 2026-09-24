@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantMembershipsTable } from "../membership-table";
 import { tenantTable } from "../schema/tenant";
 

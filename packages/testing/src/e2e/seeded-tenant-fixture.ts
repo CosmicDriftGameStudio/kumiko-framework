@@ -7,7 +7,7 @@ import {
   type PlaywrightTestOptions,
   type PlaywrightWorkerArgs,
 } from "@playwright/test";
-import type { z } from "zod";
+import type * as z from "zod";
 import {
   type BoundApi,
   type SeededCredentials,

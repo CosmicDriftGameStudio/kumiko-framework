@@ -8,7 +8,7 @@
 // setupTestStack + stack.http.write — never createTestDispatcher.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { executeRawQuery } from "../../db/queries/raw-sql";
 import { asRawClient, selectMany } from "../../db/query";

@@ -4,7 +4,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { AuthErrors } from "../constants";
 import { invalidUnlockToken } from "../errors";
 import { clearLockoutState } from "../lockout-store";

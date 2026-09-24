@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { findUserMfaRow } from "../db/queries";
 import { invalidTotpCode, mfaNotEnabled } from "../errors";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa";

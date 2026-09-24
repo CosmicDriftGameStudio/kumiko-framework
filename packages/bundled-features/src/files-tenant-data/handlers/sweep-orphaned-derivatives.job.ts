@@ -28,7 +28,7 @@ import {
   type FileStorageProvider,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import { z } from "zod";
+import * as z from "zod";
 import { runChunkedMigration } from "../../shared";
 import { tenantTable } from "../../tenant";
 

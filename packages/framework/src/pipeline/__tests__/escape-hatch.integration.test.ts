@@ -3,7 +3,7 @@
 // Real HTTP calls + setupTestStack — never createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineUnmanagedTable } from "../../db/entity-table-meta";
 import { defineFeature } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack } from "../../stack";

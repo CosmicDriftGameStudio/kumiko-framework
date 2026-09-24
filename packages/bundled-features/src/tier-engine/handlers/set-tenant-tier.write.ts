@@ -5,7 +5,7 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { tierAssignmentAggregateId } from "../aggregate-id";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
 

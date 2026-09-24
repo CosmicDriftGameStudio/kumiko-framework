@@ -19,7 +19,7 @@
 //     eraseSubjectKeys macht Event-Log UND Projection unlesbar
 //     (crypto-shredding, Muster billing-foundation #800).
 
-import { z } from "zod";
+import * as z from "zod";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants";
 
 // Aggregate-types für den event-store.

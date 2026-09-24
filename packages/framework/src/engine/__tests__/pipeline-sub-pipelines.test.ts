@@ -6,7 +6,7 @@
 // hygiene, error-propagation and build-time guards.
 
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";
 import { stepsPipeline } from "../pipeline";

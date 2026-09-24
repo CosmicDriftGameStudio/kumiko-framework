@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { tenantEntity, tenantTable } from "../schema/tenant";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });

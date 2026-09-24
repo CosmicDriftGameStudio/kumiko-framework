@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 // Lightweight custom event appended alongside the direct-write
 // updateMany() in revoke.write.ts / revoke-all-others.write.ts /

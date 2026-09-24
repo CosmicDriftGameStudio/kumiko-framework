@@ -3,7 +3,7 @@
 // delivery-service.ts (validates payloads before the low-level append()
 // — out-of-dispatcher writes otherwise skip schema enforcement).
 
-import { z } from "zod";
+import * as z from "zod";
 import { DeliveryStatus } from "./constants";
 
 export const deliveryAttemptSchema = z.object({

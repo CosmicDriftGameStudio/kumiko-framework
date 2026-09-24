@@ -1,5 +1,5 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user";
 import { signDeletionToken } from "../deletion-token";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";

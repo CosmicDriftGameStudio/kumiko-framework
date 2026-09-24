@@ -31,7 +31,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {

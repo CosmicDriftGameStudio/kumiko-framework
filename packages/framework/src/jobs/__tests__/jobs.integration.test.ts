@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
-import { z } from "zod";
+import * as z from "zod";
 import { requestContext } from "../../api/request-context";
 import { tenantDbRunner } from "../../db/tenant-db-runner";
 import { createRegistry, defineFeature } from "../../engine";

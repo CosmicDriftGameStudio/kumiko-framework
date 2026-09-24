@@ -2,7 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { isWithinGracePeriod } from "../../shared";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
 import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants";

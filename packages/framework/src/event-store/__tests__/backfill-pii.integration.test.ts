@@ -12,7 +12,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { z } from "zod";
+import * as z from "zod";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,

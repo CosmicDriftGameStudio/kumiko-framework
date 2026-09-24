@@ -3,7 +3,7 @@
 // the search index. The event payload only carries the named event's own
 // field slice, so the consumer reads the live projection row instead.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { asRawClient, buildEntityTable, createEventStoreExecutor, createTenantDb } from "../../db";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {

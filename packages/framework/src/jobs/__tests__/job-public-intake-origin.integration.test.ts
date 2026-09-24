@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
-import { z } from "zod";
+import * as z from "zod";
 import type { SchemaTable } from "../../db";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";

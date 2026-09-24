@@ -15,7 +15,7 @@
 // allowPlaintext-Marker unterdrückt Heuristik-Warnings.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 import {

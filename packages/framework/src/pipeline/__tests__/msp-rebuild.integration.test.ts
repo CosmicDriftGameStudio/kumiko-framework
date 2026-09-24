@@ -17,7 +17,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
-import { z } from "zod";
+import * as z from "zod";
 import type { DbConnection, DbTx } from "../../db/connection";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

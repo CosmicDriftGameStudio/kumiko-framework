@@ -1,6 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { z } from "zod";
+import * as z from "zod";
 import { DEFAULT_FOLDER_ACCESS } from "../constants";
 import { folderAssignmentExecutor, folderExecutor } from "../executor";
 
