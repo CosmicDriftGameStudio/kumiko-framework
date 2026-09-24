@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-testing",
-  "version": "0.305.0",
+  "version": "0.306.0",
   "description": "Test template for Kumiko apps: per-flow seedTenant, app test stack, canonical test preloads, bunfig generator and integration runner.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

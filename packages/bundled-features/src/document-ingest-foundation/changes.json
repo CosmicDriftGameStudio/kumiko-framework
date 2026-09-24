@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.306.0",
+    "type": "fix",
+    "title": "Tenant destroy no longer fails on documentExtract rows"
+  },
+  {
     "version": "0.166.0",
     "type": "breaking",
     "title": "documentExtract.pages: tenantOwned instead of encrypted, and the feature now requires tenant-lifecycle",

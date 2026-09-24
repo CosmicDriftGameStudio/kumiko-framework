@@ -1,5 +1,80 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.306.0
+
+### Minor Changes
+
+- 946f7e7: Bundled extension points (renderer, deliveryChannel, mailTransport, inboundMailProvider, subscriptionProvider) are typed
+
+  <!-- kumiko-changes
+  feature: renderer-foundation
+  type: breaking
+  title: Bundled extension points (renderer, deliveryChannel, mailTransport, inboundMailProvider, subscriptionProvider) are typed
+  migration: |
+    r.useExtension options for renderer ({ kinds, render }), deliveryChannel ({ mode, resolve, render?, send, accept? }), mailTransport (MailTransportPlugin), inboundMailProvider (InboundMailProviderPlugin) and subscriptionProvider (SubscriptionProviderPlugin) are now type-checked and required; renderer and deliveryChannel registrations do not pass name (it comes from the entity name). Prefer the new constants RENDERER_EXTENSION, DELIVERY_CHANNEL_EXTENSION and MAIL_TRANSPORT_EXTENSION over string literals. A registration whose options do not match the plugin shape now throws with the entity name when channels or renderers are collected.
+  -->
+
+### Patch Changes
+
+- b43fe63: Tenant destroy no longer fails on subscription and payment rows
+
+  The subscription and payment tenant-destroy hooks passed the tenant-scoped TenantDb they receive into raw DbRunner helpers, so the app-data stage failed and the tenant ended in destroyFailed. They now use ctx.db methods and declare an escapeHatch for the compliance-profile lookup and the event-stream archive.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Tenant destroy no longer fails on subscription and payment rows
+  -->
+
+- 8b4d672: The document-ingest-foundation tenant-destroy hook now uses the tenant-scoped `ctx.db` it receives from the tenant-lifecycle pipeline instead of re-wrapping it in `createTenantDb`. Before, the "app-data" stage failed for every tenant with documentExtract rows and the tenant ended in `destroyFailed`.
+
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Tenant destroy no longer fails on documentExtract rows
+  -->
+
+- 2e332a3: createUncheckedSystemDb is no longer exported from /db; use createSystemDbView, whose unsafeRaw follows the source TenantDb's escapeHatch gate (fw#3205)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createUncheckedSystemDb is no longer exported from /db; use createSystemDbView, whose unsafeRaw follows the source TenantDb's escapeHatch gate (fw#3205)
+  migration: |
+    Import auf createSystemDbView umstellen; wer unsafeRaw auf einem selbstgebauten systemDb braucht, übergibt eine TenantDb mit unsafeRaw-Grant (createTenantDb(..., { unsafeRaw: { reason } })).
+    Delivery: ein tenantUserIdsQuery-Handler ohne r.systemScope() bekommt jetzt wie im Dispatcher eine tenant-mode ctx.db und kein ctx.systemDb; Handler, die Cross-Tenant-Zugriff brauchen, deklarieren r.systemScope().
+  -->
+
+- b43fe63: Tenant destroy no longer fails on mail-account, inbound-message and mail-thread rows
+
+  The inbound-mail tenant-destroy hooks passed the tenant-scoped TenantDb they receive into raw DbRunner helpers, so the app-data stage failed and the tenant ended in destroyFailed. They now use ctx.db methods and declare an escapeHatch for the event-stream archive.
+
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Tenant destroy no longer fails on mail-account, inbound-message and mail-thread rows
+  -->
+
+- Updated dependencies [fdf9377]
+- Updated dependencies [499b9c2]
+- Updated dependencies [4f96ced]
+- Updated dependencies [2e332a3]
+- Updated dependencies [5785f57]
+- Updated dependencies [cb31fad]
+- Updated dependencies [b43fe63]
+- Updated dependencies [cbbbb19]
+- Updated dependencies [946f7e7]
+- Updated dependencies [c6013bd]
+- Updated dependencies [659c575]
+- Updated dependencies [961c8c2]
+- Updated dependencies [d92ebf4]
+  - @cosmicdrift/kumiko-framework@0.306.0
+  - @cosmicdrift/kumiko-renderer@0.306.0
+  - @cosmicdrift/kumiko-headless@0.306.0
+  - @cosmicdrift/kumiko-renderer-web@0.306.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.306.0
+  - @cosmicdrift/kumiko-types@0.306.0
+
 ## 0.305.0
 
 ### Minor Changes

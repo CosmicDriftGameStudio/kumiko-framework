@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.306.0",
+    "type": "improvement",
+    "title": "clearSession(page) for race-free session switches in E2E"
+  },
+  {
+    "version": "0.306.0",
+    "type": "breaking",
+    "title": "mailCapture and the /__test/inbox route read tenantless mail via a new mailOutbox option",
+    "detail": "Apps sending Dev/E2E mail through a raw createInMemoryTransport() (signup,\nforgot-password, magic-link — flows with no tenant) had no way to read it\nthrough the seed inbox route, which required tenantId and only checked\nmailTransportInMemoryFeature's per-tenant buffer. createE2eSeedRoutes()\nnow accepts mailOutbox: { sent: readonly EmailMessage[] } (the raw\ntransport's own array); inboxQuerySchema's tenantId is optional. The route\nreads whichever source(s) are configured, filters by to, and returns each\nsource newest-first instead of oldest-first.",
+    "migration": "mailCapture(request, tenantId, to) -> mailCapture(request, to, { tenantId }),\nand it now resolves to a single CapturedMail (the newest match) instead of\na readonly CapturedMail[]. Pass match: (mail) => boolean to pick a mail\nother than the newest at that address. Apps with their own ungated debug\nroute for a raw transport (e.g. /_debug/mails.json) pass that transport as\ncreateE2eSeedRoutes({ mailOutbox: transport }) and delete the app-local\nroute; tenantId becomes optional wherever only mailOutbox is used. Any\ndirect reader of GET /__test/inbox must expect newest-first ordering."
+  },
+  {
+    "version": "0.306.0",
+    "type": "improvement",
+    "title": "runMatrix supports device-emulation Playwright projects for real native-size screenshots"
+  },
+  {
     "version": "0.305.0",
     "type": "fix",
     "title": "defineAppE2eConfig starts the E2E web server without a Tailwind --watch process, so Playwright artifact writes no longer trigger hundreds of CSS rebuilds",
