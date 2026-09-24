@@ -1,7 +1,6 @@
-// collectTableMetas — kanonische Tabellen-Quelle für `kumiko schema
-// generate` UND setupTestStack (entities, storeTables, projections,
-// multiStreamProjections). Eine geteilte Quelle, damit Test-DB-Push und
-// Migrations nicht mehr auseinanderdriften können (#255, #3102).
+// Canonical table source for both `kumiko schema generate` and setupTestStack
+// (entities, storeTables, projections, multiStreamProjections). One shared
+// source so the test-DB push and migrations cannot drift apart again (#255, #3102).
 
 import type { FeatureDefinition } from "../engine/types";
 import { compareByCodepoint } from "../utils";
