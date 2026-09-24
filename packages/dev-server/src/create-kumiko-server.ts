@@ -269,6 +269,10 @@ const AUTH_COOKIE = "kumiko_auth";
 // runs under Node and cannot import this module.
 export const STYLESHEET_WATCH_ENV = "KUMIKO_DEV_STYLESHEET_WATCH";
 
+// Duplicated in packages/testing/src/e2e/constants.ts: the Playwright config
+// runs under Node and cannot import this module.
+export const PROD_BUNDLES_ENV = "KUMIKO_DEV_PROD_BUNDLES";
+
 // Reload snippet injected into every page-load so the browser
 // subscribes to /_reload without the HTML needing to hard-code it.
 //
@@ -325,7 +329,13 @@ const DEFAULT_HTML = `<!doctype html>
 </html>
 `;
 
-type ClientBundle = { readonly js: string; readonly map: string };
+type ClientBundle = {
+  readonly js: string;
+  readonly map: string;
+  // Only set when PROD_BUNDLES_ENV builds with splitting. Path -> content,
+  // e.g. "/chunk-abc123.js" -> "...".
+  readonly chunks?: ReadonlyMap<string, string>;
+};
 
 async function buildClient(entry: string): Promise<ClientBundle> {
   if (!hasBun) {
@@ -334,23 +344,35 @@ async function buildClient(entry: string): Promise<ClientBundle> {
     );
   }
   const unminified = process.env["KUMIKO_DEV_UNMINIFIED"] === "1";
+  // Same splitting/sourcemap/NODE_ENV as build-prod-bundle.ts, opt-in via
+  // env so `bun dev` stays unchanged.
+  const prodShaped = process.env[PROD_BUNDLES_ENV] === "1";
   const built = await Bun.build({
     entrypoints: [entry],
     target: "browser",
     minify: !unminified,
-    sourcemap: "linked",
+    sourcemap: prodShaped ? "none" : "linked",
+    splitting: prodShaped,
+    ...(prodShaped ? { define: { "process.env.NODE_ENV": JSON.stringify("production") } } : {}),
   });
   if (!built.success) {
     logError("[kumiko-server] client bundle failed:");
     for (const log of built.logs) logError(log);
     throw new Error("client bundle failed");
   }
-  const jsOutput = built.outputs.find((o) => o.path.endsWith(".js"));
+  const jsOutput = built.outputs.find((o) => o.kind === "entry-point");
   const mapOutput = built.outputs.find((o) => o.path.endsWith(".js.map"));
   if (!jsOutput) throw new Error("[kumiko-server] client bundle produced no .js output");
+  const chunks = new Map<string, string>();
+  for (const output of built.outputs) {
+    if (output.kind !== "chunk") continue;
+    const chunkPath = `/${output.path.replace(/^\.\//, "")}`;
+    chunks.set(chunkPath, await output.text());
+  }
   return {
     js: await jsOutput.text(),
     map: mapOutput ? await mapOutput.text() : "",
+    chunks,
   };
 }
 
@@ -1055,6 +1077,17 @@ export async function createKumikoServer(
           headers: { "Content-Type": "application/javascript; charset=utf-8" },
         });
       }
+      // Looked up in the live bundles instead of a separate index, which a
+      // hot-reload rebuild would leave stale.
+      for (const bundle of clientBundles.values()) {
+        const chunk = bundle.chunks?.get(url.pathname);
+        if (chunk !== undefined) {
+          return new Response(chunk, {
+            headers: { "Content-Type": "application/javascript; charset=utf-8" },
+          });
+        }
+      }
+
       // .js.map-Variante: gleicher Lookup mit /.map abgeschnitten.
       if (url.pathname.endsWith(".js.map")) {
         const jsPath = url.pathname.slice(0, -".map".length);

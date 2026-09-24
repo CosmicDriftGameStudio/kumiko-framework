@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV } from "@cosmicdrift/kumiko-dev-server";
+import {
+  PROD_BUNDLES_ENV as DEV_SERVER_PROD_BUNDLES_ENV,
+  STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV,
+} from "@cosmicdrift/kumiko-dev-server";
 import {
   E2E_WORKERS_ENV,
   PLAYWRIGHT_DEMO_ENV,
+  PROD_BUNDLES_ENV,
   REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
@@ -135,6 +139,7 @@ describe("defineAppE2eConfig defaults", () => {
     );
     expect(server.env?.["JWT_SECRET"]).toBe("app-secret-of-32-characters-long!");
     expect(server.env?.[STYLESHEET_WATCH_ENV]).toBe("0");
+    expect(server.env?.[PROD_BUNDLES_ENV]).toBe("1");
   });
 
   test("forbidOnly follows CI", () => {
@@ -205,7 +210,7 @@ describe("template-owned settings cannot be overridden", () => {
     },
   );
 
-  test.each(["PORT", SEED_ENABLE_ENV, SEED_TOKEN_ENV, STYLESHEET_WATCH_ENV])(
+  test.each(["PORT", SEED_ENABLE_ENV, SEED_TOKEN_ENV, STYLESHEET_WATCH_ENV, PROD_BUNDLES_ENV])(
     "env key %s is reserved",
     (key) => {
       expect(() => defineAppE2eConfig({ port: 1, env: { [key]: "x" } })).toThrow(/template owns/);
@@ -215,12 +220,16 @@ describe("template-owned settings cannot be overridden", () => {
   test("the reserved KUMIKO_DEV_STYLESHEET_WATCH literal matches kumiko-dev-server's own constant", () => {
     expect(STYLESHEET_WATCH_ENV).toBe(DEV_SERVER_STYLESHEET_WATCH_ENV);
   });
+
+  test("the reserved KUMIKO_DEV_PROD_BUNDLES literal matches kumiko-dev-server's own constant", () => {
+    expect(PROD_BUNDLES_ENV).toBe(DEV_SERVER_PROD_BUNDLES_ENV);
+  });
 });
 
 describe("resolveE2eWorkers", () => {
   test.each([
-    [1, 2],
-    [2, 2],
+    [1, 1],
+    [2, 1],
     [4, 2],
     [6, 3],
     [8, 4],

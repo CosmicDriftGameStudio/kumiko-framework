@@ -23,6 +23,10 @@ export const REAL_PROVIDERS_ENV = "KUMIKO_REAL_PROVIDERS";
 // that Bun-toolchain-adjacent module.
 export const STYLESHEET_WATCH_ENV = "KUMIKO_DEV_STYLESHEET_WATCH";
 
+// Same literal as kumiko-dev-server's createKumikoServer (PROD_BUNDLES_ENV),
+// duplicated for the same Node/Bun-toolchain reason.
+export const PROD_BUNDLES_ENV = "KUMIKO_DEV_PROD_BUNDLES";
+
 export const SEED_ROUTE_PREFIX = "/__test";
 
 export const SEED_ROUTES = {

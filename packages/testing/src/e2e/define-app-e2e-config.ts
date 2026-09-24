@@ -11,6 +11,7 @@ import {
 import {
   E2E_WORKERS_ENV,
   PLAYWRIGHT_DEMO_ENV,
+  PROD_BUNDLES_ENV,
   REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
@@ -28,7 +29,13 @@ const TEMPLATE_OWNED_PROJECT_KEYS = [
 ] as const;
 const TEMPLATE_OWNED_USE_KEYS = ["actionTimeout", "navigationTimeout"] as const;
 const REAL_SPEC_GLOB = "**/*.real.spec.ts";
-const RESERVED_ENV_KEYS = ["PORT", SEED_ENABLE_ENV, SEED_TOKEN_ENV, STYLESHEET_WATCH_ENV] as const;
+const RESERVED_ENV_KEYS = [
+  "PORT",
+  SEED_ENABLE_ENV,
+  SEED_TOKEN_ENV,
+  STYLESHEET_WATCH_ENV,
+  PROD_BUNDLES_ENV,
+] as const;
 
 type ProjectUse = Partial<PlaywrightTestOptions & PlaywrightWorkerOptions>;
 
@@ -60,7 +67,9 @@ export function resolveE2eWorkers(
 ): number {
   const override = env[E2E_WORKERS_ENV];
   if (override === undefined || override === "") {
-    return Math.max(2, Math.min(4, Math.floor(cpuCount / 2)));
+    // 1.5 CPU CI pod, publicstatus 59 tests: 1/2/4 workers = 2.6/2.6/2.7 min;
+    // saturated at 1.
+    return Math.max(1, Math.min(4, Math.floor(cpuCount / 2)));
   }
   const workers = Number(override);
   if (!Number.isInteger(workers) || workers < 1) {
@@ -149,6 +158,9 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
         // recursively (Tailwind v4, no gitignore filter); every Playwright
         // artifact write under test-results/ would then count as a rebuild.
         [STYLESHEET_WATCH_ENV]: "0",
+        // E2E runs against prod-shaped bundles: splitting, no sourcemap,
+        // NODE_ENV=production — matches what actually ships.
+        [PROD_BUNDLES_ENV]: "1",
       },
       reuseExistingServer: false,
       timeout: E2E_TIMEOUT_MS.webServer,

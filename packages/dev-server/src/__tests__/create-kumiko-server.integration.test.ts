@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   createKumikoServer,
   type KumikoServerHandle,
+  PROD_BUNDLES_ENV,
   STYLESHEET_WATCH_ENV,
 } from "../create-kumiko-server";
 
@@ -540,6 +541,10 @@ describe("createKumikoServer — real Bun.build (buildClient)", () => {
       expect(body.length).toBeGreaterThan(0);
       expect(body).toMatch(/ping/);
 
+      const mapRes = await handle.fetch(new Request("http://localhost/client.js.map"));
+      expect(mapRes.status).toBe(200);
+      expect(await mapRes.text()).toMatch(/"sources"/);
+
       // Stop the watcher before teardown rmSync deletes clientEntry out from
       // under it — a bare "client.tsx" delete event classifies as "restart"
       // (classifyChange only special-cases endsWith("/client.tsx")) and
@@ -547,6 +552,62 @@ describe("createKumikoServer — real Bun.build (buildClient)", () => {
       await handle.stop();
       handle = undefined;
     } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("PROD_BUNDLES_ENV builds a prod-shaped bundle: split chunk served, no sourcemap, NODE_ENV replaced", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-real-build-prod-"));
+    const entry = join(tmpDir, "client.tsx");
+    writeFileSync(
+      entry,
+      `export async function loadLazy() {
+  const m = await import("./lazy.ts");
+  return m.hello();
+}
+`,
+    );
+    writeFileSync(
+      join(tmpDir, "lazy.ts"),
+      `export function hello() {
+  return "env=" + process.env.NODE_ENV;
+}
+`,
+    );
+    const previousProdBundles = process.env[PROD_BUNDLES_ENV];
+    process.env[PROD_BUNDLES_ENV] = "1";
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        clientEntry: entry,
+        stylesheet: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/client.js"));
+      expect(res.status).toBe(200);
+      const body = await res.text();
+
+      // Only the dynamic import() call points at the lazy chunk — the
+      // entry also statically imports a shared async-loader chunk.
+      const chunkMatch = body.match(/import\("(?:\.\/)?(chunk-[\w-]+\.js)"\)/);
+      expect(chunkMatch).not.toBeNull();
+      const normalizedChunkPath = `/${chunkMatch ? (chunkMatch[1] ?? "") : ""}`;
+
+      const chunkRes = await handle.fetch(new Request(`http://localhost${normalizedChunkPath}`));
+      expect(chunkRes.status).toBe(200);
+      expect(chunkRes.headers.get("content-type")).toMatch(/application\/javascript/);
+      const chunkBody = await chunkRes.text();
+      expect(chunkBody).toContain("env=production");
+
+      const mapRes = await handle.fetch(new Request("http://localhost/client.js.map"));
+      expect(mapRes.status).toBe(404);
+
+      await handle.stop();
+      handle = undefined;
+    } finally {
+      if (previousProdBundles === undefined) delete process.env[PROD_BUNDLES_ENV];
+      else process.env[PROD_BUNDLES_ENV] = previousProdBundles;
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
