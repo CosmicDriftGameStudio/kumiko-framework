@@ -1,5 +1,77 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.308.0
+
+### Minor Changes
+
+- 6e5ed00: Boot validator rejects a projectionDetail screen/section/emptyState action with no resolvable icon (fw#3234)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot validator rejects a projectionDetail screen/section/emptyState action with no resolvable icon (fw#3234)
+  migration: |
+    Every screen.actions / section.actions / section.emptyState.action entry on a projectionDetail screen, and every section.actions entry on an entityEdit screen, must resolve an icon: either an explicit `icon` on the action, or an id the shared action-icon map (@cosmicdrift/kumiko-types resolveActionIcon) already derives from the full id or its last/first kebab segment. entityEdit's own screen-level `actions` are not checked (unchanged, out of scope for this rule). An action that fails this now fails boot instead of rendering without an icon; give it an explicit `icon` or rename it to an id the map covers.
+  -->
+
+- 3ae4b82: `EventConsumer` can now wire an optional `batchHandler` that receives a whole delivery turn's events at once, with automatic per-event fallback when the batch throws. The search-index consumer uses it to collapse a turn's events to one `indexBatch`/`removeBatch` call per tenant instead of one round-trip per event. The Meilisearch adapter now throws when a task ends in a status other than `succeeded` (e.g. a rejected document id); `waitTask()` resolves on failed tasks, so these writes used to fail silently and the consumer cursor moved past unindexed documents. A remove on a tenant without an index still succeeds (`index_not_found` counts as removed). Ops note: a document Meilisearch rejects now halts the search consumer and dead-letters it after `errorPolicy.maxAttempts` instead of being skipped silently; recover with `skipPoisonEvent`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: EventConsumer.batchHandler — turn-level batching with per-event fallback, used by the search consumer
+  -->
+
+- 6b8b0ed: Logout, tenant-switch and personal-access-token revoke now close the exact credential's open SSE stream instead of leaving it running until the JWT/token expires on its own. `sessionRevoker` (the raw callback behind logout/tenant-switch) and PAT revoke (`revoke.write.ts`, `revokeAllPatTokensForUser`) now append an access-invalidation event scoped to the revoked session id(s)/token id(s), and the access-invalidation consumer closes only the matching stream(s) instead of doing nothing at all.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Session and PAT revoke now close their own credential's open SSE stream, not just other reasons' userwide invalidations
+  migration: |
+    An app-injected SseBroker implementation must update its subscribeAccessInvalidation/publishAccessInvalidation signatures: the third parameter of subscribeAccessInvalidation is now an AccessInvalidationCredential object (`{ sid?, patTokenId? }`) instead of a bare sid string, and the second parameter of publishAccessInvalidation is now an AccessInvalidationScope object (`{ kind: "user" } | { kind: "all-except-session"; keptSessionId } | { kind: "sessions"; sessionIds } | { kind: "pat-tokens"; tokenIds }`) instead of a bare keptSessionId string. Example: `subscribeAccessInvalidation(userId, cb, sid)` becomes `subscribeAccessInvalidation(userId, cb, { sid })`, and `publishAccessInvalidation(userId, keptSessionId)` becomes `publishAccessInvalidation(userId, { kind: "all-except-session", keptSessionId })`.
+  -->
+
+### Patch Changes
+
+- 49e07f5: A consumer registered with `startFrom: "now"` and the hand-off after a multi-stream projection rebuild no longer skip events whose transaction committed out of order. Both paths now seed `pending_gaps` for ids that were still in flight, so the live dispatcher delivers those events once they commit.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: startFrom "now" and MSP rebuild hand-off no longer lose out-of-order commits
+  -->
+
+- ad701ed: Idle event-dispatcher passes no longer take a `FOR UPDATE SKIP LOCKED` row lock (and thus no WAL record) on every consumer's state row every poll tick.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Idle event-dispatcher passes no longer lock consumer rows or write WAL
+  -->
+
+- 9816d20: The Meilisearch adapter now configures each tenant index on first access from the registry's searchable fields, so search works on every tenant without an app-side `configure()` call. An explicit `configure()` still wins.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Meilisearch tenant indexes are configured automatically on first access
+  -->
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
+- Updated dependencies [9816d20]
+- Updated dependencies [6e5ed00]
+- Updated dependencies [685ecc9]
+  - @cosmicdrift/kumiko-types@0.308.0
+  - @cosmicdrift/kumiko-http@0.308.0
+
 ## 0.307.0
 
 ### Minor Changes

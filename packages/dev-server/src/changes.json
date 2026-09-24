@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.308.0",
+    "type": "improvement",
+    "title": "Dev server can build prod-shaped client bundles, E2E uses them"
+  },
+  {
     "version": "0.307.0",
     "type": "fix",
     "title": "Dev-server job queues no longer collide across parallel boots"

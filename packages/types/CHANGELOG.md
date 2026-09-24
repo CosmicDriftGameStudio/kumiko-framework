@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-types
 
+## 0.308.0
+
+### Minor Changes
+
+- 6e5ed00: EditFieldsSection/EditExtensionSection/EditRelatedListSection/EditWriteFormSection gain actions; EditRelatedListSection gains emptyState; number fields gain grouping (fw#3234)
+
+  All four Edit\*Section spec types accept an optional `actions?: readonly RowAction[]`, resolved and rendered in that section's own title row. EditRelatedListSection additionally accepts `emptyState?: { title, description?, action? }` for its zero-rows state. A number field spec accepts `grouping?: boolean` (default true) — false renders without thousands separators. Every projectionDetail/entityEdit-tabs screen/section/emptyState action must resolve an icon (declared `icon`, or the framework's id-derived default via resolveActionIcon) — checked by the boot validator (see @cosmicdrift/kumiko-framework's changes.json).
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldsSection/EditExtensionSection/EditRelatedListSection/EditWriteFormSection gain actions; EditRelatedListSection gains emptyState; number fields gain grouping (fw#3234)
+  migration: |
+    Additive — every field is optional. An existing screen/section/emptyState action on a projectionDetail (or entityEdit's section-level actions) whose id resolves no icon and declares none itself now fails boot; give it an explicit `icon` or an id the shared action-icon map already resolves.
+  -->
+
+### Patch Changes
+
+- 9816d20: The Meilisearch adapter now configures each tenant index on first access from the registry's searchable fields, so search works on every tenant without an app-side `configure()` call. An explicit `configure()` still wins.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Meilisearch tenant indexes are configured automatically on first access
+  -->
+
+- 685ecc9: `import { z } from "zod"` pulled the whole zod namespace — including all 63 locales and the json-schema module — into every client bundle that imported it (359 KB in a publicstatus admin bundle). All framework packages now use `import * as z from "zod"`, which Bun.build can tree-shake (a probe bundle went from 264 KB to 67 KB). A new Biome rule (`noRestrictedImports` on `packages/*/src/**`) keeps `{ z }` from coming back.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: zod namespace import lets client bundles tree-shake unused locales
+  -->
+
 ## 0.307.0
 
 ## 0.306.0
