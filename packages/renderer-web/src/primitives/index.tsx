@@ -2979,8 +2979,15 @@ export function DefaultCard({
           fillHeight && "shrink-0",
         )}
       >
+        {/* With headerContent, a basis-0 column would shrink to whatever the
+            actions leave on phone and squeeze the block content. Below sm the
+            column takes its own line and the actions move above it, still
+            top-right. */}
         <div
-          className={cn("flex flex-col gap-1", s.headerContent !== undefined && "min-w-0 flex-1")}
+          className={cn(
+            "flex flex-col gap-1",
+            s.headerContent !== undefined && "min-w-0 flex-1 basis-full sm:basis-0",
+          )}
         >
           {s.title !== undefined && (
             <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
@@ -2990,7 +2997,11 @@ export function DefaultCard({
           )}
           {s.headerContent}
         </div>
-        {s.headerActions}
+        {s.headerContent !== undefined && s.headerActions !== undefined ? (
+          <div className="order-first ml-auto sm:order-none sm:ml-0">{s.headerActions}</div>
+        ) : (
+          s.headerActions
+        )}
       </div>
     ) : null;
   const header = s.header ?? defaultHeader;
