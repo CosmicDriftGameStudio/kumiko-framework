@@ -395,6 +395,10 @@ export type NumberFieldDef = {
   /** Display-only suffix: a static string, or a sibling field name whose
    *  value supplies it. Never converts the stored number. */
   readonly unit?: string | { readonly field: string };
+  /** Thousands-grouping in the rendered display (Intl `useGrouping`).
+   *  Default `true`. Set `false` for values that read wrong grouped (e.g. a
+   *  model year: "2021", not "2.021"). Never affects the stored value. */
+  readonly grouping?: boolean;
 } & ResolvedPiiFlags;
 
 /**

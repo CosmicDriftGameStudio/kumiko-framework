@@ -406,6 +406,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       actions: [
         {
           id: "restrict",
+          icon: "lock",
           label: i18nKey("userDataRights.privacyCenter.restriction.restrict"),
           handler: UserDataRightsHandlers.restrictAccount,
           confirm: i18nKey("userDataRights.privacyCenter.restriction.dialogDescription"),

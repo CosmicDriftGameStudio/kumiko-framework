@@ -22,11 +22,21 @@
 // long, instead of stretching the tab panel to the bottom.
 
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
+import { ExtensionSectionsProvider } from "@cosmicdrift/kumiko-renderer";
 import { createKumikoApp, DefaultAppShell, KumikoScreen } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 import { createMockDispatcher } from "./mock-dispatcher";
 
 const ORDER_DETAIL_SCREEN_QN = "order-desk:screen:order-detail";
+
+// Plugin-mounted "extension" tab (fw#3234 padding-parity screenshots) — no
+// own Card/Section, exactly what guard-no-framed-extension-sections
+// enforces: the host's own tabs-mode Card is the only frame this gets.
+function OrderInternalNote(): ReactNode {
+  return (
+    <p data-testid="order-internal-note">Handled by Jonas Weber, escalate if unpaid past Sep 1.</p>
+  );
+}
 
 function Shell({
   schema,
@@ -47,7 +57,9 @@ function Shell({
       user={{ id: "u1", roles: ["Admin"] }}
     >
       {feature !== undefined && (
-        <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
+        <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+          <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
+        </ExtensionSectionsProvider>
       )}
     </DefaultAppShell>
   );

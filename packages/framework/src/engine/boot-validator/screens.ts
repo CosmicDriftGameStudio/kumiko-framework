@@ -4,7 +4,10 @@
 // into validateColumnRendererForm, splitting them would create a
 // same-folder require cycle.
 
+import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
+import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
+import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
 import { parseRefTarget } from "../parse-ref-target";
@@ -318,6 +321,41 @@ function validateWizardLayout(
 // Field-level renderer QN strings (cross-feature `component:` references)
 // are NOT validated here — the r.uiComponent registry that would resolve
 // them ships in M4/M5. Until then those are kept opaque on purpose.
+
+// every action rendered in a Card title row (screen-level
+// `actions`, section-level `actions`, `emptyState.action`) must draw an
+// icon — declared or id-derived (resolveActionIcon, same resolver the
+// renderer uses). Uncovered here: entityList/projectionList rowActions —
+// those render inside a DataTable row, not a Card title row, so they keep
+// today's "icon optional" behavior.
+//
+// Registration check (not just "resolved is not undefined"): action.icon is
+// typed IconKey, a closed union — but that only protects call sites this
+// repo's own `tsc --build` actually covers (samples and external consumers
+// aren't in that project graph). The renderer's actionIconFor
+// (renderer-web/src/primitives/index.tsx) already falls back to "no icon"
+// for an unregistered key instead of crashing — this check makes the same
+// gap fail loudly at boot instead of silently at render.
+function isRegisteredIcon(icon: IconKey): boolean {
+  return (NAV_ICON_KEYS as readonly string[]).includes(icon);
+}
+
+export function validateActionHasIcon(
+  featureName: string,
+  screenId: string,
+  screenType: "projectionDetail" | "entityEdit",
+  context: string,
+  action: { readonly id: string; readonly icon?: IconKey },
+): void {
+  const resolved = resolveActionIcon(action.id, action.icon);
+  if (resolved === undefined || !isRegisteredIcon(resolved)) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${context} "${action.id}" has no ` +
+        `resolvable icon — set icon to a key registered in NAV_ICONS, or use an id that resolves one of ` +
+        `its kebab segments via the default icon map (resolveActionIcon).`,
+    );
+  }
+}
 
 // Tier 2.7e-3: deklarative Feld-Referenzen einer Action gegen die Entity-
 // Felder pinnen — ein Tippfehler in pick/map-Quellfeldern oder
@@ -1137,6 +1175,17 @@ export function validateScreens(
       }
       if (screen.layout.mode === "tabs") {
         validateTabSections(feature.name, screenId, "projectionDetail", screen.layout.sections);
+        for (const section of screen.layout.sections) {
+          const isFieldsSection = section.kind === undefined || section.kind === "fields";
+          if (isFieldsSection && section.groups !== undefined && section.actions !== undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.id}" ` +
+                `declares both groups and actions in tabs mode — actions has no single group's Card to sit ` +
+                `in, and an extra title-less Card around the group cards would nest a Card inside a Card. ` +
+                `Move the actions onto one group's title, or drop groups for a flat fields grid.`,
+            );
+          }
+        }
       }
       if (screen.metrics !== undefined) {
         for (const metric of screen.metrics) {
@@ -1166,6 +1215,27 @@ export function validateScreens(
         }
       }
       for (const section of screen.layout.sections) {
+        const sectionLabel = section.title ?? section.id ?? "(untitled)";
+        if (section.actions !== undefined) {
+          for (const action of section.actions) {
+            validateActionHasIcon(
+              feature.name,
+              screenId,
+              "projectionDetail",
+              `section "${sectionLabel}" action`,
+              action,
+            );
+          }
+        }
+        if (section.kind === "relatedList" && section.emptyState?.action !== undefined) {
+          validateActionHasIcon(
+            feature.name,
+            screenId,
+            "projectionDetail",
+            `section "${sectionLabel}" emptyState action`,
+            section.emptyState.action,
+          );
+        }
         if (isExtensionEditSection(section)) {
           // projectionDetail is read-only (no composed form submit) — an
           // extension that persists through the host's Save button has
@@ -1402,6 +1472,7 @@ export function validateScreens(
       // a detail screen has no row to click.
       if (screen.actions !== undefined) {
         for (const action of screen.actions) {
+          validateActionHasIcon(feature.name, screenId, "projectionDetail", "action", action);
           if (action.kind === "navigate" && action.rowClick === true) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
@@ -1902,6 +1973,18 @@ export function validateScreens(
         );
       }
       for (const section of screen.layout.sections) {
+        if (section.actions !== undefined) {
+          const sectionLabel = section.title ?? section.id ?? "(untitled)";
+          for (const action of section.actions) {
+            validateActionHasIcon(
+              feature.name,
+              screenId,
+              "entityEdit",
+              `section "${sectionLabel}" action`,
+              action,
+            );
+          }
+        }
         if (isExtensionEditSection(section)) {
           if (section.component?.react === undefined && section.component?.native === undefined) {
             throw new Error(

@@ -39,7 +39,27 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    // Desktop copy of padding-parity-screenshots.spec.ts, distinct from the
+    // "chromium" project above (that one ignores it) so the screenshot spec
+    // gets its own explicit project name instead of hiding in "chromium"'s
+    // catch-all — matches the phone project's split for the same reason.
+    {
+      name: "chromium-desktop-screenshots",
+      testMatch: /padding-parity-screenshots\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    // Phone viewport (fw#3234): the tab strip must stay within the panel
+    // width — no horizontal document scroll — down to a narrow phone frame.
+    // Plain Desktop Chrome with an iPhone-sized viewport, not the "iPhone
+    // 13" device preset (isMobile/hasTouch touch emulation is flaky in this
+    // sandbox's headless chromium) — width is what fw#3234 cares about.
+    {
+      name: "chromium-phone",
+      testMatch: /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
   ],
 

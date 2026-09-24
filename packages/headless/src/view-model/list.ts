@@ -164,6 +164,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
             (fieldDef as unknown as { options?: readonly string[] }).options ?? [],
           )
         : undefined;
+    const grouping = fieldDef.type === "number" ? fieldDef.grouping : undefined;
     const column: ListColumnViewModel = {
       field: normalized.field,
       label,
@@ -174,6 +175,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       ...(refEntity !== undefined && { refEntity }),
       ...(refFeature !== undefined && { refFeature }),
       ...(refLabelField !== undefined && { refLabelField }),
+      ...(grouping !== undefined && { grouping }),
     };
     columns.push(column);
   }

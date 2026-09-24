@@ -46,7 +46,7 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.metrics).toEqual(["totalAmount", "outstandingAmount", "itemCount", "placedAt"]);
   });
 
-  test("layout.mode is tabs with two relatedList sections and one fields section", () => {
+  test("layout.mode is tabs with two relatedList sections, one fields section, and one extension section", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.layout.mode).toBe("tabs");
@@ -54,7 +54,14 @@ describe("record-detail-layout showcase — registration", () => {
       "relatedList",
       "relatedList",
       "fields",
+      "extension",
     ]);
+  });
+
+  test("screen-level actions carry a refresh-order navigate action", () => {
+    const screen = registry.getScreen("order-desk:screen:order-detail");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(screen.actions?.map((a) => a.id)).toEqual(["refresh-order"]);
   });
 
   test("relatedList columns collapse string shorthand into the object form", () => {

@@ -160,6 +160,7 @@ function ExtensionSectionMount({
   patch,
   validate,
   hideTitle,
+  actions,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
@@ -169,40 +170,61 @@ function ExtensionSectionMount({
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
   readonly hideTitle?: boolean;
+  /** section.actions, already resolved into buttons by the caller. */
+  readonly actions?: ReactNode;
 }): ReactNode {
-  const { Banner, Section, Text } = usePrimitives();
+  const { Banner, FillContainer, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
   const Component = useExtensionSectionComponent(name);
+  const testId = `section-extension-${section.title}`;
   if (Component === undefined) {
-    return (
-      <Section
-        key={section.title}
-        title={section.title}
-        testId={`section-extension-${section.title}`}
-      >
-        <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
-          <Text>
-            Extension section component{" "}
-            <Text variant="code">{name ?? "(no __component name)"}</Text> not registered in
-            clientFeatures.extensionSectionComponents.
-          </Text>
-        </Banner>
+    const placeholder = (
+      <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
+        <Text>
+          Extension section component <Text variant="code">{name ?? "(no __component name)"}</Text>{" "}
+          not registered in clientFeatures.extensionSectionComponents.
+        </Text>
+      </Banner>
+    );
+    // Tabs mode already frames this in the caller's own Card — a Section
+    // here would add a second, unwanted divider inset (px-6 py-4) on top of
+    // the Card's own padding, misaligning this tab's content against the
+    // fields tab (Grid sits directly in the Card there). FillContainer keeps
+    // the testId without adding chrome (same primitive RelatedListSection
+    // uses for its own hideTitle branch).
+    return hideTitle === true ? (
+      FillContainer !== undefined ? (
+        <FillContainer testId={testId}>{placeholder}</FillContainer>
+      ) : (
+        placeholder
+      )
+    ) : (
+      <Section key={section.title} title={section.title} testId={testId}>
+        {placeholder}
       </Section>
     );
   }
-  return (
-    <Section
-      {...(hideTitle !== true && { title: section.title })}
-      testId={`section-extension-${section.title}`}
-    >
-      <Component
-        entityName={section.entityName ?? hostEntityName}
-        entityId={entityId}
-        initialValues={initialValues}
-        values={values}
-        patch={patch}
-        validate={validate}
-      />
+  const mounted = (
+    <Component
+      entityName={section.entityName ?? hostEntityName}
+      entityId={entityId}
+      initialValues={initialValues}
+      values={values}
+      patch={patch}
+      validate={validate}
+    />
+  );
+  // Same reasoning as the placeholder branch above: tabs mode's outer Card
+  // is the only frame this content gets, no nested Section divider.
+  return hideTitle === true ? (
+    FillContainer !== undefined ? (
+      <FillContainer testId={testId}>{mounted}</FillContainer>
+    ) : (
+      mounted
+    )
+  ) : (
+    <Section {...(actions !== undefined && { actions })} title={section.title} testId={testId}>
+      {mounted}
     </Section>
   );
 }
@@ -289,6 +311,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     valueDisplay = "form",
     hideSectionTitles,
     headerRegion,
+    buildSectionActions,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -1356,6 +1379,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             );
           })()}
         {filteredSections.map((section: EditSectionViewModel, sectionIndex: number) => {
+          // turns this section's own `actions` (RowAction[]) into
+          // already-bound buttons via the caller-supplied builder, rendered
+          // through the same RenderEditActionButton the top-level `actions`
+          // prop uses (same style/confirm/icon/error handling).
+          const sectionActions = section.actions;
+          const sectionActionsEl: ReactNode =
+            sectionActions !== undefined && sectionActions.length > 0
+              ? buildSectionActions?.(sectionActions)?.map((action) => (
+                  <RenderEditActionButton
+                    key={action.id}
+                    action={action}
+                    Button={Button}
+                    Dialog={Dialog}
+                    onError={setActionError}
+                  />
+                ))
+              : undefined;
           // Wizard steps and tabs stay mounted while off-screen (native
           // `hidden`, not unmounted) so an extension section's submit-registry
           // entry (useExtensionFormSubmit → registry.remove on unmount)
@@ -1402,9 +1442,35 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 }
                 validate={scopedValidate}
                 hideTitle={hideSectionTitles}
+                // Tabs mode: actions move to the outer Card below — the inner
+                // Section is flattened (rendered inside this component's own
+                // Form) and would otherwise duplicate them.
+                {...(hideSectionTitles !== true &&
+                  sectionActionsEl !== undefined && { actions: sectionActionsEl })}
               />
             );
-            return wrapWizardStep(section.title, mount);
+            // Section always flattens to a borderless divider inside this
+            // component's own <Form>, so tabs mode frames it with Card
+            // instead — same reason the fields-section tabs branch below
+            // stays on Card. No title here: the tab strip already labels the
+            // panel (matches the non-tabs Section branch above via hideTitle).
+            // testId stays only on the inner Section — this outer Card is
+            // purely chrome, giving it the same testId would register two
+            // elements under one id.
+            const wrapped =
+              hideSectionTitles === true ? (
+                <Card
+                  key={section.title}
+                  {...(sectionActionsEl !== undefined && {
+                    slots: { headerActions: sectionActionsEl },
+                  })}
+                >
+                  {mount}
+                </Card>
+              ) : (
+                mount
+              );
+            return wrapWizardStep(section.title, wrapped);
           }
           if (section.kind === "relatedList") {
             // parentId is the displayed record's id — without it there's no
@@ -1412,7 +1478,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             // Rejected at boot in wizard layouts, so no WizardStepGroup here.
             const parentId = resolveExtensionEntityId(entityIdProp, vm.id);
             if (parentId === null) return null;
-            return (
+            const mount = (
               <RelatedListSection
                 key={section.title}
                 section={section}
@@ -1422,10 +1488,35 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 featureName={featureName}
                 translate={translate}
                 hideTitle={hideSectionTitles}
+                // Tabs mode: actions move to the outer Card below — the
+                // hideTitle branch of RelatedListSection has no title row to
+                // render them into.
+                {...(hideSectionTitles !== true &&
+                  sectionActionsEl !== undefined && { actions: sectionActionsEl })}
                 {...(onRelatedListDrawerAction !== undefined && {
                   onOpenDrawer: onRelatedListDrawerAction,
                 })}
               />
+            );
+            // Tabs mode: the relatedList tab must sit in the same Card frame
+            // as every other tab (fields/extension/writeForm above) — the
+            // acceptance criterion this unification exists for. `fillHeight`
+            // on the Card threads the same fw#2722/#2778 flex chain the head
+            // card already carries (DefaultCard's `options.fillHeight`), so
+            // the table still scrolls inside the panel instead of the panel
+            // stretching to the row count.
+            return hideSectionTitles === true ? (
+              <Card
+                key={section.title}
+                options={{ fillHeight }}
+                {...(sectionActionsEl !== undefined && {
+                  slots: { headerActions: sectionActionsEl },
+                })}
+              >
+                {mount}
+              </Card>
+            ) : (
+              mount
             );
           }
           if (section.kind === "writeForm") {
@@ -1440,6 +1531,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 translate={translate}
                 hideTitle={hideSectionTitles}
                 onSubmitted={() => onReload?.()}
+                {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
               />
             );
           }
@@ -1478,10 +1570,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           );
           // Tabs mode renders one or more titled cards, so this card's actual
           // heading doesn't visually duplicate the short Tab strip label.
+          // Stays `Card`, not `Section` — Section always flattens to a
+          // borderless divider when rendered inside this component's own
+          // `<Form>` (InsideFormContext), even with `chromeless` set, so it
+          // cannot stand in for the tabs-mode card here.
           if (hideSectionTitles === true) {
             if (section.groups !== undefined) {
-              const groupsEl = (
-                <Grid key={sectionKey} columns={1}>
+              const groupsGrid = (
+                <Grid key={`${sectionKey}-groups`} columns={1}>
                   {section.groups.map((group, groupIndex) => (
                     <Card
                       key={group.title}
@@ -1497,12 +1593,23 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   ))}
                 </Grid>
               );
-              return wrapWizardStep(sectionKey, groupsEl);
+              // `actions` on a `groups` section has no group of its own to
+              // sit in and would need an extra title-less Card around the
+              // group cards (Card-in-Card) — the boot-validator rejects that
+              // combination in tabs mode, so `sectionActionsEl` is always
+              // undefined here at runtime.
+              return wrapWizardStep(sectionKey, groupsGrid);
             }
+            // No section title here (fw#3218) — the Tab strip right above
+            // already names this panel, so a repeated Card title would just
+            // duplicate it. The title row only exists to carry actions, and
+            // then it carries only the actions, never the title text.
             const cardEl = (
               <Card
                 key={sectionKey}
-                {...(section.title !== undefined && { slots: { title: section.title } })}
+                {...(sectionActionsEl !== undefined && {
+                  slots: { headerActions: sectionActionsEl },
+                })}
                 testId={`section-${sectionKey}`}
               >
                 {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
@@ -1523,6 +1630,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               {...(sectionTitle !== undefined && { title: sectionTitle })}
               {...(section.description !== undefined && { subtitle: section.description })}
               {...(section.icon !== undefined && { icon: section.icon })}
+              {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
               testId={`section-${sectionKey}`}
             >
               {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}

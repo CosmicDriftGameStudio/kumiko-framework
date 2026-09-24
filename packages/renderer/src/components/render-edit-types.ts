@@ -2,6 +2,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   IconKey,
+  RowAction,
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
@@ -161,6 +162,16 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  that would otherwise render as unpadded siblings before RenderEdit.
    *  Omitting this prop keeps unchanged behavior. */
   readonly headerRegion?: ReactNode;
+  /** resolves an `EditFieldsSection`/`EditExtensionSection`/
+   *  `EditRelatedListSection`/`EditWriteFormSection`'s own `actions` into
+   *  already-bound buttons, rendered in that section's title row — same
+   *  split as `onCopyLink`/header `actions`: RenderEdit has no dispatcher/nav
+   *  context of its own, so the caller (which does) resolves each RowAction
+   *  against the record being edited. Returns `undefined`/`[]` to render no
+   *  actions for that section. */
+  readonly buildSectionActions?: (
+    actions: readonly RowAction[],
+  ) => readonly RenderEditAction[] | undefined;
 };
 
 export type RenderEditAction = {

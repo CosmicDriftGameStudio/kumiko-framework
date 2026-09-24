@@ -862,9 +862,9 @@ export type SectionProps = {
    *  Kontext statt nur ein Label (analog FormProps.subtitle). */
   readonly subtitle?: ReactNode;
   readonly children: ReactNode;
-  /** Optionaler Aktions-Slot am Fuß der Section (z.B. „In Finanzierung
-   *  übernehmen"). Web rendert standalone eine abgehobene Footer-Row
-   *  (border-t), innerhalb eines Forms eine rechtsbündige Button-Reihe. */
+  /** Rendered top-right in the title row — never a footer. A
+   *  title-less/subtitle-less Section still draws the row when `actions`
+   *  is set, so a hideTitle tabs-Section with actions isn't stranded. */
   readonly actions?: ReactNode;
   /** "destructive" marks the Section as a warning/danger area (e.g. account
    *  deletion, restrict processing) — border color only, no content change.
@@ -1060,6 +1060,10 @@ export type CardOptions = {
   readonly radius?: "lg" | "xl";
   /** Footer abgehoben mit border-t + bg-muted/30. Default true. */
   readonly footerBordered?: boolean;
+  /** Joins the ancestor fillHeight flex chain (fw#2722/#2778 — a tabs-mode
+   *  relatedList table sizing to the panel instead of the page) instead of
+   *  normal document-flow height. Default false. */
+  readonly fillHeight?: boolean;
 };
 
 /** Generische Card-Chrome (border/bg/radius/shadow + Header/Body/Footer) als

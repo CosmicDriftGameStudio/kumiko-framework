@@ -32,6 +32,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kumiko-headless";
+import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
@@ -99,10 +100,10 @@ import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
   buildProjectionToolbarActions,
+  buildRecordActions,
   evalRowExtractor,
   isWriteHandlerRowAction,
   refetchAfterWrite,
-  resolveActionIcon,
   runProjectionRowNavigate,
   stringifyNavParams,
 } from "./row-actions";
@@ -1218,127 +1219,25 @@ function EntityEditUpdateForm({
   // pattern as ProjectionDetailBody.headerActions above (the edited record
   // stands in for the "row"), minus the cross-feature defaultEditAction
   // lookup that doesn't apply here (this screen already IS the edit form).
-  const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
-    const out: RenderEditAction[] = [];
-    for (const action of screen.actions ?? []) {
-      if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) {
-        continue;
-      }
-      if (action.kind === "navigate") {
-        const runParams = (): void => {
-          const params =
-            action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
-          if (params !== undefined) {
-            nav.setSearchParams(stringifyNavParams(params));
-          }
-        };
-        const actionIcon = resolveActionIcon(action.id, action.icon);
-        if (action.entity !== undefined) {
-          const targetEntity = action.entity;
-          const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
-          out.push({
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onPress: () => {
-              if (id === "") return;
-              nav.navigate({ entity: targetEntity, id });
-              runParams();
-            },
-          });
-        } else if (action.screen !== undefined) {
-          // Default entityId for a screen-target: the currently edited
-          // record's own id — an entityEdit header action has no other
-          // "row" to derive one from (unlike ProjectionDetailBody, which
-          // needs the same-entity detailFor lookup instead).
-          const explicit =
-            action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
-          const navEntityId = explicit ?? entityId;
-          const targetScreen = action.screen;
-          out.push({
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onPress: () => {
-              const target: ScreenTarget = {
-                screenId: targetScreen,
-                ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
-              };
-              const params =
-                action.params !== undefined
-                  ? stringifyNavParams(evalRowExtractor(action.params, record))
-                  : undefined;
-              navigateWithReturnTo(nav, target, host, params);
-            },
-          });
-        }
-        continue;
-      }
-      if (action.kind === "drawer") {
-        const drawerActionEntry = action;
-        const actionIcon = resolveActionIcon(action.id, action.icon);
-        out.push({
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          confirmRequired: false,
-          ...(actionIcon !== undefined && { icon: actionIcon }),
-          onPress: () => {
-            const initialValues =
-              drawerActionEntry.params !== undefined
-                ? evalRowExtractor(drawerActionEntry.params, record)
-                : undefined;
-            openDrawer(drawerActionEntry, initialValues);
-          },
-        });
-        continue;
-      }
-      // writeHandler — same dispatch/reload/failure-surfacing pattern as
-      // ProjectionDetailBody's headerActions above.
-      const writeAction = action;
-      out.push({
-        id: writeAction.id,
-        label: effectiveTranslate(writeAction.label),
-        ...(writeAction.style !== undefined && { style: writeAction.style }),
-        icon: resolveActionIcon(writeAction.id, writeAction.icon),
-        ...(writeAction.confirm !== undefined && {
-          confirm: effectiveTranslate(writeAction.confirm),
-        }),
-        ...(writeAction.confirmLabel !== undefined && {
-          confirmLabel: effectiveTranslate(writeAction.confirmLabel),
-        }),
-        onPress: async () => {
-          const payload =
-            writeAction.payload !== undefined
-              ? evalRowExtractor(writeAction.payload, record)
-              : { id: entityId };
-          const result = await dispatcher.write(writeAction.handler, payload);
-          if (!result.isSuccess) {
-            throw new WriteFailedError(
-              result.error,
-              dispatcherErrorText(result.error, effectiveTranslate),
-            );
-          }
-          await onReload();
-        },
-      });
-    }
-    return out.length > 0 ? out : undefined;
-  }, [
-    screen.actions,
-    effectiveTranslate,
-    nav,
-    dispatcher,
-    record,
-    entityId,
-    onReload,
-    openDrawer,
-    host,
-  ]);
+  const buildSectionActions = useCallback(
+    (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
+      buildRecordActions({
+        actions,
+        record,
+        translate: effectiveTranslate,
+        nav,
+        host,
+        dispatcher,
+        openDrawer,
+        onWriteSuccess: onReload,
+        defaultScreenTargetEntityId: entityId,
+      }),
+    [record, effectiveTranslate, nav, host, dispatcher, openDrawer, onReload, entityId],
+  );
+  const headerActions = useMemo(
+    (): readonly RenderEditAction[] | undefined => buildSectionActions(screen.actions ?? []),
+    [buildSectionActions, screen.actions],
+  );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
       if (!result.isSuccess) return;
@@ -1429,6 +1328,7 @@ function EntityEditUpdateForm({
         {...(translate !== undefined && { translate })}
         {...(onCopyLink !== undefined && { onCopyLink })}
         {...(headerActions !== undefined && { actions: headerActions })}
+        buildSectionActions={buildSectionActions}
       />
       <DrawerHost
         schema={schema}
@@ -2954,144 +2854,69 @@ function ProjectionDetailBody({
     };
   }, [editScreen, effectiveTranslate, nav, effectiveEntityId, host]);
 
+  // a navigate-screen action targeting an entityEdit screen for the
+  // SAME entity this projectionDetail shows (screen.detailFor) defaults its
+  // entityId to the shown record's own id — without this fallback the target
+  // opens an empty create-form instead of the shown record, silently.
+  // Searched cross-feature, consistent with editScreen above.
+  const sameEntityScreenId = useCallback(
+    (targetScreen: string): string | undefined => {
+      const record = detailQuery.data ?? {};
+      const targetIsEntityEditSameEntity =
+        screen.detailFor !== undefined &&
+        appFeatures.some((feature) =>
+          feature.screens.some(
+            (s) =>
+              s.type === "entityEdit" &&
+              s.entity === screen.detailFor &&
+              lastSegment(s.id) === targetScreen,
+          ),
+        );
+      return targetIsEntityEditSameEntity ? String(record["id"] ?? "") : undefined;
+    },
+    [detailQuery.data, screen.detailFor, appFeatures],
+  );
+  const buildSectionActions = useCallback(
+    (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
+      buildRecordActions({
+        actions,
+        record: detailQuery.data ?? {},
+        translate: effectiveTranslate,
+        nav,
+        host,
+        dispatcher,
+        openDrawer,
+        onWriteSuccess: detailQuery.refetch,
+        sameEntityScreenId,
+      }),
+    [
+      detailQuery.data,
+      detailQuery.refetch,
+      effectiveTranslate,
+      nav,
+      host,
+      dispatcher,
+      openDrawer,
+      sameEntityScreenId,
+    ],
+  );
   const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
-    const record = detailQuery.data ?? {};
     const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
-    const out: RenderEditAction[] = [];
-    if (defaultEditAction !== undefined && !declaredHasEdit) {
-      out.push(defaultEditAction);
-    }
-    for (const action of screen.actions ?? []) {
-      if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) {
-        continue;
-      }
-      if (action.kind === "navigate") {
-        const runParams = (): void => {
-          const params =
-            action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
-          if (params !== undefined) {
-            nav.setSearchParams(stringifyNavParams(params));
-          }
-        };
-        if (action.entity !== undefined) {
-          // Entity-Targets (fw#2228) — Auflösung passiert in der NavApi-Impl
-          // (siehe EntityListBody.runNavigate), nicht hier. KEIN record["id"]-
-          // Fallback: record kommt aus einer beliebigen Detail-Query ohne
-          // garantiertes "id"-Feld, der Boot-Validator erzwingt deshalb einen
-          // expliziten entityId für projectionDetail-entity-Targets.
-          const targetEntity = action.entity;
-          const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
-          const actionIcon = resolveActionIcon(action.id, action.icon);
-          out.push({
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onPress: () => {
-              if (id === "") return;
-              nav.navigate({ entity: targetEntity, id });
-              runParams();
-            },
-          });
-        } else if (action.screen !== undefined) {
-          // Default entityId for an entityEdit target of the SAME entity
-          // (screen.detailFor plays entity's role here, like screen.entity
-          // does for entityList's runNavigate) — without this fallback the
-          // target opens an empty create-form instead of the shown record,
-          // silently. Searched cross-feature, consistent with editScreen above.
-          const explicit =
-            action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
-          const targetIsEntityEditSameEntity =
-            screen.detailFor !== undefined &&
-            appFeatures.some((feature) =>
-              feature.screens.some(
-                (s) =>
-                  s.type === "entityEdit" &&
-                  s.entity === screen.detailFor &&
-                  lastSegment(s.id) === action.screen,
-              ),
-            );
-          const fallback = targetIsEntityEditSameEntity ? String(record["id"] ?? "") : undefined;
-          const navEntityId = explicit ?? fallback;
-          const targetScreen = action.screen;
-          const actionIcon = resolveActionIcon(action.id, action.icon);
-          out.push({
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onPress: () => {
-              const target: ScreenTarget = {
-                screenId: targetScreen,
-                ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
-              };
-              const params =
-                action.params !== undefined
-                  ? stringifyNavParams(evalRowExtractor(action.params, record))
-                  : undefined;
-              navigateWithReturnTo(nav, target, host, params);
-            },
-          });
-        }
-        continue;
-      }
-      if (action.kind === "drawer") {
-        const drawerActionEntry = action;
-        const actionIcon = resolveActionIcon(action.id, action.icon);
-        out.push({
-          id: action.id,
-          label: effectiveTranslate(action.label),
-          ...(action.style !== undefined && { style: action.style }),
-          confirmRequired: false,
-          ...(actionIcon !== undefined && { icon: actionIcon }),
-          onPress: () => {
-            const initialValues =
-              drawerActionEntry.params !== undefined
-                ? evalRowExtractor(drawerActionEntry.params, record)
-                : undefined;
-            openDrawer(drawerActionEntry, initialValues);
-          },
-        });
-        continue;
-      }
-      // writeHandler — same dispatch/refetch/failure-surfacing pattern as
-      // ProjectionListBody's rowActions/toolbarActions above.
-      if (dispatcher === undefined) continue;
-      const writeAction = action;
-      out.push({
-        id: writeAction.id,
-        label: effectiveTranslate(writeAction.label),
-        ...(writeAction.style !== undefined && { style: writeAction.style }),
-        icon: resolveActionIcon(writeAction.id, writeAction.icon),
-        ...(writeAction.confirm !== undefined && {
-          confirm: effectiveTranslate(writeAction.confirm),
-        }),
-        ...(writeAction.confirmLabel !== undefined && {
-          confirmLabel: effectiveTranslate(writeAction.confirmLabel),
-        }),
-        onPress: async () => {
-          const payload =
-            writeAction.payload !== undefined
-              ? evalRowExtractor(writeAction.payload, record)
-              : { id: record["id"] };
-          const result = await dispatcher.write(writeAction.handler, payload);
-          if (!result.isSuccess) {
-            throw new WriteFailedError(
-              result.error,
-              dispatcherErrorText(result.error, effectiveTranslate),
-            );
-          }
-          await detailQuery.refetch();
-        },
-      });
-    }
-    return out.length > 0 ? out : undefined;
+    const resolved = buildRecordActions({
+      actions: screen.actions ?? [],
+      record: detailQuery.data ?? {},
+      translate: effectiveTranslate,
+      nav,
+      host,
+      dispatcher,
+      openDrawer,
+      onWriteSuccess: detailQuery.refetch,
+      sameEntityScreenId,
+    });
+    if (defaultEditAction === undefined || declaredHasEdit) return resolved;
+    return [defaultEditAction, ...(resolved ?? [])];
   }, [
     screen.actions,
-    screen.detailFor,
-    appFeatures,
     defaultEditAction,
     effectiveTranslate,
     nav,
@@ -3100,6 +2925,7 @@ function ProjectionDetailBody({
     detailQuery.data,
     detailQuery.refetch,
     openDrawer,
+    sameEntityScreenId,
   ]);
 
   if (effectiveEntityId === undefined && screen.singleton !== true) {
@@ -3294,6 +3120,7 @@ function ProjectionDetailBody({
         {...(translate !== undefined && { translate })}
         {...(hasTabs && { hideSectionTitles: true })}
         {...((hasHeaderCard || hasTabs) && { headerRegion: headerContent })}
+        buildSectionActions={buildSectionActions}
         valueDisplay={screen.valueDisplay ?? "text"}
       />
       <DrawerHost

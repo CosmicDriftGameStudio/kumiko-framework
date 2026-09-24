@@ -182,7 +182,7 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
   });
 });
 
-describe("DefaultSection Card-Standard (subtitle + actions-Footer)", () => {
+describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
   test("standalone: subtitle rendert muted, KEIN Divider unterm Titel", () => {
     render(
       <Section testId="sc" title="Ergebnis" subtitle="Kontext-Zeile">
@@ -195,16 +195,27 @@ describe("DefaultSection Card-Standard (subtitle + actions-Footer)", () => {
     expect(screen.getByTestId("sc").querySelector(".border-b")).toBeNull();
   });
 
-  test("standalone: actions = abgehobene Footer-Row (border-t)", () => {
+  test("standalone: actions rendern oben rechts in der Titelzeile, kein Footer", () => {
     render(
       <Section testId="sc" title="Ergebnis" actions={<Button>Übernehmen</Button>}>
         <div>x</div>
       </Section>,
     );
     const actions = screen.getByTestId("sc-actions");
-    expect(actions.className).toContain("border-t");
-    expect(actions.className).toContain("justify-end");
+    expect(actions.className).not.toContain("border-t");
     expect(actions.textContent).toContain("Übernehmen");
+    expect(screen.getByTestId("sc").querySelector(".border-t")).toBeNull();
+  });
+
+  test("standalone ohne Titel: actions allein spannen trotzdem die Titelzeile auf, rechtsbündig", () => {
+    render(
+      <Section testId="sc-no-title" actions={<Button>X</Button>}>
+        <div>x</div>
+      </Section>,
+    );
+    const actions = screen.getByTestId("sc-no-title-actions");
+    expect(actions.textContent).toContain("X");
+    expect(actions.className).toContain("ml-auto");
   });
 
   test('standalone: variant="destructive" adds a destructive border, default variant does not', () => {
@@ -225,7 +236,7 @@ describe("DefaultSection Card-Standard (subtitle + actions-Footer)", () => {
     expect(screen.getByTestId("legacy").querySelector(".border-b")).toBeNull();
   });
 
-  test("im Form: actions sind rechtsbündig OHNE border-t (das Form trägt den Footer)", () => {
+  test("im Form: actions sind in der Titelzeile OHNE border-t (das Form trägt den Footer)", () => {
     render(
       <Form onSubmit={() => {}} testId="f">
         <Section testId="inner" actions={<Button>X</Button>}>
@@ -234,7 +245,7 @@ describe("DefaultSection Card-Standard (subtitle + actions-Footer)", () => {
       </Form>,
     );
     const actions = screen.getByTestId("inner-actions");
-    expect(actions.className).toContain("justify-end");
+    expect(actions.textContent).toContain("X");
     expect(actions.className).not.toContain("border-t");
   });
 });
