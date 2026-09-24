@@ -383,6 +383,10 @@ jobs:
           # job misconfiguration, not a real absence; fail loud instead of
           # the live adapter suite silently skipping (kumiko-framework#1124).
           REQUIRE_MEILI: "1"
+          # Main pushes only, feeds the coverage badge. bun's lcov reporter
+          # overwrites per invocation, so the runner writes per-dir parts
+          # and merges them into coverage/integration/lcov.info.
+          KUMIKO_INTEGRATION_COVERAGE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && '1' || '' }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration tests" -- bun run test:integration
 
       # Split (#1940): rebuildProjection flakes under load in THIS job (bulk
@@ -394,25 +398,6 @@ jobs:
       - name: Run integration perf gates (rebuildProjection — advisory, flaky under load)
         continue-on-error: true
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (rebuildProjection — advisory, flaky under load)" -- bun run test:integration:perf:flaky
-
-      - name: Integration coverage pass
-        # Re-runs the same integration files per-directory (like the
-        # authoritative run above) but with --coverage, since bun's coverage
-        # reporter overwrites its output dir per invocation — a single
-        # shared-process run across all ~2579 tests instead corrupted
-        # (cross-feature registry contamination). scripts/run-coverage-integration.ts
-        # merges the per-dir lcovs by line-level union afterwards. Local
-        # verification: entrypoint/index.ts went from 3% (unit-only) to
-        # 79% merged. continue-on-error: this is a second full test pass,
-        # purely for badge data — a transient infra flake here shouldn't
-        # gate anything. !cancelled() (not just the push/main check): a
-        # step with no continue-on-error above (the hard-blocking perf gate)
-        # failing would otherwise skip everything after it by default,
-        # silently starving the badge of integration data (seen after
-        # #1144 — perf-gate flake skipped this step entirely).
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
-        continue-on-error: true
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Integration coverage pass" -- bun scripts/run-coverage-integration.ts
 
       - name: Upload integration coverage
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
