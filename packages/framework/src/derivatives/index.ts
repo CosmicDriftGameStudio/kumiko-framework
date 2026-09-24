@@ -1,3 +1,5 @@
+export type { StoredFileStore } from "./delete-stored-file";
+export { deleteStoredFileAndDerivatives, listDerivativeKeys } from "./delete-stored-file";
 export type { DerivativesContextDeps } from "./derivatives-context";
 export { createDerivativesContext, resolveRenderer } from "./derivatives-context";
 export { resolveFieldVariant } from "./field-variants";

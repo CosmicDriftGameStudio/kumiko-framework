@@ -1,5 +1,5 @@
 import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { derivativeListPrefix, isDerivativeKeyOf } from "@cosmicdrift/kumiko-framework/derivatives";
+import { deleteStoredFileAndDerivatives } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
   type FieldDefinition,
@@ -10,12 +10,10 @@ import {
   type UserDataHookCtx,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  assertSafeStorageKey,
-  fileRefEntity,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
+import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { assertErased } from "../../shared";
+
+const ERROR_CONTEXT = "user-data-rights-defaults:fileRef";
 
 // Forget writes go through the executor (events), not deleteMany/updateMany:
 // a projection rebuild replays the events, so the erasure survives. Eventless
@@ -174,52 +172,12 @@ function isPersonalFileRow(registry: Registry, row: Record<string, unknown>): bo
   return isPersonalPiiField(fieldDef);
 }
 
-// Derivatives (thumbnails/resized variants — see derivatives-context.ts) are
-// never tracked anywhere but the storage layer: they're rendered under a
-// deterministic key (deriveKey + variantSuffix) computed from the original's
-// key + a render spec, on demand, and nothing writes that key back onto the
-// FileRef row. List the original's key-prefix and keep only candidates whose
-// suffix matches the derivative grammar, anchored to the original's own
-// basename AND extension — a same-directory sibling original (a different
-// file, possibly another user's) shares the same list prefix but fails the
-// extension/suffix check and is never touched.
-async function listDerivativeKeys(
-  originalKey: string,
-  provider: UserDataStorageProvider,
-): Promise<readonly string[]> {
-  let candidates: readonly string[];
-  try {
-    candidates = await provider.list(derivativeListPrefix(originalKey));
-  } catch (err) {
-    // Wrap rather than let a raw provider error (e.g. S3 AccessDenied) surface
-    // unexplained — list() is a NEW requirement this hook added on top of
-    // delete(); a bucket policy granting only s3:DeleteObject now fails forget
-    // every run instead of just leaving derivatives behind. Name the likely
-    // cause so an operator doesn't have to guess.
-    throw new Error(
-      `[user-data-rights-defaults:fileRef] provider.list() failed while looking up derivatives of key=${originalKey} — forget/erasure requires list permission on the storage bucket (e.g. s3:ListBucket), not just delete. Original error: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-  const derivativeKeys: string[] = [];
-  for (const candidate of candidates) {
-    if (!isDerivativeKeyOf(originalKey, candidate)) continue;
-    try {
-      assertSafeStorageKey(candidate);
-    } catch {
-      // ponytail: a listing hit that fails the storage-key grammar can't be
-      // a real derivative (every derivative is written via a validated
-      // write()) — skip rather than pass a malformed key to delete().
-      continue;
-    }
-    derivativeKeys.push(candidate);
-  }
-  return derivativeKeys;
-}
-
 // Delete every row's binary (original + any derivatives) via the provider.
 // Returns the keys whose delete threw — the caller fails closed on a
 // non-empty list so the sub-tx rolls back and the next forget run retries
-// (delete is idempotent → converges).
+// (delete is idempotent → converges). Derivative-listing + per-key delete
+// lives in the shared derivatives helper (also used by data-retention's
+// hardDelete cleanup) so this hook no longer carries its own copy.
 async function deleteBinaries(
   rows: readonly Record<string, unknown>[],
   provider: UserDataStorageProvider,
@@ -228,18 +186,7 @@ async function deleteBinaries(
   for (const row of rows) {
     const key = row["storageKey"]; // @cast-boundary db-row
     if (typeof key !== "string" || key.length === 0) continue;
-    const keysToDelete = [key, ...(await listDerivativeKeys(key, provider))];
-    for (const k of keysToDelete) {
-      try {
-        await provider.delete(k);
-      } catch (err) {
-        // biome-ignore lint/suspicious/noConsole: operator-visibility for binary-cleanup-failure
-        console.warn(
-          `[user-data-rights-defaults:fileRef] storage delete failed key=${k} err=${err instanceof Error ? err.message : String(err)}`,
-        );
-        failedKeys.push(k);
-      }
-    }
+    failedKeys.push(...(await deleteStoredFileAndDerivatives(key, provider, ERROR_CONTEXT)));
   }
   return failedKeys;
 }
