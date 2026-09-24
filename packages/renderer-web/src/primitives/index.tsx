@@ -2969,20 +2969,26 @@ export function DefaultCard({
   const fillHeight = options?.fillHeight ?? false;
   const s = slots ?? {};
   const defaultHeader =
-    s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined ? (
+    s.title !== undefined ||
+    s.subtitle !== undefined ||
+    s.headerContent !== undefined ||
+    s.headerActions !== undefined ? (
       <div
         className={cn(
           "flex flex-wrap items-start justify-between gap-3 px-[var(--card-padding)] pt-6 pb-4",
           fillHeight && "shrink-0",
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div
+          className={cn("flex flex-col gap-1", s.headerContent !== undefined && "min-w-0 flex-1")}
+        >
           {s.title !== undefined && (
             <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
           )}
           {s.subtitle !== undefined && (
             <p className="text-sm text-muted-foreground">{s.subtitle}</p>
           )}
+          {s.headerContent}
         </div>
         {s.headerActions}
       </div>

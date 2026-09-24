@@ -316,8 +316,8 @@ type FileFieldHints = Pick<
   "accept" | "maxSize" | "entityType" | "fieldName" | "imageVariant" | "capture"
 >;
 
-// file/image: accept/maxSize ins ViewModel + entityType/fieldName für den
-// Upload-POST (Endpoint validiert gegen die richtige Field-Def).
+// file/image: entityType/fieldName travel with the upload POST so the
+// endpoint validates against the right field definition.
 function deriveFileFieldHints(
   fieldDef: EntityFieldDef,
   entityName: string,
@@ -411,9 +411,7 @@ function deriveEmbeddedListHints(
               : undefined;
           const cellRef = subField.type === "reference" ? subField : undefined;
           const cellRefTarget =
-            cellRef?.entity !== undefined
-              ? parseRefTarget(cellRef.entity, featureName)
-              : undefined;
+            cellRef?.entity !== undefined ? parseRefTarget(cellRef.entity, featureName) : undefined;
           const cell: EmbeddedListCellViewModel = {
             field: subFieldName,
             label: cellLabel,

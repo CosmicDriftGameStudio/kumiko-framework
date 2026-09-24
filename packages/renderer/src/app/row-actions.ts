@@ -433,10 +433,18 @@ function buildNavigateRecordAction(
     readonly sameEntityScreenId: ((targetScreen: string) => string | undefined) | undefined;
   },
 ): RenderEditAction | undefined {
-  const { record, translate, nav, host, actionIcon, defaultScreenTargetEntityId, sameEntityScreenId } =
-    options;
+  const {
+    record,
+    translate,
+    nav,
+    host,
+    actionIcon,
+    defaultScreenTargetEntityId,
+    sameEntityScreenId,
+  } = options;
   const runParams = (): void => {
-    const params = action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
+    const params =
+      action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
     if (params !== undefined) nav.setSearchParams(stringifyNavParams(params));
   };
   if (action.entity !== undefined) {
@@ -534,7 +542,9 @@ function buildWriteHandlerRecordAction(
     }),
     onPress: async () => {
       const payload =
-        action.payload !== undefined ? evalRowExtractor(action.payload, record) : { id: record["id"] };
+        action.payload !== undefined
+          ? evalRowExtractor(action.payload, record)
+          : { id: record["id"] };
       const result = await dispatcher.write(action.handler, payload);
       if (!result.isSuccess) {
         throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
@@ -611,7 +621,13 @@ export function buildRecordActions(options: {
     // writeHandler — skip without a dispatcher instead of crashing.
     if (dispatcher === undefined) continue;
     out.push(
-      buildWriteHandlerRecordAction(action, { record, translate, actionIcon, dispatcher, onWriteSuccess }),
+      buildWriteHandlerRecordAction(action, {
+        record,
+        translate,
+        actionIcon,
+        dispatcher,
+        onWriteSuccess,
+      }),
     );
   }
   return out.length > 0 ? out : undefined;

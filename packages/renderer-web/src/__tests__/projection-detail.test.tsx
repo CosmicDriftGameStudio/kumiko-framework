@@ -1345,6 +1345,46 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     })) as unknown as Dispatcher["query"],
   });
 
+  test("slots.header shares one card with the header actions (fw#3234)", async () => {
+    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
+    const screenWithSlot: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: { mode: "tabs", sections: detailScreen.layout.sections },
+      slots: { header: { react: { __component: "HubHeader" } } },
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
+    };
+    const schemaWithSlot: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [screenWithSlot],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ HubHeader }}>
+          <KumikoScreen
+            schema={schemaWithSlot}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const slot = await waitFor(() => screen.getByTestId("hub-header"));
+    const actionButton = screen.getByTestId("render-edit-action-open-user");
+    const slotCard = slot.closest('[data-slot="card"]');
+    expect(slotCard).not.toBeNull();
+    expect(actionButton.closest('[data-slot="card"]')).toBe(slotCard);
+  });
+
   test("with actions declared: the action button renders in the head region, before the tab content, not in the form footer", async () => {
     const screenWithActions: ProjectionDetailScreenDefinition = {
       ...detailScreen,

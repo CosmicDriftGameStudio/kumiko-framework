@@ -1134,10 +1134,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         values={snapshot.values}
       />
     ) : undefined;
-  // Slot renders above the caller's own headerRegion; without slots.header
-  // this is bit-identical to the plain headerRegion prop below.
+  // A function headerRegion places the slot itself (projectionDetail puts it
+  // into its header card next to the actions); otherwise the slot renders
+  // above the caller's own headerRegion.
   const formHeaderRegion =
-    headerSlotMount !== undefined ? (
+    typeof headerRegion === "function" ? (
+      headerRegion(headerSlotMount)
+    ) : headerSlotMount !== undefined ? (
       <>
         {headerSlotMount}
         {headerRegion}

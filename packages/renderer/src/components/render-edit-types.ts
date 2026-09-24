@@ -161,7 +161,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  width — for a host with its own header region (title/metrics/tabs)
    *  that would otherwise render as unpadded siblings before RenderEdit.
    *  Omitting this prop keeps unchanged behavior. */
-  readonly headerRegion?: ReactNode;
+  readonly headerRegion?: ReactNode | ((headerSlot: ReactNode | undefined) => ReactNode);
   /** resolves an `EditFieldsSection`/`EditExtensionSection`/
    *  `EditRelatedListSection`/`EditWriteFormSection`'s own `actions` into
    *  already-bound buttons, rendered in that section's title row — same

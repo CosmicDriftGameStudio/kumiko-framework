@@ -3031,13 +3031,16 @@ function ProjectionDetailBody({
         </Text>
       )
     ) : undefined;
-  const headerContent = (
+  // slots.header shares the header card with the actions (one card, actions
+  // top right) instead of rendering as an unframed block above it.
+  const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (
     <>
-      {hasHeaderCard && (
+      {(hasHeaderCard || headerSlot !== undefined) && (
         <Card
           slots={{
             ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
             ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
+            ...(headerSlot !== undefined && { headerContent: headerSlot }),
             ...(hasHeaderActions && { headerActions: headerActionsContent }),
           }}
         >
@@ -3119,7 +3122,9 @@ function ProjectionDetailBody({
         onRelatedListDrawerAction={openDrawer}
         {...(translate !== undefined && { translate })}
         {...(hasTabs && { hideSectionTitles: true })}
-        {...((hasHeaderCard || hasTabs) && { headerRegion: headerContent })}
+        {...((hasHeaderCard || hasTabs || screen.slots?.header !== undefined) && {
+          headerRegion: renderHeaderContent,
+        })}
         buildSectionActions={buildSectionActions}
         valueDisplay={screen.valueDisplay ?? "text"}
       />

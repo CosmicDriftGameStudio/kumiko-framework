@@ -1046,6 +1046,10 @@ export type CardSlots = {
   readonly header?: ReactNode;
   readonly title?: ReactNode;
   readonly subtitle?: ReactNode;
+  /** Free-form block content left of `headerActions`, below title/subtitle —
+   *  for a host-supplied header (projectionDetail `slots.header`) that must
+   *  share the action row instead of pushing actions into a row of their own. */
+  readonly headerContent?: ReactNode;
   /** Rechtsbündiger Header-Slot (Range-Umschalter, Filter, Badge …). */
   readonly headerActions?: ReactNode;
   /** Footer-Inhalt, abgehoben (border-t). Default rechtsbündig. */

@@ -6,8 +6,8 @@
 
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
-import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
+import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
 import { parseRefTarget } from "../parse-ref-target";
