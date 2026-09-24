@@ -54,6 +54,7 @@ export {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type KumikoServerHandle,
+  PROD_BUNDLES_ENV,
   resolveStylesheet,
   STYLESHEET_WATCH_ENV,
 } from "./create-kumiko-server";
