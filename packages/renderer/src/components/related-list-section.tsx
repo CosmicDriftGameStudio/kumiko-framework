@@ -427,7 +427,7 @@ export function RelatedListSection({
           {...(rowActions !== undefined && { rowActions })}
           {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
           {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
-          {...(hideTitle === true && { scrollBody: true, screenPadding: false })}
+          {...(hideTitle === true && { scrollBody: true, screenPadding: false, chromeless: true })}
         />
       </>
     );

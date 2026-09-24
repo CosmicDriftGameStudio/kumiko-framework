@@ -996,7 +996,10 @@ function DefaultDataTable({
   const emptyBlock: ReactNode = (
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
-      className="flex flex-col items-center justify-center rounded-md border border-dashed p-12 text-sm text-muted-foreground gap-3"
+      className={cn(
+        "flex flex-col items-center justify-center p-12 text-sm text-muted-foreground gap-3",
+        chromeless !== true && "rounded-md border border-dashed",
+      )}
     >
       {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}
     </div>
@@ -2975,33 +2978,26 @@ export function DefaultCard({
     s.headerActions !== undefined ? (
       <div
         className={cn(
-          "flex flex-wrap items-start justify-between gap-3 px-[var(--card-padding)] pt-6 pb-4",
+          "flex flex-col gap-3 px-[var(--card-padding)] pt-6 pb-4",
           fillHeight && "shrink-0",
         )}
       >
-        {/* With headerContent, a basis-0 column would shrink to whatever the
-            actions leave on phone and squeeze the block content. Below sm the
-            column takes its own line and the actions move above it, still
-            top-right. */}
-        <div
-          className={cn(
-            "flex flex-col gap-1",
-            s.headerContent !== undefined && "min-w-0 flex-1 basis-full sm:basis-0",
-          )}
-        >
-          {s.title !== undefined && (
-            <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
-          )}
-          {s.subtitle !== undefined && (
-            <p className="text-sm text-muted-foreground">{s.subtitle}</p>
-          )}
-          {s.headerContent}
-        </div>
-        {s.headerContent !== undefined && s.headerActions !== undefined ? (
-          <div className="order-first ml-auto sm:order-none sm:ml-0">{s.headerActions}</div>
-        ) : (
-          s.headerActions
+        {(s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined) && (
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              {s.title !== undefined && (
+                <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
+              )}
+              {s.subtitle !== undefined && (
+                <p className="text-sm text-muted-foreground">{s.subtitle}</p>
+              )}
+            </div>
+            {s.headerActions}
+          </div>
         )}
+        {/* Own full-width row: beside the actions, block content would end at
+            a different right edge than the card body below it. */}
+        {s.headerContent}
       </div>
     ) : null;
   const header = s.header ?? defaultHeader;
