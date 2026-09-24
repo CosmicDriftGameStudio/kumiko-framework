@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.307.0",
+    "type": "fix",
+    "title": "seedTenant loginAs switches users via clearSession"
+  },
+  {
     "version": "0.306.0",
     "type": "improvement",
     "title": "clearSession(page) for race-free session switches in E2E"

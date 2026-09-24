@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.307.0
+
+### Patch Changes
+
+- bc6fd32: `seedTenant().loginAs` now switches users via `clearSession(page)` instead of a bare `clearCookies()`, so the page still open on the previous session can no longer redirect to `/login?next=…` and race the new login.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: seedTenant loginAs switches users via clearSession
+  -->
+
+- Updated dependencies [cc23d3d]
+- Updated dependencies [0ce171d]
+- Updated dependencies [a3f00b0]
+- Updated dependencies [c5c5ddb]
+- Updated dependencies [e682776]
+- Updated dependencies [cc23d3d]
+- Updated dependencies [4179f26]
+- Updated dependencies [aae3f5d]
+  - @cosmicdrift/kumiko-bundled-features@0.307.0
+  - @cosmicdrift/kumiko-dev-server@0.307.0
+  - @cosmicdrift/kumiko-framework@0.307.0
+
 ## 0.306.0
 
 ### Minor Changes
