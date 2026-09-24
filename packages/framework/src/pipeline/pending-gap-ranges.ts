@@ -70,3 +70,51 @@ export function splitRangeExcludingIds(
   if (cursor <= to) parts.push({ from: cursor.toString(), to: to.toString(), xmax: range.xmax });
   return parts;
 }
+
+// Same carve-out as splitRangeExcludingIds, but for many ranges against many
+// ids at once — an MSP rebuild's replay reads events in ascending id order,
+// so a single forward pointer over `sortedIds` (both inputs already sorted,
+// ranges non-overlapping) avoids scanning the full id list per range.
+export function subtractSortedIdsFromRanges(
+  ranges: readonly PendingGapEntry[],
+  sortedIds: readonly bigint[],
+): PendingGapEntry[] {
+  if (sortedIds.length === 0) return [...ranges];
+  const result: PendingGapEntry[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    const from = BigInt(range.from);
+    const to = BigInt(range.to);
+    let id = sortedIds[cursor];
+    while (id !== undefined && id < from) {
+      cursor++;
+      id = sortedIds[cursor];
+    }
+    const idsInRange: bigint[] = [];
+    while (id !== undefined && id <= to) {
+      idsInRange.push(id);
+      cursor++;
+      id = sortedIds[cursor];
+    }
+    result.push(...splitRangeExcludingIds(range, idsInRange));
+  }
+  return result;
+}
+
+// Ranges above the written cursor belong to the live dispatcher's own
+// `id > cursor` territory; a range straddling it is truncated at cursor - 1.
+export function capPendingGapsBelowCursor(
+  gaps: readonly PendingGapEntry[],
+  cursor: bigint,
+): PendingGapEntry[] {
+  if (cursor <= 0n) return [];
+  const capped: PendingGapEntry[] = [];
+  for (const gap of gaps) {
+    const from = BigInt(gap.from);
+    if (from >= cursor) continue;
+    const to = BigInt(gap.to);
+    const cappedTo = to >= cursor ? cursor - 1n : to;
+    capped.push({ ...gap, to: cappedTo.toString() });
+  }
+  return capped;
+}

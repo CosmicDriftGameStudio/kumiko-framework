@@ -30,9 +30,60 @@ export async function lockEventConsumersShareMode(db: AnyDb): Promise<void> {
   await asRawClient(db).unsafe(`LOCK TABLE "kumiko_event_consumers" IN SHARE MODE`);
 }
 
+// The MAX(id) horizon plus every currently-open id gap below it, read from a
+// single snapshot (READ COMMITTED gives each statement its own). A gap can
+// only later fill in if some transaction holding a lower id was still
+// in-flight in that same snapshot — pg_snapshot_xip is empty otherwise, so
+// the gap CTEs short-circuit and the window scan over kumiko_events never
+// runs. Used both to seed startFrom "now" (#3231) and to seed an MSP
+// rebuild's handoff to the live dispatcher (msp-rebuild.ts).
+export async function selectEventIdHorizonWithMissingRanges(
+  db: AnyDb,
+): Promise<{ readonly horizon: bigint; readonly gaps: PendingGapEntry[] }> {
+  const rows = (await asRawClient(db).unsafe(
+    `WITH b AS (
+       SELECT COALESCE(MAX("id"), 0) AS horizon, MIN("id") AS min_id FROM "kumiko_events"
+     ),
+     r AS (
+       SELECT 1::bigint AS f, b.min_id - 1 AS t FROM b
+        WHERE b.min_id > 1 AND EXISTS (SELECT 1 FROM pg_snapshot_xip(pg_current_snapshot()))
+       UNION ALL
+       SELECT w."id" + 1, w.next_id - 1
+         FROM (SELECT "id", lead("id") OVER (ORDER BY "id") AS next_id FROM "kumiko_events") w
+        WHERE w.next_id > w."id" + 1 AND EXISTS (SELECT 1 FROM pg_snapshot_xip(pg_current_snapshot()))
+     )
+     SELECT b.horizon::text AS horizon,
+            pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
+            r.f::text AS gap_from,
+            r.t::text AS gap_to
+       FROM b LEFT JOIN r ON true
+      ORDER BY r.f`,
+  )) as ReadonlyArray<{
+    horizon: string;
+    xmax: string;
+    gap_from: string | null;
+    gap_to: string | null;
+  }>;
+  const first = rows[0];
+  if (first === undefined)
+    throw new Error("selectEventIdHorizonWithMissingRanges: no row returned");
+  const gaps: PendingGapEntry[] = [];
+  for (const row of rows) {
+    if (row.gap_from === null || row.gap_to === null) continue;
+    gaps.push({ from: row.gap_from, to: row.gap_to, xmax: row.xmax });
+  }
+  return { horizon: BigInt(first.horizon), gaps };
+}
+
 // startFrom "now" seeds the FIRST-registration cursor at the current
 // MAX(events.id) instead of the column default 0 — mounting a consumer into
-// an existing app then skips the historical log instead of replaying it.
+// an existing app then skips the historical log instead of replaying it. The
+// horizon and pending_gaps are read from one snapshot (selectEventIdHorizon
+// WithMissingRanges): a transaction holding a lower id can still be
+// in-flight at boot, and without seeding those gaps its event would commit
+// after the cursor already sits above it, so `id > cursor` would never
+// deliver it (#3231). The cheap existence check skips the scan entirely for
+// the (overwhelmingly common) case of an already-registered consumer.
 // ON CONFLICT DO NOTHING keeps both branches safe for an existing row: the
 // subquery only ever affects the row this statement inserts.
 export async function insertConsumerIfAbsent(
@@ -42,11 +93,18 @@ export async function insertConsumerIfAbsent(
   startFrom: "beginning" | "now" = "beginning",
 ): Promise<void> {
   if (startFrom === "now") {
-    await asRawClient(db).unsafe(
-      `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status", "last_processed_event_id")
-       VALUES ($1, $2, 'idle', COALESCE((SELECT MAX("id") FROM "kumiko_events"), 0))
-       ON CONFLICT ("name", "instance_id") DO NOTHING`,
+    const existing = (await asRawClient(db).unsafe(
+      `SELECT 1 FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2`,
       [name, instanceId],
+    )) as ReadonlyArray<unknown>;
+    // skip: already registered — an existing cursor is never re-seeded.
+    if (existing.length > 0) return;
+    const { horizon, gaps } = await selectEventIdHorizonWithMissingRanges(db);
+    await asRawClient(db).unsafe(
+      `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "status", "last_processed_event_id", "pending_gaps")
+       VALUES ($1, $2, 'idle', $3, $4::text::jsonb)
+       ON CONFLICT ("name", "instance_id") DO NOTHING`,
+      [name, instanceId, horizon, JSON.stringify(gaps)],
     );
   } else {
     await asRawClient(db).unsafe(
@@ -249,6 +307,7 @@ export async function updateConsumerRebuildCursor(
   name: string,
   instanceId: string,
   lastProcessedEventId: bigint,
+  pendingGaps: readonly PendingGapEntry[],
 ): Promise<void> {
   await asRawClient(db).unsafe(
     `UPDATE "kumiko_event_consumers" SET
@@ -256,9 +315,11 @@ export async function updateConsumerRebuildCursor(
        "status" = 'idle',
        "attempts" = 0,
        "last_error" = NULL,
+       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
+       "pending_gaps" = $2::text::jsonb,
        "updated_at" = now()
-     WHERE "name" = $2 AND "instance_id" = $3`,
-    [lastProcessedEventId, name, instanceId],
+     WHERE "name" = $3 AND "instance_id" = $4`,
+    [lastProcessedEventId, JSON.stringify(pendingGaps), name, instanceId],
   );
 }
 
