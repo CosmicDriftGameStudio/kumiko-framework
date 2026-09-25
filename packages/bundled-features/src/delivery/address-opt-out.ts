@@ -2,8 +2,8 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { computeBlindIndex, configuredBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { notificationAddressOptOutEntity, notificationAddressOptOutsTable } from "./tables";
-import { isUniqueViolation } from "./upsert-preference";
 
 const executor = createEventStoreExecutor(
   notificationAddressOptOutsTable,
@@ -45,6 +45,22 @@ async function lookup(
   });
 }
 
+// One row per (tenant, addressHash, type, channel): mirrors
+// preferenceAggregateId in upsert-preference.ts — concurrent first-time
+// opt-outs collide on the same stream at append, not on the projection's
+// unique index.
+function addressOptOutAggregateId(
+  tenantId: TenantId,
+  addressHash: string,
+  notificationType: string,
+  channel: string,
+): string {
+  return generateDeterministicId(
+    "delivery:notification-address-opt-out",
+    `${tenantId}|${addressHash}|${notificationType}|${channel}`,
+  );
+}
+
 /**
  * Create-or-noop: opting the same address out twice must not produce a
  * second row or fail the second click. There is no update path — unlike
@@ -64,24 +80,36 @@ export async function upsertAddressOptOut(
   );
   if (existing) return { isSuccess: true, data: input };
 
-  try {
-    const result = await executor.create(
-      {
-        addressHash: input.addressHash,
-        notificationType: input.notificationType,
-        channel: input.channel,
-      },
-      actor,
-      db,
-    );
-    if (!result.isSuccess) return result;
-    return { isSuccess: true, data: input };
-  } catch (err) {
-    // Race-fallback mirrors upsertPreference: another request created the
-    // row between our lookup and executor.create. Nothing to update to —
-    // the existing row already IS the opt-out, so the race loser just
-    // reports success too.
-    if (!isUniqueViolation(err)) throw err;
-    return { isSuccess: true, data: input };
-  }
+  const id = addressOptOutAggregateId(
+    input.tenantId,
+    input.addressHash,
+    input.notificationType,
+    input.channel,
+  );
+  const created = await executor.create(
+    {
+      id,
+      addressHash: input.addressHash,
+      notificationType: input.notificationType,
+      channel: input.channel,
+    },
+    actor,
+    db,
+  );
+  if (created.isSuccess) return { isSuccess: true, data: input };
+  // Race-fallback: another request's create already won this deterministic
+  // id between our lookup and this create — the existing row already IS the
+  // opt-out, so the race loser just reports success too.
+  if (created.error.code !== "version_conflict") return created;
+  // A conflict without a row means the stream exists but its row is gone —
+  // report that instead of a silent "unsubscribed" that never persisted.
+  const afterRace = await lookup(
+    db,
+    input.tenantId,
+    input.addressHash,
+    input.notificationType,
+    input.channel,
+  );
+  if (!afterRace) return created;
+  return { isSuccess: true, data: input };
 }

@@ -580,7 +580,7 @@
     },
     {
       "name": "delivery",
-      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe links are served by `createUnsubscribeRoute({ secret })` mounted via the app's `extraRoutes` at `GET /api/delivery/unsubscribe?token=`; sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret.",
       "toggleableDefault": null,
       "requires": [
         "tenant"
@@ -593,7 +593,9 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
-        "delivery:write:set-preference"
+        "delivery:write:set-preference",
+        "delivery:write:unsubscribe-address",
+        "delivery:write:unsubscribe-user"
       ],
       "uiHints": {
         "displayLabel": "Notifications · Dispatch Core",

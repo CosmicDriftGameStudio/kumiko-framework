@@ -4,6 +4,7 @@ export {
   DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_FEATURE,
   DELIVERY_LOG_SCREEN_ID,
+  DELIVERY_UNSUBSCRIBE_PATH,
   DeliveryErrors,
   DeliveryHandlers,
   DeliveryJobs,

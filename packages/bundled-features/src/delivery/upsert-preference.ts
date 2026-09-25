@@ -5,14 +5,18 @@
 // concurrent requests — typical case: a user clicks the same "unsubscribe"
 // email link three times in a second.
 //
-// The fix: try the optimistic path (lookup + create|update), and on a
-// unique-index-violation race from a parallel create, re-lookup and fall
-// through to update. Worst case: one extra roundtrip for the loser of
-// the race. Happy path: same number of queries as the pre-ES upsert.
+// The fix: the aggregate id is deterministic (tenant+user+type+channel), so
+// concurrent first-time clicks collide at the event-store append itself
+// (expectedVersion 0, confined to a savepoint) instead of racing past two
+// independent creates and leaving an orphaned `created` event behind. The
+// loser's create() comes back as a `version_conflict` failure; re-lookup and
+// fall through to update, or no-op if the winner already set the target
+// `enabled` state.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables";
 
 const executor = createEventStoreExecutor(
@@ -21,11 +25,15 @@ const executor = createEventStoreExecutor(
   { entityName: "notification-preference" },
 );
 
-// Konkretes Lookup-Result-Shape — nur die zwei Felder die der upsert
+// Konkretes Lookup-Result-Shape — nur die Felder die der upsert
 // tatsächlich für den Update-Path braucht. Vermeidet `row["x"] as T` index-
 // access casts; der Generic-Param am fetchOne macht den Cast zentralisiert
 // im Helper (db-row-boundary), nicht 4× pro Callsite.
-type PreferenceLookupRow = { readonly id: string; readonly version: number };
+type PreferenceLookupRow = {
+  readonly id: string;
+  readonly version: number;
+  readonly enabled: boolean;
+};
 
 // @wrapper-known semantic-alias
 async function lookup(
@@ -51,11 +59,25 @@ export type UpsertPreferenceInput = {
   readonly enabled: boolean;
 };
 
+// One row per (tenant, user, type, channel): folding the tuple into the
+// aggregate id means two concurrent first-time clicks collide on the same
+// stream at append instead of racing two independent creates.
+function preferenceAggregateId(
+  tenantId: TenantId,
+  userId: string,
+  notificationType: string,
+  channel: string,
+): string {
+  return generateDeterministicId(
+    "delivery:notification-preference",
+    `${tenantId}|${userId}|${notificationType}|${channel}`,
+  );
+}
+
 /**
  * Idempotent "set-this-preference-to-enabled-state" against the preferences
  * aggregate stream. Emits either `.created` (first time) or `.updated`
- * (subsequent) and catches the race-induced unique-index violation as a
- * fallback to update.
+ * (subsequent) and converges a concurrent create-race onto the winner's row.
  */
 export async function upsertPreference(
   db: TenantDb,
@@ -71,6 +93,7 @@ export async function upsertPreference(
   );
 
   if (existing) {
+    if (existing.enabled === input.enabled) return { isSuccess: true, data: input };
     const result = await executor.update(
       {
         id: existing.id,
@@ -84,57 +107,48 @@ export async function upsertPreference(
     return { isSuccess: true, data: input };
   }
 
-  try {
-    const result = await executor.create(
-      {
-        userId: input.userId,
-        notificationType: input.notificationType,
-        channel: input.channel,
-        enabled: input.enabled,
-      },
-      actor,
-      db,
-    );
-    if (!result.isSuccess) return result;
-    return { isSuccess: true, data: input };
-  } catch (err) {
-    // Race-fallback: another request beat us to the insert between our
-    // lookup and the executor.create. The unique-index on
-    // (tenant, user, type, channel) fires Postgres error 23505. Only that
-    // specific error triggers the retry; DB-disconnect or any other
-    // failure must bubble up unchanged so callers see the real cause.
-    if (!isUniqueViolation(err)) throw err;
-    const afterRace = await lookup(
-      db,
-      input.tenantId,
-      input.userId,
-      input.notificationType,
-      input.channel,
-    );
-    if (!afterRace) throw err;
-    const result = await executor.update(
-      {
-        id: afterRace.id,
-        version: afterRace.version,
-        changes: { enabled: input.enabled },
-      },
-      actor,
-      db,
-    );
-    if (!result.isSuccess) return result;
-    return { isSuccess: true, data: input };
-  }
-}
+  const id = preferenceAggregateId(
+    input.tenantId,
+    input.userId,
+    input.notificationType,
+    input.channel,
+  );
+  const created = await executor.create(
+    {
+      id,
+      userId: input.userId,
+      notificationType: input.notificationType,
+      channel: input.channel,
+      enabled: input.enabled,
+    },
+    actor,
+    db,
+  );
+  if (created.isSuccess) return { isSuccess: true, data: input };
+  if (created.error.code !== "version_conflict") return created;
 
-// Narrow detection for Postgres "duplicate key violates unique constraint"
-// (SQLSTATE 23505). Drivers wrap the DB error in varying envelopes; we
-// check the `code` field plus a string-match fallback so the match survives
-// minor driver-version shifts without drifting wide.
-export function isUniqueViolation(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const e = err as { code?: unknown; cause?: { code?: unknown }; message?: unknown }; // @cast-boundary error-details
-  if (e.code === "23505") return true;
-  if (e.cause && typeof e.cause === "object" && e.cause.code === "23505") return true;
-  if (typeof e.message === "string" && e.message.includes("23505")) return true;
-  return false;
+  // Race-fallback: another request's create already won this deterministic
+  // id between our lookup and this create. Re-lookup and converge onto its
+  // row — no-op if it already set the target `enabled`, since relooking the
+  // same version and updating would version_conflict all but one loser.
+  const afterRace = await lookup(
+    db,
+    input.tenantId,
+    input.userId,
+    input.notificationType,
+    input.channel,
+  );
+  if (!afterRace) return created;
+  if (afterRace.enabled === input.enabled) return { isSuccess: true, data: input };
+  const result = await executor.update(
+    {
+      id: afterRace.id,
+      version: afterRace.version,
+      changes: { enabled: input.enabled },
+    },
+    actor,
+    db,
+  );
+  if (!result.isSuccess) return result;
+  return { isSuccess: true, data: input };
 }
