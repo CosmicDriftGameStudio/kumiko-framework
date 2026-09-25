@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.314.0",
+    "type": "fix",
+    "title": "Tailwind-Scan-Surface Guard classifies files against the runner's roots",
+    "detail": "The guard ignored the roots its runner passes to run() and re-derived the\nsingle repo of the current working directory. Under a multi-root runner,\na file from a checkout outside cwd fell through to the packages/ marker\nfallback, which misreads a checkout path that itself contains a packages/\nsegment. run() now uses the roots it is given, like the other guards."
+  },
+  {
     "version": "0.311.0",
     "type": "breaking",
     "title": "test-timeouts is now always-enforcing, plus two new guards (test-template-drift, Real-Provider-Isolation)",

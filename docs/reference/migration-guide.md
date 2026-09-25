@@ -10,6 +10,20 @@ verified: 2026-09-25
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.314.0
+
+### enterprise:testing
+
+**seed-user only reaches a tenant this server's seed-tenant route created**
+
+seed-user looked the tenant up via tenant:query:me and only rejected a tenant
+id that did not exist at all, so a tenant seeded by another server or
+in-process without this route's seed-tenant still got a user added. seed-user
+now checks the same seededTenantIds set as /__test/seed and rejects any other
+tenant with the same 403.
+
+**Migration:** Create the tenant via `seedTenant()` (the seed-tenant route) before adding users with `tenant.addUser`.
+
 ## 0.313.0
 
 ### delivery

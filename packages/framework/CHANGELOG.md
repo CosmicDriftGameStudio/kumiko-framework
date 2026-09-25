@@ -1,5 +1,112 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.314.0
+
+### Minor Changes
+
+- 483666f: drainEventConsumers helper for test stacks with a named consumer backlog
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: drainEventConsumers helper for test stacks with a named consumer backlog
+  detail: |
+    The `while ((await eventDispatcher.runOnce())?.processed ?? 0) > 0) {}`
+    pattern under-drains a backlog bigger than one dispatcher batch and gives no
+    diagnostics when a consumer is stuck. drainEventConsumers(stack,
+    consumerNames, { maxPasses }) from @cosmicdrift/kumiko-framework/stack
+    snapshots the events high-water mark at call time and runs bounded passes
+    until every named consumer's cursor reaches it, throwing with per-consumer
+    status, attempts and lastError when the budget (default 25) is exhausted.
+    Events written by consumers after the snapshot are not waited on. No
+    migration needed.
+  -->
+
+- 22d89ec: validateFile/resolveUploadMimeType accept .csv declared as application/vnd.ms-excel
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: validateFile/resolveUploadMimeType accept .csv declared as application/vnd.ms-excel
+  detail: |
+    Windows derives a file's upload MIME type from its Explorer file-type
+    association rather than its content — .csv is registered to Excel there,
+    so a Windows browser can declare "application/vnd.ms-excel" for a
+    plain-text CSV. validateFile now accepts that declared/extension
+    combination for fields whose `accept` includes "csv" instead of rejecting
+    it as a `mime_mismatch`. The built-in multipart upload route also calls the
+    new `resolveUploadMimeType`, which rewrites an aliased declared mimeType to
+    its canonical form ("text/csv") after checking the uploaded bytes against
+    known binary signatures — a match (e.g. a real .xls/.xlsx renamed to .csv)
+    is rejected with `content_mismatch` instead of being silently rewritten.
+    Note: on Bun 1.4.0 (this repo's pinned engines/Dockerfile version, verified
+    locally), `Request#formData()` derives a multipart file's `.type` from its
+    filename extension rather than the part's declared Content-Type, so a
+    browser's declared "application/vnd.ms-excel" for a `.csv` file does not
+    currently reach the built-in route as such — callers that read a declared
+    mimeType from elsewhere (e.g. a separate form field) are the ones this
+    alias helps today. Aliases are declarative per extension; only
+    csv → vnd.ms-excel is defined so far.
+    `@cosmicdrift/kumiko-framework/files` now also exports `sniffMimeType(bytes:
+    Uint8Array): string | null` (canonical MIME for a known binary signature,
+    or null for text formats — every OLE Compound File returns
+    "application/msword" and every ZIP returns the docx MIME, callers can't
+    tell those apart by bytes alone) and `resolveUploadMimeType`.
+  -->
+
+### Patch Changes
+
+- 483666f: Foreign-origin cookie on an anonymousAccess server is treated as anonymous, not 403
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Foreign-origin cookie on an anonymousAccess server is treated as anonymous, not 403
+  detail: |
+    originMiddleware rejected any state-changing request whose cookie-carrying
+    Origin (or Sec-Fetch-Site) fell outside auth.allowedOrigins with 403
+    origin_not_allowed, including a logged-in tenant admin's own session cookie
+    sent along by their public status page, which only makes anonymous queries.
+    On servers with anonymousAccess wired, authMiddleware now drops such a
+    foreign-origin cookie before jwt.verify and falls through to the anonymous
+    flow; the token is never read. Servers without anonymousAccess, /api/auth/*
+    paths and session-only httpRoutes keep the 403. No migration needed.
+  -->
+
+- 3434a94: setupTestStack isolates job queues per stack by default
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: setupTestStack isolates job queues per stack by default
+  detail: |
+    BullMQ queues live on the raw Redis URL, outside the per-test keyPrefix, so
+    two parallel test stacks with `jobs` and no explicit `queueNamePrefix` shared
+    the prod default queue names and one stack's consumer could run the other
+    stack's jobs. setupTestStack/setupAppTestStack now derive a unique
+    `queueNamePrefix` from the stack's test Redis keyPrefix. An explicit
+    `jobs.queueNamePrefix` still wins; pass the same value to every runner that
+    has to share a stack's queues. createJobRunner and the prod path are unchanged.
+  -->
+
+- 3434a94: kumiko-upgrade --apply says where the marker landed relative to manual breaking changes
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-upgrade --apply says where the marker landed relative to manual breaking changes
+  detail: |
+    A breaking change without a codemod was listed as "manual migration
+    required", but the run never said whether the upgrade marker stopped below
+    it (the guard keeps listing it until a second --apply acknowledges it) or
+    already moved past it (the guard no longer lists it). --apply now prints
+    which of the two happened. The marker logic itself is unchanged; the
+    acknowledgement path is documented in docs/reference/stability-policy.md.
+  -->
+
+  - @cosmicdrift/kumiko-http@0.314.0
+  - @cosmicdrift/kumiko-types@0.314.0
+
 ## 0.313.0
 
 ### Minor Changes

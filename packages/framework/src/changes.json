@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.314.0",
+    "type": "improvement",
+    "title": "drainEventConsumers helper for test stacks with a named consumer backlog",
+    "detail": "The `while ((await eventDispatcher.runOnce())?.processed ?? 0) > 0) {}`\npattern under-drains a backlog bigger than one dispatcher batch and gives no\ndiagnostics when a consumer is stuck. drainEventConsumers(stack,\nconsumerNames, { maxPasses }) from @cosmicdrift/kumiko-framework/stack\nsnapshots the events high-water mark at call time and runs bounded passes\nuntil every named consumer's cursor reaches it, throwing with per-consumer\nstatus, attempts and lastError when the budget (default 25) is exhausted.\nEvents written by consumers after the snapshot are not waited on. No\nmigration needed."
+  },
+  {
+    "version": "0.314.0",
+    "type": "improvement",
+    "title": "validateFile/resolveUploadMimeType accept .csv declared as application/vnd.ms-excel",
+    "detail": "Windows derives a file's upload MIME type from its Explorer file-type\nassociation rather than its content — .csv is registered to Excel there,\nso a Windows browser can declare \"application/vnd.ms-excel\" for a\nplain-text CSV. validateFile now accepts that declared/extension\ncombination for fields whose `accept` includes \"csv\" instead of rejecting\nit as a `mime_mismatch`. The built-in multipart upload route also calls the\nnew `resolveUploadMimeType`, which rewrites an aliased declared mimeType to\nits canonical form (\"text/csv\") after checking the uploaded bytes against\nknown binary signatures — a match (e.g. a real .xls/.xlsx renamed to .csv)\nis rejected with `content_mismatch` instead of being silently rewritten.\nNote: on Bun 1.4.0 (this repo's pinned engines/Dockerfile version, verified\nlocally), `Request#formData()` derives a multipart file's `.type` from its\nfilename extension rather than the part's declared Content-Type, so a\nbrowser's declared \"application/vnd.ms-excel\" for a `.csv` file does not\ncurrently reach the built-in route as such — callers that read a declared\nmimeType from elsewhere (e.g. a separate form field) are the ones this\nalias helps today. Aliases are declarative per extension; only\ncsv → vnd.ms-excel is defined so far.\n`@cosmicdrift/kumiko-framework/files` now also exports `sniffMimeType(bytes:\nUint8Array): string | null` (canonical MIME for a known binary signature,\nor null for text formats — every OLE Compound File returns\n\"application/msword\" and every ZIP returns the docx MIME, callers can't\ntell those apart by bytes alone) and `resolveUploadMimeType`."
+  },
+  {
+    "version": "0.314.0",
+    "type": "fix",
+    "title": "Foreign-origin cookie on an anonymousAccess server is treated as anonymous, not 403",
+    "detail": "originMiddleware rejected any state-changing request whose cookie-carrying\nOrigin (or Sec-Fetch-Site) fell outside auth.allowedOrigins with 403\norigin_not_allowed, including a logged-in tenant admin's own session cookie\nsent along by their public status page, which only makes anonymous queries.\nOn servers with anonymousAccess wired, authMiddleware now drops such a\nforeign-origin cookie before jwt.verify and falls through to the anonymous\nflow; the token is never read. Servers without anonymousAccess, /api/auth/*\npaths and session-only httpRoutes keep the 403. No migration needed."
+  },
+  {
+    "version": "0.314.0",
+    "type": "fix",
+    "title": "setupTestStack isolates job queues per stack by default",
+    "detail": "BullMQ queues live on the raw Redis URL, outside the per-test keyPrefix, so\ntwo parallel test stacks with `jobs` and no explicit `queueNamePrefix` shared\nthe prod default queue names and one stack's consumer could run the other\nstack's jobs. setupTestStack/setupAppTestStack now derive a unique\n`queueNamePrefix` from the stack's test Redis keyPrefix. An explicit\n`jobs.queueNamePrefix` still wins; pass the same value to every runner that\nhas to share a stack's queues. createJobRunner and the prod path are unchanged."
+  },
+  {
+    "version": "0.314.0",
+    "type": "improvement",
+    "title": "kumiko-upgrade --apply says where the marker landed relative to manual breaking changes",
+    "detail": "A breaking change without a codemod was listed as \"manual migration\nrequired\", but the run never said whether the upgrade marker stopped below\nit (the guard keeps listing it until a second --apply acknowledges it) or\nalready moved past it (the guard no longer lists it). --apply now prints\nwhich of the two happened. The marker logic itself is unchanged; the\nacknowledgement path is documented in docs/reference/stability-policy.md."
+  },
+  {
     "version": "0.313.0",
     "type": "fix",
     "title": "DB pool close() no longer hangs forever during an outage",
