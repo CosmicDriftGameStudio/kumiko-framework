@@ -18,6 +18,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query";
+import {
+  PUBLIC_VARIANT_BY_FILE_REF_QN,
+  publicVariantByFileRefQuery,
+} from "./handlers/public-variant-by-file-ref.query";
 
 const FEATURE_NAME = "file-derivatives";
 
@@ -42,6 +46,8 @@ export type PublicVariantResolveApexTenant = (
   host: string,
 ) => Promise<TenantId | null> | TenantId | null;
 
+export type PublicVariantTenantResolution = "host" | "fileRef";
+
 export type FileDerivativesOptions = {
   /** Host → tenantId for the anonymous `/media/:fileRefId/:variant` route.
    *  Without this option, neither the httpRoute NOR the `publicVariant`
@@ -52,6 +58,14 @@ export type FileDerivativesOptions = {
   readonly resolveApexTenant?: PublicVariantResolveApexTenant;
   /** Base path of the public variant route. Default "/media". */
   readonly basePath?: string;
+  /** How the route picks the tenant a variant is read from. "host" (default):
+   *  tenant = resolveApexTenant(host). "fileRef": resolveApexTenant still
+   *  gates the host (an unknown host still 404s), but the variant itself is
+   *  read from the FileRef row's own tenant — a single shared platform host
+   *  then serves every tenant's public variants. The FileRef-tenant's own
+   *  `isPublic` predicate remains the default-deny gate either way; requires
+   *  `resolveApexTenant`. */
+  readonly publicTenantResolution?: PublicVariantTenantResolution;
 };
 
 // Raw handler-return of publicVariantQuery — systemQuery dispatches
@@ -73,13 +87,22 @@ type PublicVariantQueryResult = {
 // — only a name, resolved against the field's own `variants` declaration —
 // and only after the app's registered `isPublic` predicate for the FileRef's
 // entityType says yes. tenantId is resolved from the request Host via
-// `resolveApexTenant`, NEVER read from the request payload.
+// `resolveApexTenant`, NEVER read from the request payload — in
+// `publicTenantResolution: "fileRef"` mode the tenant instead comes from the
+// FileRef row matching `fileRefId` (never from the payload either), and the
+// by-file-ref handler is reachable over `/api` independently of any Host,
+// but still only returns a variant its FileRef-tenant's `isPublic` allows.
 export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}): FeatureDefinition {
   const basePath = opts.basePath ?? "/media";
+  if (opts.publicTenantResolution !== undefined && !opts.resolveApexTenant) {
+    throw new Error(
+      "createFileDerivativesFeature: publicTenantResolution requires resolveApexTenant — it only changes which tenant a variant is read from, resolveApexTenant still gates the host.",
+    );
+  }
 
   return defineFeature(FEATURE_NAME, (r) => {
     r.describe(
-      "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name. The route's only rate-limit (`per: \"ip\"`) trusts the first `x-forwarded-for` hop — deployers must ensure their ingress overwrites rather than appends to that header, or the throttle is bypassable by rotating it. Also declares the `derivativeOverlayResolver` extension point (`r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, '<entityType>', { resolve })`), used to turn a variant's `overlays[].dataToken` into the actual QR payload for that FileRef's entityType before the variant is rendered — a variant declaring a `qr` overlay throws at request-time if no resolver is registered for the FileRef's entityType.",
+      "Declares the `derivativeRenderer` extension point. `ctx.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name. The route's only rate-limit (`per: \"ip\"`) trusts the first `x-forwarded-for` hop — deployers must ensure their ingress overwrites rather than appends to that header, or the throttle is bypassable by rotating it. `publicTenantResolution: \"fileRef\"` keeps resolveApexTenant as the host gate but reads the variant from the FileRef row's own tenant instead of the host's, so one shared platform host serves every tenant's public variants — each FileRef-tenant's own `isPublic` predicate still default-denies. Also declares the `derivativeOverlayResolver` extension point (`r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, '<entityType>', { resolve })`), used to turn a variant's `overlays[].dataToken` into the actual QR payload for that FileRef's entityType before the variant is rendered — a variant declaring a `qr` overlay throws at request-time if no resolver is registered for the FileRef's entityType.",
     );
     r.uiHints({
       displayLabel: "File Derivatives",
@@ -127,8 +150,18 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
     // `resolveApexTenant` enforces.
     if (opts.resolveApexTenant) {
       const resolveApexTenant = opts.resolveApexTenant;
+      const byFileRef = opts.publicTenantResolution === "fileRef";
+      const routeQn = byFileRef ? PUBLIC_VARIANT_BY_FILE_REF_QN : PUBLIC_VARIANT_QN;
 
       r.queryHandler(publicVariantQuery);
+      // publicVariantByFileRefQuery is the ONLY way "fileRef" mode is
+      // reachable — registered ONLY in that mode for the same reason
+      // publicVariantQuery is gated above: registering it unconditionally
+      // would expose its unsafeRaw, cross-tenant FileRef lookup via the
+      // generic `/api` query dispatch even in default "host" mode.
+      if (byFileRef) {
+        r.queryHandler(publicVariantByFileRefQuery);
+      }
 
       r.httpRoute({
         method: "GET",
@@ -156,9 +189,10 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
           let result: PublicVariantQueryResult;
           try {
             // @cast-boundary engine-payload — shape comes from
-            // publicVariantQuery's return type.
+            // publicVariantQuery's return type (publicVariantByFileRefQuery
+            // returns exactly that, or null, never its own shape).
             result = (await systemQuery(
-              PUBLIC_VARIANT_QN,
+              routeQn,
               { fileRefId, variant },
               tenantId,
             )) as PublicVariantQueryResult;

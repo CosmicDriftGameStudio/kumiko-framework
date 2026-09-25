@@ -1,4 +1,8 @@
-export type { FileDerivativesOptions, PublicVariantResolveApexTenant } from "./feature";
+export type {
+  FileDerivativesOptions,
+  PublicVariantResolveApexTenant,
+  PublicVariantTenantResolution,
+} from "./feature";
 export { createFileDerivativesFeature, fileDerivativesFeature } from "./feature";
 export type {
   DerivativePublicPredicateArgs,
