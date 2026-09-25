@@ -8,7 +8,7 @@ const NORMAL_RUN_IGNORE: readonly string[] = [
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-function isScreenshotRun(env: Env): boolean {
+export function isScreenshotRun(env: Env = process.env): boolean {
   const dir = env[SCREENSHOT_DIR_ENV];
   return dir !== undefined && dir !== "";
 }
