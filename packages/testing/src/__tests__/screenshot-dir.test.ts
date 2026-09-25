@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Page } from "@playwright/test";
 import {
   requireScreenshotDir,
   SCREENSHOT_DIR_ENV,
   screenshotSpecsIgnore,
 } from "../e2e/screenshot-dir";
-import { runMatrix, runScreenshots } from "../e2e/screenshots";
+import { captureScreenshot, runMatrix, runScreenshots } from "../e2e/screenshots";
 
 let saved: string | undefined;
 
@@ -35,6 +39,43 @@ describe("requireScreenshotDir", () => {
     expect(() => runMatrix(scenarios, { themes: ["light"], applyTheme: async () => {} })).toThrow(
       /SCREENSHOT_DIR is required/,
     );
+  });
+});
+
+describe("captureScreenshot", () => {
+  test("is a no-op when SCREENSHOT_DIR is unset — never touches the page or the filesystem", async () => {
+    const untouchablePage = new Proxy(
+      {},
+      {
+        get(): never {
+          throw new Error("captureScreenshot must not touch the page when SCREENSHOT_DIR is unset");
+        },
+      },
+    ) as unknown as Page; // @cast-boundary test double, deliberately throws on any use
+
+    await expect(captureScreenshot(untouchablePage, "step-1")).resolves.toBeUndefined();
+  });
+
+  test('opts.reducedMotion overrides the "reduce" default', async () => {
+    const dir = mkdtempSync(join(tmpdir(), "capture-screenshot-"));
+    process.env[SCREENSHOT_DIR_ENV] = dir;
+    const emulateMediaCalls: unknown[] = [];
+    const fakePage = {
+      emulateMedia: async (opts: unknown) => {
+        emulateMediaCalls.push(opts);
+      },
+      on: () => {},
+      off: () => {},
+      evaluate: async () => "fixed-fingerprint",
+      screenshot: async () => {},
+    } as unknown as Page; // @cast-boundary test double, only the methods captureScreenshot's call chain uses
+
+    try {
+      await captureScreenshot(fakePage, "step-1", { reducedMotion: "no-preference" });
+      expect(emulateMediaCalls).toEqual([{ reducedMotion: "no-preference" }]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

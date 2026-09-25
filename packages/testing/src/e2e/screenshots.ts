@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
+import { dirname } from "node:path";
 import { expect, type Page, type Request } from "@playwright/test";
 import { pinEnglishLocale } from "./pin-english-locale";
-import { requireScreenshotDir } from "./screenshot-dir";
+import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";
 import { type SeedTenantFixture, test } from "./seeded-tenant-fixture";
+
+export const DEFAULT_REDUCED_MOTION = "reduce" as const;
 
 // runScreenshots: one image per scenario → $SCREENSHOT_DIR/<name>.png.
 // runMatrix: every scenario × locale × theme × viewport in ONE run →
@@ -112,8 +115,13 @@ async function openScenario(
   await waitForSettledPage(page, inFlightDataRequests);
 }
 
+export type ReducedMotionOption = "reduce" | "no-preference";
+
 export interface FlatOptions {
   readonly pinLocale?: boolean;
+  // rAF-driven chart tweens etc. are invisible to waitForSettledPage's DOM/scroll
+  // fingerprint, so "reduce" is the default — pass "no-preference" to capture motion.
+  readonly reducedMotion?: ReducedMotionOption;
 }
 
 // Fail at registration time, not mid-run: a url-only scenario with no
@@ -151,6 +159,9 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
       test(
         s.description ? `${s.name} — ${s.description}` : s.name,
         async ({ page, seedTenant }) => {
+          // reducedMotion isn't a PlaywrightTestOptions fixture (test.use can't
+          // set it), so it's applied per-page like the rest of emulateMedia.
+          await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
           if (opts.pinLocale) await pinEnglishLocale(page);
           const inFlightDataRequests = countInFlightDataRequests(page);
           if (s.viewport) await page.setViewportSize(s.viewport);
@@ -204,13 +215,41 @@ export interface MatrixOptions<T extends string> {
   readonly themes: readonly T[];
   readonly applyTheme: (page: Page, theme: T) => Promise<void>;
   readonly locales?: readonly string[];
+  readonly localeTags?: Readonly<Record<string, string>>;
+  readonly reducedMotion?: ReducedMotionOption;
 }
 
 // App locale codes ("en"/"de") -> BCP47 tags for Playwright's browser-context
 // `locale` option, pinning JS-side Intl/navigator.language regardless of the
 // host's own locale — without it, a screenshot regen on a non-en-US host bakes
 // in the host's Intl-driven formatting regardless of SCREENSHOT_LOCALES.
-const LOCALE_TAGS: Readonly<Record<string, string>> = { en: "en-US", de: "de-DE" };
+const DEFAULT_LOCALE_TAGS: Readonly<Record<string, string>> = { en: "en-US", de: "de-DE" };
+
+// Intl.Locale.maximize() derives a region for a bare language code (es -> es-ES)
+// the same way DEFAULT_LOCALE_TAGS was hand-picked for en/de — apps with a
+// locale that needs a different region (e.g. a Swiss "de" build) pass their
+// own `localeTags` instead of relying on the derived default.
+function deriveLocaleTag(locale: string): string | undefined {
+  try {
+    const region = new Intl.Locale(locale).maximize().region;
+    return region === undefined ? undefined : `${locale}-${region}`;
+  } catch {
+    return undefined;
+  }
+}
+
+export function resolveLocaleTag(
+  locale: string,
+  localeTags: Readonly<Record<string, string>> | undefined,
+): string {
+  const tag = localeTags?.[locale] ?? DEFAULT_LOCALE_TAGS[locale] ?? deriveLocaleTag(locale);
+  if (tag === undefined) {
+    throw new Error(
+      `runMatrix(): no BCP47 tag for locale "${locale}" — pass it in opts.localeTags`,
+    );
+  }
+  return tag;
+}
 
 export interface ThemeScreenshotDigest<T extends string> {
   readonly viewport: string;
@@ -252,6 +291,15 @@ export interface MatrixProjectInfo {
 
 export type MatrixViewportPlan =
   | { readonly mode: "device"; readonly viewports: readonly [ViewportId] }
+  // A device project whose name is NOT a ViewportId (e.g. offlot's "phone",
+  // devices["iPhone 13"]) writes under its own <baseDir>/<projectName>/ subtree
+  // instead of the shared matrix directory, so it never collides with the
+  // desktop pass's own "mobile" viewport file for the same scenario.
+  | {
+      readonly mode: "namedDevice";
+      readonly viewports: readonly [ViewportId];
+      readonly outputPrefix: string;
+    }
   | { readonly mode: "desktop"; readonly viewports: readonly ViewportId[] }
   | { readonly mode: "skip"; readonly reason: string };
 
@@ -279,6 +327,9 @@ export function resolveMatrixViewports(
     }
     return { mode: "device", viewports: [projectName] };
   }
+  if (isMobileProject) {
+    return { mode: "namedDevice", viewports: ["mobile"], outputPrefix: projectName };
+  }
   const deviceProjectIds = new Set(
     projects.filter((p) => p.isMobile && isViewportId(p.name)).map((p) => p.name),
   );
@@ -305,17 +356,15 @@ export function runMatrix<T extends string>(
       // Browser-context locale for JS-side Intl/navigator.language — the
       // kumiko:locale seed below only drives the app's own i18n strings.
       // ponytail: see the runScreenshots() locale comment above / #1851
-      const tag = LOCALE_TAGS[locale];
-      if (tag === undefined) {
-        throw new Error(
-          `runMatrix(): no BCP47 tag mapped for locale "${locale}" — extend LOCALE_TAGS`,
-        );
-      }
+      const tag = resolveLocaleTag(locale, opts.localeTags);
       test.use({ locale: tag });
 
       for (const s of scenarios) {
         if (only !== undefined && only !== s.name) continue;
         test(s.name, async ({ page, seedTenant }) => {
+          // reducedMotion isn't a PlaywrightTestOptions fixture (test.use can't set
+          // it), so it's applied per-page like the rest of emulateMedia.
+          await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
           const info = test.info();
           const plan = resolveMatrixViewports(
             info.project.name,
@@ -339,6 +388,8 @@ export function runMatrix<T extends string>(
           await openScenario(page, s, inFlightDataRequests, { seedTenant });
 
           const digests: ThemeScreenshotDigest<T>[] = [];
+          const projectBaseDir =
+            plan.mode === "namedDevice" ? `${baseDir}/${plan.outputPrefix}` : baseDir;
 
           for (const theme of themes) {
             await opts.applyTheme(page, theme);
@@ -346,7 +397,7 @@ export function runMatrix<T extends string>(
               if (plan.mode === "desktop") await page.setViewportSize(VIEWPORTS[vp]);
               await waitForSettledPage(page, inFlightDataRequests);
               if (s.beforeCapture) await s.beforeCapture(page);
-              const dir = `${baseDir}/${s.name}/${locale}/${theme}`;
+              const dir = `${projectBaseDir}/${s.name}/${locale}/${theme}`;
               mkdirSync(dir, { recursive: true });
               const path = `${dir}/${vp}.png`;
               // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.
@@ -378,4 +429,36 @@ export function runMatrix<T extends string>(
       }
     });
   }
+}
+
+// Per-page in-flight counter for captureScreenshot() — a call mid-flow attaches
+// its own page.on("request") listener the first time it sees a given page, so a
+// second captureScreenshot() on that page reuses the same tracker instead of
+// missing requests that were already in flight when the listener attached.
+const inFlightTrackersByPage = new WeakMap<Page, () => number>();
+
+function inFlightTrackerFor(page: Page): () => number {
+  const existing = inFlightTrackersByPage.get(page);
+  if (existing !== undefined) return existing;
+  const tracker = countInFlightDataRequests(page);
+  inFlightTrackersByPage.set(page, tracker);
+  return tracker;
+}
+
+// Inline mid-flow screenshot for a single point in an existing e2e/real-provider
+// spec (solon's `shot(page, id)`, offlot's inline docs/screenshots/e2e/* writes) —
+// reuses the runner's settle logic and reduced-motion default, and is a no-op
+// when SCREENSHOT_DIR is unset so a plain e2e run never writes into the repo.
+export async function captureScreenshot(
+  page: Page,
+  name: string,
+  opts: { readonly reducedMotion?: ReducedMotionOption } = {},
+): Promise<void> {
+  const dir = process.env[SCREENSHOT_DIR_ENV];
+  if (dir === undefined || dir === "") return;
+  await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
+  await waitForSettledPage(page, inFlightTrackerFor(page));
+  const path = `${dir}/${name}.png`;
+  mkdirSync(dirname(path), { recursive: true });
+  await page.screenshot({ path, animations: "disabled" });
 }

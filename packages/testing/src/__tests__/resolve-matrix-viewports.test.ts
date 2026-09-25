@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   type MatrixProjectInfo,
+  resolveLocaleTag,
   resolveMatrixViewports,
   type ViewportId,
 } from "../e2e/screenshots";
@@ -64,9 +65,37 @@ describe("resolveMatrixViewports", () => {
     expect(plan).toEqual({ mode: "desktop", viewports: ["desktop", "mobile"] });
   });
 
-  test("a project name that isn't a ViewportId always runs the desktop pass, even with isMobile", () => {
-    const projects: MatrixProjectInfo[] = [{ name: "chromium", isMobile: true }];
-    const plan = resolveMatrixViewports("chromium", true, projects, ALL_VIEWPORTS);
+  test("a mobile project whose name isn't a ViewportId (e.g. offlot's \"phone\") writes under its own subtree, fixed to the mobile viewport", () => {
+    const projects: MatrixProjectInfo[] = [
+      { name: "chromium", isMobile: false },
+      { name: "phone", isMobile: true },
+    ];
+    const plan = resolveMatrixViewports("phone", true, projects, ALL_VIEWPORTS);
+    expect(plan).toEqual({ mode: "namedDevice", viewports: ["mobile"], outputPrefix: "phone" });
+  });
+
+  test("a non-mobile project that isn't a ViewportId runs the desktop pass", () => {
+    const projects: MatrixProjectInfo[] = [{ name: "chromium", isMobile: false }];
+    const plan = resolveMatrixViewports("chromium", false, projects, ALL_VIEWPORTS);
     expect(plan).toEqual({ mode: "desktop", viewports: ["desktop", "tablet", "mobile"] });
+  });
+});
+
+describe("resolveLocaleTag", () => {
+  test("en/de use the hand-picked defaults", () => {
+    expect(resolveLocaleTag("en", undefined)).toBe("en-US");
+    expect(resolveLocaleTag("de", undefined)).toBe("de-DE");
+  });
+
+  test("an app-supplied localeTags entry overrides the default", () => {
+    expect(resolveLocaleTag("en", { en: "en-GB" })).toBe("en-GB");
+  });
+
+  test("a locale with no default and no override falls back to Intl.Locale derivation", () => {
+    expect(resolveLocaleTag("es", undefined)).toBe("es-ES");
+  });
+
+  test("throws when neither a default nor a derivable region exists", () => {
+    expect(() => resolveLocaleTag("zz", undefined)).toThrow(/no BCP47 tag/);
   });
 });
