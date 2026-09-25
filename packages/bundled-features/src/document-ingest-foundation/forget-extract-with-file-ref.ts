@@ -6,14 +6,28 @@
 // forget(), not deleteMany: documentExtract is an ES-managed implicit
 // projection, so forget() replays correctly on rebuild. This MSP itself has
 // no `table`, so rebuildMultiStreamProjection never targets it directly.
+//
+// Also reacts to documentExtract.created: providers write extracts
+// themselves (own executor call), racing this consumer's fileRef.deleted/
+// forgotten handling. Each handler re-checks current fileRef liveness at
+// processing time, so no extract survives regardless of write/delete order —
+// this covers providers that bypass write-document-extract.ts's helper too.
 
 import { createTenantDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { MultiStreamApplyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
+import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
+import * as z from "zod";
 import { documentExtractsTable } from "./entity";
 import { documentExtractExecutor } from "./executor";
 import { isFileRefLive } from "./file-ref-liveness";
+
+// WriteResult.error is always a plain WriteErrorInfo object, never a
+// KumikoError instance (JSON-serializable for the dispatcher's idempotency-key
+// storage) — compare on .code, not instanceof.
+function isNotFoundWriteError(error: WriteErrorInfo): boolean {
+  return error.code === "not_found";
+}
 
 async function forgetExtractsForFileRef(
   event: Parameters<MultiStreamApplyFn>[0],
@@ -30,12 +44,30 @@ async function forgetExtractsForFileRef(
     // row is not an error — anything else (version conflict, ownership
     // denial) must surface so the dispatcher retries/dead-letters instead of
     // silently leaving the extract behind.
-    if (result.error instanceof NotFoundError) continue;
+    if (isNotFoundWriteError(result.error)) continue;
     throw new Error(
       `document-ingest-foundation: failed to forget documentExtract ${row.id} for fileRef ${event.aggregateId}: ${result.error.message}`,
     );
   }
 }
+
+const documentExtractCreatedPayloadSchema = z.object({ fileRefId: z.string().min(1) });
+
+export const forgetOrphanedDocumentExtractHook: MultiStreamApplyFn = async (event, tx) => {
+  const parsed = documentExtractCreatedPayloadSchema.safeParse(event.payload);
+  // skip: malformed payload — don't poison the consumer
+  if (!parsed.success) return;
+  const tenantDb = createTenantDb(tx, event.tenantId);
+  // skip: fileRef still live — the extract is legitimate
+  if (await isFileRefLive(tenantDb, parsed.data.fileRefId)) return;
+  const user = createSystemUser(event.tenantId);
+  const result = await documentExtractExecutor.forget({ id: event.aggregateId }, user, tenantDb);
+  // skip: forgotten now, or already gone via a concurrent/redelivered apply
+  if (result.isSuccess || isNotFoundWriteError(result.error)) return;
+  throw new Error(
+    `document-ingest-foundation: failed to forget orphaned documentExtract ${event.aggregateId}: ${result.error.message}`,
+  );
+};
 
 export const forgetExtractOnFileRefDeletedHook: MultiStreamApplyFn = async (event, tx) => {
   const tenantDb = createTenantDb(tx, event.tenantId);

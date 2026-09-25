@@ -28,3 +28,7 @@ export {
   type ResolvedDocumentIngestProvider,
   resolveDocumentIngestProviders,
 } from "./providers";
+export {
+  type DocumentExtractWriteResult,
+  writeDocumentExtractForLiveFileRef,
+} from "./write-document-extract";
