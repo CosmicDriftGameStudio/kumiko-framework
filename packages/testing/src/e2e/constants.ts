@@ -43,3 +43,8 @@ export const SEED_ROUTES = {
   seedUser: `${SEED_ROUTE_PREFIX}/seed-user`,
   inbox: `${SEED_ROUTE_PREFIX}/inbox`,
 } as const;
+
+// Desktop default for e2e runs and screenshots alike. Playwright's "Desktop
+// Chrome" device ships 1280×720: handbook and doc shots at 1280 visibly soften
+// on a HiDPI display, and a list next to a reading pane looks cramped.
+export const DESKTOP_VIEWPORT = { width: 1920, height: 1080 } as const;

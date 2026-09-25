@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { expect, type Page, type Request } from "@playwright/test";
-import { isRealProviderRun } from "./constants";
+import { DESKTOP_VIEWPORT, isRealProviderRun } from "./constants";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";
 import { type SeedTenantFixture, test } from "./seeded-tenant-fixture";
@@ -198,11 +198,7 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
 const VIEWPORT_IDS = ["desktop", "tablet", "mobile"] as const;
 export type ViewportId = (typeof VIEWPORT_IDS)[number];
 const VIEWPORTS: Record<ViewportId, { readonly width: number; readonly height: number }> = {
-  // 1920×1080 instead of the earlier 1280×900: these shots land in the
-  // handbook and doc pages, where a 1280 image visibly softens on a HiDPI
-  // display. Wider also shows what a two-column layout actually does — at
-  // 1280 any list next to a reading pane looks cramped.
-  desktop: { width: 1920, height: 1080 },
+  desktop: DESKTOP_VIEWPORT,
   // Landscape: portrait tablet shots collapsed two-column layouts into the mobile stack.
   tablet: { width: 1112, height: 834 },
   mobile: { width: 390, height: 844 },
