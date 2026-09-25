@@ -9,12 +9,14 @@
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import net from "node:net";
+import postgres from "postgres";
 import { createDbConnection } from "../../db/connection";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import type { Logger } from "../../logging/types";
+import { type MetricEvent, RecordingMeter, registerStandardMetrics } from "../../observability";
 import { createEventDispatcher, type EventConsumer, type EventDispatcher } from "../../pipeline";
 import {
   resetEventStore,
@@ -126,15 +128,28 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
     };
 
     const logger = recordingLogger();
+    const metricEvents: MetricEvent[] = [];
+    const lastListenGauge = (): number | undefined =>
+      metricEvents
+        .filter(
+          (e) => e.type === "gauge.set" && e.name === "kumiko_event_dispatcher_listen_connected",
+        )
+        .pop()?.value;
+    const meter = new RecordingMeter((e) => metricEvents.push(e));
+    registerStandardMetrics(meter);
+    const listenClient = postgres(proxiedUrl.toString(), { max: 1 });
     const dispatcher: EventDispatcher = createEventDispatcher({
       db: proxiedDb.db,
       consumers: [consumer],
       context: { db: proxiedDb.db, log: logger },
       pollIntervalMs: 50,
+      pgClient: listenClient,
+      meter,
     });
 
     try {
       await dispatcher.start();
+      expect(lastListenGauge()).toBe(1);
 
       await appendWidget("before-outage");
       await waitFor(() => observed.includes("before-outage"));
@@ -146,6 +161,7 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
       await proxy1.stop();
 
       await waitFor(() => logger.lines.some((line) => line.includes("idle pre-check failed")));
+      expect(lastListenGauge()).toBe(0);
 
       const proxy2 = startDbProxy(dbUrl);
       await listenOn(proxy2.server, proxyPort);
@@ -169,6 +185,7 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
       expect(observed).toEqual(["before-outage", "after-recovery"]);
     } finally {
       await dispatcher.stop();
+      await listenClient.end({ timeout: 1 });
       await proxiedDb.close();
     }
   });
