@@ -48,6 +48,7 @@ export {
   runMatrix,
   runScreenshots,
   type Scenario,
+  type ScenarioFixtures,
   type ThemeScreenshotDigest,
   validateScenarios,
 } from "./screenshots";

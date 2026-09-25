@@ -58,7 +58,8 @@ function bindApi(stack: TestStack, user: SessionUser): BoundApi {
 
 function lightCredentials(email?: string): SeededCredentials {
   const id = randomUUID();
-  return { id, email: email ?? `user-${id}@example.test`, password: `pw-${randomUUID()}` };
+  const resolvedEmail = email ?? `user-${id}@example.test`;
+  return { id, email: resolvedEmail, password: `pw-${randomUUID()}` };
 }
 
 function substituteTenantId(email: string, tenantId: string): string {

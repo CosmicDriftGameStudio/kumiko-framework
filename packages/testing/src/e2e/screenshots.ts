@@ -30,13 +30,24 @@ export async function applyDefaultTheme(page: Page, theme: DefaultThemeId): Prom
   }, theme);
 }
 
+export interface ScenarioFixtures {
+  readonly seedTenant: SeedTenantFixture;
+  // runMatrix's current locale, for apps whose routes carry the locale in the
+  // path (kumiko:locale alone can't change the URL). Undefined in runScreenshots.
+  readonly locale?: string;
+}
+
 export interface Scenario {
   readonly name: string;
   readonly description?: string;
   readonly url?: string;
-  readonly flow?: (page: Page, fixtures: { seedTenant: SeedTenantFixture }) => Promise<void>;
+  readonly flow?: (page: Page, fixtures: ScenarioFixtures) => Promise<void>;
   readonly waitFor?: string;
   readonly fullPage?: boolean;
+  // Playwright's screenshot-only `style`: applied for the capture and removed
+  // afterwards, unlike an addStyleTag in beforeCapture that would persist into
+  // the next theme × viewport capture.
+  readonly captureStyle?: string;
   readonly viewport?: { readonly width: number; readonly height: number };
   // Runs after the viewport is set and the page has settled, right before the
   // screenshot. runMatrix calls this once per theme × viewport combination for
@@ -103,7 +114,7 @@ async function openScenario(
   page: Page,
   s: Scenario,
   inFlightDataRequests: () => number,
-  fixtures: { seedTenant: SeedTenantFixture },
+  fixtures: ScenarioFixtures,
 ): Promise<void> {
   if (s.flow) await s.flow(page, fixtures);
   else if (s.url) await page.goto(s.url);
@@ -168,7 +179,11 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
           await openScenario(page, s, inFlightDataRequests, { seedTenant });
           if (s.beforeCapture) await s.beforeCapture(page);
           const path = `${outDir}/${s.name}.png`;
-          await page.screenshot({ path, fullPage: s.fullPage ?? false });
+          await page.screenshot({
+            path,
+            fullPage: s.fullPage ?? false,
+            ...(s.captureStyle !== undefined && { style: s.captureStyle }),
+          });
           expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
         },
       );
@@ -385,7 +400,7 @@ export function runMatrix<T extends string>(
             localStorage.removeItem("kumiko:theme");
           }, locale);
           const inFlightDataRequests = countInFlightDataRequests(page);
-          await openScenario(page, s, inFlightDataRequests, { seedTenant });
+          await openScenario(page, s, inFlightDataRequests, { seedTenant, locale });
 
           const digests: ThemeScreenshotDigest<T>[] = [];
           const projectBaseDir =
@@ -407,6 +422,7 @@ export function runMatrix<T extends string>(
                 path,
                 fullPage: s.fullPage ?? false,
                 animations: "disabled",
+                ...(s.captureStyle !== undefined && { style: s.captureStyle }),
               });
               expect.soft(buffer.length).toBeGreaterThan(MIN_BYTES);
               digests.push({
@@ -455,6 +471,7 @@ export async function captureScreenshot(
   opts: { readonly reducedMotion?: ReducedMotionOption } = {},
 ): Promise<void> {
   const dir = process.env[SCREENSHOT_DIR_ENV];
+  // skip: a plain e2e run without SCREENSHOT_DIR must not write screenshots.
   if (dir === undefined || dir === "") return;
   await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
   await waitForSettledPage(page, inFlightTrackerFor(page));
