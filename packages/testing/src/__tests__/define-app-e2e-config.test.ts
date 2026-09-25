@@ -25,6 +25,8 @@ const TOUCHED_ENV = [
   REAL_PROVIDERS_ENV,
   "CI",
   "SCREENSHOT_DIR",
+  "MEILI_URL",
+  "MEILI_MASTER_KEY",
 ] as const;
 let saved: Record<string, string | undefined> = {};
 
@@ -168,6 +170,31 @@ describe("defineAppE2eConfig defaults", () => {
       if (saved === undefined) delete process.env["DATABASE_URL"];
       else process.env["DATABASE_URL"] = saved;
     }
+  });
+
+  test("webServer env leaves Meilisearch unset unless the environment or the app env asks for it", () => {
+    const server = defineAppE2eConfig({ port: 1 }).webServer;
+    if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+    expect(server.env).not.toHaveProperty("MEILI_URL");
+    expect(server.env).not.toHaveProperty("MEILI_MASTER_KEY");
+
+    const appServer = defineAppE2eConfig({
+      port: 1,
+      env: { MEILI_URL: "http://localhost:17700" },
+    }).webServer;
+    if (Array.isArray(appServer) || appServer === undefined) {
+      throw new Error("expected one webServer");
+    }
+    expect(appServer.env?.["MEILI_URL"]).toBe("http://localhost:17700");
+
+    process.env["MEILI_URL"] = "http://ci-meili:7700";
+    process.env["MEILI_MASTER_KEY"] = "ci-key";
+    const ciServer = defineAppE2eConfig({ port: 1 }).webServer;
+    if (Array.isArray(ciServer) || ciServer === undefined) {
+      throw new Error("expected one webServer");
+    }
+    expect(ciServer.env?.["MEILI_URL"]).toBe("http://ci-meili:7700");
+    expect(ciServer.env?.["MEILI_MASTER_KEY"]).toBe("ci-key");
   });
 
   test("forbidOnly follows CI", () => {
