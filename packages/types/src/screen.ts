@@ -277,6 +277,10 @@ export type RowActionNavigateBase = {
    *  not — the existing record's values take precedence.
    *  `pick` extracts fields of the same name; `map` renames them. */
   readonly params?: RowFieldExtractor;
+  /** Section id of the tab to activate on the target projectionDetail
+   *  (layout.mode "tabs"); merged into the navigate search params next to
+   *  returnTo. Boot validator checks the id exists on the target. */
+  readonly tab?: string;
   /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
   /** Visual style only — unlike the writeHandler variants, "danger" does not

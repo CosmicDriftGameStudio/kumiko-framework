@@ -71,6 +71,18 @@ export function stringifyNavParams(params: Record<string, unknown>): Record<stri
   return out;
 }
 
+export function navigateActionSearchParams(
+  action: RowActionNavigate,
+  values: Readonly<Record<string, unknown>>,
+): Record<string, string | null> | undefined {
+  const params =
+    action.params !== undefined
+      ? stringifyNavParams(evalRowExtractor(action.params, values))
+      : undefined;
+  if (action.tab === undefined) return params;
+  return { ...params, tab: action.tab };
+}
+
 export async function refetchAfterWrite(refetch: () => Promise<unknown>): Promise<void> {
   await refetch().catch((err: unknown) => {
     // biome-ignore lint/suspicious/noConsole: refetch must not poison the write-action error path
@@ -95,10 +107,9 @@ export function runProjectionRowNavigate(
     // skip: no entityId column on this row — nothing to navigate to.
     if (id === "") return;
     nav.navigate({ entity: action.entity, id });
-    const params =
-      action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
+    const params = navigateActionSearchParams(action, row.values);
     if (params !== undefined) {
-      nav.setSearchParams(stringifyNavParams(params));
+      nav.setSearchParams(params);
     }
   } else if (action.screen !== undefined) {
     const entityId =
@@ -107,10 +118,7 @@ export function runProjectionRowNavigate(
       screenId: action.screen,
       ...(entityId !== undefined && entityId !== "" && { entityId }),
     };
-    const params =
-      action.params !== undefined
-        ? stringifyNavParams(evalRowExtractor(action.params, row.values))
-        : undefined;
+    const params = navigateActionSearchParams(action, row.values);
     navigateWithReturnTo(nav, target, host, params);
   }
   // skip: neither entity nor screen set — the boot-validator rejects this
@@ -443,9 +451,8 @@ function buildNavigateRecordAction(
     sameEntityScreenId,
   } = options;
   const runParams = (): void => {
-    const params =
-      action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
-    if (params !== undefined) nav.setSearchParams(stringifyNavParams(params));
+    const params = navigateActionSearchParams(action, record);
+    if (params !== undefined) nav.setSearchParams(params);
   };
   if (action.entity !== undefined) {
     const targetEntity = action.entity;
@@ -482,10 +489,7 @@ function buildNavigateRecordAction(
           screenId: targetScreen,
           ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
         };
-        const params =
-          action.params !== undefined
-            ? stringifyNavParams(evalRowExtractor(action.params, record))
-            : undefined;
+        const params = navigateActionSearchParams(action, record);
         navigateWithReturnTo(nav, target, host, params);
       },
     };

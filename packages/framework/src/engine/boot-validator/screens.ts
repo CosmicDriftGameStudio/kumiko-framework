@@ -542,11 +542,48 @@ type RowActionNavigateRuntime = RowActionNavigateBase & {
   readonly entity?: string;
 };
 
+// The target can be any screen, so this checks the resolved target's
+// sections, not the host's.
+function validateRowActionNavigateTab(
+  featureName: string,
+  screenId: string,
+  screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
+  actionLabel: string,
+  action: RowActionNavigateRuntime,
+  target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
+): void {
+  // skip: no tab declared — nothing to check against the target's sections
+  if (action.tab === undefined) return;
+  if (target === undefined) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+        `sets tab "${action.tab}", but its navigate-target could not be resolved to a screen.`,
+    );
+  }
+  if (target.screen.type !== "projectionDetail" || target.screen.layout.mode !== "tabs") {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+        `sets tab "${action.tab}", but navigate-target screen "${target.screen.id}" is not a ` +
+        `projectionDetail with layout.mode "tabs" — only those read the tab param.`,
+    );
+  }
+  const sectionIds = target.screen.layout.sections
+    .map((section) => section.id)
+    .filter((id): id is string => id !== undefined);
+  if (!sectionIds.includes(action.tab)) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+        `navigates to tab "${action.tab}", which is not a section id on target screen ` +
+        `"${target.screen.id}". Available: ${sectionIds.join(", ") || "(none)"}.`,
+    );
+  }
+}
+
 function resolveRowActionNavigateTarget(
   featureName: string,
   screenId: string,
   screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
-  actionLabel: "rowAction" | "action",
+  actionLabel: string,
   action: RowActionNavigateRuntime,
   allScreenQns: ReadonlySet<string>,
   navTargetShortIds: ReadonlySet<string>,
@@ -586,6 +623,7 @@ function resolveRowActionNavigateTarget(
           `detailFor: "${action.entity}".`,
       );
     }
+    validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, detail);
     return detail;
   }
   if (action.screen === undefined) {
@@ -601,7 +639,9 @@ function resolveRowActionNavigateTarget(
         `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
     );
   }
-  return screensByShortId.get(action.screen)?.[0];
+  const target = screensByShortId.get(action.screen)?.[0];
+  validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, target);
+  return target;
 }
 
 // Shared by the mint step's own handler (screen.handler) and its optional
@@ -1225,6 +1265,19 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
+            if (action.kind === "navigate" && action.tab !== undefined) {
+              resolveRowActionNavigateTarget(
+                feature.name,
+                screenId,
+                "projectionDetail",
+                `section "${sectionLabel}" action`,
+                action,
+                allScreenQns,
+                navTargetShortIds,
+                screensByShortId,
+                detailForScreens,
+              );
+            }
           }
         }
         if (section.kind === "relatedList" && section.emptyState?.action !== undefined) {
@@ -1235,6 +1288,22 @@ export function validateScreens(
             `section "${sectionLabel}" emptyState action`,
             section.emptyState.action,
           );
+          if (
+            section.emptyState.action.kind === "navigate" &&
+            section.emptyState.action.tab !== undefined
+          ) {
+            resolveRowActionNavigateTarget(
+              feature.name,
+              screenId,
+              "projectionDetail",
+              `section "${sectionLabel}" emptyState action`,
+              section.emptyState.action,
+              allScreenQns,
+              navTargetShortIds,
+              screensByShortId,
+              detailForScreens,
+            );
+          }
         }
         if (isExtensionEditSection(section)) {
           // projectionDetail is read-only (no composed form submit) — an
@@ -1983,6 +2052,19 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
+            if (action.kind === "navigate" && action.tab !== undefined) {
+              resolveRowActionNavigateTarget(
+                feature.name,
+                screenId,
+                "entityEdit",
+                `section "${sectionLabel}" action`,
+                action,
+                allScreenQns,
+                navTargetShortIds,
+                screensByShortId,
+                detailForScreens,
+              );
+            }
           }
         }
         if (isExtensionEditSection(section)) {
