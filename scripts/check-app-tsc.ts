@@ -1,12 +1,16 @@
 #!/usr/bin/env bun
 // @runtime tooling
-// check-app-tsc — type-checks every sample workspace in ONE `tsc -b` pass.
+// check-app-tsc — type-checks the framework packages and every sample
+// workspace in ONE `tsc -b` pass.
 //
 // WHY this exists:
 //
 // Sample apps under `samples/` have per-app `tsconfig.json` files but aren't in
 // the root references chain, so `tsc -b` from the root never traverses them.
 // This script closes that gap — the few-shot corpus must typecheck in CI (#234).
+// The root solution reference (`tsconfig.json`) rides along in the same pass
+// so CI has exactly one type-check command instead of a separate root `tsc -b`
+// that would rebuild the same package graph a second time.
 //
 // WHY one `tsc -b` (not N× `tsc --noEmit`):
 //
@@ -18,8 +22,9 @@
 // incrementally (~5s cold / ~0.1s warm via the cached *.tsbuildinfo).
 //
 // Samples verify the framework's BUILT public surface (.d.ts) — exactly what
-// real consumers get. Framework source is checked by `tsc -b` building the
-// referenced packages first (so a source error surfaces there).
+// real consumers get. Framework source (and the other root projects: testing,
+// testing/e2e, guards, cli, …) is checked by the root `tsconfig.json`
+// reference in the same `tsc -b` pass, so a source error surfaces there.
 //
 // AUTO-DISCOVERY:
 //
@@ -51,8 +56,11 @@ const OUT_ROOT = join(REPO_ROOT, ".check-app-tsc-out");
 const SOLUTION = join(REPO_ROOT, ".check-app-tsc-solution.json");
 const RECIPE_TSCONFIG_BASE = resolve(REPO_ROOT, "samples/recipes/tsconfig.base.json");
 
-// Composite packages every sample consumes as built .d.ts. tsc -b builds these
-// once and redirects each sample's `src` imports to the emitted declarations.
+// Composite packages every sample consumes as built .d.ts, used only to
+// generate each sample's own project references (writeSampleTsconfig below).
+// The root tsconfig.json reference added to SOLUTION covers building these
+// packages themselves — this list must not be added to SOLUTION directly, or
+// tsc -b would build them a second time as bare (non-sample) projects.
 const PACKAGE_REFS = [
   "framework",
   "bundled-features",
@@ -193,7 +201,9 @@ if (import.meta.main) {
     process.exit(0);
   }
 
-  console.log(`check-app-tsc: type-checking ${samples.length} sample workspace(s) via tsc -b`);
+  console.log(
+    `check-app-tsc: type-checking the framework packages + ${samples.length} sample workspace(s) via tsc -b`,
+  );
 
   mkdirSync(OUT_ROOT, { recursive: true });
   for (const ws of samples) runCodegen({ appRoot: ws.root });
@@ -206,7 +216,17 @@ if (import.meta.main) {
   writeFileSync(
     SOLUTION,
     JSON.stringify(
-      { files: [], references: projectPaths.map((p) => ({ path: relative(REPO_ROOT, p) })) },
+      {
+        files: [],
+        references: [
+          // The root tsconfig.json already references every framework package
+          // plus testing, testing/e2e, guards, cli, etc. — one reference here
+          // pulls all of them into this same tsc -b pass instead of CI running
+          // a second, separate root type-check.
+          { path: relative(REPO_ROOT, join(REPO_ROOT, "tsconfig.json")) },
+          ...projectPaths.map((p) => ({ path: relative(REPO_ROOT, p) })),
+        ],
+      },
       null,
       2,
     ),
@@ -221,7 +241,7 @@ if (import.meta.main) {
   const errorLines = combined.split("\n").filter((l) => / error TS\d+:/.test(l));
 
   if (errorLines.length === 0 && result.status === 0) {
-    console.log(`\nAll ${samples.length} sample workspace(s) compile cleanly.`);
+    console.log(`\nFramework packages + all ${samples.length} sample workspace(s) compile cleanly.`);
     process.exit(0);
   }
 

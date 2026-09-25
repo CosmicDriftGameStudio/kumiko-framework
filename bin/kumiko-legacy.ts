@@ -204,11 +204,12 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
 
     // 2. TypeScript Check
     if (root.kind === "framework") {
-      // One `tsc -b` builds the framework packages (the root tsconfig
-      // references exactly these seven) AND type-checks every sample against
-      // the emitted .d.ts. Sole owner of packages/dist → no pool write-race,
-      // and the framework graph is parsed once instead of per-sample (was a
-      // separate `tsc -b .` + 52× `tsc --noEmit`, ~430s → ~15s cold / ~2s warm).
+      // One `tsc -b` builds every root project (framework, bundled-features,
+      // testing, testing/e2e, guards, cli, …, via the root tsconfig.json
+      // reference) AND type-checks every sample against the emitted .d.ts.
+      // Sole owner of packages/dist → no pool write-race, and the framework
+      // graph is parsed once instead of per-sample (was a separate `tsc -b .`
+      // + 52× `tsc --noEmit`, ~430s → ~15s cold / ~2s warm).
       steps.push({
         name: `TypeScript (framework + samples)`,
         cmd: `cd ${absPath} && bun scripts/check-app-tsc.ts`,
