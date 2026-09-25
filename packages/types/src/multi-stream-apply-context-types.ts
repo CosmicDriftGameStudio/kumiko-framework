@@ -1,6 +1,7 @@
 import type { DerivativesContext } from "./derivatives-types";
 import type { StoredEvent } from "./event-store-types";
 import type { KumikoEventTypeMap } from "./event-type-map";
+import type { Registry } from "./feature";
 import type { FileContext } from "./file-handle-types";
 import type { AppendEventFn, UnsafeAppendEventFn } from "./handlers";
 
@@ -30,6 +31,10 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
     aggregateId: string,
     options?: { readonly asOf?: Temporal.Instant },
   ) => Promise<readonly StoredEvent[]>;
+  // The app registry — same instance HandlerContext/JobContext expose. Lets
+  // an apply resolve extension-point usages (registry.getExtensionUsages),
+  // e.g. a provider-routed MSP picking a handler by payload discriminant.
+  readonly registry: Registry;
   // Binary storage handle factory, mirrors AppContext.files. Present when
   // the app booted with `files.storageProvider`; undefined otherwise.
   // Post-processing MSPs (resize, EXIF-strip, virus-scan) read bytes via

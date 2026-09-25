@@ -21,6 +21,9 @@ export const documentIngestRequestedPayloadSchema = z.object({
   fileName: z.string().min(1),
   mimeType: z.string().min(1),
   size: z.number().int().min(0),
+  // Which registered provider claimed this mimeType — the job-trigger
+  // where-filter every provider's job routes through (documentIngestProviderTrigger).
+  provider: z.string().min(1),
 });
 export type DocumentIngestRequestedPayload = z.infer<typeof documentIngestRequestedPayloadSchema>;
 

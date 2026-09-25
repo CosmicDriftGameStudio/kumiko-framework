@@ -37,10 +37,12 @@ export type {
 export {
   assertSafeStorageKey,
   buildStorageKey,
+  normalizeMimeType,
   parseMaxSize,
   tenantExportPrefix,
   tenantStoragePrefixes,
   validateFile,
+  validateFileContent,
 } from "./types";
 export type { ZipEntry } from "./zip-stream";
 export { createZipStream } from "./zip-stream";

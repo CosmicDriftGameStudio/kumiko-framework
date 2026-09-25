@@ -50,6 +50,8 @@ const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
   csv: ["text/csv", "application/csv", "text/plain"],
   json: ["application/json", "text/json"],
   md: ["text/markdown", "text/plain"],
+  doc: ["application/msword"],
+  docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
 } satisfies Record<string, readonly string[]>;
 
 // Magic-byte signatures for the subset of EXTENSION_MIME_WHITELIST that has
@@ -78,6 +80,19 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
     matches: (bytes) => startsWithAscii(bytes, "RIFF") && startsWithAscii(bytes, "WEBP", 8),
   },
   { mimeType: "application/pdf", matches: (bytes) => startsWithAscii(bytes, "%PDF-") },
+  // Full 8-byte OLE Compound File signature (legacy .doc/.xls/.ppt share it —
+  // sniffing can't tell them apart by bytes alone, only content-verification
+  // below narrows to msword specifically).
+  {
+    mimeType: "application/msword",
+    matches: (bytes) => startsWithBytes(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+  },
+  // ZIP local-file-header signature — .docx/.xlsx/.pptx/plain .zip all share
+  // it; same caveat as OLE above.
+  {
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    matches: (bytes) => startsWithBytes(bytes, [0x50, 0x4b, 0x03, 0x04]),
+  },
 ];
 
 function startsWithBytes(bytes: Uint8Array, signature: readonly number[]): boolean {
@@ -100,6 +115,12 @@ export function sniffMimeType(bytes: Uint8Array): string | null {
   return null;
 }
 
+// Strips a `; charset=…`-style suffix and trims/lowercases — the one
+// normalization every mimeType comparison needs before comparing values.
+export function normalizeMimeType(mimeType: string): string {
+  return mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
+}
+
 // image/jpg is not a registered IANA type but EXTENSION_MIME_WHITELIST above
 // accepts it as a jpg alias — sniffMimeType only ever returns the canonical
 // image/jpeg, so without this a legitimately-declared "image/jpg" upload
@@ -119,10 +140,18 @@ const DECLARED_MIME_ALIASES: Readonly<Record<string, string>> = {
 export function resolveServedContentType(bytes: Uint8Array, declaredMimeType: string): string {
   const sniffed = sniffMimeType(bytes);
   if (!sniffed) return "application/octet-stream";
-  const normalizedDeclared = declaredMimeType.toLowerCase().split(";")[0]?.trim() ?? "";
+  const normalizedDeclared = normalizeMimeType(declaredMimeType);
   const declared = DECLARED_MIME_ALIASES[normalizedDeclared] ?? normalizedDeclared;
   return sniffed === declared ? sniffed : "application/octet-stream";
 }
+
+// Signature-checked against the declared mimeType regardless of
+// `options.accept`. Deliberately narrow: most of the whitelist has no magic
+// bytes at all and would reject honestly-mislabeled uploads if checked.
+const CONTENT_VERIFIED_MIME_TYPES = new Set([
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
 
 export function validateFile(
   metadata: FileMetadata,
@@ -146,13 +175,26 @@ export function validateFile(
     // and having the mimeType reflect that.
     const allowedMimes = EXTENSION_MIME_WHITELIST[ext];
     if (allowedMimes && metadata.mimeType) {
-      const normalized = metadata.mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
+      const normalized = normalizeMimeType(metadata.mimeType);
       if (!allowedMimes.includes(normalized)) {
         return `mime_mismatch: extension ".${ext}" does not match mimeType "${metadata.mimeType}"`;
       }
     }
   }
 
+  return null;
+}
+
+// Separate from validateFile: metadata is known before the upload body is
+// fully read, content-verification only after — callers reject early on
+// metadata without buffering bytes they'll then have to reject anyway.
+export function validateFileContent(mimeType: string, content: Uint8Array): string | null {
+  const normalizedDeclared = normalizeMimeType(mimeType);
+  if (!CONTENT_VERIFIED_MIME_TYPES.has(normalizedDeclared)) return null;
+  const signature = MAGIC_BYTE_SIGNATURES.find((s) => s.mimeType === normalizedDeclared);
+  if (signature && !signature.matches(content)) {
+    return `content_mismatch: bytes do not match declared mimeType "${mimeType}"`;
+  }
   return null;
 }
 

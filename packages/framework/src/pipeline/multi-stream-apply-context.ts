@@ -38,6 +38,7 @@ export function createMultiStreamApplyContext(
   deps: MultiStreamApplyContextDeps,
 ): MultiStreamApplyContext {
   return {
+    registry: deps.registry,
     ...(deps.files ? { files: deps.files } : {}),
     ...(deps.derivatives ? { derivatives: deps.derivatives } : {}),
     appendEvent: (async (args: AppendEventArgs) => {

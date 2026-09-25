@@ -115,6 +115,7 @@ function createRebuildCtx(
     });
   };
   return {
+    registry,
     appendEvent: refuseAppend as MultiStreamApplyContext["appendEvent"], // @cast-boundary engine-bridge
     unsafeAppendEvent: refuseAppend,
     loadAggregate: async (aggregateId, options) => {

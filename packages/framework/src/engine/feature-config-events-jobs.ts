@@ -222,6 +222,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
               on: Array.isArray(jobOptions.trigger.on)
                 ? jobOptions.trigger.on.map(resolveName)
                 : resolveName(jobOptions.trigger.on as NameOrRef), // @cast-boundary engine-bridge
+              ...(jobOptions.trigger.where !== undefined
+                ? { where: jobOptions.trigger.where }
+                : {}),
             }
           : jobOptions.trigger;
       state.jobs[jobName] = { ...jobOptions, trigger, name: jobName, handler: jobHandler };

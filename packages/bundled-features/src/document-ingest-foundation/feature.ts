@@ -1,15 +1,8 @@
 // kumiko-feature-version: 1
 //
-// document-ingest-foundation — Phase-1 (MVP) skeleton for the shared
-// PDF/Scan/Image → normalized-text ingest primitive. Owns the
-// `documentExtract` entity + tenant-config, and (Theme A, kumiko-framework
-// #1497) the fileRef.created trigger: a multiStreamProjection that validates
-// mime/size and — on OK — appends `documentIngest.requested`, the anchor
-// event the Phase-2 worker job (kumiko-enterprise LiteParse provider) reacts
-// to (event-trigger, not job-trigger — `files` exports no write-handler ref
-// for r.job's trigger.on to hang off, files-post-processing recipe pattern).
-// LiteParse itself lands in kumiko-enterprise#273-275. See
-// CosmicDriftGameStudio/kumiko-framework#1495 for the full phase breakdown.
+// Provider-driven PDF/Scan/Image → normalized-text ingest primitive. No
+// hardcoded mime allowlist or size cap — providers register via
+// EXT_DOCUMENT_INGEST_PROVIDER (see providers.ts).
 
 import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -18,7 +11,9 @@ import {
   defineFeature,
   EXT_TENANT_DATA,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { normalizeMimeType } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
+import { validateDocumentIngestProviderWiring } from "./boot-checks";
 import { documentExtractEntity } from "./entity";
 import {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
@@ -29,29 +24,18 @@ import {
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events";
+import { forgetExtractWithFileRefHook } from "./forget-extract-with-file-ref";
+import { EXT_DOCUMENT_INGEST_PROVIDER, resolveDocumentIngestProviders } from "./providers";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook";
 
 const FEATURE_NAME = "document-ingest-foundation";
 
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
+const FILE_REF_DELETED = entityEventName("fileRef", "deleted");
+const FILE_REF_FORGOTTEN = entityEventName("fileRef", "forgotten");
 
-// Phase-1 scope (plan doc): PDF + raster images only. xlsx/docx/vision are
-// Phase 2, routed through separate providers, not this MSP.
-const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/tiff"]);
-
-// ponytail: fixed cap, not tenant-config — the plan only calls out
-// maxPagesPerFile as tenant-configurable. Runs BEFORE the mime check for
-// the same reason it must run before isComplex() downstream: rejecting on
-// size is O(1), the checks after it are not (Spike: 699-page PDF). Chosen
-// on domain grounds — scanned invoices and official letters routinely land
-// in the 10-20mb range, well above file-routes.ts' unconstrained-upload
-// default (10mb); tests raise maxUploadSize instead of shrinking this.
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-
-// Narrow fileRef.created's generic entity payload at the MSP boundary.
-// Missing/invalid fields → skip (return), never cast — a bad size would
-// otherwise pass `undefined > MAX_FILE_BYTES` and a later appendDomainEvent
-// schema failure would dead the request-ingest consumer for all tenants.
+// Missing/invalid fields → skip, never cast — a bad size would otherwise
+// pass a provider's maxFileBytes comparison and dead-letter the consumer.
 const fileRefCreatedPayloadSchema = z.object({
   storageKey: z.string().min(1),
   fileName: z.string().min(1),
@@ -61,7 +45,7 @@ const fileRefCreatedPayloadSchema = z.object({
 
 export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
-    "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, and a fileRef.created trigger that validates mime/size and requests ingest via `documentIngest.requested`. LiteParse provider wiring lands in follow-up features.",
+    "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider.",
   );
   r.uiHints({
     displayLabel: "Document Ingest Foundation",
@@ -69,13 +53,17 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
     recommended: false,
   });
   // tenant-lifecycle hosts EXT_TENANT_DATA — documentExtract.pages is
-  // tenant-subject ciphertext and needs the destroy hook below (#1621).
+  // tenant-subject ciphertext and needs the destroy hook below.
   r.requires("config", "tenant-lifecycle");
 
   r.entity("documentExtract", documentExtractEntity);
   r.useExtension(EXT_TENANT_DATA, "documentExtract", {
     destroy: documentExtractTenantDestroyHook,
   });
+
+  // No onRegister: resolution happens at boot and per-apply, not on register.
+  r.extendsRegistrar(EXT_DOCUMENT_INGEST_PROVIDER, {});
+  r.bootCheck(({ features }) => validateDocumentIngestProviderWiring(features));
 
   const ocrLanguageConfigKey = r.config(
     "ocrLanguage",
@@ -103,9 +91,20 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
   );
 
   // "fileName" can carry a real person's name; the payload has no user-subject
-  // field to encrypt it under, so piiFields stays "none" pending #2776.
+  // field to encrypt it under, so piiFields stays "none" for now.
   r.defineEvent(DOCUMENT_INGEST_REQUESTED_EVENT_SHORT, documentIngestRequestedPayloadSchema, {
     piiFields: "none",
+    version: 2,
+    migrations: [
+      {
+        fromVersion: 1,
+        toVersion: 2,
+        // "unknown" can never match a real where.provider filter — an
+        // upcast v1 row reads as unclaimed instead of silently misrouting to
+        // whichever provider happens to be mounted today.
+        transform: { default: { provider: "unknown" } },
+      },
+    ],
   });
   r.defineEvent(DOCUMENT_INGEST_SKIPPED_EVENT_SHORT, documentIngestSkippedPayloadSchema, {
     piiFields: "none",
@@ -137,14 +136,22 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
             },
           });
 
-        // skip: over the fixed cap — no ingest requested, upload itself already succeeded
-        if (payload.size > MAX_FILE_BYTES) {
-          await skip("file-too-large");
+        // Boot already refused an invalid/conflicting provider config — a
+        // throw here can only mean the registry changed since then, handled
+        // like any other apply throw (retry/dead-letter).
+        const providers = resolveDocumentIngestProviders(
+          ctx.registry.getExtensionUsages(EXT_DOCUMENT_INGEST_PROVIDER),
+        );
+        const provider = providers.get(normalizeMimeType(payload.mimeType));
+        // skip: no provider claims this mimeType — no ingest requested
+        if (!provider) {
+          await skip("unsupported-mime-type");
           return;
         }
-        // skip: outside the Phase-1 mime allowlist — no ingest requested
-        if (!ALLOWED_MIME_TYPES.has(payload.mimeType)) {
-          await skip("unsupported-mime-type");
+        // skip: over the winning provider's own cap — no ingest requested,
+        // upload itself already succeeded
+        if (payload.size > provider.maxFileBytes) {
+          await skip("file-too-large");
           return;
         }
 
@@ -158,9 +165,21 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
             fileName: payload.fileName,
             mimeType: payload.mimeType,
             size: payload.size,
+            provider: provider.name,
           },
         });
       },
+    },
+  });
+
+  // fileRef delete/forget cleanup: documentExtract rows are derived data —
+  // once the source file is gone (soft-deleted or Art.17-forgotten), the
+  // extracted text has no reason to survive it either.
+  r.multiStreamProjection({
+    name: "forget-extract-with-file-ref",
+    apply: {
+      [FILE_REF_DELETED]: forgetExtractWithFileRefHook,
+      [FILE_REF_FORGOTTEN]: forgetExtractWithFileRefHook,
     },
   });
 

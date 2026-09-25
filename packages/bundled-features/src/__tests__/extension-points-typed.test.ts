@@ -11,6 +11,7 @@ import { authFoundationFeature } from "../auth-foundation/feature";
 import { billingFoundationFeature } from "../billing-foundation/feature";
 import { createCustomFieldsFeature } from "../custom-fields/feature";
 import { createDeliveryFeature } from "../delivery/feature";
+import { documentIngestFoundationFeature } from "../document-ingest-foundation/feature";
 import { createFileDerivativesFeature } from "../file-derivatives/feature";
 import { fileFoundationFeature } from "../file-foundation/feature";
 import { inboundMailFoundationFeature } from "../inbound-mail-foundation/feature";
@@ -44,6 +45,7 @@ const TYPED_EXTENSION_POINTS = [
   "deliveryChannel",
   "subscriptionProvider",
   "mailTransport",
+  "documentIngestProvider",
 ] as const satisfies readonly (keyof KumikoExtensionOptionsMap)[];
 
 const UNTYPED_BY_DESIGN: Record<string, string> = {
@@ -59,6 +61,7 @@ const DECLARING_FEATURE_DIRS = [
   "billing-foundation",
   "custom-fields",
   "delivery",
+  "document-ingest-foundation",
   "file-derivatives",
   "file-foundation",
   "inbound-mail-foundation",
@@ -97,6 +100,7 @@ function allRegistrarExtensionNames(): readonly string[] {
     billingFoundationFeature,
     createCustomFieldsFeature(),
     createDeliveryFeature(),
+    documentIngestFoundationFeature,
     createFileDerivativesFeature(),
     fileFoundationFeature,
     inboundMailFoundationFeature,

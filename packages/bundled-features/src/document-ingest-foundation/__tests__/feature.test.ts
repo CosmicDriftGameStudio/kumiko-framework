@@ -83,12 +83,25 @@ describe("documentIngestFoundationFeature — shape", () => {
     );
   });
 
-  test("registers the fileRef.created MSP", () => {
+  test("registers the fileRef.created MSP and the fileRef delete/forget cleanup MSP", () => {
     expect(Object.keys(documentIngestFoundationFeature.multiStreamProjections)).toEqual([
       "request-ingest",
+      "forget-extract-with-file-ref",
     ]);
-    const msp = documentIngestFoundationFeature.multiStreamProjections["request-ingest"];
-    expect(Object.keys(msp?.apply ?? {})).toEqual(["fileRef.created"]);
+    const requestIngest = documentIngestFoundationFeature.multiStreamProjections["request-ingest"];
+    expect(Object.keys(requestIngest?.apply ?? {})).toEqual(["fileRef.created"]);
+    const forgetExtract =
+      documentIngestFoundationFeature.multiStreamProjections["forget-extract-with-file-ref"];
+    expect(Object.keys(forgetExtract?.apply ?? {})).toEqual([
+      "fileRef.deleted",
+      "fileRef.forgotten",
+    ]);
+  });
+
+  test("registers the documentIngestProvider extension point", () => {
+    expect(Object.keys(documentIngestFoundationFeature.registrarExtensions)).toContain(
+      "documentIngestProvider",
+    );
   });
 });
 

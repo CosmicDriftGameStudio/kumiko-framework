@@ -354,7 +354,12 @@ export type JobTrigger =
   // event-consumer (createJobTriggerEventConsumer, pipeline/system-
   // hooks.ts) — cursor delivery, at-least-once. Handlers triggered on an
   // r.defineEvent QN must be idempotent.
-  | { readonly on: import("./handlers").NameOrRef | readonly import("./handlers").NameOrRef[] }
+  | {
+      readonly on: import("./handlers").NameOrRef | readonly import("./handlers").NameOrRef[];
+      // Equality filter on top-level payload fields, checked before enqueue —
+      // lets N jobs share one broad event QN, partitioned by a discriminant.
+      readonly where?: Readonly<Record<string, string | number | boolean>>;
+    }
   | { readonly cron: string }
   | { readonly manual: true };
 
