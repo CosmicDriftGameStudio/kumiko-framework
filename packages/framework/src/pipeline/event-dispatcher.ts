@@ -434,7 +434,16 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           instanceId: consumerInstanceId(consumer, options.instanceId),
         })),
       );
-      idlePreCheckErrorLogged = false;
+      if (idlePreCheckErrorLogged) {
+        idlePreCheckErrorLogged = false;
+        const recoveredMsg =
+          "[event-dispatcher] idle pre-check recovered, database reachable again";
+        if (context.log) {
+          context.log.info(recoveredMsg);
+        } else {
+          console.log(recoveredMsg);
+        }
+      }
     } catch (e) {
       idleKeys = new Set();
       // Log once per outage, not once per poll tick — see
@@ -697,10 +706,11 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // fallback (dropped subscriptions, missed commits under load).
       //
       // Observability: the gauge kumiko_event_dispatcher_listen_connected
-      // flips to 1 on initial subscribe AND on every postgres.js silent
-      // reconnect (via the onlisten callback). A drop to 0 while running
-      // means delivery latency regressed from TCP-round-trip to
-      // pollIntervalMs — ops-visible.
+      // flips to 1 on initial subscribe and again on every reconnect that
+      // succeeds (onlisten callback). It only drops to 0 on the initial
+      // connect failure or on stop(); a LISTEN that dies later and never
+      // comes back leaves the gauge stuck at 1 while delivery has already
+      // fallen back to pollIntervalMs, so it is not a reliable outage signal.
       emitEventDispatcherListenConnected(meter, false);
       if (options.pgClient) {
         try {
@@ -712,10 +722,10 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
               });
             },
             () => {
-              // Fires on initial connect AND on each reconnect. postgres.js
-              // reconnects transparently if the TCP connection drops, so the
-              // only way to see the recovery window is to flip the gauge
-              // every time this callback lands.
+              // postgres.js retries the re-LISTEN only once from its own onclose
+              // handler; if the DB is still down then, LISTEN stays dead for good.
+              // ponytail: no own LISTEN reconnect loop here; add one (onclose +
+              // re-LISTEN with backoff) once prod wires a pgClient.
               emitEventDispatcherListenConnected(meter, true);
             },
           );
