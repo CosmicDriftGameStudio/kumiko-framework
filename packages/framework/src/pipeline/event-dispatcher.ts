@@ -452,6 +452,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // signal for ops, not a delivery failure.
       if (!idlePreCheckErrorLogged) {
         idlePreCheckErrorLogged = true;
+        // The LISTEN peer talks to the same DB, so it is gone too; only a
+        // later onlisten may flip the gauge back to 1.
+        emitEventDispatcherListenConnected(meter, false);
         const msg = e instanceof Error ? e.message : String(e);
         const logMsg = `[event-dispatcher] idle pre-check failed, falling back to per-consumer locking every tick until it recovers: ${msg}`;
         if (context.log) {
@@ -707,10 +710,10 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       //
       // Observability: the gauge kumiko_event_dispatcher_listen_connected
       // flips to 1 on initial subscribe and again on every reconnect that
-      // succeeds (onlisten callback). It only drops to 0 on the initial
-      // connect failure or on stop(); a LISTEN that dies later and never
-      // comes back leaves the gauge stuck at 1 while delivery has already
-      // fallen back to pollIntervalMs, so it is not a reliable outage signal.
+      // succeeds (onlisten callback). It drops to 0 on the initial connect
+      // failure, on stop() and when the idle pre-check detects a DB outage.
+      // An outage shorter than one poll tick is not detected; the gauge then
+      // stays at 1 until postgres.js's delayed re-LISTEN lands.
       emitEventDispatcherListenConnected(meter, false);
       if (options.pgClient) {
         try {
@@ -722,10 +725,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
               });
             },
             () => {
-              // postgres.js retries the re-LISTEN only once from its own onclose
-              // handler; if the DB is still down then, LISTEN stays dead for good.
-              // ponytail: no own LISTEN reconnect loop here; add one (onclose +
-              // re-LISTEN with backoff) once prod wires a pgClient.
+              // Fires on initial connect and again when postgres.js's own
+              // re-LISTEN lands after a drop; during an outage that re-LISTEN
+              // waits in its connection backoff (measured 10-30s after the DB
+              // returns), polling covers delivery meanwhile. Never unlisten()
+              // + listen() by hand: that leaves duplicate listeners.
+              // ponytail: no own LISTEN reconnect, the backoff gap is polled;
+              // add a dedicated LISTEN connection if prod wires a pgClient
+              // and that latency matters.
               emitEventDispatcherListenConnected(meter, true);
             },
           );
