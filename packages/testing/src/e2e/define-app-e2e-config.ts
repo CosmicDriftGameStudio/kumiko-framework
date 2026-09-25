@@ -21,12 +21,26 @@ import {
 import { screenshotSpecsIgnore } from "./screenshot-dir";
 import { E2E_TIMEOUT_MS } from "./timeouts";
 
+// Apps pick Meilisearch over their in-memory search adapter just because
+// MEILI_URL is set, so a default here would point every consumer without a
+// Meili service at an unreachable host. Meili stays opt-in: environment or `env`.
+const OPT_IN_SERVICE_ENV_KEYS: readonly string[] = [
+  "MEILI_URL",
+  "MEILI_MASTER_KEY",
+] satisfies readonly (keyof typeof SERVICE_ENV_DEFAULTS)[];
+
 // A `??` merge per key, not a raw process.env spread — CI or the shell
 // environment wins over the local-dev default without leaking unrelated
 // host env vars into the webServer process.
 function infraEnvDefaults(): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(SERVICE_ENV_DEFAULTS).map(([key, value]) => [key, process.env[key] ?? value]),
+    Object.entries(SERVICE_ENV_DEFAULTS).flatMap(([key, value]) => {
+      const fromEnvironment = process.env[key];
+      if (OPT_IN_SERVICE_ENV_KEYS.includes(key)) {
+        return fromEnvironment === undefined ? [] : [[key, fromEnvironment]];
+      }
+      return [[key, fromEnvironment ?? value]];
+    }),
   );
 }
 
