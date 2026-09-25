@@ -512,8 +512,8 @@ describe("POST /__test/seed with extraSeeders", () => {
   });
 });
 
-describe("POST /__test/seed-user unknown tenant", () => {
-  test("is 404 instead of creating a user for a tenant that does not exist", async () => {
+describe("POST /__test/seed-user tenant this route did not seed", () => {
+  test("a random tenant id is 403 and creates nothing", async () => {
     const h = await boot();
 
     const res = await post(h, SEED_ROUTES.seedUser, {
@@ -521,7 +521,31 @@ describe("POST /__test/seed-user unknown tenant", () => {
       roles: ["Member"],
     });
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+  });
+
+  test("a tenant seeded in-process (not via this route's seed-tenant) is also 403", async () => {
+    const h = await boot();
+    const inProcess = await seedTenant(h.stack, { persist: true });
+
+    const res = await post(h, SEED_ROUTES.seedUser, {
+      tenantId: inProcess.id,
+      roles: ["Member"],
+    });
+
+    expect(res.status).toBe(403);
+    expect(
+      await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: inProcess.id }),
+    ).toHaveLength(1);
+  });
+
+  test("after seed-tenant on this route, seed-user for that tenant succeeds", async () => {
+    const h = await boot();
+    const seeded = await seedTenantVia(h);
+
+    const res = await post(h, SEED_ROUTES.seedUser, { tenantId: seeded.id, roles: ["Member"] });
+
+    expect(res.status).toBe(200);
   });
 });
 

@@ -4,7 +4,6 @@ import {
   getInbox,
   mailTransportInMemoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   type ExtraRouteDefinition,
   ExtraRouteRejection,
@@ -92,6 +91,17 @@ function assertGateOpen(request: SignatureExtraRouteVerifyRequest): void {
   }
   if (!tokenMatches(expected, request.headers[SEED_TOKEN_HEADER])) {
     throw new ExtraRouteRejection(401, { error: "invalid seed token" });
+  }
+}
+
+// Shared by seed-user and extra-seed: both address a tenant by id, and a
+// tenant exists in seededTenantIds by construction only after this same
+// server's seed-tenant route created it.
+function assertSeededTenant(tenantId: string, seededTenantIds: ReadonlySet<string>): void {
+  if (!seededTenantIds.has(tenantId)) {
+    throw new ExtraRouteRejection(403, {
+      error: `tenant ${tenantId} was not seeded by this server's seed-tenant route`,
+    });
   }
 }
 
@@ -188,20 +198,11 @@ export function createE2eSeedRoutes(
     entry: "signature",
     verify: async (request) => {
       assertGateOpen(request);
-      return parseOrReject(parseJsonBody(seedUserRequestSchema, request.rawBody));
+      const parsed = parseOrReject(parseJsonBody(seedUserRequestSchema, request.rawBody));
+      assertSeededTenant(parsed.tenantId, seededTenantIds);
+      return parsed;
     },
     handler: async (c, verified, deps) => {
-      // No raw db in signature-route deps (fw#3050) — tenant:query:me, run as
-      // a SystemAdmin scoped to verified.tenantId, is the existing
-      // fetchOne(tenantTable, {id: tenantId}) lookup, just behind the dispatcher.
-      const tenantRow = await deps.dispatchSystemQuery({
-        handlerQn: TenantQueries.me,
-        payload: {},
-        tenantId: verified.tenantId,
-      });
-      if (tenantRow === null) {
-        return c.json({ error: `unknown tenant ${verified.tenantId}` }, 404);
-      }
       const write: SeedWriter = async (handlerQn, payload, tenantId) =>
         unwrapSavedRow(handlerQn, await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }));
       try {
@@ -277,11 +278,7 @@ export function createE2eSeedRoutes(
           error: `unknown seeder "${parsed.seeder}"; registered: ${registered}`,
         });
       }
-      if (!seededTenantIds.has(parsed.tenantId)) {
-        throw new ExtraRouteRejection(403, {
-          error: `tenant ${parsed.tenantId} was not seeded by this server's seed-tenant route`,
-        });
-      }
+      assertSeededTenant(parsed.tenantId, seededTenantIds);
       return {
         seederName: parsed.seeder,
         seeder,
