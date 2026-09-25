@@ -3,12 +3,13 @@
 // resolve against (same #1438 dual-package-hazard pattern as event-store.ts).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { type RequestContextData, requestContext } from "../api/request-context";
-import type { DbConnection, DbTx } from "../db/connection";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import {
   insertConsumerIfAbsent,
   markConsumerProcessing,
   rearmDeadConsumer,
   recordConsumerPassFailure,
+  selectConsumerForUpdate,
   selectConsumerForUpdateSkipLocked,
   selectProvablyIdleConsumerPairs,
   updateConsumerDeliveryOutcome,
@@ -158,6 +159,26 @@ export async function acquireConsumerState(
     return { state: null, skip: "dead" };
   }
   return { state, skip: null };
+}
+
+export type ConsumerCursor = {
+  readonly lastProcessedEventId: bigint;
+  readonly pendingGaps: readonly PendingGapEntry[];
+};
+
+// Blocking FOR UPDATE (not SKIP LOCKED): callers of this one need to actually
+// wait for the dispatcher's own turn to finish, not skip past it, so their
+// read of the already-applied cursor is guaranteed to be up to date rather
+// than possibly stale.
+export async function selectConsumerCursorForUpdate(
+  db: DbRunner,
+  name: string,
+  instanceId: string,
+): Promise<ConsumerCursor | undefined> {
+  const rawState = await selectConsumerForUpdate(db, name, instanceId);
+  if (!rawState) return undefined;
+  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  return { lastProcessedEventId: state.lastProcessedEventId, pendingGaps: state.pendingGaps };
 }
 
 // Read-only pre-check run once per doPass, before any consumer's turn opens

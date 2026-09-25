@@ -15,11 +15,12 @@ export type { DistributedLock } from "./distributed-lock";
 export { createDistributedLock } from "./distributed-lock";
 export type { EntityCache, EntityCacheOptions } from "./entity-cache";
 export { createEntityCache } from "./entity-cache";
-export type { ConsumerStatus } from "./event-consumer-state";
+export type { ConsumerStatus, PendingGapEntry } from "./event-consumer-state";
 export {
   ConsumerStatuses,
   createEventConsumerStateTable,
   eventConsumerStateTable,
+  SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state";
 export type { EventDedup } from "./event-dedup";
 export { createEventDedup } from "./event-dedup";
@@ -43,6 +44,8 @@ export {
   restartConsumer,
   skipPoisonEvent,
 } from "./event-dispatcher";
+export type { ConsumerCursor } from "./event-dispatcher-delivery";
+export { selectConsumerCursorForUpdate } from "./event-dispatcher-delivery";
 export type { PruneEventsOptions, PruneEventsResult } from "./event-retention";
 export { ConsumerLagError, pruneEvents } from "./event-retention";
 export type { IdempotencyGuard } from "./idempotency";

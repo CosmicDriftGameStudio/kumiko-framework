@@ -26,7 +26,12 @@ export {
   isFileProviderPlugin,
   makeFileProviderResolver,
 } from "./provider-resolver";
-export { filesStorageTrackingFeature, tenantStorageUsageTable } from "./storage-tracking";
+export {
+  fileRefStorageDelta,
+  filesStorageTrackingFeature,
+  tenantStorageUsageTable,
+  transferTenantStorageUsage,
+} from "./storage-tracking";
 export type {
   FileMetadata,
   FileStorageProvider,
