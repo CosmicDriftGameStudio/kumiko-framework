@@ -8,7 +8,11 @@
 // Bun.SQL hat kein LISTEN — postgres-js-Peer für event-dispatcher.
 
 import postgres from "postgres";
-import type { DbConnectionOptions, DbPoolHandle } from "./api";
+import {
+  type DbConnectionOptions,
+  type DbPoolHandle,
+  DEFAULT_DB_CLOSE_TIMEOUT_SECONDS,
+} from "./api";
 
 export function createBunConnection(url: string, options: DbConnectionOptions = {}): DbPoolHandle {
   const bunOpts: { max?: number; idleTimeout?: number; connectionTimeout?: number } = {};
@@ -25,13 +29,14 @@ export function createBunConnection(url: string, options: DbConnectionOptions = 
     pgOpts.connect_timeout = options.connectTimeoutSeconds;
   const listenClient = postgres(url, pgOpts);
 
+  const closeTimeout = options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS;
   return {
     db,
     client: listenClient,
     listenClient,
     close: async () => {
-      await db.end();
-      await listenClient.end();
+      await db.end({ timeout: closeTimeout });
+      await listenClient.end({ timeout: closeTimeout });
     },
   };
 }

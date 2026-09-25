@@ -3,6 +3,7 @@
 import type { DbConnection, PgClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse";
+import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "./api";
 
 // Raw client types (postgres-js | Bun.SQL) — the name used across query/
 // event-store/pipeline call sites. The structural pool handle from ./api is
@@ -33,9 +34,8 @@ export function createDbConnection(
   return {
     db: client,
     client,
-    close: async () => {
-      await client.end();
-    },
+    close: () =>
+      client.end({ timeout: options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS }),
   };
 }
 

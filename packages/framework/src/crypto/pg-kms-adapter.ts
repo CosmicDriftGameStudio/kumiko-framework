@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import postgres from "postgres";
+import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "../db/api";
 import {
   KeyAlreadyExistsError,
   KeyErasedError,
@@ -172,7 +173,7 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
   }
 
   async close(): Promise<void> {
-    await this.sql.end();
+    await this.sql.end({ timeout: DEFAULT_DB_CLOSE_TIMEOUT_SECONDS });
   }
 
   private ensureSchema(): Promise<void> {

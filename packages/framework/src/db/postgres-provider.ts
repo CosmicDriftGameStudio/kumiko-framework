@@ -3,7 +3,11 @@
 // `asRawClient(db)` wrappt .unsafe und .begin transparent.
 
 import postgres from "postgres";
-import type { DbConnectionOptions, DbPoolHandle } from "./api";
+import {
+  type DbConnectionOptions,
+  type DbPoolHandle,
+  DEFAULT_DB_CLOSE_TIMEOUT_SECONDS,
+} from "./api";
 
 export function createPgConnection(url: string, options: DbConnectionOptions = {}): DbPoolHandle {
   const pgOptions: Parameters<typeof postgres>[1] = {};
@@ -18,8 +22,7 @@ export function createPgConnection(url: string, options: DbConnectionOptions = {
   return {
     db: client,
     client,
-    close: async () => {
-      await client.end();
-    },
+    close: () =>
+      client.end({ timeout: options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS }),
   };
 }
