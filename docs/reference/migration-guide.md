@@ -2,13 +2,40 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-24
+verified: 2026-09-25
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.309.0
+
+### data-retention
+
+**data-retention hardDelete now purges file bytes + fileRef rows, not just the entity row (fw#3089)**
+
+**Migration:** hardDelete previously deleted only the entity row and left every file/image/files/images field's storage bytes and `file_refs` row behind — a DSGVO Art. 17 gap. As of this release, an expired row's un-shared fileRefs (same tenant, bound to this row, not referenced by another row of the same entity) have their storage bytes deleted (including derivatives/thumbnails), then their `file_refs` row, then the entity row itself. A fileRef still referenced by another row, or bound to a different entity/record, is left untouched. Without a resolvable file-storage provider in the retention cron's job context, an entity with pending file deletions is skipped entirely (`skipped` reason `missing_file_storage`) rather than silently dropping the row with orphaned bytes; a storage-delete failure skips the row too (`file_delete_failed`) and retries on the next run. Before upgrading, a consumer relying on hardDelete NOT touching file storage should: list entities with `retention.strategy: "hardDelete"` and at least one file/image/files/images field, count rows already past `keepFor` for each, and confirm the referenced files are safe to delete (not needed elsewhere) before the next cron run.
+
+### enterprise:testing
+
+**reducedMotion defaults to "reduce" in runScreenshots/runMatrix/captureScreenshot; captureScreenshot(page, name) added**
+
+rAF-driven chart/tween animations were invisible to the settle-detection
+wait, so screenshots sometimes captured a mid-animation frame. Both matrix
+helpers now call page.emulateMedia({ reducedMotion: "reduce" }) at test
+start, before the first navigation. The new captureScreenshot(page, name,
+opts?) applies the same media emulation at capture time, so it only affects
+animations started after that point; set reducedMotion via test.use() for
+mid-flow shots of charts that animate on mount. captureScreenshot reuses the
+matrix runner's settle logic, writes $SCREENSHOT_DIR/<name>.png, and is a
+no-op when SCREENSHOT_DIR is unset, for solon's mid-flow shot(page, id) and
+offlot's inline page.screenshot writes into docs/screenshots/e2e/.
+
+**Migration:** Pass `reducedMotion: "no-preference"` in runScreenshots/runMatrix's
+options, or as captureScreenshot's third argument, for a scenario that
+must keep real motion.
 
 ## 0.308.0
 

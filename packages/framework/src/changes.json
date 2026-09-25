@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.309.0",
+    "type": "fix",
+    "title": "LISTEN gauge drops to 0 on a DB outage",
+    "detail": "`kumiko_event_dispatcher_listen_connected` stayed at 1 when the LISTEN\nconnection died during a DB outage, although delivery had already fallen\nback to polling. The dispatcher now sets it to 0 when the idle pre-check\ndetects the outage. postgres.js re-LISTENs on its own once the DB is back\n(delayed by its connect backoff, measured 10-30s) and sets it back to 1."
+  },
+  {
+    "version": "0.309.0",
+    "type": "fix",
+    "title": "event-dispatcher logs when the DB comes back after an outage (fw#3243)",
+    "detail": "A DB outage already kept the dispatcher process alive (the postgres pool\nreconnects per query and the dispatcher keeps polling from its cursor) and\nlogged `idle pre-check failed` once per outage, but recovery was silent:\nops had no signal that delivery was back to normal without restarting the\nprocess. The idle pre-check now logs `idle pre-check recovered, database\nreachable again` once the next pass succeeds after a logged failure, no\nrestart needed."
+  },
+  {
+    "version": "0.309.0",
+    "type": "fix",
+    "title": "Pin postgres to a fork carrying the nextWrite null-socket fix (fw#3243)",
+    "detail": "The framework now depends on @bender0oo0/postgres@3.4.9-kumiko.1, an exact pin of\npostgres 3.4.9 plus a backport of porsager/postgres#1209. Without the backport, a\nclosed connection can crash the whole process with an uncaughtException\n(\"null is not an object (evaluating 'socket.write')\") instead of rejecting the\nin-flight query with CONNECTION_CLOSED. Apps get the fix automatically with this\nframework bump, no app-side changes needed. The pin is temporary and tracked for\nremoval in kumiko-framework#3248 once the fix lands upstream."
+  },
+  {
+    "version": "0.309.0",
+    "type": "fix",
+    "title": "setupTestStack creates r.entity() tables — same table list as kumiko schema generate (fw#3102)",
+    "detail": "Since 0.290.0 (fw#2881), every authenticated request reads `read_tenants` (rejectIfTenantTeardown) as soon as tenant-lifecycle is mounted. Test stacks needed a manually created tenant table for that to work, because setupTestStack pushed projection/multiStreamProjection/storeTable sources but never r.entity() tables. setupTestStack now creates every entity's backing table itself via collectTableMetas, the same table list `kumiko schema generate` uses, so a feature that only declares r.entity() no longer 42P01s on first write in a test stack. App-side wrappers like `unsafeEnsureEntityTable(db, tenantEntity, \"tenant\")` right after setupTestStack can be removed. Callers that create/migrate entity tables themselves can opt out via `entityTables: false` (used internally by `setupAppTestStack`'s `registryTables: false`), and setupTestStack now drops the ephemeral test DB/Redis if the table DDL fails instead of leaking them."
+  },
+  {
     "version": "0.308.0",
     "type": "fix",
     "title": "startFrom \"now\" and MSP rebuild hand-off no longer lose out-of-order commits"

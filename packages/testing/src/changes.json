@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.309.0",
+    "type": "breaking",
+    "title": "reducedMotion defaults to \"reduce\" in runScreenshots/runMatrix/captureScreenshot; captureScreenshot(page, name) added",
+    "detail": "rAF-driven chart/tween animations were invisible to the settle-detection\nwait, so screenshots sometimes captured a mid-animation frame. Both matrix\nhelpers now call page.emulateMedia({ reducedMotion: \"reduce\" }) at test\nstart, before the first navigation. The new captureScreenshot(page, name,\nopts?) applies the same media emulation at capture time, so it only affects\nanimations started after that point; set reducedMotion via test.use() for\nmid-flow shots of charts that animate on mount. captureScreenshot reuses the\nmatrix runner's settle logic, writes $SCREENSHOT_DIR/<name>.png, and is a\nno-op when SCREENSHOT_DIR is unset, for solon's mid-flow shot(page, id) and\nofflot's inline page.screenshot writes into docs/screenshots/e2e/.",
+    "migration": "Pass `reducedMotion: \"no-preference\"` in runScreenshots/runMatrix's\noptions, or as captureScreenshot's third argument, for a scenario that\nmust keep real motion."
+  },
+  {
+    "version": "0.309.0",
+    "type": "fix",
+    "title": "test:real now filters to *.real.test.ts, and real-provider runs share one 240s timeout budget",
+    "detail": "bunfig.real.toml's pathIgnorePatterns is blacklist-only (no gitignore-style\nnegation), so an unfiltered `bun test --config=bunfig.real.toml` still ran\nthe whole unit suite under the real-provider env. The generated `test:real`\nscript now passes a positional `real.test.ts` filter. TEST_TIMEOUT_MS.real\n(bun --timeout) and E2E_TIMEOUT_MS.real (the Playwright real-run path via\ndefineAppE2eConfig) now both come from the same 240_000 template constant\ninstead of a separately hardcoded 120s, covering solon's real-provider\ndocument-onboarding flow. `isRealProviderRun(env?)` is exported next to\n`REAL_PROVIDERS_ENV`/`requireRealProviders` so apps stop duplicating the\n`KUMIKO_REAL_PROVIDERS === \"1\"` literal."
+  },
+  {
+    "version": "0.309.0",
+    "type": "improvement",
+    "title": "runMatrix locales are app-injectable via localeTags, and gains a namedDevice mode for phone-style device projects",
+    "detail": "runMatrix's locale list was fixed to en/de with hardcoded BCP47 tags.\nopts.localeTags lets an app supply its own locale -> tag map (e.g. \"es\" ->\n\"es-ES\"); locales with neither an app override nor the en/de default fall\nback to Intl.Locale(locale).maximize().region derivation, throwing only\nwhen no tag is derivable. A Playwright project whose name isn't a\nViewportId but is a mobile/device project (offlot's \"phone\" project) now\ngets its own namedDevice output subtree\n(<dir>/<outputPrefix>/<name>/<locale>/<theme>/<viewport>.png) fixed to the mobile\nviewport, instead of incorrectly falling through to the desktop pass."
+  },
+  {
+    "version": "0.309.0",
+    "type": "improvement",
+    "title": "Scenario flow receives runMatrix's locale; Scenario.captureStyle for screenshot-only CSS",
+    "detail": "runMatrix passes the current locale to `flow(page, { seedTenant, locale })`,\nso apps whose routes carry the locale in the path (offlot's public vehicle\npage) can build the URL per locale. `captureStyle` is handed to Playwright's\nscreenshot `style` option in runScreenshots and runMatrix: the CSS applies\nto the capture only and does not leak into the next theme × viewport shot."
+  },
+  {
+    "version": "0.309.0",
+    "type": "improvement",
+    "title": "seedTenant accepts an admin identity (displayName/email) for demo and screenshot tenants",
+    "detail": "SeedTenantOptions gained an optional `admin: { displayName?, email? }`.\nemail supports a `{tenantId}` placeholder, substituted per call, so a\nfixed template (e.g. `admin+{tenantId}@example.test`) stays unique across\nthe global `read_users_email_unique` index instead of colliding across\nper-scenario tenants. Threaded through both the plain seed-tenant.ts path\nand the HTTP seed route/fixture."
+  },
+  {
+    "version": "0.309.0",
+    "type": "fix",
+    "title": "defineAppE2eConfig's webServer env now defaults the infra service vars, environment wins",
+    "detail": "webServer.env is now built as `{ ...infraEnvDefaults(), ...PLAYWRIGHT_DEMO_ENV, ...env }`,\nwhere infraEnvDefaults() reads the same SERVICE_ENV_DEFAULTS the app's own\npreload uses (DATABASE_URL, REDIS_URL, MEILI_URL, MINIO_*, ...), falling\nback to each default only when process.env doesn't already carry a value.\nA CI/shell-set env var still wins over the template default. No\n`--env-file` is loaded here."
+  },
+  {
     "version": "0.308.0",
     "type": "fix",
     "title": "E2E default worker count no longer floors at 2"

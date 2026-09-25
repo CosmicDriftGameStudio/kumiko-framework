@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-http
 
+## 0.309.0
+
 ## 0.308.0
 
 ## 0.307.0

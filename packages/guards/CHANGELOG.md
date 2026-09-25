@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.309.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-repo-manifest@0.309.0
+
 ## 0.308.0
 
 ### Minor Changes
