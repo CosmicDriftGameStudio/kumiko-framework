@@ -143,7 +143,51 @@ describe("createStripeCheckoutSession", () => {
       payment_intent_data: {
         metadata: { tenantId: "tenant-003" },
       },
+      // Default-on: without the runtime option, mode:"payment" gets a
+      // Stripe invoice.
+      invoice_creation: { enabled: true },
     });
+  });
+
+  test("mode='payment' + paymentInvoiceCreation:false: invoice_creation.enabled is false", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/topup" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe), {
+      paymentInvoiceCreation: false,
+    });
+    await checkout(stubCtx, {
+      priceId: "price_credits_topup",
+      tenantId: "tenant-003",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+      mode: "payment",
+    });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ invoice_creation: { enabled: false } }),
+    );
+  });
+
+  test("mode='subscription': NIE invoice_creation — Stripe rejects es außerhalb payment-mode", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://x" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
+    await checkout(stubCtx, {
+      priceId: "price_x",
+      tenantId: "tenant-005",
+      successUrl: "https://x/s",
+      cancelUrl: "https://x/c",
+      mode: "subscription",
+    });
+
+    const callArgs = createMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArgs).not.toHaveProperty("invoice_creation");
   });
 
   test("mode omitted defaults to 'subscription' (Regression-Pin für bestehende Aufrufer)", async () => {

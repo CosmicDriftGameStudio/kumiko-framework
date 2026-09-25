@@ -95,6 +95,14 @@ export type SubscriptionStripeOptions = {
    *  App-spezifisch → bleibt factory-option. Fehlt die price-id im Mapping
    *  → null (event ignored). */
   readonly priceToTier?: Readonly<Record<string, string>>;
+  /** Whether a mode:"payment" checkout (one-off top-ups etc.) gets a Stripe
+   *  invoice — a receipt/invoice document Stripe generates and sends to the
+   *  customer for that payment. Default true. Stripe Invoicing charges a
+   *  per-invoice fee on top of the payment itself, so a high-volume,
+   *  low-value payment flow may want `false` to opt out. Never applied in
+   *  mode:"subscription" — Stripe rejects invoice_creation there; the
+   *  subscription's own invoicing covers it. */
+  readonly paymentInvoiceCreation?: boolean;
 };
 
 /**
@@ -185,7 +193,11 @@ export function createSubscriptionStripeFeature(
       verifyAndParseWebhook: verifyAndParseStripeWebhook(runtimes.webhook, {
         priceToTier: options.priceToTier ?? {},
       }),
-      createCheckoutSession: createStripeCheckoutSession(runtimes.ctx),
+      createCheckoutSession: createStripeCheckoutSession(runtimes.ctx, {
+        ...(options.paymentInvoiceCreation !== undefined && {
+          paymentInvoiceCreation: options.paymentInvoiceCreation,
+        }),
+      }),
       createPortalSession: createStripePortalSession(runtimes.ctx),
       cancelSubscription: createStripeCancelSubscription(runtimes.ctx),
     };
