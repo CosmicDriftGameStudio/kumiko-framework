@@ -28,6 +28,7 @@ import {
 import {
   forgetExtractOnFileRefDeletedHook,
   forgetExtractOnFileRefForgottenHook,
+  forgetOrphanedDocumentExtractHook,
 } from "./forget-extract-with-file-ref";
 import { EXT_DOCUMENT_INGEST_PROVIDER, resolveDocumentIngestProviders } from "./providers";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook";
@@ -38,6 +39,9 @@ const FILE_REF_CREATED = entityEventName("fileRef", "created");
 const FILE_REF_RESTORED = entityEventName("fileRef", "restored");
 const FILE_REF_DELETED = entityEventName("fileRef", "deleted");
 const FILE_REF_FORGOTTEN = entityEventName("fileRef", "forgotten");
+// Executors write under entityName "document-extract" (executor.ts), not the
+// camelCase r.entity() name — the event type follows the executor.
+const DOCUMENT_EXTRACT_CREATED = entityEventName("document-extract", "created");
 
 type MspApplyContext = Parameters<MultiStreamApplyFn>[2];
 
@@ -113,7 +117,7 @@ async function requestIngestForFileRef(
 
 export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
-    "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created/fileRef.restored trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider — a delete→restore round-trip re-requests ingest the same way a fresh upload does.",
+    "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created/fileRef.restored trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider — a delete→restore round-trip re-requests ingest the same way a fresh upload does. An orphan-extract guard forgets any `documentExtract` whose fileRef is no longer live at processing time, regardless of how a provider's own write races the fileRef's delete/forget — providers should write through `writeDocumentExtractForLiveFileRef`.",
   );
   r.uiHints({
     displayLabel: "Document Ingest Foundation",
@@ -209,6 +213,7 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
     apply: {
       [FILE_REF_DELETED]: forgetExtractOnFileRefDeletedHook,
       [FILE_REF_FORGOTTEN]: forgetExtractOnFileRefForgottenHook,
+      [DOCUMENT_EXTRACT_CREATED]: forgetOrphanedDocumentExtractHook,
     },
   });
 

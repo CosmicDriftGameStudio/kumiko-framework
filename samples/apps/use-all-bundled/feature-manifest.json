@@ -629,7 +629,7 @@
     },
     {
       "name": "document-ingest-foundation",
-      "description": "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created/fileRef.restored trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider — a delete→restore round-trip re-requests ingest the same way a fresh upload does.",
+      "description": "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created/fileRef.restored trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider — a delete→restore round-trip re-requests ingest the same way a fresh upload does. An orphan-extract guard forgets any `documentExtract` whose fileRef is no longer live at processing time, regardless of how a provider's own write races the fileRef's delete/forget — providers should write through `writeDocumentExtractForLiveFileRef`.",
       "toggleableDefault": null,
       "requires": [
         "config",

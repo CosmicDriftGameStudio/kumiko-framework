@@ -37,6 +37,7 @@ import { documentIngestRequestedPayloadSchema } from "../events";
 import { documentIngestFoundationFeature } from "../feature";
 import { writeIngestPages } from "../pages";
 import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers";
+import { writeDocumentExtractForLiveFileRef } from "../write-document-extract";
 
 // Small test providers — mirror kumiko-enterprise's LiteParse shape without
 // pulling it in: A claims pdf/png, B claims docx, each with a deliberately
@@ -67,25 +68,20 @@ const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r
         fileRefId: payload.fileRefId,
       });
       if (existing.length === 0) {
-        const result = await documentExtractExecutorForSeed.create(
-          {
-            fileRefId: payload.fileRefId,
-            storageKey: payload.storageKey,
-            pages: writeIngestPages([{ pageNumber: 1, text: "invoice text" }]),
-            meta: {
-              provider: PROVIDER_A_NAME,
-              ms: 1,
-              needsOcr: false,
-              pagesParsed: 1,
-              totalPages: 1,
-            },
+        await writeDocumentExtractForLiveFileRef({
+          tenantDb: ctx.db,
+          actor: ctx.systemUser,
+          fileRefId: payload.fileRefId,
+          storageKey: payload.storageKey,
+          pages: [{ pageNumber: 1, text: "invoice text" }],
+          meta: {
+            provider: PROVIDER_A_NAME,
+            ms: 1,
+            needsOcr: false,
+            pagesParsed: 1,
+            totalPages: 1,
           },
-          ctx.systemUser,
-          ctx.db,
-        );
-        if (!result.isSuccess) {
-          throw new Error(`test-provider-a-worker: create failed: ${result.error.message}`);
-        }
+        });
       }
       providerAProcessed.push({ fileRefId: payload.fileRefId });
     },
@@ -427,16 +423,16 @@ describe("fileRef delete/forget cleanup", () => {
   });
 });
 
-describe("fileRef.restored → re-ingest", () => {
-  async function deleteFileRef(fileRefId: string): Promise<void> {
-    const token = await stack.jwt.sign(admin);
-    const res = await stack.app.request(`/api/files/${fileRefId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    expect(res.status).toBe(200);
-  }
+async function deleteFileRef(fileRefId: string): Promise<void> {
+  const token = await stack.jwt.sign(admin);
+  const res = await stack.app.request(`/api/files/${fileRefId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(res.status).toBe(200);
+}
 
+describe("fileRef.restored → re-ingest", () => {
   test("delete → runOnce → restore → waitFor re-requests ingest and produces a fresh extract", async () => {
     const { id: fileRefId, storageKey } = await uploadFile(
       "invoice.pdf",
@@ -568,8 +564,9 @@ describe("fileRef.restored → re-ingest", () => {
 
     const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
     expect(restoreResult.isSuccess).toBe(false);
-    // code, not instanceof: bundled-features and framework can resolve
-    // distinct copies of "@cosmicdrift/kumiko-framework/errors" in this workspace.
+    // code, not instanceof: WriteResult.error is always a plain WriteErrorInfo
+    // object (JSON-serializable for the dispatcher's idempotency-key storage),
+    // never a KumikoError instance.
     if (!restoreResult.isSuccess) {
       expect(restoreResult.error).toMatchObject({ code: "not_found" });
     }
@@ -578,6 +575,144 @@ describe("fileRef.restored → re-ingest", () => {
 
     expect(await loadIngestRequestedEventsForFileRef(fileRefId)).toHaveLength(1);
     expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
+  });
+});
+
+describe("orphan extract guard", () => {
+  const testMeta = {
+    provider: PROVIDER_A_NAME,
+    ms: 1,
+    needsOcr: false,
+    pagesParsed: 1,
+    totalPages: 1,
+  };
+
+  test("writeDocumentExtractForLiveFileRef writes for a live fileRef, skips (no row) for a deleted or forgotten one", async () => {
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const actor = createSystemUser(admin.tenantId);
+
+    const { id: liveFileRefId, storageKey: liveStorageKey } = await uploadFile(
+      "invoice.pdf",
+      pdfBytes,
+      "application/pdf",
+    );
+    const writtenResult = await writeDocumentExtractForLiveFileRef({
+      tenantDb: tdb,
+      actor,
+      fileRefId: liveFileRefId,
+      storageKey: liveStorageKey,
+      pages: [{ pageNumber: 1, text: "invoice text" }],
+      meta: testMeta,
+    });
+    expect(writtenResult.kind).toBe("written");
+    expect(
+      await selectMany(stack.db, documentExtractsTable, { fileRefId: liveFileRefId }),
+    ).toHaveLength(1);
+
+    const { id: deletedFileRefId, storageKey: deletedStorageKey } = await uploadFile(
+      "deleted.pdf",
+      pdfBytes,
+      "application/pdf",
+    );
+    await deleteFileRef(deletedFileRefId);
+    const skippedForDeleted = await writeDocumentExtractForLiveFileRef({
+      tenantDb: tdb,
+      actor,
+      fileRefId: deletedFileRefId,
+      storageKey: deletedStorageKey,
+      pages: [{ pageNumber: 1, text: "invoice text" }],
+      meta: testMeta,
+    });
+    expect(skippedForDeleted).toEqual({ kind: "skipped", reason: "file_ref_deleted" });
+    expect(
+      await selectMany(stack.db, documentExtractsTable, { fileRefId: deletedFileRefId }),
+    ).toHaveLength(0);
+
+    const { id: forgottenFileRefId, storageKey: forgottenStorageKey } = await uploadFile(
+      "forgotten.pdf",
+      pdfBytes,
+      "application/pdf",
+    );
+    const forgetResult = await fileRefExecutor.forget({ id: forgottenFileRefId }, actor, tdb);
+    if (!forgetResult.isSuccess) throw new Error(`forget failed: ${forgetResult.error.message}`);
+    const skippedForForgotten = await writeDocumentExtractForLiveFileRef({
+      tenantDb: tdb,
+      actor,
+      fileRefId: forgottenFileRefId,
+      storageKey: forgottenStorageKey,
+      pages: [{ pageNumber: 1, text: "invoice text" }],
+      meta: testMeta,
+    });
+    expect(skippedForForgotten).toEqual({ kind: "skipped", reason: "file_ref_deleted" });
+    expect(
+      await selectMany(stack.db, documentExtractsTable, { fileRefId: forgottenFileRefId }),
+    ).toHaveLength(0);
+  });
+
+  test("a provider write bypassing the helper, landing after fileRef.deleted was already processed, still gets forgotten", async () => {
+    const { id: fileRefId, storageKey } = await uploadFile(
+      "invoice.pdf",
+      pdfBytes,
+      "application/pdf",
+    );
+    await deleteFileRef(fileRefId);
+    // forget-extract-with-file-ref has already processed fileRef.deleted at
+    // this point — a provider write landing after is exactly the race the
+    // documentExtract.created handler exists for.
+    await stack.eventDispatcher?.runOnce();
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const lateWriteResult = await documentExtractExecutorForSeed.create(
+      {
+        fileRefId,
+        storageKey,
+        pages: writeIngestPages([{ pageNumber: 1, text: "invoice text" }]),
+        meta: testMeta,
+      },
+      user,
+      tdb,
+    );
+    if (!lateWriteResult.isSuccess) {
+      throw new Error(`late write failed: ${lateWriteResult.error.message}`);
+    }
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
+    });
+  });
+
+  test("a provider write bypassing the helper, landing after fileRef.forgotten was already processed, still gets forgotten", async () => {
+    const { id: fileRefId, storageKey } = await uploadFile(
+      "invoice.pdf",
+      pdfBytes,
+      "application/pdf",
+    );
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const forgetResult = await fileRefExecutor.forget({ id: fileRefId }, user, tdb);
+    if (!forgetResult.isSuccess) throw new Error(`forget failed: ${forgetResult.error.message}`);
+    await stack.eventDispatcher?.runOnce();
+
+    const lateWriteResult = await documentExtractExecutorForSeed.create(
+      {
+        fileRefId,
+        storageKey,
+        pages: writeIngestPages([{ pageNumber: 1, text: "invoice text" }]),
+        meta: testMeta,
+      },
+      user,
+      tdb,
+    );
+    if (!lateWriteResult.isSuccess) {
+      throw new Error(`late write failed: ${lateWriteResult.error.message}`);
+    }
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
+    });
   });
 });
 
