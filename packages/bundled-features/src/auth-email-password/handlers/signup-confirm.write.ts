@@ -23,13 +23,25 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
+  type HandlerContext,
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConflictError,
+  InternalError,
+  reraiseAsKumikoError,
+  type WriteErrorInfo,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import {
+  findSignupHandoverProvider,
+  SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
+  type SignupHandoverBinding,
+} from "../../shared";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
 import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors";
@@ -38,8 +50,10 @@ import { passwordSchema } from "../password-policy";
 import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding";
 import {
   burnSignupToken,
+  deleteSignupHandover,
   deleteSignupToken,
   getEmailForSignupToken,
+  getSignupHandover,
   unburnSignupToken,
 } from "../signup-token-store";
 
@@ -58,10 +72,56 @@ export type SignupConfirmData = {
   readonly kind: "auth-session";
   readonly session: SessionUser;
   readonly tenantKey: string;
+  // Present only when a bound tenant-handover grant existed AND its claim
+  // actually succeeded (see the handler body below).
+  readonly handover?: { readonly entityType: string; readonly id: string };
 };
 
 const SIGNUP_CONFIRM_PROVISION_REASON =
   "provisions a new tenant, its first user and membership before any tenant context exists";
+
+// UnprocessableError's `.code` is always the fixed literal "unprocessable" —
+// the distinguishing reason slug lives in `details.reason` (see
+// KumikoError's own reasonSlug getter in kumiko-error.ts). Comparing `.code`
+// directly against SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE would never
+// match; this reads the same field the framework itself uses.
+function isBenignClaimRejection(error: WriteErrorInfo): boolean {
+  return (
+    typeof error.details === "object" &&
+    error.details !== null &&
+    (error.details as Record<string, unknown>)["reason"] ===
+      SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE
+  );
+}
+
+type ClaimedHandover = { readonly entityType: string; readonly id: string };
+
+// Rides the caller's tx. A benign claim rejection (nothing was written) logs
+// and yields undefined; any other failure — including a real DB error, which
+// leaves the shared tx unusable regardless of catching it here — throws, so
+// the whole signup rolls back instead of leaving a partially moved transfer
+// graph next to a committed account.
+async function claimBoundHandover(
+  ctx: HandlerContext,
+  session: SessionUser,
+  binding: SignupHandoverBinding,
+): Promise<ClaimedHandover | undefined> {
+  const provider = findSignupHandoverProvider(ctx.registry);
+  if (!provider) {
+    ctx.log?.warn(
+      "signup-confirm: handover binding present but no signupHandover provider mounted",
+    );
+    return undefined;
+  }
+  const claim = provider.mintClaim(binding);
+  const claimResult = await ctx.writeAs(session, claim.qualifiedName, claim.payload);
+  if (claimResult.isSuccess) return { entityType: binding.entityType, id: binding.rowId };
+  if (!isBenignClaimRejection(claimResult.error)) throw reraiseAsKumikoError(claimResult.error);
+  ctx.log?.warn("signup-confirm: handover grant did not redeem", {
+    entityType: binding.entityType,
+  });
+  return undefined;
+}
 
 export function createSignupConfirmHandler() {
   return defineWriteHandler<"signup-confirm", typeof SignupConfirmSchema, SignupConfirmData>({
@@ -141,10 +201,6 @@ export function createSignupConfirmHandler() {
           throw err;
         }
 
-        // Cleanup beider Token-Lookup-Keys. Burn-Key bleibt für die
-        // restliche Burn-TTL als Replay-Schutz.
-        await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
-
         // SessionUser für JWT-Mint. Roles aus INITIAL_SIGNUP_ROLES
         // damit DB-write (provisionSignupAccount) und Session-claim
         // dieselbe Quelle teilen — sonst hätten zwei Stellen "TenantAdmin"
@@ -156,6 +212,19 @@ export function createSignupConfirmHandler() {
           roles: [...INITIAL_SIGNUP_ROLES],
         };
 
+        // Claim BEFORE spending the signup token or the binding below and
+        // before `committed` flips: if the claim throws, the `finally` still
+        // unburns and the activation link stays retryable.
+        const handoverBinding = await getSignupHandover(ctx.redis, event.payload.token);
+        const handover = handoverBinding
+          ? await claimBoundHandover(ctx, session, handoverBinding)
+          : undefined;
+
+        // Drop both token lookup keys; the burn key stays for its remaining
+        // TTL as replay protection.
+        await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
+        if (handoverBinding) await deleteSignupHandover(ctx.redis, event.payload.token);
+
         committed = true;
         return {
           isSuccess: true,
@@ -163,6 +232,7 @@ export function createSignupConfirmHandler() {
             kind: "auth-session",
             session,
             tenantKey,
+            ...(handover !== undefined && { handover }),
           },
         };
       } finally {

@@ -2496,7 +2496,12 @@
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "signupHandover",
+          "entityName": "tenant-handover"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [

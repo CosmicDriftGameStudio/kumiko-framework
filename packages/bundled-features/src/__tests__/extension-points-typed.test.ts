@@ -17,6 +17,7 @@ import { fileFoundationFeature } from "../file-foundation/feature";
 import { inboundMailFoundationFeature } from "../inbound-mail-foundation/feature";
 import { mailFoundationFeature } from "../mail-foundation/feature";
 import { createRendererFoundationFeature } from "../renderer-foundation/feature";
+import { createTenantHandoverFeature } from "../tenant-handover/feature";
 import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature";
 import { createTierEngineFeature } from "../tier-engine/feature";
 import { createUserFeature } from "../user/feature";
@@ -46,6 +47,7 @@ const TYPED_EXTENSION_POINTS = [
   "subscriptionProvider",
   "mailTransport",
   "documentIngestProvider",
+  "signupHandover",
 ] as const satisfies readonly (keyof KumikoExtensionOptionsMap)[];
 
 const UNTYPED_BY_DESIGN: Record<string, string> = {
@@ -67,6 +69,7 @@ const DECLARING_FEATURE_DIRS = [
   "inbound-mail-foundation",
   "mail-foundation",
   "renderer-foundation",
+  "tenant-handover",
   "tenant-lifecycle",
   "tier-engine",
   "user",
@@ -106,6 +109,7 @@ function allRegistrarExtensionNames(): readonly string[] {
     inboundMailFoundationFeature,
     mailFoundationFeature,
     createRendererFoundationFeature(),
+    createTenantHandoverFeature({ grantSecret: "test-secret-min-32-chars-long-enough" }),
     createTenantLifecycleFeature(),
     createTierEngineFeature(),
     createUserFeature(),

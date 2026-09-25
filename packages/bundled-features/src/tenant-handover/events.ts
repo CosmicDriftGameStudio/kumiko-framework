@@ -15,6 +15,12 @@ export const TENANT_HANDOVER_CLAIMED_EVENT_SHORT = "claimed" as const;
 export const TENANT_HANDOVER_CLAIMED_EVENT_QN = "tenant-handover:event:claimed" as const;
 export const TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE = "tenant-handover-claim" as const;
 
+// The claim write handler's own qualified name — `<feature>:write:<handler>`,
+// same convention as auth-email-password/constants.ts's AuthHandlers. Named
+// here so a signup-handover provider (see ../shared/signup-handover.ts) can
+// mint a claim payload for it without hand-duplicating the literal.
+export const TENANT_HANDOVER_CLAIM_WRITE_QN = "tenant-handover:write:claim" as const;
+
 export const tenantHandoverClaimedSchema = z.object({
   entityType: z.string().min(1),
   rootRowId: z.string().min(1),

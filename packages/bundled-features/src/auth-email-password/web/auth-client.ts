@@ -316,12 +316,18 @@ export async function confirmAccountUnlock(
 // User auf /signup/complete?token=… wo er sein Password setzt.
 export async function requestSignup(
   email: string,
+  // Cross-device try-first handover (kumiko-framework#3035 follow-up,
+  // offlot-app#454): forwards a row-bound tenant-handover grant so the
+  // server can verify + rebind it to the signup token. The grant never
+  // travels any further than this request — never in the URL, the mail,
+  // or the confirm response.
+  handover?: { readonly entityType: string; readonly token: string },
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
   const res = await fetch("/api/auth/signup-request", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, ...(handover !== undefined && { handover }) }),
   });
   if (res.ok) return { ok: true };
   return { ok: false, error: await parseTokenFailure(res) };
@@ -334,6 +340,9 @@ export async function requestSignup(
 export type SignupConfirmSuccess = {
   readonly user: { readonly id: string; readonly tenantId: string; readonly roles: string[] };
   readonly tenantKey: string;
+  // Present only when a bound handover grant existed and its claim
+  // succeeded — see signup-confirm.write.ts.
+  readonly handover?: { readonly entityType: string; readonly id: string };
 };
 
 export async function confirmSignup(

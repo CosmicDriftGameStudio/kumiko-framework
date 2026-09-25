@@ -1,18 +1,12 @@
-import {
-  entityTableFromRegistry,
-  executeRawQuery,
-  extractTableName,
-  physicalColumnName,
-} from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { redeemRowBoundGrant } from "../../shared";
+import { redeemRowBoundGrant, SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE } from "../../shared";
 import { TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE, TENANT_HANDOVER_CLAIMED_EVENT_QN } from "../events";
 import { tenantHandoverPurpose } from "../grant";
 import { moveRootRow, moveTransferGraph } from "../move-entity-graph";
-import { resolveTransferableRoot } from "../transfer-graph";
+import { resolveRootAnchorLocation } from "../root-anchor";
 
 export type ClaimTenantHandoverOptions = {
   readonly grantSecret?: string;
@@ -50,18 +44,14 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
     agent: { expose: false },
     rateLimit: { per: "user", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      const rootEntity = resolveTransferableRoot(ctx.registry, event.payload.entityType);
-      if (!rootEntity) return notTransferable(event.payload.entityType);
-
-      const rootTable = entityTableFromRegistry(ctx.registry, event.payload.entityType, rootEntity);
-      const rootTableName = extractTableName(rootTable);
-      const rootIdCol = physicalColumnName(rootTable, "id");
-      const rootTenantCol = physicalColumnName(rootTable, "tenantId");
-
       const db = ctx.db.unsafeRaw(
         "tenant-handover claim: cross-tenant read + ownership write, legitimized by the " +
           "row-bound grant redeemed below",
       );
+      const rootLocation = resolveRootAnchorLocation(ctx.registry, db, event.payload.entityType);
+      if (!rootLocation) return notTransferable(event.payload.entityType);
+      const { rootTableName, rootIdCol, rootTenantCol, loadAnchor } = rootLocation;
+
       const destinationTenantId = event.user.tenantId;
 
       let sourceTenantId: string | undefined;
@@ -71,14 +61,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
         token: event.payload.token,
         purpose: tenantHandoverPurpose(event.payload.entityType),
         secret: opts.grantSecret,
-        loadAnchor: async (subject) => {
-          const rows = await executeRawQuery<{ tenantId: string }>(
-            db,
-            `SELECT "${rootTenantCol}" AS "tenantId" FROM "${rootTableName}" WHERE "${rootIdCol}" = $1`,
-            [subject],
-          );
-          return rows[0]?.tenantId ?? null;
-        },
+        loadAnchor,
         commitAnchor: async (subject, expectedAnchor) => {
           const moved = await moveRootRow({
             db,
@@ -125,7 +108,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
       // or returned false before setting it — both already covered by
       // `redeemed.ok`. The explicit check narrows the type without a cast.
       if (!redeemed.ok || sourceTenantId === undefined) {
-        return writeFailure(new UnprocessableError("invalid_or_expired_grant"));
+        return writeFailure(new UnprocessableError(SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE));
       }
 
       return {

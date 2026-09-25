@@ -49,7 +49,10 @@
 import { createHash } from "node:crypto";
 import type Redis from "ioredis";
 
-function hashToken(token: string): string {
+// Exported so a caller that needs a byte-compatible key in a sibling Redis
+// namespace (e.g. a token↔binding side-mapping) can derive it without
+// re-implementing sha256-of-token — see auth-email-password/signup-token-store.ts.
+export function hashSingleUseToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
@@ -59,7 +62,7 @@ export function createSingleUseTokenStore(prefixes: {
   readonly burnPrefix: string;
 }) {
   function tokenKey(token: string): string {
-    return `${prefixes.tokenPrefix}${hashToken(token)}`;
+    return `${prefixes.tokenPrefix}${hashSingleUseToken(token)}`;
   }
   // Builds the forward key from an already-hashed value (e.g. read back
   // from the by-subject entry) — does NOT hash again. Kept separate from
@@ -72,7 +75,7 @@ export function createSingleUseTokenStore(prefixes: {
     return `${prefixes.subjectPrefix}${subjectId}`;
   }
   function burnKey(token: string): string {
-    return `${prefixes.burnPrefix}${hashToken(token)}`;
+    return `${prefixes.burnPrefix}${hashSingleUseToken(token)}`;
   }
 
   // Stores the pair bidirectionally and sets TTL on both keys. Idempotent —
@@ -84,7 +87,7 @@ export function createSingleUseTokenStore(prefixes: {
   ): Promise<void> {
     await Promise.all([
       redis.set(tokenKey(args.token), args.subjectId, "EX", args.ttlSeconds),
-      redis.set(subjectKey(args.subjectId), hashToken(args.token), "EX", args.ttlSeconds),
+      redis.set(subjectKey(args.subjectId), hashSingleUseToken(args.token), "EX", args.ttlSeconds),
     ]);
   }
 
@@ -132,5 +135,22 @@ export function createSingleUseTokenStore(prefixes: {
     await redis.del(burnKey(token));
   }
 
-  return { store, getSubjectForToken, invalidateExistingBySubject, burn, deleteBoth, unburn };
+  // The by-subject entry's raw value — a token hash, not a token (see file
+  // header) — for a caller that needs to key a SIBLING Redis namespace off
+  // the same live token without recovering it (e.g. a resend that must
+  // carry a side-binding over to the fresh token before the old one is
+  // invalidated).
+  async function getTokenHashForSubject(redis: Redis, subjectId: string): Promise<string | null> {
+    return redis.get(subjectKey(subjectId));
+  }
+
+  return {
+    store,
+    getSubjectForToken,
+    invalidateExistingBySubject,
+    burn,
+    deleteBoth,
+    unburn,
+    getTokenHashForSubject,
+  };
 }

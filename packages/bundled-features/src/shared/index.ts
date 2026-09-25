@@ -36,6 +36,14 @@ export {
   type VerifyResult,
   verifyToken,
 } from "./signed-token";
-export { createSingleUseTokenStore } from "./single-use-token-store";
+export {
+  EXT_SIGNUP_HANDOVER,
+  findSignupHandoverProvider,
+  isSignupHandoverProvider,
+  SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
+  type SignupHandoverBinding,
+  type SignupHandoverProvider,
+} from "./signup-handover";
+export { createSingleUseTokenStore, hashSingleUseToken } from "./single-use-token-store";
 export type { SystemQueryFn } from "./system-query";
 export { type BurnResult, burnToken, unburnToken } from "./token-burn-store";

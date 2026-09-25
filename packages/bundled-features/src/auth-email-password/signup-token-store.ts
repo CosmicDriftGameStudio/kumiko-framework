@@ -11,7 +11,12 @@
 // `signup:`-prefix.
 
 import type Redis from "ioredis";
-import { createSingleUseTokenStore } from "../shared";
+import * as z from "zod";
+import {
+  createSingleUseTokenStore,
+  hashSingleUseToken,
+  type SignupHandoverBinding,
+} from "../shared";
 
 /** Email normalization — single source for every lookup layer (used
  *  internally by the store AND by callers that need a consistent form
@@ -67,3 +72,84 @@ export async function deleteSignupToken(
 /** Burn release for failed-confirm paths (DB error etc.) so a legitimate
  *  retry isn't blocked by a stale burn marker. */
 export const unburnSignupToken = store.unburn;
+
+// Cross-device try-first handover (kumiko-framework#3035 follow-up,
+// offlot-app#454): signup-request binds a verified tenant-handover grant to
+// its own signup token, in a SIBLING Redis namespace keyed the same way
+// (sha256(token)) so it stays byte-compatible with the token store above
+// without going through it — the binding has its own lifecycle (survives a
+// resend, is read once by signup-confirm) that doesn't fit the token↔email
+// pairing. Only {entityType, rowId, sourceTenantId} is ever stored — never
+// the grant token or the email (see shared/signup-handover.ts).
+const SIGNUP_HANDOVER_KEY_PREFIX = "signup:handover:";
+
+const signupHandoverBindingSchema = z.object({
+  entityType: z.string().min(1),
+  rowId: z.string().min(1),
+  sourceTenantId: z.string().min(1),
+});
+
+function signupHandoverKeyForHash(tokenHash: string): string {
+  return `${SIGNUP_HANDOVER_KEY_PREFIX}${tokenHash}`;
+}
+
+function signupHandoverKey(token: string): string {
+  return signupHandoverKeyForHash(hashSingleUseToken(token));
+}
+
+function parseSignupHandoverBinding(raw: string): SignupHandoverBinding | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const parsed = signupHandoverBindingSchema.safeParse(json);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Binds a verified grant to this signup token, TTL-matched to the token
+ *  itself so the binding never outlives (or is killed before) it. */
+export async function storeSignupHandover(
+  redis: Redis,
+  args: { token: string; binding: SignupHandoverBinding; ttlSeconds: number },
+): Promise<void> {
+  await redis.set(
+    signupHandoverKey(args.token),
+    JSON.stringify(args.binding),
+    "EX",
+    args.ttlSeconds,
+  );
+}
+
+/** Reads the binding for a still-live signup token, if any. */
+export async function getSignupHandover(
+  redis: Redis,
+  token: string,
+): Promise<SignupHandoverBinding | null> {
+  const raw = await redis.get(signupHandoverKey(token));
+  return raw === null ? null : parseSignupHandoverBinding(raw);
+}
+
+/** Carries a still-live binding over to a resend, before the old token is
+ *  invalidated: reads the old token's hash off the store's by-email entry
+ *  (never the token itself), fetches the binding under that hash, and
+ *  deletes it — the fresh token gets its own storeSignupHandover call with
+ *  the same binding right after. Null when there was no live binding. */
+export async function takeOverSignupHandoverForResend(
+  redis: Redis,
+  email: string,
+): Promise<SignupHandoverBinding | null> {
+  const oldTokenHash = await store.getTokenHashForSubject(redis, normalizeEmail(email));
+  if (oldTokenHash === null) return null;
+  const raw = await redis.get(signupHandoverKeyForHash(oldTokenHash));
+  if (raw === null) return null;
+  await redis.del(signupHandoverKeyForHash(oldTokenHash));
+  return parseSignupHandoverBinding(raw);
+}
+
+/** Cleanup after signup-confirm has read (and acted on, or logged a failed
+ *  claim for) the binding. */
+export async function deleteSignupHandover(redis: Redis, token: string): Promise<void> {
+  await redis.del(signupHandoverKey(token));
+}
