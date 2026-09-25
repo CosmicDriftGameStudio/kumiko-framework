@@ -73,6 +73,7 @@ async function waitFor(
   const retryIntervalMs = opts.retryIntervalMs ?? 250;
   const deadline = Date.now() + timeout;
   let nextRetryAt = Date.now() + retryIntervalMs;
+  // @timeout-exception: #3118 fs.watch can drop the trigger; retry re-fires it, unlike the shared waitFor
   while (!predicate()) {
     if (Date.now() > deadline) {
       throw new Error(`waitFor: ${opts.label ?? "predicate"} not satisfied within ${timeout}ms`);

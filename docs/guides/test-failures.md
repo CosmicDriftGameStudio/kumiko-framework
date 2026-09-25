@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-20
+verified: 2026-09-25
 ---
 
 # When a test goes red
@@ -61,41 +61,16 @@ test.setTimeout(60_000);
 The marker needs an issue number and a technical reason. A marker without
 either is ignored and the guard says so. "Flaky" or "slow CI" is not a reason.
 
-## Real-provider tests
+## The test standard
 
-Tests that call a real external provider (LLM, mail, payment) are named
-`*.real.test.ts` (Bun) or `*.real.spec.ts` (Playwright) and start with
-`requireRealProviders()` from `@cosmicdrift/kumiko-framework/testing`.
-They run only when `KUMIKO_REAL_PROVIDERS=1` is set, through the `test:real` /
-`e2e:real` scripts, and never in CI: with `CI` set the call throws. A provider
-API key in the environment never enables them on its own.
+The test classes, the real-provider gate, the screenshot runner and why they
+are built this way live in
+[`testing-standard.md`](./testing-standard.md). A few file-specific notes that
+don't fit either guide:
 
-## The test template
-
-Apps and the framework get their test setup from `@cosmicdrift/kumiko-testing`
-instead of copying it. `kumiko new app` scaffolds it ready to run.
-
-| Class | Files | Command | Budget |
-|---|---|---|---|
-| Unit | `*.test.ts` | `bun run test` | 5 s per test |
-| Integration | `*.integration.test.ts` | `bun run test:integration` (files run in parallel) | 15 s per test |
-| E2E | `e2e/*.spec.ts` | `bun run e2e` | fixed in `defineAppE2eConfig` |
-| Real provider | `*.real.test.ts`, `*.real.spec.ts` | `bun run test:real`, `bun run e2e:real` | 120 s per test |
-
-- `kumiko-testing bunfig` generates the bunfig files (preloads, path ignores).
-  Bun ignores a `[test] timeout` key, so the budget is a `--timeout` flag in the
-  scripts, from one constant (`TEST_TIMEOUT_MS`).
-- `seedTenant()` gives every flow its own tenant: in integration tests
-  in-process, in e2e over the seed routes that the app's `e2e/server.ts` mounts
-  with `createE2eSeedRoutes()`. Those routes answer 404 unless
-  `KUMIKO_TEST_SEED=1`, `NODE_ENV` is not `production` and the per-run token
-  matches.
-- `defineAppE2eConfig` owns timeouts, retries (0) and workers (`KUMIKO_E2E_WORKERS`,
-  default half the CPUs, 2 to 4). A project that sets one of them throws.
 - Run Playwright as `bunx --bun playwright`. The specs only load when the
   nearest `package.json` has `"type": "module"`; otherwise Bun fails with
   `Expected "from" but found "{"`.
 - Playwright configs and e2e files start with `// @runtime test`; without it the runtime-isolation guard flags their import of the test package.
-- Screenshot specs are skipped unless `SCREENSHOT_DIR` is set.
 - App-defined roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })`, then
   `tenant.addUser(["TenantMember"])`. `SystemAdmin` is never seedable.

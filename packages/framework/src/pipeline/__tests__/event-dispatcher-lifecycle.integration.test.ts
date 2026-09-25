@@ -31,7 +31,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
 
 // --- Test fixtures ---
 
@@ -118,7 +118,7 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
 
       // pollIntervalMs in the test-stack is 50ms. Give the timer a few
       // ticks to observe the event.
-      await waitFor(() => observations.length >= 1, 2000);
+      await waitFor(() => observations.length >= 1, { delays: Array(40).fill(50) });
       expect(observations).toHaveLength(1);
       expect(observations[0]?.event.payload["name"]).toBe("started-delivery");
     } finally {
@@ -140,7 +140,7 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
       await appendWidget("slow-3");
 
       // Wait until all 3 slow-observer invocations have completed.
-      await waitFor(() => slowHandlerInvocations.length >= 3, 5000);
+      await waitFor(() => slowHandlerInvocations.length >= 3, { delays: Array(50).fill(100) });
 
       // Check: no invocation overlapped with the next — every pass
       // finished before the following one started. The guard does
@@ -207,14 +207,3 @@ describe("E.1 — consumer-lag metric", () => {
 });
 
 // --- Helpers ---
-
-async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (predicate()) return;
-    await new Promise((r) => setTimeout(r, 20));
-  }
-  if (!predicate()) {
-    throw new Error(`waitFor: predicate never became true within ${timeoutMs}ms`);
-  }
-}

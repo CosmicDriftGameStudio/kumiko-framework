@@ -49,6 +49,7 @@ import { guard as sectionFieldsRaw } from "./guard-section-fields-raw";
 import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tableDdl } from "./guard-table-ddl";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
+import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
 import { guard as textFieldStance } from "./guard-text-field-stance";
 import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
@@ -90,6 +91,7 @@ export const GUARDS = [
   appFeatureStructure,
   libTestCoverage,
   testTimeouts,
+  testTemplateDrift,
 ];
 
 export const GUARD_FLAGS = [

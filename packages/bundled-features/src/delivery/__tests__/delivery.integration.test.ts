@@ -26,6 +26,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import { createChannelEmailFeature } from "../../channel-email/feature";
 import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types";
@@ -1502,21 +1503,6 @@ describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
 // non-string `to` as a broadcast target ("tenant" in to).
 const asyncRecipient = "7";
 
-async function waitFor(check: () => Promise<void>, timeoutMs = 10000): Promise<void> {
-  const start = Date.now();
-  let lastErr: unknown;
-  for (;;) {
-    try {
-      await check();
-      return;
-    } catch (err) {
-      lastErr = err;
-      if (Date.now() - start > timeoutMs) throw lastErr;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  }
-}
-
 function makeStubRunner(): {
   runner: JobRunner;
   dispatched: Array<{
@@ -1580,13 +1566,16 @@ describe("flow 17: async render→send pipeline", () => {
 
       // Email: queued → render job → send job → sent. Proves the framework
       // jobRunner-into-job-ctx injection (render dispatches send) end-to-end.
-      await waitFor(async () => {
-        const rows = await selectMany(db, deliveryAttemptsTable, {
-          notificationType: "app:notify:async-e2e",
-          channel: "email",
-        });
-        expect(rows.some((r) => r["status"] === "sent")).toBe(true);
-      });
+      await waitFor(
+        async () => {
+          const rows = await selectMany(db, deliveryAttemptsTable, {
+            notificationType: "app:notify:async-e2e",
+            channel: "email",
+          });
+          expect(rows.some((r) => r["status"] === "sent")).toBe(true);
+        },
+        { delays: Array(40).fill(250) },
+      );
       const email = emailTransport.sent.find((m) => m.to === testEmail(asyncRecipient));
       expect(email).toBeDefined();
       expect(email?.subject).toBe("Async Subject");
@@ -1594,13 +1583,16 @@ describe("flow 17: async render→send pipeline", () => {
       expect(email?.html).toContain("<!DOCTYPE html>");
 
       // Push: no render step → dispatched straight to delivery.send.
-      await waitFor(async () => {
-        const rows = await selectMany(db, deliveryAttemptsTable, {
-          notificationType: "app:notify:async-e2e",
-          channel: "push",
-        });
-        expect(rows.some((r) => r["status"] === "sent")).toBe(true);
-      });
+      await waitFor(
+        async () => {
+          const rows = await selectMany(db, deliveryAttemptsTable, {
+            notificationType: "app:notify:async-e2e",
+            channel: "push",
+          });
+          expect(rows.some((r) => r["status"] === "sent")).toBe(true);
+        },
+        { delays: Array(40).fill(250) },
+      );
       expect(
         pushTransport.sent.find((m) => m.token === testPushToken(asyncRecipient)),
       ).toBeDefined();

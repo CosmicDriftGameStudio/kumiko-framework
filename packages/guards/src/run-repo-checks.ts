@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { cliFlagsError, printGuardKitBanner, reportResults, runRepoChecks } from "./_lib/guard-kit";
+import { check as realProviderIsolation } from "./check-real-provider-isolation";
 // Standalone-`main()` guards ported as RepoCheck — run in-process, no
 // per-guard subprocess/project.
 import { check as runtimeIsolation } from "./check-runtime-isolation";
@@ -24,6 +25,7 @@ export const REPO_CHECKS = [
   testStackDrift,
   runtimeIsolation,
   upgradeState,
+  realProviderIsolation,
 ];
 
 // No flags today — the array stays so an unknown flag still fails loud

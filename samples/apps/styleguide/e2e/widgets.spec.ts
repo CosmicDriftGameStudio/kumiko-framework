@@ -32,6 +32,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText("Message")).toBeVisible();
   if (process.env["SCREENSHOT"] === "1") {
+    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/widgets-drawer-open.png", fullPage: true });
   }
   await drawer.getByRole("button", { name: "Cancel" }).click();
@@ -80,6 +81,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await expect(page.getByText("No message selected")).toBeHidden();
 
   if (process.env["SCREENSHOT"] === "1") {
+    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }
 });
@@ -101,6 +103,7 @@ test("declarative dashboard screen renders stat, chart and list panels", async (
   await expect(page.getByText("API-Timeout eu-central")).toBeVisible();
 
   if (process.env["SCREENSHOT"] === "1") {
+    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/widgets-dashboard.png", fullPage: true });
   }
 });

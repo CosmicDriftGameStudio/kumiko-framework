@@ -6,7 +6,6 @@
 // Test rennt jetzt beim CI mit, damit die Regression nicht wiederkommt.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -20,7 +19,6 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [itemsFeature] });
-  await createEventsTable(stack.db);
   await unsafeCreateEntityTable(stack.db, itemEntity, "item");
 });
 
