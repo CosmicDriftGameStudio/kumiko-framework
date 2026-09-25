@@ -15,8 +15,17 @@ export const SEED_TOKEN_ENV = "KUMIKO_TEST_SEED_TOKEN";
 export const SEED_TOKEN_HEADER = "x-kumiko-test-seed";
 export const E2E_WORKERS_ENV = "KUMIKO_E2E_WORKERS";
 
-// Same literal as the framework's requireRealProviders(), which does not export it.
+// Same literal as the framework's requireRealProviders()/isRealProviderRun(),
+// duplicated because the Playwright config runs under Node and importing the
+// framework's "./testing" barrel there would pull in its full Bun-toolchain
+// dependency graph for a single string constant.
 export const REAL_PROVIDERS_ENV = "KUMIKO_REAL_PROVIDERS";
+
+export function isRealProviderRun(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  return env[REAL_PROVIDERS_ENV] === "1";
+}
 
 // Same literal as kumiko-dev-server's createKumikoServer (STYLESHEET_WATCH_ENV),
 // duplicated because the Playwright config runs under Node and can't import

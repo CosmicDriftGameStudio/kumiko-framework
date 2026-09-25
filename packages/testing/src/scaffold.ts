@@ -189,7 +189,13 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
     scripts: {
       test: `bun --config=${BUNFIG_FILES.unit} test --timeout=${TEST_TIMEOUT_MS.unit} --dots`,
       "test:integration": `bun kumiko-testing integration --parallel ${SCAFFOLD_INTEGRATION_PARALLEL}`,
-      "test:real": `${REAL_PROVIDERS_ENV}=1 bun --config=${BUNFIG_FILES.real} test --timeout=${TEST_TIMEOUT_MS.real}`,
+      // bunfig.real.toml's pathIgnorePatterns can only blacklist (no "!" negation,
+      // verified against bun 1.4), so it can't express "match only *.real.test.ts"
+      // on its own — every *.test.ts file matches bun's default test glob too,
+      // real.test.ts included. The positional filter narrows the run to files
+      // whose path contains "real.test.ts", so an unfiltered test:real never
+      // picks up the unit suite.
+      "test:real": `${REAL_PROVIDERS_ENV}=1 bun --config=${BUNFIG_FILES.real} test --timeout=${TEST_TIMEOUT_MS.real} real.test.ts`,
       "test:bunfig": "bun kumiko-testing bunfig --hoisted",
       e2e: "bunx --bun playwright test",
       "e2e:real": `${REAL_PROVIDERS_ENV}=1 bunx --bun playwright test`,

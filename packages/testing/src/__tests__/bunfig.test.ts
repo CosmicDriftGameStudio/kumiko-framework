@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { mergeBunfig, renderBunfig, renderBunfigFiles, TEST_TIMEOUT_MS } from "../bunfig";
 
 const HEADER = (variant: string): string =>
@@ -279,8 +282,46 @@ describe("mergeBunfig", () => {
   });
 });
 
+describe("bunfig.real.toml + the test:real positional filter", () => {
+  test("an unfiltered `bun test` under bunfig.real.toml still runs the unit suite, which is why the filter is needed", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kumiko-bunfig-real-"));
+    try {
+      // No preload: this test isolates path selection, not the real preload's
+      // requireRealProviders() behaviour (covered separately in preload.test.ts).
+      const noPreloadReal = renderBunfig("real").replace(/^preload = \[[^\]]*\]\n/m, "");
+      writeFileSync(join(dir, "bunfig.real.toml"), noPreloadReal);
+      writeFileSync(
+        join(dir, "unit.test.ts"),
+        'import { test, expect } from "bun:test";\ntest("unit", () => expect(1).toBe(1));\n',
+      );
+      writeFileSync(
+        join(dir, "flow.real.test.ts"),
+        'import { test, expect } from "bun:test";\ntest("real", () => expect(1).toBe(1));\n',
+      );
+      const unfiltered = Bun.spawnSync(["bun", "--config=bunfig.real.toml", "test"], {
+        cwd: dir,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const unfilteredOut = unfiltered.stdout.toString() + unfiltered.stderr.toString();
+      expect(unfilteredOut).toContain("2 pass");
+
+      const filtered = Bun.spawnSync(["bun", "--config=bunfig.real.toml", "test", "real.test.ts"], {
+        cwd: dir,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const filteredOut = filtered.stdout.toString() + filtered.stderr.toString();
+      expect(filteredOut).toContain("1 pass");
+      expect(filteredOut).not.toContain("2 pass");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("TEST_TIMEOUT_MS", () => {
   test("unit keeps the bun default, integration and dom keep the repo budget", () => {
-    expect(TEST_TIMEOUT_MS).toEqual({ unit: 5000, integration: 15000, dom: 15000, real: 120000 });
+    expect(TEST_TIMEOUT_MS).toEqual({ unit: 5000, integration: 15000, dom: 15000, real: 240000 });
   });
 });
