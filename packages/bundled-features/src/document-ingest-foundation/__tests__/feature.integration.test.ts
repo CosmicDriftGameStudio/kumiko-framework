@@ -33,6 +33,7 @@ import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { documentExtractEntity, documentExtractsTable } from "../entity";
+import { documentIngestRequestedPayloadSchema } from "../events";
 import { documentIngestFoundationFeature } from "../feature";
 import { writeIngestPages } from "../pages";
 import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers";
@@ -58,8 +59,35 @@ const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r
   r.job(
     "test-provider-a-worker",
     { trigger: documentIngestProviderTrigger(PROVIDER_A_NAME), runIn: "worker" },
-    async (payload) => {
-      providerAProcessed.push({ fileRefId: payload["fileRefId"] as string });
+    async (rawPayload, ctx) => {
+      const payload = documentIngestRequestedPayloadSchema.parse(rawPayload);
+      // Idempotent, mirrors LiteParse: a redelivered documentIngest.requested
+      // must not create a second extract for the same fileRef.
+      const existing = await ctx.db.selectMany(documentExtractsTable, {
+        fileRefId: payload.fileRefId,
+      });
+      if (existing.length === 0) {
+        const result = await documentExtractExecutorForSeed.create(
+          {
+            fileRefId: payload.fileRefId,
+            storageKey: payload.storageKey,
+            pages: writeIngestPages([{ pageNumber: 1, text: "invoice text" }]),
+            meta: {
+              provider: PROVIDER_A_NAME,
+              ms: 1,
+              needsOcr: false,
+              pagesParsed: 1,
+              totalPages: 1,
+            },
+          },
+          ctx.systemUser,
+          ctx.db,
+        );
+        if (!result.isSuccess) {
+          throw new Error(`test-provider-a-worker: create failed: ${result.error.message}`);
+        }
+      }
+      providerAProcessed.push({ fileRefId: payload.fileRefId });
     },
   );
 });
@@ -176,6 +204,26 @@ async function loadIngestSkippedEvents(): Promise<{ payload: Record<string, unkn
   const rows = await asRawClient(stack.db).unsafe(
     `SELECT payload FROM kumiko_events WHERE type = $1`,
     ["document-ingest-foundation:event:document-ingest-skipped"],
+  );
+  return rows as { payload: Record<string, unknown> }[];
+}
+
+async function loadIngestRequestedEventsForFileRef(
+  fileRefId: string,
+): Promise<{ payload: Record<string, unknown> }[]> {
+  const rows = await asRawClient(stack.db).unsafe(
+    `SELECT payload FROM kumiko_events WHERE type = $1 AND payload->>'fileRefId' = $2 ORDER BY id ASC`,
+    ["document-ingest-foundation:event:document-ingest-requested", fileRefId],
+  );
+  return rows as { payload: Record<string, unknown> }[];
+}
+
+async function loadIngestSkippedEventsForFileRef(
+  fileRefId: string,
+): Promise<{ payload: Record<string, unknown> }[]> {
+  const rows = await asRawClient(stack.db).unsafe(
+    `SELECT payload FROM kumiko_events WHERE type = $1 AND payload->>'fileRefId' = $2 ORDER BY id ASC`,
+    ["document-ingest-foundation:event:document-ingest-skipped", fileRefId],
   );
   return rows as { payload: Record<string, unknown> }[];
 }
@@ -376,6 +424,160 @@ describe("fileRef delete/forget cleanup", () => {
     expect(Number(consumer?.last_processed_event_id)).toBeGreaterThanOrEqual(
       Number(deletedEventRow.id),
     );
+  });
+});
+
+describe("fileRef.restored → re-ingest", () => {
+  async function deleteFileRef(fileRefId: string): Promise<void> {
+    const token = await stack.jwt.sign(admin);
+    const res = await stack.app.request(`/api/files/${fileRefId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+  }
+
+  test("delete → runOnce → restore → waitFor re-requests ingest and produces a fresh extract", async () => {
+    const { id: fileRefId, storageKey } = await uploadFile(
+      "invoice.pdf",
+      pdfBytes,
+      "application/pdf",
+    );
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+    });
+
+    await deleteFileRef(fileRefId);
+    await stack.eventDispatcher?.runOnce();
+    expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+    if (!restoreResult.isSuccess) {
+      throw new Error(`restore failed: ${restoreResult.error.message}`);
+    }
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+    });
+
+    const requested = await loadIngestRequestedEventsForFileRef(fileRefId);
+    expect(requested).toHaveLength(2);
+    expect(requested[1]?.payload).toEqual({
+      fileRefId,
+      storageKey,
+      fileName: "invoice.pdf",
+      mimeType: "application/pdf",
+      size: pdfBytes.length,
+      provider: PROVIDER_A_NAME,
+    });
+  });
+
+  test("delete → restore with no dispatcher pass in between still ends with exactly one live extract", async () => {
+    const { id: fileRefId } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+    });
+
+    // No runOnce between delete and restore: the forget-extract-with-file-ref
+    // consumer only sees fileRef.deleted once it next runs, by which point
+    // the fileRef may already be live again — its own separate cursor makes
+    // this race possible on every real deploy, not just in this test.
+    await deleteFileRef(fileRefId);
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+    if (!restoreResult.isSuccess) {
+      throw new Error(`restore failed: ${restoreResult.error.message}`);
+    }
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(providerAProcessed.filter((p) => p.fileRefId === fileRefId)).toHaveLength(2);
+    });
+
+    expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+  });
+
+  test("delete → restore reconciled in the same pass the job already won leaves the extract intact", async () => {
+    const { id: fileRefId } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
+    const extractId = await seedDocumentExtract(admin.tenantId, fileRefId);
+
+    await deleteFileRef(fileRefId);
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+    if (!restoreResult.isSuccess) {
+      throw new Error(`restore failed: ${restoreResult.error.message}`);
+    }
+
+    // The seeded extract stands in for a provider job that won the race: it
+    // exists for the now-live fileRef before the forget consumer ever sees
+    // the still-pending fileRef.deleted.
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await selectMany(stack.db, documentExtractsTable, { id: extractId })).toHaveLength(1);
+  });
+
+  test("delete → restore of an unsupported mime type produces two skipped events", async () => {
+    const { id: fileRefId } = await uploadFile("notes.txt", textBytes, "text/plain");
+
+    await stack.eventDispatcher?.runOnce();
+    expect(await loadIngestSkippedEventsForFileRef(fileRefId)).toHaveLength(1);
+
+    await deleteFileRef(fileRefId);
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+    if (!restoreResult.isSuccess) {
+      throw new Error(`restore failed: ${restoreResult.error.message}`);
+    }
+
+    await stack.eventDispatcher?.runOnce();
+
+    const skipped = await loadIngestSkippedEventsForFileRef(fileRefId);
+    expect(skipped).toHaveLength(2);
+    expect(skipped.every((row) => row.payload["reason"] === "unsupported-mime-type")).toBe(true);
+  });
+
+  test("forget makes restore fail — no re-ingest, only the original upload's requested event survives", async () => {
+    const { id: fileRefId } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+    });
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const forgetResult = await fileRefExecutor.forget({ id: fileRefId }, user, tdb);
+    if (!forgetResult.isSuccess) {
+      throw new Error(`forget failed: ${forgetResult.error.message}`);
+    }
+
+    await stack.eventDispatcher?.runOnce();
+
+    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+    expect(restoreResult.isSuccess).toBe(false);
+    // code, not instanceof: bundled-features and framework can resolve
+    // distinct copies of "@cosmicdrift/kumiko-framework/errors" in this workspace.
+    if (!restoreResult.isSuccess) {
+      expect(restoreResult.error).toMatchObject({ code: "not_found" });
+    }
+
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await loadIngestRequestedEventsForFileRef(fileRefId)).toHaveLength(1);
+    expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
   });
 });
 

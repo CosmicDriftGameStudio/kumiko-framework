@@ -83,13 +83,16 @@ describe("documentIngestFoundationFeature — shape", () => {
     );
   });
 
-  test("registers the fileRef.created MSP and the fileRef delete/forget cleanup MSP", () => {
+  test("registers the fileRef.created/restored MSP and the fileRef delete/forget cleanup MSP", () => {
     expect(Object.keys(documentIngestFoundationFeature.multiStreamProjections)).toEqual([
       "request-ingest",
       "forget-extract-with-file-ref",
     ]);
     const requestIngest = documentIngestFoundationFeature.multiStreamProjections["request-ingest"];
-    expect(Object.keys(requestIngest?.apply ?? {})).toEqual(["fileRef.created"]);
+    expect(Object.keys(requestIngest?.apply ?? {})).toEqual([
+      "fileRef.created",
+      "fileRef.restored",
+    ]);
     const forgetExtract =
       documentIngestFoundationFeature.multiStreamProjections["forget-extract-with-file-ref"];
     expect(Object.keys(forgetExtract?.apply ?? {})).toEqual([

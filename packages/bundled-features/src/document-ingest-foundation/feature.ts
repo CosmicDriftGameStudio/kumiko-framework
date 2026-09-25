@@ -10,6 +10,7 @@ import {
   createTenantConfig,
   defineFeature,
   EXT_TENANT_DATA,
+  type MultiStreamApplyFn,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { normalizeMimeType } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
@@ -24,28 +25,95 @@ import {
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events";
-import { forgetExtractWithFileRefHook } from "./forget-extract-with-file-ref";
+import {
+  forgetExtractOnFileRefDeletedHook,
+  forgetExtractOnFileRefForgottenHook,
+} from "./forget-extract-with-file-ref";
 import { EXT_DOCUMENT_INGEST_PROVIDER, resolveDocumentIngestProviders } from "./providers";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook";
 
 const FEATURE_NAME = "document-ingest-foundation";
 
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
+const FILE_REF_RESTORED = entityEventName("fileRef", "restored");
 const FILE_REF_DELETED = entityEventName("fileRef", "deleted");
 const FILE_REF_FORGOTTEN = entityEventName("fileRef", "forgotten");
 
+type MspApplyContext = Parameters<MultiStreamApplyFn>[2];
+
 // Missing/invalid fields → skip, never cast — a bad size would otherwise
 // pass a provider's maxFileBytes comparison and dead-letter the consumer.
-const fileRefCreatedPayloadSchema = z.object({
+// Shared by fileRef.created (the entity fields directly) and fileRef.restored
+// (the same fields nested under `previous`, the soft-deleted snapshot).
+const fileRefIngestFieldsSchema = z.object({
   storageKey: z.string().min(1),
   fileName: z.string().min(1),
   mimeType: z.string().min(1),
   size: z.number().int().min(0),
 });
+type FileRefIngestFields = z.infer<typeof fileRefIngestFieldsSchema>;
+
+// Shared by fileRef.created and fileRef.restored — a restored fileRef goes
+// through the same provider routing/skip logic as a fresh upload, so a
+// delete→restore round-trip re-requests ingest instead of leaving the file
+// without an extract.
+async function requestIngestForFileRef(
+  event: { readonly aggregateId: string },
+  fileRef: FileRefIngestFields,
+  ctx: MspApplyContext,
+): Promise<void> {
+  const skip = (reason: "file-too-large" | "unsupported-mime-type") =>
+    ctx.unsafeAppendEvent({
+      aggregateId: event.aggregateId,
+      aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
+      type: DOCUMENT_INGEST_SKIPPED_EVENT_QN,
+      payload: {
+        fileRefId: event.aggregateId,
+        storageKey: fileRef.storageKey,
+        fileName: fileRef.fileName,
+        mimeType: fileRef.mimeType,
+        size: fileRef.size,
+        reason,
+      },
+    });
+
+  // Boot already refused an invalid/conflicting provider config — a
+  // throw here can only mean the registry changed since then, handled
+  // like any other apply throw (retry/dead-letter).
+  const providers = resolveDocumentIngestProviders(
+    ctx.registry.getExtensionUsages(EXT_DOCUMENT_INGEST_PROVIDER),
+  );
+  const provider = providers.get(normalizeMimeType(fileRef.mimeType));
+  // skip: no provider claims this mimeType — no ingest requested
+  if (!provider) {
+    await skip("unsupported-mime-type");
+    return;
+  }
+  // skip: over the winning provider's own cap — no ingest requested,
+  // upload itself already succeeded
+  if (fileRef.size > provider.maxFileBytes) {
+    await skip("file-too-large");
+    return;
+  }
+
+  await ctx.unsafeAppendEvent({
+    aggregateId: event.aggregateId,
+    aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
+    type: DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+    payload: {
+      fileRefId: event.aggregateId,
+      storageKey: fileRef.storageKey,
+      fileName: fileRef.fileName,
+      mimeType: fileRef.mimeType,
+      size: fileRef.size,
+      provider: provider.name,
+    },
+  });
+}
 
 export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
-    "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider.",
+    "Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created/fileRef.restored trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider — a delete→restore round-trip re-requests ingest the same way a fresh upload does.",
   );
   r.uiHints({
     displayLabel: "Document Ingest Foundation",
@@ -116,58 +184,19 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
       [FILE_REF_CREATED]: async (event, _tx, ctx) => {
         // entity-event payloads are generic Record<string, unknown> — parse
         // at the MSP boundary (same pattern as storage-tracking's readNumber).
-        const parsed = fileRefCreatedPayloadSchema.safeParse(event.payload);
+        const parsed = fileRefIngestFieldsSchema.safeParse(event.payload);
         // skip: malformed / incomplete payload — don't poison the consumer
         if (!parsed.success) return;
-        const payload = parsed.data;
-
-        const skip = (reason: "file-too-large" | "unsupported-mime-type") =>
-          ctx.unsafeAppendEvent({
-            aggregateId: event.aggregateId,
-            aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
-            type: DOCUMENT_INGEST_SKIPPED_EVENT_QN,
-            payload: {
-              fileRefId: event.aggregateId,
-              storageKey: payload.storageKey,
-              fileName: payload.fileName,
-              mimeType: payload.mimeType,
-              size: payload.size,
-              reason,
-            },
-          });
-
-        // Boot already refused an invalid/conflicting provider config — a
-        // throw here can only mean the registry changed since then, handled
-        // like any other apply throw (retry/dead-letter).
-        const providers = resolveDocumentIngestProviders(
-          ctx.registry.getExtensionUsages(EXT_DOCUMENT_INGEST_PROVIDER),
-        );
-        const provider = providers.get(normalizeMimeType(payload.mimeType));
-        // skip: no provider claims this mimeType — no ingest requested
-        if (!provider) {
-          await skip("unsupported-mime-type");
-          return;
-        }
-        // skip: over the winning provider's own cap — no ingest requested,
-        // upload itself already succeeded
-        if (payload.size > provider.maxFileBytes) {
-          await skip("file-too-large");
-          return;
-        }
-
-        await ctx.unsafeAppendEvent({
-          aggregateId: event.aggregateId,
-          aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
-          type: DOCUMENT_INGEST_REQUESTED_EVENT_QN,
-          payload: {
-            fileRefId: event.aggregateId,
-            storageKey: payload.storageKey,
-            fileName: payload.fileName,
-            mimeType: payload.mimeType,
-            size: payload.size,
-            provider: provider.name,
-          },
-        });
+        await requestIngestForFileRef(event, parsed.data, ctx);
+      },
+      [FILE_REF_RESTORED]: async (event, _tx, ctx) => {
+        // fileRef.restored carries { previous }, the pre-restore soft-deleted
+        // row (event-store-executor-write.ts restore()) — same field shape
+        // as fileRef.created's payload.
+        const parsed = fileRefIngestFieldsSchema.safeParse(event.payload["previous"]);
+        // skip: malformed / incomplete previous snapshot — don't poison the consumer
+        if (!parsed.success) return;
+        await requestIngestForFileRef(event, parsed.data, ctx);
       },
     },
   });
@@ -178,8 +207,8 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
   r.multiStreamProjection({
     name: "forget-extract-with-file-ref",
     apply: {
-      [FILE_REF_DELETED]: forgetExtractWithFileRefHook,
-      [FILE_REF_FORGOTTEN]: forgetExtractWithFileRefHook,
+      [FILE_REF_DELETED]: forgetExtractOnFileRefDeletedHook,
+      [FILE_REF_FORGOTTEN]: forgetExtractOnFileRefForgottenHook,
     },
   });
 
