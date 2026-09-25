@@ -1,5 +1,99 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.309.0
+
+### Minor Changes
+
+- ac9bdae: data-retention hardDelete now purges file bytes + fileRef rows, not just the entity row (fw#3089)
+
+  <!-- kumiko-changes
+  feature: data-retention
+  type: breaking
+  title: data-retention hardDelete now purges file bytes + fileRef rows, not just the entity row (fw#3089)
+  migration: |
+    hardDelete previously deleted only the entity row and left every file/image/files/images field's storage bytes and `file_refs` row behind — a DSGVO Art. 17 gap. As of this release, an expired row's un-shared fileRefs (same tenant, bound to this row, not referenced by another row of the same entity) have their storage bytes deleted (including derivatives/thumbnails), then their `file_refs` row, then the entity row itself. A fileRef still referenced by another row, or bound to a different entity/record, is left untouched. Without a resolvable file-storage provider in the retention cron's job context, an entity with pending file deletions is skipped entirely (`skipped` reason `missing_file_storage`) rather than silently dropping the row with orphaned bytes; a storage-delete failure skips the row too (`file_delete_failed`) and retries on the next run. Before upgrading, a consumer relying on hardDelete NOT touching file storage should: list entities with `retention.strategy: "hardDelete"` and at least one file/image/files/images field, count rows already past `keepFor` for each, and confirm the referenced files are safe to delete (not needed elsewhere) before the next cron run.
+  -->
+
+### Patch Changes
+
+- 75925be: LISTEN gauge drops to 0 on a DB outage
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: LISTEN gauge drops to 0 on a DB outage
+  detail: |
+    `kumiko_event_dispatcher_listen_connected` stayed at 1 when the LISTEN
+    connection died during a DB outage, although delivery had already fallen
+    back to polling. The dispatcher now sets it to 0 when the idle pre-check
+    detects the outage. postgres.js re-LISTENs on its own once the DB is back
+    (delayed by its connect backoff, measured 10-30s) and sets it back to 1.
+  -->
+
+- cb0adcf: event-dispatcher logs when the DB comes back after an outage (fw#3243)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: event-dispatcher logs when the DB comes back after an outage (fw#3243)
+  detail: |
+    A DB outage already kept the dispatcher process alive (the postgres pool
+    reconnects per query and the dispatcher keeps polling from its cursor) and
+    logged `idle pre-check failed` once per outage, but recovery was silent:
+    ops had no signal that delivery was back to normal without restarting the
+    process. The idle pre-check now logs `idle pre-check recovered, database
+    reachable again` once the next pass succeeds after a logged failure, no
+    restart needed.
+  -->
+
+- 11b6f67: Pin postgres to a fork carrying the nextWrite null-socket fix (fw#3243)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Pin postgres to a fork carrying the nextWrite null-socket fix (fw#3243)
+  detail: |
+    The framework now depends on @bender0oo0/postgres@3.4.9-kumiko.1, an exact pin of
+    postgres 3.4.9 plus a backport of porsager/postgres#1209. Without the backport, a
+    closed connection can crash the whole process with an uncaughtException
+    ("null is not an object (evaluating 'socket.write')") instead of rejecting the
+    in-flight query with CONNECTION_CLOSED. Apps get the fix automatically with this
+    framework bump, no app-side changes needed. The pin is temporary and tracked for
+    removal in kumiko-framework#3248 once the fix lands upstream.
+  -->
+
+- 8f109b5: setupTestStack creates r.entity() tables — same table list as kumiko schema generate (fw#3102)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: setupTestStack creates r.entity() tables — same table list as kumiko schema generate (fw#3102)
+  detail: |
+    Since 0.290.0 (fw#2881), every authenticated request reads `read_tenants` (rejectIfTenantTeardown) as soon as tenant-lifecycle is mounted. Test stacks needed a manually created tenant table for that to work, because setupTestStack pushed projection/multiStreamProjection/storeTable sources but never r.entity() tables. setupTestStack now creates every entity's backing table itself via collectTableMetas, the same table list `kumiko schema generate` uses, so a feature that only declares r.entity() no longer 42P01s on first write in a test stack. App-side wrappers like `unsafeEnsureEntityTable(db, tenantEntity, "tenant")` right after setupTestStack can be removed. Callers that create/migrate entity tables themselves can opt out via `entityTables: false` (used internally by `setupAppTestStack`'s `registryTables: false`), and setupTestStack now drops the ephemeral test DB/Redis if the table DDL fails instead of leaking them.
+  -->
+
+- 711de11: `test:real` now filters to `*.real.test.ts`, and real-provider runs share one 240s timeout budget (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: test:real now filters to *.real.test.ts, and real-provider runs share one 240s timeout budget
+  detail: |
+    bunfig.real.toml's pathIgnorePatterns is blacklist-only (no gitignore-style
+    negation), so an unfiltered `bun test --config=bunfig.real.toml` still ran
+    the whole unit suite under the real-provider env. The generated `test:real`
+    script now passes a positional `real.test.ts` filter. TEST_TIMEOUT_MS.real
+    (bun --timeout) and E2E_TIMEOUT_MS.real (the Playwright real-run path via
+    defineAppE2eConfig) now both come from the same 240_000 template constant
+    instead of a separately hardcoded 120s, covering solon's real-provider
+    document-onboarding flow. `isRealProviderRun(env?)` is exported next to
+    `REAL_PROVIDERS_ENV`/`requireRealProviders` so apps stop duplicating the
+    `KUMIKO_REAL_PROVIDERS === "1"` literal.
+  -->
+
+  - @cosmicdrift/kumiko-http@0.309.0
+  - @cosmicdrift/kumiko-types@0.309.0
+
 ## 0.308.0
 
 ### Minor Changes

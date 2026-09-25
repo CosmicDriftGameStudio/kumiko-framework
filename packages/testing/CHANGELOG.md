@@ -1,5 +1,126 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.309.0
+
+### Minor Changes
+
+- 621c4de: `captureScreenshot(page, name)` for mid-flow E2E screenshots; `reducedMotion: "reduce"` is now the default (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: reducedMotion defaults to "reduce" in runScreenshots/runMatrix/captureScreenshot; captureScreenshot(page, name) added
+  detail: |
+    rAF-driven chart/tween animations were invisible to the settle-detection
+    wait, so screenshots sometimes captured a mid-animation frame. Both matrix
+    helpers now call page.emulateMedia({ reducedMotion: "reduce" }) at test
+    start, before the first navigation. The new captureScreenshot(page, name,
+    opts?) applies the same media emulation at capture time, so it only affects
+    animations started after that point; set reducedMotion via test.use() for
+    mid-flow shots of charts that animate on mount. captureScreenshot reuses the
+    matrix runner's settle logic, writes $SCREENSHOT_DIR/<name>.png, and is a
+    no-op when SCREENSHOT_DIR is unset, for solon's mid-flow shot(page, id) and
+    offlot's inline page.screenshot writes into docs/screenshots/e2e/.
+  migration: |
+    Pass `reducedMotion: "no-preference"` in runScreenshots/runMatrix's
+    options, or as captureScreenshot's third argument, for a scenario that
+    must keep real motion.
+  -->
+
+- 621c4de: `runMatrix` locales are app-injectable, and it gains a named-device project mode (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: runMatrix locales are app-injectable via localeTags, and gains a namedDevice mode for phone-style device projects
+  detail: |
+    runMatrix's locale list was fixed to en/de with hardcoded BCP47 tags.
+    opts.localeTags lets an app supply its own locale -> tag map (e.g. "es" ->
+    "es-ES"); locales with neither an app override nor the en/de default fall
+    back to Intl.Locale(locale).maximize().region derivation, throwing only
+    when no tag is derivable. A Playwright project whose name isn't a
+    ViewportId but is a mobile/device project (offlot's "phone" project) now
+    gets its own namedDevice output subtree
+    (<dir>/<outputPrefix>/<name>/<locale>/<theme>/<viewport>.png) fixed to the mobile
+    viewport, instead of incorrectly falling through to the desktop pass.
+  -->
+
+- 95a595d: Screenshot scenarios get the matrix locale in `flow` and a screenshot-only `captureStyle` (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Scenario flow receives runMatrix's locale; Scenario.captureStyle for screenshot-only CSS
+  detail: |
+    runMatrix passes the current locale to `flow(page, { seedTenant, locale })`,
+    so apps whose routes carry the locale in the path (offlot's public vehicle
+    page) can build the URL per locale. `captureStyle` is handed to Playwright's
+    screenshot `style` option in runScreenshots and runMatrix: the CSS applies
+    to the capture only and does not leak into the next theme × viewport shot.
+  -->
+
+- 837b712: `seedTenant` accepts an admin identity (displayName/email) for demo and screenshot tenants (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: seedTenant accepts an admin identity (displayName/email) for demo and screenshot tenants
+  detail: |
+    SeedTenantOptions gained an optional `admin: { displayName?, email? }`.
+    email supports a `{tenantId}` placeholder, substituted per call, so a
+    fixed template (e.g. `admin+{tenantId}@example.test`) stays unique across
+    the global `read_users_email_unique` index instead of colliding across
+    per-scenario tenants. Threaded through both the plain seed-tenant.ts path
+    and the HTTP seed route/fixture.
+  -->
+
+### Patch Changes
+
+- 711de11: `test:real` now filters to `*.real.test.ts`, and real-provider runs share one 240s timeout budget (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: test:real now filters to *.real.test.ts, and real-provider runs share one 240s timeout budget
+  detail: |
+    bunfig.real.toml's pathIgnorePatterns is blacklist-only (no gitignore-style
+    negation), so an unfiltered `bun test --config=bunfig.real.toml` still ran
+    the whole unit suite under the real-provider env. The generated `test:real`
+    script now passes a positional `real.test.ts` filter. TEST_TIMEOUT_MS.real
+    (bun --timeout) and E2E_TIMEOUT_MS.real (the Playwright real-run path via
+    defineAppE2eConfig) now both come from the same 240_000 template constant
+    instead of a separately hardcoded 120s, covering solon's real-provider
+    document-onboarding flow. `isRealProviderRun(env?)` is exported next to
+    `REAL_PROVIDERS_ENV`/`requireRealProviders` so apps stop duplicating the
+    `KUMIKO_REAL_PROVIDERS === "1"` literal.
+  -->
+
+- 711de11: `defineAppE2eConfig`'s webServer env now defaults the infra service vars, environment wins (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: defineAppE2eConfig's webServer env now defaults the infra service vars, environment wins
+  detail: |
+    webServer.env is now built as `{ ...infraEnvDefaults(), ...PLAYWRIGHT_DEMO_ENV, ...env }`,
+    where infraEnvDefaults() reads the same SERVICE_ENV_DEFAULTS the app's own
+    preload uses (DATABASE_URL, REDIS_URL, MEILI_URL, MINIO_*, ...), falling
+    back to each default only when process.env doesn't already carry a value.
+    A CI/shell-set env var still wins over the template default. No
+    `--env-file` is loaded here.
+  -->
+
+- Updated dependencies [75925be]
+- Updated dependencies [cb0adcf]
+- Updated dependencies [11b6f67]
+- Updated dependencies [ac9bdae]
+- Updated dependencies [a81c5d0]
+- Updated dependencies [8f109b5]
+- Updated dependencies [711de11]
+  - @cosmicdrift/kumiko-framework@0.309.0
+  - @cosmicdrift/kumiko-bundled-features@0.309.0
+  - @cosmicdrift/kumiko-dev-server@0.309.0
+
 ## 0.308.0
 
 ### Patch Changes
