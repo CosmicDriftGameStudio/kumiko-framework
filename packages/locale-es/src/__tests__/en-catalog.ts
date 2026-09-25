@@ -26,7 +26,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.actor.anonymous": "Anonymous",
   "audit.log.actor.unknown": "Unknown actor",
   "audit.log.col.actor": "Actor",
-  "audit.log.col.aggregate": "Aggregate",
+  "audit.log.col.aggregateType": "Aggregate type",
+  "audit.log.col.aggregateId": "Aggregate ID",
   "audit.log.col.type": "Event",
   "audit.log.col.when": "When",
   "audit.log.detail.field.id": "Event ID",
@@ -34,6 +35,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.detail.metadata": "Metadata",
   "audit.log.detail.missing": "Event not found.",
   "audit.log.detail.payload": "Event payload",
+  "audit.log.detail.subtitle":
+    "Read-only detail view of one audit event showing actor, timestamp, aggregate and the raw event payload and metadata; reached from a row of the audit log.",
   "audit.log.details": "Details",
   "audit.log.empty": "No events.",
   "audit.log.filter.aggregateType": "Aggregate type",
@@ -931,5 +934,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.restricted":
     "Your account is restricted. Contact support to lift the restriction.",
   "userDataRights.privacyCenter.restriction.title": "Restrict processing (Art. 18)",
+  "userDataRights.privacyCenter.subtitle":
+    "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
   "userDataRights.privacyCenter.title": "Privacy",
 };

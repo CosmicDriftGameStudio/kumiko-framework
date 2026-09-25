@@ -26,7 +26,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "audit.log.actor.anonymous": "Anónimo",
   "audit.log.actor.unknown": "Actor desconocido",
   "audit.log.col.actor": "Actor",
-  "audit.log.col.aggregate": "Agregado",
+  "audit.log.col.aggregateType": "Tipo de agregado",
+  "audit.log.col.aggregateId": "ID de agregado",
   "audit.log.col.type": "Evento",
   "audit.log.col.when": "Fecha",
   "audit.log.detail.field.id": "ID del evento",
@@ -34,6 +35,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "audit.log.detail.metadata": "Metadatos",
   "audit.log.detail.missing": "Evento no encontrado.",
   "audit.log.detail.payload": "Payload del evento",
+  "audit.log.detail.subtitle":
+    "Vista de detalle de solo lectura de un evento del registro de auditoría, con actor, marca de tiempo, agregado y el payload y los metadatos del evento en bruto; se accede desde una fila del registro de auditoría.",
   "audit.log.details": "Detalles",
   "audit.log.empty": "No hay eventos.",
   "audit.log.filter.aggregateType": "Tipo de agregado",
@@ -815,12 +818,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:role:option:Admin": "Admin",
   "tenant:entity:__action-form__:field:role:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:role:option:TenantAdmin": "Admin de organización",
-  "tenant:entity:__action-form__:field:role:option:User": "User",
+  "tenant:entity:__action-form__:field:role:option:User": "Usuario",
   "tenant:entity:__action-form__:field:roles": "Roles",
   "tenant:entity:__action-form__:field:roles:option:Admin": "Admin",
   "tenant:entity:__action-form__:field:roles:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Admin de organización",
-  "tenant:entity:__action-form__:field:roles:option:User": "User",
+  "tenant:entity:__action-form__:field:roles:option:User": "Usuario",
   "tenant:entity:__action-form__:field:userId": "ID de usuario",
   "tenant:entity:tenant:field:isEnabled": "Activado",
   "tenant:entity:tenant:field:isEnabled:option:false": "No",
@@ -944,5 +947,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.restricted":
     "Tu cuenta está limitada. Ponte en contacto con el soporte para levantar la limitación.",
   "userDataRights.privacyCenter.restriction.title": "Limitar el tratamiento (art. 18)",
+  "userDataRights.privacyCenter.subtitle":
+    "Página de autoservicio del RGPD para usuarios con sesión iniciada: solicitar y descargar una exportación de datos (art. 20), restringir el tratamiento de su cuenta (art. 18) y solicitar su eliminación (art. 17).",
   "userDataRights.privacyCenter.title": "Privacidad",
 };

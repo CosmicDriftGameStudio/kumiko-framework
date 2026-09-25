@@ -355,8 +355,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         },
       },
       dormant: true,
-      description:
-        "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
+      description: "userDataRights.privacyCenter.subtitle",
       fieldLabels: {
         status: i18nKey("userDataRights.privacyCenter.field.status"),
         gracePeriodEnd: i18nKey("userDataRights.privacyCenter.field.gracePeriodEnd"),
