@@ -321,6 +321,20 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     };
   }
 
+  // Shared by deliverToUser (resolved account address) and deliverDirect (a
+  // route address with no user account) — same suppression rule either way:
+  // no blind-index key configured means no hash, so nothing to look up.
+  async function isAddressSuppressed(
+    address: string,
+    tenantId: TenantId,
+    notificationType: string,
+    channelName: string,
+  ): Promise<boolean> {
+    const addressHash = hashUnsubscribeAddress(address);
+    if (addressHash === undefined) return false;
+    return isAddressOptedOut(db, tenantId, addressHash, notificationType, channelName);
+  }
+
   // Check if user has disabled this notification+channel combo.
   // Specificity order: exact > any wildcard. When only wildcards match and they
   // disagree, "disabled wins" — the user has asked to be opted out somewhere,
@@ -439,6 +453,23 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           continue;
         }
 
+        if (
+          priority !== "critical" &&
+          (await isAddressSuppressed(address, tenantId, notificationType, channel.name))
+        ) {
+          await logDelivery({
+            tenantId,
+            notificationType,
+            channel: channel.name,
+            recipientId: userId,
+            recipientAddress: null,
+            status: "skipped",
+            error: "unsubscribed",
+            priority,
+          });
+          continue;
+        }
+
         await deliverViaChannel({
           channel,
           address,
@@ -482,33 +513,23 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       if (!address) continue;
 
       // Address opt-out (critical priority skips it, same rule as user
-      // preferences). No blind-index key configured → no hash → nothing to
-      // look up, skip the check instead of failing the send.
-      if (priority !== "critical") {
-        const addressHash = hashUnsubscribeAddress(address);
-        if (addressHash !== undefined) {
-          const optedOut = await isAddressOptedOut(
-            db,
-            tenantId,
-            addressHash,
-            notificationType,
-            channel.name,
-          );
-          if (optedOut) {
-            await logDelivery({
-              tenantId,
-              notificationType,
-              channel: channel.name,
-              recipientId,
-              // The recipient withdrew — suppressed attempts must not keep recording the address.
-              recipientAddress: null,
-              status: "skipped",
-              error: "unsubscribed",
-              priority,
-            });
-            continue;
-          }
-        }
+      // preferences).
+      if (
+        priority !== "critical" &&
+        (await isAddressSuppressed(address, tenantId, notificationType, channel.name))
+      ) {
+        await logDelivery({
+          tenantId,
+          notificationType,
+          channel: channel.name,
+          recipientId,
+          // The recipient withdrew — suppressed attempts must not keep recording the address.
+          recipientAddress: null,
+          status: "skipped",
+          error: "unsubscribed",
+          priority,
+        });
+        continue;
       }
 
       if (rateLimit) {
