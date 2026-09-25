@@ -30,6 +30,7 @@ import type { FileProviderResolver } from "./provider-resolver";
 import {
   buildStorageKey,
   resolveServedContentType,
+  resolveUploadMimeType,
   validateFile,
   validateFileContent,
 } from "./types";
@@ -240,13 +241,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: contentValidationError }, 400);
     }
 
+    const mimeTypeResolution = resolveUploadMimeType(file.name, file.type, data);
+    if (mimeTypeResolution.kind === "rejected") {
+      return c.json({ error: mimeTypeResolution.error }, 400);
+    }
+    const mimeType = mimeTypeResolution.mimeType;
+
     // Write binary FIRST (outside the tx — network/disk I/O doesn't belong
     // inside a PG connection's tx window). On DB-tx rollback below the bytes
     // are orphaned in the provider; cleanup-jobs sweep those later. Losing a
     // row on append-failure is acceptable; corrupting a committed row with a
     // missing binary is not.
     const storageProvider = await options.resolveProvider(user.tenantId);
-    await storageProvider.write(storageKey, data, file.type);
+    await storageProvider.write(storageKey, data, mimeType);
 
     // Create via the standard entity executor: emits fileRef.created +
     // materialises the file_refs row in one tx (read-your-own-write). id is
@@ -260,7 +267,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         id: fileRefId,
         storageKey,
         fileName: file.name,
-        mimeType: file.type,
+        mimeType,
         size: file.size,
         entityType: entityType ?? null,
         entityId: entityId ?? null,
@@ -277,7 +284,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       {
         id: fileRefId,
         fileName: file.name,
-        mimeType: file.type,
+        mimeType,
         size: file.size,
         storageKey,
       },

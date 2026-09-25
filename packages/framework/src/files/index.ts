@@ -37,6 +37,7 @@ export type {
   FileStorageProvider,
   FileValidationOptions,
   SignedUrlOptions,
+  UploadMimeTypeResolution,
   WriteStreamOptions,
 } from "./types";
 export {
@@ -44,6 +45,8 @@ export {
   buildStorageKey,
   normalizeMimeType,
   parseMaxSize,
+  resolveUploadMimeType,
+  sniffMimeType,
   tenantExportPrefix,
   tenantStoragePrefixes,
   validateFile,
