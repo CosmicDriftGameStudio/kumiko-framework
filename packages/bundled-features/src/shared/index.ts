@@ -25,6 +25,7 @@ export {
   redeemRowBoundGrant,
   signRowBoundGrant,
 } from "./row-bound-grant";
+export { runInSubTransaction } from "./run-in-sub-transaction";
 export { sessionField } from "./session-field";
 export { sessionLocaleField } from "./session-locale-field";
 export { sessionTimezoneField } from "./session-timezone-field";

@@ -64,7 +64,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/search";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
-import { decryptStoredPii } from "../shared";
+import { decryptStoredPii, runInSubTransaction } from "../shared";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, userTable } from "../user";
 import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup";
@@ -537,43 +537,6 @@ async function processUser(args: {
     userLocaleBeforeDelete,
     tenantIdsBeforeDelete,
   };
-}
-
-// Per-user sub-transaction, nesting-aware across both db shapes:
-//   - top-level connection (Bun.SQL / postgres-js Sql) → `.begin` (BEGIN)
-//   - TransactionSql (inside the dispatcher's outer tx, where every
-//     writeHandler already runs) → `.savepoint` (SAVEPOINT)
-// A TransactionSql has no `.begin`, so the previous unconditional `.begin`
-// threw "is not a function" on every user when invoked through the dispatcher
-// (the cron path) → zero deletions in production, while direct-connection tests
-// stayed green. Selecting the available method makes the sub-tx work in both
-// contexts; on throw the savepoint rolls back just this user (others survive).
-async function runInSubTransaction(
-  db: DbRunner,
-  fn: (tx: DbRunner) => Promise<void>,
-): Promise<void> {
-  // `db` is already the raw runner (the handler passes ctx.db.unsafeRaw(...),
-  // the tests a top-level connection) — cast to read the transaction surface directly,
-  // without asRawClient (a test-only escape hatch). A top-level connection
-  // exposes `.begin`; a TransactionSql only `.savepoint`. They are mutually
-  // exclusive, so prefer whichever is present.
-  const runner = db as {
-    begin?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
-    savepoint?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
-  };
-  // savepoint-FIRST — empirisch (Bun 1.3.14, unter 1.4.0 nicht neu geprüft)
-  // sind die Flächen NICHT mutually exclusive: eine TransactionSql exposed
-  // begin UND savepoint, nur die Top-Level-Connection hat ausschließlich
-  // begin. begin-first wählte im Tx-Fall das nested BEGIN (Prod-Incident-
-  // Klasse, s. Header); savepoint-first trifft im Tx-Fall den Savepoint
-  // und fällt top-level sauber auf begin zurück.
-  const open = runner.savepoint ?? runner.begin;
-  if (!open) {
-    throw new Error(
-      "runForgetCleanup: db exposes neither .begin nor .savepoint — cannot open a per-user sub-transaction",
-    );
-  }
-  await open.call(runner, fn);
 }
 
 // Pseudo-Tenant fuer User ohne aktive Memberships. RFC4122-konforme
