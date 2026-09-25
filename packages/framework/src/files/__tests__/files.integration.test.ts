@@ -35,7 +35,7 @@ import type { FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 import type { FileStorageProvider, SignedUrlOptions } from "../types";
-import { parseMaxSize, sniffMimeType, validateFile } from "../types";
+import { parseMaxSize, sniffMimeType, validateFile, validateFileContent } from "../types";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
 // the query — the row just isn't there. Pre-v1 files-feature tests used
@@ -222,6 +222,80 @@ describe("file validation", () => {
     expect(sniffMimeType(new Uint8Array([0x00, 0x01, 0x02]))).toBeNull();
     expect(sniffMimeType(new TextEncoder().encode("hello world"))).toBeNull();
   });
+
+  // --- doc/docx magic-byte content verification ---
+
+  const docBytes = new Uint8Array([
+    0xd0,
+    0xcf,
+    0x11,
+    0xe0,
+    0xa1,
+    0xb1,
+    0x1a,
+    0xe1,
+    ...Array(20).fill(0),
+  ]);
+  const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
+
+  test("validateFile accepts a .doc/.docx upload on extension/mimeType alone", () => {
+    expect(
+      validateFile(
+        { fileName: "report.doc", mimeType: "application/msword", size: docBytes.length },
+        { accept: ["doc", "docx"] },
+      ),
+    ).toBeNull();
+    expect(
+      validateFile(
+        {
+          fileName: "report.docx",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: docxBytes.length,
+        },
+        { accept: ["doc", "docx"] },
+      ),
+    ).toBeNull();
+  });
+
+  test("validateFileContent accepts .doc/.docx bytes matching their declared mimeType", () => {
+    expect(validateFileContent("application/msword", docBytes)).toBeNull();
+    expect(
+      validateFileContent(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        docxBytes,
+      ),
+    ).toBeNull();
+  });
+
+  test("validateFileContent rejects .doc/.docx whose content doesn't match the declared mimeType", () => {
+    const fakeDoc = validateFileContent(
+      "application/msword",
+      new TextEncoder().encode("not actually a Word document, just text"),
+    );
+    expectErrorIncludes(fakeDoc, "content_mismatch");
+
+    const fakeDocx = validateFileContent(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      new TextEncoder().encode("not actually a docx, just text"),
+    );
+    expectErrorIncludes(fakeDocx, "content_mismatch");
+  });
+
+  test("validateFileContent does not content-verify pre-existing types (e.g. pdf) even when content mismatches", () => {
+    expect(
+      validateFileContent(
+        "application/pdf",
+        new TextEncoder().encode("not a PDF at all, just text"),
+      ),
+    ).toBeNull();
+  });
+
+  test("sniffMimeType recognizes doc (OLE) and docx (ZIP) signatures", () => {
+    expect(sniffMimeType(docBytes)).toBe("application/msword");
+    expect(sniffMimeType(docxBytes)).toBe(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+  });
 });
 
 // --- Integration: Upload → Download → Delete via real HTTP API ---
@@ -406,6 +480,46 @@ describe("download Content-Type is sniffed from bytes, not trusted from the decl
     const res = await getFile(adminUser, id);
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("image/jpeg");
+  });
+});
+
+// --- doc/docx upload via API: content-verified independent of `accept` ---
+
+describe("doc/docx upload is content-verified against magic bytes", () => {
+  const docBytes = new Uint8Array([
+    0xd0,
+    0xcf,
+    0x11,
+    0xe0,
+    0xa1,
+    0xb1,
+    0x1a,
+    0xe1,
+    ...Array(20).fill(0),
+  ]);
+  const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
+
+  test("a real .doc upload succeeds", async () => {
+    const res = await uploadFile(adminUser, "report.doc", docBytes, "application/msword");
+    expect(res.status).toBe(201);
+  });
+
+  test("a real .docx upload succeeds", async () => {
+    const res = await uploadFile(
+      adminUser,
+      "report.docx",
+      docxBytes,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    expect(res.status).toBe(201);
+  });
+
+  test("a .doc upload whose bytes don't match the declared mimeType is rejected with content_mismatch, even unattached (no `accept` list)", async () => {
+    const fakeDocBytes = new TextEncoder().encode("plain text pretending to be a Word document");
+    const res = await uploadFile(adminUser, "fake.doc", fakeDocBytes, "application/msword");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("content_mismatch");
   });
 });
 

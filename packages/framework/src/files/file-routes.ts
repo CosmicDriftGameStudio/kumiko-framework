@@ -27,7 +27,12 @@ import { createFileContext } from "./file-handle";
 import { fileRefEntity } from "./file-ref-entity";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileProviderResolver } from "./provider-resolver";
-import { buildStorageKey, resolveServedContentType, validateFile } from "./types";
+import {
+  buildStorageKey,
+  resolveServedContentType,
+  validateFile,
+  validateFileContent,
+} from "./types";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.
@@ -228,13 +233,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       generateId(),
     );
 
+    const data = new Uint8Array(await file.arrayBuffer());
+
+    const contentValidationError = validateFileContent(file.type, data);
+    if (contentValidationError) {
+      return c.json({ error: contentValidationError }, 400);
+    }
+
     // Write binary FIRST (outside the tx — network/disk I/O doesn't belong
     // inside a PG connection's tx window). On DB-tx rollback below the bytes
     // are orphaned in the provider; cleanup-jobs sweep those later. Losing a
     // row on append-failure is acceptable; corrupting a committed row with a
     // missing binary is not.
     const storageProvider = await options.resolveProvider(user.tenantId);
-    const data = new Uint8Array(await file.arrayBuffer());
     await storageProvider.write(storageKey, data, file.type);
 
     // Create via the standard entity executor: emits fileRef.created +

@@ -14,7 +14,7 @@ import type { Registry, TenantId } from "../engine/types";
 import { InternalError, NotFoundError } from "../errors";
 import type { FileContext } from "../files/file-handle";
 import { fileRefsTable } from "../files/file-ref-table";
-import { assertSafeStorageKey } from "../files/types";
+import { assertSafeStorageKey, normalizeMimeType } from "../files/types";
 import { variantSuffix } from "./variant-key";
 
 export type DerivativesContextDeps = {
@@ -28,13 +28,6 @@ export type DerivativesContextDeps = {
 // instead of casting blind, same pattern as isFileProviderPlugin.
 function isDerivativeRendererPlugin(o: unknown): o is DerivativeRendererPlugin {
   return typeof o === "object" && o !== null && "render" in o && typeof o.render === "function";
-}
-
-// Mirrors validateFile's mime-normalization: strip a `; charset=…` suffix,
-// trim, lowercase — so a provider-supplied `image/jpeg; charset=binary`
-// still resolves.
-function normalizeMimeType(mimeType: string): string {
-  return mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
 }
 
 export function resolveRenderer(

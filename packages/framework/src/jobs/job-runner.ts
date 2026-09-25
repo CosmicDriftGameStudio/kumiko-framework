@@ -367,6 +367,17 @@ function buildRetryBullOpts(jobDef: JobDefinition): Pick<JobsOptions, "attempts"
   return opts;
 }
 
+// Equality filter on top-level payload fields for a job's trigger.where —
+// lets N jobs share one broad event QN, partitioned by a payload
+// discriminant instead of needing N distinct event types.
+function payloadMatchesTriggerFilter(
+  where: Readonly<Record<string, string | number | boolean>> | undefined,
+  payload: Record<string, unknown>,
+): boolean {
+  if (!where) return true;
+  return Object.entries(where).every(([key, value]) => payload[key] === value);
+}
+
 // BullMQ sweeps queue-wide: any job finishing with keepJobs set can evict
 // OTHER jobs in the same completed/failed zset (moveToFinished lua,
 // removeJobsByMaxAge/removeJobsByMaxCount), not just the finishing job, and
@@ -1263,6 +1274,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           ? triggerOn.includes(eventName)
           : triggerOn === eventName;
         if (!matches) continue;
+        if (!payloadMatchesTriggerFilter(jobDef.trigger.where, payload)) continue;
         const data: Record<string, unknown> = { ...payload };
         if (user) {
           data["_tenantId"] = user.tenantId;
