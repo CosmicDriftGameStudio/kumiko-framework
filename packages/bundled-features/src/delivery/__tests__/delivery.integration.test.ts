@@ -47,7 +47,12 @@ import { TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
-import { DeliveryHandlers, DeliveryJobs, DeliveryQueries } from "../constants";
+import {
+  DELIVERY_UNSUBSCRIBE_PATH,
+  DeliveryHandlers,
+  DeliveryJobs,
+  DeliveryQueries,
+} from "../constants";
 import { collectChannels, createDeliveryService } from "../delivery-service";
 import { createDeliveryFeature } from "../feature";
 import { deliveryRenderJob, deliverySendJob } from "../jobs";
@@ -69,7 +74,7 @@ import {
 let stack: TestStack;
 let db: DbConnection;
 let deliveryService: DeliveryService;
-const JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
+const UNSUBSCRIBE_SECRET = "test-stack-unsubscribe-secret-32-chars-min!!";
 
 // Email test infrastructure
 const emailTransport = createInMemoryTransport();
@@ -368,11 +373,9 @@ beforeAll(async () => {
       deliveryService = ctx.deliveryService;
       return ctx;
     },
+    extraRoutes: [createUnsubscribeRoute({ secret: UNSUBSCRIBE_SECRET })],
   });
   db = stack.db;
-
-  // Mount unsubscribe route BEFORE any requests (Hono router locks after first match)
-  stack.app.route("/delivery", createUnsubscribeRoute({ db, jwtSecret: JWT_SECRET }));
 
   // deliveryAttemptsTable is auto-pushed by setupTestStack as MSP-projection-table;
   // notificationPreferencesTable is an ES-entity, so it still needs explicit
@@ -798,10 +801,10 @@ describe("flow 7: unsubscribe endpoint", () => {
         notificationType: "app:notify:announcement",
         channel: "inApp",
       },
-      JWT_SECRET,
+      UNSUBSCRIBE_SECRET,
     );
 
-    const res = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toContain("unsubscribed");
@@ -819,14 +822,100 @@ describe("flow 7: unsubscribe endpoint", () => {
     expect(pref?.["enabled"]).toBe(false);
   });
 
+  test("preference row belongs to the token's userId, not the dispatching system user", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user1.id,
+        tenantId: user1.tenantId,
+        notificationType: "app:notify:flow7-actor-check",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    expect(res.status).toBe(200);
+
+    const rows = await selectMany(db, notificationPreferencesTable, {
+      userId: user1.id,
+      notificationType: "app:notify:flow7-actor-check",
+      channel: "inApp",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["enabled"]).toBe(false);
+  });
+
   test("invalid token returns 400", async () => {
-    const res = await stack.app.request("/delivery/unsubscribe?token=invalid-jwt-token");
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=invalid-jwt-token`);
     expect(res.status).toBe(400);
   });
 
   test("missing token returns 400", async () => {
-    const res = await stack.app.request("/delivery/unsubscribe");
+    const res = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH);
     expect(res.status).toBe(400);
+  });
+
+  test("normal user cannot dispatch the unsubscribe write handlers directly", async () => {
+    const error = await stack.http.writeErr(
+      DeliveryHandlers.unsubscribeAddress,
+      { addressHash: "x".repeat(32), notificationType: "app:notify:direct-call", channel: "email" },
+      user1,
+    );
+    expect(error.code).toBe("access_denied");
+
+    const rows = await selectMany(db, notificationAddressOptOutsTable, {
+      notificationType: "app:notify:direct-call",
+      channel: "email",
+    });
+    expect(rows).toHaveLength(0);
+
+    const userError = await stack.http.writeErr(
+      DeliveryHandlers.unsubscribeUser,
+      { userId: user2.id, notificationType: "app:notify:direct-call", channel: "email" },
+      user1,
+    );
+    expect(userError.code).toBe("access_denied");
+
+    const preferenceRows = await selectMany(db, notificationPreferencesTable, {
+      userId: user2.id,
+      notificationType: "app:notify:direct-call",
+    });
+    expect(preferenceRows).toHaveLength(0);
+  });
+
+  test("wrong issuer is rejected with the generic invalid-token code, not a jose error text", async () => {
+    const tamperedIssuer = await new jose.SignJWT({
+      tenantId: user2.tenantId,
+      notificationType: "app:notify:wrong-issuer",
+      channel: "inApp",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(user2.id)
+      .setIssuer("not-kumiko:unsubscribe")
+      .setIssuedAt()
+      .sign(new TextEncoder().encode(UNSUBSCRIBE_SECRET));
+
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${tamperedIssuer}`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { code?: string; message?: string } };
+    expect(body.error?.code).toBe("unsubscribe_token_invalid");
+    expect(JSON.stringify(body)).not.toContain("signature verification failed");
+    expect(JSON.stringify(body)).not.toContain("claim");
+
+    const rows = await selectMany(db, notificationPreferencesTable, {
+      userId: user2.id,
+      notificationType: "app:notify:wrong-issuer",
+      channel: "inApp",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  test("a real stack session JWT is rejected at the unsubscribe route", async () => {
+    const sessionToken = await stack.jwt.sign(user1);
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${sessionToken}`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("unsubscribe_token_invalid");
   });
 });
 
@@ -1481,10 +1570,10 @@ describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
         notificationType: "app:notify:concurrent-unsub",
         channel: "email",
       },
-      JWT_SECRET,
+      UNSUBSCRIBE_SECRET,
     );
 
-    const url = `/delivery/unsubscribe?token=${token}`;
+    const url = `${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`;
     const results = await Promise.all([
       stack.app.request(url),
       stack.app.request(url),
@@ -1873,14 +1962,14 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
         notificationType: "app:notify:address-unsub-19a",
         channel: "email",
       },
-      JWT_SECRET,
+      UNSUBSCRIBE_SECRET,
     );
-    const res = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("unsubscribed");
 
     // Clicking twice must stay a no-op (one row, no crash).
-    const res2 = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    const res2 = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
     expect(res2.status).toBe(200);
     const optOutRows = await selectMany(db, notificationAddressOptOutsTable, {
       notificationType: "app:notify:address-unsub-19a",
@@ -1946,7 +2035,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       FOREIGN_JWT_SECRET,
     );
 
-    const res = await stack.app.request(`/delivery/unsubscribe?token=${forgedToken}`);
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${forgedToken}`);
     expect(res.status).toBe(400);
 
     const rows = await selectMany(db, notificationAddressOptOutsTable, {
@@ -1965,7 +2054,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
         notificationType: "app:notify:address-unsub-19d",
         channel: "email",
       },
-      JWT_SECRET,
+      UNSUBSCRIBE_SECRET,
     );
 
     const payload = jose.decodeJwt(token);
@@ -1986,9 +2075,9 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
         notificationType: "app:notify:address-unsub-19e",
         channel: "email",
       },
-      JWT_SECRET,
+      UNSUBSCRIBE_SECRET,
     );
-    const res = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
     expect(res.status).toBe(200);
 
     await deliveryService.notify(
@@ -2016,11 +2105,42 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
             notificationType: "app:notify:address-unsub-19f",
             channel: "email",
           },
-          JWT_SECRET,
+          UNSUBSCRIBE_SECRET,
         ),
       ).rejects.toThrow(/blind-index key/);
     } finally {
       configureBlindIndexKey(ADDRESS_BIDX_KEY);
     }
+  });
+
+  // Address-path counterpart to flow 16 — same deterministic-aggregate-id
+  // race, but through upsertAddressOptOut's create-or-noop instead of
+  // upsertPreference's create-or-update.
+  test("clicking the same address unsubscribe link three times concurrently does not error", async () => {
+    const address = "flow19-concurrent@test.com";
+    const notificationType = "app:notify:address-unsub-concurrent";
+
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: admin.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const url = `${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`;
+    const results = await Promise.all([
+      stack.app.request(url),
+      stack.app.request(url),
+      stack.app.request(url),
+    ]);
+
+    for (const res of results) {
+      expect(res.status).toBe(200);
+    }
+
+    const rows = await selectMany(db, notificationAddressOptOutsTable, {
+      tenantId: admin.tenantId,
+      notificationType,
+      channel: "email",
+    });
+    expect(rows).toHaveLength(1);
   });
 });

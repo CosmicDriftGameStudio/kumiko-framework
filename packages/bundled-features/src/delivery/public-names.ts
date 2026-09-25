@@ -5,7 +5,13 @@ export const DELIVERY_FEATURE = "delivery" as const;
 
 export const DeliveryHandlers = {
   setPreference: "delivery:write:set-preference",
+  unsubscribeAddress: "delivery:write:unsubscribe-address",
+  unsubscribeUser: "delivery:write:unsubscribe-user",
 } as const;
+
+// Fixed so links mailed out today keep working — the unsubscribe route is
+// mounted at this exact path via `extraRoutes: [createUnsubscribeRoute(...)]`.
+export const DELIVERY_UNSUBSCRIBE_PATH = "/api/delivery/unsubscribe" as const;
 
 export const DeliveryQueries = {
   log: "delivery:query:log",

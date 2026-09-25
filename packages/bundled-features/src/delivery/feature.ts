@@ -18,6 +18,8 @@ import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
+import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write";
+import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write";
 import { DELIVERY_I18N } from "./i18n";
 import { deliveryRenderJob, deliverySendJob } from "./jobs";
 import {
@@ -42,7 +44,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
   const resolvedAccess = options?.access ?? access.admin;
   return defineFeature("delivery", (r) => {
     r.describe(
-      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe links are served by `createUnsubscribeRoute({ secret })` mounted via the app's `extraRoutes` at `GET /api/delivery/unsubscribe?token=`; sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret.",
     );
     r.uiHints({
       displayLabel: "Notifications \u00b7 Dispatch Core",
@@ -148,6 +150,8 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
 
     const handlers = {
       setPreference: r.writeHandler(setPreferenceWrite),
+      unsubscribeAddress: r.writeHandler(unsubscribeAddressWrite),
+      unsubscribeUser: r.writeHandler(unsubscribeUserWrite),
     };
 
     const queries = {
