@@ -6,13 +6,15 @@
       "samples": [
         "apps-admin-console"
       ],
-      "hasVisualOutput": true
+      "hasVisualOutput": true,
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
     },
     "audit": {
       "samples": [
         "apps-admin-console"
       ],
-      "hasVisualOutput": true
+      "hasVisualOutput": true,
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
     },
     "auth-email-password": {
       "samples": [
@@ -208,7 +210,8 @@
       "samples": [
         "apps-admin-console"
       ],
-      "hasVisualOutput": true
+      "hasVisualOutput": true,
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
     },
     "ledger": {
       "samples": [
