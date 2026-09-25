@@ -114,6 +114,16 @@ describe("defineAppE2eConfig defaults", () => {
     expect(chromium?.use?.userAgent).toContain("Chrome");
   });
 
+  test("screenshot runs render the chromium project at 2x, plain e2e runs at 1x", () => {
+    const scaleOf = () =>
+      defineAppE2eConfig({ port: 5000 }).projects?.find((project) => project.name === "chromium")
+        ?.use?.deviceScaleFactor;
+    expect(scaleOf()).toBe(1);
+
+    process.env["SCREENSHOT_DIR"] = "/tmp/shots";
+    expect(scaleOf()).toBe(2);
+  });
+
   test("testDir and testMatch pass through; without them the whole ./e2e tree is collected", () => {
     const narrowed = defineAppE2eConfig({
       port: 1,

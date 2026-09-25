@@ -15,11 +15,12 @@ import {
   isRealProviderRun,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
+  SCREENSHOT_DEVICE_SCALE_FACTOR,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,
 } from "./constants";
-import { screenshotSpecsIgnore } from "./screenshot-dir";
+import { isScreenshotRun, screenshotSpecsIgnore } from "./screenshot-dir";
 import { E2E_TIMEOUT_MS } from "./timeouts";
 
 // A `??` merge per key, not a raw process.env spread — CI or the shell
@@ -156,7 +157,14 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       navigationTimeout: E2E_TIMEOUT_MS.navigation,
     },
     projects: [
-      { name: "chromium", use: { ...devices["Desktop Chrome"], viewport: DESKTOP_VIEWPORT } },
+      {
+        name: "chromium",
+        use: {
+          ...devices["Desktop Chrome"],
+          viewport: DESKTOP_VIEWPORT,
+          deviceScaleFactor: isScreenshotRun() ? SCREENSHOT_DEVICE_SCALE_FACTOR : 1,
+        },
+      },
       ...projects,
     ],
     webServer: {
