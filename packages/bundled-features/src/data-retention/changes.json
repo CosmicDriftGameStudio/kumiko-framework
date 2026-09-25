@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "data-retention hardDelete now erases a purged row's own KMS subject key",
+    "detail": "Refs #2057 (partial fix — the hardDelete path only). run-retention-\ncleanup's hardDelete forgot the row's event history via the executor but\nnever crypto-shredded its KMS subject key, leaving the DEK live after the\nrow was gone. It now erases the key in the same per-row sub-transaction as the\nforget (an eraseKey throw rolls the forget back too), mirroring run-\nforget-cleanup.ts's forget -> eraseKey -> nullBlindIndexesForSubject\nordering. Only the row's own recordOwned/self-pii subjects are erased;\na userOwned or tenantOwned field's subject is the REFERENCED user/tenant,\nnot this row, and may still protect other live rows elsewhere — those\nkeys are never touched. No migration needed."
+  },
+  {
     "version": "0.309.0",
     "type": "breaking",
     "title": "data-retention hardDelete now purges file bytes + fileRef rows, not just the entity row (fw#3089)",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.313.0",
+    "type": "improvement",
+    "title": "magic-link self-signup can now claim a try-first tenant-handover grant across devices",
+    "detail": "An anonymous visitor's tenant-handover grant (packages/bundled-features/src/\ntenant-handover) lives only in the browser that minted it, but the signup\nactivation link is often opened somewhere else (a different device, or the\nmail app's in-app browser) — the grant never reaches signup-confirm there.\nrequestSignup(email, handover?) can now pass { entityType, token } alongside\nthe email; signup-request verifies the grant against its anchor row\n(read-only, tenant-handover's own redeemRowBoundGrant with commitAnchor\nskipped) and binds only { entityType, rowId, sourceTenantId } to the signup\ntoken in Redis — never the grant token or the email. A resend without a\nfresh grant carries the previous verified binding to the new token instead\nof dropping it. signup-confirm reads the binding after provisioning the new\ntenant, mints a fresh short-lived (5 min) grant server-side, and redeems it\nvia the same claim write tenant-handover already exposes — riding the\nconfirm handler's own transaction. A benign rejection (already claimed\nelsewhere, forged grant, row gone) never fails the signup; any other claim\nfailure (e.g. a non-transferable child row) rolls the whole signup back and\nleaves the activation link retryable, instead of committing a partial move\nnext to a new account. On success\nthe signup-confirm response gains an optional `handover: { entityType, id }`\nfield; auth-client's confirmSignup result type reflects it. New extension\npoint `signupHandover` (packages/bundled-features/src/shared/signup-handover.ts)\nlets tenant-handover provide this without auth-email-password importing it\ndirectly; tenant-handover self-registers as its own provider."
+  },
+  {
     "version": "0.309.0",
     "type": "fix",
     "title": "Boot admin seed no longer duplicates the admin when the email blind-index lookup misses (fw#3101)",

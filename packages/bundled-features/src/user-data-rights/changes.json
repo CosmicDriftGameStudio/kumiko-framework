@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "Privacy-center screen subtitle is now translatable",
+    "detail": "The Privacy screen's description was hardcoded English prose baked\ninto feature.ts instead of an i18n key, so it never localized. It's\nnow userDataRights.privacyCenter.subtitle, registered in i18n.ts with\nde/es translations."
+  },
+  {
     "version": "0.308.0",
     "type": "fix",
     "title": "The privacy-center screen's \"restrict\" action declares an explicit icon",

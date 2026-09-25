@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "file-derivatives fileRef mode now 404s a disabled/destroy-lifecycle tenant like an unknown fileRef",
+    "detail": "publicTenantResolution:\"fileRef\" resolved a variant's tenant straight off\nthe FileRef row, without checking whether that tenant was still enabled or\npast `active` in its destroy lifecycle — a disabled or destroy-requested\ntenant's public variants stayed reachable through the shared host. The\nby-fileRef handler now also loads the FileRef-tenant's row and, via the\nnew `isTenantServingPublicContent` predicate (isEnabled && status ===\n\"active\"), 404s identically to an unknown fileRef when it isn't serving.\n`publicTenantResolution: \"fileRef\"` now requires the `tenant` feature to\nbe mounted (fails boot otherwise) — no migration needed for apps that\nalready mount `tenant`, which every fileRef-mode consumer does today."
+  },
+  {
     "version": "0.310.0",
     "type": "improvement",
     "title": "publicTenantResolution \"fileRef\" reads a public variant from its FileRef's own tenant",

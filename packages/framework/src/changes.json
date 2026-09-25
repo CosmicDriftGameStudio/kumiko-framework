@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "DB pool close() no longer hangs forever during an outage",
+    "detail": "createDbConnection/createConnection's close() and PgKmsAdapter.close()\ncalled client.end() with no timeout, which postgres.js waits on\nindefinitely if a query is still referenced on a dead connection — a DB\noutage during process shutdown could hang forever. close() now bounds\nthe wait via a new closeTimeoutSeconds option on DbConnectionOptions\n(default 5s, DEFAULT_DB_CLOSE_TIMEOUT_SECONDS). No migration needed."
+  },
+  {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "event-dispatcher stop() waits for a pass still in its idle pre-check",
+    "detail": "Since 0.308.0 a pass started by the timer or a NOTIFY wake-up shortly\nbefore stop() could still be inside its idle pre-check, which stop()\nnever waited for. That pass kept running after stop() returned and\nqueried the DB pool the caller was closing, which could make\npostgres.js' end() hang. stop() now also drains in-flight passes.\nNo migration needed."
+  },
+  {
+    "version": "0.313.0",
+    "type": "improvement",
+    "title": "Event-triggered jobs get the triggering event's id and headers via ctx.triggerEvent",
+    "detail": "r.job's `trigger.on` reached via an r.defineEvent QN (async, at-least-once\ndelivery through the job-trigger event consumer) had no way to key an\nidempotency check on the stored event that fired it. JobContext now\ncarries `triggerEvent?: { id, headers }` — the stored event's id and\nmetadata.headers — when the job was reached this way. Undefined for\ncron/manual jobs and for jobs triggered synchronously off a write/query\nhandler (no stored event to hand over). No migration needed."
+  },
+  {
     "version": "0.312.0",
     "type": "improvement",
     "title": "files: doc/docx accepted, with magic-byte content verification",

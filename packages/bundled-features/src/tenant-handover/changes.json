@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "tenant-handover claim now moves a fileRef's own event history and storage-usage counters",
+    "detail": "moveFileRefs only flipped the file_refs read-model row's tenant_id: the\nfileRef aggregate's own events in kumiko_events stayed under the source\ntenant, so a later write against the moved fileRef couldn't load its\nstream, and a projection rebuild put the row back into the source\ntenant. It also never touched the fileRef's share of the\ntenant-storage-usage MSP counters, leaving stale bytes/fileCount behind\nunder the source tenant and none under the destination. moveFileRefs now\nalso calls moveEventHistory for the fileRef aggregate and a new\ntransferTenantStorageUsage (framework, exported via the files barrel),\nwhich locks the MSP's consumer cursor row, sums the already-applied\nfileRef deltas via the newly extracted fileRefStorageDelta, and moves\nthem from source to destination before the tenant_id rewrite runs (the\n\"already applied\" lookup keys off the pre-rewrite tenant_id). No\nmigration needed."
+  },
+  {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "tenant-handover transfer graph now resolves feature-prefixed reference targets",
+    "detail": "ReferenceFieldDef.entity may carry a feature prefix\n(\"<feature>:<entity>\") for cross-feature refs. The tenant-handover\ntransfer graph and the framework boot validator's depth check both took\nthat value raw, so a prefixed reference never formed an edge: the claim\nhandler silently moved only the root row, leaving every entity reachable\nsolely through a prefixed reference behind in the source tenant. Both\nnow resolve the target through the shared parseRefTargetEntityName.\nConsumer-visible: an entity reachable only via a prefixed reference that\nhas rows and is not declared `transferable: true` now fails the claim\nwith `entity_not_transferable` instead of being left behind, and the\nboot-time MAX_TRANSFER_DEPTH check now counts prefixed chains too. No\nmigration needed; declare `transferable: true` on a newly caught entity\nor flatten a newly caught over-deep chain."
+  },
+  {
     "version": "0.296.0",
     "type": "improvement",
     "title": "Transfer graph follows reference edges and nested levels (fw#3088, fw#3131)",
