@@ -39,6 +39,8 @@ export {
 } from "./screenshot-dir";
 export {
   applyDefaultTheme,
+  type CaptureFit,
+  type CaptureScreenshotOptions,
   captureScreenshot,
   DEFAULT_THEMES,
   type DefaultThemeId,
