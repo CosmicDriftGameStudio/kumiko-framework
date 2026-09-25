@@ -17,7 +17,7 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { confirmSignup } from "./auth-client";
+import { confirmSignup, type SignupConfirmSuccess } from "./auth-client";
 import { passwordPairIssue, resolveLoggedInHref } from "./auth-form-logic";
 import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
@@ -25,11 +25,16 @@ export type SignupCompleteScreenProps = {
   readonly title?: string;
   /** Override for the URL token — server-rendered apps can pass it. Default: `?token=...`. */
   readonly token?: string;
-  /** Where to send the user after activation. Function-form receives the tenantKey and the
-   *  roles granted by this flow in that tenant — for role-dependent landing targets. Default "/". */
+  /** Where to send the user after activation. Function-form receives the tenantKey, the
+   *  roles granted by this flow in that tenant, and the claimed `handover` entity when
+   *  signup claimed a try-first grant. Default "/". */
   readonly loggedInHref?:
     | string
-    | ((args: { tenantKey: string; roles: readonly string[] }) => string);
+    | ((args: {
+        tenantKey: string;
+        roles: readonly string[];
+        handover?: SignupConfirmSuccess["handover"];
+      }) => string);
   /** Href for the "already have an account?" link when the token is missing. Default "/login". */
   readonly loginHref?: string;
 };
@@ -71,6 +76,7 @@ export function SignupCompleteScreen({
         resolveLoggedInHref(loggedInHref, {
           tenantKey: res.data.tenantKey,
           roles: res.data.user.roles,
+          ...(res.data.handover !== undefined && { handover: res.data.handover }),
         }),
       );
       return;

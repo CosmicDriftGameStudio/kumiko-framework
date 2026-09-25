@@ -179,6 +179,72 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
+  test("confirm-Antwort mit handover → loggedInHref-Function erhält handover", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            user: { id: "u1", tenantId: "t1", roles: ["User"] },
+            tenantKey: "acme",
+            handover: { entityType: "run", id: "run-1" },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    renderWithProviders(
+      <SignupCompleteScreen
+        token="abc-token"
+        loggedInHref={({ tenantKey, handover }) =>
+          handover !== undefined
+            ? `/${tenantKey}/${handover.entityType}/${handover.id}`
+            : `/${tenantKey}/`
+        }
+      />,
+    );
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe(
+        "/acme/run/run-1",
+      );
+    });
+  });
+
+  test("confirm-Antwort ohne handover → loggedInHref-Function bekommt Args ohne handover-Key", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            user: { id: "u1", tenantId: "t1", roles: ["User"] },
+            tenantKey: "acme",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    let receivedArgs:
+      | { tenantKey: string; roles: readonly string[]; handover?: unknown }
+      | undefined;
+    renderWithProviders(
+      <SignupCompleteScreen
+        token="abc-token"
+        loggedInHref={(args) => {
+          receivedArgs = args;
+          return `/${args.tenantKey}/`;
+        }}
+      />,
+    );
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe("/acme/");
+    });
+    expect(receivedArgs).toStrictEqual({ tenantKey: "acme", roles: ["User"] });
+  });
+
   test("mismatch → client-side error, kein fetch-Call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
