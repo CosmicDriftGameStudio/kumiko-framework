@@ -2,9 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { expect, type Page, type Request } from "@playwright/test";
+import { isRealProviderRun } from "./constants";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";
 import { type SeedTenantFixture, test } from "./seeded-tenant-fixture";
+import { E2E_TIMEOUT_MS } from "./timeouts";
 
 export const DEFAULT_REDUCED_MOTION = "reduce" as const;
 
@@ -121,7 +123,9 @@ async function openScenario(
   else throw new Error(`Scenario "${s.name}" needs either url or flow`);
 
   if (s.waitFor) {
-    await expect(page.locator(s.waitFor).first()).toBeVisible({ timeout: 10_000 });
+    // Real-provider scenarios wait on LLM/OCR latency before the page is ready.
+    const timeout = isRealProviderRun() ? E2E_TIMEOUT_MS.real : E2E_TIMEOUT_MS.navigation;
+    await expect(page.locator(s.waitFor).first()).toBeVisible({ timeout });
   }
   await waitForSettledPage(page, inFlightDataRequests);
 }
