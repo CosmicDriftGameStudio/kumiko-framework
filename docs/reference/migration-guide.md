@@ -10,6 +10,24 @@ verified: 2026-09-25
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.310.0
+
+### enterprise:testing
+
+**defineAppE2eConfig's chromium project runs at 1920×1080 instead of Desktop Chrome's 1280×720**
+
+The template took Playwright's "Desktop Chrome" device unchanged, so every
+e2e run and every inline captureScreenshot rendered at 1280×720 while
+runMatrix's desktop screenshots used 1920×1080. Both now share
+DESKTOP_VIEWPORT (1920×1080). A root `use.viewport` override in an app's
+playwright config never reached the chromium project anyway (project `use`
+wins), so solon's 1920 override was silently ineffective.
+
+**Migration:** Drop app-level desktop viewport overrides. Specs asserting a layout that
+only exists below 1920px (collapsed sidebar, stacked panes) set their own
+viewport via test.use({ viewport }). Committed inline screenshots taken
+in the chromium project regenerate at 1920 width.
+
 ## 0.309.0
 
 ### data-retention

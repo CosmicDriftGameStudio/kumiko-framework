@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.310.0",
+    "type": "improvement",
+    "title": "publicTenantResolution \"fileRef\" reads a public variant from its FileRef's own tenant",
+    "detail": "`createFileDerivativesFeature({ resolveApexTenant, publicTenantResolution: \"fileRef\" })`\nkeeps resolveApexTenant as the host gate (an unknown host still 404s), but\nreads the variant in the tenant that owns the FileRef, so one shared\nplatform host serves `/media/:fileRefId/:variant` for every tenant. The\nFileRef tenant's `isPublic` predicate stays the default-deny gate; unknown\nand non-public FileRefs answer the identical 404. Default \"host\" keeps the\nprevious behavior. In \"fileRef\" mode the anonymous\n`file-derivatives:query:public-variant-by-file-ref` query is also reachable\nover `/api`, independent of the host, and returns only variants the\npredicate allows. Passing publicTenantResolution without resolveApexTenant\nthrows at construction."
+  },
+  {
     "version": "0.287.0",
     "type": "improvement",
     "title": "Add overlay stage (QR codes, badge images) to derived image variants",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.310.0",
+    "type": "improvement",
+    "title": "Navigate actions merge `tab` into the search params next to returnTo",
+    "detail": "Row, record and section navigate actions set `tab` in the same\nsetSearchParams call as their `params` and `returnTo`, so the back\nnavigation survives. Metric navigate with screen/entity plus tab now also\nlands in that single call instead of a second setSearchParams after it."
+  },
+  {
     "version": "0.308.0",
     "type": "improvement",
     "title": "projectionDetail/entityEdit-tabs sections render through one Card frame, get section-level actions and a relatedList emptyState (fw#3234)",

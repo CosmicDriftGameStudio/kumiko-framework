@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.310.0",
+    "type": "improvement",
+    "title": "captureScreenshot accepts fit viewport, fullPage or content",
+    "detail": "`fit: \"viewport\"` (default) keeps the previous behaviour. `fit: \"fullPage\"`\ncaptures the whole document, so offlot's inline mid-flow shots\n(channel-request, channel-prompts, vehicle-channel-texts) can move to\ncaptureScreenshot. `fit: \"content\"` grows the viewport until neither the\ndocument nor a visible overflow-auto/scroll container (WorkspaceShell's\ninner scroll area) overflows, captures, and restores the viewport; it\nthrows instead of writing a cropped image when growth does not converge\nwithin 4 rounds. A 1px container overflow counts as sub-pixel rounding\n(overflow-x-auto table wrappers), not content. This replaces solon's own `e2e/_helpers/shot.ts`; its\nimages pick up the `reducedMotion: \"reduce\"` default on the switch, so a\none-time pixel drift in the handbook PNGs is expected."
+  },
+  {
+    "version": "0.310.0",
+    "type": "breaking",
+    "title": "defineAppE2eConfig's chromium project runs at 1920×1080 instead of Desktop Chrome's 1280×720",
+    "detail": "The template took Playwright's \"Desktop Chrome\" device unchanged, so every\ne2e run and every inline captureScreenshot rendered at 1280×720 while\nrunMatrix's desktop screenshots used 1920×1080. Both now share\nDESKTOP_VIEWPORT (1920×1080). A root `use.viewport` override in an app's\nplaywright config never reached the chromium project anyway (project `use`\nwins), so solon's 1920 override was silently ineffective.",
+    "migration": "Drop app-level desktop viewport overrides. Specs asserting a layout that\nonly exists below 1920px (collapsed sidebar, stacked panes) set their own\nviewport via test.use({ viewport }). Committed inline screenshots taken\nin the chromium project regenerate at 1920 width."
+  },
+  {
+    "version": "0.310.0",
+    "type": "fix",
+    "title": "defineAppE2eConfig's webServer env no longer defaults MEILI_URL and MEILI_MASTER_KEY",
+    "detail": "Since the infra env defaults landed, every e2e webServer got\nMEILI_URL=http://localhost:17700. Apps that choose Meilisearch over\ntheir in-memory search adapter when MEILI_URL is set then pointed at an\nunreachable host in CI without a Meili service. Meili is opt-in again:\nthe two vars reach the webServer only when the environment sets them or\nthe app passes them via `env`. All other infra defaults are unchanged.\nMigration: an app whose e2e needs Meilisearch sets MEILI_URL (and\nMEILI_MASTER_KEY) in `defineAppE2eConfig({ env })` or in the CI env; an\napp that worked around it with `MEILI_URL: \"\"` can drop that override."
+  },
+  {
+    "version": "0.310.0",
+    "type": "fix",
+    "title": "Screenshot scenario waitFor uses the template timeout budget instead of a fixed 10s",
+    "detail": "runScreenshots/runMatrix wait for a scenario's `waitFor` selector with\n`E2E_TIMEOUT_MS.navigation`, or `E2E_TIMEOUT_MS.real` under\nKUMIKO_REAL_PROVIDERS=1, so real-provider screenshot scenarios no longer\ntime out on LLM/OCR latency and apps don't need their own wait timeouts."
+  },
+  {
     "version": "0.309.0",
     "type": "breaking",
     "title": "reducedMotion defaults to \"reduce\" in runScreenshots/runMatrix/captureScreenshot; captureScreenshot(page, name) added",

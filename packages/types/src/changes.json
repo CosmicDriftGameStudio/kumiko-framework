@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.310.0",
+    "type": "improvement",
+    "title": "RowActionNavigate.tab selects the tab on the target projectionDetail",
+    "detail": "Navigate row actions, screen/section actions and relatedList emptyState\nactions accept `tab?: string`, the section id of the tab to activate on the\ntarget projectionDetail (layout.mode \"tabs\"), analogous to MetricNavigate.tab.\nExample: `{ kind: \"navigate\", id: \"edit-channels\", label: \"...\",\nscreen: \"vehicle-detail\", entityId: \"vehicleId\", tab: \"channels\" }`."
+  },
+  {
     "version": "0.308.0",
     "type": "improvement",
     "title": "EditFieldsSection/EditExtensionSection/EditRelatedListSection/EditWriteFormSection gain actions; EditRelatedListSection gains emptyState; number fields gain grouping (fw#3234)",
