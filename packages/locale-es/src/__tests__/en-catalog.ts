@@ -543,6 +543,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.empty.hint": "Create the first one to get started.",
   "kumiko.list.empty.title": "No entries yet.",
   "kumiko.list.end-of-list": "— End of list —",
+  "kumiko.list.filter.reset": "Reset",
   "kumiko.list.no-entries": "No entries.",
   "kumiko.list.related-list-truncated":
     "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",

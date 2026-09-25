@@ -81,6 +81,93 @@ describe("DefaultForm Action-Footer", () => {
   });
 });
 
+describe("DefaultForm Action-Footer mit stickyActions (Wizard, fw#2606 Mobile-Fix)", () => {
+  test("nur die Submit-Action bleibt max-sm:fixed — Back (type=button) wandert zu secondary", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        actions={
+          <>
+            <Button type="button">Back</Button>
+            <Button type="submit">Next</Button>
+          </>
+        }
+        secondaryActions={<Button variant="danger-ghost">Cancel</Button>}
+        stickyActions
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    const primary = screen.getByTestId("f-actions");
+    const secondary = screen.getByTestId("f-actions-secondary");
+    expect(primary.textContent).toBe("Next");
+    expect(secondary.textContent).toBe("CancelBack");
+    expect(primary.className).toContain("max-sm:fixed");
+    expect(secondary.className).not.toContain("max-sm:fixed");
+  });
+
+  test("ohne stickyActions bleibt die alte Aufteilung unverändert (kein fixed, Back bleibt bei actions)", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        actions={
+          <>
+            <Button type="button">Back</Button>
+            <Button type="submit">Next</Button>
+          </>
+        }
+        secondaryActions={<Button variant="danger-ghost">Cancel</Button>}
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    const primary = screen.getByTestId("f-actions");
+    const secondary = screen.getByTestId("f-actions-secondary");
+    expect(primary.textContent).toBe("BackNext");
+    expect(secondary.textContent).toBe("Cancel");
+    expect(primary.className).not.toContain("max-sm:fixed");
+  });
+
+  test("stickyActions ohne secondaryActions: Back allein bildet die secondary-Gruppe", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        actions={
+          <>
+            <Button type="button">Back</Button>
+            <Button type="submit">Next</Button>
+          </>
+        }
+        stickyActions
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    expect(screen.getByTestId("f-actions").textContent).toBe("Next");
+    expect(screen.getByTestId("f-actions-secondary").textContent).toBe("Back");
+  });
+
+  test("stickyActions ohne submit-Action: alle actions bleiben fixed statt zu verschwinden (fw#1918-Regression)", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        actions={<Button type="button">Only Button</Button>}
+        stickyActions
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    const primary = screen.getByTestId("f-actions");
+    expect(primary.textContent).toBe("Only Button");
+    expect(primary.className).toContain("max-sm:fixed");
+    expect(screen.queryByTestId("f-actions-secondary")).toBeNull();
+  });
+});
+
 describe("DefaultSection ohne Titel", () => {
   test("rendert keinen leeren Header", () => {
     render(

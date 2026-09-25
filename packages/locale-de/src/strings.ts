@@ -561,6 +561,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.empty.hint": "Lege den ersten an, um loszulegen.",
   "kumiko.list.empty.title": "Noch keine Einträge.",
   "kumiko.list.end-of-list": "— Ende der Liste —",
+  "kumiko.list.filter.reset": "Zurücksetzen",
   "kumiko.list.no-entries": "Noch keine Einträge.",
   "kumiko.list.related-list-truncated":
     "Zeigt die ersten {count} Einträge. Es gibt weitere, die hier nicht angezeigt werden.",

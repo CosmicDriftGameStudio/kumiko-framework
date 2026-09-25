@@ -134,3 +134,103 @@ describe("DefaultInput select → widget choice is independent of the UI languag
     expect(renderedSelectWidget(LANGUAGE_OPTIONS_DE)).toBe("radiogroup");
   });
 });
+
+// A "" value is the unselected placeholder, not a real choice — a radio
+// group can't render an unchecked-everything state as its own segment.
+describe("DefaultInput select → placeholder option is excluded from the segmented control (#2606 follow-up)", () => {
+  test("the placeholder does not render as its own segment and is not counted", () => {
+    render(
+      <Field id="language" label="Language" testId="field-language">
+        <Input
+          kind="select"
+          id="language"
+          name="language"
+          value=""
+          onChange={() => {}}
+          options={LANGUAGE_OPTIONS_EN}
+        />
+      </Field>,
+    );
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.queryByRole("radio", { name: "Select a language" })).toBeNull();
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio.getAttribute("aria-checked")).toBe("false");
+    }
+  });
+
+  test("4 real options plus a placeholder still count as only 4 real options → segmented control", () => {
+    const options = [
+      { value: "", label: "Select one" },
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+      { value: "c", label: "Gamma" },
+      { value: "d", label: "Delta" },
+    ];
+    render(
+      <Field id="letter" label="Letter" testId="field-letter">
+        <Input
+          kind="select"
+          id="letter"
+          name="letter"
+          value=""
+          onChange={() => {}}
+          options={options}
+        />
+      </Field>,
+    );
+    expect(screen.getByRole("radiogroup")).toBeTruthy();
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+  });
+
+  test("5 real options plus a placeholder exceed the threshold → dropdown", () => {
+    const options = [
+      { value: "", label: "Select one" },
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+      { value: "c", label: "Gamma" },
+      { value: "d", label: "Delta" },
+      { value: "e", label: "Epsilon" },
+    ];
+    render(
+      <Field id="letter" label="Letter" testId="field-letter">
+        <Input
+          kind="select"
+          id="letter"
+          name="letter"
+          value=""
+          onChange={() => {}}
+          options={options}
+        />
+      </Field>,
+    );
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.getByTestId("combobox-letter")).toBeTruthy();
+  });
+});
+
+// divide-x only draws verticals between siblings in source order, which
+// misplaces borders the moment a segment wraps to a new row — replaced by a
+// per-segment top/left border that collapses onto its neighbour regardless
+// of wrap arrangement.
+describe("DefaultInput select → segmented control borders survive wrapping", () => {
+  test("each segment carries its own collapsing top/left border instead of divide-x", () => {
+    renderSelect(["Draft", "Review", "Published"]);
+    const radiogroup = screen.getByRole("radiogroup");
+    expect(radiogroup.className).not.toContain("divide-x");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio.className).toContain("border-l");
+      expect(radio.className).toContain("border-t");
+      expect(radio.className).toContain("-ml-px");
+      expect(radio.className).toContain("-mt-px");
+    }
+  });
+
+  test("segments grow to fill their row so wrapped rows span the container's full width", () => {
+    renderSelect(["Draft", "Review", "Published"]);
+    const radiogroup = screen.getByRole("radiogroup");
+    expect(radiogroup.className).toContain("w-fit");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio.className).toContain("grow");
+    }
+  });
+});

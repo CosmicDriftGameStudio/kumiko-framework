@@ -1513,7 +1513,7 @@ describe("Form", () => {
     expect(screen.queryByTestId("form-actions")).toBeNull();
   });
 
-  test("stickyActions: Footer bekommt mobile-fixed-Klassen (fw#1918)", () => {
+  test("stickyActions: nur die primäre Action-Gruppe bekommt mobile-fixed-Klassen (fw#1918, fw#2606 follow-up)", () => {
     render(
       <Form
         onSubmit={() => undefined}
@@ -1525,12 +1525,16 @@ describe("Form", () => {
       </Form>,
     );
     const actionsFooter = screen.getByTestId("form-actions");
-    // stickyActions classes live on the outer footer container, which wraps
-    // the (optional) secondary group and the main actions group together.
+    // stickyActions classes now live on the primary-actions group itself —
+    // only the submit action stays pinned above a virtual keyboard; a Back
+    // button or secondaryActions (Cancel/Delete/…) sit in normal flow via
+    // form-actions-secondary instead (fw#2606: whole footer no longer
+    // includes those on mobile).
+    expect(actionsFooter.className).toContain("max-sm:fixed");
     const footer = actionsFooter.parentElement as HTMLElement;
-    expect(footer.className).toContain("max-sm:fixed");
+    expect(footer.className).not.toContain("max-sm:fixed");
     const contentContainer = footer.previousElementSibling as HTMLElement;
-    expect(contentContainer.className).toContain("max-sm:pb-32");
+    expect(contentContainer.className).toContain("max-sm:pb-24");
   });
 
   test("ohne stickyActions: Footer bleibt im normalen Dokumentfluss", () => {
