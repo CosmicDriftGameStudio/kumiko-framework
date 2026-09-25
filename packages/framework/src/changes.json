@@ -1,18 +1,6 @@
 [
   {
     "version": "0.313.0",
-    "type": "improvement",
-    "title": "drainEventConsumers helper for test stacks with a named consumer backlog",
-    "detail": "The `while ((await eventDispatcher.runOnce())?.processed ?? 0) > 0) {}` pattern\nseen across integration tests under-drains a backlog bigger than one\ndispatcher batch (each pass may return 0 progress even with work left, since\nrunOnce's FOR UPDATE SKIP LOCKED and per-consumer backoff make a single\nempty pass legitimate) and gives no diagnostics when a consumer is actually\nstuck. New drainEventConsumers(stack, consumerNames, {maxPasses}) from\n@cosmicdrift/kumiko-framework/stack snapshots the events high-water mark at\ncall time and runs bounded passes until every named consumer's cursor\nreaches it, throwing with per-consumer status/attempts/lastError when the\nbudget (default 25) is exhausted. No migration needed."
-  },
-  {
-    "version": "0.313.0",
-    "type": "fix",
-    "title": "Foreign-origin cookie on an anonymousAccess server is treated as anonymous, not 403",
-    "detail": "originMiddleware rejected any state-changing request whose cookie-carrying\nOrigin (or Sec-Fetch-Site) fell outside auth.allowedOrigins with 403\norigin_not_allowed — including a logged-in tenant admin's own session\ncookie sent along by their public status page, which only ever makes\nanonymous queries (fw#340). On servers with anonymousAccess wired,\nauthMiddleware now drops such a foreign-origin cookie before jwt.verify\nand falls through to the anonymous flow instead; the token is never read.\nServers without anonymousAccess, /api/auth/* paths, and session-only\nroutes keep the 403 unchanged. No migration needed."
-  },
-  {
-    "version": "0.313.0",
     "type": "fix",
     "title": "DB pool close() no longer hangs forever during an outage",
     "detail": "createDbConnection/createConnection's close() and PgKmsAdapter.close()\ncalled client.end() with no timeout, which postgres.js waits on\nindefinitely if a query is still referenced on a dead connection — a DB\noutage during process shutdown could hang forever. close() now bounds\nthe wait via a new closeTimeoutSeconds option on DbConnectionOptions\n(default 5s, DEFAULT_DB_CLOSE_TIMEOUT_SECONDS). No migration needed."

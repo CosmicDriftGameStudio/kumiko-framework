@@ -1,12 +1,5 @@
 [
   {
-    "version": "0.313.0",
-    "type": "breaking",
-    "title": "seed-user and extra-seed only reach a tenant this server's seed-tenant route created",
-    "detail": "seed-user's tenant lookup went through tenant:query:me and 404'd only for a\ntenant id that does not exist at all — a tenant seeded by another server\ninstance, or seeded in-process without going through this route's\nseed-tenant, still got a user added to it. Both routes now check the same\nin-memory seededTenantIds set extra-seed already used, and reject with the\nsame 403 extra-seed has always returned for a foreign tenant id.",
-    "migration": "create the tenant via `seedTenant()` before adding users"
-  },
-  {
     "version": "0.311.0",
     "type": "breaking",
     "title": "defineAppE2eConfig's chromium project renders screenshot runs at deviceScaleFactor 2",
