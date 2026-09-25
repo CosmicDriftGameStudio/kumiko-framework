@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 
@@ -49,10 +50,30 @@ export type SeededTenant = {
   readonly apiAs: (user: SeededUser) => BoundApi;
 };
 
+export type SeedRoleSplit = {
+  readonly globalRoles: readonly string[];
+  readonly membershipRoles: readonly string[];
+};
+
+// SystemAdmin only counts as a global user role (login strips it from
+// membership roles), yet login still needs a membership: a SystemAdmin
+// without a tenant role therefore also joins the tenant as Member.
+export function splitSeedRoles(roles: readonly string[]): SeedRoleSplit {
+  const globalRoles = roles.filter((role) => role === ROLES.SystemAdmin);
+  const tenantRoles = roles.filter((role) => role !== ROLES.SystemAdmin);
+  const membershipRoles =
+    globalRoles.length > 0 && tenantRoles.length === 0 ? [ROLES.Member] : tenantRoles;
+  return { globalRoles, membershipRoles };
+}
+
 export function withSession(
   credentials: SeededCredentials,
   tenantId: TenantId,
   roles: readonly string[],
 ): SeededUser {
-  return { ...credentials, session: { id: credentials.id, tenantId, roles } };
+  const { globalRoles, membershipRoles } = splitSeedRoles(roles);
+  return {
+    ...credentials,
+    session: { id: credentials.id, tenantId, roles: [...globalRoles, ...membershipRoles] },
+  };
 }

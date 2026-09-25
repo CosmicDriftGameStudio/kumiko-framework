@@ -159,6 +159,33 @@ export function X() { return <div className={cn("rogue-token")} />; }`,
     expect(warnings).toHaveLength(0);
   });
 
+  test("classifies files against the runner's roots, not the cwd repo", () => {
+    // A multi-root runner can hand in a checkout outside cwd; its path holds a
+    // `packages/` segment before the repo's own, which the marker fallback misreads.
+    const parkedRoot = fixtureRoot("kumiko-framework", "/virtual/packages/wt/kumiko-framework", {
+      kind: "framework",
+      sourceRoots: ["packages/*/src", "samples"],
+      testGlobs: ["packages/*/src/**/*.{test,integration}.{ts,tsx}"],
+    });
+    const warnSpy = console.warn;
+    const warnings: string[] = [];
+    console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(" "));
+    try {
+      const targetSf = parse(
+        'export function X() { return <div className="rogue-token" />; }',
+        path.join(parkedRoot.absPath, RELATIVE_TARGET_FILE),
+      );
+      const allowSf = parse(
+        'export const x = "";',
+        path.join(parkedRoot.absPath, "packages/renderer-web/src/widgets/y.tsx"),
+      );
+      guard.run([targetSf, allowSf], [parkedRoot]);
+    } finally {
+      console.warn = warnSpy;
+    }
+    expect(warnings.some((w) => w.includes('"rogue-token"'))).toBe(true);
+  });
+
   test("renderer/src and samples/**/src also feed the allow-set", () => {
     const { warnings } = runFor(
       'export function X() { return <div className="rogue-token" />; }',

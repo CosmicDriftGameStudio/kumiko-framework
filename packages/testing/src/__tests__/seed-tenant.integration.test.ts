@@ -1,9 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { verifyPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  TenantQueries,
+  tenantMembershipsTable,
+  tenantTable,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { type SeedPart, seedTenant, setupAppTestStack } from "../index";
 import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
 
@@ -150,6 +156,23 @@ describe("seedTenant (persist)", () => {
 
     expect(await tenant.api.queryOk<string[]>(NOTE_LIST, {})).toEqual(["persisted note"]);
     expect(tenant.admin.session.id).toBe(tenant.admin.id);
+  });
+
+  test("addUser(['SystemAdmin']) persists a global SystemAdmin who joins the tenant as Member", async () => {
+    const tenant = await seedTenant(stack, { persist: true });
+
+    const systemAdmin = await tenant.addUser([ROLES.SystemAdmin]);
+
+    expect(systemAdmin.session.roles).toEqual([ROLES.SystemAdmin, ROLES.Member]);
+    const userRow = await fetchOne<{ roles: unknown }>(stack.db, userTable, { id: systemAdmin.id });
+    expect(parseRoles(userRow?.roles)).toEqual([ROLES.SystemAdmin]);
+    const membership = await fetchOne<{ roles: string }>(stack.db, tenantMembershipsTable, {
+      userId: systemAdmin.id,
+      tenantId: tenant.id,
+    });
+    expect(JSON.parse(membership?.roles ?? "null")).toEqual([ROLES.Member]);
+    await tenant.apiAs(systemAdmin).queryOk(TenantQueries.list, {});
+    expect((await tenant.api.queryErr(TenantQueries.list, {})).code).toBe("access_denied");
   });
 
   test("seeding two persisted tenants concurrently does not collide", async () => {

@@ -14,7 +14,6 @@ import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { waitFor } from "../../testing";
-import { generateId } from "../../utils";
 
 const exponentialDefaultStarts: number[] = [];
 const exponentialCustomStarts: number[] = [];
@@ -92,10 +91,7 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [backoffFixtureFeature],
-    // Own queue namespace: the default "kumiko-jobs" queue on the shared test
-    // Redis is consumed by every parallel test process, and a foreign worker
-    // grabbing a promoted delayed retry fails it as "Unknown job".
-    jobs: { consumerLane: "worker", queueNamePrefix: `backoff-test-${generateId()}` },
+    jobs: { consumerLane: "worker" },
   });
 });
 

@@ -32,11 +32,22 @@ export async function applyDefaultTheme(page: Page, theme: DefaultThemeId): Prom
   }, theme);
 }
 
+// Seeded identities are unique per run (admin-<tenantId>@…), so a screenshot
+// would show a different address every time. Replaced in the page's text and
+// form values right before each capture; the seeded data stays untouched.
+export interface PresentIdentity {
+  readonly from: string;
+  readonly to: string;
+}
+
 export interface ScenarioFixtures {
   readonly seedTenant: SeedTenantFixture;
   // runMatrix's current locale, for apps whose routes carry the locale in the
   // path (kumiko:locale alone can't change the URL). Undefined in runScreenshots.
   readonly locale?: string;
+  // Called from the flow once the identities exist; applies to every capture
+  // of the scenario, re-applied after each theme and viewport change.
+  readonly presentIdentities: (mappings: readonly PresentIdentity[]) => void;
 }
 
 export interface Scenario {
@@ -68,16 +79,41 @@ export interface Scenario {
 const DATA_REQUEST_TYPES: ReadonlySet<string> = new Set(["fetch", "xhr"]);
 const STABLE_POLLS = 2;
 
+function isMainFrameNavigationRequest(page: Page, request: Request): boolean {
+  if (!request.isNavigationRequest() || request.serviceWorker() !== null) return false;
+  try {
+    return request.frame() === page.mainFrame();
+  } catch {
+    return false;
+  }
+}
+
+// Chromium drops the old document's fetches on a cross-document navigation
+// (reload, goto, location.href) without requestfinished or requestfailed, so
+// they would stay in flight forever. framenavigated alone can't tell that commit
+// apart from a pushState, which must keep them: only a framenavigated preceded by
+// a main-frame navigation request is a new document.
 function countInFlightDataRequests(page: Page): () => number {
   const inFlight = new Set<Request>();
-  const settle = (request: Request): void => {
-    inFlight.delete(request);
-  };
+  let pendingDocumentNavigation: Request | undefined;
   page.on("request", (request) => {
     if (DATA_REQUEST_TYPES.has(request.resourceType())) inFlight.add(request);
+    else if (isMainFrameNavigationRequest(page, request)) pendingDocumentNavigation = request;
   });
-  page.on("requestfinished", settle);
-  page.on("requestfailed", settle);
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame() && pendingDocumentNavigation !== undefined) {
+      pendingDocumentNavigation = undefined;
+      inFlight.clear();
+    }
+  });
+  page.on("requestfinished", (request) => {
+    inFlight.delete(request);
+  });
+  page.on("requestfailed", (request) => {
+    inFlight.delete(request);
+    // A navigation that never commits (204, download) leaves the old document alive.
+    if (request === pendingDocumentNavigation) pendingDocumentNavigation = undefined;
+  });
   return () => inFlight.size;
 }
 
@@ -110,6 +146,51 @@ async function waitForSettledPage(page: Page, inFlightDataRequests: () => number
       },
     )
     .toBeGreaterThanOrEqual(STABLE_POLLS);
+}
+
+function assertPresentableMappings(mappings: readonly PresentIdentity[]): void {
+  for (const { from } of mappings) {
+    if (from === "") throw new Error("presentIdentities: `from` must not be empty");
+  }
+}
+
+// Runs in the browser, so it may not reference module scope.
+function replaceIdentitiesInDocument(mappings: readonly PresentIdentity[]): void {
+  const present = (text: string): string =>
+    mappings.reduce((current, { from, to }) => current.replaceAll(from, to), text);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const text = node.nodeValue ?? "";
+    const presented = present(text);
+    if (presented !== text) node.nodeValue = presented;
+  }
+  for (const field of document.querySelectorAll("input, textarea")) {
+    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+      const presented = present(field.value);
+      if (presented !== field.value) field.value = presented;
+    }
+  }
+}
+
+async function presentIdentitiesOnPage(
+  page: Page,
+  mappings: readonly PresentIdentity[],
+): Promise<void> {
+  if (mappings.length > 0) await page.evaluate(replaceIdentitiesInDocument, mappings);
+}
+
+function collectPresentIdentities(): {
+  readonly mappings: readonly PresentIdentity[];
+  readonly register: (mappings: readonly PresentIdentity[]) => void;
+} {
+  const collected: PresentIdentity[] = [];
+  return {
+    mappings: collected,
+    register: (mappings) => {
+      assertPresentableMappings(mappings);
+      collected.push(...mappings);
+    },
+  };
 }
 
 async function openScenario(
@@ -179,9 +260,14 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
           await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
           if (opts.pinLocale) await pinEnglishLocale(page);
           const inFlightDataRequests = countInFlightDataRequests(page);
+          const identities = collectPresentIdentities();
           if (s.viewport) await page.setViewportSize(s.viewport);
-          await openScenario(page, s, inFlightDataRequests, { seedTenant });
+          await openScenario(page, s, inFlightDataRequests, {
+            seedTenant,
+            presentIdentities: identities.register,
+          });
           if (s.beforeCapture) await s.beforeCapture(page);
+          await presentIdentitiesOnPage(page, identities.mappings);
           const path = `${outDir}/${s.name}.png`;
           await page.screenshot({
             path,
@@ -400,7 +486,12 @@ export function runMatrix<T extends string>(
             localStorage.removeItem("kumiko:theme");
           }, locale);
           const inFlightDataRequests = countInFlightDataRequests(page);
-          await openScenario(page, s, inFlightDataRequests, { seedTenant, locale });
+          const identities = collectPresentIdentities();
+          await openScenario(page, s, inFlightDataRequests, {
+            seedTenant,
+            locale,
+            presentIdentities: identities.register,
+          });
 
           const digests: ThemeScreenshotDigest<T>[] = [];
           const projectBaseDir =
@@ -412,6 +503,7 @@ export function runMatrix<T extends string>(
               if (plan.mode === "desktop") await page.setViewportSize(VIEWPORTS[vp]);
               await waitForSettledPage(page, inFlightDataRequests);
               if (s.beforeCapture) await s.beforeCapture(page);
+              await presentIdentitiesOnPage(page, identities.mappings);
               const dir = `${projectBaseDir}/${s.name}/${locale}/${theme}`;
               mkdirSync(dir, { recursive: true });
               const path = `${dir}/${vp}.png`;
@@ -470,6 +562,7 @@ export type CaptureFit = "viewport" | "fullPage" | "content";
 export interface CaptureScreenshotOptions {
   readonly reducedMotion?: ReducedMotionOption;
   readonly fit?: CaptureFit;
+  readonly presentIdentities?: readonly PresentIdentity[];
 }
 
 const CONTENT_FIT_MAX_ROUNDS = 4;
@@ -530,21 +623,31 @@ export async function captureScreenshot(
   // skip: a plain e2e run without SCREENSHOT_DIR must not write screenshots.
   if (dir === undefined || dir === "") return;
   const fit = opts.fit ?? "viewport";
+  const identities = opts.presentIdentities ?? [];
+  assertPresentableMappings(identities);
   await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
   await waitForSettledPage(page, inFlightTrackerFor(page));
   const path = `${dir}/${name}.png`;
   mkdirSync(dirname(path), { recursive: true });
-  if (fit === "content") await captureGrownToContent(page, name, path);
+  // Before the content fit too: a presented value of another length can change the overflow.
+  await presentIdentitiesOnPage(page, identities);
+  if (fit === "content") await captureGrownToContent(page, name, path, identities);
   else await page.screenshot({ path, animations: "disabled", fullPage: fit === "fullPage" });
 }
 
-async function captureGrownToContent(page: Page, name: string, path: string): Promise<void> {
+async function captureGrownToContent(
+  page: Page,
+  name: string,
+  path: string,
+  identities: readonly PresentIdentity[],
+): Promise<void> {
   const viewport = page.viewportSize();
   if (viewport === null) {
     throw new Error(`captureScreenshot(${name}): fit "content" needs a page with a viewport`);
   }
   try {
     await growViewportToContent(page, name, viewport.width);
+    await presentIdentitiesOnPage(page, identities);
     await page.screenshot({ path, animations: "disabled" });
   } finally {
     // Later assertions in the same test must run against the original window.

@@ -17,6 +17,7 @@ import {
   type SeededCredentials,
   type SeededTenant,
   type SeedTenantOptions,
+  splitSeedRoles,
   withSession,
 } from "./seed-types";
 
@@ -81,14 +82,19 @@ function isSavedRow(value: unknown): value is SavedRow {
   return isPlainObject(data) && typeof data["version"] === "number";
 }
 
-export function unwrapSavedRow(handlerQn: string, result: WriteResult): SavedRow {
+export function unwrapWriteData(handlerQn: string, result: WriteResult): unknown {
   if (!result.isSuccess) {
     throw new Error(`seedTenant: ${handlerQn} failed: ${JSON.stringify(result.error)}`);
   }
-  if (!isSavedRow(result.data)) {
+  return result.data;
+}
+
+export function unwrapSavedRow(handlerQn: string, result: WriteResult): SavedRow {
+  const data = unwrapWriteData(handlerQn, result);
+  if (!isSavedRow(data)) {
     throw new Error(`seedTenant: ${handlerQn} returned no saved row`);
   }
-  return result.data;
+  return data;
 }
 
 export function stackSeedWriter(stack: TestStack): SeedWriter {
@@ -112,12 +118,14 @@ export async function persistUserRows(
   const light = lightCredentials(
     identity.email !== undefined ? substituteTenantId(identity.email, tenantId) : undefined,
   );
+  const { globalRoles, membershipRoles } = splitSeedRoles(roles);
   const created = await write(
     UserHandlers.create,
     {
       email: light.email,
       passwordHash: await hashPassword(light.password),
       displayName: identity.displayName ?? `Seed ${light.id.slice(0, 8)}`,
+      ...(globalRoles.length > 0 ? { roles: [...globalRoles] } : {}),
     },
     tenantId,
   );
@@ -126,7 +134,11 @@ export async function persistUserRows(
     { id: created.id, version: created.data.version, changes: { emailVerified: true } },
     tenantId,
   );
-  await write(TenantHandlers.addMember, { userId: created.id, tenantId, roles }, tenantId);
+  await write(
+    TenantHandlers.addMember,
+    { userId: created.id, tenantId, roles: membershipRoles },
+    tenantId,
+  );
   return { id: created.id, email: light.email, password: light.password };
 }
 

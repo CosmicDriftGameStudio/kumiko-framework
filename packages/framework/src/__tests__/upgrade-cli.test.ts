@@ -564,6 +564,34 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     // rather than filtered out entirely by a too-high baseline.
     expect(updatedMarker.version).toBe("0.188.0");
     expect(updatedMarker.version).not.toBe("0.195.0");
+    expect(spy.logs.join("\n")).toContain(
+      "Marker moved past the manual change(s) above to 0.188.0",
+    );
+  });
+
+  test("a manual breaking change is acknowledged by a second --apply after the first one held the marker back", async () => {
+    const fixEntry = { version: "0.310.0", type: "fix", title: "earlier fix" };
+    const manualEntry = { version: "0.311.0", type: "breaking", title: "manual breaking change" };
+    const cwd = tmp({
+      "packages/framework/src/changes.json": JSON.stringify([fixEntry, manualEntry]),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.311.0" }),
+      ".kumiko/upgrade-state.json": marker("0.309.0"),
+    });
+    const markerPath = join(cwd, ".kumiko/upgrade-state.json");
+
+    const firstRun = makeSpyOutput();
+    expect(await runUpgradeCli(["--apply"], cwd, firstRun.out, { repoRoot: REAL_REPO_ROOT })).toBe(
+      0,
+    );
+    expect(JSON.parse(readFileSync(markerPath, "utf-8")).version).toBe("0.310.0");
+    expect(firstRun.logs.join("\n")).toContain("Marker stays at 0.310.0");
+
+    const secondRun = makeSpyOutput();
+    expect(await runUpgradeCli(["--apply"], cwd, secondRun.out, { repoRoot: REAL_REPO_ROOT })).toBe(
+      0,
+    );
+    expect(secondRun.logs.join("\n")).toContain("no codemod, manual migration required");
+    expect(JSON.parse(readFileSync(markerPath, "utf-8")).version).toBe("0.311.0");
   });
 
   test("bare --apply with no marker (bootstrap): behaves as before, marker is written at the installed version", async () => {

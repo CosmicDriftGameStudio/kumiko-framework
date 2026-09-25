@@ -47,6 +47,7 @@ export {
   type FlatOptions,
   findIdenticalThemeScreenshots,
   type MatrixOptions,
+  type PresentIdentity,
   runMatrix,
   runScreenshots,
   type Scenario,

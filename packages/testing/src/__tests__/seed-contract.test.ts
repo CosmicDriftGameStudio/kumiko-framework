@@ -18,16 +18,14 @@ describe("resolveSeedableRoles", () => {
     expect(resolveSeedableRoles()).toEqual([...SEEDABLE_ROLES]);
   });
 
-  test("appends app roles without duplicating built-in ones", () => {
-    expect(resolveSeedableRoles(["TenantMember", "Member", "TenantMember"])).toEqual([
-      "TenantAdmin",
-      "Member",
-      "TenantMember",
-    ]);
+  test("SystemAdmin is one of the built-in seedable roles", () => {
+    expect(resolveSeedableRoles()).toContain("SystemAdmin");
   });
 
-  test.each(["SystemAdmin", "systemadmin", " SystemAdmin "])("%j is never seedable", (role) => {
-    expect(() => resolveSeedableRoles(["TenantMember", role])).toThrow(/never seedable/);
+  test("appends app roles without duplicating built-in ones", () => {
+    expect(resolveSeedableRoles(["TenantMember", "Member", "TenantMember", "SystemAdmin"])).toEqual(
+      ["TenantAdmin", "Member", "SystemAdmin", "TenantMember"],
+    );
   });
 
   test.each([[""], ["  "], [7], [undefined], [null]])("rejects the entry %j", (role) => {
@@ -45,7 +43,9 @@ describe("createSeedUserRequestSchema", () => {
     expect(accepts(withAppRole, ["TenantMember"])).toBe(true);
     expect(accepts(withAppRole, ["TenantAdmin", "TenantMember"])).toBe(true);
     expect(accepts(withAppRole, ["Reviewer"])).toBe(false);
-    expect(accepts(withAppRole, ["SystemAdmin"])).toBe(false);
+    expect(accepts(withAppRole, ["SystemAdmin"])).toBe(true);
+    expect(accepts(withAppRole, ["systemadmin"])).toBe(false);
+    expect(accepts(withAppRole, ["system"])).toBe(false);
     expect(accepts(withAppRole, ["tenantmember"])).toBe(false);
     expect(accepts(withAppRole, [])).toBe(false);
     expect(accepts(withAppRole, [7])).toBe(false);
@@ -62,7 +62,7 @@ describe("createSeedUserRequestSchema", () => {
 
     expect(result.success).toBe(false);
     expect(JSON.stringify(result.error?.issues)).toContain(
-      "allowed: TenantAdmin, Member, TenantMember",
+      "allowed: TenantAdmin, Member, SystemAdmin, TenantMember",
     );
   });
 });
@@ -88,16 +88,13 @@ describe("inboxQuerySchema", () => {
 });
 
 describe("createE2eSeedRoutes options", () => {
-  test("refuses SystemAdmin as an extra role when the routes are built", () => {
-    expect(() => createE2eSeedRoutes({ extraRoles: ["SystemAdmin"] })).toThrow(/never seedable/);
-  });
-
   test("builds without options and with app roles", () => {
     expect(createE2eSeedRoutes().map((route) => route.entry)).toEqual([
       "signature",
       "signature",
       "signature",
+      "signature",
     ]);
-    expect(createE2eSeedRoutes({ extraRoles: ["TenantMember"] })).toHaveLength(3);
+    expect(createE2eSeedRoutes({ extraRoles: ["TenantMember"] })).toHaveLength(4);
   });
 });

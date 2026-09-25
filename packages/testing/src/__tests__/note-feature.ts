@@ -23,7 +23,8 @@ export const noteFeature = defineFeature("testing-notes", (r) => {
   r.entity("note", noteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
-      access: { roles: ["TenantAdmin", "Member", "Reviewer"] },
+      // SystemAdmin: the seed routes' extraSeeders write as the tenant's system user.
+      access: { roles: ["TenantAdmin", "Member", "Reviewer", "SystemAdmin"] },
     }),
   );
   r.queryHandler({

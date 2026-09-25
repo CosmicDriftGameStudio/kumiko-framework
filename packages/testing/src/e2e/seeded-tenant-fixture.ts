@@ -20,6 +20,8 @@ import { clearSession, createHttpApi, loginViaApi } from "./auth-kit";
 import { SEED_ROUTES } from "./constants";
 import { seedRouteHeaders } from "./mail-capture";
 import {
+  type ExtraSeedRequest,
+  extraSeedResponseSchema,
   type SeedUserRequest,
   seedTenantResponseSchema,
   seedUserResponseSchema,
@@ -29,6 +31,9 @@ export type E2eSeedTenantOptions = Omit<SeedTenantOptions, "persist">;
 
 export type E2eSeededTenant = SeededTenant & {
   readonly loginAs: (page: Page, user: SeededUser) => Promise<void>;
+  // Runs an app seeder registered via createE2eSeedRoutes({ extraSeeders })
+  // inside this tenant and resolves to its JSON result, unvalidated.
+  readonly seed: (seeder: string, body?: unknown) => Promise<unknown>;
 };
 
 export type SeedTenantFixture = (opts?: E2eSeedTenantOptions) => Promise<E2eSeededTenant>;
@@ -133,6 +138,15 @@ export async function provideSeedTenant(
       api: httpApiFor(admin),
       apiAs: httpApiFor,
       loginAs,
+      seed: async (seeder, body) =>
+        (
+          await postSeedRoute(
+            request,
+            SEED_ROUTES.extraSeed,
+            { tenantId, seeder, body } satisfies ExtraSeedRequest,
+            extraSeedResponseSchema,
+          )
+        ).result,
     };
 
     for (const part of opts.with ?? []) await part({ tenant });

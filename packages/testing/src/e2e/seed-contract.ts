@@ -1,7 +1,10 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import * as z from "zod";
 
-export const SEEDABLE_ROLES = [ROLES.TenantAdmin, ROLES.Member] as const;
+// SystemAdmin is seedable: the seed gate (KUMIKO_TEST_SEED=1, never
+// under NODE_ENV=production, per-run token) is the only boundary around these
+// routes. It lands as a global user role, never as a membership role.
+export const SEEDABLE_ROLES = [ROLES.TenantAdmin, ROLES.Member, ROLES.SystemAdmin] as const;
 export const MAX_SEED_MEMBERS = 10;
 export const MAX_TENANT_NAME_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 320;
@@ -34,20 +37,11 @@ export const seedTenantResponseSchema = z.object({
   members: z.array(seededCredentialsSchema),
 });
 
-function isSystemAdminRole(role: string): boolean {
-  return role.trim().toLowerCase() === ROLES.SystemAdmin.toLowerCase();
-}
-
 export function resolveSeedableRoles(extraRoles: readonly string[] = []): readonly string[] {
   for (const role of extraRoles) {
     if (typeof role !== "string" || role.trim() === "") {
       throw new Error(
         `createE2eSeedRoutes: extraRoles entries must be non-empty strings, got ${JSON.stringify(role)}`,
-      );
-    }
-    if (isSystemAdminRole(role)) {
-      throw new Error(
-        `createE2eSeedRoutes: extraRoles must not contain ${ROLES.SystemAdmin}; it is never seedable`,
       );
     }
   }
@@ -73,6 +67,16 @@ export const seedUserRequestSchema = createSeedUserRequestSchema();
 
 export const seedUserResponseSchema = seededCredentialsSchema;
 
+const MAX_SEEDER_NAME_LENGTH = 100;
+
+export const extraSeedRequestSchema = z.strictObject({
+  tenantId: z.uuid(),
+  seeder: z.string().min(1).max(MAX_SEEDER_NAME_LENGTH),
+  body: z.unknown().optional(),
+});
+
+export const extraSeedResponseSchema = z.object({ result: z.unknown() });
+
 export const inboxQuerySchema = z.strictObject({
   tenantId: z.uuid().optional(),
   to: z.string().min(1).max(MAX_EMAIL_LENGTH),
@@ -92,3 +96,4 @@ export const inboxResponseSchema = z.object({ messages: z.array(capturedMailSche
 export type CapturedMail = z.infer<typeof capturedMailSchema>;
 export type SeedTenantResponse = z.infer<typeof seedTenantResponseSchema>;
 export type SeedUserRequest = z.infer<typeof seedUserRequestSchema>;
+export type ExtraSeedRequest = z.infer<typeof extraSeedRequestSchema>;

@@ -108,11 +108,14 @@ export interface Finding {
   readonly token: string;
 }
 
-function isTargetFile(sf: SourceFile): boolean {
-  return relFromRepoRoot(sf.getFilePath()).startsWith(TARGET_DIR);
+function isTargetFile(sf: SourceFile, roots: readonly RepoRoot[]): boolean {
+  return relFromRepoRoot(sf.getFilePath(), roots).startsWith(TARGET_DIR);
 }
 
-function scan(files: readonly SourceFile[]): {
+function scan(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+): {
   findings: Finding[];
   scanned: number;
 } {
@@ -121,7 +124,7 @@ function scan(files: readonly SourceFile[]): {
   let scanned = 0;
 
   for (const sf of files) {
-    if (isTargetFile(sf)) {
+    if (isTargetFile(sf, roots)) {
       if (EXCLUDE.test(sf.getFilePath())) continue;
       targets.push(sf);
       scanned++;
@@ -537,7 +540,7 @@ export function analyse(
   compareBaseline: boolean,
   roots: readonly RepoRoot[] = resolveRepoRoots(),
 ): GuardOutcome {
-  const { findings } = scan(files);
+  const { findings } = scan(files, roots);
   const coverageFindings = scanSourceCoverage(roots);
   const publishedSurfaceFindings = scanPublishedScanSurface(roots);
   reportPublishedScanSurfaceFindings(publishedSurfaceFindings);
@@ -562,7 +565,7 @@ export const guard: AstGuard = {
     `— reuse a class already emitted there, or move the styling into renderer-web. Justified exception: // ${IGNORE_TAG} <reason>. ` +
     "Package without @source coverage in an app: add an @source entry for both install layouts. " +
     "@source with a node_modules/<pkg>/<segment> path: check whether <pkg> even publishes that segment (package.json files).",
-  run: (files) => analyse(files, true),
+  run: (files, roots = resolveRepoRoots()) => analyse(files, true, roots),
 };
 
 // Flags are read ONLY here, not in run() — the shared runner
@@ -572,7 +575,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.includes("--write-baseline")) {
     const project = buildSharedProject([guard]);
-    const { findings } = scan(filesForGuard(project, guard));
+    const { findings } = scan(filesForGuard(project, guard), resolveRepoRoots());
     tailwindScanSurfaceBaseline.write(baselineCounts(findings));
     sourceCoverageBaseline.write(
       sourceCoverageBaselineCounts(scanSourceCoverage(resolveRepoRoots())),

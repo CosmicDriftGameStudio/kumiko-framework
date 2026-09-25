@@ -28,6 +28,27 @@ period. Every breaking change carries a migration note in its package's
   (anything not re-exported from a package's `index.ts`) — internals move
   without notice pre-1.0.
 
+## Breaking changes without a codemod
+
+`kumiko-upgrade --apply` records the version it brought the app to in
+`.kumiko/upgrade-state.json`, and the upgrade-state guard fails while any
+change newer than that marker is still pending. A breaking change that ships
+no codemod is printed as `⚠ <version> · <title> — no codemod, manual migration
+required`. Where the marker lands depends on what else is pending:
+
+- If other pending changes sit below the earliest manual one, the marker
+  stops at the highest of them, and the guard keeps listing the manual change.
+  Migrate it by hand, then run `bunx kumiko-upgrade --apply` again. That
+  second run is the acknowledgement: with nothing left below the manual
+  change, it moves the marker past it, to the latest non-breaking change or
+  the installed version.
+- If nothing pending sits below the earliest manual change, the first run
+  already moves the marker past it. The guard does not list it afterwards, so
+  migrate it right away.
+
+The run prints which of the two happened, next to the path of the marker it
+wrote.
+
 ## Path to 1.0
 
 There is no committed date. The signal for "close to 1.0" is: the core

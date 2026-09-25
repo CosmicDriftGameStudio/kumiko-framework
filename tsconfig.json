@@ -95,6 +95,9 @@
       "path": "./packages/testing"
     },
     {
+      "path": "./packages/testing/e2e"
+    },
+    {
       "path": "./packages/create-kumiko-app"
     },
     {

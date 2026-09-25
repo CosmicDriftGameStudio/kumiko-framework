@@ -8,28 +8,14 @@
 // mfa-login.spec.ts's real expect()-driven style — screenshots.spec.ts's
 // runMatrix is for the docs media pipeline, not functional proof.
 //
-// Screenshots are local-only evidence, gitignored under test-results/ and
-// skipped in CI (see `if (!process.env["CI"])` below) — same reasoning as
-// screenshots.spec.ts writing outside the repo, just guarded instead of
-// relying on the resolved path not existing.
+// The screenshots are visual evidence only: captureScreenshot writes them to
+// $SCREENSHOT_DIR/e2e-cap-overview/ (a name no docs feature preview uses) and
+// does nothing when SCREENSHOT_DIR is unset.
 
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, test } from "@playwright/test";
 import { DEV_TENANT_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
-
-const SCREENSHOT_DIR = resolve(import.meta.dirname, "../test-results/cap-overview");
-
-async function shot(page: Page, name: string): Promise<void> {
-  if (process.env["CI"]) return;
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  // local-only debug capture (CI-skipped, gitignored test-results/ dump), not
-  // a docs-pipeline artifact — captureScreenshot's fit modes and SCREENSHOT_DIR
-  // requirement don't fit this ad hoc use.
-  // @template-drift-exception: #3121 ad hoc local debug dump, not a docs-pipeline capture
-  await page.screenshot({ path: `${SCREENSHOT_DIR}/${name}.png` });
-}
 
 test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the tenant preselected", async ({
   page,
@@ -64,7 +50,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   await expect(devRow).toContainText("free");
   await expect(betaRow).toContainText("pro");
 
-  await shot(page, "tenant-cap-list");
+  await captureScreenshot(page, "e2e-cap-overview/tenant-cap-list");
 
   // Search narrows: "Beta" matches only the Beta Tenant row.
   await page.locator("#render-list-search").fill("Beta");
@@ -133,7 +119,7 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
 
   const deepLinkedCardsText = await dashboardCards.innerText();
 
-  await shot(page, "platform-tenant-caps");
+  await captureScreenshot(page, "e2e-cap-overview/platform-tenant-caps");
 
   // TenantAdmin-facing dashboard (same admin also holds TenantAdmin on Dev
   // Tenant via server.ts memberships) resolves its own tenant with no
@@ -148,5 +134,5 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
     expect(await myCapsCards.innerText()).toBe(deepLinkedCardsText);
   }).toPass();
 
-  await shot(page, "my-caps");
+  await captureScreenshot(page, "e2e-cap-overview/my-caps");
 });
