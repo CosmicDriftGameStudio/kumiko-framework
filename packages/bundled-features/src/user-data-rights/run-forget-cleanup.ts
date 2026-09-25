@@ -63,7 +63,7 @@ import {
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resolveRetentionPolicyForTenant } from "../data-retention";
+import { resolveRetentionPolicyForTenant, resolveTenantRetentionPreset } from "../data-retention";
 import { decryptStoredPii, runInSubTransaction } from "../shared";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, userTable } from "../user";
@@ -430,6 +430,10 @@ async function processUser(args: {
         // tenant truly has one member, so a stray invite can't let a per-user
         // forget erase a co-member's tenant-scoped data (money-path safety).
         const tenantModel = await resolveEffectiveTenantModel(tx, tenantId, appTenantModel);
+        // Resolved ONCE per tenant (not per hookEntry below) — the compliance-
+        // profile lookup it does internally is a single indexed read; N entities
+        // re-deriving it per tenant would be N reads for the same answer.
+        const tenantPreset = await resolveTenantRetentionPreset({ db: tx, registry, tenantId });
         for (const entry of hookEntries) {
           currentEntityName = entry.entityName;
           const policy = await resolveRetentionPolicyForTenant({
@@ -437,6 +441,7 @@ async function processUser(args: {
             registry,
             tenantId,
             entityName: entry.entityName,
+            preloadedTenantPreset: tenantPreset,
           });
           const strategy = policyToStrategy(policy.policy?.strategy ?? null);
 

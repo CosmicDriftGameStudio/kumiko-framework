@@ -133,7 +133,7 @@ describe("runRetentionCleanup :: hardDelete crypto-shredding (Refs #2057)", () =
       db: stack.db,
       registry: stack.registry,
       tenantId,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 

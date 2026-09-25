@@ -249,7 +249,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
       files: filesCtx(),
     });
@@ -289,7 +289,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
       files: filesCtx(),
     });
@@ -324,7 +324,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
       files: filesCtx(failingProvider),
     });
@@ -339,7 +339,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
       files: filesCtx(),
     });
@@ -365,7 +365,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -405,7 +405,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
       files: filesCtx(),
     });

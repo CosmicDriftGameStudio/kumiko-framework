@@ -1,22 +1,16 @@
-// Direkter Resolver-Helper fuer Bulk-Iteration (S2.U5b Cleanup-Runner).
-//
-// `policy-for` Query (handlers/policy-for.query.ts) ist die Cross-Feature-
-// API fuer einzelne Lookups. Der Cleanup-Runner iteriert N Entities × M
-// Tenants — Handler-Roundtrip pro Lookup waere zu teuer + braucht einen
-// HandlerContext. Beide Pfade nutzen denselben `parseRetentionOverrideOrNull`
-// + `resolveRetentionPolicy`, also kein Drift-Risiko.
+// Single implementation of the three-layer policy resolution: the cleanup cron,
+// the forget runner and the `policy-for` query all go through here, so a caller
+// cannot skip a layer (e.g. the tenant preset) by accident.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { isTenantDb } from "../shared";
 import { parseRetentionOverrideOrNull } from "./_internal/parse-override";
 import type { RetentionPresetKey } from "./presets";
+import { resolveTenantRetentionPreset } from "./resolve-tenant-preset";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver";
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
-
-function isTenantDb(db: DbRunner | TenantDb): db is TenantDb {
-  return typeof (db as Partial<TenantDb>).unsafeRaw === "function";
-}
 
 export interface ResolveForTenantArgs {
   // fw#2914 — a EXT_USER_DATA hook's ctx.db is a TenantDb (method-form);
@@ -27,12 +21,17 @@ export interface ResolveForTenantArgs {
   readonly tenantId: TenantId;
   readonly entityName: string;
   /**
-   * Layer 2 — Tenant-Preset, vom Caller aufgeloest (retention-cleanup-Cron
-   * leitet ihn aus dem Compliance-Profile ab, siehe resolve-tenant-preset.ts).
-   * null = kein Preset, Resolver faellt auf Entity-Default (Layer 1) +
-   * Tenant-Override (Layer 3) zurueck.
+   * Layer 2 — Tenant-Preset. `undefined` (the default) means this resolver
+   * derives it itself via resolveTenantRetentionPreset — one compliance-
+   * profile read per call, fine for single-lookup callers (`policy-for`, a
+   * per-hook TenantDb caller like notes-history-user-data). A bulk caller
+   * iterating N entities × M tenants (the forget-cleanup runner, the
+   * retention-cleanup cron) MUST resolve it ONCE per tenant and pass it in
+   * here instead, or it re-derives per entity. `null` means "resolved
+   * already, no preset applies" — the resolver falls back to Entity-Default
+   * (Layer 1) + Tenant-Override (Layer 3).
    */
-  readonly tenantPreset?: RetentionPresetKey | null;
+  readonly preloadedTenantPreset?: RetentionPresetKey | null;
   /**
    * Pre-fetched override row for this (tenantId, entityName) pair — lets a
    * bulk caller (the cleanup cron, N entities × M tenants) read every
@@ -68,10 +67,19 @@ export async function resolveRetentionPolicyForTenant(
 
   const entityDef = args.registry.getEntity(args.entityName) ?? null;
 
+  const tenantPreset =
+    args.preloadedTenantPreset !== undefined
+      ? args.preloadedTenantPreset
+      : await resolveTenantRetentionPreset({
+          db: args.db,
+          registry: args.registry,
+          tenantId: args.tenantId,
+        });
+
   return resolveRetentionPolicy({
     entityName: args.entityName,
     entityDef,
-    tenantPreset: args.tenantPreset ?? null,
+    tenantPreset,
     tenantOverride,
   });
 }

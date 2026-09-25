@@ -12,7 +12,7 @@
 // sogar namensgleich. minimal-no-region → "default" (No-Op-Preset).
 
 import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import type { RetentionPresetKey } from "./presets";
@@ -29,7 +29,10 @@ const PROFILE_TO_PRESET: Readonly<Record<ComplianceProfileKey, RetentionPresetKe
 } satisfies Readonly<Record<ComplianceProfileKey, RetentionPresetKey>>;
 
 export interface ResolveTenantPresetArgs {
-  readonly db: DbRunner;
+  // resolveRetentionPolicyForTenant calls this itself when its own
+  // caller omits preloadedTenantPreset. Its `db` is DbRunner | TenantDb (bulk
+  // cron vs. per-hook TenantDb), so this must accept both too.
+  readonly db: DbRunner | TenantDb;
   readonly registry: Registry;
   readonly tenantId: TenantId;
 }
