@@ -1,3 +1,4 @@
+export { hashUnsubscribeAddress } from "./address-opt-out";
 export type { DeliveryStatusValue } from "./constants";
 export {
   DELIVERY_CHANNEL_EXTENSION,
@@ -19,6 +20,8 @@ export {
 export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature";
 export {
   deliveryAttemptsTable,
+  notificationAddressOptOutEntity,
+  notificationAddressOptOutsTable,
   notificationPreferenceEntity,
   notificationPreferencesTable,
 } from "./tables";
@@ -38,7 +41,9 @@ export {
   type RendererInput,
 } from "./types";
 export {
+  type AddressUnsubscribeTokenPayload,
   createUnsubscribeRoute,
+  signAddressUnsubscribeToken,
   signUnsubscribeToken,
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,

@@ -23,6 +23,8 @@ import { deliveryRenderJob, deliverySendJob } from "./jobs";
 import {
   deliveryAttemptsTable,
   deliveryAttemptsTableMeta,
+  notificationAddressOptOutEntity,
+  notificationAddressOptOutsTable,
   notificationPreferenceEntity,
   notificationPreferencesTable,
 } from "./tables";
@@ -40,7 +42,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
   const resolvedAccess = options?.access ?? access.admin;
   return defineFeature("delivery", (r) => {
     r.describe(
-      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
     );
     r.uiHints({
       displayLabel: "Notifications \u00b7 Dispatch Core",
@@ -55,6 +57,12 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // otherwise omit it → duplicate preference rows on concurrent upserts.
     r.entity("notification-preference", notificationPreferenceEntity, {
       table: notificationPreferencesTable,
+    });
+    // Same ride-along reason as notification-preference above: the
+    // (tenant,addressHash,type,channel) uniqueIndex lives only on the
+    // physical table.
+    r.entity("notification-address-opt-out", notificationAddressOptOutEntity, {
+      table: notificationAddressOptOutsTable,
     });
     r.storeTable(deliveryAttemptsTableMeta, {
       reason: "read_side.delivery_attempt_log",

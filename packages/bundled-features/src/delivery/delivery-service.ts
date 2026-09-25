@@ -14,9 +14,11 @@ import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipelin
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
+import { hashUnsubscribeAddress } from "./address-opt-out";
 import { appendAttemptEvent, logAttempt } from "./attempt-log";
 import { buildChannelContext } from "./channel-context";
 import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs, deliveryPriorityRank } from "./constants";
+import { isAddressOptedOut } from "./db/queries/address-opt-outs";
 import { selectNotificationPreferences } from "./db/queries/preferences";
 import {
   type ChannelContext,
@@ -478,6 +480,36 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       const address = route[channel.name];
       const message = buildMessage(notificationType, data, channel.name);
       if (!address) continue;
+
+      // Address opt-out (critical priority skips it, same rule as user
+      // preferences). No blind-index key configured → no hash → nothing to
+      // look up, skip the check instead of failing the send.
+      if (priority !== "critical") {
+        const addressHash = hashUnsubscribeAddress(address);
+        if (addressHash !== undefined) {
+          const optedOut = await isAddressOptedOut(
+            db,
+            tenantId,
+            addressHash,
+            notificationType,
+            channel.name,
+          );
+          if (optedOut) {
+            await logDelivery({
+              tenantId,
+              notificationType,
+              channel: channel.name,
+              recipientId,
+              // The recipient withdrew — suppressed attempts must not keep recording the address.
+              recipientAddress: null,
+              status: "skipped",
+              error: "unsubscribed",
+              priority,
+            });
+            continue;
+          }
+        }
+      }
 
       if (rateLimit) {
         const allowed = await checkRateLimit(rateLimit, tenantId, channel.name);

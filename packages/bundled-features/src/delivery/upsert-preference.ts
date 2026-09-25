@@ -130,7 +130,7 @@ export async function upsertPreference(
 // (SQLSTATE 23505). Drivers wrap the DB error in varying envelopes; we
 // check the `code` field plus a string-match fallback so the match survives
 // minor driver-version shifts without drifting wide.
-function isUniqueViolation(err: unknown): boolean {
+export function isUniqueViolation(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
   const e = err as { code?: unknown; cause?: { code?: unknown }; message?: unknown }; // @cast-boundary error-details
   if (e.code === "23505") return true;

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-11T08:10:23.072Z",
+  "generatedAt": "2026-09-25T14:53:03.838Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -493,6 +493,78 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_notification_address_opt_outs",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "address_hash",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "notification_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "channel",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_notification_address_opt_outs_unique",
+          "columns": [
+            "tenant_id",
+            "address_hash",
+            "notification_type",
+            "channel"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
     },
     {
       "tableName": "read_notification_preferences",
@@ -1341,7 +1413,8 @@
       "piiSubjectFields": [
         "email",
         "displayName"
-      ]
+      ],
+      "tenancy": "global"
     },
     {
       "tableName": "store_delivery_attempts",

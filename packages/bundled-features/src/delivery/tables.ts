@@ -105,3 +105,40 @@ export const notificationPreferencesTable = pgTable(
     ),
   ],
 );
+
+// Opt-out for a recipient ADDRESS that has no user account (direct sends via
+// `ctx.notify(type, { route: { email } })`). addressHash is a keyed HMAC
+// (computeBlindIndex over the normalized address) — the plaintext address
+// never reaches this entity or the token that unsubscribes it.
+// A row's mere existence is the opt-out; there is no `enabled` toggle to flip
+// back (re-subscribing a no-account address has no signed-in flow to do it from).
+export const notificationAddressOptOutEntity = createEntity({
+  table: "read_notification_address_opt_outs",
+  fields: {
+    addressHash: createTextField({ required: true, personal: false, reason: "keyed_hash" }),
+    notificationType: createTextField({
+      required: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    channel: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
+});
+
+export const notificationAddressOptOutsTable = pgTable(
+  "read_notification_address_opt_outs",
+  {
+    ...buildBaseColumns(false, "uuid"),
+    addressHash: text("address_hash").notNull(),
+    notificationType: text("notification_type").notNull(),
+    channel: text("channel").notNull(),
+  },
+  (table) => [
+    uniqueIndex("read_notification_address_opt_outs_unique").on(
+      table.tenantId,
+      table.addressHash,
+      table.notificationType,
+      table.channel,
+    ),
+  ],
+);
