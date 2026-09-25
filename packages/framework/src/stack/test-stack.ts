@@ -52,7 +52,8 @@ export type TestStack = {
   // event-triggered job reaching for ctx.files die where the request path works.
   context: AppContext;
   // Present whenever a system consumer (SSE, Search) or
-  // r.multiStreamProjection is wired. Tests drain it via runOnce() for
+  // r.multiStreamProjection is wired. Tests drain it via runOnce() (or the
+  // drainEventConsumers helper for a named-consumer backlog) for
   // deterministic assertion — no timer-induced flakiness.
   eventDispatcher?: EventDispatcher;
   // Only set when the caller passed `lifecycle` via options. Tests that

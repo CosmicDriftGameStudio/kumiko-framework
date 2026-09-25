@@ -468,7 +468,8 @@ export async function buildSearchDocument(
 //    die auf optimistic-update setzen merken das nicht; strictly-waiting
 //    Clients müssten poll-after-write.
 //
-// Tests drain deterministisch via `await stack.eventDispatcher.runOnce()`.
+// Tests drain deterministically via `await stack.eventDispatcher.runOnce()`,
+// or via `drainEventConsumers` for this consumer name specifically.
 export const SSE_BROADCAST_CONSUMER_NAME = "system:consumer:sse-broadcast";
 
 export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventConsumer {
