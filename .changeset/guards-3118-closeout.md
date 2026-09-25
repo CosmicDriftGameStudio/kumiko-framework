@@ -13,7 +13,6 @@ detail: |
   test.setTimeout/test.slow, or waitForTimeout finding fails the guard run
   directly, with no `.kumiko-test-timeouts-baseline.json` grandfathering
   pre-existing violations.
-
   New AST guard test-template-drift flags apps reimplementing the
   kumiko-testing e2e/screenshot template locally: a Playwright config that
   builds its own defineConfig(...) instead of calling defineAppE2eConfig(),
@@ -24,7 +23,6 @@ detail: |
   layout that only exists below the template's 1920px default; a
   `...devices["…"]` spread stays allowed everywhere), or a direct
   page.screenshot(...) call instead of captureScreenshot.
-
   New repo check Real-Provider-Isolation flags a CI workflow that references
   KUMIKO_REAL_PROVIDERS or invokes test:real/e2e:real, a package.json script
   other than test:real/e2e:real that leaks the real-provider env or a
@@ -37,7 +35,6 @@ migration: |
   `// @timeout-exception: #<issue> <technical reason>` on the loop's own line
   or the line above for a genuine non-condition wait. Delete any committed
   `.kumiko-test-timeouts-baseline.json`.
-
   For test-template-drift: switch a hand-rolled Playwright/screenshot config
   to defineAppE2eConfig(), drop config-level viewport/deviceScaleFactor
   overrides (the template already sets DESKTOP_VIEWPORT and renders
@@ -49,7 +46,6 @@ migration: |
   needs its own viewport-growth pass) is
   `// @template-drift-exception: #<issue> <technical reason>` on the line
   above.
-
   For Real-Provider-Isolation: remove any KUMIKO_REAL_PROVIDERS/test:real/
   e2e:real reference from CI workflows, move real-provider env/spec
   references out of scripts other than test:real/e2e:real, and regenerate
