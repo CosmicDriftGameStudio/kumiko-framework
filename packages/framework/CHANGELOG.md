@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.312.0
+
+### Minor Changes
+
+- f662b79: files: doc/docx accepted, with magic-byte content verification
+
+  EXTENSION_MIME_WHITELIST and MAGIC_BYTE_SIGNATURES now cover .doc (application/msword, OLE signature) and .docx (application/vnd.openxmlformats-officedocument.wordprocessingml.document, ZIP signature). New exported validateFileContent(mimeType, content) checks, for doc/docx only, the declared mimeType against the file's magic bytes independent of options.accept — validateFile's own signature is unchanged (metadata-only); file-routes.ts calls validateFile first, then validateFileContent once after reading the upload body. normalizeMimeType is exported from files/types.ts as the single case/parameter-normalization helper (derivatives-context.ts's local copy was removed in favor of it).
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: files: doc/docx accepted, with magic-byte content verification
+  -->
+
+- f662b79: MultiStreamApplyContext gains a required registry field
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: MultiStreamApplyContext gains a required registry field
+  migration: |
+    Any hand-built MultiStreamApplyContext (e.g. in an MSP test that constructs the context object literal instead of using createMultiStreamApplyContext/setupTestStack) must add registry: <the app Registry instance>, the same instance HandlerContext/JobContext already expose. Lets an apply resolve extension-point usages (registry.getExtensionUsages) to pick behavior by payload discriminant, e.g. a provider-routed MSP.
+  -->
+
+- f662b79: r.job triggers can filter on payload fields via JobTrigger.where
+
+  A job's {on} trigger can now carry an optional where: equality filter on top-level event-payload fields, checked in job-runner's handleEvent before the job is enqueued (both the sync write-handler dispatch path and the async event-consumer path share this check). Lets N jobs share one broad event QN, partitioned by a payload discriminant, instead of each needing its own narrow event type.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.job triggers can filter on payload fields via JobTrigger.where
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-http@0.312.0
+- @cosmicdrift/kumiko-types@0.312.0
+
 ## 0.311.0
 
 ### Patch Changes
