@@ -71,7 +71,7 @@ import {
 } from "./extra-route";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
-import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
+import { assertOriginGuardConfig, normalizeOrigin, originMiddleware } from "./origin-middleware";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
 import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker";
 import { requestContext } from "./request-context";
@@ -726,11 +726,20 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const tenantLifecycleResolver =
     options.auth?.resolveTenantLifecycleStatus ??
     deriveTenantLifecycleResolver(options.registry, baseDb);
+  // sessionOnlyGuard deliberately does NOT get this — its callers have no
+  // anonymousAccess fallback, so a foreign-origin cookie there must keep
+  // failing through the sibling originMiddleware 403.
+  const normalizedForeignCookieOrigins = options.auth?.allowedOrigins?.length
+    ? new Set(options.auth.allowedOrigins.map(normalizeOrigin))
+    : undefined;
   const jwtGuard = authMiddleware(jwt, {
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
     ...(options.auth?.tokenVerifier ? { tokenVerifier: options.auth.tokenVerifier } : {}),
     ...(tenantLifecycleResolver ? { resolveTenantLifecycleStatus: tenantLifecycleResolver } : {}),
     ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
+    ...(normalizedForeignCookieOrigins
+      ? { foreignCookieOrigins: normalizedForeignCookieOrigins }
+      : {}),
   });
   app.use("/api/*", async (c, next) => {
     if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
