@@ -107,7 +107,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
           db: cleanupDb,
           registry: ctx.registry,
           tenantId,
-          tenantPreset,
+          preloadedTenantPreset: tenantPreset,
           now: T.Now.instant(),
           files: ctx.files,
         });

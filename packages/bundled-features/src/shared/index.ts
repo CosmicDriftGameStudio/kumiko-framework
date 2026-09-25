@@ -16,6 +16,7 @@ export { entitiesOf } from "./entities-of";
 export { isWithinGracePeriod } from "./grace-period";
 export { hasWhereRule } from "./has-where-rule";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash";
+export { isTenantDb } from "./is-tenant-db";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter";
 export { mapWithConcurrency } from "./map-with-concurrency";
 export { joinRowParentIsVisible, parentRowIsVisible } from "./parent-visibility";

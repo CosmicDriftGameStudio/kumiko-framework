@@ -14,22 +14,32 @@ import {
   type EffectiveComplianceProfile,
   resolveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { isTenantDb } from "../shared";
 import { parseComplianceProfileOverride } from "./_internal/parse-override";
 import { tenantComplianceProfileTable } from "./schema/profile-selection";
 
 export interface ResolveProfileForTenantArgs {
-  readonly db: DbRunner;
+  // data-retention's resolveTenantRetentionPreset forwards this via
+  // resolveRetentionPolicyForTenant, whose own `db` is DbRunner | TenantDb
+  // (bulk cron vs. per-hook TenantDb). This lookup is a plain tenant-scoped
+  // read either way.
+  readonly db: DbRunner | TenantDb;
   readonly tenantId: TenantId;
 }
 
 export async function resolveProfileForTenant(
   args: ResolveProfileForTenantArgs,
 ): Promise<EffectiveComplianceProfile> {
-  const row = (await fetchOne(args.db, tenantComplianceProfileTable, {
-    tenantId: args.tenantId,
-  })) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
+  const row = isTenantDb(args.db)
+    ? ((await args.db.fetchOne<{ profileKey: string; override: string | null }>(
+        tenantComplianceProfileTable,
+        { tenantId: args.tenantId },
+      )) ?? null)
+    : ((await fetchOne(args.db, tenantComplianceProfileTable, {
+        tenantId: args.tenantId,
+      })) as { profileKey: string; override: string | null } | null); // @cast-boundary db-runner
 
   if (!row) {
     return resolveComplianceProfile({});

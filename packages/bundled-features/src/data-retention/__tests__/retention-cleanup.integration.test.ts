@@ -206,7 +206,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -223,7 +223,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -240,7 +240,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -254,7 +254,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -301,7 +301,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -326,7 +326,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 
@@ -351,7 +351,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
     expect(first.anonymized).toBe(1);
@@ -364,7 +364,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
     expect(second.anonymized).toBe(0);
@@ -388,7 +388,7 @@ describe("runRetentionCleanup :: real postgres", () => {
         db: stack.db,
         registry: stack.registry,
         tenantId: T1,
-        tenantPreset: null,
+        preloadedTenantPreset: null,
         now,
         batchLimit: 1,
       });
@@ -412,7 +412,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       tenantId: T1,
-      tenantPreset: null,
+      preloadedTenantPreset: null,
       now,
     });
 

@@ -95,8 +95,9 @@ export interface RunRetentionCleanupArgs {
   readonly db: DbRunner;
   readonly registry: Registry;
   readonly tenantId: TenantId;
-  /** Layer-2 Preset (aus resolveTenantRetentionPreset). null = nur Layer 1/3. */
-  readonly tenantPreset: RetentionPresetKey | null;
+  /** Layer-2 preset from resolveTenantRetentionPreset, resolved once per tenant
+   *  by the caller rather than per entity here. null = layers 1 and 3 only. */
+  readonly preloadedTenantPreset: RetentionPresetKey | null;
   /** Now-Injection — Tests pinnen den Wert ohne Date-Mock (Pattern keep-for.ts). */
   readonly now: Instant;
   readonly batchLimit?: number;
@@ -587,7 +588,7 @@ async function anonymizeMatchingRows(
 export async function runRetentionCleanup(
   args: RunRetentionCleanupArgs,
 ): Promise<RunRetentionCleanupResult> {
-  const { db, registry, tenantId, tenantPreset, now } = args;
+  const { db, registry, tenantId, preloadedTenantPreset, now } = args;
   const batchLimit = args.batchLimit ?? DEFAULT_BATCH_LIMIT;
   const kms = args.kms ?? configuredPiiSubjectKms();
 
@@ -628,7 +629,7 @@ export async function runRetentionCleanup(
       registry,
       tenantId,
       entityName,
-      tenantPreset,
+      preloadedTenantPreset,
       preloadedOverride: overrideByEntity.get(entityName) ?? null,
     });
     const policy = resolved.policy;
