@@ -16,6 +16,21 @@ export function isOriginAllowed(origin: string, normalizedAllowlist: ReadonlySet
   return normalizedAllowlist.has(normalizeOrigin(origin));
 }
 
+// True when a state-changing request carries an Origin (or Sec-Fetch-Site)
+// signal that marks it as coming from outside the allowlist.
+export function isForeignCookieOrigin(c: Context, allowlist: ReadonlySet<string>): boolean {
+  if (!STATE_CHANGING_METHODS.has(c.req.method)) return false;
+
+  const origin = c.req.header("origin");
+  if (origin !== undefined) return !isOriginAllowed(origin, allowlist);
+
+  // No Origin header — older browsers, and some same-origin POSTs in Safari.
+  // Fall back to the Fetch-Metadata Sec-Fetch-Site signal: only an explicit
+  // cross-site marker counts as foreign here (it's a relation, not an origin,
+  // so it can't be matched against the allowlist).
+  return c.req.header("sec-fetch-site") === "cross-site";
+}
+
 function rejectOrigin(c: Context): Response {
   return c.json(
     {
@@ -49,26 +64,14 @@ export function originMiddleware(allowedOrigins: readonly string[]) {
   return async (c: Context, next: Next) => {
     const transport = getAuthTransport(c);
     if (transport !== "cookie") return next();
-    if (!STATE_CHANGING_METHODS.has(c.req.method)) return next();
-
-    const origin = c.req.header("origin");
-    if (origin !== undefined) {
-      if (isOriginAllowed(origin, allowlist)) return next();
-      return rejectOrigin(c);
-    }
-
-    // No Origin header — older browsers, and some same-origin POSTs in Safari.
-    // Fall back to the Fetch-Metadata Sec-Fetch-Site signal: only an explicit
-    // cross-site marker is blocked here (it's a relation, not an origin, so it
-    // can't be matched against the allowlist). Everything else (same-site,
-    // same-origin, none, absent) falls through to the CSRF token. Note: the
-    // CSRF token alone does NOT stop a same-site subdomain XSS — it can read
-    // the wide cookie — but that attack uses fetch/XHR, which always sends an
-    // Origin header and is already rejected by the allowlist branch above. The
-    // residual is only the no-Origin-yet-Sec-Fetch-Site combo, which no current
-    // browser emits for state-changing requests.
-    if (c.req.header("sec-fetch-site") === "cross-site") return rejectOrigin(c);
-
+    // Everything else (same-site, same-origin, none, absent) falls through to
+    // the CSRF token. Note: the CSRF token alone does NOT stop a same-site
+    // subdomain XSS — it can read the wide cookie — but that attack uses
+    // fetch/XHR, which always sends an Origin header and is already rejected
+    // by the allowlist branch inside isForeignCookieOrigin. The residual is
+    // only the no-Origin-yet-Sec-Fetch-Site combo, which no current browser
+    // emits for state-changing requests.
+    if (isForeignCookieOrigin(c, allowlist)) return rejectOrigin(c);
     return next();
   };
 }

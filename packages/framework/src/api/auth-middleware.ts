@@ -6,6 +6,7 @@ import type { SessionUser, TenantId } from "../engine/types";
 import { parseTenantId } from "../engine/types/identifiers";
 import { TENANT_COOKIE_NAME, TENANT_HEADER_NAME } from "./api-constants";
 import type { JwtHelper } from "./jwt";
+import { isForeignCookieOrigin } from "./origin-middleware";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";
@@ -92,6 +93,14 @@ export type AuthMiddlewareOptions = {
   // when the tenant is in teardown (destroyRequested/destroying/destroyed).
   // cancel-destruction is exempt while status=destroyRequested.
   readonly resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver;
+  // Normalized auth.allowedOrigins. A cookie from an origin outside this set
+  // is dropped BEFORE jwt.verify — treated as if no cookie was sent — and
+  // falls through to the anonymousAccess flow instead of the 403 the
+  // sibling originMiddleware would give (fw#340: a public status page's
+  // session cookie, set on the base domain, reaches every tenant subdomain
+  // even though those pages only ever make anonymous queries). Only
+  // meaningful together with anonymousAccess.
+  readonly foreignCookieOrigins?: ReadonlySet<string>;
 };
 
 // Resolves the tenant for an unauthenticated request. Returns null when no
@@ -205,7 +214,13 @@ function extractToken(
 }
 
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
-  const { sessionChecker, anonymousAccess, tokenVerifier, resolveTenantLifecycleStatus } = options;
+  const {
+    sessionChecker,
+    anonymousAccess,
+    tokenVerifier,
+    resolveTenantLifecycleStatus,
+    foreignCookieOrigins,
+  } = options;
 
   // Fail loud at boot, not silently at request time: a tenantResolver
   // without a declared resolverTrust is an ambiguous trust decision no
@@ -258,6 +273,20 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       });
     }
     const { token, transport } = extracted;
+
+    // A foreign-origin cookie is noise, not an authentication attempt worth
+    // verifying — drop it before jwt.verify, the token is never read. Auth
+    // routes are excluded (same reasoning as the missing-token branch above):
+    // logout must still see the real auth state, not be silently downgraded.
+    if (
+      transport === "cookie" &&
+      anonymousAccess &&
+      !c.req.path.startsWith("/api/auth/") &&
+      foreignCookieOrigins &&
+      isForeignCookieOrigin(c, foreignCookieOrigins)
+    ) {
+      return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus);
+    }
 
     // Generic bearer-verifier path: try the wired tokenVerifier (PAT, future
     // JWT-provider, ...) BEFORE jwt.verify. A hit short-circuits the JWT path

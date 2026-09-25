@@ -23,7 +23,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { getConsumerState } from "@cosmicdrift/kumiko-framework/pipeline";
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  drainEventConsumers,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { workflowRunAggregateId } from "../aggregate-id";
 import { registerEventTrigger } from "../event-trigger";
 import { workflowRunnerFeature } from "../feature";
@@ -190,7 +195,7 @@ describe("workflow-runner event-trigger", () => {
     // Consumers run their turns concurrently, so events an earlier test's
     // workflow emitted may still be ahead of this consumer's cursor; drain
     // them first so `processed` below counts only this test's trigger.
-    while (((await stack.eventDispatcher?.runOnce())?.processed ?? 0) > 0) {}
+    await drainEventConsumers(stack, [consumerName]);
 
     await insertOne(stack.db, eventsTable, {
       aggregateId: crypto.randomUUID(),

@@ -14,6 +14,7 @@ export {
   createTestDb,
   type TestDb,
 } from "./db";
+export { drainEventConsumers } from "./drain-event-consumers";
 export { createEventCollector, type EventCollector } from "./event-collector";
 export { pushEntityProjectionTables } from "./push-entity-projection-tables";
 export { createTestRedis, type TestRedis } from "./redis";
