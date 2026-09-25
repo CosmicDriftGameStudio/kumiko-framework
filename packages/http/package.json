@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-http",
-  "version": "0.311.0",
+  "version": "0.312.0",
   "description": "SSRF-safe egress fetch for Kumiko: a single egress(policy) entry point that enforces external/internal/tenant-supplied host policy, DNS-rebinding-safe resolve-then-pin, and no external runtime dependencies.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

@@ -10,6 +10,20 @@ verified: 2026-09-25
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.312.0
+
+### document-ingest-foundation
+
+**document-ingest-foundation is provider-driven; ALLOWED_MIME_TYPES/MAX_FILE_BYTES are gone**
+
+**Migration:** The hardcoded MIME allowlist and fixed size cap are removed. A provider feature (e.g. kumiko-enterprise's LiteParse) now registers via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", { mimeTypes, maxFileBytes }) and routes its r.job's trigger through documentIngestProviderTrigger("<name>") instead of a bare { on: DOCUMENT_INGEST_REQUESTED_EVENT_QN }. A provider feature must also declare r.requires("document-ingest-foundation") — validateBoot rejects r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, ...) without it as a missing feature dependency. Boot now throws if: two providers claim the same mimeType, a job triggers on documentIngest.requested without a provider filter, a job filters to an unregistered provider name, or a registered provider has no job wired to it. documentIngest.requested's payload gained a required provider field (event schema version 2; a migration upcasts existing v1 events to provider: "unknown", a sentinel that cannot match any real provider filter). A file whose mimeType has no registered provider now appends documentIngest.skipped with reason unsupported-mime-type instead of file-too-large. A fileRef.deleted or fileRef.forgotten event now forgets that fileRef's documentExtract row (new forget-extract-with-file-ref table-less MSP) — previously the extract silently outlived a deleted/forgotten source file. Mounting documentIngestFoundationFeature with zero providers is valid: every upload is simply skipped as unsupported-mime-type. Boot only fails for a misconfigured wiring (unfiltered job on documentIngest.requested, a job filtered to an unregistered provider name, two providers claiming the same mimeType, or a registered provider with no job wired to it).
+
+### framework-core
+
+**MultiStreamApplyContext gains a required registry field**
+
+**Migration:** Any hand-built MultiStreamApplyContext (e.g. in an MSP test that constructs the context object literal instead of using createMultiStreamApplyContext/setupTestStack) must add registry: <the app Registry instance>, the same instance HandlerContext/JobContext already expose. Lets an apply resolve extension-point usages (registry.getExtensionUsages) to pick behavior by payload discriminant, e.g. a provider-routed MSP.
+
 ## 0.311.0
 
 ### enterprise:guards
