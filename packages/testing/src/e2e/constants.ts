@@ -48,3 +48,7 @@ export const SEED_ROUTES = {
 // Chrome" device ships 1280×720: handbook and doc shots at 1280 visibly soften
 // on a HiDPI display, and a list next to a reading pane looks cramped.
 export const DESKTOP_VIEWPORT = { width: 1920, height: 1080 } as const;
+
+// Screenshot runs (SCREENSHOT_DIR set) render at 2x so doc images stay sharp
+// on HiDPI displays; plain e2e runs keep 1x. Device projects keep their own.
+export const SCREENSHOT_DEVICE_SCALE_FACTOR = 2;
