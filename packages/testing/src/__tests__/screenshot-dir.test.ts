@@ -56,33 +56,83 @@ describe("captureScreenshot", () => {
     await expect(captureScreenshot(untouchablePage, "step-1")).resolves.toBeUndefined();
   });
 
-  test('opts.reducedMotion overrides the "reduce" default and fullPage reaches page.screenshot', async () => {
-    const dir = mkdtempSync(join(tmpdir(), "capture-screenshot-"));
-    process.env[SCREENSHOT_DIR_ENV] = dir;
-    const emulateMediaCalls: unknown[] = [];
-    const screenshotCalls: unknown[] = [];
-    const fakePage = {
+  // Fingerprint polls return a constant (page settled at once); scrollDeficit
+  // polls pop the next scripted overflow value.
+  function recordingPage(deficits: number[]) {
+    const calls = {
+      emulateMedia: [] as unknown[],
+      screenshot: [] as unknown[],
+      viewportSizes: [] as { width: number; height: number }[],
+    };
+    let viewport = { width: 1280, height: 800 };
+    const page = {
       emulateMedia: async (opts: unknown) => {
-        emulateMediaCalls.push(opts);
+        calls.emulateMedia.push(opts);
       },
       on: () => {},
       off: () => {},
-      evaluate: async () => "fixed-fingerprint",
+      evaluate: async (fn: () => unknown) =>
+        fn.name === "scrollDeficit" ? (deficits.shift() ?? 0) : "fixed-fingerprint",
+      viewportSize: () => viewport,
+      setViewportSize: async (size: { width: number; height: number }) => {
+        viewport = size;
+        calls.viewportSizes.push(size);
+      },
       screenshot: async (opts: unknown) => {
-        screenshotCalls.push(opts);
+        calls.screenshot.push({ ...(opts as object), viewportAtCapture: viewport });
       },
     } as unknown as Page; // @cast-boundary test double, only the methods captureScreenshot's call chain uses
+    return { page, calls };
+  }
 
-    try {
-      await captureScreenshot(fakePage, "step-1", { reducedMotion: "no-preference", fullPage: true });
-      expect(emulateMediaCalls).toEqual([{ reducedMotion: "no-preference" }]);
-      expect(screenshotCalls).toEqual([
-        { path: `${dir}/step-1.png`, animations: "disabled", fullPage: true },
+  function withScreenshotDir(run: (dir: string) => Promise<void>): Promise<void> {
+    const dir = mkdtempSync(join(tmpdir(), "capture-screenshot-"));
+    process.env[SCREENSHOT_DIR_ENV] = dir;
+    return run(dir).finally(() => rmSync(dir, { recursive: true, force: true }));
+  }
+
+  test('opts.reducedMotion overrides the "reduce" default and fit "fullPage" reaches page.screenshot', () =>
+    withScreenshotDir(async (dir) => {
+      const { page, calls } = recordingPage([]);
+      await captureScreenshot(page, "step-1", { reducedMotion: "no-preference", fit: "fullPage" });
+      expect(calls.emulateMedia).toEqual([{ reducedMotion: "no-preference" }]);
+      expect(calls.screenshot).toEqual([
+        {
+          path: `${dir}/step-1.png`,
+          animations: "disabled",
+          fullPage: true,
+          viewportAtCapture: { width: 1280, height: 800 },
+        },
       ]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
+    }));
+
+  test('fit "content" grows the viewport by the overflow until none is left, then restores it', () =>
+    withScreenshotDir(async (dir) => {
+      const { page, calls } = recordingPage([300, 120, 0]);
+      await captureScreenshot(page, "lease-detail", { fit: "content" });
+      expect(calls.screenshot).toEqual([
+        {
+          path: `${dir}/lease-detail.png`,
+          animations: "disabled",
+          viewportAtCapture: { width: 1280, height: 1220 },
+        },
+      ]);
+      expect(calls.viewportSizes).toEqual([
+        { width: 1280, height: 1100 },
+        { width: 1280, height: 1220 },
+        { width: 1280, height: 800 },
+      ]);
+    }));
+
+  test('fit "content" refuses to write a cropped screenshot when growth does not converge', () =>
+    withScreenshotDir(async () => {
+      const { page, calls } = recordingPage([100, 100, 100, 100, 100]);
+      await expect(captureScreenshot(page, "endless", { fit: "content" })).rejects.toThrow(
+        /did not converge after 4 rounds, 100px still overflow/,
+      );
+      expect(calls.screenshot).toEqual([]);
+      expect(calls.viewportSizes.at(-1)).toEqual({ width: 1280, height: 800 });
+    }));
 });
 
 describe("screenshotSpecsIgnore", () => {

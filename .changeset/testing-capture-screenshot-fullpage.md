@@ -2,14 +2,21 @@
 "@cosmicdrift/kumiko-testing": patch
 ---
 
-`captureScreenshot(page, name, { fullPage })` (fw#3118)
+`captureScreenshot(page, name, { fit })` (fw#3118)
 
 <!-- kumiko-changes
 feature: testing
 type: improvement
-title: captureScreenshot accepts fullPage
+title: captureScreenshot accepts fit viewport, fullPage or content
 detail: |
-  Inline mid-flow shots that document a whole page (offlot's channel-request,
-  channel-prompts and vehicle-channel-texts flows) can move to
-  captureScreenshot without losing their full-page capture.
+  `fit: "viewport"` (default) keeps the previous behaviour. `fit: "fullPage"`
+  captures the whole document, so offlot's inline mid-flow shots
+  (channel-request, channel-prompts, vehicle-channel-texts) can move to
+  captureScreenshot. `fit: "content"` grows the viewport until neither the
+  document nor a visible overflow-auto/scroll container (WorkspaceShell's
+  inner scroll area) overflows, captures, and restores the viewport; it
+  throws instead of writing a cropped image when growth does not converge
+  within 4 rounds. This replaces solon's own `e2e/_helpers/shot.ts`; its
+  images pick up the `reducedMotion: "reduce"` default on the switch, so a
+  one-time pixel drift in the handbook PNGs is expected.
 -->

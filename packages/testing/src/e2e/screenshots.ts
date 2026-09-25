@@ -465,6 +465,58 @@ function inFlightTrackerFor(page: Page): () => number {
   return tracker;
 }
 
+// "viewport": what the window shows. "fullPage": Playwright's document-height
+// capture, which renders a sticky sidebar floating mid-page. "content": grows the
+// viewport until nothing overflows, including WorkspaceShell's internally
+// scrolling `overflow-auto` containers that document.scrollHeight never sees.
+export type CaptureFit = "viewport" | "fullPage" | "content";
+
+export interface CaptureScreenshotOptions {
+  readonly reducedMotion?: ReducedMotionOption;
+  readonly fit?: CaptureFit;
+}
+
+const CONTENT_FIT_MAX_ROUNDS = 4;
+
+// Runs in the browser: the largest vertical overflow of the document or of any
+// visible scrolling container.
+function scrollDeficit(): number {
+  const containerDeficits = [...document.querySelectorAll("*")]
+    .filter((el) => {
+      const style = getComputedStyle(el);
+      return (
+        (style.overflowY === "auto" || style.overflowY === "scroll") &&
+        el.scrollHeight - el.clientHeight > 0 &&
+        el.getClientRects().length > 0 &&
+        style.visibility !== "hidden"
+      );
+    })
+    .map((el) => el.scrollHeight - el.clientHeight);
+  return Math.max(
+    0,
+    document.documentElement.scrollHeight - window.innerHeight,
+    ...containerDeficits,
+  );
+}
+
+// Growing the viewport re-flows flex-1 regions under an h-svh shell, which can
+// reveal more content, hence rounds. A deficit left after the last round throws
+// instead of writing a silently cropped screenshot.
+async function growViewportToContent(page: Page, name: string, width: number): Promise<void> {
+  for (let round = 0; round < CONTENT_FIT_MAX_ROUNDS; round++) {
+    const deficit = await page.evaluate(scrollDeficit);
+    if (deficit === 0) return;
+    const height = page.viewportSize()?.height ?? 0;
+    await page.setViewportSize({ width, height: height + deficit });
+  }
+  const remaining = await page.evaluate(scrollDeficit);
+  if (remaining > 0) {
+    throw new Error(
+      `captureScreenshot(${name}): viewport growth did not converge after ${CONTENT_FIT_MAX_ROUNDS} rounds, ${remaining}px still overflow`,
+    );
+  }
+}
+
 // Inline mid-flow screenshot for a single point in an existing e2e/real-provider
 // spec (solon's `shot(page, id)`, offlot's inline docs/screenshots/e2e/* writes) —
 // reuses the runner's settle logic and reduced-motion default, and is a no-op
@@ -472,14 +524,30 @@ function inFlightTrackerFor(page: Page): () => number {
 export async function captureScreenshot(
   page: Page,
   name: string,
-  opts: { readonly reducedMotion?: ReducedMotionOption; readonly fullPage?: boolean } = {},
+  opts: CaptureScreenshotOptions = {},
 ): Promise<void> {
   const dir = process.env[SCREENSHOT_DIR_ENV];
   // skip: a plain e2e run without SCREENSHOT_DIR must not write screenshots.
   if (dir === undefined || dir === "") return;
+  const fit = opts.fit ?? "viewport";
   await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
   await waitForSettledPage(page, inFlightTrackerFor(page));
   const path = `${dir}/${name}.png`;
   mkdirSync(dirname(path), { recursive: true });
-  await page.screenshot({ path, animations: "disabled", fullPage: opts.fullPage ?? false });
+  if (fit === "content") await captureGrownToContent(page, name, path);
+  else await page.screenshot({ path, animations: "disabled", fullPage: fit === "fullPage" });
+}
+
+async function captureGrownToContent(page: Page, name: string, path: string): Promise<void> {
+  const viewport = page.viewportSize();
+  if (viewport === null) {
+    throw new Error(`captureScreenshot(${name}): fit "content" needs a page with a viewport`);
+  }
+  try {
+    await growViewportToContent(page, name, viewport.width);
+    await page.screenshot({ path, animations: "disabled" });
+  } finally {
+    // Later assertions in the same test must run against the original window.
+    await page.setViewportSize(viewport);
+  }
 }
