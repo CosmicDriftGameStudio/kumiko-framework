@@ -2,6 +2,7 @@ import { configureEventPiiCatalog } from "../crypto/event-pii";
 import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
 import { resolveName } from "./handler-helpers";
+import { parseRefTargetEntityName } from "./parse-ref-target";
 import type {
   RegistryState,
   SearchableReferenceField,
@@ -192,16 +193,6 @@ export function applyExtensionUsages(state: RegistryState): void {
   }
 }
 
-// "customer" (same-feature) or "users:customer" (cross-feature,
-// "<featureName>:<entityName>") — only the entity name matters here, names
-// are globally unique in entityMap. Local duplicate of the same parse done
-// in db/eagerload.ts's parseRefEntity — this loop has no feature context to
-// hand to engine/parse-ref-target.ts's parseRefTarget.
-function parseReferenceTargetEntityName(raw: string): string {
-  const idx = raw.indexOf(":");
-  return idx < 0 ? raw : raw.slice(idx + 1);
-}
-
 // fw#2660: labelField defaults to "id" (a UUID column) elsewhere, but a
 // searchable reference ILIKEs the label column — an implicit or explicit
 // "id" default would 500 on every search request. Fail at boot.
@@ -224,7 +215,7 @@ function buildSearchableReferenceField(
         `(array) reference fields — remove "multiple" or "searchable".`,
     );
   }
-  const targetEntityName = parseReferenceTargetEntityName(field.entity);
+  const targetEntityName = parseRefTargetEntityName(field.entity);
   const targetEntity = entityMap.get(targetEntityName);
   if (targetEntity !== undefined) {
     if (
@@ -273,7 +264,7 @@ function buildSortableReferenceField(
   }
   return {
     fieldName,
-    targetEntityName: parseReferenceTargetEntityName(field.entity),
+    targetEntityName: parseRefTargetEntityName(field.entity),
     labelField: field.labelField,
   };
 }

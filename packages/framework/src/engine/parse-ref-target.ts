@@ -20,3 +20,9 @@ export function parseRefTarget(raw: string, currentFeature: string): ParsedRefTa
   }
   return { featureName: raw.slice(0, idx), entityName: raw.slice(idx + 1) };
 }
+
+// Entity names are globally unique in the registry, so callers that only
+// need the entity (not its owning feature) can drop the currentFeature arg.
+export function parseRefTargetEntityName(raw: string): string {
+  return parseRefTarget(raw, "").entityName;
+}

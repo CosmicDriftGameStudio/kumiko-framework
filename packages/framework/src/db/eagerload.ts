@@ -26,6 +26,7 @@
 import { requestContext } from "../api/request-context";
 import { collectPiiSubjectFields, configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto";
 import { selectMany } from "../db/query";
+import { parseRefTargetEntityName } from "../engine/parse-ref-target";
 import type { EntityDefinition, FieldDefinition, ReferenceFieldDef } from "../engine/types";
 import {
   collectEncryptedFieldNames,
@@ -67,21 +68,13 @@ function isReferenceField(field: FieldDefinition): field is ReferenceFieldDef {
   return field.type === "reference";
 }
 
-function parseRefEntity(raw: string): string {
-  // Same-feature ("user") oder cross-feature ("users:user") — wir
-  // brauchen nur den entity-name (Names sind global eindeutig in
-  // entityMap). Der feature-prefix dient nur der Author-Klarheit.
-  const idx = raw.indexOf(":");
-  return idx < 0 ? raw : raw.slice(idx + 1);
-}
-
 export function collectReferenceFields(entity: EntityDefinition): readonly ReferenceFieldEntry[] {
   const out: ReferenceFieldEntry[] = [];
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     if (!isReferenceField(fieldDef)) continue;
     out.push({
       fieldName,
-      refEntityName: parseRefEntity(fieldDef.entity),
+      refEntityName: parseRefTargetEntityName(fieldDef.entity),
       multiple: fieldDef.multiple === true,
     });
   }

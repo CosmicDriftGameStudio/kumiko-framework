@@ -264,6 +264,8 @@ export {
   userCanReadFieldRow,
   userCanWriteFieldRow,
 } from "./ownership";
+export type { ParsedRefTarget } from "./parse-ref-target";
+export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target";
 export { buildPipelineSteps, stepsPipeline } from "./pipeline";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers";
 export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";

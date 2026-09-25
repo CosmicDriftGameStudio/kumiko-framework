@@ -23,7 +23,11 @@
 // row currently travels it. Narrowing here would need the very query the caller
 // is about to run anyway.
 
-import type { EntityDefinition, Registry } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type EntityDefinition,
+  parseRefTargetEntityName,
+  type Registry,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export type TransferEdgeLink =
   | { readonly kind: "parentRef"; readonly typeField: string; readonly idField: string }
@@ -59,7 +63,7 @@ function referenceEdgesFrom(entityName: string, entity: EntityDefinition): reado
     edges.push({
       entityName,
       entity,
-      parentEntityName: field.entity,
+      parentEntityName: parseRefTargetEntityName(field.entity),
       link: { kind: "reference", field: fieldName },
     });
   }

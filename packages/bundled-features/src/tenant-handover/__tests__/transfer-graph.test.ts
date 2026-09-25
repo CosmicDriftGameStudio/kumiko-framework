@@ -161,6 +161,21 @@ describe("resolveTransferAdjacency", () => {
     expect(childrenOf(adjacency, "run")).toEqual(["note"]);
   });
 
+  // "<feature>:<entity>" is a legal ReferenceFieldDef.entity form for
+  // cross-feature refs (engine/parse-ref-target.ts) — an edge must resolve
+  // by entity name regardless of which feature's prefix the declaration used.
+  test("resolves a feature-prefixed reference target to the same edge", () => {
+    const adjacency = resolveTransferAdjacency(
+      registryOf({
+        run: entity({}),
+        campaign: entity({ references: { runId: "vehicles:run" } }),
+      }),
+      "run",
+    );
+
+    expect(childrenOf(adjacency, "run")).toEqual(["campaign"]);
+  });
+
   test("ignores a multiple reference, which the boot validator rejects up front", () => {
     const bulk = createEntity({
       table: "t",

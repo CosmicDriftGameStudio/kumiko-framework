@@ -1,3 +1,4 @@
+import { parseRefTargetEntityName } from "../parse-ref-target";
 import type { EntityDefinition, FeatureDefinition } from "../types";
 
 // --- Transfer-graph boot validation (fw#3088) ---
@@ -39,7 +40,7 @@ function referenceTargets(entity: EntityDefinition): readonly string[] {
   for (const field of Object.values(entity.fields)) {
     if (field.type !== "reference") continue;
     if (field.multiple === true) continue;
-    targets.push(field.entity);
+    targets.push(parseRefTargetEntityName(field.entity));
   }
   return targets;
 }
