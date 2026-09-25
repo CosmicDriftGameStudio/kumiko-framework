@@ -472,7 +472,7 @@ function inFlightTrackerFor(page: Page): () => number {
 export async function captureScreenshot(
   page: Page,
   name: string,
-  opts: { readonly reducedMotion?: ReducedMotionOption } = {},
+  opts: { readonly reducedMotion?: ReducedMotionOption; readonly fullPage?: boolean } = {},
 ): Promise<void> {
   const dir = process.env[SCREENSHOT_DIR_ENV];
   // skip: a plain e2e run without SCREENSHOT_DIR must not write screenshots.
@@ -481,5 +481,5 @@ export async function captureScreenshot(
   await waitForSettledPage(page, inFlightTrackerFor(page));
   const path = `${dir}/${name}.png`;
   mkdirSync(dirname(path), { recursive: true });
-  await page.screenshot({ path, animations: "disabled" });
+  await page.screenshot({ path, animations: "disabled", fullPage: opts.fullPage ?? false });
 }

@@ -56,10 +56,11 @@ describe("captureScreenshot", () => {
     await expect(captureScreenshot(untouchablePage, "step-1")).resolves.toBeUndefined();
   });
 
-  test('opts.reducedMotion overrides the "reduce" default', async () => {
+  test('opts.reducedMotion overrides the "reduce" default and fullPage reaches page.screenshot', async () => {
     const dir = mkdtempSync(join(tmpdir(), "capture-screenshot-"));
     process.env[SCREENSHOT_DIR_ENV] = dir;
     const emulateMediaCalls: unknown[] = [];
+    const screenshotCalls: unknown[] = [];
     const fakePage = {
       emulateMedia: async (opts: unknown) => {
         emulateMediaCalls.push(opts);
@@ -67,12 +68,17 @@ describe("captureScreenshot", () => {
       on: () => {},
       off: () => {},
       evaluate: async () => "fixed-fingerprint",
-      screenshot: async () => {},
+      screenshot: async (opts: unknown) => {
+        screenshotCalls.push(opts);
+      },
     } as unknown as Page; // @cast-boundary test double, only the methods captureScreenshot's call chain uses
 
     try {
-      await captureScreenshot(fakePage, "step-1", { reducedMotion: "no-preference" });
+      await captureScreenshot(fakePage, "step-1", { reducedMotion: "no-preference", fullPage: true });
       expect(emulateMediaCalls).toEqual([{ reducedMotion: "no-preference" }]);
+      expect(screenshotCalls).toEqual([
+        { path: `${dir}/step-1.png`, animations: "disabled", fullPage: true },
+      ]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
