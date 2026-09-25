@@ -38,8 +38,9 @@ const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName
 //                not the subject axis.
 //   "anonymize": insertedById=null, row + binary survive (FK refs can still
 //                point at it; person-link removed) — applies to ALL rows
-//                when the entity strategy itself is already anonymize (e.g.
-//                blockDelete retention), regardless of the field.
+//                when a retention override on fileRef (anonymize or
+//                blockDelete, e.g. a statutory retention duty) sets the
+//                strategy, regardless of the field.
 //
 // **Provider-Resolution:** der Provider kommt zur Lauf-Zeit aus
 // `ctx.buildStorageProvider(ctx.tenantId)` — der Forget-Orchestrator
@@ -216,11 +217,12 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   });
 
   if (strategy !== "delete") {
-    // anonymize: insertedById=null, FileRef + binary bleiben. Use-case: shared
-    // chat-Attachment im Multi-User-Channel — Author-ID raus, Datei bleibt sichtbar.
-    // Applies to ALL rows — the entity strategy comes from a retention
-    // policy (e.g. blockDelete) and overrides the per-field decision below,
-    // which only applies for strategy="delete".
+    // Only reachable via an explicit retention override on fileRef:
+    // policyToStrategy maps anonymize and blockDelete to "anonymize", typically
+    // for a statutory retention duty (Art. 17(3)(b) GDPR, HGB/AO). Row and
+    // binary must survive, so only the uploader link is severed. Applies to
+    // ALL rows because the override replaces the per-field decision below,
+    // which only runs for strategy="delete".
     await severPersonLink(ctx.db, systemUser, rows);
     // skip: anonymize is complete — the hard-delete path below runs only for strategy "delete".
     return;
