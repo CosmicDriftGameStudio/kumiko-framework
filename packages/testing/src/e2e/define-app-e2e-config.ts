@@ -10,6 +10,7 @@ import {
 } from "@playwright/test";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
+  DESKTOP_VIEWPORT,
   E2E_WORKERS_ENV,
   isRealProviderRun,
   PLAYWRIGHT_DEMO_ENV,
@@ -168,7 +169,10 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       actionTimeout: E2E_TIMEOUT_MS.action,
       navigationTimeout: E2E_TIMEOUT_MS.navigation,
     },
-    projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }, ...projects],
+    projects: [
+      { name: "chromium", use: { ...devices["Desktop Chrome"], viewport: DESKTOP_VIEWPORT } },
+      ...projects,
+    ],
     webServer: {
       command: `bun run ${serverEntry}`,
       url: baseURL,

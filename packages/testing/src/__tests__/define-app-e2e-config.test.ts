@@ -108,6 +108,14 @@ describe("defineAppE2eConfig defaults", () => {
     expect(server.env?.["APP_FLAG"]).toBe("on");
   });
 
+  test("the default chromium project runs at the 1920×1080 desktop standard, not the device's 1280×720", () => {
+    const chromium = defineAppE2eConfig({ port: 5000 }).projects?.find(
+      (project) => project.name === "chromium",
+    );
+    expect(chromium?.use?.viewport).toEqual({ width: 1920, height: 1080 });
+    expect(chromium?.use?.userAgent).toContain("Chrome");
+  });
+
   test("testDir and testMatch pass through; without them the whole ./e2e tree is collected", () => {
     const narrowed = defineAppE2eConfig({
       port: 1,
