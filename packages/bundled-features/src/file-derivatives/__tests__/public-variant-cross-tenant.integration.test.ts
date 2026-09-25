@@ -22,6 +22,7 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  TestUsers,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
@@ -31,6 +32,7 @@ import {
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { createConfigFeature } from "../../config";
 import { fileFoundationFeature } from "../../file-foundation";
+import { createTenantFeature, TenantHandlers } from "../../tenant";
 import { createFileDerivativesFeature } from "../feature";
 import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query";
 import { PUBLIC_VARIANT_BY_FILE_REF_QN } from "../handlers/public-variant-by-file-ref.query";
@@ -94,6 +96,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
     stack = await setupTestStack({
       features: [
         createConfigFeature(),
+        createTenantFeature(),
         fileFoundationFeature,
         createFilesFeature(),
         createFileDerivativesFeature({
@@ -104,6 +107,16 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
       ],
       files: { storageProvider: createInMemoryFileProvider() },
     });
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: TENANT_A, key: "cross-tenant-a", name: "Cross Tenant A" },
+      TestUsers.systemAdmin,
+    );
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: TENANT_B, key: "cross-tenant-b", name: "Cross Tenant B" },
+      TestUsers.systemAdmin,
+    );
   });
 
   afterAll(async () => {
@@ -168,6 +181,33 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
 
   test("PUBLIC_VARIANT_BY_FILE_REF_QN is registered on the stack in 'fileRef' mode", () => {
     expect(stack.registry.getQueryHandler(PUBLIC_VARIANT_BY_FILE_REF_QN)).toBeDefined();
+  });
+
+  // Runs last and deliberately leaves tenant B disabled — mirrors the
+  // "disabled tenant" ordering convention in
+  // tenant/__tests__/multi-tenant.integration.test.ts.
+  describe("a disabled tenant answers like an unknown fileRef", () => {
+    test("tenant B's public variant 200s before disable, then 404s identically to an unknown fileRef after disable", async () => {
+      const fileId = await uploadImage(stack, userB, "public-1");
+      const beforeRes = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
+      expect(beforeRes.status).toBe(200);
+
+      const disableResult = await stack.http.writeOk(
+        TenantHandlers.disable,
+        { id: TENANT_B },
+        TestUsers.systemAdmin,
+      );
+      expect(disableResult).toBeTruthy();
+
+      const afterRes = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
+      const unknownFileRefRes = await stack.app.request(
+        `http://${HOST_A}/media/00000000-0000-4000-8000-000000000000/thumb`,
+      );
+
+      expect(afterRes.status).toBe(404);
+      expect(unknownFileRefRes.status).toBe(404);
+      expect(await afterRes.text()).toBe(await unknownFileRefRes.text());
+    });
   });
 });
 
