@@ -18,6 +18,9 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("mobile (< md)", () => {
+  // 390px is the < md breakpoint under test (CSS-only, not device/touch
+  // emulation); devices["iPhone 12"] forces defaultBrowserType, which
+  // Playwright rejects inside a describe block.
   test.use({ viewport: { width: 390, height: 844 } });
 
   test("item-list at 390px: cards replace the table, every column stays reachable, actions stay visible", async ({
@@ -102,6 +105,8 @@ test.describe("desktop (>= md)", () => {
   // item-list's 5 narrow columns never overflow at md+ (the table shrinks to
   // fit instead), so this uses item-list-wide (all 8 fields as columns) —
   // a fixture wide enough to still exceed the container at desktop widths.
+  // 900px is the narrowest width where item-list-wide still overflows its
+  // container — not a device emulation, no devices[...] preset matches it.
   test.use({ viewport: { width: 900, height: 800 } });
 
   test("item-list-wide at 900px: actions column stays pinned to the right edge while scrolling", async ({

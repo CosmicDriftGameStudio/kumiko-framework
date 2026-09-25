@@ -33,7 +33,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { sharedWidgetEntity } from "../../testing";
+import { sharedWidgetEntity, waitFor } from "../../testing";
 import { generateId } from "../../utils";
 
 // --- Fixture ---
@@ -247,7 +247,7 @@ describe("Second audit — LISTEN gauge", () => {
           ).length;
 
         // Wait for the initial onlisten (gauge.set 1) to land.
-        await waitFor(() => connectsWithValue1() >= 1, 2000);
+        await waitFor(() => connectsWithValue1() >= 1, { delays: Array(40).fill(50) });
         const initialConnects = connectsWithValue1();
         expect(initialConnects).toBeGreaterThanOrEqual(1);
 
@@ -266,7 +266,9 @@ describe("Second audit — LISTEN gauge", () => {
 
         // Wait for the SECOND gauge.set(1) — the reconnect. Generous timeout
         // because postgres.js's reconnect loop includes backoff.
-        await waitFor(() => connectsWithValue1() > initialConnects, 10000);
+        await waitFor(() => connectsWithValue1() > initialConnects, {
+          delays: Array(50).fill(200),
+        });
         expect(connectsWithValue1()).toBeGreaterThan(initialConnects);
       } finally {
         await recStack.eventDispatcher?.stop();
@@ -278,14 +280,3 @@ describe("Second audit — LISTEN gauge", () => {
 });
 
 // --- Helpers ---
-
-async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (predicate()) return;
-    await new Promise((r) => setTimeout(r, 25));
-  }
-  if (!predicate()) {
-    throw new Error(`waitFor: predicate never became true within ${timeoutMs}ms`);
-  }
-}

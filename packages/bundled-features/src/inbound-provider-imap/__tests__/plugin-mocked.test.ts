@@ -5,6 +5,7 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
+import { sleep, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import {
   type InboundMailContext,
   isInboundAuthError,
@@ -151,13 +152,6 @@ const account: MailAccountRecord = {
   status: "active",
   watchState: "idle",
 };
-
-async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
-  const t0 = Date.now();
-  while (!predicate() && Date.now() - t0 < timeoutMs) {
-    await Bun.sleep(5);
-  }
-}
 
 function ctxWithDoc(doc: string | null): InboundMailContext {
   return {
@@ -332,7 +326,9 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
 
     // drainNew() does MIME-parsing before onMessages fires — a fixed sleep
     // flakes on a loaded CI runner; poll instead.
-    await waitFor(() => received.some((batch) => batch.some((m) => m.subject === "pushed")));
+    await waitFor(() => received.some((batch) => batch.some((m) => m.subject === "pushed")), {
+      delays: Array(40).fill(5),
+    });
     expect(received.some((batch) => batch.some((m) => m.subject === "pushed"))).toBe(true);
 
     await stop();
@@ -347,11 +343,13 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
       },
     });
     lastIdleClient?.emit("error", new Error("socket hang up"));
-    await waitFor(() => errors >= 1);
+    await waitFor(() => errors >= 1, { delays: Array(40).fill(5) });
     lastIdleClient?.emit("error", new Error("second"));
-    // Confirms onError stays unsubscribed after the first error — polls the
-    // same bounded window rather than betting on a fixed sleep outlasting it.
-    await waitFor(() => errors >= 2, 100);
+    // Confirms onError stays unsubscribed after the first error. This is a
+    // grace period for a negative outcome, not a wait-for-true condition, so
+    // it's a single sleep (not a poll loop) rather than waitFor, which would
+    // throw once errors never reaches 2.
+    await sleep(100);
     expect(errors).toBe(1);
     await stop().catch(() => {});
   });

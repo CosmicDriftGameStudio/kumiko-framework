@@ -40,7 +40,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sleep } from "@cosmicdrift/kumiko-framework/testing";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { createJobsFeature } from "../feature";
 import { createJobRunLogger } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
@@ -148,7 +148,7 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     }
 
     // Poll until the worker drained the queue and the rebuild refilled.
-    for (let i = 0; i < 40 && (await getCount()) !== 2; i++) await sleep(200);
+    await waitFor(async () => (await getCount()) === 2, { delays: Array(40).fill(200) });
     expect(await getCount()).toBe(2);
 
     // getCount()==2 only proves rebuildProjection's own writes landed — the
@@ -156,13 +156,15 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     // async append that starts only after the handler returns, so it can
     // still be in flight here. Poll status too instead of racing it.
     let runs: readonly { jobName: string; status: string }[] = [];
-    for (let i = 0; i < 40; i++) {
-      runs = await selectMany<{ jobName: string; status: string }>(db, jobRunsTable, {
-        jobName: PROJECTION_REBUILD_JOB,
-      });
-      if (runs.some((r) => r.status === "completed")) break;
-      await sleep(200);
-    }
+    await waitFor(
+      async () => {
+        runs = await selectMany<{ jobName: string; status: string }>(db, jobRunsTable, {
+          jobName: PROJECTION_REBUILD_JOB,
+        });
+        return runs.some((r) => r.status === "completed");
+      },
+      { delays: Array(40).fill(200) },
+    );
     expect(runs.length).toBeGreaterThanOrEqual(1);
     expect(runs.some((r) => r.status === "completed")).toBe(true);
   }, 30000);

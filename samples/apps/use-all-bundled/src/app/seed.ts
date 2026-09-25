@@ -358,9 +358,9 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   // enough extra members to land clearly under the 80% warn threshold
   // (dev: 2/5 = 40%, beta: 3/20 = 15%), so all three CapUsageTone states
   // (default/warn/danger) are visible in one dashboard alongside notes'
-  // 120% danger and tags' 80% warn. Synthetic userIds, same "fixture, not a
-  // real login" reasoning as seedApiTokens above — cap usage only counts
-  // rows, it never resolves the member's user record.
+  // 120% danger and tags' 80% warn. Synthetic ids: cap usage only counts
+  // rows, it never resolves the member's user record (mfa-login.spec.ts
+  // now seeds its own tenant/user via seedTenant(), no fixed account here).
   await seedTenantMembership(stack.db, {
     userId: generateId(),
     tenantId: devTenant,

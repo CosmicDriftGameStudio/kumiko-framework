@@ -29,6 +29,7 @@ test("Content +: neue Seite anlegen → erscheint live im Nav-Tree", async ({ pa
 
   // Sicht-Beleg (nicht committed): Sidebar mit Content + neu angelegter Seite.
   if (process.env["SCREENSHOT"] === "1") {
+    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/content-nav-demo.png" });
   }
 });

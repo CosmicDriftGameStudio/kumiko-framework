@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { waitFor } from "../../testing";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 
@@ -215,12 +216,15 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
       // Poll bis tmp existiert ODER final schon fertig (zu schneller CI).
       let hasTmp = false;
       let alreadyDone = false;
-      for (let i = 0; i < 20 && !hasTmp && !alreadyDone; i++) {
-        await new Promise((r) => setTimeout(r, 10));
-        const dirContents = await readdir(basePath);
-        hasTmp = dirContents.some((f) => f.endsWith(".tmp"));
-        alreadyDone = dirContents.includes("streamed.bin");
-      }
+      await waitFor(
+        async () => {
+          const dirContents = await readdir(basePath);
+          hasTmp = dirContents.some((f) => f.endsWith(".tmp"));
+          alreadyDone = dirContents.includes("streamed.bin");
+          return hasTmp || alreadyDone;
+        },
+        { delays: Array(20).fill(10) },
+      );
       if (alreadyDone && !hasTmp) {
         throw new Error(
           "slowChunks-delay zu kurz fuer CI: writeStream war fertig bevor poll start. " +

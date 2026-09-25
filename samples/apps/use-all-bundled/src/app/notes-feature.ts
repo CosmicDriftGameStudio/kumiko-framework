@@ -8,7 +8,7 @@
 // Deliberately NOT in src/run-config.ts APP_FEATURES: that set is bundled-only
 // (schema/generate.ts FEATURE_IMPORT_REGISTRY + check-coverage gate it). Like
 // appScreensFeature, this app-owned feature is mounted only in the dev server
-// (src/app/server.ts), where runDevApp dev-pushes its table into the ephemeral
+// (src/app/dev-app-options.ts), where runDevApp dev-pushes its table into the ephemeral
 // DB. Nothing here ships to prod / the schema pipeline.
 
 import {

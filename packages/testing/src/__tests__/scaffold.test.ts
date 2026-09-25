@@ -74,6 +74,7 @@ describe("renderTestSetup", () => {
       "seedTenant",
       "bunx --bun playwright",
       "docs/guides/test-failures.md",
+      "docs/guides/testing-standard.md",
     ]) {
       expect(setup.rulesMarkdown).toContain(fragment);
     }
