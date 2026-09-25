@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.314.0",
+    "type": "improvement",
+    "title": "SignupCompleteScreen passes the claimed handover to loggedInHref",
+    "detail": "The function form of `loggedInHref` on `SignupCompleteScreen` now receives\nan optional `handover: { entityType, id }` next to `tenantKey`/`roles`,\nmirroring the `handover` field `confirmSignup` already returns when a\ntry-first tenant-handover grant was claimed during signup. Apps can route a\nfreshly activated user straight to the entity they claimed (offlot-app#454)\ninstead of a fixed landing page. The string form and callers that ignore the\nextra field are unaffected."
+  },
+  {
     "version": "0.313.0",
     "type": "improvement",
     "title": "magic-link self-signup can now claim a try-first tenant-handover grant across devices",

@@ -1,5 +1,97 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.314.0
+
+### Minor Changes
+
+- 3434a94: Screenshot runner replaces generated seed identities with presentable values
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Screenshot runner replaces generated seed identities with presentable values
+  detail: |
+    Seeded identities are unique per run (admin-<tenantId>@…), so screenshots
+    showed a different address on every run. A scenario flow now calls
+    `presentIdentities([{ from: tenant.admin.email, to: "anna@example.com" }])`
+    from its fixtures, and runScreenshots/runMatrix replace `from` with `to` in
+    the page's text nodes and input/textarea values right before every capture,
+    again after each theme and viewport change. captureScreenshot takes the same
+    list as `opts.presentIdentities`. Only the rendered page changes: the seeded
+    data, the seed routes and the app UI stay untouched. Code that builds a
+    `ScenarioFixtures` object itself (instead of receiving it in a flow) now has
+    to pass `presentIdentities` too.
+  -->
+
+- 3434a94: Seed routes: SystemAdmin is seedable, and apps can register their own seeders
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Seed routes seed a SystemAdmin and run app-owned seeders
+  detail: |
+    SystemAdmin is now one of the built-in seedable roles. This reverses the
+    earlier "SystemAdmin is never seedable" rule: the seed gate
+    (KUMIKO_TEST_SEED=1, never under NODE_ENV=production, per-run token) is now
+    the only boundary around the seed routes. `tenant.addUser(["SystemAdmin"])`
+    (seed-user route and in-process seedTenant alike) stores SystemAdmin as a
+    global user role, never as a membership role; without a tenant role the user
+    joins the tenant as Member so the login has a membership.
+    `createE2eSeedRoutes({ extraRoles: ["SystemAdmin"] })` no longer throws.
+    `createE2eSeedRoutes({ extraSeeders: { name: (ctx, tenantId, body) => … } })`
+    mounts POST /__test/seed behind the same gate; the flow calls
+    `tenant.seed(name, body)` on the seedTenant fixture. Only tenants seeded by
+    that server's seed-tenant route are accepted (403 otherwise), unknown names
+    are a 404, `body` arrives as `unknown` and a ZodError from the seeder becomes
+    a 400. `ctx.write`/`ctx.query` run as the tenant's system user (SystemAdmin)
+    and are bound to that tenant, so the target handler must admit SystemAdmin;
+    there is no raw DB access.
+  -->
+
+- 483666f: seed-user only reaches a tenant this server's seed-tenant route created
+
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: seed-user only reaches a tenant this server's seed-tenant route created
+  detail: |
+    seed-user looked the tenant up via tenant:query:me and only rejected a tenant
+    id that did not exist at all, so a tenant seeded by another server or
+    in-process without this route's seed-tenant still got a user added. seed-user
+    now checks the same seededTenantIds set as /__test/seed and rejects any other
+    tenant with the same 403.
+  migration: Create the tenant via `seedTenant()` (the seed-tenant route) before adding users with `tenant.addUser`.
+  -->
+
+### Patch Changes
+
+- 3434a94: captureScreenshot, runScreenshots and runMatrix settle after a reload or cross-document navigation
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: captureScreenshot, runScreenshots and runMatrix settle after a reload or cross-document navigation
+  detail: |
+    Chromium drops the old document's fetch/XHR requests on a reload, goto or
+    location change without firing requestfinished or requestfailed. The
+    in-flight tracker kept those requests forever, so a flow that reloaded
+    while a data request was still open failed with "page never settled".
+    The tracker now clears its in-flight set when the main frame commits a new
+    document (a main-frame navigation request followed by framenavigated).
+    A same-document navigation (pushState) still waits for its requests, and
+    a navigation that never commits (204, download) keeps them too.
+  -->
+
+- Updated dependencies [483666f]
+- Updated dependencies [22d89ec]
+- Updated dependencies [483666f]
+- Updated dependencies [c3df63c]
+- Updated dependencies [3434a94]
+- Updated dependencies [3434a94]
+  - @cosmicdrift/kumiko-framework@0.314.0
+  - @cosmicdrift/kumiko-bundled-features@0.314.0
+  - @cosmicdrift/kumiko-dev-server@0.314.0
+
 ## 0.313.0
 
 ### Patch Changes

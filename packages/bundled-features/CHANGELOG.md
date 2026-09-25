@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.314.0
+
+### Minor Changes
+
+- c3df63c: SignupCompleteScreen passes the claimed handover to loggedInHref
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: SignupCompleteScreen passes the claimed handover to loggedInHref
+  detail: |
+    The function form of `loggedInHref` on `SignupCompleteScreen` now receives
+    an optional `handover: { entityType, id }` next to `tenantKey`/`roles`,
+    mirroring the `handover` field `confirmSignup` already returns when a
+    try-first tenant-handover grant was claimed during signup. Apps can route a
+    freshly activated user straight to the entity they claimed (offlot-app#454)
+    instead of a fixed landing page. The string form and callers that ignore the
+    extra field are unaffected.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [483666f]
+- Updated dependencies [22d89ec]
+- Updated dependencies [483666f]
+- Updated dependencies [3434a94]
+- Updated dependencies [3434a94]
+  - @cosmicdrift/kumiko-framework@0.314.0
+  - @cosmicdrift/kumiko-headless@0.314.0
+  - @cosmicdrift/kumiko-renderer@0.314.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.314.0
+  - @cosmicdrift/kumiko-renderer-web@0.314.0
+  - @cosmicdrift/kumiko-types@0.314.0
+
 ## 0.313.0
 
 ### Minor Changes

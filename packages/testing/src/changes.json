@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.314.0",
+    "type": "improvement",
+    "title": "Screenshot runner replaces generated seed identities with presentable values",
+    "detail": "Seeded identities are unique per run (admin-<tenantId>@…), so screenshots\nshowed a different address on every run. A scenario flow now calls\n`presentIdentities([{ from: tenant.admin.email, to: \"anna@example.com\" }])`\nfrom its fixtures, and runScreenshots/runMatrix replace `from` with `to` in\nthe page's text nodes and input/textarea values right before every capture,\nagain after each theme and viewport change. captureScreenshot takes the same\nlist as `opts.presentIdentities`. Only the rendered page changes: the seeded\ndata, the seed routes and the app UI stay untouched. Code that builds a\n`ScenarioFixtures` object itself (instead of receiving it in a flow) now has\nto pass `presentIdentities` too."
+  },
+  {
+    "version": "0.314.0",
+    "type": "fix",
+    "title": "captureScreenshot, runScreenshots and runMatrix settle after a reload or cross-document navigation",
+    "detail": "Chromium drops the old document's fetch/XHR requests on a reload, goto or\nlocation change without firing requestfinished or requestfailed. The\nin-flight tracker kept those requests forever, so a flow that reloaded\nwhile a data request was still open failed with \"page never settled\".\nThe tracker now clears its in-flight set when the main frame commits a new\ndocument (a main-frame navigation request followed by framenavigated).\nA same-document navigation (pushState) still waits for its requests, and\na navigation that never commits (204, download) keeps them too."
+  },
+  {
+    "version": "0.314.0",
+    "type": "improvement",
+    "title": "Seed routes seed a SystemAdmin and run app-owned seeders",
+    "detail": "SystemAdmin is now one of the built-in seedable roles. This reverses the\nearlier \"SystemAdmin is never seedable\" rule: the seed gate\n(KUMIKO_TEST_SEED=1, never under NODE_ENV=production, per-run token) is now\nthe only boundary around the seed routes. `tenant.addUser([\"SystemAdmin\"])`\n(seed-user route and in-process seedTenant alike) stores SystemAdmin as a\nglobal user role, never as a membership role; without a tenant role the user\njoins the tenant as Member so the login has a membership.\n`createE2eSeedRoutes({ extraRoles: [\"SystemAdmin\"] })` no longer throws.\n`createE2eSeedRoutes({ extraSeeders: { name: (ctx, tenantId, body) => … } })`\nmounts POST /__test/seed behind the same gate; the flow calls\n`tenant.seed(name, body)` on the seedTenant fixture. Only tenants seeded by\nthat server's seed-tenant route are accepted (403 otherwise), unknown names\nare a 404, `body` arrives as `unknown` and a ZodError from the seeder becomes\na 400. `ctx.write`/`ctx.query` run as the tenant's system user (SystemAdmin)\nand are bound to that tenant, so the target handler must admit SystemAdmin;\nthere is no raw DB access."
+  },
+  {
+    "version": "0.314.0",
+    "type": "breaking",
+    "title": "seed-user only reaches a tenant this server's seed-tenant route created",
+    "detail": "seed-user looked the tenant up via tenant:query:me and only rejected a tenant\nid that did not exist at all, so a tenant seeded by another server or\nin-process without this route's seed-tenant still got a user added. seed-user\nnow checks the same seededTenantIds set as /__test/seed and rejects any other\ntenant with the same 403.",
+    "migration": "Create the tenant via `seedTenant()` (the seed-tenant route) before adding users with `tenant.addUser`."
+  },
+  {
     "version": "0.311.0",
     "type": "breaking",
     "title": "defineAppE2eConfig's chromium project renders screenshot runs at deviceScaleFactor 2",
