@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "Team member status and roles now translate instead of showing the raw enum value",
+    "detail": "member-status-cell and member-roles-cell rendered the raw status/role\nenum values (e.g. \"active\", \"TenantAdmin\") straight into the table —\nnon-English admin UIs showed English words next to translated column\nlabels. Both cells now resolve through useTranslation against the\nexisting tenant.members.filter.status.option.<status> and\ntenant:entity:__action-form__:field:roles:option:<role> keys, falling\nback to the raw value for any status/role not covered by those keys."
+  },
+  {
     "version": "0.296.0",
     "type": "improvement",
     "title": "Tenant reference columns show display names for TenantAdmins (fw#3142)",

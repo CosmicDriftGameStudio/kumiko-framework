@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "Audit-log-detail screen subtitle is translatable; aggregate columns get de/es copy",
+    "detail": "The audit-log-detail screen's description was hardcoded English prose;\nit's now the audit.log.detail.subtitle key with de/es translations.\nSeparately, audit.log.col.aggregateType/aggregateId (the actual column\nkeys the audit-log-detail screen renders) had no de/es copy at all —\nonly the dead, unused audit.log.col.aggregate key did. Added\naggregateType/aggregateId to de/es, removed the dead aggregate key, and\nfixed the German filter label typo \"Aggregate-Typ\" -> \"Aggregattyp\"."
+  },
+  {
     "version": "0.292.0",
     "type": "improvement",
     "title": "Audit log shows actor display names instead of raw UUIDs (fw#3103)",

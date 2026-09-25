@@ -1,5 +1,128 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.313.0
+
+### Patch Changes
+
+- f0c1ef1: Untranslated member status/roles, screen subtitles and audit aggregate columns now go through i18n
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: Team member status and roles now translate instead of showing the raw enum value
+  detail: |
+    member-status-cell and member-roles-cell rendered the raw status/role
+    enum values (e.g. "active", "TenantAdmin") straight into the table —
+    non-English admin UIs showed English words next to translated column
+    labels. Both cells now resolve through useTranslation against the
+    existing tenant.members.filter.status.option.<status> and
+    tenant:entity:__action-form__:field:roles:option:<role> keys, falling
+    back to the raw value for any status/role not covered by those keys.
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Privacy-center screen subtitle is now translatable
+  detail: |
+    The Privacy screen's description was hardcoded English prose baked
+    into feature.ts instead of an i18n key, so it never localized. It's
+    now userDataRights.privacyCenter.subtitle, registered in i18n.ts with
+    de/es translations.
+  -->
+
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Audit-log-detail screen subtitle is translatable; aggregate columns get de/es copy
+  detail: |
+    The audit-log-detail screen's description was hardcoded English prose;
+    it's now the audit.log.detail.subtitle key with de/es translations.
+    Separately, audit.log.col.aggregateType/aggregateId (the actual column
+    keys the audit-log-detail screen renders) had no de/es copy at all —
+    only the dead, unused audit.log.col.aggregate key did. Added
+    aggregateType/aggregateId to de/es, removed the dead aggregate key, and
+    fixed the German filter label typo "Aggregate-Typ" -> "Aggregattyp".
+  -->
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: Agent manifest now resolves a screen's i18n-key description to English prose
+  detail: |
+    buildAgentManifest passed screen.description straight through even when
+    a feature registered it as an i18n key (e.g. "audit.log.detail.subtitle")
+    rather than literal text, so agents saw the raw key instead of prose.
+    It now resolves through the registry's translations the same way
+    labelsForSuffix already does for entity/field labels, falling back to
+    the literal string when the description isn't a registered key.
+  -->
+
+- 8e5e170: Four mobile-viewport (390px) fixes: tab-strip overflow, sticky wizard footer, facet-reset i18n, segmented-select placeholder/borders
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: DefaultTabs shows an edge fade and keeps the active tab scrolled into view when the strip overflows on narrow viewports
+  detail: |
+    At 390px, a tab strip with more tabs than fit gave no visible hint that
+    it scrolled, and the active tab could end up scrolled out of view with
+    no way to tell. The scroller now renders a mask-image edge fade on
+    whichever side is scrollable (updated on scroll/resize via a guarded
+    ResizeObserver), and scrolls the active trigger into view via
+    `scrollLeft` — not `scrollIntoView`, which would also scroll the page
+    vertically — on mount and on every activeId change.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Wizard form footer on mobile now only pins the primary action, not Back/Cancel
+  detail: |
+    Below 640px, DefaultForm's stickyActions pinned the whole footer
+    (Back, Next/Submit, and secondaryActions like Cancel) to the viewport
+    bottom together. Only the actual submit-type action needs that
+    treatment (fw#1918: stay reachable above a virtual keyboard) — Back and
+    secondaryActions now render in normal document flow alongside each
+    other, while the primary action keeps its own `max-sm:fixed` bar.
+    Desktop (sm+) layout is unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: DataTable's facet-reset button is now translatable ("Reset")
+  detail: |
+    The facet-filter Reset button rendered a hardcoded English "Reset"
+    regardless of locale. It now resolves kumiko.list.filter.reset (falling
+    back to "Reset"), with German ("Zurücksetzen") and Spanish
+    ("Restablecer") translations added to locale-de/locale-es.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Select-as-SegmentedSelect excludes the placeholder option and fixes borders on wrapped segments
+  detail: |
+    A `""`-value placeholder option counted toward the ≤4-option segmented-
+    control threshold and rendered as its own (permanently unchecked)
+    segment — it's now filtered out of both the eligibility count and the
+    rendered segments, consistently for the radio-group and dropdown
+    fallback. Separately, the container's `divide-x` only drew vertical
+    borders between siblings in source order, which misplaced borders once
+    segments wrapped to a second row (a stray left border, no line between
+    rows); each segment now carries its own collapsing top/left border
+    instead, correct for any wrap arrangement.
+  -->
+
+- Updated dependencies [a14fd1f]
+- Updated dependencies [42c5298]
+- Updated dependencies [93d7b77]
+- Updated dependencies [4dea3ec]
+- Updated dependencies [b99240c]
+- Updated dependencies [e7dc624]
+  - @cosmicdrift/kumiko-framework@0.313.0
+
 ## 0.312.0
 
 ### Patch Changes

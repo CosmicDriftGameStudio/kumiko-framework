@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.313.0",
+    "type": "fix",
+    "title": "Agent manifest now resolves a screen's i18n-key description to English prose",
+    "detail": "buildAgentManifest passed screen.description straight through even when\na feature registered it as an i18n key (e.g. \"audit.log.detail.subtitle\")\nrather than literal text, so agents saw the raw key instead of prose.\nIt now resolves through the registry's translations the same way\nlabelsForSuffix already does for entity/field labels, falling back to\nthe literal string when the description isn't a registered key."
+  }
+]

@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.313.0",
+    "type": "breaking",
+    "title": "subscription-stripe mode:\"payment\" checkouts now get a Stripe invoice by default",
+    "detail": "createCheckoutSession's mode:\"payment\" call (one-off top-ups etc.) never\npassed invoice_creation, so Stripe never generated an invoice document for\nthose payments. It now defaults to `invoice_creation: { enabled: true }`\nfor mode:\"payment\" — mode:\"subscription\" is unaffected, Stripe rejects\ninvoice_creation there. Stripe Invoicing charges a per-invoice fee on top\nof the payment itself, so an existing high-volume, low-value payment flow\nmay see new fees appear.",
+    "migration": "Pass `createSubscriptionStripeFeature({ paymentInvoiceCreation: false })`\nto opt out and keep the old no-invoice behaviour for mode:\"payment\" checkouts."
+  }
+]

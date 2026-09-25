@@ -1,5 +1,241 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.313.0
+
+### Minor Changes
+
+- 4aa0c98: delivery direct sends to a route address can now be unsubscribed via a signed link
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: delivery direct sends to a route address can now be unsubscribed via a signed link
+  detail: |
+    ctx.notify(type, { route: { email } }) direct sends had no unsubscribe
+    path: only sends to a user account with a notification-preference row
+    could opt out, so a recipient with no account could never stop the mail.
+    Added hashUnsubscribeAddress (keyed blind-index hash of the trimmed,
+    lowercased address — the plaintext address never reaches the token or
+    the opt-out table), signAddressUnsubscribeToken (HS256 JWT, issuer
+    "kumiko:unsubscribe", no expiry — a leaked link can only opt one
+    address out of one notificationType/channel, and there is no signed-in
+    flow to request a fresh one), and a new notification-address-opt-out
+    event-sourced entity/table. createUnsubscribeRoute now accepts both the
+    existing user token and the new address token on the same route; the
+    existing signUnsubscribeToken and its JWT shape are unchanged. deliverDirect
+    now skips a channel (logDelivery status "skipped", error "unsubscribed", recipientAddress null)
+    when the destination address has an opt-out row for that tenant/
+    notificationType/channel, unless priority is "critical" — the same rule
+    user-preference suppression already follows. The lookup is skipped
+    entirely when no blind-index key is configured.
+  migration: |
+    Run `kumiko migrate generate` to add the notification address opt-out table.
+  -->
+
+- 4dea3ec: magic-link self-signup can now claim a try-first tenant-handover grant across devices
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: magic-link self-signup can now claim a try-first tenant-handover grant across devices
+  detail: |
+    An anonymous visitor's tenant-handover grant (packages/bundled-features/src/
+    tenant-handover) lives only in the browser that minted it, but the signup
+    activation link is often opened somewhere else (a different device, or the
+    mail app's in-app browser) — the grant never reaches signup-confirm there.
+    requestSignup(email, handover?) can now pass { entityType, token } alongside
+    the email; signup-request verifies the grant against its anchor row
+    (read-only, tenant-handover's own redeemRowBoundGrant with commitAnchor
+    skipped) and binds only { entityType, rowId, sourceTenantId } to the signup
+    token in Redis — never the grant token or the email. A resend without a
+    fresh grant carries the previous verified binding to the new token instead
+    of dropping it. signup-confirm reads the binding after provisioning the new
+    tenant, mints a fresh short-lived (5 min) grant server-side, and redeems it
+    via the same claim write tenant-handover already exposes — riding the
+    confirm handler's own transaction. A benign rejection (already claimed
+    elsewhere, forged grant, row gone) never fails the signup; any other claim
+    failure (e.g. a non-transferable child row) rolls the whole signup back and
+    leaves the activation link retryable, instead of committing a partial move
+    next to a new account. On success
+    the signup-confirm response gains an optional `handover: { entityType, id }`
+    field; auth-client's confirmSignup result type reflects it. New extension
+    point `signupHandover` (packages/bundled-features/src/shared/signup-handover.ts)
+    lets tenant-handover provide this without auth-email-password importing it
+    directly; tenant-handover self-registers as its own provider.
+  -->
+
+- 09a9148: subscription-stripe mode:"payment" checkouts now get a Stripe invoice by default
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: breaking
+  title: subscription-stripe mode:"payment" checkouts now get a Stripe invoice by default
+  detail: |
+    createCheckoutSession's mode:"payment" call (one-off top-ups etc.) never
+    passed invoice_creation, so Stripe never generated an invoice document for
+    those payments. It now defaults to `invoice_creation: { enabled: true }`
+    for mode:"payment" — mode:"subscription" is unaffected, Stripe rejects
+    invoice_creation there. Stripe Invoicing charges a per-invoice fee on top
+    of the payment itself, so an existing high-volume, low-value payment flow
+    may see new fees appear.
+  migration: |
+    Pass `createSubscriptionStripeFeature({ paymentInvoiceCreation: false })`
+    to opt out and keep the old no-invoice behaviour for mode:"payment" checkouts.
+  -->
+
+### Patch Changes
+
+- 773c52f: data-retention hardDelete now erases a purged row's own KMS subject key
+
+  <!-- kumiko-changes
+  feature: data-retention
+  type: fix
+  title: data-retention hardDelete now erases a purged row's own KMS subject key
+  detail: |
+    Refs #2057 (partial fix — the hardDelete path only). run-retention-
+    cleanup's hardDelete forgot the row's event history via the executor but
+    never crypto-shredded its KMS subject key, leaving the DEK live after the
+    row was gone. It now erases the key in the same per-row sub-transaction as the
+    forget (an eraseKey throw rolls the forget back too), mirroring run-
+    forget-cleanup.ts's forget -> eraseKey -> nullBlindIndexesForSubject
+    ordering. Only the row's own recordOwned/self-pii subjects are erased;
+    a userOwned or tenantOwned field's subject is the REFERENCED user/tenant,
+    not this row, and may still protect other live rows elsewhere — those
+    keys are never touched. No migration needed.
+  -->
+
+- 16c81b9: file-derivatives fileRef mode now 404s a disabled/destroy-lifecycle tenant like an unknown fileRef
+
+  <!-- kumiko-changes
+  feature: file-derivatives
+  type: fix
+  title: file-derivatives fileRef mode now 404s a disabled/destroy-lifecycle tenant like an unknown fileRef
+  detail: |
+    publicTenantResolution:"fileRef" resolved a variant's tenant straight off
+    the FileRef row, without checking whether that tenant was still enabled or
+    past `active` in its destroy lifecycle — a disabled or destroy-requested
+    tenant's public variants stayed reachable through the shared host. The
+    by-fileRef handler now also loads the FileRef-tenant's row and, via the
+    new `isTenantServingPublicContent` predicate (isEnabled && status ===
+    "active"), 404s identically to an unknown fileRef when it isn't serving.
+    `publicTenantResolution: "fileRef"` now requires the `tenant` feature to
+    be mounted (fails boot otherwise) — no migration needed for apps that
+    already mount `tenant`, which every fileRef-mode consumer does today.
+  -->
+
+- f0c1ef1: Untranslated member status/roles, screen subtitles and audit aggregate columns now go through i18n
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: Team member status and roles now translate instead of showing the raw enum value
+  detail: |
+    member-status-cell and member-roles-cell rendered the raw status/role
+    enum values (e.g. "active", "TenantAdmin") straight into the table —
+    non-English admin UIs showed English words next to translated column
+    labels. Both cells now resolve through useTranslation against the
+    existing tenant.members.filter.status.option.<status> and
+    tenant:entity:__action-form__:field:roles:option:<role> keys, falling
+    back to the raw value for any status/role not covered by those keys.
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Privacy-center screen subtitle is now translatable
+  detail: |
+    The Privacy screen's description was hardcoded English prose baked
+    into feature.ts instead of an i18n key, so it never localized. It's
+    now userDataRights.privacyCenter.subtitle, registered in i18n.ts with
+    de/es translations.
+  -->
+
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Audit-log-detail screen subtitle is translatable; aggregate columns get de/es copy
+  detail: |
+    The audit-log-detail screen's description was hardcoded English prose;
+    it's now the audit.log.detail.subtitle key with de/es translations.
+    Separately, audit.log.col.aggregateType/aggregateId (the actual column
+    keys the audit-log-detail screen renders) had no de/es copy at all —
+    only the dead, unused audit.log.col.aggregate key did. Added
+    aggregateType/aggregateId to de/es, removed the dead aggregate key, and
+    fixed the German filter label typo "Aggregate-Typ" -> "Aggregattyp".
+  -->
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: Agent manifest now resolves a screen's i18n-key description to English prose
+  detail: |
+    buildAgentManifest passed screen.description straight through even when
+    a feature registered it as an i18n key (e.g. "audit.log.detail.subtitle")
+    rather than literal text, so agents saw the raw key instead of prose.
+    It now resolves through the registry's translations the same way
+    labelsForSuffix already does for entity/field labels, falling back to
+    the literal string when the description isn't a registered key.
+  -->
+
+- b99240c: tenant-handover claim now moves a fileRef's own event history and storage-usage counters
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: fix
+  title: tenant-handover claim now moves a fileRef's own event history and storage-usage counters
+  detail: |
+    moveFileRefs only flipped the file_refs read-model row's tenant_id: the
+    fileRef aggregate's own events in kumiko_events stayed under the source
+    tenant, so a later write against the moved fileRef couldn't load its
+    stream, and a projection rebuild put the row back into the source
+    tenant. It also never touched the fileRef's share of the
+    tenant-storage-usage MSP counters, leaving stale bytes/fileCount behind
+    under the source tenant and none under the destination. moveFileRefs now
+    also calls moveEventHistory for the fileRef aggregate and a new
+    transferTenantStorageUsage (framework, exported via the files barrel),
+    which locks the MSP's consumer cursor row, sums the already-applied
+    fileRef deltas via the newly extracted fileRefStorageDelta, and moves
+    them from source to destination before the tenant_id rewrite runs (the
+    "already applied" lookup keys off the pre-rewrite tenant_id). No
+    migration needed.
+  -->
+
+- e7dc624: tenant-handover transfer graph now resolves feature-prefixed reference targets
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: fix
+  title: tenant-handover transfer graph now resolves feature-prefixed reference targets
+  detail: |
+    ReferenceFieldDef.entity may carry a feature prefix
+    ("<feature>:<entity>") for cross-feature refs. The tenant-handover
+    transfer graph and the framework boot validator's depth check both took
+    that value raw, so a prefixed reference never formed an edge: the claim
+    handler silently moved only the root row, leaving every entity reachable
+    solely through a prefixed reference behind in the source tenant. Both
+    now resolve the target through the shared parseRefTargetEntityName.
+    Consumer-visible: an entity reachable only via a prefixed reference that
+    has rows and is not declared `transferable: true` now fails the claim
+    with `entity_not_transferable` instead of being left behind, and the
+    boot-time MAX_TRANSFER_DEPTH check now counts prefixed chains too. No
+    migration needed; declare `transferable: true` on a newly caught entity
+    or flatten a newly caught over-deep chain.
+  -->
+
+- Updated dependencies [a14fd1f]
+- Updated dependencies [42c5298]
+- Updated dependencies [93d7b77]
+- Updated dependencies [8e5e170]
+- Updated dependencies [4dea3ec]
+- Updated dependencies [b99240c]
+- Updated dependencies [e7dc624]
+  - @cosmicdrift/kumiko-framework@0.313.0
+  - @cosmicdrift/kumiko-types@0.313.0
+  - @cosmicdrift/kumiko-renderer-web@0.313.0
+  - @cosmicdrift/kumiko-renderer@0.313.0
+  - @cosmicdrift/kumiko-headless@0.313.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.313.0
+
 ## 0.312.0
 
 ### Minor Changes

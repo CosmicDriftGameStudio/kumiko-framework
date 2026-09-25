@@ -1,5 +1,138 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.313.0
+
+### Minor Changes
+
+- 93d7b77: Event-triggered jobs get the triggering event's id and headers via ctx.triggerEvent
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Event-triggered jobs get the triggering event's id and headers via ctx.triggerEvent
+  detail: |
+    r.job's `trigger.on` reached via an r.defineEvent QN (async, at-least-once
+    delivery through the job-trigger event consumer) had no way to key an
+    idempotency check on the stored event that fired it. JobContext now
+    carries `triggerEvent?: { id, headers }` — the stored event's id and
+    metadata.headers — when the job was reached this way. Undefined for
+    cron/manual jobs and for jobs triggered synchronously off a write/query
+    handler (no stored event to hand over). No migration needed.
+  -->
+
+- 4dea3ec: magic-link self-signup can now claim a try-first tenant-handover grant across devices
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: magic-link self-signup can now claim a try-first tenant-handover grant across devices
+  detail: |
+    An anonymous visitor's tenant-handover grant (packages/bundled-features/src/
+    tenant-handover) lives only in the browser that minted it, but the signup
+    activation link is often opened somewhere else (a different device, or the
+    mail app's in-app browser) — the grant never reaches signup-confirm there.
+    requestSignup(email, handover?) can now pass { entityType, token } alongside
+    the email; signup-request verifies the grant against its anchor row
+    (read-only, tenant-handover's own redeemRowBoundGrant with commitAnchor
+    skipped) and binds only { entityType, rowId, sourceTenantId } to the signup
+    token in Redis — never the grant token or the email. A resend without a
+    fresh grant carries the previous verified binding to the new token instead
+    of dropping it. signup-confirm reads the binding after provisioning the new
+    tenant, mints a fresh short-lived (5 min) grant server-side, and redeems it
+    via the same claim write tenant-handover already exposes — riding the
+    confirm handler's own transaction. A benign rejection (already claimed
+    elsewhere, forged grant, row gone) never fails the signup; any other claim
+    failure (e.g. a non-transferable child row) rolls the whole signup back and
+    leaves the activation link retryable, instead of committing a partial move
+    next to a new account. On success
+    the signup-confirm response gains an optional `handover: { entityType, id }`
+    field; auth-client's confirmSignup result type reflects it. New extension
+    point `signupHandover` (packages/bundled-features/src/shared/signup-handover.ts)
+    lets tenant-handover provide this without auth-email-password importing it
+    directly; tenant-handover self-registers as its own provider.
+  -->
+
+### Patch Changes
+
+- a14fd1f: DB pool close() no longer hangs forever during an outage
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: DB pool close() no longer hangs forever during an outage
+  detail: |
+    createDbConnection/createConnection's close() and PgKmsAdapter.close()
+    called client.end() with no timeout, which postgres.js waits on
+    indefinitely if a query is still referenced on a dead connection — a DB
+    outage during process shutdown could hang forever. close() now bounds
+    the wait via a new closeTimeoutSeconds option on DbConnectionOptions
+    (default 5s, DEFAULT_DB_CLOSE_TIMEOUT_SECONDS). No migration needed.
+  -->
+
+- 42c5298: event-dispatcher stop() waits for a pass still in its idle pre-check
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: event-dispatcher stop() waits for a pass still in its idle pre-check
+  detail: |
+    Since 0.308.0 a pass started by the timer or a NOTIFY wake-up shortly
+    before stop() could still be inside its idle pre-check, which stop()
+    never waited for. That pass kept running after stop() returned and
+    queried the DB pool the caller was closing, which could make
+    postgres.js' end() hang. stop() now also drains in-flight passes.
+    No migration needed.
+  -->
+
+- b99240c: tenant-handover claim now moves a fileRef's own event history and storage-usage counters
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: fix
+  title: tenant-handover claim now moves a fileRef's own event history and storage-usage counters
+  detail: |
+    moveFileRefs only flipped the file_refs read-model row's tenant_id: the
+    fileRef aggregate's own events in kumiko_events stayed under the source
+    tenant, so a later write against the moved fileRef couldn't load its
+    stream, and a projection rebuild put the row back into the source
+    tenant. It also never touched the fileRef's share of the
+    tenant-storage-usage MSP counters, leaving stale bytes/fileCount behind
+    under the source tenant and none under the destination. moveFileRefs now
+    also calls moveEventHistory for the fileRef aggregate and a new
+    transferTenantStorageUsage (framework, exported via the files barrel),
+    which locks the MSP's consumer cursor row, sums the already-applied
+    fileRef deltas via the newly extracted fileRefStorageDelta, and moves
+    them from source to destination before the tenant_id rewrite runs (the
+    "already applied" lookup keys off the pre-rewrite tenant_id). No
+    migration needed.
+  -->
+
+- e7dc624: tenant-handover transfer graph now resolves feature-prefixed reference targets
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: fix
+  title: tenant-handover transfer graph now resolves feature-prefixed reference targets
+  detail: |
+    ReferenceFieldDef.entity may carry a feature prefix
+    ("<feature>:<entity>") for cross-feature refs. The tenant-handover
+    transfer graph and the framework boot validator's depth check both took
+    that value raw, so a prefixed reference never formed an edge: the claim
+    handler silently moved only the root row, leaving every entity reachable
+    solely through a prefixed reference behind in the source tenant. Both
+    now resolve the target through the shared parseRefTargetEntityName.
+    Consumer-visible: an entity reachable only via a prefixed reference that
+    has rows and is not declared `transferable: true` now fails the claim
+    with `entity_not_transferable` instead of being left behind, and the
+    boot-time MAX_TRANSFER_DEPTH check now counts prefixed chains too. No
+    migration needed; declare `transferable: true` on a newly caught entity
+    or flatten a newly caught over-deep chain.
+  -->
+
+- Updated dependencies [93d7b77]
+  - @cosmicdrift/kumiko-types@0.313.0
+  - @cosmicdrift/kumiko-http@0.313.0
+
 ## 0.312.0
 
 ### Minor Changes
