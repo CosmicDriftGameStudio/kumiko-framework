@@ -1,5 +1,88 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.310.0
+
+### Minor Changes
+
+- da6c84f: E2E default viewport is 1920×1080 (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: defineAppE2eConfig's chromium project runs at 1920×1080 instead of Desktop Chrome's 1280×720
+  detail: |
+    The template took Playwright's "Desktop Chrome" device unchanged, so every
+    e2e run and every inline captureScreenshot rendered at 1280×720 while
+    runMatrix's desktop screenshots used 1920×1080. Both now share
+    DESKTOP_VIEWPORT (1920×1080). A root `use.viewport` override in an app's
+    playwright config never reached the chromium project anyway (project `use`
+    wins), so solon's 1920 override was silently ineffective.
+  migration: |
+    Drop app-level desktop viewport overrides. Specs asserting a layout that
+    only exists below 1920px (collapsed sidebar, stacked panes) set their own
+    viewport via test.use({ viewport }). Committed inline screenshots taken
+    in the chromium project regenerate at 1920 width.
+  -->
+
+### Patch Changes
+
+- 70fd8d6: `captureScreenshot(page, name, { fit })` (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: captureScreenshot accepts fit viewport, fullPage or content
+  detail: |
+    `fit: "viewport"` (default) keeps the previous behaviour. `fit: "fullPage"`
+    captures the whole document, so offlot's inline mid-flow shots
+    (channel-request, channel-prompts, vehicle-channel-texts) can move to
+    captureScreenshot. `fit: "content"` grows the viewport until neither the
+    document nor a visible overflow-auto/scroll container (WorkspaceShell's
+    inner scroll area) overflows, captures, and restores the viewport; it
+    throws instead of writing a cropped image when growth does not converge
+    within 4 rounds. A 1px container overflow counts as sub-pixel rounding
+    (overflow-x-auto table wrappers), not content. This replaces solon's own `e2e/_helpers/shot.ts`; its
+    images pick up the `reducedMotion: "reduce"` default on the switch, so a
+    one-time pixel drift in the handbook PNGs is expected.
+  -->
+
+- ff05fae: `defineAppE2eConfig`'s webServer env no longer defaults `MEILI_URL`/`MEILI_MASTER_KEY`
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: defineAppE2eConfig's webServer env no longer defaults MEILI_URL and MEILI_MASTER_KEY
+  detail: |
+    Since the infra env defaults landed, every e2e webServer got
+    MEILI_URL=http://localhost:17700. Apps that choose Meilisearch over
+    their in-memory search adapter when MEILI_URL is set then pointed at an
+    unreachable host in CI without a Meili service. Meili is opt-in again:
+    the two vars reach the webServer only when the environment sets them or
+    the app passes them via `env`. All other infra defaults are unchanged.
+    Migration: an app whose e2e needs Meilisearch sets MEILI_URL (and
+    MEILI_MASTER_KEY) in `defineAppE2eConfig({ env })` or in the CI env; an
+    app that worked around it with `MEILI_URL: ""` can drop that override.
+  -->
+
+- 9f16c3f: Screenshot scenario `waitFor` uses the template timeout budget (fw#3118)
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Screenshot scenario waitFor uses the template timeout budget instead of a fixed 10s
+  detail: |
+    runScreenshots/runMatrix wait for a scenario's `waitFor` selector with
+    `E2E_TIMEOUT_MS.navigation`, or `E2E_TIMEOUT_MS.real` under
+    KUMIKO_REAL_PROVIDERS=1, so real-provider screenshot scenarios no longer
+    time out on LLM/OCR latency and apps don't need their own wait timeouts.
+  -->
+
+- Updated dependencies [a2c9e30]
+- Updated dependencies [4f36c3f]
+  - @cosmicdrift/kumiko-bundled-features@0.310.0
+  - @cosmicdrift/kumiko-framework@0.310.0
+  - @cosmicdrift/kumiko-dev-server@0.310.0
+
 ## 0.309.0
 
 ### Minor Changes

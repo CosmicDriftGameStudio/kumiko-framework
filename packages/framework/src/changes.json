@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.310.0",
+    "type": "improvement",
+    "title": "Boot validator checks the target tab of navigate actions",
+    "detail": "A navigate action with `tab` fails boot when its target is not a\nprojectionDetail with layout.mode \"tabs\" or has no section with that id.\nThe check covers list rowActions, relatedList rowActions, screen actions,\nsection actions and relatedList emptyState actions."
+  },
+  {
     "version": "0.309.0",
     "type": "fix",
     "title": "LISTEN gauge drops to 0 on a DB outage",
