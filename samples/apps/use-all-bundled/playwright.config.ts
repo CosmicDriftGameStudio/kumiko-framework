@@ -6,6 +6,5 @@ const PORT = E2E_PORTS["framework/use-all-bundled"];
 
 export default defineAppE2eConfig({
   port: PORT,
-  serverEntry: "src/app/server.ts",
   env: PLAYWRIGHT_DEMO_ENV,
 });
