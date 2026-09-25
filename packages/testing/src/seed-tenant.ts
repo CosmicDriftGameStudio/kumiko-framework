@@ -13,6 +13,7 @@ import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { isPlainObject } from "@cosmicdrift/kumiko-framework/utils";
 import {
   type BoundApi,
+  type SeedAdminIdentity,
   type SeededCredentials,
   type SeededTenant,
   type SeedTenantOptions,
@@ -21,6 +22,7 @@ import {
 
 export type {
   BoundApi,
+  SeedAdminIdentity,
   SeededCredentials,
   SeededTenant,
   SeededUser,
@@ -54,9 +56,14 @@ function bindApi(stack: TestStack, user: SessionUser): BoundApi {
   };
 }
 
-function lightCredentials(): SeededCredentials {
+function lightCredentials(email?: string): SeededCredentials {
   const id = randomUUID();
-  return { id, email: `user-${id}@example.test`, password: `pw-${randomUUID()}` };
+  const resolvedEmail = email ?? `user-${id}@example.test`;
+  return { id, email: resolvedEmail, password: `pw-${randomUUID()}` };
+}
+
+function substituteTenantId(email: string, tenantId: string): string {
+  return email.replaceAll("{tenantId}", tenantId);
 }
 
 function newTenantIdentity(name: string | undefined): {
@@ -100,14 +107,17 @@ export async function persistUserRows(
   write: SeedWriter,
   tenantId: TenantId,
   roles: readonly string[],
+  identity: SeedAdminIdentity = {},
 ): Promise<SeededCredentials> {
-  const light = lightCredentials();
+  const light = lightCredentials(
+    identity.email !== undefined ? substituteTenantId(identity.email, tenantId) : undefined,
+  );
   const created = await write(
     UserHandlers.create,
     {
       email: light.email,
       passwordHash: await hashPassword(light.password),
-      displayName: `Seed ${light.id.slice(0, 8)}`,
+      displayName: identity.displayName ?? `Seed ${light.id.slice(0, 8)}`,
     },
     tenantId,
   );
@@ -122,11 +132,15 @@ export async function persistUserRows(
 
 export async function persistTenantRows(
   write: SeedWriter,
-  opts: { readonly name?: string; readonly users?: number } = {},
+  opts: {
+    readonly name?: string;
+    readonly users?: number;
+    readonly admin?: SeedAdminIdentity;
+  } = {},
 ): Promise<PersistedTenant> {
   const { id, key, name } = newTenantIdentity(opts.name);
   await write(TenantHandlers.create, { id, key, name }, id);
-  const admin = await persistUserRows(write, id, [ROLES.TenantAdmin]);
+  const admin = await persistUserRows(write, id, [ROLES.TenantAdmin], opts.admin);
   const members: SeededCredentials[] = [];
   for (let i = 0; i < (opts.users ?? 0); i++) {
     members.push(await persistUserRows(write, id, [ROLES.Member]));
@@ -136,8 +150,10 @@ export async function persistTenantRows(
 
 function lightTenantRows(opts: SeedTenantOptions): PersistedTenant {
   const identity = newTenantIdentity(opts.name);
-  const members = Array.from({ length: opts.users ?? 0 }, lightCredentials);
-  return { ...identity, admin: lightCredentials(), members };
+  const members = Array.from({ length: opts.users ?? 0 }, () => lightCredentials());
+  const adminEmail =
+    opts.admin?.email !== undefined ? substituteTenantId(opts.admin.email, identity.id) : undefined;
+  return { ...identity, admin: lightCredentials(adminEmail), members };
 }
 
 export async function seedTenant(

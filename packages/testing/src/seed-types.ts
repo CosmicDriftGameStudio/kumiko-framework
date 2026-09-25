@@ -22,11 +22,20 @@ export type SeededUser = SeededCredentials & { readonly session: SessionUser };
 
 export type SeedPart = (ctx: { readonly tenant: SeededTenant }) => Promise<void>;
 
+// email may contain the literal "{tenantId}" placeholder, substituted with the
+// seeded tenant's id — user:create's email uniqueness is global (fw#2134/#2593),
+// so a fixed literal email collides across per-scenario tenants.
+export type SeedAdminIdentity = {
+  readonly displayName?: string;
+  readonly email?: string;
+};
+
 export type SeedTenantOptions = {
   readonly name?: string;
   readonly users?: number;
   readonly with?: readonly SeedPart[];
   readonly persist?: boolean;
+  readonly admin?: SeedAdminIdentity;
 };
 
 export type SeededTenant = {

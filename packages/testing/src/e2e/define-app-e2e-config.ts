@@ -8,17 +8,27 @@ import {
   type PlaywrightWorkerOptions,
   type Project,
 } from "@playwright/test";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   E2E_WORKERS_ENV,
+  isRealProviderRun,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
-  REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,
 } from "./constants";
 import { screenshotSpecsIgnore } from "./screenshot-dir";
 import { E2E_TIMEOUT_MS } from "./timeouts";
+
+// A `??` merge per key, not a raw process.env spread — CI or the shell
+// environment wins over the local-dev default without leaking unrelated
+// host env vars into the webServer process.
+function infraEnvDefaults(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(SERVICE_ENV_DEFAULTS).map(([key, value]) => [key, process.env[key] ?? value]),
+  );
+}
 
 const TEMPLATE_OWNED_PROJECT_KEYS = [
   "fullyParallel",
@@ -121,7 +131,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
   assertNoReservedEnv(env);
   for (const project of projects) assertTemplateOwnedKeysUnset(project);
   const baseURL = `http://localhost:${port}`;
-  const realRun = process.env[REAL_PROVIDERS_ENV] === "1";
+  const realRun = isRealProviderRun();
 
   return defineConfig({
     testDir,
@@ -134,7 +144,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
     retries: 0,
     workers: resolveE2eWorkers(),
     reporter: [["list"]],
-    timeout: E2E_TIMEOUT_MS.test,
+    timeout: realRun ? E2E_TIMEOUT_MS.real : E2E_TIMEOUT_MS.test,
     expect: { timeout: E2E_TIMEOUT_MS.expect },
     use: {
       baseURL,
@@ -149,6 +159,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       command: `bun run ${serverEntry}`,
       url: baseURL,
       env: {
+        ...infraEnvDefaults(),
         ...PLAYWRIGHT_DEMO_ENV,
         ...env,
         PORT: String(port),

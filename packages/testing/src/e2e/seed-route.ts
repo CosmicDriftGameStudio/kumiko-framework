@@ -134,7 +134,11 @@ export function createE2eSeedRoutes(
         unwrapSavedRow(handlerQn, await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }));
       try {
         return c.json(
-          await persistTenantRows(write, { name: verified.name, users: verified.members }),
+          await persistTenantRows(write, {
+            name: verified.name,
+            users: verified.members,
+            admin: verified.admin,
+          }),
         );
       } catch (error) {
         return c.json({ error: error instanceof Error ? error.message : "seed failed" }, 500);

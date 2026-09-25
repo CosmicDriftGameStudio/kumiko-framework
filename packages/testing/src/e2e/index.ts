@@ -16,8 +16,10 @@ export {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
   E2E_WORKERS_ENV,
+  isRealProviderRun,
   KUMIKO_SECRETS_MASTER_KEY_V1,
   PLAYWRIGHT_DEMO_ENV,
+  REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
 } from "./constants";
@@ -37,6 +39,7 @@ export {
 } from "./screenshot-dir";
 export {
   applyDefaultTheme,
+  captureScreenshot,
   DEFAULT_THEMES,
   type DefaultThemeId,
   type FlatOptions,
@@ -45,6 +48,7 @@ export {
   runMatrix,
   runScreenshots,
   type Scenario,
+  type ScenarioFixtures,
   type ThemeScreenshotDigest,
   validateScenarios,
 } from "./screenshots";

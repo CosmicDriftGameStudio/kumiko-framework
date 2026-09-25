@@ -30,7 +30,7 @@ describe("renderTestSetup", () => {
       `bun --config=bunfig.toml test --timeout=${TEST_TIMEOUT_MS.unit} --dots`,
     );
     expect(setup.scripts["test:real"]).toBe(
-      `KUMIKO_REAL_PROVIDERS=1 bun --config=bunfig.real.toml test --timeout=${TEST_TIMEOUT_MS.real}`,
+      `KUMIKO_REAL_PROVIDERS=1 bun --config=bunfig.real.toml test --timeout=${TEST_TIMEOUT_MS.real} real.test.ts`,
     );
     expect(setup.scripts["test:integration"]).toBe(
       `bun kumiko-testing integration --parallel ${SCAFFOLD_INTEGRATION_PARALLEL}`,

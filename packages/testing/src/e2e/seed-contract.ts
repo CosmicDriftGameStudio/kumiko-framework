@@ -5,10 +5,19 @@ export const SEEDABLE_ROLES = [ROLES.TenantAdmin, ROLES.Member] as const;
 export const MAX_SEED_MEMBERS = 10;
 export const MAX_TENANT_NAME_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 320;
+const MAX_DISPLAY_NAME_LENGTH = 100;
+
+export const seedAdminIdentitySchema = z.strictObject({
+  displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
+  // May contain the literal "{tenantId}" placeholder — substituted server-side
+  // in persistTenantRows, since user:create's email uniqueness is global.
+  email: z.string().min(1).max(MAX_EMAIL_LENGTH).optional(),
+});
 
 export const seedTenantRequestSchema = z.strictObject({
   name: z.string().min(1).max(MAX_TENANT_NAME_LENGTH).optional(),
   members: z.number().int().min(0).max(MAX_SEED_MEMBERS).optional(),
+  admin: seedAdminIdentitySchema.optional(),
 });
 
 export const seededCredentialsSchema = z.object({

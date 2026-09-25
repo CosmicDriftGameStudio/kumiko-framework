@@ -142,6 +142,34 @@ describe("defineAppE2eConfig defaults", () => {
     expect(server.env?.[PROD_BUNDLES_ENV]).toBe("1");
   });
 
+  test("real runs get the 240s real-provider budget from the template", () => {
+    expect(defineAppE2eConfig({ port: 1 }).timeout).toBe(E2E_TIMEOUT_MS.test);
+    process.env[REAL_PROVIDERS_ENV] = "1";
+    expect(defineAppE2eConfig({ port: 1 }).timeout).toBe(E2E_TIMEOUT_MS.real);
+  });
+
+  test("webServer env defaults the infra vars, but an env var already set wins", () => {
+    const saved = process.env["DATABASE_URL"];
+    delete process.env["DATABASE_URL"];
+    try {
+      const server = defineAppE2eConfig({ port: 1 }).webServer;
+      if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+      expect(server.env?.["DATABASE_URL"]).toBe(
+        "postgresql://kumiko:kumiko@localhost:15432/kumiko_dev",
+      );
+
+      process.env["DATABASE_URL"] = "postgresql://ci:ci@ci-host:5432/ci_db";
+      const ciServer = defineAppE2eConfig({ port: 1 }).webServer;
+      if (Array.isArray(ciServer) || ciServer === undefined) {
+        throw new Error("expected one webServer");
+      }
+      expect(ciServer.env?.["DATABASE_URL"]).toBe("postgresql://ci:ci@ci-host:5432/ci_db");
+    } finally {
+      if (saved === undefined) delete process.env["DATABASE_URL"];
+      else process.env["DATABASE_URL"] = saved;
+    }
+  });
+
   test("forbidOnly follows CI", () => {
     expect(defineAppE2eConfig({ port: 1 }).forbidOnly).toBe(false);
     process.env["CI"] = "true";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { requireRealProviders } from "../real-providers";
+import { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "../real-providers";
 
 const CI = "CI";
 const FLAG = "KUMIKO_REAL_PROVIDERS";
@@ -50,5 +50,13 @@ describe("requireRealProviders", () => {
     expect(() => requireRealProviders()).not.toThrow();
     process.env[CI] = "0";
     expect(() => requireRealProviders()).not.toThrow();
+  });
+});
+
+describe("isRealProviderRun", () => {
+  test("reads the exported flag name from an explicit env map, defaulting to process.env", () => {
+    expect(isRealProviderRun({ [REAL_PROVIDERS_ENV]: "1" })).toBe(true);
+    expect(isRealProviderRun({ [REAL_PROVIDERS_ENV]: "true" })).toBe(false);
+    expect(isRealProviderRun({})).toBe(false);
   });
 });
