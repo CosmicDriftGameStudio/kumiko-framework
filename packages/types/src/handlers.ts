@@ -4,7 +4,7 @@ import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./co
 import type { DbConnection } from "./db-connection";
 import type { DerivativesContext } from "./derivatives-types";
 import type { EntityCache } from "./entity-cache";
-import type { WriteOrigin } from "./event-store-types";
+import type { EventMetadata, WriteOrigin } from "./event-store-types";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { FileContext } from "./file-handle-types";
 import type { FileProviderResolver } from "./file-provider-resolver-types";
@@ -245,12 +245,21 @@ import type { UncheckedSystemDb } from "./tenant-db-types";
 // The framework resolves the member internally, so no hand-built SessionUser reaches app code.
 export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
 
+// The stored event that made an r.job trigger fire, carried through so the
+// job handler can key an idempotency check on it (at-least-once delivery via
+// the job-trigger event consumer, see pipeline/system-hooks.ts).
+export type JobTriggerEvent = {
+  readonly id: string;
+  readonly headers: NonNullable<EventMetadata["headers"]>;
+};
+
 // Minimal interface for job event triggers (framework-owned, concrete type in jobs/)
 export type JobRunnerRef = {
   handleEvent(
     eventName: string,
     payload: Record<string, unknown>,
     user?: SessionUser,
+    triggerEvent?: JobTriggerEvent,
   ): Promise<void>;
 };
 
@@ -754,6 +763,13 @@ export type JobContext = SharedContextFields & {
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
+  // The stored event that triggered this job run, when reached via the
+  // job-trigger event consumer (async, at-least-once). Undefined for
+  // cron/manual jobs and for the synchronous handler-QN dispatch path, which
+  // has no stored event to hand over. Use triggerEvent.id (or a header) as
+  // an idempotency key — at-least-once delivery can run the same trigger
+  // more than once.
+  readonly triggerEvent?: JobTriggerEvent;
   // Fallback tenant/user when systemUser doesn't carry it (tenant-less cron
   // jobs). Mirrors AppContext._tenantId/_userId — see the tenant-scoping
   // footgun above.

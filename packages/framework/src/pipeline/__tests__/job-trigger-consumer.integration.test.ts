@@ -19,7 +19,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { entityEventName } from "../../db";
-import { defineFeature } from "../../engine";
+import { defineFeature, type JobContext } from "../../engine";
+import { loadAggregate } from "../../event-store";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { waitFor } from "../../testing";
@@ -27,8 +28,13 @@ import { generateId } from "../../utils";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
+const PROVIDER_EVENT_ID_HEADER = "providerEventId";
 
-const processedItems: Array<{ readonly fileRefId: string }> = [];
+const processedItems: Array<{
+  readonly fileRefId: string;
+  readonly triggerEvent: JobContext["triggerEvent"];
+  readonly rawDataKeys: readonly string[];
+}> = [];
 
 const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
   r.defineEvent("item-requested", z.object({ fileRefId: z.string().min(1) }), {
@@ -37,7 +43,8 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
 
   // Mirrors document-ingest-foundation's request-ingest MSP exactly: reacts
   // to fileRef.created, appends a NEW event via unsafeAppendEvent — no
-  // write-handler behind the appended event itself.
+  // write-handler behind the appended event itself. headers carries a
+  // provider-style idempotency key so the job side can assert it round-trips.
   r.multiStreamProjection({
     name: "request-item",
     apply: {
@@ -47,6 +54,7 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
           aggregateType: "job-trigger-fixture-request",
           type: ITEM_REQUESTED_EVENT_QN,
           payload: { fileRefId: event.aggregateId },
+          headers: { [PROVIDER_EVENT_ID_HEADER]: "provider-evt-42" },
         });
       },
     },
@@ -57,8 +65,12 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
   r.job(
     "process-item",
     { trigger: { on: ITEM_REQUESTED_EVENT_QN }, runIn: "worker" },
-    async (payload) => {
-      processedItems.push({ fileRefId: payload["fileRefId"] as string });
+    async (payload, ctx) => {
+      processedItems.push({
+        fileRefId: payload["fileRefId"] as string,
+        triggerEvent: ctx.triggerEvent,
+        rawDataKeys: Object.keys(payload),
+      });
     },
   );
 });
@@ -169,7 +181,23 @@ describe("job-trigger event consumer", () => {
       expect(processedItems).toHaveLength(1);
     });
 
-    expect(processedItems[0]?.fileRefId).toBeTruthy();
+    const processed = processedItems[0];
+    expect(processed?.fileRefId).toBeTruthy();
+
+    // aggregateId of the appended item-requested event is the fileRef's id
+    // (the MSP apply carries event.aggregateId straight through).
+    const fileRefId = processed?.fileRefId as string;
+    const storedEvents = await loadAggregate(stack.db, fileRefId, TestUsers.admin.tenantId);
+    const itemRequested = storedEvents.find((e) => e.type === ITEM_REQUESTED_EVENT_QN);
+    expect(itemRequested).toBeDefined();
+
+    // triggerEvent carries the stored event's own id and headers through to
+    // the job — the idempotency-key surface at-least-once delivery needs.
+    expect(processed?.triggerEvent?.id).toBe(itemRequested?.id);
+    expect(processed?.triggerEvent?.headers[PROVIDER_EVENT_ID_HEADER]).toBe("provider-evt-42");
+
+    // Reserved keys never leak into the payload the handler receives.
+    expect(processed?.rawDataKeys).not.toContain("_triggerEvent");
   });
 });
 

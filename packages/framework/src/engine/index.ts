@@ -433,6 +433,7 @@ export type {
   JobDefinition,
   JobHandlerFn,
   JobTrigger,
+  JobTriggerEvent,
   JsonbFieldDef,
   KumikoEntityTypeMap,
   KumikoEventTypeMap,
