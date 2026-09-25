@@ -2113,6 +2113,56 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     }
   });
 
+  // #3275: deliverToUser must also honor an address opt-out, not just
+  // deliverDirect's route-based sends — the two paths shared the same
+  // isAddressSuppressed check as of this change.
+  test("account send is suppressed when the resolved address has an opt-out row (#3275)", async () => {
+    await stack.redis.redis.del(RATE_KEY_EMAIL);
+    const notificationType = "app:notify:account-unsub-20";
+    const address = testEmail(user1.id);
+
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: user1.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    expect(res.status).toBe(200);
+
+    emailTransport.sent.length = 0;
+    stack.events.reset();
+
+    await stack.http.writeOk(
+      "app:write:send-notification",
+      { notificationType, toUserId: user1.id, title: "Konto-Unsub", body: "X" },
+      admin,
+    );
+
+    expect(emailTransport.sent.some((e) => e.to === address)).toBe(false);
+    const emailLogs = await selectMany(db, deliveryAttemptsTable, {
+      notificationType,
+      recipientId: user1.id,
+      channel: "email",
+    });
+    expect(emailLogs.some((l) => l["status"] === "skipped" && l["error"] === "unsubscribed")).toBe(
+      true,
+    );
+    expect(emailLogs.every((l) => l["recipientAddress"] !== address)).toBe(true);
+
+    // inApp is unaffected — the opt-out is per-channel.
+    const inAppNotifs = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
+    expect(inAppNotifs.some((e) => e.data["userId"] === user1.id)).toBe(true);
+
+    // Critical priority still gets delivered, same rule as the direct-route path.
+    emailTransport.sent.length = 0;
+    await deliveryService.notify(
+      notificationType,
+      { to: user1.id, data: { title: "Critical", body: "X" }, priority: "critical" },
+      admin,
+      admin.tenantId,
+    );
+    expect(emailTransport.sent.some((e) => e.to === address)).toBe(true);
+  });
+
   // Address-path counterpart to flow 16 — same deterministic-aggregate-id
   // race, but through upsertAddressOptOut's create-or-noop instead of
   // upsertPreference's create-or-update.
