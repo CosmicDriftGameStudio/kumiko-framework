@@ -14,4 +14,6 @@ detail: |
   page) can build the URL per locale. `captureStyle` is handed to Playwright's
   screenshot `style` option in runScreenshots and runMatrix: the CSS applies
   to the capture only and does not leak into the next theme × viewport shot.
+  A scenario's `waitFor` now uses the template budget (`E2E_TIMEOUT_MS.navigation`,
+  or `E2E_TIMEOUT_MS.real` under KUMIKO_REAL_PROVIDERS=1) instead of a fixed 10s.
 -->
