@@ -58,6 +58,19 @@ describe("persistTenantRows", () => {
     expect(roles).toEqual([["TenantAdmin"], ["Member"], ["Member"]]);
   });
 
+  test("admin identity: displayName is used as-is, email substitutes {tenantId}", async () => {
+    const { write, calls } = recordingWriter();
+
+    const tenant = await persistTenantRows(write, {
+      admin: { displayName: "Demo Admin", email: "admin+{tenantId}@example.test" },
+    });
+
+    expect(tenant.admin.email).toBe(`admin+${tenant.id}@example.test`);
+    const created = calls.find((call) => call.handlerQn === UserHandlers.create);
+    expect(created?.payload["displayName"]).toBe("Demo Admin");
+    expect(created?.payload["email"]).toBe(`admin+${tenant.id}@example.test`);
+  });
+
   test("a failing writer aborts with its error and creates no further rows", async () => {
     const calls: string[] = [];
     const write: SeedWriter = async (handlerQn) => {

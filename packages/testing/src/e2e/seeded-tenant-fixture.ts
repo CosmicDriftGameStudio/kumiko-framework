@@ -104,7 +104,7 @@ export async function provideSeedTenant(
     const seeded = await postSeedRoute(
       request,
       SEED_ROUTES.seedTenant,
-      { name: opts.name, members: opts.users },
+      { name: opts.name, members: opts.users, admin: opts.admin },
       seedTenantResponseSchema,
     );
     const tenantId = seeded.id;
