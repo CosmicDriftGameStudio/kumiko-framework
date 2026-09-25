@@ -548,6 +548,7 @@ jobs:
           configs=(
             e2e/hero-demos/playwright.config.ts
             packages/renderer-web/playwright.config.ts
+            packages/testing/e2e/playwright.config.ts
             samples/apps/admin-console/playwright.config.ts
             samples/apps/config-demo/playwright.config.ts
             samples/apps/marketing-demo/playwright.config.ts

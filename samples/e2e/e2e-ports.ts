@@ -14,6 +14,7 @@ export const E2E_PORTS = {
   "framework/recipe-writeform-section": 4189,
   "framework/recipe-record-detail-layout": 4190,
   "framework/hero-demos": 4290,
+  "framework/testing": 4195,
   "kumiko-studio/e2e": 4191,
   "kumiko-studio/screenshots": 4192,
   "publicstatus/e2e": 4178,

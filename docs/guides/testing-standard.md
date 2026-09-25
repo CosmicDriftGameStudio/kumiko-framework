@@ -21,7 +21,7 @@ those steps.
 | Unit | `*.test.ts` | `bun run test` | 5 s per test |
 | Integration | `*.integration.test.ts` | `bun run test:integration` (files run in parallel) | 15 s per test |
 | E2E | `e2e/*.spec.ts` | `bun run e2e` | fixed in `defineAppE2eConfig` |
-| Real provider | `*.real.test.ts`, `*.real.spec.ts` | `bun run test:real`, `bun run e2e:real` | 120 s per test |
+| Real provider | `*.real.test.ts`, `*.real.spec.ts` | `bun run test:real`, `bun run e2e:real` | 240 s per test |
 
 Unit tests carry no services and stay fast enough to run on every save.
 Integration tests hit a real Postgres/Redis stack and prove the app's own
@@ -60,9 +60,13 @@ explicit switch.
 
 To run one on purpose: `bun run e2e:real -- <file>` (or `test:real` for Bun
 tests). To add one, write the shared flow once and wrap it in a thin
-`*.real.spec.ts` that sets `requireRealProviders()` and any real-only timeout
-— the timeout belongs in the wrapper, not in the shared flow the default
-suite also runs, so the fast path never inherits a budget it doesn't need.
+`*.real.spec.ts` that calls `requireRealProviders()`. Neither the wrapper nor
+the shared flow sets a timeout: both scripts take the real-provider budget from
+one constant, `E2E_TIMEOUT_MS.real` (`test:real` passes it as `--timeout` via
+`TEST_TIMEOUT_MS.real`, `defineAppE2eConfig` applies it only when
+`KUMIKO_REAL_PROVIDERS=1` is set). It is 240 s because solon's
+document-onboarding flow, the slowest real-provider run today, needs that
+long; the default suite keeps its own budget.
 
 ## Parallel by default
 
@@ -75,6 +79,25 @@ safe: two flows writing to the same tenant, user or row race each other,
 `workers: 1` only hides that race by never letting it happen, and the race
 comes back the moment two people run the suite differently or a CI runner
 gets a second core. Fix the shared state, don't serialize around it.
+
+A global-admin view is the one place a tenant per flow doesn't isolate you.
+A SystemAdmin overview (show-pony's `platform-overview`, a tenant list, a
+platform-wide counter) sees every tenant, including the ones parallel flows are
+seeding at that moment. Seed the operator per flow with
+`tenant.addUser(["SystemAdmin"])` instead of sharing the tenant seeded at boot,
+then assert only on the tenants your own flow seeded (find them by their name
+or id), never on global totals, counts or "the first row": those change with
+whatever else runs next to the flow. SystemAdmin is seedable because the seed
+gate above is the boundary around every seed route; nothing else guards it.
+
+Test data a flow can't create through the UI or the seeded users comes from an
+app seeder: `createE2eSeedRoutes({ extraSeeders })` on the server,
+`tenant.seed(name, body)` in the flow. It sits behind the same gate, only
+reaches tenants that server seeded, and writes through the app's own handlers
+as the tenant's system user (SystemAdmin), never into tables directly. The
+target handler must admit SystemAdmin; data no normal handler produces
+(backdated history, for example) needs a SystemAdmin-only handler for the
+seeder to call.
 
 `defineAppE2eConfig` sizes workers off the CPU count rather than maximizing
 them: `#3118` measured that oversubscribing workers on a small (1.5-CPU) CI

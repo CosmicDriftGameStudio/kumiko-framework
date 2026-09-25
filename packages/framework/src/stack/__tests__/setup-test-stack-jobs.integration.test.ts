@@ -8,6 +8,7 @@ import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { InternalError, writeFailure } from "../../errors";
 import { waitFor } from "../../testing";
+import { generateId } from "../../utils";
 import { setupTestStack, type TestStack } from "../test-stack";
 import { TestUsers } from "../test-users";
 
@@ -57,11 +58,22 @@ const jobContextFeature = defineFeature("jobcontextcheck", (r) => {
   });
 });
 
+const laneIsolationRuns: Array<{ from: unknown }> = [];
+
+const laneIsolationFeature = defineFeature("laneisolation", (r) => {
+  r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload) => {
+    laneIsolationRuns.push({ from: payload["from"] });
+  });
+});
+
 let stack: TestStack | undefined;
+let secondStack: TestStack | undefined;
 
 afterEach(async () => {
   if (stack) await stack.cleanup();
+  if (secondStack) await secondStack.cleanup();
   stack = undefined;
+  secondStack = undefined;
 });
 
 describe("setupTestStack({ jobs }) wires ctx.jobRunner for manual dispatch", () => {
@@ -95,6 +107,54 @@ describe("setupTestStack({ jobs }) wires ctx.jobRunner for manual dispatch", () 
       TestUsers.admin,
     );
     expect(err.code).toBe("internal_error");
+  });
+});
+
+// Stack "api" consumes only the api lane, so its worker-lane job can only run
+// if the "worker" stack's consumer reads the same queue.
+describe("setupTestStack({ jobs }) queue isolation between parallel stacks", () => {
+  async function dispatchFromApiStackThenRunOwnJob(): Promise<void> {
+    await stack?.jobRunner?.dispatch("laneisolation:job:record", { from: "api-stack" });
+    await secondStack?.jobRunner?.dispatch("laneisolation:job:record", { from: "worker-stack" });
+    await waitFor(() => {
+      expect(laneIsolationRuns.some((run) => run.from === "worker-stack")).toBe(true);
+    });
+  }
+
+  test("without an explicit queueNamePrefix, one stack's consumer never runs another stack's job", async () => {
+    laneIsolationRuns.length = 0;
+    [stack, secondStack] = await Promise.all([
+      setupTestStack({ features: [laneIsolationFeature], jobs: { consumerLane: "api" } }),
+      setupTestStack({ features: [laneIsolationFeature], jobs: { consumerLane: "worker" } }),
+    ]);
+
+    await dispatchFromApiStackThenRunOwnJob();
+
+    expect(laneIsolationRuns.map((run) => run.from)).toEqual(["worker-stack"]);
+  });
+
+  test("an explicit shared queueNamePrefix wins, so both stacks read one queue", async () => {
+    laneIsolationRuns.length = 0;
+    const queueNamePrefix = `laneisolation-shared-${generateId()}`;
+    [stack, secondStack] = await Promise.all([
+      setupTestStack({
+        features: [laneIsolationFeature],
+        jobs: { consumerLane: "api", queueNamePrefix },
+      }),
+      setupTestStack({
+        features: [laneIsolationFeature],
+        jobs: { consumerLane: "worker", queueNamePrefix },
+      }),
+    ]);
+
+    await dispatchFromApiStackThenRunOwnJob();
+
+    await waitFor(() => {
+      expect(laneIsolationRuns.map((run) => run.from).sort()).toEqual([
+        "api-stack",
+        "worker-stack",
+      ]);
+    });
   });
 });
 

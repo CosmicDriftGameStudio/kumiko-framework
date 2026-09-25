@@ -306,9 +306,6 @@ function readMarkerVersion(targetDir: string): string | null {
 
 /** Highest pending version strictly below the earliest open manual breaking
  *  entry (no codemod). Falls back to highest non-breaking pending when every
- *  pending version is at/after that manual — never advances onto the manual. */
-/** Highest pending version strictly below the earliest open manual breaking
- *  entry (no codemod). Falls back to highest non-breaking pending when every
  *  pending version is at/after that manual. If only manuals remain, returns
  *  `fallbackInstalled` so the marker stamp moves without claiming manuals done. */
 function markerVersionForPending(
@@ -338,6 +335,21 @@ function markerVersionForPending(
     );
   }
   return fallbackInstalled;
+}
+
+function logManualMarkerOutcome(
+  out: UpgradeCliOut,
+  manualEntries: readonly ChangelogEntry[],
+  markerVersion: string,
+): void {
+  if (manualEntries.length > 0) {
+    const markerHeldBack = manualEntries.some((e) => compareVersions(e.version, markerVersion) > 0);
+    out.log(
+      markerHeldBack
+        ? `  ⚠ Marker stays at ${markerVersion}, so the upgrade guard keeps listing the manual change(s) above. Migrate them by hand, then run --apply again to acknowledge them.`
+        : `  ⚠ Marker moved past the manual change(s) above to ${markerVersion}; the upgrade guard no longer lists them, so make sure they are migrated.`,
+    );
+  }
 }
 
 // Runs every pending breaking entry's codemod, oldest version first (so a
@@ -394,6 +406,7 @@ async function applyCodemods(
         codemods: [],
       });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
+      logManualMarkerOutcome(out, manualEntries, markerVer);
     }
     return 0;
   }
@@ -442,6 +455,7 @@ async function applyCodemods(
   if (pendingManual.length > 0) {
     out.log(`  ⚠ ${pendingManual.length} breaking change(s) still need manual migration.`);
   }
+  logManualMarkerOutcome(out, manualEntries, latestVersion);
   return 0;
 }
 

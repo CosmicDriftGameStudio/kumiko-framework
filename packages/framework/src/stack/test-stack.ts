@@ -167,6 +167,8 @@ export type TestStackOptions = {
    *  `runOnBoot`/cron jobs against a caller-owned consumer). */
   jobs?: {
     consumerLane?: JobRunIn;
+    /** Default: unique per stack, derived from its test Redis keyPrefix. Pass
+     *  the same value to every runner that has to share this stack's queues. */
     queueNamePrefix?: string;
     /** Source of active tenant ids for `perTenant: true` jobs. Omit when the
      *  tenant feature is among `options.features` — the framework then
@@ -187,6 +189,13 @@ export type TestStackOptions = {
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
+
+// BullMQ queues live on the raw redisUrl, outside the test Redis keyPrefix, so
+// parallel stacks sharing the prod default queue name would consume each
+// other's jobs. BullMQ rejects `:` in queue names.
+function queueNamePrefixForTestRedis(keyPrefix: string): string {
+  return keyPrefix.split(":").filter(Boolean).join("-");
+}
 
 export async function setupTestStack(options: TestStackOptions): Promise<TestStack> {
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
@@ -355,9 +364,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       // password/username/tls/path (pr-review kumiko-framework #1036/2).
       redisUrl: testRedis.redisUrl,
       ...(options.jobs.consumerLane !== undefined && { consumerLane: options.jobs.consumerLane }),
-      ...(options.jobs.queueNamePrefix !== undefined && {
-        queueNamePrefix: options.jobs.queueNamePrefix,
-      }),
+      queueNamePrefix:
+        options.jobs.queueNamePrefix ?? queueNamePrefixForTestRedis(testRedis.keyPrefix),
       ...(options.jobs.getActiveTenantIds !== undefined && {
         getActiveTenantIds: options.jobs.getActiveTenantIds,
       }),

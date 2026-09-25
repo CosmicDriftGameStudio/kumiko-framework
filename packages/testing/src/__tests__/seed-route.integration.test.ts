@@ -8,7 +8,11 @@ import {
   clearInbox,
   mailTransportInMemoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  TenantQueries,
+  tenantMembershipsTable,
+  tenantTable,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   type CreateKumikoServerOptions,
@@ -17,7 +21,10 @@ import {
 } from "@cosmicdrift/kumiko-dev-server";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { type APIRequestContext, request as playwrightRequest } from "@playwright/test";
+import * as z from "zod";
+import { createHttpApi, loginViaApi } from "../e2e/auth-kit";
 import {
   PLAYWRIGHT_DEMO_ENV,
   SEED_ENABLE_ENV,
@@ -27,12 +34,23 @@ import {
 } from "../e2e/constants";
 import { mailCapture } from "../e2e/mail-capture";
 import {
+  extraSeedResponseSchema,
   inboxResponseSchema,
   seedTenantResponseSchema,
   seedUserResponseSchema,
 } from "../e2e/seed-contract";
-import { createE2eSeedRoutes, type E2eSeedRoutesOptions } from "../e2e/seed-route";
-import { noteFeature } from "./note-feature";
+import {
+  createE2eSeedRoutes,
+  type E2eExtraSeeder,
+  type E2eSeedRoutesOptions,
+} from "../e2e/seed-route";
+import {
+  type ProvideSeedTenantDeps,
+  provideSeedTenant,
+  type SeedTenantFixture,
+} from "../e2e/seeded-tenant-fixture";
+import { seedTenant } from "../seed-tenant";
+import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
 
 const TOKEN = "seed-route-test-token";
 const ENV_KEYS = [
@@ -107,6 +125,14 @@ async function seedTenantVia(h: KumikoServerHandle, body: unknown = {}) {
   return seedTenantResponseSchema.parse(await res.json());
 }
 
+const noteSeedBodySchema = z.strictObject({ titles: z.array(z.string()).min(1) });
+
+const seedNotes: E2eExtraSeeder = async (ctx, tenantId, body) => {
+  const { titles } = noteSeedBodySchema.parse(body);
+  for (const title of titles) await ctx.write(NOTE_CREATE, { title });
+  return { created: titles.length, tenantId };
+};
+
 const requestContexts: APIRequestContext[] = [];
 
 async function apiContext(h: KumikoServerHandle): Promise<APIRequestContext> {
@@ -124,6 +150,7 @@ describe("seed routes: gates", () => {
 
     expect((await post(h, SEED_ROUTES.seedTenant, {})).status).toBe(404);
     expect((await post(h, SEED_ROUTES.seedUser, {})).status).toBe(404);
+    expect((await post(h, SEED_ROUTES.extraSeed, {})).status).toBe(404);
     const inbox = await h.fetch(
       new Request(`http://localhost${SEED_ROUTES.inbox}`, {
         headers: { [SEED_TOKEN_HEADER]: TOKEN },
@@ -133,18 +160,37 @@ describe("seed routes: gates", () => {
   });
 
   test("NODE_ENV=production is 404 even with the enable flag and a valid token", async () => {
-    const h = await boot();
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    const seeded = await seedTenantVia(h);
     process.env["NODE_ENV"] = "production";
 
     expect((await post(h, SEED_ROUTES.seedTenant, {})).status).toBe(404);
+    expect(
+      (await post(h, SEED_ROUTES.seedUser, { tenantId: seeded.id, roles: ["SystemAdmin"] })).status,
+    ).toBe(404);
+    expect(
+      (await post(h, SEED_ROUTES.extraSeed, { tenantId: seeded.id, seeder: "notes", body: {} }))
+        .status,
+    ).toBe(404);
+    expect(
+      await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: seeded.id }),
+    ).toHaveLength(1);
   });
 
   test("missing or wrong token is 401 and creates nothing", async () => {
-    const h = await boot();
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    const seeded = await seedTenantVia(h);
+    const systemAdminSeed = { tenantId: seeded.id, roles: ["SystemAdmin"] };
+    const noteSeed = { tenantId: seeded.id, seeder: "notes", body: { titles: ["x"] } };
 
-    expect((await post(h, SEED_ROUTES.seedTenant, {}, null)).status).toBe(401);
-    expect((await post(h, SEED_ROUTES.seedTenant, {}, "wrong-token")).status).toBe(401);
-    expect((await post(h, SEED_ROUTES.seedTenant, {}, "")).status).toBe(401);
+    for (const token of [null, "wrong-token", ""]) {
+      expect((await post(h, SEED_ROUTES.seedTenant, {}, token)).status).toBe(401);
+      expect((await post(h, SEED_ROUTES.seedUser, systemAdminSeed, token)).status).toBe(401);
+      expect((await post(h, SEED_ROUTES.extraSeed, noteSeed, token)).status).toBe(401);
+    }
+    expect(
+      await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: seeded.id }),
+    ).toHaveLength(1);
   });
 
   test("a token missing from the server env is a hard refusal, not an open route", async () => {
@@ -237,17 +283,74 @@ describe("POST /__test/seed-user", () => {
     expect((await login(h, user.email, user.password)).status).toBe(200);
   });
 
-  test("privileged or unknown roles are 400 and write nothing", async () => {
+  test("reserved or unknown roles are 400 and write nothing", async () => {
     const h = await boot();
     const seeded = await seedTenantVia(h);
 
-    for (const roles of [["SystemAdmin"], ["TenantAdmin", "SystemAdmin"], ["Reviewer"], []]) {
+    for (const roles of [["system"], ["systemadmin"], ["Reviewer"], []]) {
       const res = await post(h, SEED_ROUTES.seedUser, { tenantId: seeded.id, roles });
       expect(res.status).toBe(400);
     }
     expect(
       (await post(h, SEED_ROUTES.seedUser, { tenantId: "not-a-uuid", roles: ["Member"] })).status,
     ).toBe(400);
+    expect(
+      await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: seeded.id }),
+    ).toHaveLength(1);
+  });
+});
+
+const tenantListSchema = z.object({ rows: z.array(z.object({ id: z.string() })) });
+
+describe("POST /__test/seed-user with SystemAdmin", () => {
+  async function seedUserVia(h: KumikoServerHandle, tenantId: string, roles: readonly string[]) {
+    const res = await post(h, SEED_ROUTES.seedUser, { tenantId, roles });
+    expect(res.status).toBe(200);
+    return seedUserResponseSchema.parse(await res.json());
+  }
+
+  async function loggedInApi(h: KumikoServerHandle, email: string, password: string) {
+    const context = await apiContext(h);
+    await loginViaApi(context, { email, password });
+    return createHttpApi(context);
+  }
+
+  test("SystemAdmin lands as a global user role, never as a membership role", async () => {
+    const h = await boot();
+    const seeded = await seedTenantVia(h);
+
+    const systemAdminOnly = await seedUserVia(h, seeded.id, ["SystemAdmin"]);
+    const tenantAndSystemAdmin = await seedUserVia(h, seeded.id, ["TenantAdmin", "SystemAdmin"]);
+
+    for (const [user, membershipRoles] of [
+      [systemAdminOnly, ["Member"]],
+      [tenantAndSystemAdmin, ["TenantAdmin"]],
+    ] as const) {
+      const row = await fetchOne<{ roles: unknown }>(h.stack.db, userTable, { id: user.id });
+      expect(parseRoles(row?.roles)).toEqual(["SystemAdmin"]);
+      const membership = await fetchOne<{ roles: string }>(h.stack.db, tenantMembershipsTable, {
+        userId: user.id,
+        tenantId: seeded.id,
+      });
+      expect(JSON.parse(membership?.roles ?? "null")).toEqual(membershipRoles);
+    }
+  });
+
+  test("a seeded SystemAdmin logs in and runs a SystemAdmin-only query a TenantAdmin is denied", async () => {
+    const h = await boot();
+    const seeded = await seedTenantVia(h);
+    const other = await seedTenantVia(h);
+    const systemAdmin = await seedUserVia(h, seeded.id, ["SystemAdmin"]);
+
+    const asSystemAdmin = await loggedInApi(h, systemAdmin.email, systemAdmin.password);
+    const tenants = tenantListSchema.parse(await asSystemAdmin.queryOk(TenantQueries.list, {}));
+    expect(tenants.rows.map((tenant) => tenant.id)).toEqual(
+      expect.arrayContaining([seeded.id, other.id]),
+    );
+
+    const asTenantAdmin = await loggedInApi(h, seeded.admin.email, seeded.admin.password);
+    const denied = await asTenantAdmin.queryErr(TenantQueries.list, {});
+    expect(denied.code).toBe("access_denied");
   });
 });
 
@@ -285,25 +388,127 @@ describe("POST /__test/seed-user with extraRoles", () => {
     });
   });
 
-  test("SystemAdmin and roles nobody registered stay 400 even with extraRoles", async () => {
+  test("roles nobody registered stay 400 even with extraRoles", async () => {
     const h = await boot([noteFeature], { extraRoles: [APP_ROLE] });
     const seeded = await seedTenantVia(h);
 
-    for (const roles of [
-      ["SystemAdmin"],
-      ["systemadmin"],
-      [APP_ROLE, "SystemAdmin"],
-      ["Reviewer"],
-      [""],
-      [7],
-      [],
-    ]) {
+    for (const roles of [["systemadmin"], [APP_ROLE, "system"], ["Reviewer"], [""], [7], []]) {
       const res = await post(h, SEED_ROUTES.seedUser, { tenantId: seeded.id, roles });
       expect(res.status).toBe(400);
     }
     expect(
       await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: seeded.id }),
     ).toHaveLength(1);
+  });
+});
+
+describe("POST /__test/seed with extraSeeders", () => {
+  function extraSeed(h: KumikoServerHandle, tenantId: string, seeder: string, body?: unknown) {
+    return post(h, SEED_ROUTES.extraSeed, { tenantId, seeder, body });
+  }
+
+  async function noteTitlesOf(h: KumikoServerHandle, email: string, password: string) {
+    const context = await apiContext(h);
+    await loginViaApi(context, { email, password });
+    return createHttpApi(context).queryOk<readonly string[]>(NOTE_LIST, {});
+  }
+
+  test("a registered seeder writes into the seeded tenant only and returns its result", async () => {
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    const seeded = await seedTenantVia(h);
+    const neighbour = await seedTenantVia(h);
+
+    const res = await extraSeed(h, seeded.id, "notes", { titles: ["first", "second"] });
+
+    expect(res.status).toBe(200);
+    expect(extraSeedResponseSchema.parse(await res.json())).toEqual({
+      result: { created: 2, tenantId: seeded.id },
+    });
+    expect([...(await noteTitlesOf(h, seeded.admin.email, seeded.admin.password))].sort()).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(await noteTitlesOf(h, neighbour.admin.email, neighbour.admin.password)).toEqual([]);
+  });
+
+  test("a tenant this server's seed-tenant route did not seed is 403 and gets nothing", async () => {
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    await seedTenantVia(h);
+    const inProcess = await seedTenant(h.stack, { persist: true });
+
+    for (const tenantId of [inProcess.id, crypto.randomUUID()]) {
+      const res = await extraSeed(h, tenantId, "notes", { titles: ["foreign"] });
+      expect(res.status).toBe(403);
+    }
+    expect(await inProcess.api.queryOk<string[]>(NOTE_LIST, {})).toEqual([]);
+  });
+
+  test("unknown seeder names, prototype keys and a route without extraSeeders are 404", async () => {
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    const seeded = await seedTenantVia(h);
+
+    for (const seeder of ["missing", "__proto__", "constructor", "toString"]) {
+      const res = await extraSeed(h, seeded.id, seeder, {});
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({
+        error: `unknown seeder "${seeder}"; registered: notes`,
+      });
+    }
+
+    await handle?.stop();
+    const withoutSeeders = await boot();
+    const tenant = await seedTenantVia(withoutSeeders);
+    expect((await extraSeed(withoutSeeders, tenant.id, "notes", {})).status).toBe(404);
+  });
+
+  test("a body the seeder rejects is 400, a failing write is 500, a malformed request is 400", async () => {
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    const seeded = await seedTenantVia(h);
+
+    const rejected = await extraSeed(h, seeded.id, "notes", { titles: [] });
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toEqual({ error: expect.stringContaining('seeder "notes"') });
+
+    const failed = await extraSeed(h, seeded.id, "notes", { titles: [""] });
+    expect(failed.status).toBe(500);
+    expect(await failed.json()).toEqual({ error: expect.stringContaining(NOTE_CREATE) });
+
+    expect((await extraSeed(h, "not-a-uuid", "notes", {})).status).toBe(400);
+    expect(
+      (await post(h, SEED_ROUTES.extraSeed, { tenantId: seeded.id, seeder: "notes", extra: 1 }))
+        .status,
+    ).toBe(400);
+  });
+
+  test("tenant.seed on the seedTenant fixture reaches the seeder over HTTP", async () => {
+    const h = await boot([noteFeature], { extraSeeders: { notes: seedNotes } });
+    const request = await apiContext(h);
+    const browserRequest = await apiContext(h);
+    const baseURL = `http://localhost:${h.server?.port}`;
+    let fixture: SeedTenantFixture | undefined;
+
+    await provideSeedTenant(
+      {
+        request,
+        // @cast-boundary engine-bridge — the fixture only reads context.request and playwright.request.newContext
+        context: { request: browserRequest } as unknown as ProvideSeedTenantDeps["context"],
+        playwright: {
+          request: playwrightRequest,
+        } as unknown as ProvideSeedTenantDeps["playwright"],
+        baseURL,
+      },
+      async (seedTenantFixture) => {
+        fixture = seedTenantFixture;
+        const tenant = await seedTenantFixture();
+        expect(await tenant.seed("notes", { titles: ["via fixture"] })).toEqual({
+          created: 1,
+          tenantId: tenant.id,
+        });
+        expect(await tenant.api.queryOk<string[]>(NOTE_LIST, {})).toEqual(["via fixture"]);
+        await expect(tenant.seed("missing")).rejects.toThrow(/404/);
+      },
+    );
+    expect(fixture).toBeDefined();
   });
 });
 

@@ -42,6 +42,7 @@ export const SEED_ROUTES = {
   seedTenant: `${SEED_ROUTE_PREFIX}/seed-tenant`,
   seedUser: `${SEED_ROUTE_PREFIX}/seed-user`,
   inbox: `${SEED_ROUTE_PREFIX}/inbox`,
+  extraSeed: `${SEED_ROUTE_PREFIX}/seed`,
 } as const;
 
 // Desktop default for e2e runs and screenshots alike. Playwright's "Desktop

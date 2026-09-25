@@ -10,6 +10,8 @@ export type TestRedis = {
   // kumiko-framework #1036/2) — callers needing a fresh connection should use
   // this raw string, not rebuild one from parsed options.
   redisUrl: string;
+  /** The per-test `keyPrefix` on `redis`, e.g. `kt:1a2b3c4d:`. */
+  keyPrefix: string;
   /** Delete every key this test created (prefix-scoped). Replaces the old
    *  `redis.flushdb()` — that wiped other parallel tests' BullMQ state. */
   flushNamespace: () => Promise<void>;
@@ -43,6 +45,7 @@ export async function createTestRedis(): Promise<TestRedis> {
   return {
     redis,
     redisUrl,
+    keyPrefix: prefix,
     flushNamespace,
     cleanup: async () => {
       await flushNamespace();

@@ -47,8 +47,17 @@ test("member sees the note", async ({ seedTenant, page }) => {
 - The template also sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server builds the app's CSS once and
   never starts a Tailwind `--watch` process — that watcher would otherwise treat every Playwright artifact
   write under `test-results/` as a rebuild trigger.
-- App roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })` lets `tenant.addUser(["TenantMember"])` seed them;
-  `SystemAdmin` is never seedable and makes the route builder throw.
+- App roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })` lets `tenant.addUser(["TenantMember"])` seed them.
+- `tenant.addUser(["SystemAdmin"])` seeds a platform operator for SysAdmin screens: `SystemAdmin` lands as a
+  global user role, and the user joins the tenant as `Member` unless you also pass a tenant role
+  (`["TenantAdmin", "SystemAdmin"]`). The seed gate above is the only boundary around this.
+- App seeders for test data the seeded users can't create:
+  `createE2eSeedRoutes({ extraSeeders: { checks: async (ctx, tenantId, body) => … } })`, called from a flow as
+  `await tenant.seed("checks", { days: 30 })`. The seeder gets `body` as `unknown` (validate it with a zod
+  `parse`; a `ZodError` becomes a 400) and a `ctx` whose `write`/`query` run as the tenant's system user
+  (SystemAdmin), bound to that one tenant, so the target handler must admit SystemAdmin (data no normal
+  handler produces, like backdated history, needs a SystemAdmin-only handler). There is no raw DB access.
+  Only tenants seeded by the same server's seed-tenant route are accepted; unknown seeder names are a 404.
 - A `SeedPart` receives `{ tenant }` and works against the in-process `seedTenant` and the HTTP tenant alike.
 - Already have a custom server entry (mail transport, KMS, boot seeds, ...) that also runs in prod?
   Point `serverEntry` at it instead of duplicating `e2e/server.ts`, and mount the seed routes only
@@ -60,6 +69,12 @@ test("member sees the note", async ({ seedTenant, page }) => {
   hook also fires on every real signup in prod.
 
 ## Screenshots (`./e2e`)
+
+Seeded identities are unique per run (`admin-<tenantId>@…`). To show a presentable address instead, the
+flow registers the mapping once the tenant exists, and the runner replaces it in text and form values
+right before every capture (again after each theme and viewport change); the seeded data stays as it is:
+`presentIdentities([{ from: tenant.admin.email, to: "anna@example.com" }])` from the scenario fixtures, or
+`captureScreenshot(page, name, { presentIdentities: [...] })` inline.
 
 `runScreenshots`/`runMatrix` register their tests on the same `test` as above, so a scenario's `flow`
 receives the seeded-tenant fixture too:
