@@ -195,3 +195,30 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
     }
   });
 });
+
+describe("F: stop() waits for a pass still mid-flight", () => {
+  test("stop() waits for a pass still in its idle pre-check", async () => {
+    const consumer: EventConsumer = {
+      name: "dboutage:consumer-stop-race",
+      handler: async () => {},
+    };
+    const dispatcher: EventDispatcher = createEventDispatcher({
+      db: stack.db,
+      consumers: [consumer],
+      context: { db: stack.db },
+      pollIntervalMs: 60_000,
+    });
+
+    await dispatcher.start();
+    let passSettled = false;
+    // A pass woken by runOnce() has not registered any turn yet while it is
+    // still awaiting the idle pre-check (selectIdleConsumerKeys) — stop()
+    // must wait for it too, or it queries the pool stop() is closing.
+    const pass = dispatcher.runOnce().finally(() => {
+      passSettled = true;
+    });
+    await dispatcher.stop();
+    expect(passSettled).toBe(true);
+    await pass;
+  });
+});
