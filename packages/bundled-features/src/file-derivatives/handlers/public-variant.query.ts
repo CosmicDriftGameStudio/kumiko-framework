@@ -16,6 +16,11 @@
 // feature.ts), `ctx.user.tenantId` instead comes from that dispatcher's own
 // `anonymousAccess` resolution — tenant provenance there depends on the
 // consumer's `resolverTrust`/anonymousAccess setup, not the host.
+//
+// In `publicTenantResolution: "fileRef"` mode, this handler is also the
+// `ctx.queryAs(createAnonymousUser(fileRefTenantId), ...)` target of
+// publicVariantByFileRefQuery — tenantId there comes from the FileRef row,
+// but this handler's own isPublic gate runs exactly the same either way.
 
 import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -72,15 +77,19 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
 // def itself — mirrors managed-pages' BY_SLUG_QN.
 export const PUBLIC_VARIANT_QN = "file-derivatives:query:public-variant";
 
+// Shared with publicVariantByFileRefQuery — same payload shape, both routes
+// forward `{ fileRefId, variant }` unchanged.
+export const publicVariantPayloadSchema = z.object({
+  // Loose, version-agnostic UUID shape (same as isUuid/TENANT_ID_REGEX in
+  // packages/types) — not zod's `.uuid()`, which is stricter than this
+  // repo's convention and would reject valid v7/nil ids the DB accepts.
+  fileRefId: z.string().refine(isUuid, "invalid fileRefId"),
+  variant: z.string().min(1).max(64),
+});
+
 export const publicVariantQuery = defineQueryHandler({
   name: "public-variant",
-  schema: z.object({
-    // Loose, version-agnostic UUID shape (same as isUuid/TENANT_ID_REGEX in
-    // packages/types) — not zod's `.uuid()`, which is stricter than this
-    // repo's convention and would reject valid v7/nil ids the DB accepts.
-    fileRefId: z.string().refine(isUuid, "invalid fileRefId"),
-    variant: z.string().min(1).max(64),
-  }),
+  schema: publicVariantPayloadSchema,
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
   agent: { expose: false },
   // ponytail: "ip" trusts the first x-forwarded-for hop (buildRequestContextData
