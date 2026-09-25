@@ -34,6 +34,10 @@ export function parseMaxSize(maxSize: string): number {
   }
 }
 
+function extractExtension(fileName: string): string | undefined {
+  return fileName.split(".").pop()?.toLowerCase();
+}
+
 // Extension → acceptable MIME-type whitelist. Guards against a client
 // uploading e.g. name="x.jpg" with mimeType="application/pdf" to slip an
 // executable past the extension-only check. Kept small & conservative — add
@@ -53,6 +57,21 @@ const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
   doc: ["application/msword"],
   docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
 } satisfies Record<string, readonly string[]>;
+
+// Extension → declared MIME → canonical MIME. Windows resolves .csv's upload
+// MIME from Explorer's Excel file association, sending "application/vnd.ms-excel" for plain-text CSV.
+const EXTENSION_MIME_ALIASES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  csv: { "application/vnd.ms-excel": "text/csv" },
+};
+
+// Object.hasOwn at both levels: a plain `in` check on `{}` resolves to
+// Object.prototype members ("constructor", …) for any ext/mimeType.
+function lookupMimeAlias(ext: string, normalizedMimeType: string): string | undefined {
+  if (!Object.hasOwn(EXTENSION_MIME_ALIASES, ext)) return undefined;
+  const aliasesForExt = EXTENSION_MIME_ALIASES[ext];
+  if (!aliasesForExt || !Object.hasOwn(aliasesForExt, normalizedMimeType)) return undefined;
+  return aliasesForExt[normalizedMimeType];
+}
 
 // Magic-byte signatures for the subset of EXTENSION_MIME_WHITELIST that has
 // a reliable binary signature. Used at SERVE time — never trust the stored/
@@ -108,6 +127,14 @@ function startsWithAscii(bytes: Uint8Array, ascii: string, offset = 0): boolean 
   return true;
 }
 
+/**
+ * Canonical MIME type for a known binary magic-byte signature (png, jpeg,
+ * gif, webp, pdf, OLE, ZIP), or null for everything else — text formats
+ * (csv, txt, json, svg, md) have no signature and always return null. Every
+ * OLE Compound File (.doc/.xls/.ppt) returns "application/msword" and every
+ * ZIP (.docx/.xlsx/.pptx/.zip) returns the docx MIME — callers can't tell
+ * those apart by bytes alone.
+ */
 export function sniffMimeType(bytes: Uint8Array): string | null {
   for (const signature of MAGIC_BYTE_SIGNATURES) {
     if (signature.matches(bytes)) return signature.mimeType;
@@ -165,7 +192,7 @@ export function validateFile(
   }
 
   if (options.accept && options.accept.length > 0) {
-    const ext = metadata.fileName.split(".").pop()?.toLowerCase();
+    const ext = extractExtension(metadata.fileName);
     if (!ext || !options.accept.includes(ext)) {
       return `invalid_file_type: ".${ext}" is not in [${options.accept.join(", ")}]`;
     }
@@ -176,7 +203,8 @@ export function validateFile(
     const allowedMimes = EXTENSION_MIME_WHITELIST[ext];
     if (allowedMimes && metadata.mimeType) {
       const normalized = normalizeMimeType(metadata.mimeType);
-      if (!allowedMimes.includes(normalized)) {
+      const isAliasedMime = lookupMimeAlias(ext, normalized) !== undefined;
+      if (!allowedMimes.includes(normalized) && !isAliasedMime) {
         return `mime_mismatch: extension ".${ext}" does not match mimeType "${metadata.mimeType}"`;
       }
     }
@@ -196,6 +224,33 @@ export function validateFileContent(mimeType: string, content: Uint8Array): stri
     return `content_mismatch: bytes do not match declared mimeType "${mimeType}"`;
   }
   return null;
+}
+
+export type UploadMimeTypeResolution =
+  | { readonly kind: "ok"; readonly mimeType: string }
+  | { readonly kind: "rejected"; readonly error: string };
+
+/**
+ * Rewrites an aliased declared mimeType to its canonical form and, in the
+ * same call, sniffs the bytes — a renamed binary (a real .xls/.xlsx saved
+ * as .csv) must fail here rather than through an optional, skippable step.
+ */
+export function resolveUploadMimeType(
+  fileName: string,
+  declaredMimeType: string,
+  content: Uint8Array,
+): UploadMimeTypeResolution {
+  const ext = extractExtension(fileName);
+  const normalizedDeclared = normalizeMimeType(declaredMimeType);
+  const canonical = ext ? lookupMimeAlias(ext, normalizedDeclared) : undefined;
+  if (!canonical) return { kind: "ok", mimeType: declaredMimeType };
+  if (sniffMimeType(content) !== null) {
+    return {
+      kind: "rejected",
+      error: `content_mismatch: bytes of ".${ext}" upload declared as "${declaredMimeType}" are a binary format`,
+    };
+  }
+  return { kind: "ok", mimeType: canonical };
 }
 
 export function assertSafeStorageKey(key: string): void {

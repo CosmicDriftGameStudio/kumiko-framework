@@ -8,6 +8,7 @@ import { buildServer } from "../../api/server";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto";
 import {
   createEntity,
+  createFileField,
   createImageField,
   createRegistry,
   createTextField,
@@ -35,7 +36,13 @@ import type { FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 import type { FileStorageProvider, SignedUrlOptions } from "../types";
-import { parseMaxSize, sniffMimeType, validateFile, validateFileContent } from "../types";
+import {
+  parseMaxSize,
+  resolveUploadMimeType,
+  sniffMimeType,
+  validateFile,
+  validateFileContent,
+} from "../types";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
 // the query — the row just isn't there. Pre-v1 files-feature tests used
@@ -59,6 +66,7 @@ const testTenantEntity = createEntity({
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     logo: createImageField({ maxSize: "2mb", accept: ["png", "jpg"] }),
+    importFile: createFileField({ maxSize: "2mb", accept: ["csv"] }),
   },
 });
 
@@ -296,6 +304,91 @@ describe("file validation", () => {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     );
   });
+
+  // --- .csv declared as application/vnd.ms-excel (Windows browsers) ---
+
+  test("validateFile accepts .csv declared as application/vnd.ms-excel when csv is in accept", () => {
+    expect(
+      validateFile(
+        { fileName: "data.csv", mimeType: "application/vnd.ms-excel", size: 100 },
+        { accept: ["csv"] },
+      ),
+    ).toBeNull();
+  });
+
+  test("validateFile does not extend the vnd.ms-excel alias to extensions other than csv", () => {
+    const error = validateFile(
+      { fileName: "photo.jpg", mimeType: "application/vnd.ms-excel", size: 100 },
+      { accept: ["jpg"] },
+    );
+    expectErrorIncludes(error, "mime_mismatch");
+  });
+
+  test("validateFile rejects a prototype-property mimeType instead of treating it as an alias match", () => {
+    const error = validateFile(
+      { fileName: "photo.jpg", mimeType: "constructor", size: 100 },
+      { accept: ["jpg"] },
+    );
+    expectErrorIncludes(error, "mime_mismatch");
+  });
+
+  describe("resolveUploadMimeType", () => {
+    const textCsvBytes = new TextEncoder().encode("name,age\nAda,36\n");
+
+    test("rewrites .csv + application/vnd.ms-excel to text/csv when bytes are text", () => {
+      expect(resolveUploadMimeType("data.csv", "application/vnd.ms-excel", textCsvBytes)).toEqual({
+        kind: "ok",
+        mimeType: "text/csv",
+      });
+    });
+
+    test("rewrites regardless of charset suffix or case", () => {
+      expect(
+        resolveUploadMimeType("data.csv", "Application/VND.MS-EXCEL; charset=utf-8", textCsvBytes),
+      ).toEqual({ kind: "ok", mimeType: "text/csv" });
+    });
+
+    test("rejects .csv + application/vnd.ms-excel when bytes are a real OLE binary", () => {
+      const result = resolveUploadMimeType("data.csv", "application/vnd.ms-excel", docBytes);
+      expect(result.kind).toBe("rejected");
+      if (result.kind === "rejected") {
+        expectErrorIncludes(result.error, "content_mismatch");
+      }
+    });
+
+    test("rejects .csv + application/vnd.ms-excel when bytes are a ZIP container (.xlsx)", () => {
+      const result = resolveUploadMimeType("data.csv", "application/vnd.ms-excel", docxBytes);
+      expect(result.kind).toBe("rejected");
+      if (result.kind === "rejected") {
+        expectErrorIncludes(result.error, "content_mismatch");
+      }
+    });
+
+    test("leaves .csv + text/plain unchanged", () => {
+      expect(resolveUploadMimeType("data.csv", "text/plain", textCsvBytes)).toEqual({
+        kind: "ok",
+        mimeType: "text/plain",
+      });
+    });
+
+    test("leaves .xls + application/vnd.ms-excel unchanged (alias is csv-only)", () => {
+      expect(resolveUploadMimeType("data.xls", "application/vnd.ms-excel", docBytes)).toEqual({
+        kind: "ok",
+        mimeType: "application/vnd.ms-excel",
+      });
+    });
+
+    test("a prototype-property extension or mimeType never resolves as an alias", () => {
+      expect(resolveUploadMimeType("x.constructor", "name", textCsvBytes)).toEqual({
+        kind: "ok",
+        mimeType: "name",
+      });
+      expect(resolveUploadMimeType("data.csv", "constructor", textCsvBytes)).toEqual({
+        kind: "ok",
+        mimeType: "constructor",
+      });
+    });
+  });
 });
 
 // --- Integration: Upload → Download → Delete via real HTTP API ---
@@ -520,6 +613,40 @@ describe("doc/docx upload is content-verified against magic bytes", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("content_mismatch");
+  });
+});
+
+// Bun's formData() derives File#type from the filename, so .csv never
+// arrives as vnd.ms-excel here; the csv alias is covered by the unit tests above.
+describe("vnd.ms-excel via HTTP (.xls)", () => {
+  const docBytes = new Uint8Array([
+    0xd0,
+    0xcf,
+    0x11,
+    0xe0,
+    0xa1,
+    0xb1,
+    0x1a,
+    0xe1,
+    ...Array(20).fill(0),
+  ]);
+
+  test("unattached .xls declared as application/vnd.ms-excel keeps its declared mimeType unchanged", async () => {
+    const res = await uploadFile(adminUser, "legacy.xls", docBytes, "application/vnd.ms-excel");
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.mimeType).toBe("application/vnd.ms-excel");
+  });
+
+  test("attached .xls upload is rejected by the importFile field's csv-only accept list", async () => {
+    const res = await uploadFile(adminUser, "legacy.xls", docBytes, "application/vnd.ms-excel", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "importFile",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("invalid_file_type");
   });
 });
 
