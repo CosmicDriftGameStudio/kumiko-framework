@@ -385,13 +385,34 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     );
   }
 
+  // A pass still in doPass's idle pre-check (selectIdleConsumerKeys) hasn't
+  // registered any consumer turn in inFlightTurns yet — stop() must wait for
+  // it too, or it keeps querying the pool stop() is about to close.
+  const inFlightPasses = new Set<Promise<DispatcherPassResult>>();
+
+  async function drainInFlightPasses(): Promise<void> {
+    await Promise.all(
+      [...inFlightPasses].map((pass) =>
+        pass.catch(() => {
+          // skip: errors already recorded per-consumer inside the pass
+        }),
+      ),
+    );
+  }
+
   async function runOnce(): Promise<DispatcherPassResult> {
     if (!preRegistered) {
       throw new Error(
         "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
       );
     }
-    return doPass();
+    const pass = doPass();
+    inFlightPasses.add(pass);
+    try {
+      return await pass;
+    } finally {
+      inFlightPasses.delete(pass);
+    }
   }
 
   async function doPass(): Promise<DispatcherPassResult> {
@@ -764,7 +785,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         emitEventDispatcherListenConnected(meter, false);
       }
 
-      // Drain any in-flight pass so shutdown observes consistent state.
+      // Drain any in-flight pass so shutdown observes consistent state —
+      // including one still stuck in the idle pre-check above inFlightTurns.
+      await drainInFlightPasses();
       await drainInFlightTurns();
       // preRegistered stays true — the rows survive stop(). runOnce()
       // after a stop() still works (tests stop the timer and then drain

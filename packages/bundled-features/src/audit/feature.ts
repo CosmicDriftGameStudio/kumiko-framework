@@ -126,8 +126,7 @@ export function createAuditFeature(): FeatureDefinition {
             },
           ],
         },
-        description:
-          "Read-only detail view of one audit event showing actor, timestamp, aggregate and the raw event payload and metadata; reached from a row of the audit log.",
+        description: "audit.log.detail.subtitle",
         listScreenId: AUDIT_LOG_SCREEN_ID,
         access: { roles: access.admin },
       });

@@ -276,7 +276,13 @@ function buildScreens(
       id: screen.id,
       type: screen.type,
       titles: labelsForSuffix(translations, `screen:${shortId}.title`),
-      ...(screen.description !== undefined && { description: screen.description }),
+      // `screen.description` may be a raw i18n key (`registry.getAllTranslations()`
+      // double-prefixes it, see build-app-schema.ts:77-81) — match on suffix like
+      // `labelsForSuffix` does for entity/field labels, else fall back to the
+      // literal string as authored.
+      ...(screen.description !== undefined && {
+        description: labelsForSuffix(translations, screen.description)["en"] ?? screen.description,
+      }),
       ...("entity" in screen && screen.entity !== undefined && { entity: screen.entity }),
       // A detail screen takes the row id; everything else is parameterless.
       params: screen.detailFor !== undefined ? ["id"] : [],

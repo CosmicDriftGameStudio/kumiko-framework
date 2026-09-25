@@ -326,11 +326,12 @@ export async function selectConsumerForUpdate(
   db: AnyDb,
   name: string,
   instanceId: string,
-): Promise<void> {
-  await asRawClient(db).unsafe(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = (await asRawClient(db).unsafe(
     `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE`,
     [name, instanceId],
-  );
+  )) as ReadonlyArray<Record<string, unknown>>;
+  return rows[0];
 }
 
 export async function updateConsumerRebuildCursor(

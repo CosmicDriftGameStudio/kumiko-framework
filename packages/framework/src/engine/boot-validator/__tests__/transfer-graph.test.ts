@@ -115,6 +115,18 @@ describe("validateTransferGraph", () => {
     expect(() => validate(chain)).not.toThrow();
   });
 
+  // A feature-prefixed reference target ("<feature>:<entity>") must resolve
+  // to the same entity name as an unprefixed one, or a chain built entirely
+  // out of prefixed refs would silently never trip the depth limit.
+  test("counts a chain of feature-prefixed reference targets into the depth limit", () => {
+    const chain: Record<string, EntityDefinition> = { e0: entity({}) };
+    for (let i = 1; i <= MAX_TRANSFER_DEPTH + 1; i++) {
+      chain[`e${i}`] = entity({ references: { parentId: { entity: `graph:e${i - 1}` } } });
+    }
+
+    expect(() => validate(chain)).toThrow(/deeper than the 5-level limit.*e0 -> e1/s);
+  });
+
   test("terminates on a reference cycle instead of reporting false depth", () => {
     expect(() =>
       validate({

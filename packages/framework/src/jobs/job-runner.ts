@@ -13,6 +13,7 @@ import {
   type JobContext,
   type JobDefinition,
   type JobRunIn,
+  type JobTriggerEvent,
   type MemberReader,
   type Registry,
   type SessionUser,
@@ -41,6 +42,22 @@ import {
   parseWriteOrigin,
 } from "../pipeline/write-origin";
 import { bridgeStub } from "../testing/handler-context";
+
+// Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
+// (a security-relevant escape hatch that must fail the run closed), a
+// malformed `_triggerEvent` only costs an idempotency-key convenience — the
+// run proceeds without it rather than failing over what would be a framework
+// bug, not untrusted input.
+function isJobTriggerEvent(value: unknown): value is JobTriggerEvent {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate["id"] !== "string") return false;
+  const headers = candidate["headers"];
+  if (typeof headers !== "object" || headers === null) return false;
+  return Object.values(headers as Record<string, unknown>).every(
+    (v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean",
+  );
+}
 
 // A payload's own `_writeOrigin` is never trusted; only the ambient gated origin is stamped.
 function stampGatedWriteOrigin(data: Record<string, unknown>): void {
@@ -216,6 +233,7 @@ export type JobRunner = {
     eventName: string,
     payload: Record<string, unknown>,
     user?: SessionUser,
+    triggerEvent?: JobTriggerEvent,
   ): Promise<void>;
   // Wires JobContext.write/writeAs/queryAs to the real dispatcher — called
   // once at boot, after the dispatcher exists (job-runner construction happens
@@ -759,6 +777,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // don't dig through the raw payload themselves.
     const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
 
+    // Same carry-through for `_triggerEvent` — handleEvent injects it when
+    // the job-trigger event consumer supplied the stored event that fired
+    // this run (see createJobTriggerEventConsumer).
+    const rawTriggerEvent = rawData["_triggerEvent"];
+    const triggerEvent = isJobTriggerEvent(rawTriggerEvent) ? rawTriggerEvent : undefined;
+
     // Absent = legacy or ungated root; present but invalid fails the run closed.
     const rawWriteOrigin = rawData["_writeOrigin"]; // @cast-boundary dynamic-key
     let jobOrigin: WriteOrigin | undefined;
@@ -866,6 +890,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: createJobLogger(logs),
       ...(triggerName !== undefined && { triggerName }),
+      ...(triggerEvent !== undefined && { triggerEvent }),
       write: (qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
           throw new Error(
@@ -1258,6 +1283,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       eventName: string,
       payload: Record<string, unknown>,
       user?: SessionUser,
+      triggerEvent?: JobTriggerEvent,
     ): Promise<void> {
       const traceCtx = captureTraceContext(tracer);
       // Same correlation propagation as dispatch(): events triggered from
@@ -1285,6 +1311,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // setzen wir es auch — kostet nichts und vereinfacht Handler-Code
         // (kein "ist es Multi?"-Branch nötig).
         data["_triggerName"] = eventName;
+        if (triggerEvent) data["_triggerEvent"] = triggerEvent;
         if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
         if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
         // Same maxPerTenant guard as dispatch — events that fan into many

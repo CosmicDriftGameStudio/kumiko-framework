@@ -11,7 +11,13 @@ export type DbConnectionOptions = {
   readonly maxConnections?: number;
   readonly idleTimeoutSeconds?: number;
   readonly connectTimeoutSeconds?: number;
+  readonly closeTimeoutSeconds?: number;
 };
+
+// A DB outage can leave an in-flight query referenced on a dead connection,
+// so a plain end() (no timeout = wait for queries to finish) hangs forever —
+// close() must always bound how long shutdown waits.
+export const DEFAULT_DB_CLOSE_TIMEOUT_SECONDS = 5;
 
 // Connection-Handle: db für Queries, client für Legacy-Zugriff (LISTEN/NOTIFY-Peer
 // bei Bun.SQL), close für Pool-Shutdown.

@@ -8,6 +8,7 @@ export {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "./invitation-table";
+export { isTenantServingPublicContent } from "./is-tenant-serving-public-content";
 export { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 export {
   TENANT_LIFECYCLE_STATUSES,

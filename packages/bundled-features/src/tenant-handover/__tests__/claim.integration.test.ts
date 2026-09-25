@@ -143,6 +143,48 @@ const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("linkB", linkBEntity);
 });
 
+// kumiko-framework#3088 fix: a `reference` field's `entity` may carry a
+// feature prefix ("<feature>:<entity>", engine/parse-ref-target.ts) for
+// cross-feature refs — transfer-graph resolution must strip it, or an
+// entity linked this way is never reachable from the root and the claim
+// silently moves only the rows it happened to name directly. Root (run,
+// "handover-fixtures") -> child (own feature) -> grandchild (a THIRD
+// feature), both edges declared with a feature-prefixed target.
+const prefixedChildEntity: EntityDefinition = createEntity({
+  table: "handover_prefixed_child",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    runId: { type: "reference", entity: "handover-fixtures:run", required: true },
+    label: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
+const handoverPrefixedChildFeature = defineFeature("handover-fixtures-prefixed-child", (r) => {
+  r.entity("prefixedChild", prefixedChildEntity);
+});
+
+const prefixedGrandchildEntity: EntityDefinition = createEntity({
+  table: "handover_prefixed_grandchild",
+  idType: "uuid",
+  transferable: true,
+  fields: {
+    parentId: {
+      type: "reference",
+      entity: "handover-fixtures-prefixed-child:prefixedChild",
+      required: true,
+    },
+    label: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
+const handoverPrefixedGrandchildFeature = defineFeature(
+  "handover-fixtures-prefixed-grandchild",
+  (r) => {
+    r.entity("prefixedGrandchild", prefixedGrandchildEntity);
+  },
+);
+
 const runTable = buildEntityTable("run", runEntity);
 const photoTable = buildEntityTable("photo", photoEntity);
 const noteTable = buildEntityTable("note", noteEntity);
@@ -151,6 +193,8 @@ const campaignTable = buildEntityTable("campaign", campaignEntity);
 const channelTextTable = buildEntityTable("channelText", channelTextEntity);
 const linkATable = buildEntityTable("linkA", linkAEntity);
 const linkBTable = buildEntityTable("linkB", linkBEntity);
+const prefixedChildTable = buildEntityTable("prefixedChild", prefixedChildEntity);
+const prefixedGrandchildTable = buildEntityTable("prefixedGrandchild", prefixedGrandchildEntity);
 
 const runCrud = createEventStoreExecutor(runTable, runEntity, { entityName: "run" });
 const photoCrud = createEventStoreExecutor(photoTable, photoEntity, { entityName: "photo" });
@@ -164,6 +208,14 @@ const channelTextCrud = createEventStoreExecutor(channelTextTable, channelTextEn
 });
 const linkACrud = createEventStoreExecutor(linkATable, linkAEntity, { entityName: "linkA" });
 const linkBCrud = createEventStoreExecutor(linkBTable, linkBEntity, { entityName: "linkB" });
+const prefixedChildCrud = createEventStoreExecutor(prefixedChildTable, prefixedChildEntity, {
+  entityName: "prefixedChild",
+});
+const prefixedGrandchildCrud = createEventStoreExecutor(
+  prefixedGrandchildTable,
+  prefixedGrandchildEntity,
+  { entityName: "prefixedGrandchild" },
+);
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
@@ -183,7 +235,12 @@ function destinationUser(tenantN: number) {
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createTenantHandoverFeature({ grantSecret: SECRET }), handoverFixturesFeature],
+    features: [
+      createTenantHandoverFeature({ grantSecret: SECRET }),
+      handoverFixturesFeature,
+      handoverPrefixedChildFeature,
+      handoverPrefixedGrandchildFeature,
+    ],
   });
   await unsafeCreateEntityTable(stack.db, runEntity, "run");
   await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
@@ -193,6 +250,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, channelTextEntity, "channelText");
   await unsafeCreateEntityTable(stack.db, linkAEntity, "linkA");
   await unsafeCreateEntityTable(stack.db, linkBEntity, "linkB");
+  await unsafeCreateEntityTable(stack.db, prefixedChildEntity, "prefixedChild");
+  await unsafeCreateEntityTable(stack.db, prefixedGrandchildEntity, "prefixedGrandchild");
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
@@ -203,7 +262,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await stack.db.unsafe?.(
-    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, file_refs RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -298,6 +357,30 @@ async function pointLinkABack(tenantId: TenantId, linkAId: string, viaB: string)
   const db = createTenantDb(stack.db, tenantId, "system");
   const result = await linkACrud.update({ id: linkAId, version: 1, changes: { viaB } }, user, db);
   if (!result.isSuccess) throw new Error(`pointLinkABack failed: ${result.error.message}`);
+}
+
+async function seedPrefixedChild(
+  tenantId: TenantId,
+  runId: string,
+  label: string,
+): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await prefixedChildCrud.create({ runId, label }, user, db);
+  if (!result.isSuccess) throw new Error(`seedPrefixedChild failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedPrefixedGrandchild(
+  tenantId: TenantId,
+  parentId: string,
+  label: string,
+): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await prefixedGrandchildCrud.create({ parentId, label }, user, db);
+  if (!result.isSuccess) throw new Error(`seedPrefixedGrandchild failed: ${result.error.message}`);
+  return String(result.data.id);
 }
 
 async function seedFileRef(
@@ -603,6 +686,36 @@ describe("tenant-handover :: claim", () => {
       dest,
     );
     expect(err.httpStatus).toBe(422);
+  });
+
+  // kumiko-framework#3088 fix: transfer-graph resolution previously took a
+  // reference field's `entity` raw, so "<feature>:<entity>" targets never
+  // formed an edge and only the root ever moved. Root and child live in
+  // different features (both prefixed edges), grandchild in a third.
+  test("claims a chain of feature-prefixed reference edges whole: root -> child -> grandchild", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const childId = await seedPrefixedChild(SOURCE_TENANT, runId, "child");
+    const grandchildId = await seedPrefixedGrandchild(SOURCE_TENANT, childId, "grandchild");
+
+    const dest = destinationUser(1);
+    const data = await stack.http.writeOk<{ movedEntities: Record<string, number> }>(
+      CLAIM,
+      { token: grantFor(runId), entityType: "run" },
+      dest,
+    );
+
+    expect(data.movedEntities).toEqual({ run: 1, prefixedChild: 1, prefixedGrandchild: 1 });
+
+    expect(await readTenantId("handover_run", runId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_prefixed_child", childId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_prefixed_grandchild", grandchildId)).toBe(dest.tenantId);
+
+    expect(
+      (await loadAggregate(stack.db, grandchildId, dest.tenantId)).some(
+        (e) => e.type === "prefixedGrandchild.created",
+      ),
+    ).toBe(true);
+    expect(await loadAggregate(stack.db, grandchildId, SOURCE_TENANT)).toHaveLength(0);
   });
 
   test("a parentRef-linked child that is not declared transferable blocks the whole claim, root included", async () => {

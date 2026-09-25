@@ -542,7 +542,10 @@ export function createJobTriggerEventConsumer(
         tenantId: event.tenantId,
         roles: [],
       };
-      await jobRunner.handleEvent(event.type, event.payload, user);
+      await jobRunner.handleEvent(event.type, event.payload, user, {
+        id: event.id,
+        headers: event.metadata.headers ?? {},
+      });
     },
   };
 }

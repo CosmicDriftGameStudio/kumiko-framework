@@ -26,6 +26,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
+import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
 import type { AuthMailLocale } from "../email-templates";
 import { renderActivationEmail } from "../email-templates";
@@ -34,14 +35,29 @@ import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
 import {
   invalidateExistingSignupToken,
   normalizeEmail,
+  storeSignupHandover,
   storeSignupToken,
+  takeOverSignupHandoverForResend,
 } from "../signup-token-store";
 
 const SIGNUP_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
 
 const SignupRequestSchema = z.object({
   email: z.email(),
+  // Cross-device try-first handover (kumiko-framework#3035 follow-up,
+  // offlot-app#454) — see shared/signup-handover.ts for why the grant is
+  // verified here and rebound to the signup token instead of the client
+  // carrying it through the activation link.
+  handover: z
+    .object({
+      entityType: z.string().min(1),
+      token: z.string().min(1),
+    })
+    .optional(),
 });
+
+const HANDOVER_GRANT_VERIFY_REASON =
+  "verifies a tenant-handover grant against its root row in the source tenant (read-only anchor lookup) before binding it to the signup token";
 
 export type SignupRequestData =
   | {
@@ -79,6 +95,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     description:
       "Starts magic-link self-registration by mailing a fresh activation link to an address and invalidating any link still outstanding for it; the answer looks the same whether or not the address is already registered.",
+    escapeHatch: { reason: HANDOVER_GRANT_VERIFY_REASON },
     handler: async (event, ctx) => {
       // Silent no-op when off, matching the route's own always-200
       // anti-enumeration contract (registerTokenRequestRoute swallows every
@@ -114,6 +131,12 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // between lookup paths that lowercase differently (or not at all).
       const email = event.payload.email;
 
+      // Read off the OLD token's binding before it's invalidated below — a
+      // resend without a fresh `handover` in the payload (the common case:
+      // the visitor just retyped their email) must still carry the earlier
+      // verified grant over to the new token instead of silently dropping it.
+      const priorBinding = await takeOverSignupHandoverForResend(ctx.redis, email);
+
       // At most one live signup token per email: invalidate whatever's
       // there before minting the new one (see signup-token-store.ts).
       await invalidateExistingSignupToken(ctx.redis, email);
@@ -130,6 +153,43 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       const expiresAtIso = expiresAt.toString();
 
       await storeSignupToken(ctx.redis, { email, token, ttlSeconds });
+
+      // A handover grant in this request re-verifies and replaces the prior
+      // binding; anything short of a fresh, verified grant (no provider
+      // mounted, or verification failed) falls back to it instead —
+      // dropping a still-live binding on a bad request would strand the
+      // visitor's run. A throw here must never skip the mail below, or the
+      // signup itself silently breaks for a bug in a provider this handler
+      // doesn't own.
+      let binding: SignupHandoverBinding | null = priorBinding;
+      if (event.payload.handover) {
+        const { entityType, token: grantToken } = event.payload.handover;
+        const provider = findSignupHandoverProvider(ctx.registry);
+        if (!provider) {
+          ctx.log?.warn(
+            "signup-request: handover payload present but no signupHandover provider mounted",
+          );
+        } else {
+          try {
+            const verified = await provider.verifyGrant({
+              db: ctx.db.unsafeRaw(HANDOVER_GRANT_VERIFY_REASON),
+              registry: ctx.registry,
+              entityType,
+              token: grantToken,
+            });
+            if (verified) {
+              binding = verified;
+            } else {
+              ctx.log?.warn("signup-request: handover grant did not verify", { entityType });
+            }
+          } catch {
+            ctx.log?.warn("signup-request: handover grant verification threw", { entityType });
+          }
+        }
+      }
+      if (binding) {
+        await storeSignupHandover(ctx.redis, { token, binding, ttlSeconds });
+      }
 
       // normalizeEmail from the store — one source of truth for
       // normalization; the delivery recipient + lookup path consistently

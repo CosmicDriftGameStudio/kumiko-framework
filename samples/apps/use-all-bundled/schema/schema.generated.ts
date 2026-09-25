@@ -57,6 +57,7 @@ export const tenantInvitationTable = buildEntityTable("tenant-invitation", _tena
 export const tenantSecretTable = buildEntityTable("tenant-secret", _secrets.entities["tenant-secret"]!);
 export const userMfaTable = buildEntityTable("user-mfa", _authMfa.entities["user-mfa"]!);
 export const notificationPreferenceTable = buildEntityTable("notification-preference", _delivery.entities["notification-preference"]!);
+export const notificationAddressOptOutTable = buildEntityTable("notification-address-opt-out", _delivery.entities["notification-address-opt-out"]!);
 export const fileRefTable = buildEntityTable("fileRef", _files.entities["fileRef"]!);
 export const tierAssignmentTable = buildEntityTable("tier-assignment", _tierEngine.entities["tier-assignment"]!);
 export const capCounterTable = buildEntityTable("cap-counter", _capCounter.entities["cap-counter"]!);

@@ -160,6 +160,11 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
       // would expose its unsafeRaw, cross-tenant FileRef lookup via the
       // generic `/api` query dispatch even in default "host" mode.
       if (byFileRef) {
+        // The handler reads the FileRef-tenant's row to keep a blocked
+        // tenant's public variants from staying reachable — require the
+        // dependency so a missing mount fails boot, not the tenant check
+        // silently no-op-ing at request time.
+        r.requires("tenant");
         r.queryHandler(publicVariantByFileRefQuery);
       }
 

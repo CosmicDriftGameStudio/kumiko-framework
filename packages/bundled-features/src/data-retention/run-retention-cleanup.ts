@@ -40,15 +40,26 @@
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  collectPiiSubjectFields,
+  configuredPiiSubjectKms,
+  isSelfPiiField,
+  type KmsAdapter,
+  resolveSubjectForField,
+  type SubjectId,
+  subjectIdToKey,
+} from "@cosmicdrift/kumiko-framework/crypto";
+import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
+  nullBlindIndexesForSubject,
   type TenantDb,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
 import { deleteStoredFileAndDerivatives } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
+  type EntityDefinition,
   type EntityId,
   type Registry,
   type SessionUser,
@@ -59,6 +70,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { runInSubTransaction } from "../shared";
 import { computeCutoff, type Instant } from "./keep-for";
 import type { RetentionPresetKey } from "./presets";
 import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant";
@@ -92,6 +104,11 @@ export interface RunRetentionCleanupArgs {
    *  Missing while fileRefs are due → the row stays (skipped "missing_file_storage"),
    *  fail-closed instead of orphaning bytes. */
   readonly files?: FileContext;
+  /** KMS for erasing a hardDeleted row's own subject key (Refs #2057). Defaults
+   *  to configuredPiiSubjectKms() (same fallback as run-forget-cleanup.ts);
+   *  undefined/no-KMS-configured skips erasure entirely — the row is still
+   *  hard-deleted, only crypto-shredding of its DEK is not attempted. */
+  readonly kms?: KmsAdapter;
 }
 
 export interface RetentionCleanupSkip {
@@ -129,6 +146,110 @@ async function purgeMatchingRows(
     if (res.isSuccess) count++;
   }
   return count;
+}
+
+// --- hardDelete crypto-shredding (Refs #2057) ---
+//
+// recordOwned/self-pii resolution (subject-resolver.ts) only ever reads
+// `row.id` for these two kinds — resolveRecordSubject uses opts.entityName +
+// row.id, resolveSelfPiiSubject uses row.id alone — so a `{ id }`-shaped row
+// (purgeMatchingRows's hardDelete select) is enough; the with-files path's
+// full row works the same way.
+//
+// userOwned/tenantOwned are explicitly excluded: hardDelete only destroys
+// THIS row's own data, but the owning user's/tenant's key may still protect
+// OTHER live rows that reference the same subject — erasing it here would
+// be a silent cross-row data-loss bug, not a retention fix.
+function collectHardDeleteEraseSubjects(
+  entity: EntityDefinition,
+  entityName: string,
+  tenantId: TenantId,
+  row: Record<string, unknown>,
+): readonly SubjectId[] {
+  const subjectsByKey = new Map<string, SubjectId>();
+  for (const fieldName of collectPiiSubjectFields(entity)) {
+    const field = entity.fields[fieldName];
+    if (!field) continue;
+    const isRecordOwned = "recordOwned" in field && field.recordOwned === true;
+    const isUserOwned = "userOwned" in field && field.userOwned !== undefined;
+    const isTenantOwned = "tenantOwned" in field && field.tenantOwned === true;
+    if (isUserOwned || isTenantOwned) continue; // never erase — see header comment
+    if (!isRecordOwned && !isSelfPiiField(field)) continue;
+    const subject = resolveSubjectForField(entity, fieldName, row, { tenantId, entityName });
+    if (subject) subjectsByKey.set(subjectIdToKey(subject), subject);
+  }
+  return Array.from(subjectsByKey.values());
+}
+
+// Erases the row's own recordOwned/self-pii subject key(s) + sweeps their
+// blind indexes. Called from INSIDE the same sub-transaction as the row's forget
+// (see forgetRowAndEraseKeys) — an eraseKey throw rolls the forget back too,
+// same crash-safety contract as run-forget-cleanup.ts:477-503 (eraseKey is
+// contractually idempotent per KmsAdapter, so a retried run re-erases safely).
+async function eraseHardDeletedRowKeys(args: {
+  readonly kms: KmsAdapter | undefined;
+  readonly tx: DbRunner;
+  readonly registry: Registry;
+  readonly entity: EntityDefinition;
+  readonly entityName: string;
+  readonly tenantId: TenantId;
+  readonly row: Record<string, unknown>;
+}): Promise<void> {
+  // skip: no KMS adapter, so there are no per-subject keys to erase
+  if (!args.kms) return;
+  const subjects = collectHardDeleteEraseSubjects(
+    args.entity,
+    args.entityName,
+    args.tenantId,
+    args.row,
+  );
+  for (const subject of subjects) {
+    await args.kms.eraseKey(subject, {
+      requestId: `data-retention:hardDelete:${args.entityName}:${String(args.row["id"])}`,
+      eraseReason: "data-retention:hardDelete",
+    });
+    await nullBlindIndexesForSubject(args.tx, args.registry.features, subjectIdToKey(subject));
+  }
+}
+
+// Shared by both hardDelete paths (purgeMatchingRows's op below and
+// purgeHardDeleteRowWithFiles) so the erase-after-forget ordering can't be
+// forgotten on either one. Wraps the executor's own forget() (which already
+// opens its own nested savepoints) in one sub-transaction that also covers
+// eraseKey + the blind-index sweep — a KMS failure rolls the whole row back,
+// not just the forget. The retention job hands in a pool connection, so this
+// must open a real BEGIN there; a savepoint-if-supported helper would run
+// unconfined and leave the row gone with its key still live.
+async function forgetRowAndEraseKeys(args: {
+  readonly db: DbRunner;
+  readonly executor: ReturnType<typeof createEventStoreExecutor>;
+  readonly entity: EntityDefinition;
+  readonly entityName: string;
+  readonly tenantId: TenantId;
+  readonly systemUser: SessionUser;
+  readonly row: Record<string, unknown>;
+  readonly kms: KmsAdapter | undefined;
+  readonly registry: Registry;
+}): Promise<{ readonly isSuccess: boolean }> {
+  return runInSubTransaction(args.db, async (sp) => {
+    const tdb = createTenantDb(sp, args.tenantId, "system");
+    const result = await args.executor.forget(
+      { id: args.row["id"] as EntityId },
+      args.systemUser,
+      tdb,
+    );
+    if (!result.isSuccess) return { isSuccess: false };
+    await eraseHardDeletedRowKeys({
+      kms: args.kms,
+      tx: sp,
+      registry: args.registry,
+      entity: args.entity,
+      entityName: args.entityName,
+      tenantId: args.tenantId,
+      row: args.row,
+    });
+    return { isSuccess: true };
+  });
 }
 
 // --- hardDelete + file-fields (kumiko-framework#3089) ---
@@ -240,6 +361,7 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly tableHasTenantId: boolean;
   readonly tenantId: TenantId;
   readonly entityName: string;
+  readonly entity: EntityDefinition;
   readonly row: Record<string, unknown>;
   readonly plan: FileFieldPlan;
   readonly files: FileContext | undefined;
@@ -247,9 +369,23 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly fileRefExecutor: ReturnType<typeof createEventStoreExecutor>;
   readonly systemUser: SessionUser;
   readonly tdb: TenantDb;
+  readonly kms: KmsAdapter | undefined;
+  readonly registry: Registry;
   readonly onSkip: (reason: "missing_file_storage" | "file_delete_failed") => void;
 }): Promise<boolean> {
   const rowId = String(args.row["id"]);
+  const forgetEntityRow = () =>
+    forgetRowAndEraseKeys({
+      db: args.db,
+      executor: args.entityExecutor,
+      entity: args.entity,
+      entityName: args.entityName,
+      tenantId: args.tenantId,
+      systemUser: args.systemUser,
+      row: args.row,
+      kms: args.kms,
+      registry: args.registry,
+    });
   const fileRefIds = await collectFileRefIds(
     args.db,
     args.tenantId,
@@ -258,13 +394,7 @@ async function purgeHardDeleteRowWithFiles(args: {
     args.plan,
   );
   if (fileRefIds.length === 0) {
-    return (
-      await args.entityExecutor.forget(
-        { id: args.row["id"] as EntityId },
-        args.systemUser,
-        args.tdb,
-      )
-    ).isSuccess;
+    return (await forgetEntityRow()).isSuccess;
   }
 
   const fileRefRows = await selectMany<Record<string, unknown>>(args.db, fileRefsTable, {
@@ -289,13 +419,7 @@ async function purgeHardDeleteRowWithFiles(args: {
   }
 
   if (toDelete.length === 0) {
-    return (
-      await args.entityExecutor.forget(
-        { id: args.row["id"] as EntityId },
-        args.systemUser,
-        args.tdb,
-      )
-    ).isSuccess;
+    return (await forgetEntityRow()).isSuccess;
   }
 
   if (!args.files) {
@@ -339,9 +463,7 @@ async function purgeHardDeleteRowWithFiles(args: {
     }
   }
 
-  return (
-    await args.entityExecutor.forget({ id: args.row["id"] as EntityId }, args.systemUser, args.tdb)
-  ).isSuccess;
+  return (await forgetEntityRow()).isSuccess;
 }
 
 // hardDelete page for an entity WITH file/image/files/images fields — loads
@@ -356,12 +478,15 @@ async function purgeHardDeleteRowsWithFiles(args: {
   readonly batchLimit: number;
   readonly tenantId: TenantId;
   readonly entityName: string;
+  readonly entity: EntityDefinition;
   readonly plan: FileFieldPlan;
   readonly files: FileContext | undefined;
   readonly entityExecutor: ReturnType<typeof createEventStoreExecutor>;
   readonly fileRefExecutor: ReturnType<typeof createEventStoreExecutor>;
   readonly systemUser: SessionUser;
   readonly tdb: TenantDb;
+  readonly kms: KmsAdapter | undefined;
+  readonly registry: Registry;
   readonly skipped: RetentionCleanupSkip[];
 }): Promise<number> {
   const rows = await selectMany<Record<string, unknown>>(args.db, args.table, args.where, {
@@ -383,6 +508,7 @@ async function purgeHardDeleteRowsWithFiles(args: {
       tableHasTenantId: args.tableHasTenantId,
       tenantId: args.tenantId,
       entityName: args.entityName,
+      entity: args.entity,
       row,
       plan: args.plan,
       files: args.files,
@@ -390,6 +516,8 @@ async function purgeHardDeleteRowsWithFiles(args: {
       fileRefExecutor: args.fileRefExecutor,
       systemUser: args.systemUser,
       tdb: args.tdb,
+      kms: args.kms,
+      registry: args.registry,
       onSkip,
     });
     if (ok) count++;
@@ -461,6 +589,7 @@ export async function runRetentionCleanup(
 ): Promise<RunRetentionCleanupResult> {
   const { db, registry, tenantId, tenantPreset, now } = args;
   const batchLimit = args.batchLimit ?? DEFAULT_BATCH_LIMIT;
+  const kms = args.kms ?? configuredPiiSubjectKms();
 
   let hardDeleted = 0;
   let softDeleted = 0;
@@ -531,7 +660,17 @@ export async function runRetentionCleanup(
         const filePlan = planFileFields(entity.fields);
         if (filePlan.singleFields.length === 0 && filePlan.multiFields.length === 0) {
           hardDeleted += await purgeMatchingRows(db, proj.table, where, batchLimit, (id) =>
-            executor.forget({ id }, systemUser, tdb),
+            forgetRowAndEraseKeys({
+              db,
+              executor,
+              entity,
+              entityName,
+              tenantId,
+              systemUser,
+              row: { id },
+              kms,
+              registry,
+            }),
           );
           break;
         }
@@ -546,12 +685,15 @@ export async function runRetentionCleanup(
           batchLimit,
           tenantId,
           entityName,
+          entity,
           plan: filePlan,
           files: args.files,
           entityExecutor: executor,
           fileRefExecutor,
           systemUser,
           tdb,
+          kms,
+          registry,
           skipped,
         });
         break;

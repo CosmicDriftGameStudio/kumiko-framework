@@ -32,7 +32,16 @@ export type StripeCheckoutOptions = Parameters<
   NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
 >[1];
 
-export function createStripeCheckoutSession(runtime: StripeCtxRuntime) {
+export type StripeCheckoutSessionRuntimeOptions = {
+  /** Whether a mode:"payment" checkout gets a Stripe invoice. Default true.
+   *  Never applied in mode:"subscription" — Stripe rejects invoice_creation there. */
+  readonly paymentInvoiceCreation?: boolean;
+};
+
+export function createStripeCheckoutSession(
+  runtime: StripeCtxRuntime,
+  { paymentInvoiceCreation = true }: StripeCheckoutSessionRuntimeOptions = {},
+) {
   return async (ctx: HandlerContext, options: StripeCheckoutOptions): Promise<{ url: string }> => {
     // #104-Invariante: ohne billing-live darf keine Stripe-Session
     // entstehen (sk_test_-Keys in prod erzeugen sonst einen Test-Mode-
@@ -52,9 +61,15 @@ export function createStripeCheckoutSession(runtime: StripeCtxRuntime) {
       // payment-mode) — the subsequent webhook reads metadata.tenantId off
       // the subscription it creates. payment-mode has no subscription, so
       // tenantId travels via payment_intent_data.metadata instead.
+      // invoice_creation is payment-mode-only for the same reason — Stripe
+      // rejects it in subscription-mode, which invoices via the subscription
+      // itself.
       ...(mode === "subscription"
         ? { subscription_data: { metadata: { tenantId: options.tenantId } } }
-        : { payment_intent_data: { metadata: { tenantId: options.tenantId } } }),
+        : {
+            payment_intent_data: { metadata: { tenantId: options.tenantId } },
+            invoice_creation: { enabled: paymentInvoiceCreation },
+          }),
       ...(options.providerCustomerId && { customer: options.providerCustomerId }),
     });
 

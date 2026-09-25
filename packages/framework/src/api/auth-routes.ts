@@ -148,6 +148,20 @@ const SignupConfirmBody = z.object({
   password: z.string().min(8).max(200),
 });
 
+// Cross-device try-first handover (kumiko-framework#3035 follow-up,
+// offlot-app#454): an optional tenant-handover grant the signup-request
+// route forwards to the handler for server-side verification and binding —
+// the grant itself never appears anywhere else (URL, mail, log, response).
+const SignupRequestBody = z.object({
+  email: z.email(),
+  handover: z
+    .object({
+      entityType: z.string().min(1).max(200),
+      token: z.string().min(1).max(4096),
+    })
+    .optional(),
+});
+
 const InviteAcceptBody = z.object({
   token: z.string().min(1),
 });
@@ -1122,6 +1136,7 @@ export function createAuthRoutes(
       dispatcher,
       path: Routes.authSignupRequest,
       requestHandler: sg.requestHandler,
+      schema: SignupRequestBody,
     });
 
     api.post(Routes.authSignupConfirm, async (c) => {
@@ -1149,6 +1164,7 @@ export function createAuthRoutes(
         kind: "auth-session";
         session: SessionUser;
         tenantKey: string;
+        handover?: { entityType: string; id: string };
       };
 
       // Session creation + JWT sign + cookies — see mintSessionAndRespond.
@@ -1168,6 +1184,11 @@ export function createAuthRoutes(
         // membership — die Frontend-UI nimmt das direkt als Redirect-
         // Target.
         tenantKey: data.tenantKey,
+        // Cross-device try-first handover (kumiko-framework#3035 follow-up):
+        // present only when signup-confirm actually claimed a bound grant —
+        // absent, not null, so a client that doesn't know the field sees
+        // nothing unusual.
+        ...(data.handover !== undefined && { handover: data.handover }),
       });
     });
   }
@@ -1462,8 +1483,12 @@ function registerTokenRequestRoute(opts: {
   dispatcher: Dispatcher;
   path: string;
   requestHandler: string;
+  // reset/verify/unlock keep the plain RequestTokenBody; signup passes its
+  // own schema (adds an optional `handover`, see SignupRequestBody above)
+  // so the extra field reaches the handler instead of being parsed away.
+  schema?: typeof RequestTokenBody | typeof SignupRequestBody;
 }): void {
-  const body = RequestTokenBody;
+  const body = opts.schema ?? RequestTokenBody;
   opts.api.post(opts.path, async (c) => {
     const raw = await c.req.json().catch(() => null);
     const parsed = body.safeParse(raw);
@@ -1478,7 +1503,7 @@ function registerTokenRequestRoute(opts: {
     // the log line (PII).
     const result = await opts.dispatcher.write(
       opts.requestHandler,
-      { email: parsed.data.email },
+      parsed.data,
       createAnonymousUser(SYSTEM_TENANT_ID),
     );
     if (!result.isSuccess) {

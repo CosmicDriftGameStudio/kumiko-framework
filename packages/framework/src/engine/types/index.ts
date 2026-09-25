@@ -185,6 +185,7 @@ export type {
   HandlerRef,
   JobContext,
   JobRunnerRef,
+  JobTriggerEvent,
   MemberReader,
   NameOrRef,
   NotifyFactory,

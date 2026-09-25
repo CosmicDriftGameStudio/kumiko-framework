@@ -1,9 +1,11 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { EXT_SIGNUP_HANDOVER } from "../shared";
 import { TENANT_HANDOVER_CLAIMED_EVENT_SHORT, tenantHandoverClaimedSchema } from "./events";
 import {
   type ClaimTenantHandoverOptions,
   createClaimTenantHandoverHandler,
 } from "./handlers/claim.write";
+import { createSignupHandoverProvider } from "./signup-handover-provider";
 
 export type TenantHandoverFeatureOptions = ClaimTenantHandoverOptions;
 
@@ -31,5 +33,14 @@ export function createTenantHandoverFeature(
       piiFields: "none",
     });
     r.writeHandler(createClaimTenantHandoverHandler(opts));
+
+    // Self-extension: this feature both defines the signupHandover contract
+    // and is its only implementation (self-extension is legitimate — an app
+    // without auth-email-password's signup flow, or without this feature at
+    // all, still boots; requires(self) would be circular). See
+    // shared/signup-handover.ts for why this indirection exists instead of
+    // auth-email-password importing tenant-handover directly.
+    r.extendsRegistrar(EXT_SIGNUP_HANDOVER, {});
+    r.useExtension(EXT_SIGNUP_HANDOVER, "tenant-handover", createSignupHandoverProvider(opts));
   });
 }

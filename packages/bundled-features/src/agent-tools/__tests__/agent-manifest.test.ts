@@ -219,4 +219,34 @@ describe("buildAgentManifest", () => {
     expect(manifest.navs.map((n) => n.screen)).toEqual(["nav-leak-test:screen:public-board"]);
     expect(manifest.screens.map((s) => s.id)).toEqual(["nav-leak-test:screen:public-board"]);
   });
+
+  test("a screen description that is an i18n key resolves to its English prose, not the raw key", () => {
+    const feature = defineFeature("i18n-description-test", (r) => {
+      r.translations({
+        keys: { "i18n-description-test.subtitle": { en: "Prose the agent should see." } },
+      });
+      r.screen({
+        id: "with-i18n-description",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "i18n-description-test.subtitle",
+      });
+      r.screen({
+        id: "with-literal-description",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "Literal, never registered as a key.",
+      });
+    });
+
+    const manifest = buildAgentManifest(createRegistry([feature]), {
+      locale: "en",
+      roles: ["admin"],
+    });
+
+    const withKey = manifest.screens.find((s) => s.id.endsWith("with-i18n-description"));
+    const withLiteral = manifest.screens.find((s) => s.id.endsWith("with-literal-description"));
+    expect(withKey?.description).toBe("Prose the agent should see.");
+    expect(withLiteral?.description).toBe("Literal, never registered as a key.");
+  });
 });

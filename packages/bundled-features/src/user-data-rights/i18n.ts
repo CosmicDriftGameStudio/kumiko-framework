@@ -9,6 +9,9 @@ export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = 
   "screen:export-job-detail.title": { en: "Export job" },
   "screen:download-attempt-list.title": { en: "Download attempts" },
   "screen:privacy-center.title": { en: "Privacy" },
+  "userDataRights.privacyCenter.subtitle": {
+    en: "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
+  },
   "user-data-rights:entity:export-job:field:userId": { en: "User" },
   "user-data-rights:entity:export-job:field:status": { en: "Status" },
   "user-data-rights:entity:export-job:field:requestedAt": { en: "Requested" },

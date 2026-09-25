@@ -28,6 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { MAX_TRANSFER_DEPTH, type Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { transferTenantStorageUsage } from "@cosmicdrift/kumiko-framework/files";
 import { resolveTransferAdjacency, type TransferEdge } from "./transfer-graph";
 
 const FILE_REFS_TABLE = "file_refs";
@@ -84,8 +85,15 @@ async function moveEventHistory(args: {
   );
 }
 
+// Moves the file_refs row itself PLUS the fileRef aggregate's own event
+// history + storage-usage counters — fileRef is a standard ES entity (see
+// files-storage-tracking.md), so without those two follow-ups a later write
+// against a moved fileRef can't load its stream, and a projection rebuild
+// would put the row back into the source tenant (kumiko-framework#3131-adjacent
+// gap, item 4).
 async function moveFileRefs(args: {
   readonly db: DbRunner;
+  readonly registry: Registry;
   readonly entityType: string;
   readonly entityIds: readonly string[];
   readonly sourceTenantId: string;
@@ -98,7 +106,26 @@ async function moveFileRefs(args: {
       `WHERE tenant_id = $2 AND entity_type = $3 AND entity_id = ANY($4) RETURNING id`,
     [args.destinationTenantId, args.sourceTenantId, args.entityType, args.entityIds],
   );
-  return rows.length;
+  const movedIds = rows.map((row) => row.id);
+  if (movedIds.length === 0) return 0;
+
+  // Must run before moveEventHistory rewrites these events' tenant_id — see
+  // transferTenantStorageUsage's own comment for why.
+  await transferTenantStorageUsage({
+    db: args.db,
+    registry: args.registry,
+    fileRefIds: movedIds,
+    sourceTenantId: args.sourceTenantId,
+    destinationTenantId: args.destinationTenantId,
+  });
+  await moveEventHistory({
+    db: args.db,
+    aggregateType: "fileRef",
+    aggregateIds: movedIds,
+    sourceTenantId: args.sourceTenantId,
+    destinationTenantId: args.destinationTenantId,
+  });
+  return movedIds.length;
 }
 
 // `idCol` is a `parentRef.entityIdField` — by convention a text column (see
@@ -231,6 +258,7 @@ export async function moveTransferGraph(args: {
   trackFileMove(
     await moveFileRefs({
       db,
+      registry,
       entityType: rootEntityName,
       entityIds: [rootRowId],
       sourceTenantId,
@@ -299,6 +327,7 @@ export async function moveTransferGraph(args: {
         trackFileMove(
           await moveFileRefs({
             db,
+            registry,
             entityType: edge.entityName,
             entityIds: childIds,
             sourceTenantId,

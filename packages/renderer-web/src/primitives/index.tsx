@@ -81,6 +81,8 @@ import {
   Children,
   type CSSProperties,
   createContext,
+  Fragment,
+  isValidElement,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
@@ -446,6 +448,16 @@ function isSegmentedSelectEligible(options: readonly unknown[]): boolean {
   return options.length > 0 && options.length <= SEGMENTED_SELECT_MAX_OPTIONS;
 }
 
+// A "" value is the unselected placeholder, not a real choice — a radio
+// group can't render an unchecked-everything state as its own segment
+// (#2606 follow-up). Filtered once so the eligibility count and the
+// rendered segments never drift apart.
+function withoutSegmentedSelectPlaceholder<T extends { readonly value: string }>(
+  options: readonly T[],
+): readonly T[] {
+  return options.filter((option) => option.value !== "");
+}
+
 // WAI-ARIA radiogroup pattern (role="radiogroup" + role="radio" children):
 // arrow keys move focus AND selection in the same step, only the checked
 // segment (or the first when none is checked) sits in the tab order.
@@ -495,10 +507,8 @@ function SegmentedSelect({
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`segmented-${id}`}
       className={cn(
-        "inline-flex w-fit flex-wrap divide-x overflow-hidden rounded-md border",
-        hasError === true
-          ? "divide-destructive/50 border-destructive"
-          : "divide-border border-input",
+        "inline-flex w-fit flex-wrap overflow-hidden rounded-md border",
+        hasError === true ? "border-destructive" : "border-input",
       )}
     >
       <input type="hidden" name={name} value={value} />
@@ -520,9 +530,25 @@ function SegmentedSelect({
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
+              // Per-segment top/left border instead of the container's
+              // `divide-x`: divide-x only draws verticals between siblings
+              // in source order, which misplaces borders the moment a
+              // segment wraps to a new row (stray left border on the first
+              // item of row 2, no line between the rows). The -1px margin
+              // collapses each segment's own border onto its neighbour's —
+              // for row/column edges it overlaps the container's border
+              // instead, clipped by the container's `overflow-hidden`.
+              //
+              // `grow` lets segments share leftover space on a wrapped row
+              // so every row spans the container's full (widest-row) width —
+              // without it, a shorter last row left its right edge borderless
+              // and the next row's top border cut a notch into the row above.
+              // Harmless on a single-row layout: there's no leftover space to
+              // grow into, so `w-fit` on the container still holds.
+              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-sm font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
+              hasError === true ? "border-destructive/50" : "border-border",
               checked
                 ? "bg-primary text-primary-foreground"
                 : "bg-transparent text-foreground hover:bg-accent",
@@ -711,20 +737,25 @@ function DefaultInput(props: InputProps): ReactNode {
       const comboOptions = props.options.map((o) =>
         typeof o === "string" ? { value: o, label: o } : o,
       );
+      // The radio group can't render the unselected placeholder as its own
+      // segment, so it counts and renders on the real options only — the
+      // dropdown below keeps comboOptions (placeholder included) since it
+      // has a genuine "nothing selected" row.
+      const radioGroupOptions = withoutSegmentedSelectPlaceholder(comboOptions);
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
       // one even when the options outnumber the heuristic's threshold (#2711).
       const wantsRadioGroup =
         props.display === "radio" ||
-        (props.display === undefined && isSegmentedSelectEligible(comboOptions));
-      if (wantsRadioGroup && comboOptions.length > 0) {
+        (props.display === undefined && isSegmentedSelectEligible(radioGroupOptions));
+      if (wantsRadioGroup && radioGroupOptions.length > 0) {
         return (
           <SegmentedSelect
             id={props.id}
             name={props.name}
             value={props.value}
             onChange={props.onChange}
-            options={comboOptions}
+            options={radioGroupOptions}
             {...(props.disabled !== undefined && { disabled: props.disabled })}
             {...(props.required !== undefined && { required: props.required })}
             {...(props.hasError !== undefined && { hasError: props.hasError })}
@@ -1332,7 +1363,7 @@ function DefaultDataTable({
             onClick={onFilterReset}
             data-testid="facet-reset"
           >
-            Reset
+            {tableTranslate?.("kumiko.list.filter.reset") ?? "Reset"}
             <X />
           </UiButton>
         )}
@@ -2345,10 +2376,11 @@ function FormSections({
         "[&>section:not(:first-child)]:border-t",
         !chromeless && "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
         !chromeless && "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
-        // ponytail: fixed footer height is a guess (two wrapped button rows +
-        // safe-area, fw#2528) — widen further if a wizard step's last field
-        // ever renders visibly clipped under three or more wrapped rows.
-        stickyActions === true && "max-sm:pb-32",
+        // ponytail: fixed footer now pins only the primary action (single
+        // button row + its own p-4, fw#2606) instead of the whole footer —
+        // shrunk from pb-32 accordingly. Widen again if a wizard's primary
+        // action ever wraps to two rows.
+        stickyActions === true && "max-sm:pb-24",
         // Same "no flex-1" reasoning as the card above: this is the
         // one section allowed to shrink (min-h-0) inside the card, not
         // one forced to grow past its content.
@@ -2417,6 +2449,26 @@ function FormTitleBlock({
   );
 }
 
+// `formActions` (render-edit.tsx) mixes a non-submit wizard Back button in
+// with the submit-type Next/Finish button inside one Fragment — only the
+// submit one is the "primary" action that fw#1918 needs pinned above a
+// virtual keyboard. Back reads as `type="button"`, same as `secondaryActions`
+// (Cancel/Delete/…), so it can safely join that group on mobile.
+function isSubmitTypeAction(node: ReactNode): boolean {
+  return isValidElement(node) && (node.props as { readonly type?: string }).type === "submit";
+}
+
+// `actions` from render-edit.tsx arrives as a single `<>…</>` Fragment
+// element (not spread children) — Children.toArray only flattens fragments
+// nested inside an already-flattened children list, not a Fragment passed
+// as the whole value, so the Fragment's own children are unwrapped first.
+function flattenActionNodes(node: ReactNode): readonly ReactNode[] {
+  if (isValidElement(node) && node.type === Fragment) {
+    return Children.toArray((node.props as { readonly children?: ReactNode }).children);
+  }
+  return Children.toArray(node);
+}
+
 // Footer wrapper for DefaultForm's card and chromeless layouts alike — only
 // the card-derived horizontal padding/border differs between them.
 function FormFooter({
@@ -2435,6 +2487,33 @@ function FormFooter({
   readonly fillHeight: boolean | undefined;
 }): ReactNode {
   if (actions === undefined && secondaryActions === undefined) return null;
+  // Only split when sticky: the non-sticky (regular, non-wizard) footer must
+  // reproduce the previous DOM exactly (form-action-bar.test.tsx pins
+  // `-actions`/`-actions-secondary` content 1:1 to the `actions`/
+  // `secondaryActions` props).
+  const actionNodes = stickyActions === true ? flattenActionNodes(actions) : undefined;
+  const primaryActionNodes = actionNodes?.filter(isSubmitTypeAction);
+  const hasSubmitAction = primaryActionNodes !== undefined && primaryActionNodes.length > 0;
+  // No submit-type node found among `actions` (e.g. a wizard step with only
+  // secondary buttons): fall back to pinning the whole, unpartitioned
+  // `actions` node instead of splitting it — matches the pre-split fw#1918
+  // behaviour where sticky footers always kept `actions` fixed.
+  const nonPrimaryActionNodes = hasSubmitAction
+    ? actionNodes?.filter((node) => !isSubmitTypeAction(node))
+    : undefined;
+  const renderedActions =
+    stickyActions === true ? (hasSubmitAction ? primaryActionNodes : actions) : actions;
+  const hasNonPrimaryOverflow =
+    nonPrimaryActionNodes !== undefined && nonPrimaryActionNodes.length > 0;
+  const renderedSecondary =
+    stickyActions === true && hasSubmitAction ? (
+      <>
+        {secondaryActions}
+        {nonPrimaryActionNodes}
+      </>
+    ) : (
+      secondaryActions
+    );
   return (
     <div
       className={cn(
@@ -2442,29 +2521,32 @@ function FormFooter({
         !chromeless && "px-[var(--card-padding)]",
         !chromeless && cardFooterBorder,
         fillHeight === true && "shrink-0",
-        // Below sm (640px): pin to the viewport bottom instead of normal
-        // flow, so a virtual keyboard shrinking the viewport can't push
-        // this out of reach (fw#1918). `fixed` escapes the card's
-        // `overflow-hidden` (only transform/filter/contain ancestors trap
-        // it, confirmed against AppLayout/SidebarInset — neither sets those).
-        stickyActions === true &&
-          "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)] max-sm:pb-4",
       )}
     >
-      {secondaryActions !== undefined && (
+      {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
           className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
         >
-          {secondaryActions}
+          {renderedSecondary}
         </div>
       )}
-      {actions !== undefined && (
+      {renderedActions !== undefined && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          className="flex flex-wrap items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto"
+          className={cn(
+            "flex flex-wrap items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
+            // Below sm (640px): pin only the primary action to the viewport
+            // bottom instead of normal flow, so a virtual keyboard shrinking
+            // the viewport can't push it out of reach (fw#1918). `fixed`
+            // escapes the card's `overflow-hidden` (only transform/filter/
+            // contain ancestors trap it, confirmed against
+            // AppLayout/SidebarInset — neither sets those).
+            stickyActions === true &&
+              "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:p-4 max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)]",
+          )}
         >
-          {actions}
+          {renderedActions}
         </div>
       )}
     </div>

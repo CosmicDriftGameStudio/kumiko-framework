@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildEntityTable,
@@ -26,7 +27,8 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { resetBlindIndexKeyForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import * as jose from "jose";
 import * as z from "zod";
 import { createChannelEmailFeature } from "../../channel-email/feature";
 import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types";
@@ -49,10 +51,18 @@ import { DeliveryHandlers, DeliveryJobs, DeliveryQueries } from "../constants";
 import { collectChannels, createDeliveryService } from "../delivery-service";
 import { createDeliveryFeature } from "../feature";
 import { deliveryRenderJob, deliverySendJob } from "../jobs";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
+import {
+  deliveryAttemptsTable,
+  notificationAddressOptOutsTable,
+  notificationPreferencesTable,
+} from "../tables";
 import { createDeliveryTestContext } from "../testing";
 import type { DeliveryService } from "../types";
-import { createUnsubscribeRoute, signUnsubscribeToken } from "../unsubscribe";
+import {
+  createUnsubscribeRoute,
+  signAddressUnsubscribeToken,
+  signUnsubscribeToken,
+} from "../unsubscribe";
 
 // --- Setup ---
 
@@ -371,6 +381,7 @@ beforeAll(async () => {
     configValuesTable,
     tenantMembershipsTable,
     notificationPreferencesTable,
+    notificationAddressOptOutsTable,
     inAppMessagesTable,
     ticketTable,
   });
@@ -1819,5 +1830,197 @@ describe("flow 18: priority → job priority mapping", () => {
     // Lower number = higher priority: critical jumps ahead of normal ahead of low.
     expect(critical as number).toBeLessThan(normal as number);
     expect(normal as number).toBeLessThan(low as number);
+  });
+});
+
+// --- Flow 19: address unsubscribe — recipient with no user account ---
+
+describe("flow 19: address unsubscribe (route-based sends, no user account)", () => {
+  const ADDRESS_BIDX_KEY = Buffer.alloc(32, 3).toString("base64");
+  const FOREIGN_JWT_SECRET = "not-the-real-stack-secret-32-characters!";
+
+  beforeAll(() => {
+    configureBlindIndexKey(ADDRESS_BIDX_KEY);
+  });
+
+  afterAll(() => {
+    resetBlindIndexKeyForTests();
+  });
+
+  test("unsubscribe link opts the address out; same type/channel is skipped afterwards", async () => {
+    const address = "flow19-recipient@test.com";
+
+    await deliveryService.notify(
+      "app:notify:address-unsub-19a",
+      { route: { email: address }, data: { title: "X", body: "X" } },
+      admin,
+      admin.tenantId,
+    );
+    const sentBefore = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:address-unsub-19a",
+      recipientAddress: address,
+    });
+    expect(sentBefore.every((l) => l["status"] === "sent")).toBe(true);
+    expect(sentBefore.length).toBeGreaterThan(0);
+
+    // Sign with a mixed-case, padded variant of the same address — proves
+    // normalization (trim + lowercase) happens before hashing, not just
+    // exact string matches.
+    const token = await signAddressUnsubscribeToken(
+      {
+        tenantId: admin.tenantId,
+        address: `  ${address.toUpperCase()}  `,
+        notificationType: "app:notify:address-unsub-19a",
+        channel: "email",
+      },
+      JWT_SECRET,
+    );
+    const res = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("unsubscribed");
+
+    // Clicking twice must stay a no-op (one row, no crash).
+    const res2 = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    expect(res2.status).toBe(200);
+    const optOutRows = await selectMany(db, notificationAddressOptOutsTable, {
+      notificationType: "app:notify:address-unsub-19a",
+      channel: "email",
+    });
+    expect(optOutRows).toHaveLength(1);
+
+    await deliveryService.notify(
+      "app:notify:address-unsub-19a",
+      { route: { email: address }, data: { title: "Second", body: "Second" } },
+      admin,
+      admin.tenantId,
+    );
+    const skipped = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:address-unsub-19a",
+      status: "skipped",
+      error: "unsubscribed",
+    });
+    expect(skipped.length).toBeGreaterThanOrEqual(1);
+    expect(skipped.every((l) => l["recipientAddress"] === null)).toBe(true);
+
+    // A different notificationType for the same address is unaffected.
+    await deliveryService.notify(
+      "app:notify:address-unsub-19b",
+      { route: { email: address }, data: { title: "Other type", body: "X" } },
+      admin,
+      admin.tenantId,
+    );
+    const otherTypeLogs = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:address-unsub-19b",
+      recipientAddress: address,
+    });
+    expect(otherTypeLogs.some((l) => l["status"] === "sent")).toBe(true);
+
+    // Critical priority is never suppressed, same rule as user preferences.
+    await deliveryService.notify(
+      "app:notify:address-unsub-19a",
+      {
+        route: { email: address },
+        data: { title: "Critical", body: "X" },
+        priority: "critical",
+      },
+      admin,
+      admin.tenantId,
+    );
+    const criticalLogs = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:address-unsub-19a",
+      recipientAddress: address,
+      priority: "critical",
+    });
+    expect(criticalLogs.some((l) => l["status"] === "sent")).toBe(true);
+  });
+
+  test("tampered token (wrong secret) is rejected and creates no opt-out row", async () => {
+    const address = "flow19-tampered@test.com";
+    const forgedToken = await signAddressUnsubscribeToken(
+      {
+        tenantId: admin.tenantId,
+        address,
+        notificationType: "app:notify:address-unsub-19c",
+        channel: "email",
+      },
+      FOREIGN_JWT_SECRET,
+    );
+
+    const res = await stack.app.request(`/delivery/unsubscribe?token=${forgedToken}`);
+    expect(res.status).toBe(400);
+
+    const rows = await selectMany(db, notificationAddressOptOutsTable, {
+      notificationType: "app:notify:address-unsub-19c",
+      channel: "email",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  test("signed token payload carries the address hash, never the plaintext address", async () => {
+    const address = "flow19-no-plaintext@test.com";
+    const token = await signAddressUnsubscribeToken(
+      {
+        tenantId: admin.tenantId,
+        address,
+        notificationType: "app:notify:address-unsub-19d",
+        channel: "email",
+      },
+      JWT_SECRET,
+    );
+
+    const payload = jose.decodeJwt(token);
+    expect(payload["kind"]).toBe("address");
+    expect(typeof payload["addressHash"]).toBe("string");
+    expect(payload["addressHash"]).not.toBe(address);
+    expect(JSON.stringify(payload)).not.toContain(address);
+  });
+
+  test("opt-out is tenant-scoped: the same address in another tenant is unaffected", async () => {
+    const address = "flow19-cross-tenant@test.com";
+    const otherTenantId = testTenantId(915777);
+
+    const token = await signAddressUnsubscribeToken(
+      {
+        tenantId: admin.tenantId,
+        address,
+        notificationType: "app:notify:address-unsub-19e",
+        channel: "email",
+      },
+      JWT_SECRET,
+    );
+    const res = await stack.app.request(`/delivery/unsubscribe?token=${token}`);
+    expect(res.status).toBe(200);
+
+    await deliveryService.notify(
+      "app:notify:address-unsub-19e",
+      { route: { email: address }, data: { title: "X", body: "X" } },
+      admin,
+      otherTenantId,
+    );
+    const otherTenantLogs = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:address-unsub-19e",
+      recipientAddress: address,
+      tenantId: otherTenantId,
+    });
+    expect(otherTenantLogs.some((l) => l["status"] === "sent")).toBe(true);
+  });
+
+  test("signAddressUnsubscribeToken throws when no blind-index key is configured", async () => {
+    resetBlindIndexKeyForTests();
+    try {
+      await expect(
+        signAddressUnsubscribeToken(
+          {
+            tenantId: admin.tenantId,
+            address: "no-key-configured@test.com",
+            notificationType: "app:notify:address-unsub-19f",
+            channel: "email",
+          },
+          JWT_SECRET,
+        ),
+      ).rejects.toThrow(/blind-index key/);
+    } finally {
+      configureBlindIndexKey(ADDRESS_BIDX_KEY);
+    }
   });
 });
