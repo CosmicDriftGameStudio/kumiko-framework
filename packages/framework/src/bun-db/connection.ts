@@ -54,6 +54,8 @@ export function createBunDbConnection(
   if (options.connectTimeoutSeconds !== undefined) {
     pgOpts.connect_timeout = options.connectTimeoutSeconds;
   }
+  // ponytail: "postgres" resolves to the @bender0oo0/postgres fork (nextWrite
+  // null-socket guard, porsager/postgres#1209); switch back per kumiko-framework#3248.
   const listenClient = postgres(url, pgOpts);
 
   return {
