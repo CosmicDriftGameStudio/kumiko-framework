@@ -103,9 +103,9 @@ import {
   buildRecordActions,
   evalRowExtractor,
   isWriteHandlerRowAction,
+  navigateActionSearchParams,
   refetchAfterWrite,
   runProjectionRowNavigate,
-  stringifyNavParams,
 } from "./row-actions";
 import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access";
 import { SecretMintBody } from "./secret-mint-body";
@@ -1952,10 +1952,9 @@ function EntityListBody({
         const id = explicit ?? fallback ?? "";
         if (id === "") return;
         nav.navigate({ entity: action.entity, id });
-        const params =
-          action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
+        const params = navigateActionSearchParams(action, row.values);
         if (params !== undefined) {
-          nav.setSearchParams(stringifyNavParams(params));
+          nav.setSearchParams(params);
         }
       } else if (action.screen !== undefined) {
         // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
@@ -1979,10 +1978,7 @@ function EntityListBody({
         // kennt via URL nur Strings). Known-edge: zielt die Action auf den
         // AKTUELLEN pathname, mergen die Params auf den alten ?-String (für
         // Row-Actions praktisch nicht erreichbar, Pfad differiert).
-        const params =
-          action.params !== undefined
-            ? stringifyNavParams(evalRowExtractor(action.params, row.values))
-            : undefined;
+        const params = navigateActionSearchParams(action, row.values);
         navigateWithReturnTo(nav, target, host, params);
       }
     },
@@ -2586,6 +2582,7 @@ function runMetricNavigate(
           entity: navigate.entity,
           ...(navigate.entityId !== undefined && { entityId: navigate.entityId }),
           ...(navigate.params !== undefined && { params: navigate.params }),
+          ...(navigate.tab !== undefined && { tab: navigate.tab }),
         }
       : navigate.screen !== undefined
         ? {
@@ -2593,11 +2590,11 @@ function runMetricNavigate(
             screen: navigate.screen,
             ...(navigate.entityId !== undefined && { entityId: navigate.entityId }),
             ...(navigate.params !== undefined && { params: navigate.params }),
+            ...(navigate.tab !== undefined && { tab: navigate.tab }),
           }
         : undefined;
   if (action === undefined) return;
   runProjectionRowNavigate(nav, action, { id: "", values: record }, host);
-  if (navigate.tab !== undefined) nav.setSearchParams({ tab: navigate.tab });
 }
 
 // Absolute http(s) check for RecordHeaderSpec.subtitleHref — deliberately

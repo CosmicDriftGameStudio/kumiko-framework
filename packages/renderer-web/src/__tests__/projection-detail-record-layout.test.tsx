@@ -275,7 +275,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     await user.click(screen.getByTestId("kumiko-screen-projection-detail-metric-balance"));
 
     expect(navigateCalls).toEqual([{ screenId: "tenant-detail" }]);
-    expect(setSearchParamsCalls).toContainEqual({ tab: "history" });
+    expect(setSearchParamsCalls).toEqual([{ tab: "history", returnTo: "rent-detail/rent-1" }]);
   });
 
   // solon#424: the metric declares no access rule of its own, so the jump is
