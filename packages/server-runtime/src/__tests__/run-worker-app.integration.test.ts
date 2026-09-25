@@ -23,6 +23,7 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import postgres from "postgres";
 import * as z from "zod";
 import { makeDispatchSystemWrite } from "../extra-routes-deps";
@@ -127,14 +128,17 @@ async function boot(extra?: Partial<Parameters<typeof runWorkerApp>[0]>): Promis
   }
 }
 
-async function pollFor<T>(probe: () => T | undefined, timeoutMs = 8000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const result = probe();
-    if (result !== undefined) return result;
-    if (Date.now() > deadline) throw new Error("pollFor: timeout");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+async function pollFor<T>(probe: () => T | undefined): Promise<T> {
+  let result: T | undefined;
+  await waitFor(
+    () => {
+      result = probe();
+      return result !== undefined;
+    },
+    { delays: Array(80).fill(100) },
+  );
+  if (result === undefined) throw new Error("pollFor: timeout");
+  return result;
 }
 
 describe("runWorkerApp", () => {

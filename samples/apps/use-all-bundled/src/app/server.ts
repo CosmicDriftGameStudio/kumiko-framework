@@ -13,6 +13,10 @@
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createE2eSeedRoutes,
+  isE2eSeedingEnabled,
+} from "@cosmicdrift/kumiko-testing/e2e/seed-route";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { notesFeature } from "./notes-feature";
@@ -35,6 +39,12 @@ await runDevApp({
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
   seeds: [seedScreenshotData],
+  // seedTenant() e2e fixture — mfa-login.spec.ts's own tenant/user so its
+  // MFA enable/disable mutation never shares an account with another spec
+  // (or another instance of itself). isE2eSeedingEnabled() keeps this off
+  // outside a KUMIKO_TEST_SEED=1 run (defineAppE2eConfig sets it), so it's
+  // never mounted for the screenshot server or an ordinary dev boot.
+  ...(isE2eSeedingEnabled() && { extraRoutes: createE2eSeedRoutes() }),
   auth: {
     admin: {
       email: ADMIN_EMAIL,

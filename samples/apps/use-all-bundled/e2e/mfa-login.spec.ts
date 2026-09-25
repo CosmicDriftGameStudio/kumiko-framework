@@ -1,20 +1,31 @@
 // @runtime test
 // Assert-E2E for use-all-bundled MFA login (Plan: optional-uab-mfa-assert).
 // Mirrors the adminMfaLoginChallenge flow: enroll via write-dispatch, drive
-// the Login→MfaVerify gate
-// swap, assert shell access. Screenshots stay Docs-only.
-// Disables MFA in finally so retries / later specs keep plain password login.
+// the Login→MfaVerify gate swap, assert shell access. Screenshots stay
+// Docs-only. Disables MFA in finally so a repeat run of this same spec
+// never inherits an already-enabled factor.
 //
-// Shell assert uses the tenant switcher ("Dev Tenant"), not /profile — with
-// admin-shell workspaces the first URL segment is the workspace id, so bare
-// `/profile` is not a screen path.
+// Runs against its own seedTenant() tenant/user (server.ts mounts
+// createE2eSeedRoutes()), not the shared ADMIN_EMAIL account or a second
+// fixed account: enabling/disabling MFA mid-test mutates that account's
+// login state, which raced cap-overview.spec.ts logging in as admin once
+// e2e went parallel-by-default (#3121) — and, with a second fixed account,
+// raced concurrent instances of this very spec under --repeat-each. A
+// tenant (and account) per run removes both races the same way every other
+// flow's shared-state race is removed.
+//
+// Shell assert uses the UserMenu trigger (own display name), not the
+// tenant switcher — a seedTenant() user belongs to exactly one tenant, so
+// TenantSwitcher (single-tenant apps need no switcher) never renders one.
+// Not /profile either — with admin-shell workspaces the first URL segment
+// is the workspace id, so bare `/profile` is not a screen path.
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { expect, test } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../src/app/auth-constants";
-import { loginAsAdmin } from "./_helpers/login";
+
+const DISPLAY_NAME = "MFA E2E";
 
 async function csrfFrom(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -23,7 +34,7 @@ async function csrfFrom(page: Page): Promise<string> {
 
 async function expectShell(page: Page): Promise<void> {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Dev Tenant" })).toBeVisible({
+  await expect(page.getByRole("button", { name: DISPLAY_NAME })).toBeVisible({
     timeout: 10_000,
   });
 }
@@ -45,10 +56,15 @@ async function disableMfa(page: Page, code: string): Promise<void> {
   }
 }
 
-async function ensureSessionForDisable(page: Page, secret: Buffer): Promise<void> {
+async function ensureSessionForDisable(
+  page: Page,
+  email: string,
+  password: string,
+  secret: Buffer,
+): Promise<void> {
   if (
     await page
-      .getByRole("button", { name: "Dev Tenant" })
+      .getByRole("button", { name: DISPLAY_NAME })
       .isVisible()
       .catch(() => false)
   ) {
@@ -57,8 +73,8 @@ async function ensureSessionForDisable(page: Page, secret: Buffer): Promise<void
 
   await page.context().clearCookies();
   await page.goto("/");
-  await page.getByLabel("Email").fill(ADMIN_EMAIL);
-  await page.getByLabel("Password").fill(ADMIN_PASSWORD);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   const codeField = page.getByLabel("Code");
   if (await codeField.isVisible().catch(() => false)) {
@@ -73,13 +89,15 @@ async function ensureSessionForDisable(page: Page, secret: Buffer): Promise<void
   await expectShell(page);
 }
 
-test("MFA enable → logout → login challenges → TOTP → shell", async ({ page }) => {
+test("MFA enable → logout → login challenges → TOTP → shell", async ({ page, seedTenant }) => {
+  const tenant = await seedTenant({ admin: { displayName: DISPLAY_NAME } });
+  const { email, password } = tenant.admin;
   let secret: Buffer | undefined;
   let recoveryCode: string | undefined;
   let enrolled = false;
 
   try {
-    await loginAsAdmin(page);
+    await tenant.loginAs(page, tenant.admin);
     await expectShell(page);
 
     const csrfToken = await csrfFrom(page);
@@ -87,7 +105,7 @@ test("MFA enable → logout → login challenges → TOTP → shell", async ({ p
       headers: { "X-CSRF-Token": csrfToken },
       data: {
         type: "auth-mfa:write:enable-start",
-        payload: { accountLabel: ADMIN_EMAIL },
+        payload: { accountLabel: email },
       },
     });
     expect(start.ok()).toBe(true);
@@ -115,8 +133,8 @@ test("MFA enable → logout → login challenges → TOTP → shell", async ({ p
 
     await page.context().clearCookies();
     await page.goto("/");
-    await page.getByLabel("Email").fill(ADMIN_EMAIL);
-    await page.getByLabel("Password").fill(ADMIN_PASSWORD);
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page.getByLabel("Code")).toBeVisible({ timeout: 10_000 });
@@ -132,7 +150,7 @@ test("MFA enable → logout → login challenges → TOTP → shell", async ({ p
   } finally {
     // Recovery code avoids TOTP replay rejection after the login verify.
     if (enrolled && secret && recoveryCode) {
-      await ensureSessionForDisable(page, secret);
+      await ensureSessionForDisable(page, email, password, secret);
       await disableMfa(page, recoveryCode);
     }
   }

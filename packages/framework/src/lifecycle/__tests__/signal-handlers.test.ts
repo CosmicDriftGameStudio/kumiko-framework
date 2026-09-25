@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { waitFor } from "../../testing";
 import { createLifecycle } from "../lifecycle";
 import { attachSignalHandlers } from "../signal-handlers";
 import { createTestLifecycle } from "./create-test-lifecycle";
@@ -95,12 +96,3 @@ describe("attachSignalHandlers", () => {
     expect(process.listenerCount("SIGTERM")).toBe(before);
   });
 });
-
-async function waitFor(predicate: () => boolean, timeoutMs = 500): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await new Promise((r) => setTimeout(r, 5));
-  }
-  throw new Error("waitFor timed out");
-}

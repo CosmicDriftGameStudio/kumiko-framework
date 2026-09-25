@@ -439,6 +439,7 @@ describe("concurrency: skip", () => {
 
       // Try dispatching multiple times while first is running
       let skippedCount = 0;
+      // @timeout-exception: #3118 paces repeated dispatch attempts, nothing to poll for
       for (let i = 0; i < 5; i++) {
         await sleep(50);
         const id = await runner.dispatch("test:job:skip-job", { n: i + 2 });
@@ -1212,6 +1213,7 @@ describe("handleEvent maxPerTenant", () => {
       // racing against the handler's own 500ms sleep, which could land
       // outside the window on a starved runner and silently pass.
       await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
+      // @timeout-exception: #3118 asserts a negative (stays capped) at each checkpoint
       for (const delayMs of [50, 100, 200, 400]) {
         await sleep(delayMs);
         const startedNow = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");

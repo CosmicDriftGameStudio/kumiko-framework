@@ -12,6 +12,7 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
@@ -71,18 +72,21 @@ type AuditRow = {
 type AuditResponse = { rows: AuditRow[]; nextBefore: string | null };
 
 async function pollForEscapeHatchRow(): Promise<AuditRow> {
-  const deadline = Date.now() + 2000;
-  while (Date.now() < deadline) {
-    const res = await stack.http.queryOk<AuditResponse>(
-      AuditQueries.list,
-      { eventType: ESCAPE_HATCH_USED_EVENT },
-      adminOfSameTenant,
-    );
-    const row = res.rows[0];
-    if (row) return row;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("escape-hatch-used audit row did not appear within 2s");
+  let row: AuditRow | undefined;
+  await waitFor(
+    async () => {
+      const res = await stack.http.queryOk<AuditResponse>(
+        AuditQueries.list,
+        { eventType: ESCAPE_HATCH_USED_EVENT },
+        adminOfSameTenant,
+      );
+      row = res.rows[0];
+      return row !== undefined;
+    },
+    { delays: Array(40).fill(50) },
+  );
+  if (row === undefined) throw new Error("escape-hatch-used audit row did not appear within 2s");
+  return row;
 }
 
 describe("createEscapeHatchAuditSink — persists audit:event:escape-hatch-used", () => {

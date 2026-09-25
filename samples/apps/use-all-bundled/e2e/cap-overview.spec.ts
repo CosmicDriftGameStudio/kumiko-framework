@@ -24,6 +24,10 @@ const SCREENSHOT_DIR = resolve(import.meta.dirname, "../test-results/cap-overvie
 async function shot(page: Page, name: string): Promise<void> {
   if (process.env["CI"]) return;
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  // local-only debug capture (CI-skipped, gitignored test-results/ dump), not
+  // a docs-pipeline artifact — captureScreenshot's fit modes and SCREENSHOT_DIR
+  // requirement don't fit this ad hoc use.
+  // @template-drift-exception: #3121 ad hoc local debug dump, not a docs-pipeline capture
   await page.screenshot({ path: `${SCREENSHOT_DIR}/${name}.png` });
 }
 

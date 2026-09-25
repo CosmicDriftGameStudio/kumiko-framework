@@ -54,13 +54,13 @@ describe("runGuardsCli — --write-baseline", () => {
     }
   });
 
-  test("--write-baseline --guard=test-timeouts narrows to that guard only", () => {
+  test("--write-baseline --guard=PII-Annotations Guard narrows to that guard only", () => {
     const ratchetGuards = GUARDS.filter(isRatchetGuard);
-    const target = ratchetGuards.find((g) => g.name === "test-timeouts");
+    const target = ratchetGuards.find((g) => g.name === "PII-Annotations Guard");
     expect(target).toBeDefined();
     const { restore, spies } = mockAllRatchetWriters();
     try {
-      const exitCode = runGuardsCli(["--write-baseline", "--guard=test-timeouts"]);
+      const exitCode = runGuardsCli(["--write-baseline", "--guard=PII-Annotations Guard"]);
       expect(exitCode).toBe(0);
       const targetIndex = ratchetGuards.indexOf(target as NonNullable<typeof target>);
       spies.forEach((spy, i) => {
@@ -75,7 +75,7 @@ describe("runGuardsCli — --write-baseline", () => {
   test("--write-baseline is a known flag; an unrelated unknown flag is still rejected", () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     try {
-      runGuardsCli(["--write-baseline", "--guard=test-timeouts", "--bogus-flag"]);
+      runGuardsCli(["--write-baseline", "--guard=PII-Annotations Guard", "--bogus-flag"]);
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("--bogus-flag"));
     } finally {
       errorSpy.mockRestore();

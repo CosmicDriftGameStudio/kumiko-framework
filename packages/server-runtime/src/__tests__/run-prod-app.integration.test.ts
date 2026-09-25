@@ -994,14 +994,17 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   // by bun's 5s default before pollFor can give up on its own terms.
   const BOOT_AND_POLL_TIMEOUT_MS = 20_000;
 
-  async function pollFor<T>(probe: () => Promise<T | undefined>, timeoutMs = 8000): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      const result = await probe();
-      if (result !== undefined) return result;
-      if (Date.now() > deadline) throw new Error("pollFor: timeout");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+  async function pollFor<T>(probe: () => Promise<T | undefined>): Promise<T> {
+    let result: T | undefined;
+    await waitFor(
+      async () => {
+        result = await probe();
+        return result !== undefined;
+      },
+      { delays: Array(80).fill(100) },
+    );
+    if (result === undefined) throw new Error("pollFor: timeout");
+    return result;
   }
 
   test(
@@ -1237,11 +1240,17 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
       anonymousAccess: { defaultTenantId: TENANT_ID },
     });
 
+    // Unique per test run: the L1 limiter's Redis bucket is keyed only on
+    // this IP (`l1:${ip}`, globalIpRateLimit in rate-limit/middleware.ts) —
+    // a fixed literal here would collide with whatever this same test's
+    // last run left in a non-ephemeral local Redis, well within the 60s
+    // window, and see 429 on the very first request instead of 200.
+    const probeIp = `203.0.113.${crypto.randomUUID()}`;
     const fetchOnce = () =>
       handle.entrypoint.app.fetch(
         new Request("http://test/api/query", {
           method: "POST",
-          headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.9" },
+          headers: { "content-type": "application/json", "x-forwarded-for": probeIp },
           body: JSON.stringify({ type: "prod-probe:query:ping", payload: {} }),
         }),
       );

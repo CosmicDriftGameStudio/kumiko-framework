@@ -20,6 +20,7 @@ import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
+import { waitFor } from "../../testing";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
 const splitFeature = defineFeature("split", (r) => {
@@ -102,14 +103,6 @@ const fileJobFeature = defineFeature("fileJob", (r) => {
   // Worker mode refuses to boot without a consumer to drain.
   r.multiStreamProjection({ name: "noop", apply: { [requested.name]: async () => {} } });
 });
-
-async function waitForCondition(check: () => boolean, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!check()) {
-    if (Date.now() > deadline) throw new Error("waitForCondition: timed out");
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-}
 
 const JWT = "split-deploy-test-secret-must-be-32-chars!!";
 
@@ -195,7 +188,7 @@ describe("entrypoint factories", () => {
         { storageKey: "some/key.pdf" },
         TestUsers.admin,
       );
-      await waitForCondition(() => jobSawFilesRef.length > 0);
+      await waitFor(() => jobSawFilesRef.length > 0);
       expect(jobSawFilesRef[0]).toBe("function");
     } finally {
       await worker.stop();
@@ -239,7 +232,7 @@ describe("entrypoint factories", () => {
       // The worker's own eventDispatcher (started above) picks the event
       // back up and runs the MSP — proves the afterCommit/MSP chain works
       // inside the worker lane, not just that the write itself succeeded.
-      await waitForCondition(() => consumedNotes.includes("written from the worker"));
+      await waitFor(() => consumedNotes.includes("written from the worker"));
     } finally {
       await worker.stop();
     }
@@ -264,7 +257,7 @@ describe("entrypoint factories", () => {
         { storageKey: "some/key.pdf" },
         TestUsers.admin,
       );
-      await waitForCondition(() => jobSawFilesRef.length > 0);
+      await waitFor(() => jobSawFilesRef.length > 0);
       expect(jobSawFilesRef[0]).toBe("function");
     } finally {
       await entry.stop();

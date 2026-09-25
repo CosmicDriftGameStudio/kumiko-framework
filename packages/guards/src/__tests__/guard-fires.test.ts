@@ -225,6 +225,16 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function loadAllEventsByType(t: string): unknown;\nexport const load = () => loadAllEventsByType("x");',
     expectedMessage: /loadAllEventsByType\(\.\.\.\) in load/,
   },
+  "test-timeouts": {
+    path: `${PKG}/features/x/__tests__/x.test.ts`,
+    code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
+    expectedMessage: /while loop polls with sleep/,
+  },
+  "test-template-drift": {
+    path: `${PKG}/features/x/e2e/screen.spec.ts`,
+    code: 'declare const page: { screenshot: (opts: unknown) => Promise<void> };\nexport const run = () => page.screenshot({ path: "out.png" });',
+    expectedMessage: /Direct page\.screenshot/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report
@@ -241,8 +251,6 @@ const WARNING_ONLY: Record<string, string> = {
     "same baseline-ratchet pattern as PII-Annotations Guard (kumiko-framework#2810) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Complexity Check":
     "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
-  "test-timeouts":
-    "same baseline-ratchet pattern as Complexity Check — only fails against a committed `.kumiko-test-timeouts-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline. Detection itself is proven in guard-test-timeouts.test.ts",
   "Predicate Extraction Check":
     "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
   "As-Casts Audit":
