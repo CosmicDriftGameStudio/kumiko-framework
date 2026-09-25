@@ -505,7 +505,7 @@ function scrollDeficit(): number {
 async function growViewportToContent(page: Page, name: string, width: number): Promise<void> {
   for (let round = 0; round < CONTENT_FIT_MAX_ROUNDS; round++) {
     const deficit = await page.evaluate(scrollDeficit);
-    if (deficit === 0) return;
+    if (deficit === 0) break;
     const height = page.viewportSize()?.height ?? 0;
     await page.setViewportSize({ width, height: height + deficit });
   }
