@@ -16,7 +16,8 @@ detail: |
   document nor a visible overflow-auto/scroll container (WorkspaceShell's
   inner scroll area) overflows, captures, and restores the viewport; it
   throws instead of writing a cropped image when growth does not converge
-  within 4 rounds. This replaces solon's own `e2e/_helpers/shot.ts`; its
+  within 4 rounds. A 1px container overflow counts as sub-pixel rounding
+  (overflow-x-auto table wrappers), not content. This replaces solon's own `e2e/_helpers/shot.ts`; its
   images pick up the `reducedMotion: "reduce"` default on the switch, so a
   one-time pixel drift in the handbook PNGs is expected.
 -->

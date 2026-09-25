@@ -479,14 +479,18 @@ export interface CaptureScreenshotOptions {
 const CONTENT_FIT_MAX_ROUNDS = 4;
 
 // Runs in the browser: the largest vertical overflow of the document or of any
-// visible scrolling container.
+// visible scrolling container. Serialized into the page, so it may not reference
+// module scope. A 1px container deficit is sub-pixel rounding, not content: an
+// `overflow-x-auto` table wrapper computes overflow-y to `auto` as well and
+// reported scrollHeight one pixel above clientHeight in solon at 1280px, so
+// growth never converged.
 function scrollDeficit(): number {
   const containerDeficits = [...document.querySelectorAll("*")]
     .filter((el) => {
       const style = getComputedStyle(el);
       return (
         (style.overflowY === "auto" || style.overflowY === "scroll") &&
-        el.scrollHeight - el.clientHeight > 0 &&
+        el.scrollHeight - el.clientHeight > 1 &&
         el.getClientRects().length > 0 &&
         style.visibility !== "hidden"
       );
