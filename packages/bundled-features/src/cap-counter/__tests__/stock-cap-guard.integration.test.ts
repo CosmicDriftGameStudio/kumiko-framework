@@ -9,7 +9,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
+  access,
   createEntityExecutor,
+  createSystemConfig,
   defineFeature,
   type SessionUser,
   type WriteHandlerDef,
@@ -19,11 +21,17 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
+import { ConfigHandlers } from "../../config/constants";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
 import { capCounterEntity } from "../entity";
 import { createStockCapGuard } from "../stock-cap-guard";
 
@@ -209,5 +217,85 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
       capName: "http-stock-item",
     });
     expect(otherCount).toBe(1);
+  });
+});
+
+// =============================================================================
+// withStockCap hands the handler's ctx.config to resolveTierCaps, so a
+// SystemAdmin-edited config key can raise a tier's stock limit at runtime.
+// =============================================================================
+
+const STOCK_LIMIT_KEY = "stock-limit-probe:config:max-items";
+
+const configuredStockGuard = createStockCapGuard(async (_db, { config }) => {
+  const configured = await config?.(STOCK_LIMIT_KEY);
+  return { maxItems: typeof configured === "number" ? configured : 0 };
+});
+
+const CONFIGURED_ITEM_QN = "stock-limit-probe:write:create-item";
+const stockLimitProbeFeature = defineFeature("stock-limit-probe", (r) => {
+  r.requires("config");
+  r.config({
+    keys: {
+      maxItems: createSystemConfig("number", {
+        default: 1,
+        write: access.systemAdmin,
+        read: access.systemAdmin,
+      }),
+    },
+  });
+  r.writeHandler(
+    configuredStockGuard.withStockCap(createItemHandler, {
+      table: capCounterTable,
+      limit: (caps: { maxItems: number }) => caps.maxItems,
+      where: { capName: "configured-stock-item" },
+      code: "stock_cap_exceeded",
+      i18nKey: "cap.stock-exceeded",
+      field: "capName",
+    }),
+  );
+});
+
+describe("withStockCap resolves the tier limit through ctx.config", () => {
+  let configStack: TestStack;
+
+  beforeAll(async () => {
+    configStack = await setupTestStack({
+      features: [createConfigFeature(), stockLimitProbeFeature],
+      extraContext: ({ registry }) => {
+        const resolver = createConfigResolver();
+        return {
+          configResolver: resolver,
+          _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        };
+      },
+    });
+    await unsafeCreateEntityTable(configStack.db, capCounterEntity, "cap-counter");
+    await unsafePushTables(configStack.db, { configValuesTable });
+  });
+
+  afterAll(async () => {
+    await configStack.cleanup();
+  });
+
+  test("raising the config value lets the next write through", async () => {
+    const admin = createTestUser({
+      id: 3201,
+      tenantId: testTenantId(3201),
+      roles: ["TenantAdmin"],
+    });
+    const payload = { capName: "configured-stock-item" };
+
+    await configStack.http.writeOk(CONFIGURED_ITEM_QN, payload, admin);
+    const blocked = await configStack.http.writeErr(CONFIGURED_ITEM_QN, payload, admin);
+    expect(blocked.details).toMatchObject({ current: 1, limit: 1 });
+
+    await configStack.http.writeOk(
+      ConfigHandlers.set,
+      { key: STOCK_LIMIT_KEY, value: 2, scope: "system" },
+      TestUsers.systemAdmin,
+    );
+
+    await configStack.http.writeOk(CONFIGURED_ITEM_QN, payload, admin);
   });
 });

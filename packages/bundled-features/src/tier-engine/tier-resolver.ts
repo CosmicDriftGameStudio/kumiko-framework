@@ -4,10 +4,11 @@
 // both are now factory parameters.
 
 import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { CapLimitContext } from "../cap-counter";
 import { tierAssignmentEntity } from "./entity";
 
 export type TierResolverDeps<TTier extends string, TCaps> = {
-  readonly capsForTier: (tier: TTier) => TCaps;
+  readonly capsForTier: (tier: TTier, context: CapLimitContext) => TCaps | Promise<TCaps>;
   readonly isTierName: (value: string) => value is TTier;
   readonly defaultTier: TTier;
 };
@@ -25,8 +26,8 @@ export function createTierResolver<TTier extends string, TCaps>(
     return typeof tier === "string" && deps.isTierName(tier) ? tier : deps.defaultTier;
   }
 
-  async function resolveTierCaps(db: TenantDb): Promise<TCaps> {
-    return deps.capsForTier(await resolveTier(db));
+  async function resolveTierCaps(db: TenantDb, context: CapLimitContext = {}): Promise<TCaps> {
+    return deps.capsForTier(await resolveTier(db), context);
   }
 
   return { tierAssignmentTable, resolveTier, resolveTierCaps };

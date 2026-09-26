@@ -9,13 +9,20 @@ import type {
   TenantDb,
   WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type { ConfigAccessor, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { enforceStockCap } from "./enforce-cap";
+
+// Runtime inputs a tier's cap limit may depend on, e.g. a SystemAdmin-edited
+// budget config key. `config` is the calling handler's accessor, so it is
+// bound to the caller's tenant — tier-wide limits belong in system-scoped keys.
+export type CapLimitContext = {
+  readonly config?: ConfigAccessor;
+};
 
 export type StockCapSpec<TCaps> = {
   readonly table: SchemaTable | EntityTableMeta;
@@ -27,18 +34,23 @@ export type StockCapSpec<TCaps> = {
 };
 
 export type StockCapGuard<TCaps> = {
-  readonly checkStockCap: (db: TenantDb, spec: StockCapSpec<TCaps>) => Promise<WriteFailure | null>;
+  readonly checkStockCap: (
+    db: TenantDb,
+    spec: StockCapSpec<TCaps>,
+    context?: CapLimitContext,
+  ) => Promise<WriteFailure | null>;
   readonly withStockCap: (handler: WriteHandlerDef, spec: StockCapSpec<TCaps>) => WriteHandlerDef;
 };
 
 export function createStockCapGuard<TCaps>(
-  resolveTierCaps: (db: TenantDb) => Promise<TCaps>,
+  resolveTierCaps: (db: TenantDb, context: CapLimitContext) => Promise<TCaps>,
 ): StockCapGuard<TCaps> {
   async function checkStockCap(
     db: TenantDb,
     spec: StockCapSpec<TCaps>,
+    context: CapLimitContext = {},
   ): Promise<WriteFailure | null> {
-    const caps = await resolveTierCaps(db);
+    const caps = await resolveTierCaps(db, context);
     const current = await db.count(spec.table, { ...spec.where, tenantId: db.tenantId });
     const { state, limit } = enforceStockCap({
       current,
@@ -58,7 +70,7 @@ export function createStockCapGuard<TCaps>(
     return {
       ...handler,
       handler: async (event, ctx) => {
-        const failure = await checkStockCap(ctx.db, spec);
+        const failure = await checkStockCap(ctx.db, spec, { config: ctx.config });
         return failure ?? handler.handler(event, ctx);
       },
     };

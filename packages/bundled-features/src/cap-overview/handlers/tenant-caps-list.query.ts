@@ -50,6 +50,10 @@ type FilterOp = z.infer<typeof FILTER_OP>;
 const SORTABLE_FIELDS = ["name", "tier", "billing"] as const;
 type SortableField = (typeof SORTABLE_FIELDS)[number];
 
+function capTierKey(capId: string, tier: string): string {
+  return JSON.stringify([capId, tier]);
+}
+
 function isSortableField(field: string): field is SortableField {
   return (SORTABLE_FIELDS as readonly string[]).includes(field);
 }
@@ -197,6 +201,16 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         }
       }
 
+      const limitByCapAndTier = new Map<string, number | null>();
+      for (const cap of listedCaps) {
+        for (const tier of new Set(page.map((row) => row.tier))) {
+          limitByCapAndTier.set(
+            capTierKey(cap.id, tier),
+            await cap.limit(tier, { config: ctx.config }),
+          );
+        }
+      }
+
       const rows: TenantCapsListRow[] = page.map((row) => {
         const capFields: Record<string, CapUsage> = {};
         for (const cap of listedCaps) {
@@ -204,7 +218,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
           // only an explicit `null` value means "not measured".
           const rawUsed = usageByCap.get(cap.id)?.get(row.tenantId);
           const used = rawUsed === undefined ? 0 : rawUsed;
-          const limit = cap.limit(row.tier);
+          const limit = limitByCapAndTier.get(capTierKey(cap.id, row.tier)) ?? null;
           capFields[capFieldName(cap.id)] =
             used === null
               ? { used: null, limit, fraction: 0 }

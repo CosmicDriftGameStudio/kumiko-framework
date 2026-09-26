@@ -72,7 +72,7 @@ export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefi
       const rows: CapUsageWithMeta[] = await Promise.all(
         caps.map(async (cap) => {
           const used = await cap.usage(db, targetTenantId);
-          const limit = cap.limit(tier);
+          const limit = await cap.limit(tier, { config: ctx.config });
           if (used === null) {
             return {
               id: cap.id,

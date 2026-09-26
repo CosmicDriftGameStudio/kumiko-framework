@@ -25,6 +25,15 @@ export type EntityHandlerOptions = {
   readonly crossTenant?: boolean;
 };
 
+/** Options for the generic create/update handlers. */
+export type EntityWriteHandlerOptions = EntityHandlerOptions & {
+  /** Fields this handler never writes. They leave the payload schema as
+   *  "must be absent": a payload that still carries one fails validation
+   *  instead of being stripped silently. create rejects a required field
+   *  without default here, since the row could never be created. */
+  readonly excludeFields?: readonly string[];
+};
+
 export type EntityQueryHandlerOptions = EntityHandlerOptions;
 
 export type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
@@ -44,6 +53,9 @@ export type RegisterEntityCrudOptions = {
    *  manifest exposes only the verbs described here (fail-closed, same rule as
    *  hand-written handlers). Falls back to `write.description`/`read.description`. */
   readonly descriptions?: Partial<Record<EntityCrudVerb, string>>;
+  /** Per-verb `excludeFields` for the generic create/update handlers — see
+   *  EntityWriteHandlerOptions. */
+  readonly excludeFields?: Partial<Record<"create" | "update", readonly string[]>>;
   /** Default true. Set false when the entity was already registered (e.g. before r.relation). */
   readonly registerEntity?: boolean;
 };

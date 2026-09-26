@@ -367,13 +367,25 @@ function applyTotalsMatchRefinements(
   return result;
 }
 
+// An excluded field stays in the shape as "must be absent" instead of being
+// dropped: zod strips unknown keys silently, so a client still sending it
+// would otherwise get a success without the write happening.
+function notWritableField(): z.ZodTypeAny {
+  return z.never().optional();
+}
+
 export function buildInsertSchema(
   entity: EntityDefinition,
   currencies: readonly string[] = [...DEFAULT_CURRENCIES],
+  excludedFields: readonly string[] = [],
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
+    if (excludedFields.includes(name)) {
+      shape[name] = notWritableField();
+      continue;
+    }
     const zodField = fieldToZod(field, currencies);
     const hasDefault = "default" in field && field.default !== undefined;
     const isRequired = "required" in field && field.required === true;
@@ -392,10 +404,15 @@ export function buildInsertSchema(
 export function buildUpdateSchema(
   entity: EntityDefinition,
   currencies: readonly string[] = [...DEFAULT_CURRENCIES],
+  excludedFields: readonly string[] = [],
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
+    if (excludedFields.includes(name)) {
+      shape[name] = notWritableField();
+      continue;
+    }
     // Update schemas never apply defaults for OMITTED fields — a user that
     // sends only `{ title }` means "only change title"; zod defaults would
     // silently inject default values for every omitted field and clobber
