@@ -26,6 +26,10 @@
       "types": "./src/bunfig.ts",
       "default": "./src/bunfig.ts"
     },
+    "./integration-runner": {
+      "types": "./src/integration-runner.ts",
+      "default": "./src/integration-runner.ts"
+    },
     "./preload/temporal": {
       "types": "./src/preload/temporal.ts",
       "default": "./src/preload/temporal.ts"
