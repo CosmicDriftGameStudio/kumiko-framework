@@ -18,9 +18,8 @@ type IncrementPayload = z.infer<typeof incrementSchema>;
 
 // increment-cap — atomic counter increment via the event-store's
 // optimistic-lock. Two parallel increments for the same (tenant, cap,
-// period) go to the same aggregate; the second one's append fails with
-// version_conflict — caller retries (the dispatcher already handles
-// that for write-handlers, see version_conflict-retry-policy).
+// period) go to the same aggregate; parallel-safety comes from the
+// re-read-and-retry loop inside bookCapUsage, not from this handler.
 //
 // **Two paths:**
 //   1. Aggregate doesn't exist yet (first increment of the period) →

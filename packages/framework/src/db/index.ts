@@ -157,5 +157,6 @@ export {
   castTenantRows,
   createSystemDbView,
   createTenantDb,
+  runInOwnTransaction,
   SYSTEM_SCOPE_CHECK_BRAND,
 } from "./tenant-db";

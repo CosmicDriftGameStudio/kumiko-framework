@@ -378,6 +378,25 @@ export function acknowledgeConventionCrossTenant(tenantDb: TenantDb, reason: str
   return rebind(reason);
 }
 
+type OwnTransactionRunner = <T>(fn: (txDb: TenantDb) => Promise<T>) => Promise<T>;
+
+const ownTransactionRebinders = new WeakMap<TenantDb, OwnTransactionRunner>();
+
+export async function runInOwnTransaction<T>(
+  tenantDb: TenantDb,
+  fn: (txDb: TenantDb) => Promise<T>,
+): Promise<T> {
+  const rebind = ownTransactionRebinders.get(tenantDb);
+  if (!rebind) {
+    throw new InternalError({
+      message:
+        "runInOwnTransaction received a TenantDb not built by createTenantDb — " +
+        "no transaction rebinder bound.",
+    });
+  }
+  return rebind(fn);
+}
+
 export function createTenantDb(
   db: DbRunner,
   tenantId: TenantId,
@@ -684,6 +703,29 @@ export function createTenantDb(
   crossTenantRebinders.set(tenantDb, (reason) => {
     report("acknowledge-cross-tenant", reason);
     return createTenantDb(db, tenantId, "system", tracer, meter, signal, grants);
+  });
+  ownTransactionRebinders.set(tenantDb, async (fn) => {
+    if (grants?.memberReadOnly) {
+      throw new InternalError({
+        message:
+          "runInOwnTransaction: memberReadOnly TenantDb — a fresh transaction would escape " +
+          "the enforced read-only scope.",
+      });
+    }
+    const raw = asRawClient(db) as unknown as {
+      begin?: <TResult>(cb: (tx: unknown) => Promise<TResult>) => Promise<TResult>;
+    };
+    if (typeof raw.begin !== "function") {
+      throw new InternalError({
+        message:
+          "runInOwnTransaction: runner has no begin() — already inside a transaction or savepoint.",
+      });
+    }
+    // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since the fresh tx-handle isn't itself registered in runnerPersonalDataGates.
+    const txGrants = personalDataGate ? { ...grants, personalDataGate } : grants;
+    return raw.begin((tx) =>
+      fn(createTenantDb(tx as DbRunner, tenantId, mode, tracer, meter, signal, txGrants)),
+    );
   });
   bindTenantDbRunner(tenantDb, db);
   if (personalDataGate) personalDataGates.set(tenantDb, personalDataGate);
