@@ -1,5 +1,151 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.318.0
+
+### Minor Changes
+
+- 4c5152f: Add a shared billing-plans catalog (start-plan-checkout, switch-plan, BillingPlansPanel)
+
+  BillingFoundationOptions gains an optional catalog: BillingPlanCatalog<TTier>, describing the app's purchasable tiers, benefits, current-tier resolution and view/purchase roles. Two new write handlers, start-plan-checkout and switch-plan, and a billing-plans query resolve prices via the provider's retrievePrices, decide checkout vs. switch per tier, and enforce viewRoles/purchaseRoles. BillingPlansPanel (web) renders the catalog via the new PlanCard/PlanGrid widgets, handling loading/error/disabled/read-only states and disabling every CTA while a checkout/switch/portal mutation is in flight.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Add a shared billing-plans catalog (start-plan-checkout, switch-plan, BillingPlansPanel)
+  -->
+
+- 4c5152f: create-checkout-session and create-portal-session are now hardened: origin-checked redirects, known-price validation, plan-switch conflicts
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: create-checkout-session and create-portal-session are now hardened: origin-checked redirects, known-price validation, plan-switch conflicts
+  migration: |
+    Mount the foundation via createBillingFoundationFeature({ baseUrl }) (a
+    path prefix is fine, e.g. "https://app.example.com/tenant-x"). Without
+    baseUrl, every create-checkout-session call now fails with an
+    UnconfiguredError on the "baseUrl" key, including mode:"payment" checkouts.
+
+    create-checkout-session: successUrl/cancelUrl must share baseUrl's origin,
+    or the call fails with an UnprocessableError whose details.reason is
+    "redirect_origin_not_allowed". For mode:"subscription" (the default when
+    mode is omitted), priceId must be a price the resolved provider's
+    priceToTier map actually knows about, and, if a catalog is configured,
+    must map to one of catalog.plans, or the call fails with reason
+    "unknown_price". A tenant with an existing non-terminal subscription can
+    no longer open a second subscription checkout. A ConflictError with
+    i18nKey "billing-foundation.errors.subscriptionExists" fires instead; call
+    billing-foundation:write:switch-plan to change plans. mode:"payment"
+    (one-off top-ups etc.) is exempt from both the price and the
+    subscription-conflict check and keeps working on an active subscription
+    unchanged.
+
+    Provider plugins written before this release should add a priceToTier map
+    on their SubscriptionProviderPlugin; without one, every mode:"subscription"
+    checkout is rejected with reason "provider_has_no_price_catalog".
+
+    Direct-priceId callers of create-checkout-session should migrate to a
+    catalog plus billing-foundation:write:start-plan-checkout /
+    billing-foundation:write:switch-plan (or the BillingPlansPanel widget),
+    which pick the price server-side and never expose a raw priceId to the
+    client.
+
+    create-portal-session: when baseUrl is set, the payload's returnUrl must
+    also share its origin, or the same redirect_origin_not_allowed error
+    fires. Unchanged when baseUrl is not configured.
+
+    create-checkout-session: an optional providerCustomerId is now only
+    accepted if it belongs to the tenant's own subscription at the same
+    provider, including a canceled one. Otherwise the call fails with an
+    UnprocessableError whose details.reason is "foreign_provider_customer".
+    This closes a gap where a TenantAdmin could pass another tenant's
+    provider customer id and have the checkout attach to that customer's
+    stored payment methods and invoices. Checked in both mode:"subscription"
+    and mode:"payment".
+  -->
+
+- 4c5152f: billing-foundation's checkout gate no longer blocks forever on a stale `incomplete` subscription
+
+  `modified_at`/`inserted_at` now track every subscription-projection upsert (using the appended event's own `createdAt`, not `now()`, so a rebuild stays deterministic). `getSubscriptionForTenant` exposes this as `SubscriptionView.lastChangedAt`. `isSubscriptionBlockingCheckout` treats an `incomplete` subscription older than 24h (Stripe's own auto-expiry window) as terminal, so a tenant whose checkout was abandoned can start a fresh one instead of getting stuck behind `ConflictError('subscriptionExists')` forever. A young `incomplete` subscription for a plan tier now shows `BillingPlanActions.paymentPending` on the billing-plans query, and the panel shows a "still completing" hint instead of a CTA for it. `createBillingFoundationFeature` gained an optional `now` clock option (defaults to real time), threaded through the checkout/plan-catalog handlers so tests can control staleness.
+
+  Known limit: two checkouts started in parallel before the provider's first webhook arrives can still create two subscriptions, since the gate only sees subscriptions already projected.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: billing-foundation's checkout gate no longer blocks forever on a stale incomplete subscription
+  detail: |
+    A stale `incomplete` subscription (older than 24h) no longer counts as an active subscription for the checkout gate, so a tenant whose Stripe checkout was abandoned can start a fresh one. `SubscriptionView.lastChangedAt` (required) and `BillingPlanActions.paymentPending` are new; a consumer with an exhaustive switch over `BillingPlanAction` needs a `paymentPending` case. Known limit: two checkouts started in parallel before the provider's first webhook arrives can still create two subscriptions, since the gate only sees subscriptions already projected.
+  -->
+
+- 5d3b3e8: Cap limits can come from runtime config
+
+  `CapSpec.limit(tier, { config })` may now be async and receives the calling handler's config accessor; `caps:usage` and `tenant-caps:list` await it (the list resolves each cap/tier pair once per page). `createTierResolver`'s `capsForTier(tier, { config })` may return a Promise and `resolveTierCaps(db, context?)` forwards the context; `createStockCapGuard`'s resolver receives `{ config }`, which `withStockCap` fills from `ctx.config`. Existing sync one-argument implementations keep working. The accessor is bound to the caller's tenant, so tier-wide limits belong in system-scoped config keys.
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: Cap limits can come from runtime config
+  detail: |
+    `CapSpec.limit(tier, { config })` may return a Promise and gets the caller's config accessor, so a SystemAdmin-editable config key can drive a tier's limit shown by caps:usage and tenant-caps:list. tier-engine's `capsForTier` and cap-counter's `createStockCapGuard` resolver receive the same `{ config }` context (`CapLimitContext`), so enforcement can read the same key. Sync implementations keep working; use system-scoped keys for tier-wide limits.
+  -->
+
+- 4c5152f: subscription-stripe's switch-plan returns a 422 instead of a bare 500 when two plan tiers share one Stripe product
+
+  `createStripePlanSwitchSession`'s pre-check (two allowed prices at the same product+interval) and a matching Stripe Customer-Portal `StripeInvalidRequestError` (from `configurations.create()` or `sessions.create()`) both now throw `UnprocessableError('plan_tiers_share_product')` with i18nKey `billing-foundation.errors.planTiersShareProduct`, so the caller gets an actionable 422 instead of an opaque 500. Every other Stripe error keeps its existing mapping; the portal-configuration cache is still evicted on a `sessions.create()` failure.
+
+  Each plan tier needs its own Stripe product: the Customer Portal configuration allows only one price per product and interval, so tiers that share a product cannot be switched between.
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: switch-plan returns a 422 instead of a 500 when two plan tiers share one Stripe product
+  -->
+
+- 4c5152f: subscription-stripe implements retrievePrices, createPlanSwitchSession and isBillingEnabled for the shared billing-plans catalog
+
+  Adds priceToTier (Stripe price id -> app tier name), a 10-minute TTL-cached retrievePrices for the billing-plans catalog, createPlanSwitchSession (auto-provisions a Stripe Customer-Portal configuration content-addressed by its price set, reusing an existing one via configurations.list() before calling configurations.create()) and isBillingEnabled (billingLive plus an api-key existence probe, no secret read). Each plan tier needs its own Stripe product: two allowed prices sharing a product+interval are rejected before any Stripe portal call.
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: subscription-stripe implements retrievePrices, createPlanSwitchSession and isBillingEnabled for the shared billing-plans catalog
+  -->
+
+### Patch Changes
+
+- 4c5152f: subscription-mollie now advertises its priceToTier map to billing-foundation
+
+  createSubscriptionMollieFeature already required and validated a priceToTier option (drift-checked against priceToConfig at boot), but never put it on the SubscriptionProviderPlugin object it registers. billing-foundation's new create-checkout-session hardening rejects any mode:"subscription" checkout from a provider with no priceToTier as provider_has_no_price_catalog. Without this fix, every existing Mollie-configured app would fail every subscription checkout after upgrading.
+
+  <!-- kumiko-changes
+  feature: subscription-mollie
+  type: fix
+  title: subscription-mollie now advertises its priceToTier map to billing-foundation
+  -->
+
+- 4c5152f: Stripe subscription status incomplete_expired now maps to canceled instead of incomplete
+
+  incomplete_expired means Stripe abandoned the subscription's first payment for good (unlike a live incomplete, which is still retryable). Mapping it to canceled instead of incomplete lets the tenant start a fresh checkout instead of being blocked by openCheckout's subscription-already-exists conflict.
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: Stripe subscription status incomplete_expired now maps to canceled instead of incomplete
+  -->
+
+- Updated dependencies [4fac08d]
+- Updated dependencies [5d3b3e8]
+- Updated dependencies [4fac08d]
+- Updated dependencies [4fac08d]
+- Updated dependencies [4c5152f]
+  - @cosmicdrift/kumiko-renderer@0.318.0
+  - @cosmicdrift/kumiko-renderer-web@0.318.0
+  - @cosmicdrift/kumiko-framework@0.318.0
+  - @cosmicdrift/kumiko-types@0.318.0
+  - @cosmicdrift/kumiko-headless@0.318.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.318.0
+
 ## 0.317.0
 
 ### Patch Changes

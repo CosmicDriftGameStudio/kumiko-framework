@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.318.0",
+    "type": "improvement",
+    "title": "Add a shared billing-plans catalog (start-plan-checkout, switch-plan, BillingPlansPanel)",
+    "detail": "BillingFoundationOptions gains an optional catalog: BillingPlanCatalog<TTier>, describing the app's purchasable tiers, benefits, current-tier resolution and view/purchase roles. Two new write handlers, start-plan-checkout and switch-plan, and a billing-plans query resolve prices via the provider's retrievePrices, decide checkout vs. switch per tier, and enforce viewRoles/purchaseRoles. BillingPlansPanel (web) renders the catalog via the new PlanCard/PlanGrid widgets, handling loading/error/disabled/read-only states and disabling every CTA while a checkout/switch/portal mutation is in flight."
+  },
+  {
+    "version": "0.318.0",
+    "type": "breaking",
+    "title": "create-checkout-session and create-portal-session are now hardened: origin-checked redirects, known-price validation, plan-switch conflicts",
+    "migration": "Mount the foundation via createBillingFoundationFeature({ baseUrl }) (a\npath prefix is fine, e.g. \"https://app.example.com/tenant-x\"). Without\nbaseUrl, every create-checkout-session call now fails with an\nUnconfiguredError on the \"baseUrl\" key, including mode:\"payment\" checkouts.\n\ncreate-checkout-session: successUrl/cancelUrl must share baseUrl's origin,\nor the call fails with an UnprocessableError whose details.reason is\n\"redirect_origin_not_allowed\". For mode:\"subscription\" (the default when\nmode is omitted), priceId must be a price the resolved provider's\npriceToTier map actually knows about, and, if a catalog is configured,\nmust map to one of catalog.plans, or the call fails with reason\n\"unknown_price\". A tenant with an existing non-terminal subscription can\nno longer open a second subscription checkout. A ConflictError with\ni18nKey \"billing-foundation.errors.subscriptionExists\" fires instead; call\nbilling-foundation:write:switch-plan to change plans. mode:\"payment\"\n(one-off top-ups etc.) is exempt from both the price and the\nsubscription-conflict check and keeps working on an active subscription\nunchanged.\n\nProvider plugins written before this release should add a priceToTier map\non their SubscriptionProviderPlugin; without one, every mode:\"subscription\"\ncheckout is rejected with reason \"provider_has_no_price_catalog\".\n\nDirect-priceId callers of create-checkout-session should migrate to a\ncatalog plus billing-foundation:write:start-plan-checkout /\nbilling-foundation:write:switch-plan (or the BillingPlansPanel widget),\nwhich pick the price server-side and never expose a raw priceId to the\nclient.\n\ncreate-portal-session: when baseUrl is set, the payload's returnUrl must\nalso share its origin, or the same redirect_origin_not_allowed error\nfires. Unchanged when baseUrl is not configured.\n\ncreate-checkout-session: an optional providerCustomerId is now only\naccepted if it belongs to the tenant's own subscription at the same\nprovider, including a canceled one. Otherwise the call fails with an\nUnprocessableError whose details.reason is \"foreign_provider_customer\".\nThis closes a gap where a TenantAdmin could pass another tenant's\nprovider customer id and have the checkout attach to that customer's\nstored payment methods and invoices. Checked in both mode:\"subscription\"\nand mode:\"payment\"."
+  },
+  {
+    "version": "0.318.0",
+    "type": "improvement",
+    "title": "billing-foundation's checkout gate no longer blocks forever on a stale incomplete subscription",
+    "detail": "A stale `incomplete` subscription (older than 24h) no longer counts as an active subscription for the checkout gate, so a tenant whose Stripe checkout was abandoned can start a fresh one. `SubscriptionView.lastChangedAt` (required) and `BillingPlanActions.paymentPending` are new; a consumer with an exhaustive switch over `BillingPlanAction` needs a `paymentPending` case. Known limit: two checkouts started in parallel before the provider's first webhook arrives can still create two subscriptions, since the gate only sees subscriptions already projected."
+  },
+  {
     "version": "0.306.0",
     "type": "fix",
     "title": "Tenant destroy no longer fails on subscription and payment rows",

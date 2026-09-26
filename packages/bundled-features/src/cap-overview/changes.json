@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.318.0",
+    "type": "improvement",
+    "title": "Cap limits can come from runtime config",
+    "detail": "`CapSpec.limit(tier, { config })` may return a Promise and gets the caller's config accessor, so a SystemAdmin-editable config key can drive a tier's limit shown by caps:usage and tenant-caps:list. tier-engine's `capsForTier` and cap-counter's `createStockCapGuard` resolver receive the same `{ config }` context (`CapLimitContext`), so enforcement can read the same key. Sync implementations keep working; use system-scoped keys for tier-wide limits."
+  },
+  {
     "version": "0.282.0",
     "type": "fix",
     "title": "caps:usage declares escapeHatch again so raw-SQL cap providers work",

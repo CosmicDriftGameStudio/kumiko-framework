@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.318.0",
+    "type": "improvement",
+    "title": "Add PlanCard/PlanGrid widgets for billing plan catalogs",
+    "detail": "PlanCard renders a plan's title, price (via formatMoney), features, a primary cta and an optional secondaryAction (e.g. manage-subscription), with current/disabled states. PlanGrid lays out a set of PlanCards responsively. Used by billing-foundation's BillingPlansPanel."
+  },
+  {
     "version": "0.313.0",
     "type": "fix",
     "title": "DefaultTabs shows an edge fade and keeps the active tab scrolled into view when the strip overflows on narrow viewports",

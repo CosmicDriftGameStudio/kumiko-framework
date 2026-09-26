@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.318.0",
+    "type": "improvement",
+    "title": "integration-runner exports a dedicated subpath",
+    "detail": "`buildIntegrationTestArgs` and `selectIntegrationFiles` previously reached\nconsumers only through `kumiko-testing`'s own CLI (`kumiko-testing\nintegration --parallel N`), with no package subpath a caller outside the\nCLI could import them from. kumiko-framework's own\n`scripts/run-integration-tests.ts` needed exactly that: the same\n`--parallel N --no-isolate` invocation the app template already runs,\nreused instead of reimplemented, while still discovering its own file\nlist and running a separate bulk/perf mode split the CLI doesn't have.\nThe new `./integration-runner` export makes that reuse\npossible without duplicating the arg-building logic; no existing export\nchanged."
+  },
+  {
     "version": "0.317.0",
     "type": "fix",
     "title": "mergeBunfig keeps app-local array extras instead of overwriting them",
