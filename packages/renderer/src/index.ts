@@ -9,6 +9,7 @@
 // eigenen Bootstrap schreiben will. Normale Samples gehen über
 // @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
+export { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/ui-types";
 export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim";
 export type { AppFeaturesProviderProps } from "./app/app-features-context";
 export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context";
@@ -176,9 +177,11 @@ export type {
 } from "./i18n";
 export {
   createStaticLocaleResolver,
+  FormalityProvider,
   LocaleProvider,
   mergeTranslations,
   translationsByLocaleFromKeys,
+  useFormality,
   useLocale,
   useOptionalLocale,
   useOptionalTranslation,
@@ -194,6 +197,7 @@ export type {
   CardOptions,
   CardProps,
   CardSlots,
+  CopyButtonProps,
   CorePrimitives,
   DataTableDateRangeFacet,
   DataTableFacet,
@@ -224,13 +228,18 @@ export type {
   PrimitivesProviderProps,
   PrimitivesRegistry,
   ProgressProps,
+  ProgressTone,
+  PromoPanelAction,
+  PromoPanelProps,
   RuntimeRenderer,
   SecretRevealProps,
   SecretRevealValue,
   SectionProps,
+  ShareButtonProps,
   StatusBadgeProps,
   StatusTone,
   StepBarProps,
+  StickyActionBarProps,
   StickyPrimaryActionMarker,
   TabsProps,
   TextProps,
@@ -243,6 +252,7 @@ export {
   statusToneForValue,
   usePrimitives,
 } from "./primitives";
+export { buildWhatsAppShareUrl } from "./share-links";
 export { sortByAccessor } from "./sort-by-accessor";
 export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events";
 export { LiveEventsProvider, useLiveEvents } from "./sse/live-events";
@@ -250,7 +260,10 @@ export type {
   AppTokens,
   ColorTokens,
   CoreTokens,
+  FontTokens,
   RadiusTokens,
+  ShadowTokens,
+  SpacingTokens,
   ThemeMode,
   Tokens,
   TokensApi,

@@ -36,6 +36,9 @@ export type UploadZoneProps = {
   readonly accept?: readonly string[];
   /** Allow multiple files per pick/drop. Defaults to true. */
   readonly multiple?: boolean;
+  /** Forwarded to the file input: a phone opens that camera directly instead
+   *  of offering camera, gallery and files. Leave unset to keep the choice. */
+  readonly capture?: "environment" | "user";
   readonly disabled?: boolean;
   readonly testId?: string;
 };
@@ -45,7 +48,7 @@ export type UploadZoneProps = {
 // `onUpload` regardless of what `accept` promises. Same matching rules as
 // the native attribute: MIME type (with an optional "type/*" wildcard) or
 // file extension.
-function matchesAccept(file: File, accept?: readonly string[]): boolean {
+export function matchesAccept(file: File, accept?: readonly string[]): boolean {
   if (accept === undefined || accept.length === 0) return true;
   const name = file.name.toLowerCase();
   const type = file.type.toLowerCase();
@@ -77,6 +80,7 @@ export function UploadZone({
   hint,
   accept,
   multiple = true,
+  capture,
   disabled,
   testId,
 }: UploadZoneProps): ReactNode {
@@ -167,6 +171,7 @@ export function UploadZone({
           data-testid={testId !== undefined ? `${testId}-input` : undefined}
           disabled={disabled}
           {...(acceptAttr !== undefined && { accept: acceptAttr })}
+          {...(capture !== undefined && { capture })}
           onChange={(e) => void uploadFiles(e.target.files)}
         />
       </label>

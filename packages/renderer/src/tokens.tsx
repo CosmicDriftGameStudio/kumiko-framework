@@ -46,9 +46,26 @@ export type RadiusTokens = {
   readonly xl: string;
 };
 
+export type FontTokens = {
+  readonly sans: string;
+  readonly heading: string;
+  readonly mono: string;
+};
+
+export type ShadowTokens = {
+  readonly card: string;
+};
+
+export type SpacingTokens = {
+  readonly card: string;
+};
+
 export type CoreTokens = {
   readonly color: ColorTokens;
   readonly radius: RadiusTokens;
+  readonly font: FontTokens;
+  readonly shadow: ShadowTokens;
+  readonly spacing: SpacingTokens;
 };
 
 /** Erweiterung für App-eigene Token-Kategorien. Devs augmentieren:
@@ -138,5 +155,16 @@ export const cssVarTokens: Tokens = {
     md: "var(--radius-md)",
     lg: "var(--radius-lg)",
     xl: "var(--radius-xl)",
+  },
+  font: {
+    sans: "var(--font-sans)",
+    heading: "var(--font-heading)",
+    mono: "var(--font-mono)",
+  },
+  shadow: {
+    card: "var(--card-shadow)",
+  },
+  spacing: {
+    card: "var(--card-padding)",
   },
 } as Tokens;

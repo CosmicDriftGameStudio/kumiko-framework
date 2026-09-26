@@ -13,7 +13,11 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./theme-plugin": {
+      "types": "./src/theme-plugin.ts",
+      "default": "./src/theme-plugin.ts"
+    }
   },
   "dependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",

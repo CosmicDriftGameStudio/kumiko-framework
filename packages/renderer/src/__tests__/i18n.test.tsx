@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   createStaticLocaleResolver,
+  FormalityProvider,
   LocaleProvider,
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
@@ -88,6 +89,48 @@ describe("useTranslation — lookup order", () => {
     expect(result.current("greet", { name: "Marc" })).toBe("Hallo Marc!");
   });
 });
+describe("useTranslation — formality", () => {
+  const bundles: TranslationsByLocale[] = [
+    { de: { greet: "Hallo, wie geht es dir?", save: "Speichern" } },
+    { "de-x-formal": { greet: "Guten Tag, wie geht es Ihnen?" } },
+  ];
+  const wrapFormal =
+    (formality: "formal" | "informal", locale = "de") =>
+    ({ children }: { readonly children: ReactNode }): ReactNode => (
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale })} fallbackBundles={bundles}>
+        <FormalityProvider formality={formality}>{children}</FormalityProvider>
+      </LocaleProvider>
+    );
+
+  test("without a FormalityProvider the plain locale wording is used", () => {
+    const { result } = renderHook(() => useTranslation(), {
+      wrapper: wrap(createStaticLocaleResolver({ locale: "de" }), bundles),
+    });
+    expect(result.current("greet")).toBe("Hallo, wie geht es dir?");
+  });
+
+  test("formal prefers a -x-formal entry from any bundle over a plain one, also for de-AT", () => {
+    for (const locale of ["de", "de-AT"]) {
+      const { result } = renderHook(() => useTranslation(), {
+        wrapper: wrapFormal("formal", locale),
+      });
+      expect(result.current("greet")).toBe("Guten Tag, wie geht es Ihnen?");
+    }
+  });
+
+  test("formal falls back to the plain wording for keys without a formal variant", () => {
+    const { result } = renderHook(() => useTranslation(), { wrapper: wrapFormal("formal") });
+    expect(result.current("save")).toBe("Speichern");
+  });
+
+  test("useOptionalTranslation honors formality too", () => {
+    const { result } = renderHook(() => useOptionalTranslation(), {
+      wrapper: wrapFormal("formal"),
+    });
+    expect(result.current?.("greet")).toBe("Guten Tag, wie geht es Ihnen?");
+  });
+});
+
 describe("useTranslation — re-render on locale change", () => {
   test("subscribe fires when setLocale runs, hook returns new value", () => {
     const resolver = makeStatefulResolver("de");

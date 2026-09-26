@@ -42,6 +42,15 @@ describe("locale-de formal overrides", () => {
     );
   });
 
+  test("localeDeClient always ships the formal overrides under de-x-formal", () => {
+    for (const address of ["informal", "formal"] as const) {
+      const formal = localeDeClient({ address }).translations["de-x-formal"];
+      expect(formal["auth.resetPassword.intro"]).toBe(
+        localeDeFormalOverrides["auth.resetPassword.intro"],
+      );
+    }
+  });
+
   test("localeDeClient defaults to informal and switches to formal on request", () => {
     expect(localeDeClient().translations["de"]["auth.resetPassword.intro"]).toBe(
       "Wähle ein neues Passwort mit mindestens 8 Zeichen.",

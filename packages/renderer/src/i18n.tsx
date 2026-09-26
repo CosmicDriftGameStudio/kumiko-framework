@@ -14,6 +14,7 @@
 //      resolver's `subscribe()` — app code can switch language mid-session
 //      without a reload.
 
+import { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   createContext,
@@ -68,6 +69,7 @@ type LocaleContextValue = {
 };
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
+const FormalityContext = createContext<Formality>("informal");
 
 // Stabile Referenz statt `fallbackBundles = []` als Default-Parameter:
 // ein Literal-Default wird bei JEDEM Aufruf neu allokiert und würde die
@@ -125,14 +127,13 @@ export function useLocale(): LocaleResolver {
   return ctx.resolver;
 }
 
-/** Primäre API für Feature-UI. `t("key", params)` versucht in dieser
- *  Reihenfolge:
- *    1. App-Resolver (z.B. i18next)
- *    2. Plugin-Fallback-Bundles für current-locale
- *    3. Plugin-Fallback-Bundles für fallbackLocale
- *    4. Key as-is
- *  Interpolation für Platzhalter `{name}` passiert unabhängig von der
- *  Source — auch Fallback-Strings können parameters nutzen. */
+/** `t("key", params)` resolves in this order:
+ *    1. App resolver (e.g. i18next)
+ *    2. Plugin fallback bundles for the current locale (under a "formal"
+ *       FormalityProvider, `<locale>-x-formal` across all bundles first)
+ *    3. Plugin fallback bundles for fallbackLocale
+ *    4. The key as-is
+ *  `{name}` interpolation applies to every source, fallback strings included. */
 export function useTranslation(): (
   key: string,
   params?: Readonly<Record<string, unknown>>,
@@ -155,34 +156,65 @@ export function useTranslation(): (
   // (z.B. um Queries neu zu laden wenn sich die Sprache ändert). Ein neu
   // erzeugtes `t` pro Render führt sonst zu einem Render/Effect-Endlos-
   // Loop (siehe admin-shell Overview-Screens, Prod-Incident 2026-07-07).
+  const formality = useContext(FormalityContext);
   return useCallback(
-    (key: string, params?: Readonly<Record<string, unknown>>): string => {
-      // 1. App-provided resolver zuerst. Convention: wenn der App-Resolver
-      //    den Key nicht kennt, gibt er den Key zurück — das ist die
-      //    Fallback-Einladung an Plugin-Bundles. i18next verhält sich
-      //    exakt so per default.
-      const resolved = ctx.resolver.translate(key, params);
-      if (resolved !== key) return resolved;
-
-      // 2. + 3. Plugin-Bundles durchlaufen für current + fallback-locale.
-      const primaryLookup = locale;
-      // `primaryLookup` könnte z.B. "de-AT" sein — in den Bundles stehen
-      // oft nur die Language-Roots ("de"). Wir versuchen beide.
-      const languageRoot = primaryLookup.split("-")[0] ?? primaryLookup;
-      const localesToTry = [primaryLookup, languageRoot, ctx.fallbackLocale];
-
-      for (const bundle of ctx.fallbackBundles) {
-        for (const localeToTry of localesToTry) {
-          const value = bundle[localeToTry]?.[key];
-          if (value !== undefined) return interpolate(value, params);
-        }
-      }
-
-      // 4. Nichts gefunden — key zurück, wie der Default-Resolver auch.
-      return key;
-    },
-    [ctx, locale],
+    (key: string, params?: Readonly<Record<string, unknown>>): string =>
+      translateWithFallbacks(ctx, locale, formality, key, params),
+    [ctx, locale, formality],
   );
+}
+
+/** Wording for the subtree: `formal` makes `t` prefer the `<locale>-x-formal`
+ *  bundle entries (e.g. "Sie" on public pages) over plain `<locale>`. */
+export function FormalityProvider({
+  formality,
+  children,
+}: {
+  readonly formality: Formality;
+  readonly children: ReactNode;
+}): ReactNode {
+  return <FormalityContext.Provider value={formality}>{children}</FormalityContext.Provider>;
+}
+
+export function useFormality(): Formality {
+  return useContext(FormalityContext);
+}
+
+// Lookup order: (1) app resolver — it returns the key itself when it has no
+// entry, which is the invitation to try the plugin bundles; (2) the bundles in
+// array order per locale tier; (3) the key as-is. Under "formal" the formal
+// tier is searched across ALL bundles before any plain tier, so a plain "de"
+// app override never puts "du" on a formal page when locale-de has a formal
+// variant; an app rewording such a key must also ship its "de-x-formal" text.
+function translateWithFallbacks(
+  ctx: LocaleContextValue,
+  locale: string,
+  formality: Formality,
+  key: string,
+  params?: Readonly<Record<string, unknown>>,
+): string {
+  const resolved = ctx.resolver.translate(key, params);
+  if (resolved !== key) return resolved;
+  for (const localesToTry of bundleLocaleTiers(locale, ctx.fallbackLocale, formality)) {
+    for (const bundle of ctx.fallbackBundles) {
+      for (const localeToTry of localesToTry) {
+        const value = bundle[localeToTry]?.[key];
+        if (value !== undefined) return interpolate(value, params);
+      }
+    }
+  }
+  return key;
+}
+
+function bundleLocaleTiers(
+  locale: string,
+  fallbackLocale: string,
+  formality: Formality,
+): readonly (readonly string[])[] {
+  const languageRoot = locale.split("-")[0] ?? locale;
+  const plainTier = [locale, languageRoot, fallbackLocale];
+  if (formality === "informal") return [plainTier];
+  return [[formalLocaleTag(locale), formalLocaleTag(languageRoot)], plainTier];
 }
 
 function interpolate(template: string, params?: Readonly<Record<string, unknown>>): string {
@@ -226,22 +258,11 @@ export function useOptionalTranslation():
     () => (ctx ? ctx.resolver.locale() : "en"),
     () => (ctx ? ctx.resolver.locale() : "en"),
   );
+  const formality = useContext(FormalityContext);
   const t = useCallback(
-    (key: string, params?: Readonly<Record<string, unknown>>): string => {
-      if (ctx === undefined) return key;
-      const resolved = ctx.resolver.translate(key, params);
-      if (resolved !== key) return resolved;
-      const languageRoot = locale.split("-")[0] ?? locale;
-      const localesToTry = [locale, languageRoot, ctx.fallbackLocale];
-      for (const bundle of ctx.fallbackBundles) {
-        for (const localeToTry of localesToTry) {
-          const value = bundle[localeToTry]?.[key];
-          if (value !== undefined) return interpolate(value, params);
-        }
-      }
-      return key;
-    },
-    [ctx, locale],
+    (key: string, params?: Readonly<Record<string, unknown>>): string =>
+      ctx === undefined ? key : translateWithFallbacks(ctx, locale, formality, key, params),
+    [ctx, locale, formality],
   );
   return ctx === undefined ? undefined : t;
 }
