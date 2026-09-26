@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import { createStaticLocaleResolver, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { act, screen } from "@testing-library/react";
 import { createContext, type ReactNode, useContext } from "react";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
@@ -137,6 +138,30 @@ describe("createPublicSurface", () => {
     });
     const chrome = screen.getByTestId("chrome");
     expect(chrome.querySelector("[data-testid=login]")).not.toBeNull();
+  });
+
+  test("formality: formal makes every page of the surface use the -x-formal wording", async () => {
+    function Greeting(): ReactNode {
+      const t = useTranslation();
+      return <p data-testid="greeting">{t("public.greeting")}</p>;
+    }
+    const withGreeting: ClientFeatureDefinition = {
+      name: "greeting",
+      translations: {
+        de: { "public.greeting": "Schön, dass du da bist" },
+        "de-x-formal": { "public.greeting": "Schön, dass Sie da sind" },
+      },
+    };
+    setPath("/");
+    mountRoot();
+    await mount({
+      dispatcher: dispatcher(),
+      locale: createStaticLocaleResolver({ locale: "de" }),
+      clientFeatures: [withGreeting],
+      formality: "formal",
+      routes: [{ path: "/", component: <Greeting /> }],
+    });
+    expect(screen.getByTestId("greeting").textContent).toBe("Schön, dass Sie da sind");
   });
 
   test("fehlendes #root → wirft mit hilfreicher Message", () => {

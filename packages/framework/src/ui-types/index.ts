@@ -137,6 +137,7 @@ export type {
   QualifiedContentCollection,
   WorkspaceSchema,
 } from "./app-schema";
+export { type Formality, formalLocaleTag } from "./formality";
 export type {
   ListRowMetaColumnType,
   ListRowMetaReference,

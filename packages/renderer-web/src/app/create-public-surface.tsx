@@ -2,6 +2,8 @@ import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import type { Dispatcher, LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
+  type Formality,
+  FormalityProvider,
   kumikoDefaultTranslations,
   LocaleProvider,
   PrimitivesProvider,
@@ -59,6 +61,8 @@ export type CreatePublicSurfaceOptions = {
   readonly clientFeatures?: readonly ClientFeatureDefinition[];
   /** Page chrome around the matched content (apex/marketing layout). */
   readonly shell?: (props: { readonly children: ReactNode }) => ReactNode;
+  /** Wording for every page of this surface. Default: `"informal"`. */
+  readonly formality?: Formality;
 };
 
 function matchRoute(options: CreatePublicSurfaceOptions, pathname: string): ReactNode {
@@ -95,12 +99,14 @@ export function createPublicSurface(options: CreatePublicSurfaceOptions): { read
 
   const tree = (
     <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
-      <DocumentLangSync resolver={localeResolver} />
-      <PrimitivesProvider value={primitives}>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <ToastProvider>{stackWrappers(providers, content)}</ToastProvider>
-        </DispatcherProvider>
-      </PrimitivesProvider>
+      <FormalityProvider formality={options.formality ?? "informal"}>
+        <DocumentLangSync resolver={localeResolver} />
+        <PrimitivesProvider value={primitives}>
+          <DispatcherProvider dispatcher={dispatcher}>
+            <ToastProvider>{stackWrappers(providers, content)}</ToastProvider>
+          </DispatcherProvider>
+        </PrimitivesProvider>
+      </FormalityProvider>
     </LocaleProvider>
   );
 
