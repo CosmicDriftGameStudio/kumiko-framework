@@ -36,10 +36,23 @@ function parseBlock(raw: string, source: string): ReadonlyMap<string, string> {
     const value = match[2];
     if (value === "|") {
       const continuation: string[] = [];
-      while (index + 1 < lines.length && (lines[index + 1]?.startsWith("  ") ?? false)) {
-        index++;
-        const continuationLine = lines[index];
-        if (continuationLine) continuation.push(continuationLine.slice(2));
+      // A blank line inside the block is a paragraph break, not the end of it;
+      // stopping on the first one truncated the field and then threw a
+      // misleading "invalid line" error on the next indented line, which no
+      // longer looked like a `key: value` pair on its own.
+      while (index + 1 < lines.length) {
+        const next = lines[index + 1] ?? "";
+        if (next.startsWith("  ")) {
+          index++;
+          continuation.push(next.slice(2));
+          continue;
+        }
+        if (next.trim() === "") {
+          index++;
+          continuation.push("");
+          continue;
+        }
+        break;
       }
       fields.set(key, continuation.join("\n").trim());
       continue;

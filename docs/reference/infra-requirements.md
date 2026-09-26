@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-07-14
+verified: 2026-09-26
 ---
 
 # Infrastructure requirements by feature
@@ -57,4 +57,10 @@ bundled-feature you mount.
 `docker-compose.yml` starts the full stack (Postgres, Redis, Meilisearch,
 MinIO, Ollama, Faster-Whisper) for convenience — that is a dev-time
 superset, not a statement about what a given deployment must run in
-production.
+production. Its Postgres runs with `fsync`/`synchronous_commit`/
+`full_page_writes` off, since `stack.cleanup()`'s `DROP DATABASE` forces a
+synchronous checkpoint that otherwise queues up under parallel test runs;
+this trades durability for reset speed on the local dev/test database, never
+appropriate for a real deployment. After an unclean shutdown, recreate the
+volume (`docker compose down -v && docker compose up -d`) rather than trust
+its contents.

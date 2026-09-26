@@ -125,6 +125,57 @@ export type BunfigMergeResult =
   | { readonly ok: true; readonly content: string }
   | { readonly ok: false; readonly unknownKeys: readonly UnknownBunfigKey[] };
 
+// Unlike an unknown key, which blocks the merge, an array entry the template
+// stops emitting stays on disk silently until the generator excludes it by
+// name, as it does below for the superseded DOM preload path.
+const MERGED_ARRAY_KEYS = ["preload", "pathIgnorePatterns", "coveragePathIgnorePatterns"] as const;
+type MergedArrayKey = (typeof MERGED_ARRAY_KEYS)[number];
+
+const CURRENT_PACKAGE_PRELOADS = new Set<string>([...Object.values(PRELOADS).flat(), DOM_PRELOAD]);
+
+// Old app-local path of DOM_PRELOAD; excluded so an app that hasn't
+// regenerated doesn't run DOM setup twice.
+const SUPERSEDED_PRELOADS = new Set<string>(["./test-setup/dom.preload.ts"]);
+
+function isKeepableExtra(key: MergedArrayKey, entry: string): boolean {
+  if (key !== "preload") return true;
+  if (SUPERSEDED_PRELOADS.has(entry)) return false;
+  if (entry.startsWith(PRELOAD_PREFIX)) return CURRENT_PACKAGE_PRELOADS.has(entry);
+  return true;
+}
+
+function parseTestSection(content: string): Readonly<Record<string, unknown>> {
+  const parsed = Bun.TOML.parse(content) as { test?: Record<string, unknown> };
+  return parsed.test ?? {};
+}
+
+function arrayField(
+  testSection: Readonly<Record<string, unknown>>,
+  key: MergedArrayKey,
+): readonly string[] {
+  const value = testSection[key];
+  if (typeof value === "string") return [value];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+// TOML comments attached to an extra on disk don't survive: only the parsed
+// string value is carried over, not the source lines around it.
+function appendArrayExtras(
+  generated: string,
+  key: MergedArrayKey,
+  extras: readonly string[],
+): string {
+  if (extras.length === 0) return generated;
+  const extraLines = extras.map((item) => `  ${JSON.stringify(item)},`).join("\n");
+  const pattern = new RegExp(`^(${key} = \\[\\n)([\\s\\S]*?)(\\n\\])`, "m");
+  return generated.replace(
+    pattern,
+    (_match, open: string, body: string, close: string) => `${open}${body}\n${extraLines}${close}`,
+  );
+}
+
 /**
  * Merges freshly generated bunfig content with whatever an app already has
  * on disk. A section this run's `generated` output doesn't touch at all
@@ -134,7 +185,11 @@ export type BunfigMergeResult =
  * template doesn't own this run is never silently dropped. A key inside a
  * section the template DOES emit that isn't in this run's own version of
  * that section (e.g. `concurrency`, `timeout`, kumiko-framework#3120) fails
- * the merge instead of silently disappearing.
+ * the merge instead of silently disappearing. Within an array key the
+ * template does emit on both sides (`preload`, `pathIgnorePatterns`,
+ * `coveragePathIgnorePatterns`), entries the app appended on top of the
+ * generated ones survive the regeneration instead of being overwritten with
+ * the generated array alone.
  */
 export function mergeBunfig(generated: string, existingContent: string): BunfigMergeResult {
   const generatedKeysBySection = new Map(
@@ -154,11 +209,22 @@ export function mergeBunfig(generated: string, existingContent: string): BunfigM
     }
   }
   if (unknownKeys.length > 0) return { ok: false, unknownKeys };
-  if (foreignBlocks.length === 0) return { ok: true, content: generated };
+  const generatedTest = parseTestSection(generated);
+  const existingTest = parseTestSection(existingContent);
+  let content = generated;
+  for (const key of MERGED_ARRAY_KEYS) {
+    const generatedValues = arrayField(generatedTest, key);
+    const existingValues = arrayField(existingTest, key);
+    const extras = existingValues.filter(
+      (item) => !generatedValues.includes(item) && isKeepableExtra(key, item),
+    );
+    content = appendArrayExtras(content, key, extras);
+  }
+  if (foreignBlocks.length === 0) return { ok: true, content };
   const foreignText = foreignBlocks
     .map((block) => `[${block.header}]\n${block.lines.join("\n").replace(/\n+$/, "")}\n`)
     .join("\n");
-  return { ok: true, content: `${generated}\n${foreignText}` };
+  return { ok: true, content: `${content}\n${foreignText}` };
 }
 
 export function renderBunfigFiles(opts: BunfigOptions = {}): Readonly<Record<string, string>> {
