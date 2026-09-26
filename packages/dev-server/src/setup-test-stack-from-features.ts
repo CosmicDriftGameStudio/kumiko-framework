@@ -1,7 +1,10 @@
 // Test helper: composeFeatures + setupTestStack in one call.
 // Apps pass the same feature list as run-config (APP_FEATURES / buildAppFeatures).
 
-import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  type ConfigResolver,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -13,6 +16,7 @@ import {
   type ComposeFeaturesOptions,
   composeFeatures,
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { addConfigAccessorFactory } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 export type TestStackPreset = "config" | "template-resolver";
 
@@ -34,8 +38,10 @@ export function mergeExtraContext(
     const merged: Record<string, unknown> = { ...fromBase };
 
     if (presets.includes("config")) {
-      const configResolver = createConfigResolver();
-      merged["configResolver"] = configResolver;
+      // Same precedence as mergeConfigResolverDefault (run-dev-app.ts) — a base-supplied resolver wins, factory always derives from it (fw#3313).
+      const configResolver =
+        (fromBase["configResolver"] as ConfigResolver | undefined) ?? createConfigResolver();
+      Object.assign(merged, addConfigAccessorFactory({ configResolver }, deps.registry));
     }
     if (presets.includes("template-resolver")) {
       merged["templateResolver"] = createTemplateResolverApi(deps.db);

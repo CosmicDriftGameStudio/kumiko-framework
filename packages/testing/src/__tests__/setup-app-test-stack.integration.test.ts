@@ -1,9 +1,21 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { asRawClient, tableExists } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createEntity,
+  createSystemConfig,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observability";
-import { createTestDb, type TestDb, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  createTestDb,
+  type TestDb,
+  type TestStack,
+  TestUsers,
+} from "@cosmicdrift/kumiko-framework/stack";
+import * as z from "zod";
 import { setupAppTestStack } from "../index";
 import { noteFeature } from "./note-feature";
 
@@ -89,5 +101,48 @@ describe("setupAppTestStack", () => {
       /zero-length delimited identifier/,
     );
     expect(await databaseExists(dbName)).toBe(false);
+  });
+
+  // No optional-chaining fallback on ctx.config — a regression fails loudly instead of silently reading `undefined` (fw#3313).
+  test('presets: ["config"] wires ctx.config in a write handler to the value set through config:write:set', async () => {
+    const CONFIG_PROBE_KEY = "config-probe:config:greeting";
+    const configProbeFeature = defineFeature("config-probe", (r) => {
+      r.requires("config");
+      r.config({
+        keys: {
+          greeting: createSystemConfig("text", {
+            default: "default-greeting",
+            write: access.systemAdmin,
+            read: access.systemAdmin,
+          }),
+        },
+      });
+      r.writeHandler(
+        "read-config",
+        z.object({}),
+        async (_event, ctx) => {
+          if (!ctx.config) throw new Error("ctx.config missing — fw#3313 regressed");
+          return { isSuccess: true, data: { value: await ctx.config(CONFIG_PROBE_KEY) } };
+        },
+        { access: { openToAll: { reason: "fw#3313 regression probe" } } },
+      );
+    });
+
+    const stack = await setupAppTestStack([configProbeFeature], { presets: ["config"] });
+    try {
+      await stack.http.writeOk(
+        "config:write:set",
+        { key: CONFIG_PROBE_KEY, value: "wired-through-preset" },
+        TestUsers.systemAdmin,
+      );
+      const res = await stack.http.writeOk<{ value: string }>(
+        "config-probe:write:read-config",
+        {},
+        TestUsers.systemAdmin,
+      );
+      expect(res.value).toBe("wired-through-preset");
+    } finally {
+      await stack.cleanup();
+    }
   });
 });
