@@ -45,6 +45,7 @@ export { ModeSwitch } from "./mode-switch";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots";
 export { ProgressBar } from "./progress-bar";
 export { ProgressList, type ProgressListRow } from "./progress-list";
+export { PublicShell, type PublicShellProps, type PublicShellVariant } from "./public-shell";
 export { QueryTable, type QueryTableColumn, type QueryTableProps } from "./query-table";
 export {
   type ComparisonMetric,
