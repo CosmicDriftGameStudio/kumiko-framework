@@ -26,6 +26,15 @@ export const SubscriptionFoundationHandlers = {
    *  (payment-aggregate), separate from the subscription-aggregate — a
    *  payment is not a subscription-state transition. */
   processPaymentEvent: "billing-foundation:write:process-payment-event",
+  /** Tenant-Admin/purchase-role picks a plan tier from the catalog with no
+   *  existing non-terminal subscription — starts a hosted checkout for the
+   *  matching price. Only registered when `createBillingFoundationFeature`
+   *  gets a `catalog`. */
+  startPlanCheckout: "billing-foundation:write:start-plan-checkout",
+  /** Tenant-Admin/purchase-role switches an existing non-terminal
+   *  subscription to another plan tier via the provider's confirmation
+   *  page. Only registered when a `catalog` is configured. */
+  switchPlan: "billing-foundation:write:switch-plan",
 } as const;
 
 // Qualified query handler names.
@@ -34,6 +43,10 @@ export const SubscriptionFoundationQueries = {
    *  read_subscriptions-projection. Tenant-Admin sieht via ctx.db
    *  tenant-scoping nur die eigene row. */
   listSubscriptions: "billing-foundation:query:subscription:list",
+  /** Lists the catalog's plans with live price, benefits, the caller's
+   *  current tier and per-plan action. Only registered when a `catalog` is
+   *  configured. */
+  billingPlans: "billing-foundation:query:billing-plans",
 } as const;
 
 // Normalized subscription-event types — provider-agnostic.
@@ -72,6 +85,49 @@ export const BillingEventKinds = {
   payment: "payment",
 } as const;
 export type BillingEventKind = (typeof BillingEventKinds)[keyof typeof BillingEventKinds];
+
+// Billing-plans screen/panel identifiers — the dormant dashboard app-builders
+// mount their own catalog-derived nav entry onto.
+export const BILLING_PLANS_SCREEN_ID = "billing-plans" as const;
+export const BILLING_PLANS_PANEL_COMPONENT = "BillingPlansPanel" as const;
+
+// Per-plan action a tenant-admin can take on the billing-plans query result.
+export const BillingPlanActions = {
+  checkout: "checkout",
+  switch: "switch",
+  current: "current",
+  unavailable: "unavailable",
+} as const;
+export type BillingPlanAction = (typeof BillingPlanActions)[keyof typeof BillingPlanActions];
+
+// A canceled subscription is terminal — the tenant has no more billing
+// relationship with the provider and a plan pick starts a fresh checkout
+// instead of a plan-switch. Every other status (including past_due) still
+// has a live provider subscription-object to switch.
+export const TERMINAL_SUBSCRIPTION_STATUSES: ReadonlySet<string> = new Set([
+  SubscriptionStatuses.canceled,
+]);
+export function isTerminalSubscriptionStatus(status: string): boolean {
+  return TERMINAL_SUBSCRIPTION_STATUSES.has(status);
+}
+
+// A subscription in one of these statuses can be switched to a different
+// plan tier via the provider's confirmation page (Stripe portal
+// subscription_update_confirm and equivalents) — incomplete subscriptions
+// never activated and are excluded.
+export const SWITCHABLE_SUBSCRIPTION_STATUSES: ReadonlySet<string> = new Set([
+  SubscriptionStatuses.active,
+  SubscriptionStatuses.trialing,
+  SubscriptionStatuses.pastDue,
+]);
+export function isSwitchableSubscriptionStatus(status: string): boolean {
+  return SWITCHABLE_SUBSCRIPTION_STATUSES.has(status);
+}
+
+// Default purchase-roles for a billing-plans catalog when the app doesn't
+// override `purchaseRoles` — matches create-checkout-session's existing
+// TenantAdmin/SystemAdmin-only access.
+export const DEFAULT_PURCHASE_ROLES = ["TenantAdmin", "SystemAdmin"] as const;
 
 // **Multi-Provider von Tag 1:** subscription-foundation hat KEIN
 // `provider`-config-key. Alle gemounteten Plugins sind aktiv parallel —

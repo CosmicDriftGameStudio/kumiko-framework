@@ -348,8 +348,8 @@ describe("mapStripeStatus — Stripe-status → normalized", () => {
     expect(mapStripeStatus("canceled")).toBe(SubscriptionStatuses.canceled);
   });
 
-  test("incomplete / incomplete_expired → incomplete", () => {
+  test("incomplete → incomplete, incomplete_expired → canceled (terminal — payment never completed in time)", () => {
     expect(mapStripeStatus("incomplete")).toBe(SubscriptionStatuses.incomplete);
-    expect(mapStripeStatus("incomplete_expired")).toBe(SubscriptionStatuses.incomplete);
+    expect(mapStripeStatus("incomplete_expired")).toBe(SubscriptionStatuses.canceled);
   });
 });

@@ -162,6 +162,7 @@ export function createSubscriptionMollieFeature(
       createCheckoutSession: checkoutSession,
       // createPortalSession + cancelSubscription bewusst nicht — siehe
       // plugin-methods.ts für Begründung.
+      priceToTier: options.priceToTier,
     };
     r.useExtension("subscriptionProvider", MOLLIE_PROVIDER_NAME, plugin);
   });

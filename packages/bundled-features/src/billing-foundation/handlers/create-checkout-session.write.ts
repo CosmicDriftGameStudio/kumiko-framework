@@ -13,11 +13,19 @@
 // Provider mitgegeben. Beim subsequent webhook (subscription.created)
 // liest verifyAndParseWebhook das aus dem provider-payload zurück und
 // resolved den Tenant.
+//
+// **Hardening:** successUrl/cancelUrl must share `options.baseUrl`'s
+// origin; mode:"subscription" requires priceId to be a known price of the
+// target provider (and, with a catalog, to map to one of its plans); a
+// tenant with an existing non-terminal subscription must use
+// billing-foundation:write:switch-plan instead. Plan-driven callers should
+// prefer start-plan-checkout/switch-plan over calling this handler with a
+// hand-picked priceId.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
-import type { SubscriptionProviderPlugin } from "../types";
+import { openCheckout } from "../checkout-core";
+import type { BillingFoundationOptions } from "../types";
 
 const createCheckoutSessionSchema = z.object({
   /** Welcher Provider — entityName eines registrierten subscription-
@@ -38,48 +46,36 @@ const createCheckoutSessionSchema = z.object({
 });
 type CreateCheckoutSessionPayload = z.infer<typeof createCheckoutSessionSchema>;
 
-export const createCheckoutSessionHandler: WriteHandlerDef = {
-  name: "create-checkout-session",
-  description:
-    'Opens a hosted checkout page at the named subscription provider for the caller\'s tenant and returns its URL; use it when a tenant admin wants to subscribe, switch plans, or make a one-off payment (mode: "payment").',
-  schema: createCheckoutSessionSchema,
-  // Tenant-Admin-only — der Tenant muss bewusst seine Subscription
-  // konfigurieren. SystemAdmin als Fallback für Operator-Initiated-Flows.
-  access: { roles: ["TenantAdmin", "SystemAdmin"] },
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = event.payload as CreateCheckoutSessionPayload;
+export function createCheckoutSessionHandler(options: BillingFoundationOptions): WriteHandlerDef {
+  return {
+    name: "create-checkout-session",
+    description:
+      'Opens a hosted checkout page at the named subscription provider for the caller\'s tenant and returns its URL; use it when a tenant admin wants to make a one-off payment (mode: "payment") or subscribe to a price already known to be valid. Redirect URLs must share the configured baseUrl origin. Prefer billing-foundation:write:start-plan-checkout / :switch-plan for catalog-driven plan purchases.',
+    schema: createCheckoutSessionSchema,
+    // Tenant-Admin-only — der Tenant muss bewusst seine Subscription
+    // konfigurieren. SystemAdmin als Fallback für Operator-Initiated-Flows.
+    access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    handler: async (event, ctx) => {
+      // @cast-boundary engine-payload — dispatcher-zod-validated payload
+      const payload = event.payload as CreateCheckoutSessionPayload;
 
-    // Plugin-Lookup via registry. Dispatcher-context hat ctx.registry —
-    // wir suchen den entityName-match in den extension-usages.
-    const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
-    const usage = usages.find((u) => u.entityName === payload.providerName);
-    if (!usage) {
-      const known = usages.map((u) => u.entityName).join(", ") || "<none>";
-      throw new Error(
-        `subscription-foundation: provider "${payload.providerName}" not registered. Known: ${known}.`,
+      const result = await openCheckout(
+        ctx,
+        { baseUrl: options.baseUrl, catalog: options.catalog },
+        {
+          providerName: payload.providerName,
+          priceId: payload.priceId,
+          successUrl: payload.successUrl,
+          cancelUrl: payload.cancelUrl,
+          ...(payload.providerCustomerId && { providerCustomerId: payload.providerCustomerId }),
+          ...(payload.mode && { mode: payload.mode }),
+        },
       );
-    }
-    // @cast-boundary engine-payload — extension-usage carries unknown options
-    const plugin = usage.options as SubscriptionProviderPlugin;
-    if (!plugin.createCheckoutSession) {
-      throw new Error(
-        `subscription-foundation: provider "${payload.providerName}" has no createCheckoutSession-method (e.g. Apple-IAP-only providers). Use the provider's native checkout flow.`,
-      );
-    }
 
-    const result = await plugin.createCheckoutSession(ctx, {
-      priceId: payload.priceId,
-      tenantId: event.user.tenantId,
-      successUrl: payload.successUrl,
-      cancelUrl: payload.cancelUrl,
-      ...(payload.providerCustomerId && { providerCustomerId: payload.providerCustomerId }),
-      ...(payload.mode && { mode: payload.mode }),
-    });
-
-    return {
-      isSuccess: true as const,
-      data: { url: result.url, providerName: payload.providerName },
-    };
-  },
-};
+      return {
+        isSuccess: true as const,
+        data: { url: result.url, providerName: result.providerName },
+      };
+    },
+  };
+}

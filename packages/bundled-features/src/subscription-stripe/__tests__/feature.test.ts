@@ -129,7 +129,11 @@ const CONTRACT_API_KEY = "sk_test_contract_dummy";
 const CONTRACT_WEBHOOK_SECRET = "whsec_contract_test_secret";
 
 function contractCtxRuntime(stripe: Stripe): StripeCtxRuntime {
-  return { clientForCtx: async () => stripe, assertBillingLive: async () => {} };
+  return {
+    clientForCtx: async () => stripe,
+    assertBillingLive: async () => {},
+    isBillingEnabled: async () => true,
+  };
 }
 
 async function buildStripeContractFixture() {

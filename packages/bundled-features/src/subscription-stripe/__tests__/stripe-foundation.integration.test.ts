@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   billingFoundationFeature,
+  createBillingFoundationFeature,
   createSubscriptionWebhookRoute,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -338,6 +339,55 @@ describe("scenario 4: ignored event-types pass through", () => {
   });
 });
 
+describe("scenario 4b: customer.subscription.updated with a new price re-syncs the tier", () => {
+  test("same subscription, price changes pro → business → projection tier follows", async () => {
+    const tenantStringId = testTenantId(4008);
+    const created = buildStripeSubscriptionEvent({
+      eventId: "evt_4008_create",
+      tenantId: tenantStringId,
+      subscriptionId: "sub_4008",
+      customerId: "cus_4008",
+      priceId: "price_pro_monthly",
+    });
+    const createdSig = await signEvent(JSON.stringify(created));
+    const createdRes = await postStripeWebhook(JSON.stringify(created), createdSig);
+    expect(createdRes.status).toBe(200);
+
+    const updated = buildStripeSubscriptionEvent({
+      eventId: "evt_4008_updated",
+      eventType: "customer.subscription.updated",
+      tenantId: tenantStringId,
+      subscriptionId: "sub_4008",
+      customerId: "cus_4008",
+      priceId: "price_business_yearly",
+    });
+    const updatedSig = await signEvent(JSON.stringify(updated));
+    const updatedRes = await postStripeWebhook(JSON.stringify(updated), updatedSig);
+    expect(updatedRes.status).toBe(200);
+
+    const admin = createTestUser({
+      id: 4008,
+      tenantId: tenantStringId,
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows).toHaveLength(1);
+    expect(subs.rows[0]?.["tier"]).toBe("business");
+
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    expect(esEvents).toHaveLength(2);
+    expect(esEvents[1]?.type).toBe("billing-foundation:event:subscription-updated");
+  });
+});
+
 // =============================================================================
 // Scenario 5: runtime-secret-Pfad — webhook verifiziert gegen ein in der DB
 // geseedetes system-secret (NICHT gegen den factory-fallback). Beweist die
@@ -452,7 +502,10 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
         createTenantFeature(),
         createComplianceProfilesFeature(),
         createTenantLifecycleFeature(),
-        billingFoundationFeature,
+        // baseUrl must match checkoutPayload's successUrl/cancelUrl origin —
+        // otherwise create-checkout-session's redirect-origin hardening
+        // fires before the billing-live gate this scenario pins the order of.
+        createBillingFoundationFeature({ baseUrl: "https://app.example.com" }),
         stripeFeature,
       ],
       masterKeyProvider,

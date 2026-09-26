@@ -9,7 +9,21 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
-import { billingFoundationFeature } from "../feature";
+import { billingFoundationFeature, createBillingFoundationFeature } from "../feature";
+import type { BillingPlanCatalog } from "../types";
+
+function catalog(overrides: Partial<BillingPlanCatalog> = {}): BillingPlanCatalog {
+  return {
+    plans: ["basic", "pro"],
+    tierLabelKey: (tier) => `plan.${tier}.label`,
+    benefits: () => [],
+    resolveCurrentTier: async () => "basic",
+    viewRoles: ["TenantAdmin", "SystemAdmin"],
+    successPath: "/billing/success",
+    cancelPath: "/billing/cancel",
+    ...overrides,
+  };
+}
 
 describe("billingFoundationFeature — shape", () => {
   test("has the expected name", () => {
@@ -114,5 +128,109 @@ describe("normalized constants — provider-agnostic event-types + statuses", ()
       "canceled",
       "incomplete",
     ]);
+  });
+});
+
+describe("createBillingFoundationFeature — factory validation", () => {
+  test("mounts with no options at all", () => {
+    expect(() => createBillingFoundationFeature()).not.toThrow();
+  });
+
+  test("mounts with only baseUrl, no catalog", () => {
+    expect(() => createBillingFoundationFeature({ baseUrl: "https://example.com" })).not.toThrow();
+  });
+
+  test("throws when baseUrl is not a parseable absolute URL", () => {
+    expect(() => createBillingFoundationFeature({ baseUrl: "not-a-url" })).toThrow(
+      /not a parseable absolute URL/,
+    );
+  });
+
+  test("throws when baseUrl uses a non-http(s) scheme", () => {
+    expect(() => createBillingFoundationFeature({ baseUrl: "ftp://example.com" })).toThrow(
+      /must use http or https/,
+    );
+  });
+
+  test("accepts https and http baseUrls", () => {
+    expect(() => createBillingFoundationFeature({ baseUrl: "https://example.com" })).not.toThrow();
+    expect(() =>
+      createBillingFoundationFeature({ baseUrl: "http://localhost:3000" }),
+    ).not.toThrow();
+  });
+
+  test("throws when catalog is set without baseUrl", () => {
+    expect(() => createBillingFoundationFeature({ catalog: catalog() })).toThrow(
+      /catalog requires baseUrl/,
+    );
+  });
+
+  test("mounts when catalog and baseUrl are both set", () => {
+    expect(() =>
+      createBillingFoundationFeature({ baseUrl: "https://example.com", catalog: catalog() }),
+    ).not.toThrow();
+  });
+
+  test("throws when catalog.plans is empty", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ plans: [] }),
+      }),
+    ).toThrow(/catalog.plans must not be empty/);
+  });
+
+  test("throws when catalog.plans has a duplicate tier", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ plans: ["pro", "pro"] }),
+      }),
+    ).toThrow(/duplicate tier "pro"/);
+  });
+
+  test("throws when successPath doesn't start with /", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ successPath: "billing/success" }),
+      }),
+    ).toThrow(/successPath "billing\/success" must start with "\/"/);
+  });
+
+  test("throws when cancelPath is protocol-relative (//)", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ cancelPath: "//evil.example.com" }),
+      }),
+    ).toThrow(/cancelPath/);
+  });
+
+  test("throws when returnPath is set and invalid", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ returnPath: "not-root-relative" }),
+      }),
+    ).toThrow(/returnPath/);
+  });
+
+  test("accepts a valid returnPath", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ returnPath: "/billing/return" }),
+      }),
+    ).not.toThrow();
+  });
+
+  test("throws when viewRoles is empty", () => {
+    expect(() =>
+      createBillingFoundationFeature({
+        baseUrl: "https://example.com",
+        catalog: catalog({ viewRoles: [] }),
+      }),
+    ).toThrow(/viewRoles must not be empty/);
   });
 });

@@ -47,7 +47,7 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
-import { billingFoundationFeature } from "../feature";
+import { createBillingFoundationFeature } from "../feature";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection";
 import type { PaymentEvent, SubscriptionProviderPlugin } from "../types";
 import { createSubscriptionWebhookRoute } from "../webhook-handler";
@@ -73,6 +73,10 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
   r.requires("billing-foundation");
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
+    // Only the two tiers scenario 6's subscription-mode checkouts actually
+    // exercise — the hardened create-checkout-session now requires every
+    // mode:"subscription" priceId to resolve through priceToTier.
+    priceToTier: { price_pro_test: "pro", price_business_test: "business" },
     createCheckoutSession: async (_ctx, options) => {
       mockCheckoutCalls.push({
         priceId: options.priceId,
@@ -131,7 +135,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createBillingFoundationFeature({ baseUrl: "https://example.com" }),
       mockProviderFeature,
       mockPaymentProviderFeature,
     ],
@@ -480,7 +484,10 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
 describe("scenario 6: create-checkout-session — Plugin-routing", () => {
   test("happy-path: valid provider → URL durchgereicht + plugin mit korrekten args aufgerufen", async () => {
     mockCheckoutCalls.length = 0;
-    const admin = adminFor(3009);
+    // Not 3009 — scenario 5 reuses that tenant number and leaves it with a
+    // non-terminal "pro" subscription; openCheckout's new existing-
+    // subscription conflict-gate would reject this checkout for it.
+    const admin = adminFor(3016);
     const result = (await stack.http.writeOk(
       "billing-foundation:write:create-checkout-session",
       {

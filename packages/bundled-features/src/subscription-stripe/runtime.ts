@@ -84,8 +84,15 @@ export type StripeCtxRuntime = {
   readonly clientForCtx: (ctx: HandlerContext) => Promise<Stripe>;
   /** Throws FeatureDisabledError unless `billing-live` config is true. The
    *  #104 invariant: no Stripe session may be created while billing is not
-   *  live (sk_test_ keys in prod must not produce a live checkout). */
-  readonly assertBillingLive: (ctx: HandlerContext) => Promise<void>;
+   *  live (sk_test_ keys in prod must not produce a live checkout).
+   *  `handlerName` names the write-handler in the thrown error — defaults to
+   *  "create-checkout-session" for existing callers, but plan-switch/portal
+   *  callers pass their own name so the error points at the right handler. */
+  readonly assertBillingLive: (ctx: HandlerContext, handlerName?: string) => Promise<void>;
+  /** Whether `billing-live` is currently true — used by `isBillingEnabled`
+   *  (billing-plans catalog rendering) where a disabled provider degrades
+   *  the UI instead of throwing. */
+  readonly isBillingEnabled: (ctx: HandlerContext) => Promise<boolean>;
 };
 
 /** Pre-tenant runtime: used by verifyAndParseWebhook (no ctx). Resolves both
@@ -145,11 +152,23 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
     ctx: {
       // @wrapper-known semantic-alias
       clientForCtx: async (ctx) => clientFor(await ctxApiKey(ctx)),
-      assertBillingLive: async (ctx) => {
+      assertBillingLive: async (ctx, handlerName = "create-checkout-session") => {
         const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
         if (live !== true) {
-          throw new FeatureDisabledError(SUBSCRIPTION_STRIPE_FEATURE, "create-checkout-session");
+          throw new FeatureDisabledError(SUBSCRIPTION_STRIPE_FEATURE, handlerName);
         }
+      },
+      isBillingEnabled: async (ctx) => {
+        const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
+        if (live !== true) return false;
+        const hasFallbackKey =
+          deps.fallback.apiKey !== undefined && deps.fallback.apiKey.length > 0;
+        if (hasFallbackKey) return true;
+        // Existence-only probe — called on every billing-plans page render,
+        // must stay un-audited (see SecretsContext.has's own doc comment).
+        return ctx.secrets
+          ? await ctx.secrets.has(SYSTEM_TENANT_ID, deps.apiKeyHandle.name)
+          : false;
       },
     },
     webhook: {
