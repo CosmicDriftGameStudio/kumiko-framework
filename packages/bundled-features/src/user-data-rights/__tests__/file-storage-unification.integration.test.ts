@@ -141,7 +141,11 @@ describe("#608 unified file-storage :: route upload + GDPR erasure hit one store
     await seed.seedMembership(userId, TENANT_SYSTEM);
     const uploader: SessionUser = { id: userId, tenantId: TENANT_SYSTEM, roles: ["Member"] };
 
-    const res = await uploadAs(uploader, "secret.pdf", new Uint8Array([10, 20, 30, 40]));
+    const res = await uploadAs(
+      uploader,
+      "secret.pdf",
+      new TextEncoder().encode("%PDF-1.4 minimal"),
+    );
     expect(res.status).toBe(201);
     const { storageKey } = (await res.json()) as { storageKey: string };
 

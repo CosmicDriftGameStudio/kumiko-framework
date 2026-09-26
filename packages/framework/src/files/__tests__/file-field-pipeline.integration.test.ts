@@ -89,6 +89,20 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`TRUNCATE pipeline_documents`);
 });
 
+const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 minimal");
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
+const PNG_BYTES = new Uint8Array([
+  0x89,
+  0x50,
+  0x4e,
+  0x47,
+  0x0d,
+  0x0a,
+  0x1a,
+  0x0a,
+  ...Array(10).fill(0),
+]);
+
 async function uploadFile(fileName: string, body: Uint8Array, mimeType: string): Promise<string> {
   const token = await stack.jwt.sign(user);
   const fd = new FormData();
@@ -107,8 +121,8 @@ async function uploadFile(fileName: string, body: Uint8Array, mimeType: string):
 
 describe("file/image field through the CRUD pipeline", () => {
   test("create entity with file-field UUID → detail round-trips the UUID", async () => {
-    const fileId = await uploadFile("doc.pdf", new Uint8Array([1, 2, 3]), "application/pdf");
-    const imageId = await uploadFile("cover.png", new Uint8Array([4, 5, 6]), "image/png");
+    const fileId = await uploadFile("doc.pdf", PDF_BYTES, "application/pdf");
+    const imageId = await uploadFile("cover.png", PNG_BYTES, "image/png");
 
     // Create through the standard write pipeline — this is the path where the
     // pre-fix validation (z.number() for file/image) would have rejected the
@@ -135,8 +149,8 @@ describe("file/image field through the CRUD pipeline", () => {
   });
 
   test("update entity swaps file-field UUIDs cleanly", async () => {
-    const oldFile = await uploadFile("v1.pdf", new Uint8Array([1]), "application/pdf");
-    const newFile = await uploadFile("v2.pdf", new Uint8Array([2]), "application/pdf");
+    const oldFile = await uploadFile("v1.pdf", PDF_BYTES, "application/pdf");
+    const newFile = await uploadFile("v2.pdf", PDF_BYTES, "application/pdf");
 
     const created = await stack.http.writeOk<{ id: string }>(
       "pipeline-documents:write:document:create",
@@ -177,9 +191,9 @@ describe("file/image field through the CRUD pipeline", () => {
     // files/images) — the array of UUIDs lives in the event payload. The
     // pipeline still has to validate + accept it. Pre-fix this was
     // z.array(z.number()) which would have rejected every UUID array.
-    const a = await uploadFile("a.jpg", new Uint8Array([1]), "image/jpeg");
-    const b = await uploadFile("b.jpg", new Uint8Array([2]), "image/jpeg");
-    const c = await uploadFile("notes.pdf", new Uint8Array([3]), "application/pdf");
+    const a = await uploadFile("a.jpg", JPEG_BYTES, "image/jpeg");
+    const b = await uploadFile("b.jpg", JPEG_BYTES, "image/jpeg");
+    const c = await uploadFile("notes.pdf", PDF_BYTES, "application/pdf");
 
     const created = await stack.http.writeOk<{ id: string }>(
       "pipeline-documents:write:document:create",
@@ -190,8 +204,8 @@ describe("file/image field through the CRUD pipeline", () => {
 
     // Follow-up update: swap one photo out, add a second doc. Proves the
     // update-path handles plural arrays too, not just create.
-    const d = await uploadFile("c.jpg", new Uint8Array([4]), "image/jpeg");
-    const e = await uploadFile("more.pdf", new Uint8Array([5]), "application/pdf");
+    const d = await uploadFile("c.jpg", JPEG_BYTES, "image/jpeg");
+    const e = await uploadFile("more.pdf", PDF_BYTES, "application/pdf");
 
     const updated = await stack.http.writeOk<{ id: string }>(
       "pipeline-documents:write:document:update",
@@ -204,7 +218,7 @@ describe("file/image field through the CRUD pipeline", () => {
   });
 
   test("plural files field rejects non-UUID element (schema validates EACH array element)", async () => {
-    const valid = await uploadFile("ok.pdf", new Uint8Array([1]), "application/pdf");
+    const valid = await uploadFile("ok.pdf", PDF_BYTES, "application/pdf");
     const err = await stack.http.writeErr(
       "pipeline-documents:write:document:create",
       { title: "Bad array", docs: [valid, "not-a-uuid"] },

@@ -98,7 +98,8 @@ beforeEach(async () => {
 async function uploadGadgetImage(): Promise<string> {
   const token = await stack.jwt.sign(user);
   const fd = new FormData();
-  fd.append("file", new File([Buffer.from([1, 2, 3])], "img.jpg", { type: "image/jpeg" }));
+  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
+  fd.append("file", new File([Buffer.from(jpegBytes)], "img.jpg", { type: "image/jpeg" }));
   fd.append("entityType", "gadget");
   fd.append("entityId", ENTITY_ID);
   fd.append("fieldName", "img");

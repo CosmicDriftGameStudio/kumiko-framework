@@ -38,10 +38,10 @@ function extractExtension(fileName: string): string | undefined {
   return fileName.split(".").pop()?.toLowerCase();
 }
 
-// Extension → acceptable MIME-type whitelist. Guards against a client
-// uploading e.g. name="x.jpg" with mimeType="application/pdf" to slip an
-// executable past the extension-only check. Kept small & conservative — add
-// entries on demand rather than importing a heavyweight mime DB.
+// Extension → acceptable MIME-type whitelist. Backs the cheap metadata
+// pre-check in validateFile AND the signature lookup in validateFileContent.
+// Kept small & conservative; add entries on demand rather than importing a
+// heavyweight mime DB.
 const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
   jpg: ["image/jpeg", "image/jpg"],
   jpeg: ["image/jpeg", "image/jpg"],
@@ -73,8 +73,15 @@ function lookupMimeAlias(ext: string, normalizedMimeType: string): string | unde
   return aliasesForExt[normalizedMimeType];
 }
 
+// Same hasOwn guard as lookupMimeAlias above, for the ext-keyed whitelist.
+function lookupExtensionWhitelist(ext: string): readonly string[] | undefined {
+  if (!Object.hasOwn(EXTENSION_MIME_WHITELIST, ext)) return undefined;
+  return EXTENSION_MIME_WHITELIST[ext];
+}
+
 // Magic-byte signatures for the subset of EXTENSION_MIME_WHITELIST that has
-// a reliable binary signature. Used at SERVE time — never trust the stored/
+// a reliable binary signature. Used both at upload time (validateFileContent)
+// and at serve time (resolveServedContentType) — never trust the stored/
 // client-declared mimeType for Content-Type on its own, sniff the actual
 // bytes instead. Types without a stable signature (svg, txt, csv, json, md)
 // and anything that matches none of these fall back to
@@ -99,9 +106,8 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
     matches: (bytes) => startsWithAscii(bytes, "RIFF") && startsWithAscii(bytes, "WEBP", 8),
   },
   { mimeType: "application/pdf", matches: (bytes) => startsWithAscii(bytes, "%PDF-") },
-  // Full 8-byte OLE Compound File signature (legacy .doc/.xls/.ppt share it —
-  // sniffing can't tell them apart by bytes alone, only content-verification
-  // below narrows to msword specifically).
+  // Full 8-byte OLE Compound File signature — legacy .doc/.xls/.ppt share it,
+  // so any OLE file sniffs as msword regardless of which one it really is.
   {
     mimeType: "application/msword",
     matches: (bytes) => startsWithBytes(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
@@ -172,14 +178,6 @@ export function resolveServedContentType(bytes: Uint8Array, declaredMimeType: st
   return sniffed === declared ? sniffed : "application/octet-stream";
 }
 
-// Signature-checked against the declared mimeType regardless of
-// `options.accept`. Deliberately narrow: most of the whitelist has no magic
-// bytes at all and would reject honestly-mislabeled uploads if checked.
-const CONTENT_VERIFIED_MIME_TYPES = new Set([
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-]);
-
 export function validateFile(
   metadata: FileMetadata,
   options: FileValidationOptions,
@@ -196,11 +194,9 @@ export function validateFile(
     if (!ext || !options.accept.includes(ext)) {
       return `invalid_file_type: ".${ext}" is not in [${options.accept.join(", ")}]`;
     }
-    // Extension passed the whitelist — now make sure the client-reported
-    // mimeType is consistent with that extension. Guards against MIME-spoofing:
-    // an attacker can't claim extension=jpg while actually uploading PDF bytes
-    // and having the mimeType reflect that.
-    const allowedMimes = EXTENSION_MIME_WHITELIST[ext];
+    // Cheap metadata pre-check only: the client/runtime mimeType is no
+    // evidence of file content (Bun derives it from the filename itself).
+    const allowedMimes = lookupExtensionWhitelist(ext);
     if (allowedMimes && metadata.mimeType) {
       const normalized = normalizeMimeType(metadata.mimeType);
       const isAliasedMime = lookupMimeAlias(ext, normalized) !== undefined;
@@ -213,17 +209,25 @@ export function validateFile(
   return null;
 }
 
+function signatureMimeTypesForExtension(ext: string): readonly string[] {
+  const whitelist = lookupExtensionWhitelist(ext);
+  if (!whitelist) return [];
+  return whitelist.filter((candidate) =>
+    MAGIC_BYTE_SIGNATURES.some((signature) => signature.mimeType === candidate),
+  );
+}
+
 // Separate from validateFile: metadata is known before the upload body is
 // fully read, content-verification only after — callers reject early on
 // metadata without buffering bytes they'll then have to reject anyway.
-export function validateFileContent(mimeType: string, content: Uint8Array): string | null {
-  const normalizedDeclared = normalizeMimeType(mimeType);
-  if (!CONTENT_VERIFIED_MIME_TYPES.has(normalizedDeclared)) return null;
-  const signature = MAGIC_BYTE_SIGNATURES.find((s) => s.mimeType === normalizedDeclared);
-  if (signature && !signature.matches(content)) {
-    return `content_mismatch: bytes do not match declared mimeType "${mimeType}"`;
-  }
-  return null;
+export function validateFileContent(fileName: string, content: Uint8Array): string | null {
+  const ext = extractExtension(fileName);
+  if (!ext) return null;
+  const signatureMimeTypes = signatureMimeTypesForExtension(ext);
+  if (signatureMimeTypes.length === 0) return null;
+  const sniffed = sniffMimeType(content);
+  if (sniffed && signatureMimeTypes.includes(sniffed)) return null;
+  return `content_mismatch: ".${ext}" upload bytes are ${sniffed ?? "unrecognized"}, expected ${signatureMimeTypes.join(" or ")}`;
 }
 
 export type UploadMimeTypeResolution =
