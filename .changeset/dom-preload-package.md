@@ -13,30 +13,30 @@ detail: |
   setup (IS_REACT_ACT_ENVIRONMENT, Bun's native fetch/Request/Response
   preserved over happy-dom's broken cookie header, testing-library/react
   cleanup, Radix pointer-capture/scrollIntoView stubs, the inspect-size
-  limit for waitFor) that every app previously copied into its own
-  ./test-setup/dom.preload.ts. `kumiko-testing bunfig --dom` now generates
+  limit for waitFor) that each app using --dom previously copied into its
+  own ./test-setup/dom.preload.ts. `kumiko-testing bunfig --dom` now generates
   bunfig.dom.toml with @cosmicdrift/kumiko-testing/preload/dom instead of
   the app-local path. @happy-dom/global-registrator and
   @testing-library/react are optional peer dependencies, same as
   @playwright/test for ./e2e. This reverses kumiko-framework#3128, which
   kept the file as an app-local copy because at the time it was
   workspace-internal, not a published contract. In practice the copies
-  never diverged on purpose, only by drift: publicstatus and phronexsis
-  carried older, partial copies of the framework's own
+  never diverged on purpose, only by drift: publicstatus, phronexsis and
+  kumiko-enterprise carried older, partial copies of the framework's own
   test-setup/dom.preload.ts (missing the inspect-size fix for #3082), and
   only offlot-app matched the framework's code (comments reworded, no
   functional diff). The framework's own copy is now deleted; the
   framework runs the same package preload it ships.
 migration: |
   In every bunfig file that lists "./test-setup/dom.preload.ts"
-  (publicstatus, phronexsis and offlot-app each have exactly one, their
-  bunfig.dom.toml), replace that line with
+  (publicstatus, phronexsis, offlot-app and kumiko-enterprise each have
+  exactly one, their bunfig.dom.toml), replace that line with
   "@cosmicdrift/kumiko-testing/preload/dom", then delete the now-
   unreferenced ./test-setup/dom.preload.ts. Ensure
   @happy-dom/global-registrator and @testing-library/react are in the
-  app's devDependencies (publicstatus, phronexsis and offlot-app already
-  have both). Running `kumiko-testing bunfig --dom` instead also works but
-  rewrites bunfig.toml, bunfig.integration.toml, bunfig.real.toml and
+  app's devDependencies (all four already have both). Running
+  `kumiko-testing bunfig --dom` instead also works but rewrites
+  bunfig.toml, bunfig.integration.toml, bunfig.real.toml and
   bunfig.dom.toml from scratch, resetting each file's [test].preload
   array, so any app-local extra preload (publicstatus's
   env.preload.ts/codegen.preload.ts) must be re-added afterwards, same as
