@@ -116,11 +116,12 @@ specs racing on one tenant), not from a CPU limit, the reason
 
 #3119 collected the actual baseline. Its CI job-minutes table (median of
 the last 10 successful runs per app, taken before any port/config change)
-is the comparison point ("Laufzeit nicht schlechter als Baseline");
-comparing it against the migrated apps' CI minutes is still pending those
-migrations. Locally, publicstatus's integration suite (53 files, 370
-tests, loaded machine, two runs) measured sequential at 27.0 s / 24.5 s
-and `--parallel=4` at 29.3 s / 25.3 s, with 2-4 s of run-to-run noise.
+is the comparison point, meant to prove the template's runtime is not
+worse than it; comparing it against each migrated app's post-migration CI
+minutes has not been done yet. Locally, publicstatus's integration suite
+(53 files, 370 tests, loaded machine, two runs) measured sequential at
+27.0 s / 24.5 s and `--parallel=4` at 29.3 s / 25.3 s, with 2-4 s of
+run-to-run noise.
 
 With the template, the same class of suite (56 files, 381 tests, measured
 in PR #3294) runs `--parallel=4 --no-isolate` at 27.1 s: within the

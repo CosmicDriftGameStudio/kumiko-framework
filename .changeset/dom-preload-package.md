@@ -28,8 +28,9 @@ detail: |
   functional diff). The framework's own copy is now deleted; the
   framework runs the same package preload it ships.
 migration: |
-  In every bunfig file that lists "./test-setup/dom.preload.ts" (each app
-  has exactly one, its bunfig.dom.toml), replace that line with
+  In every bunfig file that lists "./test-setup/dom.preload.ts"
+  (publicstatus, phronexsis and offlot-app each have exactly one, their
+  bunfig.dom.toml), replace that line with
   "@cosmicdrift/kumiko-testing/preload/dom", then delete the now-
   unreferenced ./test-setup/dom.preload.ts. Ensure
   @happy-dom/global-registrator and @testing-library/react are in the
