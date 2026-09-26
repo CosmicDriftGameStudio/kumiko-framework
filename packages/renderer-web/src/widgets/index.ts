@@ -42,6 +42,7 @@ export {
 } from "./form-fields";
 export { InfinityList, type InfinityListProps } from "./infinity-list";
 export { ModeSwitch } from "./mode-switch";
+export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots";
 export { ProgressBar } from "./progress-bar";
 export { ProgressList, type ProgressListRow } from "./progress-list";
 export { QueryTable, type QueryTableColumn, type QueryTableProps } from "./query-table";
