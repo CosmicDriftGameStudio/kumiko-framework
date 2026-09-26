@@ -48,11 +48,10 @@ function fullSetFromPayload(p: SubscriptionEventPayload) {
   };
 }
 
-/** UPSERT-helper für defensive apply: wenn die row nicht existiert
- *  (= z.B. Plugin sendet "updated" als ersten event eines streams,
- *  oder rebuild-aus-dem-Nichts), legen wir sie an statt fail-silent
- *  zu sein. Apply läuft in der event-TX, expectedVersion macht
- *  drizzle-on-conflict korrekt.
+/** UPSERT helper for defensive applies: if the row does not exist yet
+ *  (a plugin sends "updated" as a stream's first event, or a rebuild
+ *  starts from nothing), create it instead of failing silently. Apply
+ *  runs in the event TX, so expectedVersion keeps on-conflict correct.
  *
  *  `modified_at` is always stamped from `event.createdAt` (never `now()`),
  *  on every apply including the initial create — a projection rebuild at a
