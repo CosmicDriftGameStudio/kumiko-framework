@@ -4,6 +4,7 @@ import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-fra
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation";
+import type { CapLimitContext } from "../../cap-counter";
 import { tenantTable } from "../../tenant";
 import { tierAssignmentEntity } from "../../tier-engine";
 import { capFieldName } from "../constants";
@@ -49,6 +50,24 @@ type FilterOp = z.infer<typeof FILTER_OP>;
 
 const SORTABLE_FIELDS = ["name", "tier", "billing"] as const;
 type SortableField = (typeof SORTABLE_FIELDS)[number];
+
+function capTierKey(capId: string, tier: string): string {
+  return JSON.stringify([capId, tier]);
+}
+
+async function resolveLimitsByCapAndTier(
+  caps: readonly CapSpec[],
+  tiers: ReadonlySet<string>,
+  context: CapLimitContext,
+): Promise<ReadonlyMap<string, number | null>> {
+  const limitByCapAndTier = new Map<string, number | null>();
+  for (const cap of caps) {
+    for (const tier of tiers) {
+      limitByCapAndTier.set(capTierKey(cap.id, tier), await cap.limit(tier, context));
+    }
+  }
+  return limitByCapAndTier;
+}
 
 function isSortableField(field: string): field is SortableField {
   return (SORTABLE_FIELDS as readonly string[]).includes(field);
@@ -197,6 +216,12 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         }
       }
 
+      const limitByCapAndTier = await resolveLimitsByCapAndTier(
+        listedCaps,
+        new Set(page.map((row) => row.tier)),
+        { config: ctx.config },
+      );
+
       const rows: TenantCapsListRow[] = page.map((row) => {
         const capFields: Record<string, CapUsage> = {};
         for (const cap of listedCaps) {
@@ -204,7 +229,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
           // only an explicit `null` value means "not measured".
           const rawUsed = usageByCap.get(cap.id)?.get(row.tenantId);
           const used = rawUsed === undefined ? 0 : rawUsed;
-          const limit = cap.limit(row.tier);
+          const limit = limitByCapAndTier.get(capTierKey(cap.id, row.tier)) ?? null;
           capFields[capFieldName(cap.id)] =
             used === null
               ? { used: null, limit, fraction: 0 }

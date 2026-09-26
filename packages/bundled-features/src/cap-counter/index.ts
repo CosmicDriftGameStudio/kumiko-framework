@@ -35,6 +35,7 @@ export {
 export { capCounterEntity } from "./entity";
 export { capCounterFeature } from "./feature";
 export {
+  type CapLimitContext,
   createStockCapGuard,
   type StockCapGuard,
   type StockCapSpec,

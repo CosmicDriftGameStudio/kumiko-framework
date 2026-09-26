@@ -1,5 +1,6 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { CapLimitContext } from "../cap-counter";
 
 // Closed vocabulary for the dashboard cards' icon chip — cap-cards-panel.tsx
 // holds the matching lucide-react lookup. Small on purpose (YAGNI): extend
@@ -16,7 +17,11 @@ export type CapSpec = {
   readonly label: string;
   // `null` = unlimited (a pure usage meter: counted but never capped).
   // `<= 0` = not part of this tier — existing, unchanged meaning (usage-math.ts).
-  readonly limit: (tier: string) => number | null;
+  // Resolved once per (cap, tier) per request, so a config read here is cheap.
+  readonly limit: (
+    tier: string,
+    context: CapLimitContext,
+  ) => number | null | Promise<number | null>;
   // `null` means "no measurement exists yet for this cap" (not "0 used") —
   // callers that haven't wired up instrumentation return null instead of a
   // number they don't actually have.

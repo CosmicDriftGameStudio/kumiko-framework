@@ -29,6 +29,7 @@ import type {
   EntityCrudVerb,
   EntityHandlerOptions,
   EntityQueryHandlerOptions,
+  EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
 } from "./types/entity-handlers";
 
@@ -38,6 +39,7 @@ export type {
   EntityCrudVerb,
   EntityHandlerOptions,
   EntityQueryHandlerOptions,
+  EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
 } from "./types/entity-handlers";
 
@@ -202,10 +204,48 @@ function parseHandlerName<TVerb extends string>(
   return { entityName, verb: verbCandidate as TVerb }; // @cast-boundary engine-bridge
 }
 
+function isInTotalsMatchPair(entity: EntityDefinition, fieldName: string): boolean {
+  return Object.entries(entity.fields).some(
+    ([name, field]) =>
+      field.type === "embedded" &&
+      field.totalsMatch !== undefined &&
+      (name === fieldName || Object.values(field.totalsMatch).includes(fieldName)),
+  );
+}
+
+function assertExcludableFields(
+  name: string,
+  verb: (typeof WRITE_VERBS)[number],
+  entity: EntityDefinition,
+  excludedFields: readonly string[],
+): void {
+  if (excludedFields.length > 0 && verb !== "create" && verb !== "update") {
+    throw new Error(`"${name}": excludeFields only applies to create and update handlers.`);
+  }
+  for (const fieldName of excludedFields) {
+    const field = entity.fields[fieldName];
+    if (!field) {
+      throw new Error(`"${name}": excludeFields names unknown field "${fieldName}".`);
+    }
+    if (isInTotalsMatchPair(entity, fieldName)) {
+      throw new Error(
+        `"${name}": excludeFields cannot name "${fieldName}" — it is part of a totalsMatch pair, which must be written together.`,
+      );
+    }
+    const isRequired = "required" in field && field.required === true;
+    const hasDefault = "default" in field && field.default !== undefined;
+    if (verb === "create" && isRequired && !hasDefault) {
+      throw new Error(
+        `"${name}": excludeFields cannot name "${fieldName}" — it is required without a default, so no row could ever be created.`,
+      );
+    }
+  }
+}
+
 export function defineEntityWriteHandler(
   name: string,
   entity: EntityDefinition,
-  options: EntityHandlerOptions,
+  options: EntityWriteHandlerOptions,
 ): WriteHandlerDef {
   const { entityName, verb } = parseHandlerName(name, WRITE_VERBS);
   if (verb === "restore" && !entity.softDelete) {
@@ -213,6 +253,8 @@ export function defineEntityWriteHandler(
       `"${name}": restore is only valid for entities declared with softDelete: true.`,
     );
   }
+  const excludedFields = options.excludeFields ?? [];
+  assertExcludableFields(name, verb, entity, excludedFields);
 
   const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
@@ -263,7 +305,7 @@ export function defineEntityWriteHandler(
 
   switch (verb) {
     case "create":
-      schema = buildInsertSchema(entity);
+      schema = buildInsertSchema(entity, undefined, excludedFields);
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
         // A caller-chosen id (deterministic-id idempotent creates) is only
@@ -284,7 +326,7 @@ export function defineEntityWriteHandler(
       schema = z.object({
         id: z.uuid(),
         version: z.number(),
-        changes: buildUpdateSchema(entity),
+        changes: buildUpdateSchema(entity, undefined, excludedFields),
       });
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
@@ -507,7 +549,7 @@ export function defineEntityQueryHandler(
 export function defineEntityCreateHandler(
   entityName: string,
   entity: EntityDefinition,
-  options: EntityHandlerOptions,
+  options: EntityWriteHandlerOptions,
 ): WriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:create`, entity, options);
 }
@@ -516,7 +558,7 @@ export function defineEntityCreateHandler(
 export function defineEntityUpdateHandler(
   entityName: string,
   entity: EntityDefinition,
-  options: EntityHandlerOptions,
+  options: EntityWriteHandlerOptions,
 ): WriteHandlerDef {
   return defineEntityWriteHandler(`${entityName}:update`, entity, options);
 }
@@ -651,11 +693,16 @@ export function registerEntityCrud(
     }
     return access;
   };
-  const resolveWriteOpts = (verb: EntityCrudVerb): EntityHandlerOptions => ({
-    ...writeOpts,
-    access: requireAccess(verb, options?.verbAccess?.[verb] ?? writeOpts?.access),
-    description: options?.descriptions?.[verb] ?? writeOpts?.description,
-  });
+  const resolveWriteOpts = (verb: EntityCrudVerb): EntityWriteHandlerOptions => {
+    const excludeFields =
+      verb === "create" || verb === "update" ? options?.excludeFields?.[verb] : undefined;
+    return {
+      ...writeOpts,
+      access: requireAccess(verb, options?.verbAccess?.[verb] ?? writeOpts?.access),
+      description: options?.descriptions?.[verb] ?? writeOpts?.description,
+      ...(excludeFields !== undefined && { excludeFields }),
+    };
+  };
   const resolveReadOpts = (verb: EntityCrudVerb): EntityQueryHandlerOptions => ({
     ...readOpts,
     access: requireAccess(verb, options?.verbAccess?.[verb] ?? readOpts?.access),
