@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.317.0
+
+### Patch Changes
+
+- 94ce380: bookCapUsage/markCapSoftWarned count parallel bookings instead of losing them
+
+  Both re-read and retry when they lose an optimistic-lock race, so parallel bookings for the same cap period all count instead of failing or getting silently dropped. The outsideTransaction path runs each attempt in its own transaction (runInOwnTransaction), keeping event append and projection update atomic. withCapEnforcement now throws a failed booking instead of discarding it.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: bookCapUsage/markCapSoftWarned count parallel bookings instead of losing them
+  -->
+
+- Updated dependencies [fd40653]
+- Updated dependencies [b13c820]
+- Updated dependencies [94ce380]
+  - @cosmicdrift/kumiko-framework@0.317.0
+  - @cosmicdrift/kumiko-headless@0.317.0
+  - @cosmicdrift/kumiko-renderer@0.317.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.317.0
+  - @cosmicdrift/kumiko-renderer-web@0.317.0
+  - @cosmicdrift/kumiko-types@0.317.0
+
 ## 0.316.0
 
 ### Patch Changes

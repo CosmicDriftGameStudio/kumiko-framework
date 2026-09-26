@@ -10,6 +10,69 @@ verified: 2026-09-26
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.317.0
+
+### enterprise:testing
+
+**bunfig --dom preloads the package's own DOM setup instead of an app-local file**
+
+The package now exports `./preload/dom`, the happy-dom GlobalRegistrator
+setup (IS_REACT_ACT_ENVIRONMENT, Bun's native fetch/Request/Response
+preserved over happy-dom's broken cookie header, testing-library/react
+cleanup, Radix pointer-capture/scrollIntoView stubs, the inspect-size
+limit for waitFor) that each app using --dom previously copied into its
+own ./test-setup/dom.preload.ts. `kumiko-testing bunfig --dom` now generates
+bunfig.dom.toml with @cosmicdrift/kumiko-testing/preload/dom instead of
+the app-local path. @happy-dom/global-registrator and
+@testing-library/react are optional peer dependencies, same as
+@playwright/test for ./e2e. This reverses kumiko-framework#3128, which
+kept the file as an app-local copy because at the time it was
+workspace-internal, not a published contract. In practice the copies
+never diverged on purpose, only by drift: publicstatus, phronexsis and
+kumiko-enterprise carried older, partial copies of the framework's own
+test-setup/dom.preload.ts (missing the inspect-size fix for #3082), and
+only offlot-app matched the framework's code (comments reworded, no
+functional diff). The framework's own copy is now deleted; the
+framework runs the same package preload it ships.
+
+**Migration:** In every bunfig file that lists "./test-setup/dom.preload.ts"
+(publicstatus, phronexsis, offlot-app and kumiko-enterprise each have
+exactly one, their bunfig.dom.toml), replace that line with
+"@cosmicdrift/kumiko-testing/preload/dom", then delete the now-
+unreferenced ./test-setup/dom.preload.ts. Ensure
+@happy-dom/global-registrator and @testing-library/react are in the
+app's devDependencies (all four already have both). Running
+`kumiko-testing bunfig --dom` instead also works: mergeBunfig now keeps
+an app-local extra preload (publicstatus's
+env.preload.ts/codegen.preload.ts) across the regen instead of dropping
+it, and treats an existing "./test-setup/dom.preload.ts" entry as
+superseded rather than an extra, so it doesn't end up preloaded twice
+alongside the new package path. The generated preload array's own
+entries stay first; a carried-over extra lands after them, which can
+move it relative to entries that used to sit between the template's
+preloads and the app's own (publicstatus: dom.preload.ts used to run
+last, after env/codegen; the package preload now runs before them).
+
+### framework-core
+
+**"files: a valid upload (png/jpeg/gif/webp/pdf/doc/docx) under the wrong extension is normalized to its real type instead of rejected, when that type is in the field's accept list or the upload has no accept restriction at all"**
+
+A real PNG or WebP saved with a .jpg extension (a common case for renamed
+screenshots or messenger downloads) was rejected with content_mismatch
+even when the field's accept explicitly allows png/webp, or when the upload
+is unattached and has no accept restriction at all. validateFileContent now
+also accepts the field's accept list; when the sniffed byte signature
+doesn't match the declared extension but the sniffed type's own extension is
+in accept, the upload proceeds under the sniffed mimeType with a storage key
+built from the corrected extension, and the response reports the corrected
+mimeType. When there is no accept restriction at all, any recognized
+signature (png, jpeg, gif, webp, pdf, doc, docx) normalizes the same way.
+The original filename is kept as the display name. A sniffed type whose
+extension is not in a non-empty accept is still rejected with
+content_mismatch.
+
+**Migration:** validateFileContent's signature changes from (fileName: string, content: Uint8Array): string | null to (fileName: string, content: Uint8Array, accept?: readonly string[]): FileContentValidationResult ({kind:"ok"} | {kind:"normalized", extension, mimeType} | {kind:"rejected", error}). A direct caller that checked "if (result)" for an error must switch to checking result.kind === "rejected" and reading result.error — every branch of the new return type is a truthy object, so an unmigrated truthy check would now reject every upload. No caller besides the built-in POST /api/files route calls this function directly today (checked across kumiko-framework, kumiko-enterprise, kumiko-platform, kumiko-studio and every app consumer). buildStorageKey gains an optional trailing extensionOverride parameter; existing calls without it are unaffected.
+
 ## 0.315.0
 
 ### data-retention
