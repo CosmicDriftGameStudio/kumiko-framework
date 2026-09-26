@@ -23,6 +23,7 @@ describe("buildIntegrationTestArgs", () => {
       "--config=bunfig.integration.toml",
       "--timeout=15000",
       "--parallel=4",
+      "--no-isolate",
       "--timings=.timings.json",
       "a.integration.test.ts",
       "b.integration.test.ts",
@@ -49,14 +50,14 @@ describe("buildIntegrationTestArgs", () => {
     );
   });
 
-  test("never emits --no-isolate", () => {
-    const combos = [
-      {},
-      { parallel: 8 },
-      { timings: "t.json" },
-      { parallel: 2, timings: "t.json", updateTimings: true },
-    ];
-    for (const combo of combos) {
+  test("emits --no-isolate exactly when --parallel is set", () => {
+    const withParallel = [{ parallel: 1 }, { parallel: 2, timings: "t.json", updateTimings: true }];
+    for (const combo of withParallel) {
+      expect(buildIntegrationTestArgs({ files: ["x.integration.test.ts"], ...combo })).toContain(
+        "--no-isolate",
+      );
+    }
+    for (const combo of [{}, { timings: "t.json" }]) {
       expect(
         buildIntegrationTestArgs({ files: ["x.integration.test.ts"], ...combo }),
       ).not.toContain("--no-isolate");
