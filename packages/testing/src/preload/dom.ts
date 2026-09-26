@@ -101,6 +101,9 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 //
 //   e) window.location / history.pushState.
 afterEach(() => {
+  // skip: this preload module runs its own afterEach unconditionally; plain
+  // unit test files (no --dom) never get happy-dom registered, so document
+  // stays undefined and there is nothing to clean up.
   if (typeof globalThis.document === "undefined") return;
 
   // (a) React cleanup first: unmounts every testing-library-rendered
@@ -109,6 +112,8 @@ afterEach(() => {
   cleanup();
 
   const doc = globalThis.document;
+  // skip: happy-dom always creates body, but a defensive guard keeps this
+  // afterEach from throwing if a future registration option removes it.
   if (!doc.body) return;
 
   // (b) Remaining nodes are not actively removed: cleanup() from
