@@ -1,5 +1,58 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.318.0
+
+### Minor Changes
+
+- 4fac08d: App theme as one input: `createThemePlugin` from `@cosmicdrift/kumiko-renderer-web/theme-plugin`, plus font, shadow and spacing tokens
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: App theme as one Tailwind plugin instead of duplicated @theme and :root blocks
+  detail: |
+    An app declares its colors (a string, or `{ light, dark }`), base radius, fonts, card shadow and card padding once in `defineAppTheme({...})`, default-exports `createThemePlugin(theme)` from e.g. `src/theme.ts`, and adds `@plugin "./theme.ts";` after the renderer-web import in its styles.css. The plugin writes into the same base layer after the framework palette, so the app values win in light and dark mode without repeating them in `:root`/`.dark`; colors the framework does not know get utilities (`bg-brand-soft`). `fonts.sans` also sets the body font. The framework's `--card-padding/--card-radius/--card-shadow` defaults moved into `@layer base` (an app's unlayered `:root` still overrides them, an app `@theme` value still does not). CoreTokens gain `font`, `shadow.card` and `spacing.card`. Apps that already duplicate their palette in unlayered `:root`/`.dark` blocks must drop those blocks when switching to the plugin, since unlayered CSS beats it.
+  -->
+
+- 4fac08d: Formal or informal address per surface: FormalityProvider, `createPublicSurface({ formality })` and a `de-x-formal` bundle in locale-de
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Formal or informal address per surface
+  detail: |
+    `FormalityProvider` (and `createPublicSurface({ formality: "formal" })`) makes `t()` look up `<locale>-x-formal` across all plugin bundles before the plain locale, so public pages can say "Sie" while the app keeps "du". `formalLocaleTag(locale)` builds the tag. locale-de now ships `de-x-formal` overrides for its framework strings. Only bundle lookups are affected: an app resolver that already knows a key answers first, and an app that overrides a framework key in plain "de" needs a matching "de-x-formal" entry for formal surfaces.
+  -->
+
+- 4fac08d: Building blocks for public and wizard pages: clickable StepBar, success progress tone, StickyActionBar, CopyButton/ShareButton, PromoPanel, PhotoSlots and PublicShell
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Public-page building blocks (StepBar back navigation, sticky actions, copy/share, promo, photo slots, public shell)
+  detail: |
+    StepBar takes `onStepSelect` (completed steps become buttons, so a wizard can jump back) and `narrowLayout` ("label" or "steps"); wizard forms wire it to jump back without validating. ProgressBar gains `tone: "success"`. New optional primitives: StickyActionBar (bottom-pinned action row with safe-area padding and an optional back action), CopyButton (clipboard with a copied state), ShareButton (`target: "whatsapp"` opens wa.me, `target: "system"` opens the share sheet and renders nothing where the browser has none, so pair it with a CopyButton) plus `buildWhatsAppShareUrl`, and PromoPanel (offer surface on its own `--color-promo*` tokens instead of an info banner). New widgets: PhotoSlots (one tile per required shot with thumbnail, per-slot upload and error, optional camera capture; UploadZone forwards `capture` too) and PublicShell (`variant` "marketing", "focus" with a progress slot, or "card"). The new primitives are optional in CorePrimitives, so existing registries keep compiling.
+  -->
+
+- 4c5152f: Add PlanCard/PlanGrid widgets for billing plan catalogs
+
+  PlanCard renders a plan's title, price (via formatMoney), features, a primary cta and an optional secondaryAction (e.g. manage-subscription), with current/disabled states. PlanGrid lays out a set of PlanCards responsively. Used by billing-foundation's BillingPlansPanel.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Add PlanCard/PlanGrid widgets for billing plan catalogs
+  -->
+
+### Patch Changes
+
+- Updated dependencies [4fac08d]
+- Updated dependencies [4fac08d]
+- Updated dependencies [4fac08d]
+  - @cosmicdrift/kumiko-renderer@0.318.0
+  - @cosmicdrift/kumiko-headless@0.318.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.318.0
+
 ## 0.317.0
 
 ### Patch Changes

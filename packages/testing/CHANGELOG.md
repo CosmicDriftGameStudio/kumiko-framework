@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.318.0
+
+### Minor Changes
+
+- 1d97d7a: Export `buildIntegrationTestArgs`/`selectIntegrationFiles` from a new `@cosmicdrift/kumiko-testing/integration-runner` subpath
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: integration-runner exports a dedicated subpath
+  detail: |
+    `buildIntegrationTestArgs` and `selectIntegrationFiles` previously reached
+    consumers only through `kumiko-testing`'s own CLI (`kumiko-testing
+    integration --parallel N`), with no package subpath a caller outside the
+    CLI could import them from. kumiko-framework's own
+    `scripts/run-integration-tests.ts` needed exactly that: the same
+    `--parallel N --no-isolate` invocation the app template already runs,
+    reused instead of reimplemented, while still discovering its own file
+    list and running a separate bulk/perf mode split the CLI doesn't have.
+    The new `./integration-runner` export makes that reuse
+    possible without duplicating the arg-building logic; no existing export
+    changed.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [4c5152f]
+- Updated dependencies [4c5152f]
+- Updated dependencies [4c5152f]
+- Updated dependencies [5d3b3e8]
+- Updated dependencies [5d3b3e8]
+- Updated dependencies [4fac08d]
+- Updated dependencies [4c5152f]
+- Updated dependencies [4c5152f]
+- Updated dependencies [4c5152f]
+- Updated dependencies [4c5152f]
+  - @cosmicdrift/kumiko-bundled-features@0.318.0
+  - @cosmicdrift/kumiko-framework@0.318.0
+  - @cosmicdrift/kumiko-dev-server@0.318.0
+
 ## 0.317.0
 
 ### Minor Changes
