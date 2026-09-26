@@ -107,13 +107,17 @@ Chromium processes contending for too little CPU. A project that sets its own
 
 ## Measured effect
 
-Baseline, before the template (#3119): e2e defaulted to `workers: 1`
-everywhere. Integration's `bun test --parallel=4` gave phronexsis 1.6x and
-publicstatus nothing measurable (a loaded machine, no clean baseline).
-Running phronexsis's e2e at 2 workers already showed 1.85x, but 4 workers
-went red from a shared-tenant collision (two flow specs racing on one
-tenant), not from a CPU limit; that collision is the reason `seedTenant()`
-per flow exists.
+Before the template, e2e defaulted to `workers: 1` everywhere. #3118's own
+Kernbefund calls its numbers "Richtwerte, keine Baseline", not a clean
+measurement, so read them as rough pre-template signals: phronexsis's e2e
+at 2 workers already showed 1.85x, but 4 workers went red from a
+shared-tenant collision (two flow specs racing on one tenant), not from a
+CPU limit; that collision is the reason `seedTenant()` per flow exists.
+Integration's `bun test --parallel=4` (raw run in #3119, on a loaded
+machine) gave phronexsis 1.6x and publicstatus nothing measurable, with no
+clean baseline to compare against. No controlled baseline-vs-template
+runtime comparison exists; the isolate/no-isolate numbers below compare two
+modes within the template, not against the pre-template state.
 
 With the template, `kumiko-testing integration --parallel` also needs
 `--no-isolate`: bun 1.4.0's `--parallel` implies `--isolate`, which leaks
