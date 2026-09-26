@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.316.0",
+    "type": "fix",
+    "title": "schema generate rejects unrecognized trailing arguments",
+    "detail": "`kumiko-schema generate <name>` only ever read `argv[1]` as the migration\nname; any further argument (e.g. a typo'd `generate my-migration --dry-run`\n— there is no dry-run flag) was silently ignored and the migration was\nwritten anyway, with no indication the trailing argument did nothing.\n`generate` now exits 1 with \"Unrecognized argument(s): ...\" and writes\nnothing when called with more than a name."
+  },
+  {
     "version": "0.315.0",
     "type": "breaking",
     "title": "files: content verification is now keyed by filename extension, covering every signature-bearing type",
