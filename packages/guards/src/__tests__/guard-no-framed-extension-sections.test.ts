@@ -126,6 +126,62 @@ export function demoClient() {
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
+  test("a component used only as a dashboard custom panel is not flagged", () => {
+    const sf = parse(
+      `function CapCards() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [CAP_CARDS_PANEL_COMPONENT]: CapCards } };
+}
+const screen = { type: "dashboard", panels: [{ kind: "custom", id: "cap-cards", component: { react: { __component: CAP_CARDS_PANEL_COMPONENT } } }] };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("a component used only as an entityEdit header slot is not flagged", () => {
+    const sf = parse(
+      `function TagsFilter() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [TAGS_FILTER_EXTENSION_NAME]: TagsFilter } };
+}
+const screen = { slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("a string-literal registry key and a string-literal __component usage still correlate", () => {
+    const sf = parse(
+      `function FilterEcho() { return <SectionCard>x</SectionCard>; }
+export function demoClient() {
+  return { extensionSectionComponents: { "widgets-dashboard-filter-echo": FilterEcho } };
+}
+const screen = { kind: "custom", id: "filter-echo", component: { react: { __component: "widgets-dashboard-filter-echo" } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("a component used as a section is still flagged even when it is also used as a custom panel elsewhere", () => {
+    const sf = parse(
+      `function NotesSection() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [NOTES_SECTION_EXTENSION_NAME]: NotesSection } };
+}
+const sectionScreen = { kind: "extension", component: { react: { __component: NOTES_SECTION_EXTENSION_NAME } } };
+const panelScreen = { kind: "custom", component: { react: { __component: NOTES_SECTION_EXTENSION_NAME } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
+  });
+
+  test("a footer slot usage does not exempt a component from framing (non-goal, out of scope)", () => {
+    const sf = parse(
+      `function SomeSection() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [SOME_CONST]: SomeSection } };
+}
+const screen = { slots: { footer: { react: { __component: SOME_CONST } } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
+  });
+
   test("ignore tag on the JSX element suppresses the finding", () => {
     const sf = parse(
       `function NotesSection() {
