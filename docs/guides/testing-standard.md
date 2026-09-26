@@ -11,7 +11,7 @@ explains what the standard is and why it looks the way it does, so the old
 patterns — `workers: 1` against shared state, a raised timeout, a real test
 that fires because a key happens to be in `.env`, a hand-copied screenshot
 runner — stop coming back out of habit. For diagnosing a red or flaky test,
-see [`test-failures.md`](./test-failures.md); this guide is the model behind
+see [`test-failures.md`](/en/guides/test-failures/); this guide is the model behind
 those steps.
 
 ## Three classes, never mixed
@@ -144,7 +144,7 @@ per-test `test.setTimeout`, no per-project override. Centralizing them is
 what makes the budget in the table above mean something — a timeout an app
 can silently raise is not a budget, it's a suggestion. When a test is
 actually slow or flaky, the fix is almost never the timeout: see
-[`test-failures.md`](./test-failures.md#diagnosis-order) for the diagnosis
+[`test-failures.md`](/en/guides/test-failures/#diagnosis-order) for the diagnosis
 order and the `@timeout-exception: #<issue> <reason>` marker for the rare
 case that needs one.
 
@@ -192,7 +192,7 @@ per-spec case, so it stays template-owned everywhere.
 |---|---|
 | `workers: 1` / `fullyParallel: false` in `playwright.config.ts` | `defineAppE2eConfig({ port, serverEntry, ... })` — parallel by default, tenant per flow |
 | Hand-rolled `defineConfig` with a custom viewport/DPR | `defineAppE2eConfig` (viewport/DPR are template-owned) |
-| `test.setTimeout(n)` / a raised project timeout | Diagnose first ([`test-failures.md`](./test-failures.md)); `@timeout-exception` marker only for a genuine no-condition wait |
+| `test.setTimeout(n)` / a raised project timeout | Diagnose first ([`test-failures.md`](/en/guides/test-failures/)); `@timeout-exception` marker only for a genuine no-condition wait |
 | A real-provider test that runs whenever an API key is present | `*.real.test.ts` / `*.real.spec.ts` + `requireRealProviders()`, gated by `KUMIKO_REAL_PROVIDERS=1`, hard-stopped in CI |
 | A local `page.screenshot()` helper for docs images | `runScreenshots` / `runMatrix` with `SCREENSHOT_DIR` set |
 | A shared/global test user across flows | `seedTenant()` per flow |
