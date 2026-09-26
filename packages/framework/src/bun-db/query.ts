@@ -1237,3 +1237,21 @@ export async function deleteManyBatched(
 export async function transaction<T>(db: AnyDb, fn: (tx: BunDbRunner) => Promise<T>): Promise<T> {
   return (await asRawClient(db).begin(async (tx) => fn(tx as BunDbRunner))) as T;
 }
+
+// A tx/savepoint handle has no begin(); fail closed instead of nesting silently or TypeError-ing.
+export async function runInNewTransaction<T>(
+  db: unknown,
+  fn: (tx: DbRunner) => Promise<T>,
+): Promise<T> {
+  const raw = asRawClient(db) as unknown as {
+    begin?: <TResult>(cb: (tx: unknown) => Promise<TResult>) => Promise<TResult>;
+  };
+  if (typeof raw.begin !== "function") {
+    throw new InternalError({
+      message:
+        "runInNewTransaction: runner has no begin() — already inside a transaction or savepoint.",
+    });
+  }
+  // @cast-boundary driver tx handle → DbRunner at the single seam
+  return raw.begin((tx) => fn(tx as DbRunner));
+}
