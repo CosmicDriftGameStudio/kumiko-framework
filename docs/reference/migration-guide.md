@@ -2,13 +2,27 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-25
+verified: 2026-09-26
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.315.0
+
+### data-retention
+
+**forget/policy-for now honor the tenant retention preset**
+
+**Migration:** ResolveForTenantArgs.tenantPreset was renamed to preloadedTenantPreset (mirrors preloadedOverride): omitting it now makes the resolver load the tenant's retention preset itself instead of skipping it. Behavior change: forget (Art. 17) and the policy-for query now honor the tenant's compliance-profile-derived retention preset, not just entity defaults and per-tenant overrides. For tenants with a mapped compliance profile (e.g. de-hr-dsgvo-hgb), forget now keeps invoice/booking/contract rows via blockDelete and anonymizes order rows instead of hard-deleting them; notes-history mentions on such hosts are no longer shredded when the mentioned note's host entity is preset-protected. policy-for (data-retention:query:policy-for) now returns source: "preset" where it previously returned "none" for these entities.
+
+### framework-core
+
+**files: content verification is now keyed by filename extension, covering every signature-bearing type**
+
+**Migration:** validateFileContent's signature changes from (mimeType: string, content: Uint8Array) to (fileName: string, content: Uint8Array): string | null. It now content-verifies every extension whose EXTENSION_MIME_WHITELIST entry overlaps MAGIC_BYTE_SIGNATURES (jpg/jpeg/png/gif/webp/pdf/doc/docx), not just doc/docx, and derives the check declaratively from the whitelist instead of a hardcoded per-format list. file-routes.ts now passes file.name instead of file.type (Bun derives File#type from the filename anyway, so the mimeType-keyed call was already comparing an extension-derived value to itself). A malicious extension shaped like a JS prototype property (constructor, __proto__, toString) resolves to "unknown extension" (no error) instead of crashing with a 500 — the same Object.hasOwn-guarded whitelist lookup is now shared by validateFile and validateFileContent. mime_mismatch remains a metadata-only pre-check; it is not real evidence of file content. Any test that uploads placeholder bytes (e.g. [1,2,3]) through the real upload route under one of the now-verified extensions must switch to real minimal signature bytes or a differently-named/unchecked extension.
 
 ## 0.314.0
 

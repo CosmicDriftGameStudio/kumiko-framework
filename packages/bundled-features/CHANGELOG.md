@@ -1,5 +1,77 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.315.0
+
+### Minor Changes
+
+- 55b8505: forget/policy-for now honor the tenant retention preset
+
+  <!-- kumiko-changes
+  feature: data-retention
+  type: breaking
+  title: forget/policy-for now honor the tenant retention preset
+  migration: |
+    ResolveForTenantArgs.tenantPreset was renamed to preloadedTenantPreset (mirrors preloadedOverride): omitting it now makes the resolver load the tenant's retention preset itself instead of skipping it. Behavior change: forget (Art. 17) and the policy-for query now honor the tenant's compliance-profile-derived retention preset, not just entity defaults and per-tenant overrides. For tenants with a mapped compliance profile (e.g. de-hr-dsgvo-hgb), forget now keeps invoice/booking/contract rows via blockDelete and anonymizes order rows instead of hard-deleting them; notes-history mentions on such hosts are no longer shredded when the mentioned note's host entity is preset-protected. policy-for (data-retention:query:policy-for) now returns source: "preset" where it previously returned "none" for these entities.
+  -->
+
+- 9635e86: Delivery unsubscribe route is now mountable via extraRoutes
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery unsubscribe route is now mountable via extraRoutes
+  detail: |
+    `createUnsubscribeRoute` previously returned a raw Hono app that needed a
+    `DbConnection` (`{ db, jwtSecret }`) and had to be mounted by hand with
+    `stack.app.route(...)`, bypassing the framework's request pipeline. It now
+    returns an `ExtraRouteDefinition` built via `signatureRoute`, taking only
+    `{ secret }`, and mounts at the fixed path `GET /api/delivery/unsubscribe?token=`
+    (exported as `DELIVERY_UNSUBSCRIBE_PATH`). Mount it with
+    `extraRoutes: [createUnsubscribeRoute({ secret: env.UNSUBSCRIBE_SECRET })]`.
+    `signUnsubscribeToken` / `signAddressUnsubscribeToken` must sign with the
+    same secret. The secret must be at least 32 characters and must NOT reuse
+    the app's session `JWT_SECRET` — all three entry points fail fast on a
+    short secret.
+    The write itself now goes through two new SystemAdmin-only handlers,
+    `delivery:write:unsubscribe-address` and `delivery:write:unsubscribe-user`,
+    dispatched via `dispatchSystemWrite` once the route's `verify()` has proven
+    the token's authenticity. An invalid or expired token always responds 400
+    with `{ error: { code: "unsubscribe_token_invalid" } }`, never leaking the
+    underlying JWT-library error text.
+    New notification-preference and notification-address-opt-out rows get a
+    deterministic aggregate id derived from (tenant, user or address hash,
+    notificationType, channel), so concurrent clicks on the same link collide
+    at the event-store append and converge on one row instead of failing with
+    a unique or version conflict. Existing rows keep their ids.
+  -->
+
+### Patch Changes
+
+- 4cc60bf: delivery honors an address opt-out on sends to a user account
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: delivery honors an address opt-out on sends to a user account
+  detail: |
+    `deliverToUser` only checked the user's notification preferences, so an
+    address that had been opted out via an address unsubscribe token still got
+    mail once it belonged to a user account. It now runs the same check
+    `deliverDirect` already applied: when the resolved channel address has a
+    `notification-address-opt-out` row for that tenant, notificationType and
+    channel, the attempt is logged as `skipped` / `unsubscribed` with
+    `recipientAddress: null`. Critical priority still bypasses it
+    (kumiko-framework#3275).
+  -->
+
+- Updated dependencies [0f2643d]
+  - @cosmicdrift/kumiko-framework@0.315.0
+  - @cosmicdrift/kumiko-headless@0.315.0
+  - @cosmicdrift/kumiko-renderer@0.315.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.315.0
+  - @cosmicdrift/kumiko-renderer-web@0.315.0
+  - @cosmicdrift/kumiko-types@0.315.0
+
 ## 0.314.0
 
 ### Minor Changes
