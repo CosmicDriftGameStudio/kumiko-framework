@@ -1,15 +1,8 @@
 /** Shared integration-test wiring for CLI + package.json scripts. */
 
-import { TEST_TIMEOUT_MS } from "@cosmicdrift/kumiko-testing/bunfig";
-
-export const INTEGRATION_BUNFIG = "bunfig.integration.toml";
 export const INTEGRATION_GUARD = "integration.guard.ts";
 export const INTEGRATION_RUNNER = "scripts/run-integration-tests.ts";
 export const INTEGRATION_PERF_ENV = "KUMIKO_PERF_GATE";
-// bun ignores `[test] timeout` in bunfig.integration.toml (kumiko-framework#2796) —
-// only the CLI flag actually raises the per-test default, so every direct
-// `bun test --config=bunfig.integration.toml` invocation must pass it explicitly.
-export const INTEGRATION_TEST_TIMEOUT_MS = TEST_TIMEOUT_MS.integration;
 
 export type IntegrationRunMode = "bulk" | "perf";
 
@@ -32,7 +25,7 @@ export type BunTestRunTotals = {
   files: number;
 };
 
-/** Parse the trailing bun test summary block from a single directory run. */
+/** Parse the trailing bun test summary block from a bun test run's output. */
 export function parseBunTestRunOutput(output: string): BunTestRunTotals | null {
   const ranMatches = [...output.matchAll(/Ran (\d+) tests? across (\d+) files?\./g)];
   const lastRan = ranMatches.at(-1);
@@ -56,5 +49,4 @@ export function parseBunTestRunOutput(output: string): BunTestRunTotals | null {
 
 export type IntegrationDiscovery = {
   includedFiles: string[];
-  includedDirs: string[];
 };

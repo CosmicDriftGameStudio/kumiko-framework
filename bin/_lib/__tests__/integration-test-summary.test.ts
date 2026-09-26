@@ -67,7 +67,7 @@ describe("integrationRunModeFromArgv", () => {
 });
 
 describe("printIntegrationSummary", () => {
-  test("flags file/dir mismatches and failing dirs", () => {
+  test("flags a file-count mismatch against the single combined run", () => {
     const logs: string[] = [];
     const origLog = console.log;
     const origError = console.error;
@@ -77,33 +77,30 @@ describe("printIntegrationSummary", () => {
     try {
       const { exitCode } = printIntegrationSummary(
         {
-          includedFiles: ["packages/a/__tests__/one.integration.test.ts"],
-          includedDirs: ["packages/a/__tests__"],
+          includedFiles: [
+            "packages/a/__tests__/one.integration.test.ts",
+            "packages/b/__tests__/two.integration.test.ts",
+          ],
         },
-        [
-          {
-            kind: "ran",
-            dir: "./packages/a/__tests__",
-            totals: { pass: 1, fail: 2, tests: 3, files: 1 },
-            exitCode: 0,
-          },
-          { kind: "skipped", dir: "./packages/b/__tests__", reason: "no discoverable tests" },
-        ],
+        {
+          totals: { pass: 1, fail: 2, tests: 3, files: 1 },
+          exitCode: 1,
+          noMatchingFiles: false,
+        },
         "bulk",
       );
 
       expect(exitCode).toBe(1);
-      expect(logs.some((line) => line.includes("Files: 1/1 executed"))).toBe(true);
-      expect(logs.some((line) => line.includes("Dirs:  1/1 executed (1 skipped)"))).toBe(true);
+      expect(logs.some((line) => line.includes("Files: 1/2 executed"))).toBe(true);
+      expect(logs.some((line) => line.includes("MISMATCH"))).toBe(true);
       expect(logs.some((line) => line.includes("Tests: 1 pass, 2 fail (3 total)"))).toBe(true);
-      expect(logs.some((line) => line.includes("Failed in 1 director"))).toBe(true);
     } finally {
       console.log = origLog;
       console.error = origError;
     }
   });
 
-  test("flags a directory with a non-zero exit even when every test passed", () => {
+  test("flags a non-zero bun exit even when every test passed", () => {
     const logs: string[] = [];
     const origLog = console.log;
     const origError = console.error;
@@ -112,27 +109,44 @@ describe("printIntegrationSummary", () => {
 
     try {
       const { exitCode } = printIntegrationSummary(
+        { includedFiles: ["packages/a/__tests__/one.integration.test.ts"] },
         {
-          includedFiles: ["packages/a/__tests__/one.integration.test.ts"],
-          includedDirs: ["packages/a/__tests__"],
+          totals: { pass: 1, fail: 0, tests: 1, files: 1 },
+          exitCode: 3,
+          noMatchingFiles: false,
         },
-        [
-          {
-            kind: "ran",
-            dir: "./packages/a/__tests__",
-            totals: { pass: 1, fail: 0, tests: 1, files: 1 },
-            exitCode: 3,
-          },
-        ],
         "bulk",
       );
 
       expect(exitCode).toBe(1);
-      expect(logs.some((line) => line.includes("Failed in 1 director"))).toBe(true);
-      expect(logs.some((line) => line.includes("exit 3"))).toBe(true);
+      expect(logs.some((line) => line.includes("bun test exited 3"))).toBe(true);
+      expect(logs.some((line) => line.includes("Integration run FAILED."))).toBe(true);
     } finally {
       console.log = origLog;
       console.error = origError;
+    }
+  });
+
+  test("stays green on a clean single-file run", () => {
+    const logs: string[] = [];
+    const origLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+
+    try {
+      const { exitCode } = printIntegrationSummary(
+        { includedFiles: ["packages/a/__tests__/one.integration.test.ts"] },
+        {
+          totals: { pass: 1, fail: 0, tests: 1, files: 1 },
+          exitCode: 0,
+          noMatchingFiles: false,
+        },
+        "bulk",
+      );
+
+      expect(exitCode).toBe(0);
+      expect(logs.some((line) => line.includes("Integration run complete."))).toBe(true);
+    } finally {
+      console.log = origLog;
     }
   });
 });

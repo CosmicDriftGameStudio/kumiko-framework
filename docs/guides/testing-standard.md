@@ -137,6 +137,54 @@ already isolates through data (`seedTenant` per flow, a queue prefix per
 stack), not through OS processes, the same property that makes parallel
 e2e safe above.
 
+kumiko-framework's own `scripts/run-integration-tests.ts` was the one
+runner still serial (#3118's last open item). It spawned one `bun test`
+per integration directory, one after another, so a per-directory
+`--parallel` would only have parallelized within a directory (most hold
+1-4 files), never across the roughly 150 directories doing the actual
+serializing. It now builds a single invocation over every discovered
+`*.integration.test.ts` file via the same `buildIntegrationTestArgs` the
+CLI uses, defaulting to `--parallel=4 --no-isolate`.
+
+Measured locally (515 files, 4228 tests, one file failing in every run
+because MinIO isn't running locally, unrelated to this change): serial
+460 s / 683 MB peak RSS (`/usr/bin/time -l`, valid for serial since only
+one worker runs at a time) against five `--parallel=4` runs at 168-215 s,
+2526 MB peak summed RSS as an upper bound (`/usr/bin/time -l` only
+reports the single largest descendant, so the four `--test-worker`
+processes were sampled by `ps` every second and summed; other local
+processes sharing the same `bun` binary can inflate this figure, so
+treat it as an upper bound, not an exact number). Four of the five
+parallel runs matched serial's pass/fail counts exactly; one hit the
+ioredis "Connection is closed" flake tracked in #1805. That flake is
+pre-existing: its issue thread records the same failure, in the same
+file, on PR #3296's CI under the still-serial runner earlier the same
+day. `--no-isolate` itself isn't leaking state between files (the
+integration guard already blocks `mock.module`, and none of the
+framework's own suites use it); a `KUMIKO_INTEGRATION_COVERAGE=1` run
+under `--parallel=4` produced a complete lcov report (1500 unique `SF:`
+entries against main's own last coverage run's 1499, `LH` 78833 against
+78964, within 1%, `LF` 116992 against 123504, about 5% lower, no worker
+overwriting another's output). A sixth local run is excluded here: the
+machine entered a 583 s macOS maintenance sleep mid-run (`pmset -g log`
+shows Sleep about three minutes in and Wake 583 s later), matching the
+~580 s durations of the tests that were in flight when it happened. That
+run also hit #3265 (jobs sequential-concurrency) once; unlike the other
+failures in that run, its cause there is not confirmed. CI measurements:
+434 s (serial, median of the last 5 successful pull-request runs' "Run
+integration tests" step; main-push runs also collect coverage and are
+not a clean baseline) vs. three `--parallel=4` runs on this PR. The CI
+comparison bundles two changes at once, the new `--parallel=4`
+invocation and the Postgres durability flags below, so it doesn't
+isolate either one; the local comparison does, since the local
+`docker-compose.yml` already had the durability flags before this
+change (#3299). The CI job's own ephemeral Postgres gained the same
+`fsync=off -c synchronous_commit=off -c full_page_writes=off` flags as
+the app template's reusable workflow (infra#936) and this repo's local
+`docker-compose.yml` (#3299), for the same reason: `DROP DATABASE` in
+`stack.cleanup()` forces a synchronous checkpoint that queues up under
+concurrent teardowns.
+
 ## Timeouts and retries belong to the template
 
 `defineAppE2eConfig` owns timeouts, retries (always 0) and workers; no

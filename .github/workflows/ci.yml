@@ -298,8 +298,9 @@ jobs:
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Bundle smoke (Empfehlung 4)" -- bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
   # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
-  # umbenennen. Fährt die ~213
-  # *.integration.test.ts via scripts/run-integration-tests.ts (dir-by-dir)
+  # umbenennen. Fährt die ~515
+  # *.integration.test.ts via scripts/run-integration-tests.ts (ein
+  # `bun test --parallel=4 --no-isolate`-Aufruf über buildIntegrationTestArgs)
   # gegen den vollen Stack. Wall-clock perf gates laufen
   # separat via `test:integration:perf` (KUMIKO_PERF_GATE=1). Der env-Preload von @cosmicdrift/kumiko-testing
   # setzt die localhost-Env-Defaults selbst (kein --env-file nötig).
@@ -337,9 +338,16 @@ jobs:
       - name: Start services
         run: |
           docker network create kumiko-ci
+          # fsync/synchronous_commit/full_page_writes off (same variant the
+          # app CI Postgres and this repo's own docker-compose.yml already
+          # use): this container is torn down with the job, so durability
+          # against a host crash buys nothing, and DROP DATABASE otherwise
+          # forces a synchronous CHECKPOINT that stalls stack.cleanup() for
+          # seconds under --parallel.
           docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
             -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.4-alpine
+            postgres:18.4-alpine \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
           docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
             -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
@@ -383,9 +391,9 @@ jobs:
           # job misconfiguration, not a real absence; fail loud instead of
           # the live adapter suite silently skipping (kumiko-framework#1124).
           REQUIRE_MEILI: "1"
-          # Main pushes only, feeds the coverage badge. bun's lcov reporter
-          # overwrites per invocation, so the runner writes per-dir parts
-          # and merges them into coverage/integration/lcov.info.
+          # Main pushes only, feeds the coverage badge. A single
+          # `--parallel` invocation writes straight to
+          # coverage/integration/lcov.info; no per-dir parts to merge.
           KUMIKO_INTEGRATION_COVERAGE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && '1' || '' }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration tests" -- bun run test:integration
 
