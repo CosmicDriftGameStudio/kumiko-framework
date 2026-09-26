@@ -224,6 +224,27 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: validationError }, 400);
     }
 
+    const data = new Uint8Array(await file.arrayBuffer());
+
+    const contentValidation = validateFileContent(file.name, data, accept);
+    if (contentValidation.kind === "rejected") {
+      return c.json({ error: contentValidation.error }, 400);
+    }
+
+    // A normalized upload's real type is already known from the sniffed
+    // bytes — resolveUploadMimeType's alias/rewrite step only applies to the
+    // declared mimeType of an unnormalized upload.
+    let mimeType: string;
+    if (contentValidation.kind === "normalized") {
+      mimeType = contentValidation.mimeType;
+    } else {
+      const mimeTypeResolution = resolveUploadMimeType(file.name, file.type, data);
+      if (mimeTypeResolution.kind === "rejected") {
+        return c.json({ error: mimeTypeResolution.error }, 400);
+      }
+      mimeType = mimeTypeResolution.mimeType;
+    }
+
     const fileRefId = generateId();
     const storageKey = buildStorageKey(
       user.tenantId,
@@ -232,20 +253,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       fieldName ?? "file",
       file.name,
       generateId(),
+      contentValidation.kind === "normalized" ? contentValidation.extension : undefined,
     );
-
-    const data = new Uint8Array(await file.arrayBuffer());
-
-    const contentValidationError = validateFileContent(file.name, data);
-    if (contentValidationError) {
-      return c.json({ error: contentValidationError }, 400);
-    }
-
-    const mimeTypeResolution = resolveUploadMimeType(file.name, file.type, data);
-    if (mimeTypeResolution.kind === "rejected") {
-      return c.json({ error: mimeTypeResolution.error }, 400);
-    }
-    const mimeType = mimeTypeResolution.mimeType;
 
     // Write binary FIRST (outside the tx — network/disk I/O doesn't belong
     // inside a PG connection's tx window). On DB-tx rollback below the bytes

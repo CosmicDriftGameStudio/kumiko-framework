@@ -66,6 +66,7 @@ const testTenantEntity = createEntity({
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     logo: createImageField({ maxSize: "2mb", accept: ["png", "jpg"] }),
+    strictLogo: createImageField({ maxSize: "2mb", accept: ["jpg"] }),
     importFile: createFileField({ maxSize: "2mb", accept: ["csv"] }),
   },
 });
@@ -266,8 +267,8 @@ describe("file validation", () => {
   });
 
   test("validateFileContent accepts .doc/.docx bytes matching their declared extension", () => {
-    expect(validateFileContent("report.doc", docBytes)).toBeNull();
-    expect(validateFileContent("report.docx", docxBytes)).toBeNull();
+    expect(validateFileContent("report.doc", docBytes)).toEqual({ kind: "ok" });
+    expect(validateFileContent("report.docx", docxBytes)).toEqual({ kind: "ok" });
   });
 
   test("validateFileContent rejects .doc/.docx whose content doesn't match the extension", () => {
@@ -275,13 +276,15 @@ describe("file validation", () => {
       "fake.doc",
       new TextEncoder().encode("not actually a Word document, just text"),
     );
-    expectErrorIncludes(fakeDoc, "content_mismatch");
+    expect(fakeDoc.kind).toBe("rejected");
+    expectErrorIncludes(fakeDoc.kind === "rejected" ? fakeDoc.error : null, "content_mismatch");
 
     const fakeDocx = validateFileContent(
       "fake.docx",
       new TextEncoder().encode("not actually a docx, just text"),
     );
-    expectErrorIncludes(fakeDocx, "content_mismatch");
+    expect(fakeDocx.kind).toBe("rejected");
+    expectErrorIncludes(fakeDocx.kind === "rejected" ? fakeDocx.error : null, "content_mismatch");
   });
 
   test("validateFileContent now content-verifies every signature-bearing extension (e.g. pdf), not just doc/docx", () => {
@@ -289,23 +292,73 @@ describe("file validation", () => {
       "fake.pdf",
       new TextEncoder().encode("not a PDF at all, just text"),
     );
-    expectErrorIncludes(mismatch, "content_mismatch");
+    expect(mismatch.kind).toBe("rejected");
+    expectErrorIncludes(mismatch.kind === "rejected" ? mismatch.error : null, "content_mismatch");
   });
 
   test("validateFileContent leaves extensions without a magic-byte signature unchecked (csv/txt/svg/md/json/unknown)", () => {
     const text = new TextEncoder().encode("just plain text, not any binary format");
-    expect(validateFileContent("data.csv", text)).toBeNull();
-    expect(validateFileContent("notes.txt", text)).toBeNull();
-    expect(validateFileContent("readme.md", text)).toBeNull();
-    expect(validateFileContent("data.json", text)).toBeNull();
-    expect(validateFileContent("logo.svg", text)).toBeNull();
-    expect(validateFileContent("file.unknownext", text)).toBeNull();
+    expect(validateFileContent("data.csv", text)).toEqual({ kind: "ok" });
+    expect(validateFileContent("notes.txt", text)).toEqual({ kind: "ok" });
+    expect(validateFileContent("readme.md", text)).toEqual({ kind: "ok" });
+    expect(validateFileContent("data.json", text)).toEqual({ kind: "ok" });
+    expect(validateFileContent("logo.svg", text)).toEqual({ kind: "ok" });
+    expect(validateFileContent("file.unknownext", text)).toEqual({ kind: "ok" });
   });
 
   test("validateFileContent treats a prototype-property extension as unknown instead of crashing", () => {
-    expect(validateFileContent("evil.constructor", docBytes)).toBeNull();
-    expect(validateFileContent("evil.__proto__", docBytes)).toBeNull();
-    expect(validateFileContent("evil.toString", docBytes)).toBeNull();
+    expect(validateFileContent("evil.constructor", docBytes)).toEqual({ kind: "ok" });
+    expect(validateFileContent("evil.__proto__", docBytes)).toEqual({ kind: "ok" });
+    expect(validateFileContent("evil.toString", docBytes)).toEqual({ kind: "ok" });
+  });
+
+  const pngBytesForNormalization = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(20).fill(0),
+  ]);
+
+  test("validateFileContent normalizes PNG bytes uploaded as .jpg when png is in accept", () => {
+    expect(validateFileContent("photo.jpg", pngBytesForNormalization, ["jpg", "png"])).toEqual({
+      kind: "normalized",
+      extension: "png",
+      mimeType: "image/png",
+    });
+  });
+
+  test("validateFileContent still rejects PNG bytes uploaded as .jpg when png is not in accept", () => {
+    const result = validateFileContent("photo.jpg", pngBytesForNormalization, ["jpg"]);
+    expect(result.kind).toBe("rejected");
+  });
+
+  test("validateFileContent rejects a format not covered by accept at all, even with accept present", () => {
+    const result = validateFileContent("photo.jpg", new TextEncoder().encode("%PDF-1.4 minimal"), [
+      "jpg",
+      "png",
+    ]);
+    expect(result.kind).toBe("rejected");
+  });
+
+  test("validateFileContent without an accept list normalizes too — no accept means no restriction to widen", () => {
+    expect(validateFileContent("photo.jpg", pngBytesForNormalization)).toEqual({
+      kind: "normalized",
+      extension: "png",
+      mimeType: "image/png",
+    });
+  });
+
+  test("validateFileContent with an empty accept list normalizes the same as no accept at all", () => {
+    expect(validateFileContent("photo.jpg", pngBytesForNormalization, [])).toEqual({
+      kind: "normalized",
+      extension: "png",
+      mimeType: "image/png",
+    });
   });
 
   test("validateFile with accept: ['constructor'] and a matching filename never throws", () => {
@@ -667,11 +720,49 @@ describe("content_mismatch is enforced by filename extension for every signature
   ]);
   const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
 
-  test("PDF bytes uploaded as x.jpg against an accept: [jpg] field are rejected with content_mismatch", async () => {
+  test("PDF bytes uploaded as x.jpg against an accept: [png, jpg] field are rejected with content_mismatch", async () => {
     const res = await uploadFile(adminUser, "x.jpg", pdfBytes, "image/jpeg", {
       entityType: "tenant",
       entityId: "1",
       fieldName: "logo",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("content_mismatch");
+  });
+
+  test("PNG bytes uploaded as x.jpg are normalized and stored as image/png when png is in the field's accept", async () => {
+    const res = await uploadFile(adminUser, "x.jpg", pngBytes, "image/jpeg", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.fileName).toBe("x.jpg");
+    expect(body.mimeType).toBe("image/png");
+    expect(body.storageKey).toMatch(/\.png$/);
+  });
+
+  test("PNG bytes normalized on upload are served back with the matching image/png Content-Type", async () => {
+    const uploadRes = await uploadFile(adminUser, "x.jpg", pngBytes, "image/jpeg", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/png");
+  });
+
+  test("PNG bytes uploaded as x.jpg against a field whose accept doesn't include png are still rejected with content_mismatch", async () => {
+    const res = await uploadFile(adminUser, "x.jpg", pngBytes, "image/jpeg", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "strictLogo",
     });
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -708,6 +799,15 @@ describe("content_mismatch is enforced by filename extension for every signature
     expect(constructorRes.status).toBe(201);
     const protoRes = await uploadFile(adminUser, "evil.__proto__", pngBytes, "image/png");
     expect(protoRes.status).toBe(201);
+  });
+
+  test("an unattached upload (no entityType/fieldName, so no accept restriction) also normalizes mislabeled bytes", async () => {
+    const res = await uploadFile(adminUser, "vin.jpg", pngBytes, "image/jpeg");
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.fileName).toBe("vin.jpg");
+    expect(body.mimeType).toBe("image/png");
+    expect(body.storageKey).toMatch(/\.png$/);
   });
 
   test("a too-short .png upload (fewer bytes than the PNG signature) is rejected with content_mismatch", async () => {

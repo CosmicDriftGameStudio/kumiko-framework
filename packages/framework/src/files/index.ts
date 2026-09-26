@@ -33,6 +33,7 @@ export {
   transferTenantStorageUsage,
 } from "./storage-tracking";
 export type {
+  FileContentValidationResult,
   FileMetadata,
   FileStorageProvider,
   FileValidationOptions,
