@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.316.0",
+    "type": "fix",
+    "title": "An app footer-slot action can opt into the wizard's sticky primary group",
+    "detail": "fw#1918 pinned the primary action into a sticky footer on mobile by checking\neach form-action element's `type === \"submit\"` prop. An app's\n`screen.slots.footer` renders through EditSlotMount, which never carries\n`type=\"submit\"` (its button is opaque app code), so that slot always landed\nin the non-sticky secondary group even on a wizard's last step — regressing\napps like offlot-app whose wizard-final \"Publish\" action lives in the footer\nslot. `ScreenSlots.footerPrimary?: boolean` now marks that slot as the\nsticky-primary action; `FormFooter` in kumiko-renderer-web recognizes it via\nthe shared `STICKY_PRIMARY_ACTION_PROP` marker exported from kumiko-renderer.\nBuilt-in submit buttons are unaffected.",
+    "migration": "Additive — no action needed unless a footer-slot action must become the\nsticky primary action on mobile. Set `slots.footerPrimary: true` next to\nthat screen's `slots.footer` registration to opt in."
+  },
+  {
     "version": "0.310.0",
     "type": "improvement",
     "title": "Navigate actions merge `tab` into the search params next to returnTo",

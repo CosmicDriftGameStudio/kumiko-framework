@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.316.0",
+    "type": "fix",
+    "title": "Parallel integration runs no longer OOM-kill their workers",
+    "detail": "bun 1.4.0's --parallel implies --isolate, which leaks native memory per\ntest file while the JS heap stays flat: about 4 MB per file for a bare\nsetupTestStack, about 40 MB with bundled-features. In publicstatus\n(--parallel 4) each worker grew from ~290 to ~1000 MiB and the run died\nwith exit 137 on the 3 GiB CI runner. With --no-isolate the same run\npeaks at 380 MiB and finishes in 28.9 s instead of 49.9 s, with no new\nfailures. Without --parallel bun never isolated files, so the tests\nalready isolate through data (seedTenant per flow, queue prefix per\nstack), not through processes."
+  },
+  {
+    "version": "0.316.0",
+    "type": "fix",
+    "title": "A dedicated screenshots Playwright config without SCREENSHOT_DIR now fails with a clear message",
+    "detail": "A dedicated screenshots config (testDir: \"./e2e/screenshots\", used by\nphronexsis and publicstatus) had its entire testDir excluded by\nscreenshotSpecsIgnore()'s \"**/screenshots/**\" pattern whenever\nSCREENSHOT_DIR was unset, so Playwright reported the generic \"No tests\nfound\" with no mention of the missing env var — even though\nrequireScreenshotDir() already existed with a clear message, just never\ncalled on this path. defineAppE2eConfig now calls it up front for any\ntestDir ending in \"screenshots\" outside a screenshot run."
+  },
+  {
+    "version": "0.316.0",
+    "type": "improvement",
+    "title": "tenant.addUser accepts an optional displayName/email identity",
+    "detail": "seedTenant()'s admin already accepted `admin: { displayName, email }`, but\n`tenant.addUser(roles)` (the seed-user route and the in-process seedTenant\nalike) had no such parameter and always fell back to `Seed <hash>` /\n`user-<uuid>@example.test`, which then leaked into screenshots and docs\n(solon, money-horse). `addUser(roles, { displayName, email })` now threads\nan optional identity through to the created user row, the same\n`SeedAdminIdentity` shape the admin already uses. Also: the seedTenant\nfixture logging the shared Playwright `context` in as the tenant admin was\npreviously documented only in a code comment in auth-kit.ts — it is now on\nthe `SeedTenantFixture` type's own JSDoc."
+  },
+  {
     "version": "0.314.0",
     "type": "improvement",
     "title": "Screenshot runner replaces generated seed identities with presentable values",

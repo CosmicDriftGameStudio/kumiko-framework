@@ -1,5 +1,70 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.316.0
+
+### Minor Changes
+
+- aa32979: tenant.addUser accepts a displayName/email identity; seedTenant's auto-login is documented on the fixture type
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: tenant.addUser accepts an optional displayName/email identity
+  detail: |
+    seedTenant()'s admin already accepted `admin: { displayName, email }`, but
+    `tenant.addUser(roles)` (the seed-user route and the in-process seedTenant
+    alike) had no such parameter and always fell back to `Seed <hash>` /
+    `user-<uuid>@example.test`, which then leaked into screenshots and docs
+    (solon, money-horse). `addUser(roles, { displayName, email })` now threads
+    an optional identity through to the created user row, the same
+    `SeedAdminIdentity` shape the admin already uses. Also: the seedTenant
+    fixture logging the shared Playwright `context` in as the tenant admin was
+    previously documented only in a code comment in auth-kit.ts — it is now on
+    the `SeedTenantFixture` type's own JSDoc.
+  -->
+
+### Patch Changes
+
+- 146324f: kumiko-testing integration --parallel now also passes --no-isolate, so parallel integration workers no longer grow until they are OOM-killed
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Parallel integration runs no longer OOM-kill their workers
+  detail: |
+    bun 1.4.0's --parallel implies --isolate, which leaks native memory per
+    test file while the JS heap stays flat: about 4 MB per file for a bare
+    setupTestStack, about 40 MB with bundled-features. In publicstatus
+    (--parallel 4) each worker grew from ~290 to ~1000 MiB and the run died
+    with exit 137 on the 3 GiB CI runner. With --no-isolate the same run
+    peaks at 380 MiB and finishes in 28.9 s instead of 49.9 s, with no new
+    failures. Without --parallel bun never isolated files, so the tests
+    already isolate through data (seedTenant per flow, queue prefix per
+    stack), not through processes.
+  -->
+
+- aa32979: defineAppE2eConfig fails fast with a clear message when a dedicated screenshots config runs without SCREENSHOT_DIR
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: A dedicated screenshots Playwright config without SCREENSHOT_DIR now fails with a clear message
+  detail: |
+    A dedicated screenshots config (testDir: "./e2e/screenshots", used by
+    phronexsis and publicstatus) had its entire testDir excluded by
+    screenshotSpecsIgnore()'s "**/screenshots/**" pattern whenever
+    SCREENSHOT_DIR was unset, so Playwright reported the generic "No tests
+    found" with no mention of the missing env var — even though
+    requireScreenshotDir() already existed with a clear message, just never
+    called on this path. defineAppE2eConfig now calls it up front for any
+    testDir ending in "screenshots" outside a screenshot run.
+  -->
+
+- Updated dependencies [aa32979]
+  - @cosmicdrift/kumiko-framework@0.316.0
+  - @cosmicdrift/kumiko-bundled-features@0.316.0
+  - @cosmicdrift/kumiko-dev-server@0.316.0
+
 ## 0.315.0
 
 ### Patch Changes
