@@ -103,7 +103,7 @@ afterAll(async () => {
 
 async function uploadFile(
   asUser = user,
-  file = new File([Buffer.from([1, 2, 3])], "photo.jpg", { type: "image/jpeg" }),
+  file = new File([Buffer.from([0xff, 0xd8, 0xff, 0xe0])], "photo.jpg", { type: "image/jpeg" }),
 ): Promise<string> {
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
@@ -214,7 +214,9 @@ describe("ctx.derivatives — typed errors from variant()", () => {
   test("no renderer registered for the mimeType throws InternalError with httpStatus 500", async () => {
     const fileId = await uploadFile(
       user,
-      new File([Buffer.from([1, 2, 3])], "doc.pdf", { type: "application/pdf" }),
+      new File([Buffer.from(new TextEncoder().encode("%PDF-1.4 minimal"))], "doc.pdf", {
+        type: "application/pdf",
+      }),
     );
 
     const result = await stack.http.writeOk<{

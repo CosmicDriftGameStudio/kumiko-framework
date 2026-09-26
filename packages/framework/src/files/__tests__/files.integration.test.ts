@@ -265,37 +265,58 @@ describe("file validation", () => {
     ).toBeNull();
   });
 
-  test("validateFileContent accepts .doc/.docx bytes matching their declared mimeType", () => {
-    expect(validateFileContent("application/msword", docBytes)).toBeNull();
-    expect(
-      validateFileContent(
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        docxBytes,
-      ),
-    ).toBeNull();
+  test("validateFileContent accepts .doc/.docx bytes matching their declared extension", () => {
+    expect(validateFileContent("report.doc", docBytes)).toBeNull();
+    expect(validateFileContent("report.docx", docxBytes)).toBeNull();
   });
 
-  test("validateFileContent rejects .doc/.docx whose content doesn't match the declared mimeType", () => {
+  test("validateFileContent rejects .doc/.docx whose content doesn't match the extension", () => {
     const fakeDoc = validateFileContent(
-      "application/msword",
+      "fake.doc",
       new TextEncoder().encode("not actually a Word document, just text"),
     );
     expectErrorIncludes(fakeDoc, "content_mismatch");
 
     const fakeDocx = validateFileContent(
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "fake.docx",
       new TextEncoder().encode("not actually a docx, just text"),
     );
     expectErrorIncludes(fakeDocx, "content_mismatch");
   });
 
-  test("validateFileContent does not content-verify pre-existing types (e.g. pdf) even when content mismatches", () => {
-    expect(
-      validateFileContent(
-        "application/pdf",
-        new TextEncoder().encode("not a PDF at all, just text"),
-      ),
-    ).toBeNull();
+  test("validateFileContent now content-verifies every signature-bearing extension (e.g. pdf), not just doc/docx", () => {
+    const mismatch = validateFileContent(
+      "fake.pdf",
+      new TextEncoder().encode("not a PDF at all, just text"),
+    );
+    expectErrorIncludes(mismatch, "content_mismatch");
+  });
+
+  test("validateFileContent leaves extensions without a magic-byte signature unchecked (csv/txt/svg/md/json/unknown)", () => {
+    const text = new TextEncoder().encode("just plain text, not any binary format");
+    expect(validateFileContent("data.csv", text)).toBeNull();
+    expect(validateFileContent("notes.txt", text)).toBeNull();
+    expect(validateFileContent("readme.md", text)).toBeNull();
+    expect(validateFileContent("data.json", text)).toBeNull();
+    expect(validateFileContent("logo.svg", text)).toBeNull();
+    expect(validateFileContent("file.unknownext", text)).toBeNull();
+  });
+
+  test("validateFileContent treats a prototype-property extension as unknown instead of crashing", () => {
+    expect(validateFileContent("evil.constructor", docBytes)).toBeNull();
+    expect(validateFileContent("evil.__proto__", docBytes)).toBeNull();
+    expect(validateFileContent("evil.toString", docBytes)).toBeNull();
+  });
+
+  test("validateFile with accept: ['constructor'] and a matching filename never throws", () => {
+    let result: string | null = null;
+    expect(() => {
+      result = validateFile(
+        { fileName: "x.constructor", mimeType: "application/octet-stream", size: 10 },
+        { accept: ["constructor"] },
+      );
+    }).not.toThrow();
+    expect(result === null || typeof result === "string").toBe(true);
   });
 
   test("sniffMimeType recognizes doc (OLE) and docx (ZIP) signatures", () => {
@@ -616,6 +637,90 @@ describe("doc/docx upload is content-verified against magic bytes", () => {
   });
 });
 
+// --- Content-verification is keyed on the filename extension, not the ---
+// --- declared/runtime mimeType (Option A, kumiko-framework#3287)       ---
+
+describe("content_mismatch is enforced by filename extension for every signature-bearing type", () => {
+  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(20).fill(0)]);
+  const pngBytes = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(20).fill(0),
+  ]);
+  const pdfBytes = new TextEncoder().encode("%PDF-1.4 minimal");
+  const docBytes = new Uint8Array([
+    0xd0,
+    0xcf,
+    0x11,
+    0xe0,
+    0xa1,
+    0xb1,
+    0x1a,
+    0xe1,
+    ...Array(20).fill(0),
+  ]);
+  const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
+
+  test("PDF bytes uploaded as x.jpg against an accept: [jpg] field are rejected with content_mismatch", async () => {
+    const res = await uploadFile(adminUser, "x.jpg", pdfBytes, "image/jpeg", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("content_mismatch");
+  });
+
+  test("real signature bytes with a matching extension upload successfully", async () => {
+    for (const [fileName, bytes, mimeType] of [
+      ["real.jpg", jpegBytes, "image/jpeg"],
+      ["real.png", pngBytes, "image/png"],
+      ["real.pdf", pdfBytes, "application/pdf"],
+      ["real.doc", docBytes, "application/msword"],
+      [
+        "real.docx",
+        docxBytes,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ],
+    ] as const) {
+      const res = await uploadFile(adminUser, fileName, bytes, mimeType);
+      expect(res.status).toBe(201);
+    }
+  });
+
+  test(".csv and .txt plain text upload successfully (no magic-byte signature to check)", async () => {
+    const text = new TextEncoder().encode("name,age\nAda,36\n");
+    const csvRes = await uploadFile(adminUser, "data.csv", text, "text/csv");
+    expect(csvRes.status).toBe(201);
+    const txtRes = await uploadFile(adminUser, "notes.txt", text, "text/plain");
+    expect(txtRes.status).toBe(201);
+  });
+
+  test("an unattached upload with a prototype-property extension is handled as unknown, not a 500", async () => {
+    const constructorRes = await uploadFile(adminUser, "evil.constructor", pngBytes, "image/png");
+    expect(constructorRes.status).toBe(201);
+    const protoRes = await uploadFile(adminUser, "evil.__proto__", pngBytes, "image/png");
+    expect(protoRes.status).toBe(201);
+  });
+
+  test("a too-short .png upload (fewer bytes than the PNG signature) is rejected with content_mismatch", async () => {
+    // A zero-byte file part is dropped by Bun's multipart parser before it
+    // ever reaches the route handler as `file`, so this uses one byte
+    // instead — still far short of the 8-byte PNG signature.
+    const res = await uploadFile(adminUser, "empty.png", new Uint8Array([0x00]), "image/png");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("content_mismatch");
+  });
+});
+
 // Bun's formData() derives File#type from the filename, so .csv never
 // arrives as vnd.ms-excel here; the csv alias is covered by the unit tests above.
 describe("vnd.ms-excel via HTTP (.xls)", () => {
@@ -873,7 +978,7 @@ describe("custom file access guard", () => {
 
 describe("tenant isolation", () => {
   test("tenant 2 uploads a file, tenant 1 cannot see it", async () => {
-    const content = new TextEncoder().encode("tenant2-secret-file");
+    const content = new TextEncoder().encode("%PDF-1.4 tenant2-secret-file");
     const uploadRes = await uploadFile(otherTenantUser, "secret.pdf", content, "application/pdf");
     expect(uploadRes.status).toBe(201);
     const { id } = await uploadRes.json();

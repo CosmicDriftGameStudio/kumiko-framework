@@ -73,7 +73,10 @@ async function uploadFile(
 ): Promise<string> {
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
-  fd.append("file", new File([Buffer.from([1, 2, 3])], "avatar.jpg", { type: "image/jpeg" }));
+  fd.append(
+    "file",
+    new File([Buffer.from([0xff, 0xd8, 0xff, 0xe0])], "avatar.jpg", { type: "image/jpeg" }),
+  );
   if (attach !== null) {
     fd.append("entityType", attach.entityType);
     fd.append("fieldName", attach.fieldName);
@@ -198,7 +201,12 @@ describe("GET /api/files/:id/variant/:name", () => {
   test("a source mimeType with no matching renderer (client uploaded a non-image) returns 415, not a 500", async () => {
     const token = await stack.jwt.sign(user);
     const fd = new FormData();
-    fd.append("file", new File([Buffer.from([1, 2, 3])], "doc.pdf", { type: "application/pdf" }));
+    fd.append(
+      "file",
+      new File([Buffer.from(new TextEncoder().encode("%PDF-1.4 minimal"))], "doc.pdf", {
+        type: "application/pdf",
+      }),
+    );
     fd.append("entityType", "photo");
     fd.append("fieldName", "avatar");
     const { body, contentType } = await buildMultipartBody(fd);

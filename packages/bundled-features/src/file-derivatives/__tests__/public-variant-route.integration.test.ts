@@ -158,7 +158,10 @@ async function uploadFile(
   // extension, not the declared part Content-Type — so the extension must
   // match `mimeType` for the upload to actually carry it through.
   const extension = mimeType.split("/")[1]?.split("+")[0] ?? "bin";
-  fd.append("file", new File([Buffer.from([1, 2, 3])], `img.${extension}`, { type: mimeType }));
+  // Real JPEG magic bytes so validateFileContent doesn't 400 the default
+  // image/jpeg uploads; svg has no signature so this covers both cases.
+  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
+  fd.append("file", new File([Buffer.from(jpegBytes)], `img.${extension}`, { type: mimeType }));
   fd.append("entityType", attach.entityType);
   fd.append("entityId", attach.entityId);
   fd.append("fieldName", fieldName);

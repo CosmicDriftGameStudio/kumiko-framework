@@ -38,9 +38,11 @@ const otherAdmin = createTestUser({
 });
 
 // Two tiny payloads with distinct lengths so the sum assertion can tell
-// them apart without relying on the underlying bytes.
-const SMALL = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array(16).fill(0)]); // 20 bytes, PNG-ish
-const LARGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array(96).fill(0)]); // 100 bytes
+// them apart without relying on the underlying bytes. Both carry the full
+// 8-byte PNG signature so validateFileContent accepts them.
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const SMALL = new Uint8Array([...PNG_SIGNATURE, ...Array(12).fill(0)]); // 20 bytes
+const LARGE = new Uint8Array([...PNG_SIGNATURE, ...Array(92).fill(0)]); // 100 bytes
 
 beforeAll(async () => {
   patchFileInstanceofForBunTest();

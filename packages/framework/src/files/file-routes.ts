@@ -236,7 +236,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     const data = new Uint8Array(await file.arrayBuffer());
 
-    const contentValidationError = validateFileContent(file.type, data);
+    const contentValidationError = validateFileContent(file.name, data);
     if (contentValidationError) {
       return c.json({ error: contentValidationError }, 400);
     }
