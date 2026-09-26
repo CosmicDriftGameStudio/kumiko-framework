@@ -1212,8 +1212,8 @@ describe("RelatedListSection — search + facets (fw#2740)", () => {
       },
       { timeout: 2000 },
     );
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
+    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
   });
 
   test("without searchable, RenderList shows no search input and no payload ever carries a search key", async () => {
@@ -1266,8 +1266,8 @@ describe("RelatedListSection — search + facets (fw#2740)", () => {
       },
       { timeout: 2000 },
     );
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
+    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
   });
 
   const statusSection: EditRelatedListSectionViewModel = {
@@ -1463,8 +1463,8 @@ describe("RelatedListSection — parentFilter", () => {
     );
     const last = payloads[payloads.length - 1];
     expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.queryByTestId("row-r2")).toBeNull();
+    await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
+    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
   });
 
   test("selecting a facet leaves payload.filter unchanged and adds payload.filters", async () => {
