@@ -34,6 +34,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
     en: "This provider has no known prices configured.",
   },
   "billing-foundation.errors.unknownPrice": { en: "This price is not recognized." },
+  "billing-foundation.errors.foreignProviderCustomer": {
+    en: "This customer account does not belong to your tenant.",
+  },
   "billing-foundation.errors.subscriptionExists": {
     en: "This tenant already has an active subscription. Switch plans instead.",
   },

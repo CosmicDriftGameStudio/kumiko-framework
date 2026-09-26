@@ -41,4 +41,13 @@ migration: |
   create-portal-session: when baseUrl is set, the payload's returnUrl must
   also share its origin, or the same redirect_origin_not_allowed error
   fires. Unchanged when baseUrl is not configured.
+
+  create-checkout-session: an optional providerCustomerId is now only
+  accepted if it belongs to the tenant's own subscription at the same
+  provider, including a canceled one. Otherwise the call fails with an
+  UnprocessableError whose details.reason is "foreign_provider_customer".
+  This closes a gap where a TenantAdmin could pass another tenant's
+  provider customer id and have the checkout attach to that customer's
+  stored payment methods and invoices. Checked in both mode:"subscription"
+  and mode:"payment".
 -->

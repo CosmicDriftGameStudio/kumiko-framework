@@ -277,6 +277,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successTitle": "Email verified",
   "auth.verifyEmail.verifying": "Verifying email …",
   "billing-foundation.errors.alreadyOnPlan": "This tenant is already on that plan.",
+  "billing-foundation.errors.foreignProviderCustomer":
+    "This customer account does not belong to your tenant.",
   "billing-foundation.errors.noActiveSubscription":
     "This tenant has no active subscription to switch.",
   "billing-foundation.errors.planSwitchNotSupported":

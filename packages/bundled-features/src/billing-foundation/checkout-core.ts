@@ -153,6 +153,20 @@ export async function assertNoActiveSubscription(
   return existing;
 }
 
+/** Pure predicate for `openCheckout`'s providerCustomerId guard — kept
+ *  standalone so it stays unit-testable without a `ctx`. */
+export function isOwnProviderCustomer(
+  ownSubscription: Awaited<ReturnType<typeof getSubscriptionForTenant>>,
+  providerName: string,
+  providerCustomerId: string,
+): boolean {
+  return (
+    ownSubscription !== null &&
+    ownSubscription.providerName === providerName &&
+    ownSubscription.providerCustomerId === providerCustomerId
+  );
+}
+
 export type OpenCheckoutOptions = {
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog;
@@ -186,6 +200,10 @@ export async function openCheckout(
   assertRedirectOrigins([input.successUrl, input.cancelUrl], options.baseUrl);
 
   const mode = input.mode ?? "subscription";
+  // Reused by the providerCustomerId check below to avoid a second lookup
+  // when mode:"subscription" already ran assertNoActiveSubscription.
+  let ownSubscription: Awaited<ReturnType<typeof getSubscriptionForTenant>> | undefined;
+
   if (mode === "subscription") {
     if (!plugin.priceToTier) {
       throw new UnprocessableError("provider_has_no_price_catalog", {
@@ -207,7 +225,21 @@ export async function openCheckout(
       });
     }
 
-    await assertNoActiveSubscription(ctx);
+    ownSubscription = await assertNoActiveSubscription(ctx);
+  }
+
+  // Rejects a foreign tenant's provider-customer id — otherwise the checkout
+  // would attach to that customer's stored payment methods and invoices.
+  if (input.providerCustomerId) {
+    if (ownSubscription === undefined) {
+      ownSubscription = await getSubscriptionForTenant(ctx, ctx.user.tenantId);
+    }
+    if (!isOwnProviderCustomer(ownSubscription, input.providerName, input.providerCustomerId)) {
+      throw new UnprocessableError("foreign_provider_customer", {
+        i18nKey: "billing-foundation.errors.foreignProviderCustomer",
+        message: `subscription-foundation: providerCustomerId "${input.providerCustomerId}" does not belong to this tenant's own subscription at provider "${input.providerName}"`,
+      });
+    }
   }
 
   const result = await plugin.createCheckoutSession(ctx, {

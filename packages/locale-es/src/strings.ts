@@ -286,6 +286,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successTitle": "Correo confirmado",
   "auth.verifyEmail.verifying": "Confirmando correo electrónico …",
   "billing-foundation.errors.alreadyOnPlan": "Este cliente ya tiene ese plan.",
+  "billing-foundation.errors.foreignProviderCustomer":
+    "Esta cuenta de cliente no pertenece a esta organización.",
   "billing-foundation.errors.noActiveSubscription":
     "Este cliente no tiene una suscripción activa para cambiar.",
   "billing-foundation.errors.planSwitchNotSupported": "Este proveedor no admite el cambio de plan.",

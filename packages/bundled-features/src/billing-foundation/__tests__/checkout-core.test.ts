@@ -1,6 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { UnconfiguredError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
-import { assertRedirectOrigins, isNonEmptyStringArray, joinBaseUrl } from "../checkout-core";
+import {
+  assertRedirectOrigins,
+  isNonEmptyStringArray,
+  isOwnProviderCustomer,
+  joinBaseUrl,
+} from "../checkout-core";
+import type { SubscriptionView } from "../get-subscription-for-tenant";
+
+function subscriptionView(overrides: Partial<SubscriptionView> = {}): SubscriptionView {
+  return {
+    tier: "pro",
+    status: "canceled",
+    providerName: "mock",
+    providerCustomerId: "cus_own",
+    providerSubscriptionId: "sub_own",
+    ...overrides,
+  };
+}
 
 describe("assertRedirectOrigins", () => {
   test("throws UnconfiguredError when baseUrl is undefined, regardless of urls", () => {
@@ -98,5 +115,25 @@ describe("isNonEmptyStringArray", () => {
 
   test("false for an empty array", () => {
     expect(isNonEmptyStringArray([])).toBe(false);
+  });
+});
+
+describe("isOwnProviderCustomer", () => {
+  test("false when the tenant has no subscription at all", () => {
+    expect(isOwnProviderCustomer(null, "mock", "cus_own")).toBe(false);
+  });
+
+  test("false for a subscription at a different provider", () => {
+    expect(
+      isOwnProviderCustomer(subscriptionView({ providerName: "stripe" }), "mock", "cus_own"),
+    ).toBe(false);
+  });
+
+  test("false for a different customer id at the same provider", () => {
+    expect(isOwnProviderCustomer(subscriptionView(), "mock", "cus_other_tenant")).toBe(false);
+  });
+
+  test("true for the tenant's own customer id at the same provider, even canceled", () => {
+    expect(isOwnProviderCustomer(subscriptionView(), "mock", "cus_own")).toBe(true);
   });
 });
