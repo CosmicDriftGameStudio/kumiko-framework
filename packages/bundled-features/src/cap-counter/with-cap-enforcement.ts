@@ -21,6 +21,7 @@ import type {
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { bookCapUsage } from "./book-cap-usage";
 import { CapCounterHandlers } from "./constants";
 import {
@@ -68,7 +69,7 @@ export type CalendarCapResolver = (
  *   2. pre-call: `enforceCapAndMaybeNotify` — throws CapExceededError
  *      on hard-hit (handler never runs), notifies on soft-hit-crossing
  *   3. invoke the wrapped handler
- *   4. post-success: dispatch `cap-counter:write:increment` with `amount`
+ *   4. post-success: book usage via `bookCapUsage` with `amount`
  *
  * The returned handler-def keeps the original name/schema/access
  * untouched — only the handler-fn is wrapped. The dispatcher sees
@@ -101,11 +102,12 @@ export function withCapEnforcement(
       // Post-success increment. Skip on failure so a failed write
       // doesn't burn cap-quota. amount default 1.
       if (result.isSuccess) {
-        await bookCapUsage(ctx, {
+        const booked = await bookCapUsage(ctx, {
           capName: cap.capName,
           amount: cap.amount ?? 1,
           periodStartIso: cap.periodStartIso,
         });
+        if (!booked.isSuccess) throw reraiseAsKumikoError(booked.error);
       }
 
       return result;

@@ -29,8 +29,8 @@ const CAP_COUNTER_ROLLING_NAMESPACE = "8b2ad0c6-1f3e-4f7c-9b8a-3c4d5e6f7a8b";
  * tenantId aus event.user.tenantId, dem capName und dem aktuellen
  * Period-Start auf. Race-frei: zwei parallele Increments für denselben
  * (tenant, cap, period) gehen auf denselben aggregate-Stream und werden
- * vom event-store optimistic-lock serialisiert (version_conflict bei
- * Race → Caller-side Retry).
+ * vom event-store optimistic-lock serialisiert (der Retry bei
+ * version_conflict sitzt in bookCapUsage).
  */
 // @wrapper-known uuid-domain
 export function capCounterAggregateId(

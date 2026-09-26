@@ -135,11 +135,47 @@ const bookOutsideTxThenFailHandler: WriteHandlerDef = {
 const NEWSLETTER_TENANT_ONLY_QN = "newsletter:write:send-newsletter-tenant-only";
 const BOOK_OUTSIDE_TX_QN = "newsletter:write:book-outside-tx-then-fail";
 
+// =============================================================================
+// Parallel-booking-race probes — return bookCapUsage's result
+// directly so a lost optimistic-lock race surfaces as an HTTP error instead
+// of being swallowed.
+// =============================================================================
+
+const PARALLEL_BOOKING_IN_TX_CAP_NAME = "parallel-booking-in-tx-cap";
+const bookCapUsageInTxHandler: WriteHandlerDef = {
+  name: "book-cap-usage-in-tx",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: (_event, ctx) =>
+    bookCapUsage(ctx, {
+      capName: PARALLEL_BOOKING_IN_TX_CAP_NAME,
+      periodStartIso: TENANT_ONLY_PERIOD,
+    }),
+};
+
+const PARALLEL_BOOKING_OUTSIDE_TX_CAP_NAME = "parallel-booking-outside-tx-cap";
+const bookCapUsageOutsideTxHandler: WriteHandlerDef = {
+  name: "book-cap-usage-outside-tx",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: (_event, ctx) =>
+    bookCapUsage(ctx, {
+      capName: PARALLEL_BOOKING_OUTSIDE_TX_CAP_NAME,
+      periodStartIso: TENANT_ONLY_PERIOD,
+      outsideTransaction: true,
+    }),
+};
+
+const BOOK_CAP_USAGE_IN_TX_QN = "newsletter:write:book-cap-usage-in-tx";
+const BOOK_CAP_USAGE_OUTSIDE_TX_QN = "newsletter:write:book-cap-usage-outside-tx";
+
 const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedCalendar);
   r.writeHandler(wrappedRolling);
   r.writeHandler(wrappedCalendarTenantOnly);
   r.writeHandler(bookOutsideTxThenFailHandler);
+  r.writeHandler(bookCapUsageInTxHandler);
+  r.writeHandler(bookCapUsageOutsideTxHandler);
 });
 
 // =============================================================================
@@ -408,5 +444,71 @@ describe("withCapEnforcement — calendar, TenantAdmin-only callers", () => {
       { capName: "newsletter-rolling-cap", windowDays: 7 },
     );
     expect(usageB).toBe(0);
+  });
+});
+
+// =============================================================================
+// Parallel bookCapUsage calls for the same (tenant, cap, period)
+// =============================================================================
+
+const PARALLEL_BOOKINGS = 6;
+
+describe("bookCapUsage — parallel bookings for the same period", () => {
+  test("in-tx: N concurrent bookings all succeed and the counter sums to N, then 2N", async () => {
+    const user = tenantAdminOnlyFor(2601);
+
+    await Promise.all(
+      Array.from({ length: PARALLEL_BOOKINGS }, () =>
+        stack.http.writeOk(BOOK_CAP_USAGE_IN_TX_QN, {}, user),
+      ),
+    );
+    const afterCreateRace = await readCounter(
+      user,
+      PARALLEL_BOOKING_IN_TX_CAP_NAME,
+      TENANT_ONLY_PERIOD,
+    );
+    expect(afterCreateRace!["value"]).toBe(PARALLEL_BOOKINGS);
+
+    await Promise.all(
+      Array.from({ length: PARALLEL_BOOKINGS }, () =>
+        stack.http.writeOk(BOOK_CAP_USAGE_IN_TX_QN, {}, user),
+      ),
+    );
+    const afterUpdateRace = await readCounter(
+      user,
+      PARALLEL_BOOKING_IN_TX_CAP_NAME,
+      TENANT_ONLY_PERIOD,
+    );
+    expect(afterUpdateRace!["value"]).toBe(PARALLEL_BOOKINGS * 2);
+  });
+
+  // N=6 stays below the default pool max (10): each outside-tx request holds
+  // both a handler-tx connection and a dbOutsideTransaction connection.
+  test("outside-tx: N concurrent bookings all succeed and the counter sums to N, then 2N", async () => {
+    const user = tenantAdminOnlyFor(2602);
+
+    await Promise.all(
+      Array.from({ length: PARALLEL_BOOKINGS }, () =>
+        stack.http.writeOk(BOOK_CAP_USAGE_OUTSIDE_TX_QN, {}, user),
+      ),
+    );
+    const afterCreateRace = await readCounter(
+      user,
+      PARALLEL_BOOKING_OUTSIDE_TX_CAP_NAME,
+      TENANT_ONLY_PERIOD,
+    );
+    expect(afterCreateRace!["value"]).toBe(PARALLEL_BOOKINGS);
+
+    await Promise.all(
+      Array.from({ length: PARALLEL_BOOKINGS }, () =>
+        stack.http.writeOk(BOOK_CAP_USAGE_OUTSIDE_TX_QN, {}, user),
+      ),
+    );
+    const afterUpdateRace = await readCounter(
+      user,
+      PARALLEL_BOOKING_OUTSIDE_TX_CAP_NAME,
+      TENANT_ONLY_PERIOD,
+    );
+    expect(afterUpdateRace!["value"]).toBe(PARALLEL_BOOKINGS * 2);
   });
 });

@@ -1,6 +1,6 @@
 // In-process cap booking for the caller's own tenant; no SystemAdmin dispatch needed.
 
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { runInOwnTransaction, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   type HandlerContext,
@@ -21,6 +21,27 @@ const capBookingSchema = z.object({
   periodStartIso: z.string().min(1),
   amount: z.number().int().positive().default(1),
 });
+
+function isLostCounterRace(result: WriteResult): boolean {
+  return !result.isSuccess && result.error.code === "version_conflict";
+}
+
+// Each attempt writes event + projection atomically, so a conflict means another booker just committed — bounded by how many bookers run at once (pool max, default 10); this ceiling only guards against non-convergence.
+const MAX_COUNTER_WRITE_ATTEMPTS = 20;
+
+async function retryCounterWriteOnVersionConflict(
+  writeAttempt: () => Promise<WriteResult>,
+): Promise<WriteResult> {
+  let result: WriteResult = await writeAttempt();
+  for (
+    let attempt = 1;
+    attempt < MAX_COUNTER_WRITE_ATTEMPTS && isLostCounterRace(result);
+    attempt++
+  ) {
+    result = await writeAttempt();
+  }
+  return result;
+}
 
 export type BookCapUsageOptions = {
   readonly capName: string;
@@ -43,43 +64,50 @@ export async function bookCapUsage(
   options: BookCapUsageOptions,
 ): Promise<WriteResult> {
   const parsed = capBookingSchema.parse(options);
-  const db = options.outsideTransaction ? requireOutsideTransactionDb(ctx) : ctx.db;
   const aggregateId = capCounterAggregateId(
     ctx.user.tenantId,
     parsed.capName,
     parsed.periodStartIso,
   );
 
-  const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
-  if (existing.length === 0) {
-    return executor.create(
+  async function attemptWrite(db: TenantDb): Promise<WriteResult> {
+    const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
+    if (existing.length === 0) {
+      return executor.create(
+        {
+          id: aggregateId,
+          capName: parsed.capName,
+          value: parsed.amount,
+          periodStart: Temporal.Instant.from(parsed.periodStartIso),
+          lastSoftWarnedAt: null,
+        },
+        ctx.user,
+        db,
+      );
+    }
+
+    const currentRow = existing[0];
+    if (!currentRow) {
+      throw new Error("cap-counter.bookCapUsage: row vanished between length-check and read");
+    }
+    const currentValue = currentRow["value"] as number; // @cast-boundary db-row
+    const currentVersion = currentRow["version"] as number; // @cast-boundary db-row
+    return executor.update(
       {
         id: aggregateId,
-        capName: parsed.capName,
-        value: parsed.amount,
-        periodStart: Temporal.Instant.from(parsed.periodStartIso),
-        lastSoftWarnedAt: null,
+        version: currentVersion,
+        changes: { value: currentValue + parsed.amount },
       },
       ctx.user,
       db,
     );
   }
 
-  const currentRow = existing[0];
-  if (!currentRow) {
-    throw new Error("cap-counter.bookCapUsage: row vanished between length-check and read");
+  if (options.outsideTransaction) {
+    const outsideDb = requireOutsideTransactionDb(ctx);
+    return retryCounterWriteOnVersionConflict(() => runInOwnTransaction(outsideDb, attemptWrite));
   }
-  const currentValue = currentRow["value"] as number; // @cast-boundary db-row
-  const currentVersion = currentRow["version"] as number; // @cast-boundary db-row
-  return executor.update(
-    {
-      id: aggregateId,
-      version: currentVersion,
-      changes: { value: currentValue + parsed.amount },
-    },
-    ctx.user,
-    db,
-  );
+  return retryCounterWriteOnVersionConflict(() => attemptWrite(ctx.db));
 }
 
 export type MarkCapSoftWarnedOptions = {
@@ -97,27 +125,29 @@ export async function markCapSoftWarned(
     options.periodStartIso,
   );
 
-  const existing = await ctx.db.selectMany(table, { id: aggregateId }, { limit: 1 });
-  if (existing.length === 0) {
-    throw new Error(
-      `cap-counter: cannot mark-soft-warned, no counter found for tenant=${ctx.user.tenantId} cap=${options.capName} period=${options.periodStartIso}`,
-    );
-  }
-  const row = existing[0];
-  if (!row) {
-    throw new Error("cap-counter.markCapSoftWarned: row vanished between length-check and read");
-  }
-  const currentVersion = row["version"] as number; // @cast-boundary db-row
+  return retryCounterWriteOnVersionConflict(async () => {
+    const existing = await ctx.db.selectMany(table, { id: aggregateId }, { limit: 1 });
+    if (existing.length === 0) {
+      throw new Error(
+        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${ctx.user.tenantId} cap=${options.capName} period=${options.periodStartIso}`,
+      );
+    }
+    const row = existing[0];
+    if (!row) {
+      throw new Error("cap-counter.markCapSoftWarned: row vanished between length-check and read");
+    }
+    const currentVersion = row["version"] as number; // @cast-boundary db-row
 
-  return executor.update(
-    {
-      id: aggregateId,
-      version: currentVersion,
-      changes: { lastSoftWarnedAt: Temporal.Now.instant() },
-    },
-    ctx.user,
-    ctx.db,
-  );
+    return executor.update(
+      {
+        id: aggregateId,
+        version: currentVersion,
+        changes: { lastSoftWarnedAt: Temporal.Now.instant() },
+      },
+      ctx.user,
+      ctx.db,
+    );
+  });
 }
 
 export type ReadRollingCapUsageOptions = {
