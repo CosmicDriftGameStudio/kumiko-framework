@@ -62,7 +62,7 @@ pathIgnorePatterns = [
     expect(renderBunfig("unit", { dom: true })).toBe(`${HEADER("dom")}preload = [
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
-  "./test-setup/dom.preload.ts",
+  "@cosmicdrift/kumiko-testing/preload/dom",
 ]
 pathIgnorePatterns = [
   "**/*.integration.test.ts",

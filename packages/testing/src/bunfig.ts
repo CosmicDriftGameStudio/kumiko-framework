@@ -25,7 +25,7 @@ export type BunfigOptions = {
 };
 
 const PRELOAD_PREFIX = "@cosmicdrift/kumiko-testing/preload";
-const DOM_PRELOAD = "./test-setup/dom.preload.ts";
+const DOM_PRELOAD = `${PRELOAD_PREFIX}/dom`;
 
 const PRELOADS = {
   unit: [`${PRELOAD_PREFIX}/temporal`, `${PRELOAD_PREFIX}/scrub-env`],

@@ -4,7 +4,7 @@ import { useUrlToken } from "../auth-form-primitives";
 
 // #774: magic-link tokens must not linger in browser history / Referer.
 // useUrlToken reads the token once, then scrubs the param via replaceState.
-// (dom.preload resets window.location to http://localhost/ after each test.)
+// (preload/dom resets window.location to http://localhost/ after each test.)
 describe("useUrlToken (magic-link history hygiene)", () => {
   test("reads ?token= and strips it from the URL, keeping other params", () => {
     window.history.replaceState(null, "", "http://localhost/reset?token=secret-abc&keep=1");

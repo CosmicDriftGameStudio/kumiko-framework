@@ -46,6 +46,10 @@
       "types": "./src/preload/real.ts",
       "default": "./src/preload/real.ts"
     },
+    "./preload/dom": {
+      "types": "./src/preload/dom.ts",
+      "default": "./src/preload/dom.ts"
+    },
     "./scaffold": {
       "types": "./src/scaffold.ts",
       "default": "./src/scaffold.ts"
@@ -69,15 +73,25 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@happy-dom/global-registrator": "^20.11.2",
+    "@playwright/test": "^1.62.1",
+    "@testing-library/react": "^16.3.2"
   },
   "peerDependenciesMeta": {
+    "@happy-dom/global-registrator": {
+      "optional": true
+    },
     "@playwright/test": {
+      "optional": true
+    },
+    "@testing-library/react": {
       "optional": true
     }
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@happy-dom/global-registrator": "^20.11.2",
+    "@playwright/test": "^1.62.1",
+    "@testing-library/react": "^16.3.2"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

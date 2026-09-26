@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-25
+verified: 2026-09-26
 ---
 
 # The test standard
@@ -28,9 +28,9 @@ Integration tests hit a real Postgres/Redis stack and prove the app's own
 wiring. E2E tests boot the app and prove the browser contract. Mixing them —
 a unit test that reaches for Postgres, an integration test that spins up a
 browser — loses the fast/clear-signal property of the cheaper class and
-slows down the whole suite for no extra coverage. `test:dom` (`*.dom.test.ts`,
-jsdom) sits next to unit tests for component-level rendering that needs a DOM
-but not a browser.
+slows down the whole suite for no extra coverage. `test:dom` (`*.test.tsx`,
+happy-dom via `preload/dom`) sits next to unit tests for component-level
+rendering that needs a DOM but not a browser.
 
 `kumiko-testing bunfig` generates the bunfig files (preloads, path ignores)
 that keep each class in its own lane. Bun ignores a `[test] timeout` key, so
@@ -105,6 +105,38 @@ runner made the e2e run both slower and flakier, not faster — too many
 Chromium processes contending for too little CPU. A project that sets its own
 `workers` throws.
 
+## Measured effect
+
+#3118's own findings ("Richtwerte, keine Baseline": rough signals, not a
+clean measurement) describe the pre-template state: e2e defaulted to
+`workers: 1` everywhere; phronexsis's e2e at 2 workers already showed
+1.85x, but 4 workers went red from a shared-tenant collision (two flow
+specs racing on one tenant), not from a CPU limit, the reason
+`seedTenant()` per flow exists.
+
+#3119 collected the actual baseline. Its CI job-minutes table (median of
+the last 10 successful runs per app, taken before any port/config change)
+is the comparison point, meant to prove the template's runtime is not
+worse than it; comparing it against each migrated app's post-migration CI
+minutes has not been done yet. Locally, publicstatus's integration suite
+(53 files, 370 tests, loaded machine, two runs) measured sequential at
+27.0 s / 24.5 s and `--parallel=4` at 29.3 s / 25.3 s, with 2-4 s of
+run-to-run noise.
+
+With the template, the same class of suite (56 files, 381 tests, measured
+in PR #3294) runs `--parallel=4 --no-isolate` at 27.1 s: within the
+baseline's noise band, not worse, with 11 more tests. `--no-isolate` is
+required because bun 1.4.0's `--parallel` implies `--isolate`, which leaks
+native memory per test file while the JS heap stays flat: the same suite
+under bun's `--isolate` default peaks at 3.31 GiB / 49.9 s, OOM-killing
+the 3-GiB CI runner, against 1.31 GiB / 27.1 s and 381/381 green under
+`--no-isolate` (the runner's default since 0.316.0). That pair is
+isolate-vs-no-isolate within the template, not a comparison against the
+pre-template baseline. `--no-isolate` is safe here because the template
+already isolates through data (`seedTenant` per flow, a queue prefix per
+stack), not through OS processes, the same property that makes parallel
+e2e safe above.
+
 ## Timeouts and retries belong to the template
 
 `defineAppE2eConfig` owns timeouts, retries (always 0) and workers; no
@@ -165,3 +197,4 @@ per-spec case, so it stays template-owned everywhere.
 | A local `page.screenshot()` helper for docs images | `runScreenshots` / `runMatrix` with `SCREENSHOT_DIR` set |
 | A shared/global test user across flows | `seedTenant()` per flow |
 | A copied `playwright.config.ts` / bunfig from another app | `kumiko-testing bunfig` generator + `defineAppE2eConfig`, updated by a version bump |
+| A local `test-setup/dom.preload.ts` copy | `kumiko-testing bunfig --dom`, which preloads `@cosmicdrift/kumiko-testing/preload/dom` |

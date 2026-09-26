@@ -143,7 +143,7 @@ async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<vo
 
 // CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
 // shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. In the shared
-// single-process happy-dom, the global `afterEach` from `test-setup/dom.preload.ts`
+// single-process happy-dom, the global `afterEach` from the preload/dom module
 // plus accumulated global DOM/event state across ~30 prior DOM test files corrupts
 // these in-flight renders (#457-class). A fresh process has no such accumulation.
 // The QN-Drift-Pins + formatDate describes below are pure-logic and CI-stable.
