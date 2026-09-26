@@ -69,7 +69,6 @@ function planCta(
 ): PlanCardActionSlot | undefined {
   if (plan.action === BillingPlanActions.current) return undefined;
   if (!result.canPurchase) return undefined;
-  if (plan.price === null) return undefined;
 
   const kind =
     plan.action === BillingPlanActions.switch ? "switch" : impliedAction(plan, result.subscription);

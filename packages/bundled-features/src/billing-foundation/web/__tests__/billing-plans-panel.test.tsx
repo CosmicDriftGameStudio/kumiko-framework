@@ -324,7 +324,7 @@ describe("BillingPlansPanel", () => {
     expect(window.location.assign).not.toHaveBeenCalled();
   });
 
-  test("price=null renders the price-unavailable fallback and no cta", () => {
+  test("price=null renders the price-unavailable fallback and a disabled cta", () => {
     queryState = {
       data: result({ plans: [plan({ price: null, action: BillingPlanActions.unavailable })] }),
       loading: false,
@@ -332,6 +332,7 @@ describe("BillingPlansPanel", () => {
     };
     renderPanel();
     expect(screen.getByText("Price not available")).toBeTruthy();
-    expect(screen.queryByRole("button")).toBeNull();
+    const cta = screen.getByRole("button") as HTMLButtonElement;
+    expect(cta.disabled).toBe(true);
   });
 });
