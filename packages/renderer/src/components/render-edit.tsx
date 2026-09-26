@@ -865,7 +865,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
 
   function handleWizardBack(): void {
-    const previous = Math.max(currentStep - 1, 0);
+    handleWizardJumpBack(currentStep - 1);
+  }
+
+  // Only backwards: a forward jump would skip the per-step validate() gate.
+  function handleWizardJumpBack(targetStep: number): void {
+    if (targetStep >= currentStep) return;
+    const previous = Math.max(targetStep, 0);
     hasNavigatedRef.current = true;
     if (disabled) {
       setRawStep(previous);
@@ -1356,6 +1362,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   steps={filteredSections.map((section) => section.title ?? "")}
                   currentIndex={currentStep}
                   compactLabel={compactLabel}
+                  onStepSelect={handleWizardJumpBack}
                   testId="render-edit-wizard-steps"
                   compactTestId="render-edit-wizard-step-label"
                 />

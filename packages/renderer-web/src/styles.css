@@ -114,6 +114,15 @@
   --color-syntax-string: hsl(150 25% 60%);
   --color-syntax-number: hsl(35 40% 65%);
   --color-syntax-literal: hsl(270 25% 70%);
+
+  /* Offer surface (PromoPanel): a dark block in both modes, so an upsell never
+     reads like an info or error banner. accent = eyebrow + call to action. */
+  --color-promo: hsl(0 0% 12%);
+  --color-promo-foreground: hsl(0 0% 98%);
+  --color-promo-accent: hsl(0 0% 98%);
+  --color-promo-accent-foreground: hsl(0 0% 9%);
+
+  --font-heading: var(--font-sans);
 }
 
 /* Card-Chrome-Maße — Framework-Defaults. Eine App überschreibt selektiv in
@@ -199,6 +208,11 @@
     --color-syntax-string: hsl(150 30% 30%);
     --color-syntax-number: hsl(30 45% 32%);
     --color-syntax-literal: hsl(270 30% 40%);
+
+    --color-promo: hsl(0 0% 9%);
+    --color-promo-foreground: hsl(0 0% 98%);
+    --color-promo-accent: hsl(0 0% 98%);
+    --color-promo-accent-foreground: hsl(0 0% 9%);
   }
 
   * {

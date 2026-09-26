@@ -1096,15 +1096,19 @@ export type CardProps = {
  *  0..1 fraction, not a percentage — implementations scale for display.
  *  `tone` controls the fill color; omitted defaults to "default" (backward
  *  compatible with callers predating this field). */
+export type ProgressTone = "default" | "success" | "warn" | "danger";
+
 export type ProgressProps = {
   readonly value: number;
-  readonly tone?: "default" | "warn" | "danger";
+  readonly tone?: ProgressTone;
   readonly testId?: string;
 };
 
 /** Wizard step overview — numbered chips, one per step label, with the
- *  active step highlighted. Not clickable (step-jump validation is a
- *  separate concern, kumiko-framework#1966). Implementations render a
+ *  active step highlighted. With `onStepSelect`, completed steps (index
+ *  below `currentIndex`) become buttons for going back; forward jumps stay
+ *  impossible because step-jump validation is a separate concern
+ *  (kumiko-framework#1966). Implementations render a
  *  narrow-viewport fallback showing `compactLabel` instead (caller
  *  supplies it pre-translated, e.g. "Step 2 of 5 · Industry") — which of
  *  the two is visible is a responsive layout choice owned by the
@@ -1113,6 +1117,11 @@ export type StepBarProps = {
   readonly steps: readonly string[];
   readonly currentIndex: number;
   readonly compactLabel: string;
+  readonly onStepSelect?: (index: number) => void;
+  /** "label" (default) swaps the step row for `compactLabel` on narrow
+   *  viewports; "steps" keeps the row there too — for short wizards whose
+   *  labels fit a phone and whose done steps must stay tappable. */
+  readonly narrowLayout?: "label" | "steps";
   readonly testId?: string;
   readonly compactTestId?: string;
 };
@@ -1259,6 +1268,59 @@ export type SecretRevealProps = {
   readonly testId?: string;
 };
 
+/** Thumb-reach action row for custom screens: pinned to the bottom edge on
+ *  narrow viewports (above the device's safe-area inset), inline otherwise.
+ *  `children` are the forward actions and share the remaining width; `back`
+ *  renders an icon-only back control in front of them. */
+export type StickyActionBarProps = {
+  readonly children: ReactNode;
+  readonly back?: { readonly onBack: () => void; readonly label: string };
+  readonly testId?: string;
+};
+
+/** Copies `text` to the clipboard; the label flips to `copiedLabel` once
+ *  the platform confirmed the write. */
+export type CopyButtonProps = {
+  readonly text: string;
+  readonly label: string;
+  readonly copiedLabel: string;
+  readonly variant?: "primary" | "secondary";
+  /** Layout extras — web merges via cn(), native impls ignore it. */
+  readonly className?: string;
+  readonly testId?: string;
+};
+
+/** Hands `text` to another app. "whatsapp" opens a WhatsApp chat prefilled
+ *  with the text (to `phone` when given, otherwise the contact picker);
+ *  "system" opens the platform share sheet and renders nothing where the
+ *  platform has none. */
+export type ShareButtonProps = {
+  readonly text: string;
+  readonly label: string;
+  readonly variant?: "primary" | "secondary";
+  /** Layout extras — web merges via cn(), native impls ignore it. */
+  readonly className?: string;
+  readonly testId?: string;
+} & (
+  | { readonly target: "whatsapp"; readonly phone?: string }
+  | { readonly target: "system"; readonly title?: string; readonly url?: string }
+);
+
+export type PromoPanelAction =
+  | { readonly label: string; readonly href: string; readonly testId?: string }
+  | { readonly label: string; readonly onClick: () => void; readonly testId?: string };
+
+/** Offer surface for upsells (e.g. "create an account"): its own tinted
+ *  panel with eyebrow, headline, benefit content and one call to action, so
+ *  an offer never reads like an info or error banner. */
+export type PromoPanelProps = {
+  readonly title: string;
+  readonly eyebrow?: string;
+  readonly children?: ReactNode;
+  readonly action?: PromoPanelAction;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -1327,6 +1389,16 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly SecretReveal?: ComponentType<SecretRevealProps>;
+  /** Optional (unlike the other Core-Primitives) so existing partial
+   *  CorePrimitives mocks in tests keep compiling — additive rollout of
+   *  a new primitive shouldn't force every test double to grow a stub. */
+  readonly StickyActionBar?: ComponentType<StickyActionBarProps>;
+  /** Optional — additive rollout, see StickyActionBar. */
+  readonly CopyButton?: ComponentType<CopyButtonProps>;
+  /** Optional — additive rollout, see StickyActionBar. */
+  readonly ShareButton?: ComponentType<ShareButtonProps>;
+  /** Optional — additive rollout, see StickyActionBar. */
+  readonly PromoPanel?: ComponentType<PromoPanelProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern

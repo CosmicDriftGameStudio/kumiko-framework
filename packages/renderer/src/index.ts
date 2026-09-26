@@ -194,6 +194,7 @@ export type {
   CardOptions,
   CardProps,
   CardSlots,
+  CopyButtonProps,
   CorePrimitives,
   DataTableDateRangeFacet,
   DataTableFacet,
@@ -224,13 +225,18 @@ export type {
   PrimitivesProviderProps,
   PrimitivesRegistry,
   ProgressProps,
+  ProgressTone,
+  PromoPanelAction,
+  PromoPanelProps,
   RuntimeRenderer,
   SecretRevealProps,
   SecretRevealValue,
   SectionProps,
+  ShareButtonProps,
   StatusBadgeProps,
   StatusTone,
   StepBarProps,
+  StickyActionBarProps,
   StickyPrimaryActionMarker,
   TabsProps,
   TextProps,
@@ -243,6 +249,7 @@ export {
   statusToneForValue,
   usePrimitives,
 } from "./primitives";
+export { buildWhatsAppShareUrl } from "./share-links";
 export { sortByAccessor } from "./sort-by-accessor";
 export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events";
 export { LiveEventsProvider, useLiveEvents } from "./sse/live-events";

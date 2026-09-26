@@ -39,6 +39,13 @@ describe("ProgressBar", () => {
     expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("100");
   });
 
+  test("tone success färbt die Füllung mit dem Status-ok-Token", () => {
+    render(<ProgressBar value={1} tone="success" testId="bar" />);
+    const fill = screen.getByTestId("bar").firstElementChild as HTMLElement;
+    expect(fill.className).toContain("bg-status-ok");
+    expect(fill.className).not.toContain("bg-primary");
+  });
+
   test("negative Werte werden 0", () => {
     render(<ProgressBar value={-3} testId="bar" />);
     expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("0");
@@ -142,6 +149,69 @@ describe("StepBar", () => {
       />,
     );
     expect(screen.getByTestId("steps-step-0").textContent).toContain("Done");
+  });
+
+  test("mit onStepSelect springen erledigte Schritte zurück, aktueller und kommende sind keine Buttons", () => {
+    const onStepSelect = mock((_index: number) => {});
+    render(
+      <StepBar
+        steps={["Basics", "Industry", "Review"]}
+        currentIndex={1}
+        compactLabel="Step 2 of 3 · Industry"
+        onStepSelect={onStepSelect}
+        testId="steps"
+      />,
+    );
+    const done = screen.getByTestId("steps-step-0");
+    expect(done.tagName).toBe("BUTTON");
+    fireEvent.click(done);
+    expect(onStepSelect).toHaveBeenCalledWith(0);
+
+    expect(screen.getByTestId("steps-step-1").tagName).toBe("SPAN");
+    expect(screen.getByTestId("steps-step-2").tagName).toBe("SPAN");
+  });
+
+  test("ohne onStepSelect bleiben erledigte Schritte reine Anzeige", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry"]}
+        currentIndex={1}
+        compactLabel="Step 2 of 2 · Industry"
+        testId="steps"
+      />,
+    );
+    expect(screen.getByTestId("steps-step-0").tagName).toBe("SPAN");
+  });
+
+  test("narrowLayout steps hält die Schrittzeile auch schmal sichtbar, Label nur für Screenreader", () => {
+    render(
+      <StepBar
+        steps={["Auto", "Preis", "Fotos", "Kontakt"]}
+        currentIndex={1}
+        compactLabel="Schritt 2 von 4 · Preis"
+        narrowLayout="steps"
+        testId="steps"
+        compactTestId="steps-compact"
+      />,
+    );
+    const row = screen.getByTestId("steps");
+    expect(row.className.split(" ")).not.toContain("hidden");
+    expect(row.className).toContain("flex");
+    expect(screen.getByTestId("steps-compact").className).toContain("sr-only");
+  });
+
+  test("ohne narrowLayout bleibt die Schrittzeile unter sm ausgeblendet", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry"]}
+        currentIndex={0}
+        compactLabel="Step 1 of 2 · Basics"
+        testId="steps"
+        compactTestId="steps-compact"
+      />,
+    );
+    expect(screen.getByTestId("steps").className.split(" ")).toContain("hidden");
+    expect(screen.getByTestId("steps-compact").className).toContain("sm:hidden");
   });
 
   test("rendert den compactLabel-Fallback für schmale Viewports", () => {

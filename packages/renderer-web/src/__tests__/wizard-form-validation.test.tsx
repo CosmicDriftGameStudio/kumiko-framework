@@ -184,6 +184,30 @@ describe("entityEdit wizard — step bar (fw#1966)", () => {
     );
   });
 
+  test("clicking a done step jumps back and keeps the entered value", async () => {
+    const { container } = renderWizard();
+
+    const fullNameInput = container.querySelector("#kumiko-edit-fullName");
+    await userEvent.type(fullNameInput as Element, "Ada Lovelace");
+    await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
+
+    await userEvent.click(screen.getByTestId("render-edit-wizard-steps-step-0"));
+
+    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
+    expect(screen.getByTestId("render-edit-wizard-steps-step-0").getAttribute("aria-current")).toBe(
+      "step",
+    );
+    expect((container.querySelector("#kumiko-edit-fullName") as HTMLInputElement).value).toBe(
+      "Ada Lovelace",
+    );
+  });
+
+  test("upcoming steps are not clickable, so Next's validation cannot be skipped", () => {
+    renderWizard();
+    expect(screen.getByTestId("render-edit-wizard-steps-step-1").tagName).toBe("SPAN");
+  });
+
   test("a wizard with N sections renders N step entries", () => {
     const threeStepScreen: EntityEditScreenDefinition = {
       id: "profile-edit-3",

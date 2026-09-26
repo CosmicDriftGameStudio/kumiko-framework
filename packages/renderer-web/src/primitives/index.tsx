@@ -126,7 +126,14 @@ import { LocatedTimestampInput } from "./located-timestamp-input";
 import { DefaultMetric } from "./metric";
 import { DefaultModal } from "./modal";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input";
+import { PromoPanel } from "./promo-panel";
+import { CopyButton, ShareButton } from "./share-actions";
 import { DefaultStatusBadge } from "./status-badge";
+import {
+  STICKY_FOOTER_SAFE_AREA_CLASS,
+  STICKY_FOOTER_SPACER_CLASS,
+  StickyActionBar,
+} from "./sticky-action-bar";
 import { DefaultTabs } from "./tabs";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
@@ -2382,7 +2389,7 @@ function FormSections({
         // button row + its own p-4, fw#2606) instead of the whole footer —
         // shrunk from pb-32 accordingly. Widen again if a wizard's primary
         // action ever wraps to two rows.
-        stickyActions === true && "max-sm:pb-24",
+        stickyActions === true && STICKY_FOOTER_SPACER_CLASS,
         // Same "no flex-1" reasoning as the card above: this is the
         // one section allowed to shrink (min-h-0) inside the card, not
         // one forced to grow past its content.
@@ -2549,7 +2556,10 @@ function FormFooter({
             // contain ancestors trap it, confirmed against
             // AppLayout/SidebarInset — neither sets those).
             stickyActions === true &&
-              "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:p-4 max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)]",
+              cn(
+                "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:p-4 max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)]",
+                STICKY_FOOTER_SAFE_AREA_CLASS,
+              ),
           )}
         >
           {renderedActions}
@@ -2997,6 +3007,8 @@ function DefaultStepBar({
   steps,
   currentIndex,
   compactLabel,
+  onStepSelect,
+  narrowLayout,
   testId,
   compactTestId,
 }: StepBarProps): ReactNode {
@@ -3005,6 +3017,8 @@ function DefaultStepBar({
       steps={steps}
       currentIndex={currentIndex}
       compactLabel={compactLabel}
+      onStepSelect={onStepSelect}
+      narrowLayout={narrowLayout}
       testId={testId}
       compactTestId={compactTestId}
     />
@@ -3250,4 +3264,8 @@ export const defaultPrimitives: CorePrimitives = {
   FillContainer: DefaultFillContainer,
   ActionOverflowMenu,
   SecretReveal: DefaultSecretReveal,
+  StickyActionBar,
+  CopyButton,
+  ShareButton,
+  PromoPanel,
 };

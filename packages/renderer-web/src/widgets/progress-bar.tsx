@@ -1,12 +1,12 @@
+import type { ProgressTone } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
-
-type ProgressTone = "default" | "warn" | "danger";
 
 // Fully spelled out (no interpolation) — Tailwind's scanner only picks up
 // literal class strings, not `bg-status-${tone}`.
 const FILL_TONE: Record<ProgressTone, string> = {
   default: "bg-primary",
+  success: "bg-status-ok",
   warn: "bg-status-warn",
   danger: "bg-status-critical",
 };
