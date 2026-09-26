@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-25
+verified: 2026-09-26
 ---
 
 # The test standard
@@ -104,6 +104,26 @@ them: `#3118` measured that oversubscribing workers on a small (1.5-CPU) CI
 runner made the e2e run both slower and flakier, not faster — too many
 Chromium processes contending for too little CPU. A project that sets its own
 `workers` throws.
+
+## Measured effect
+
+Baseline, before the template (#3119): e2e defaulted to `workers: 1`
+everywhere. Integration's `bun test --parallel=4` gave phronexsis 1.6x and
+publicstatus nothing measurable — on a loaded machine, with no clean
+baseline. Running phronexsis's e2e at 2 workers already showed 1.85x, but 4
+workers went red from a shared-tenant collision (two flow specs racing on one
+tenant), not from a CPU limit — the reason `seedTenant()` per flow exists.
+
+With the template, `kumiko-testing integration --parallel` also needs
+`--no-isolate`: bun 1.4.0's `--parallel` implies `--isolate`, which leaks
+native memory per test file while the JS heap stays flat. Measured on
+publicstatus's integration suite (56 files, `--parallel=4`, local): bun's
+`--isolate` default peaks at 3.31 GiB / 49.9 s, which OOM-kills the 3-GiB CI
+runner; `--no-isolate` (the runner's default since 0.316.0, `#3294`) peaks at
+1.31 GiB / 27.1 s, 381/381 green. `--no-isolate` is safe here because the
+template already isolates through data — `seedTenant` per flow, a queue
+prefix per stack — not through OS processes, the same property that makes
+parallel e2e safe above.
 
 ## Timeouts and retries belong to the template
 
