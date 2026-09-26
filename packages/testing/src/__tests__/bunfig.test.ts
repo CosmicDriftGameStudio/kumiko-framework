@@ -261,6 +261,131 @@ describe("mergeBunfig", () => {
     });
   });
 
+  test("keeps an app-local preload entry appended on disk instead of dropping it on regeneration", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace(
+      /(preload = \[\n)([\s\S]*?)(\n\])/,
+      `$1$2\n  "./test-setup/app-local.preload.ts",$3`,
+    );
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    expect(result.content).toContain('"./test-setup/app-local.preload.ts"');
+    const parsed = Bun.TOML.parse(result.content) as { test: { preload: string[] } };
+    expect(parsed.test.preload).toEqual([
+      "@cosmicdrift/kumiko-testing/preload/temporal",
+      "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "./test-setup/app-local.preload.ts",
+    ]);
+  });
+
+  test("keeps app-local extras in every merged array key, each in its own key and on-disk order", () => {
+    const generated = renderBunfig("unit", { coverage: true });
+    const existing = generated
+      .replace(
+        /(preload = \[\n)([\s\S]*?)(\n\])/,
+        `$1$2\n  "./test-setup/env.preload.ts",\n  "./test-setup/codegen.preload.ts",$3`,
+      )
+      .replace(
+        /(coveragePathIgnorePatterns = \[\n)([\s\S]*?)(\n\])/,
+        `$1$2\n  "**/generated/**",$3`,
+      )
+      .replace(/(\npathIgnorePatterns = \[\n)([\s\S]*?)(\n\])/, `$1$2\n  "**/legacy/**",$3`);
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    const parsed = Bun.TOML.parse(result.content) as {
+      test: {
+        preload: string[];
+        pathIgnorePatterns: string[];
+        coveragePathIgnorePatterns: string[];
+      };
+    };
+    expect(parsed.test.preload).toEqual([
+      "@cosmicdrift/kumiko-testing/preload/temporal",
+      "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "./test-setup/env.preload.ts",
+      "./test-setup/codegen.preload.ts",
+    ]);
+    expect(parsed.test.coveragePathIgnorePatterns).toEqual([
+      "**/scripts/**",
+      "**/bin/**",
+      "**/generated/**",
+    ]);
+    expect(parsed.test.pathIgnorePatterns).toEqual([
+      "**/*.integration.test.ts",
+      "**/*.real.test.ts",
+      "**/*.test.tsx",
+      "**/e2e/**",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/dist/**",
+      "**/legacy/**",
+    ]);
+  });
+
+  test("does not double up a superseded preload path an app hasn't regenerated away yet", () => {
+    const generated = renderBunfig("unit", { dom: true });
+    const existing = generated.replace(
+      `"@cosmicdrift/kumiko-testing/preload/dom",`,
+      `"./test-setup/dom.preload.ts",`,
+    );
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    const parsed = Bun.TOML.parse(result.content) as { test: { preload: string[] } };
+    expect(parsed.test.preload).toEqual([
+      "@cosmicdrift/kumiko-testing/preload/temporal",
+      "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/dom",
+    ]);
+  });
+
+  test("keeps a package preload from another variant an app added to this one on purpose", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace(
+      `"@cosmicdrift/kumiko-testing/preload/scrub-env",`,
+      `"@cosmicdrift/kumiko-testing/preload/scrub-env",\n  "@cosmicdrift/kumiko-testing/preload/env",`,
+    );
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    const parsed = Bun.TOML.parse(result.content) as { test: { preload: string[] } };
+    expect(parsed.test.preload).toEqual([
+      "@cosmicdrift/kumiko-testing/preload/temporal",
+      "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/env",
+    ]);
+  });
+
+  test("drops a package-namespaced preload the generator no longer knows about", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace(
+      `"@cosmicdrift/kumiko-testing/preload/scrub-env",`,
+      `"@cosmicdrift/kumiko-testing/preload/scrub-env",\n  "@cosmicdrift/kumiko-testing/preload/old",`,
+    );
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    expect(result.content).not.toContain("preload/old");
+  });
+
+  test("a single-string preload entry on disk is treated as a one-item array, not dropped", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace(
+      /preload = \[\n[\s\S]*?\n\]/,
+      'preload = "./test-setup/app-local.preload.ts"',
+    );
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    const parsed = Bun.TOML.parse(result.content) as { test: { preload: string[] } };
+    expect(parsed.test.preload).toEqual([
+      "@cosmicdrift/kumiko-testing/preload/temporal",
+      "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "./test-setup/app-local.preload.ts",
+    ]);
+  });
+
+  test("existing content that parses as TOML syntax errors throws instead of being treated as empty", () => {
+    const generated = renderBunfig("unit");
+    expect(() => mergeBunfig(generated, `${generated}not a key value pair\n`)).toThrow();
+  });
+
   test("a top-level key before the first header (e.g. bun's own smol/telemetry) is named, not silently dropped", () => {
     const generated = renderBunfig("unit");
     const existing = `smol = true\ntelemetry = false\n${generated}`;

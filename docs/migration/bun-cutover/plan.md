@@ -1,7 +1,7 @@
 ---
 status: parked
-verified: 2026-06-07
-evidence: Status-Box (line 572-590): alle Phasen 1-6 'pending'; Phase 0 und 7 'entfällt'. Drizzle-Session pausiert 2026-05-24. Git: commit 59107c3f phase-1 vorarbeit gestartet aber kein weiterer Fortschritt.
+verified: 2026-09-26
+evidence: Status-Box (line 572-590): alle Phasen 1-6 'pending'; Phase 0 und 7 'entfällt'. Drizzle-Session pausiert 2026-05-24. Git: commit 59107c3f phase-1 vorarbeit gestartet aber kein weiterer Fortschritt. Preload-/Timeout-Referenzen auf #3078/#3297-Stand korrigiert, kein Fortschritt an den Phasen.
 next: Bun-Migration erst angehen wenn Drizzle-Replacement 2.0 abgeschlossen ist (Sync-Punkt laut Plan)
 ---
 
@@ -263,9 +263,9 @@ key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
 | Stelle | Warum manuell | Aufwand |
 |---|---|---|
 | `bin/kumiko-legacy.ts` Vitest-Aufrufe (Phase 4-pre) | ~6 Stellen mit `Bun.spawn`-Template-Strings + flags | ~1h |
-| DOM-Polyfills (`vitest.setup.ts` → `test-setup/dom.preload.ts`) | 4 Zeilen Copy + Anpassung der Bedingung (happy-dom statt jsdom) | 5 Minuten pro Repo |
+| DOM-Polyfills (`vitest.setup.ts` → `preload = ["@cosmicdrift/kumiko-testing/preload/dom", ...]`) | Kein eigenes Preload-File mehr, nur der Package-Preload in `bunfig.dom.toml` eintragen | 5 Minuten pro Repo |
 | Integration-Test `env: {…}` aus `vitest.integration.config.ts` → `preload.ts` mit `process.env.X = ...` | Pure Daten-Transformation, lohnt sich Codemod nicht | 10 Min pro Repo |
-| `vitest.config.ts` `poolOptions.threads.maxThreads` → `bunfig.toml` `[test] concurrency = N` | semantik-different, manuell setzen | 5 Min pro Repo |
+| `vitest.config.ts` `poolOptions.threads.maxThreads` → kein bunfig-Äquivalent | `[test] concurrency` wird von bun still ignoriert (#3078); Parallelität nur über CLI `--concurrent`/`--max-concurrency`, sonst laufen Tests sequenziell | 5 Min pro Repo |
 | `globalSetup` (publicstatus) → preload + separater Test-DB-Setup-Script | bun hat kein globalSetup-Pendant | 30 Min |
 | 1 File mit `vi.hoisted+vi.importActual` | Eindeutig, Codemod-Skeleton oben | 10 Min manuell |
 | 4 Snapshot-Files mit `bun test -u` neu generieren | One-shot, diff danach review | 15 Min |
@@ -391,10 +391,10 @@ Vor Phase 4a: `bin/kumiko-legacy.ts` (~6 Stellen) muss `yarn vitest run` → `bu
 **Reihenfolge:** framework → publicstatus → studio → enterprise (Größe-absteigend, größter Lern-ROI zuerst).
 
 **Pro Repo:**
-- `bunfig.toml` `[test]` section (preload, timeout, env-Vars)
+- `bunfig.toml` `[test]` section (preload, pathIgnorePatterns, env-Vars); `timeout` ist kein bun-Key, das Budget kommt über `--timeout` auf der CLI (#3078)
 - Codemod: `import { ... } from "vitest"` → `from "bun:test"`; `vi.fn` → `mock`; `vi.spyOn` → `spyOn`; `vi.useFakeTimers/setSystemTime` → `setSystemTime`
 - 3 Files mit `vi.mock` + 1 mit `vi.hoisted` manuell — siehe Code-Snippet unten
-- DOM-Tests (28 Files): `vitest.setup.ts` Polyfills nach `test-setup/dom.preload.ts` portieren, `bun test --env happy-dom`
+- DOM-Tests (28 Files): `vitest.setup.ts` Polyfills durch den Package-Preload `@cosmicdrift/kumiko-testing/preload/dom` ersetzen, `bun test --env happy-dom`
 - `package.json` scripts: `vitest run` → `bun test`
 - `vitest.config.ts` + `vitest.setup.ts` entfernen
 - Einmaliger `bun test -u` für die 4 Snapshot-Files

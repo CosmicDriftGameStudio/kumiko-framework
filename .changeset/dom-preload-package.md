@@ -35,10 +35,14 @@ migration: |
   unreferenced ./test-setup/dom.preload.ts. Ensure
   @happy-dom/global-registrator and @testing-library/react are in the
   app's devDependencies (all four already have both). Running
-  `kumiko-testing bunfig --dom` instead also works but rewrites
-  bunfig.toml, bunfig.integration.toml, bunfig.real.toml and
-  bunfig.dom.toml from scratch, resetting each file's [test].preload
-  array, so any app-local extra preload (publicstatus's
-  env.preload.ts/codegen.preload.ts) must be re-added afterwards, same as
-  any other bunfig regen.
+  `kumiko-testing bunfig --dom` instead also works: mergeBunfig now keeps
+  an app-local extra preload (publicstatus's
+  env.preload.ts/codegen.preload.ts) across the regen instead of dropping
+  it, and treats an existing "./test-setup/dom.preload.ts" entry as
+  superseded rather than an extra, so it doesn't end up preloaded twice
+  alongside the new package path. The generated preload array's own
+  entries stay first; a carried-over extra lands after them, which can
+  move it relative to entries that used to sit between the template's
+  preloads and the app's own (publicstatus: dom.preload.ts used to run
+  last, after env/codegen; the package preload now runs before them).
 -->

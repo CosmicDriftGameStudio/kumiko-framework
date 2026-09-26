@@ -35,6 +35,15 @@ describe("parseChangesetChanges", () => {
     ]);
   });
 
+  test("keeps a blank line inside a multiline block as a paragraph break, not a truncation", () => {
+    const changes = parseChangesetChanges(
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  First paragraph.\n\n  Second paragraph after a blank line.\n-->`,
+      ".changeset/blank-line.md",
+    );
+
+    expect(changes[0]?.migration).toBe("First paragraph.\n\nSecond paragraph after a blank line.");
+  });
+
   test("rejects a breaking change without migration", () => {
     expect(() =>
       parseChangesetChanges(

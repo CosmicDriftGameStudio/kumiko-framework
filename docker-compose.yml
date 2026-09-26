@@ -5,6 +5,13 @@
 services:
   postgres:
     image: postgres:18.4-alpine
+    # `DROP DATABASE` in stack.cleanup() forces a synchronous checkpoint; under
+    # `--parallel` these queue up past 15s (measured sync=12.7s). This instance
+    # also holds kumiko_dev, not just disposable test databases, so an unclean
+    # Docker/OrbStack shutdown with fsync/full_page_writes off can corrupt the
+    # whole volume, not just lose recent commits; recover via the same
+    # `down -v && up -d` below.
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
     environment:
       POSTGRES_USER: kumiko
       POSTGRES_PASSWORD: kumiko
