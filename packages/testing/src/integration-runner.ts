@@ -29,7 +29,10 @@ export function buildIntegrationTestArgs(opts: IntegrationRunOptions): string[] 
     "test",
     `--config=${BUNFIG_FILES.integration}`,
     `--timeout=${TEST_TIMEOUT_MS.integration}`,
-    ...(opts.parallel !== undefined ? [`--parallel=${opts.parallel}`] : []),
+    // bun 1.4.0's --parallel implies --isolate, which leaks native memory per test file
+    // (~40-60 MB with bundled-features) until the workers blow the CI runner's limit.
+    // Tests isolate through data (seedTenant per flow, queue prefix per stack), not processes.
+    ...(opts.parallel !== undefined ? [`--parallel=${opts.parallel}`, "--no-isolate"] : []),
     ...(opts.timings !== undefined ? [`--timings=${opts.timings}`] : []),
     ...(opts.updateTimings === true ? ["--update-timings"] : []),
     ...opts.files,
