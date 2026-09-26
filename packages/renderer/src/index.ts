@@ -231,12 +231,14 @@ export type {
   StatusBadgeProps,
   StatusTone,
   StepBarProps,
+  StickyPrimaryActionMarker,
   TabsProps,
   TextProps,
   WizardStepGroupProps,
 } from "./primitives";
 export {
   PrimitivesProvider,
+  STICKY_PRIMARY_ACTION_PROP,
   shouldRenderActionsIconOnly,
   statusToneForValue,
   usePrimitives,

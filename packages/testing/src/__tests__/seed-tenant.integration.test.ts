@@ -82,6 +82,14 @@ describe("seedTenant (light)", () => {
     expect((await tenant.addUser()).session.roles).toEqual(["Member"]);
   });
 
+  test("addUser substitutes {tenantId} in an explicit email, same as the admin identity", async () => {
+    const tenant = await seedTenant(stack);
+
+    const member = await tenant.addUser(["Member"], { email: "member-{tenantId}@example.test" });
+
+    expect(member.email).toBe(`member-${tenant.id}@example.test`);
+  });
+
   test("with-parts run in order after the users exist and see the seeded tenant", async () => {
     const order: string[] = [];
     const first: SeedPart = async ({ tenant }) => {

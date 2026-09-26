@@ -37,7 +37,12 @@ import { useDraftStorage } from "../context/draft-storage-context";
 import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
-import { shouldRenderActionsIconOnly, usePrimitives } from "../primitives";
+import {
+  STICKY_PRIMARY_ACTION_PROP,
+  type StickyPrimaryActionMarker,
+  shouldRenderActionsIconOnly,
+  usePrimitives,
+} from "../primitives";
 import { GridCellForField } from "./grid-cell-for-field";
 import { RelatedListSection } from "./related-list-section";
 import {
@@ -253,7 +258,7 @@ function EditSlotMount({
   readonly values: Readonly<Record<string, unknown>>;
   readonly hasUnsavedChanges?: boolean;
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
-}): ReactNode {
+} & StickyPrimaryActionMarker): ReactNode {
   const name = extensionSectionName(slot);
   const Component = useExtensionSectionComponent(name);
   useEffect(() => {
@@ -1199,6 +1204,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           values={snapshot.values}
           hasUnsavedChanges={snapshot.isDirty || extensionDirty}
           wizardStep={isWizard ? { index: currentStep, isLast: isLastWizardStep } : undefined}
+          {...(screen.slots?.footerPrimary === true && { [STICKY_PRIMARY_ACTION_PROP]: true })}
         />
       )}
       {isWizard && !isLastWizardStep && (

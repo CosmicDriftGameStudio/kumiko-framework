@@ -45,7 +45,10 @@ export type SeededTenant = {
   readonly name: string;
   readonly admin: SeededUser;
   readonly members: readonly SeededUser[];
-  readonly addUser: (roles?: readonly string[]) => Promise<SeededUser>;
+  readonly addUser: (
+    roles?: readonly string[],
+    identity?: SeedAdminIdentity,
+  ) => Promise<SeededUser>;
   readonly api: BoundApi;
   readonly apiAs: (user: SeededUser) => BoundApi;
 };

@@ -71,6 +71,17 @@ describe("defineAppE2eConfig defaults", () => {
     expect(defineAppE2eConfig({ port: 4321 }).testIgnore).not.toContain("**/screenshots.spec.ts");
   });
 
+  test("a dedicated screenshots testDir fails fast with a clear message when SCREENSHOT_DIR is unset", () => {
+    expect(() => defineAppE2eConfig({ port: 1, testDir: "./e2e/screenshots" })).toThrow(
+      /SCREENSHOT_DIR is required for screenshot runs/,
+    );
+
+    process.env["SCREENSHOT_DIR"] = "/tmp/shots";
+    expect(defineAppE2eConfig({ port: 1, testDir: "./e2e/screenshots" }).testDir).toBe(
+      "./e2e/screenshots",
+    );
+  });
+
   test("real-provider specs stay out of the default run and are the only ones in a real run", () => {
     const normal = defineAppE2eConfig({ port: 4321, testMatch: "**/flows/*.spec.ts" });
     expect(normal.testIgnore).toContain("**/*.real.spec.ts");

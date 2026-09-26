@@ -283,6 +283,25 @@ describe("POST /__test/seed-user", () => {
     expect((await login(h, user.email, user.password)).status).toBe(200);
   });
 
+  test("an explicit displayName and email land on the created user row", async () => {
+    const h = await boot();
+    const seeded = await seedTenantVia(h);
+
+    const res = await post(h, SEED_ROUTES.seedUser, {
+      tenantId: seeded.id,
+      roles: ["Member"],
+      displayName: "Priya Screenshot",
+      email: "priya-{tenantId}@example.test",
+    });
+    expect(res.status).toBe(200);
+    const user = seedUserResponseSchema.parse(await res.json());
+
+    expect(await fetchOne(h.stack.db, userTable, { id: user.id })).toMatchObject({
+      displayName: "Priya Screenshot",
+      email: `priya-${seeded.id}@example.test`,
+    });
+  });
+
   test("reserved or unknown roles are 400 and write nothing", async () => {
     const h = await boot();
     const seeded = await seedTenantVia(h);
@@ -509,6 +528,35 @@ describe("POST /__test/seed with extraSeeders", () => {
       },
     );
     expect(fixture).toBeDefined();
+  });
+});
+
+describe("seedTenant fixture: addUser identity", () => {
+  test("tenant.addUser carries an explicit displayName onto the created user row", async () => {
+    const h = await boot();
+    const request = await apiContext(h);
+    const browserRequest = await apiContext(h);
+    const baseURL = `http://localhost:${h.server?.port}`;
+
+    await provideSeedTenant(
+      {
+        request,
+        // @cast-boundary engine-bridge — the fixture only reads context.request and playwright.request.newContext
+        context: { request: browserRequest } as unknown as ProvideSeedTenantDeps["context"],
+        playwright: {
+          request: playwrightRequest,
+        } as unknown as ProvideSeedTenantDeps["playwright"],
+        baseURL,
+      },
+      async (seedTenantFixture) => {
+        const tenant = await seedTenantFixture();
+        const member = await tenant.addUser(["Member"], { displayName: "Priya Screenshot" });
+
+        expect(await fetchOne(h.stack.db, userTable, { id: member.id })).toMatchObject({
+          displayName: "Priya Screenshot",
+        });
+      },
+    );
   });
 });
 

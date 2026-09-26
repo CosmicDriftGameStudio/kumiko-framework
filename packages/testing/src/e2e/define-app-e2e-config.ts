@@ -20,7 +20,7 @@ import {
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,
 } from "./constants";
-import { isScreenshotRun, screenshotSpecsIgnore } from "./screenshot-dir";
+import { isScreenshotRun, requireScreenshotDir, screenshotSpecsIgnore } from "./screenshot-dir";
 import { E2E_TIMEOUT_MS } from "./timeouts";
 
 // Apps pick Meilisearch over their in-memory search adapter just because
@@ -146,6 +146,13 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
   } = input;
   assertNoReservedEnv(env);
   for (const project of projects) assertTemplateOwnedKeysUnset(project);
+  // A dedicated screenshots config (testDir: "./e2e/screenshots") has its
+  // entire testDir excluded by screenshotSpecsIgnore() until SCREENSHOT_DIR
+  // is set, which Playwright reports as a generic "No tests found" with no
+  // mention of the missing env var.
+  if (!isScreenshotRun() && /(?:^|\/)screenshots\/?$/.test(testDir)) {
+    requireScreenshotDir();
+  }
   const baseURL = `http://localhost:${port}`;
   const realRun = isRealProviderRun();
 

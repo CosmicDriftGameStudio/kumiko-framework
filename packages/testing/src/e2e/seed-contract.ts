@@ -60,6 +60,9 @@ export function createSeedUserRequestSchema(extraRoles: readonly string[] = []) 
       )
       .min(1)
       .max(seedable.length),
+    displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
+    // May contain the literal "{tenantId}" placeholder, same as seedAdminIdentitySchema.
+    email: z.string().min(1).max(MAX_EMAIL_LENGTH).optional(),
   });
 }
 

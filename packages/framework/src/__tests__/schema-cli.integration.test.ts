@@ -108,6 +108,15 @@ describe("runSchemaCli — no-DB paths", () => {
     expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
   });
 
+  test("generate <name> --dry-run is rejected, exits 1, writes no migration (there is no such flag)", async () => {
+    writeSchemaFile(appCwd, "tbl_a");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "init", "--dry-run"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("Unrecognized argument(s): --dry-run");
+    expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
+  });
+
   test("generate with a hyphenated name still works", async () => {
     writeSchemaFile(appCwd, "tbl_a");
     const cap = captureOut();

@@ -39,7 +39,9 @@ import {
   type ProgressProps,
   type SecretRevealProps,
   type SectionProps,
+  STICKY_PRIMARY_ACTION_PROP,
   type StepBarProps,
+  type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
   statusToneForValue,
   type TextProps,
@@ -2453,9 +2455,13 @@ function FormTitleBlock({
 // with the submit-type Next/Finish button inside one Fragment — only the
 // submit one is the "primary" action that fw#1918 needs pinned above a
 // virtual keyboard. Back reads as `type="button"`, same as `secondaryActions`
-// (Cancel/Delete/…), so it can safely join that group on mobile.
-function isSubmitTypeAction(node: ReactNode): boolean {
-  return isValidElement(node) && (node.props as { readonly type?: string }).type === "submit";
+// (Cancel/Delete/…), so it can safely join that group on mobile. A footer-slot
+// mount can't expose `type="submit"` (its button is opaque app code), so it
+// opts in via `STICKY_PRIMARY_ACTION_PROP` instead (`ScreenSlots.footerPrimary`).
+function isPrimaryStickyAction(node: ReactNode): boolean {
+  if (!isValidElement(node)) return false;
+  const props = node.props as { readonly type?: string } & StickyPrimaryActionMarker;
+  return props.type === "submit" || props[STICKY_PRIMARY_ACTION_PROP] === true;
 }
 
 // `actions` from render-edit.tsx arrives as a single `<>…</>` Fragment
@@ -2492,21 +2498,21 @@ function FormFooter({
   // `-actions`/`-actions-secondary` content 1:1 to the `actions`/
   // `secondaryActions` props).
   const actionNodes = stickyActions === true ? flattenActionNodes(actions) : undefined;
-  const primaryActionNodes = actionNodes?.filter(isSubmitTypeAction);
-  const hasSubmitAction = primaryActionNodes !== undefined && primaryActionNodes.length > 0;
-  // No submit-type node found among `actions` (e.g. a wizard step with only
+  const primaryActionNodes = actionNodes?.filter(isPrimaryStickyAction);
+  const hasPrimaryAction = primaryActionNodes !== undefined && primaryActionNodes.length > 0;
+  // No primary node found among `actions` (e.g. a wizard step with only
   // secondary buttons): fall back to pinning the whole, unpartitioned
   // `actions` node instead of splitting it — matches the pre-split fw#1918
   // behaviour where sticky footers always kept `actions` fixed.
-  const nonPrimaryActionNodes = hasSubmitAction
-    ? actionNodes?.filter((node) => !isSubmitTypeAction(node))
+  const nonPrimaryActionNodes = hasPrimaryAction
+    ? actionNodes?.filter((node) => !isPrimaryStickyAction(node))
     : undefined;
   const renderedActions =
-    stickyActions === true ? (hasSubmitAction ? primaryActionNodes : actions) : actions;
+    stickyActions === true ? (hasPrimaryAction ? primaryActionNodes : actions) : actions;
   const hasNonPrimaryOverflow =
     nonPrimaryActionNodes !== undefined && nonPrimaryActionNodes.length > 0;
   const renderedSecondary =
-    stickyActions === true && hasSubmitAction ? (
+    stickyActions === true && hasPrimaryAction ? (
       <>
         {secondaryActions}
         {nonPrimaryActionNodes}

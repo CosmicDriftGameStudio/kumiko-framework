@@ -3863,6 +3863,78 @@ describe("RenderEdit — slots.footer", () => {
     };
   }
 
+  function makeWizardFooterPrimaryScreen(): EntityEditScreenDefinition {
+    const screen = makeWizardFooterScreen();
+    return { ...screen, slots: { ...screen.slots, footerPrimary: true } };
+  }
+
+  async function advanceWizardToLastStep(): Promise<void> {
+    const form = screen.getByTestId("render-edit-form");
+    await act(async () => {
+      fireEvent.submit(form);
+      await Promise.resolve();
+    });
+  }
+
+  // fw#1918 pinned the wizard's submit-type button above the mobile keyboard
+  // and demoted everything else (Back, a footer-slot mount) to the non-sticky
+  // secondary group. offlot-app#518: a footer-slot action (e.g. a "Publish"
+  // button on the last step) that IS meant to be that pinned primary action
+  // has no `type="submit"` of its own — `EditSlotMount` wraps it, not a
+  // `Button` — so it fell into secondary regardless. `footerPrimary` opts a
+  // screen's footer slot into the primary group explicitly.
+  test("footerPrimary pins the footer-slot action into the sticky primary group alongside Finish", async () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeWizardFooterPrimaryScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0 }}
+            writeCommand="order:create"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await advanceWizardToLastStep();
+    expect(screen.getByTestId("footer-extra").getAttribute("data-last")).toBe("true");
+
+    const primary = screen.getByTestId("render-edit-form-actions");
+    const secondary = screen.getByTestId("render-edit-form-actions-secondary");
+    expect(within(primary).getByTestId("footer-extra")).toBeTruthy();
+    expect(within(primary).getByTestId("render-edit-submit")).toBeTruthy();
+    expect(within(secondary).queryByTestId("footer-extra")).toBeNull();
+    expect(within(secondary).getByTestId("render-edit-wizard-back")).toBeTruthy();
+    expect(primary.className).toContain("max-sm:fixed");
+  });
+
+  test("without footerPrimary the footer-slot action stays in the secondary group (fw#1918 unchanged)", async () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ FooterExtra }}>
+          <RenderEdit<TestValues>
+            screen={makeWizardFooterScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0 }}
+            writeCommand="order:create"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await advanceWizardToLastStep();
+    expect(screen.getByTestId("footer-extra").getAttribute("data-last")).toBe("true");
+
+    const secondary = screen.getByTestId("render-edit-form-actions-secondary");
+    expect(within(secondary).getByTestId("footer-extra")).toBeTruthy();
+    expect(
+      within(screen.getByTestId("render-edit-form-actions")).queryByTestId("footer-extra"),
+    ).toBeNull();
+  });
+
   test("renders inside the form actions container, before the submit button", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
