@@ -24,11 +24,17 @@
 // A module specifier that does not resolve to a project source file (a real
 // external package import, e.g. `@cosmicdrift/kumiko-bundled-features/...`)
 // is treated as "package component, already checked inside the package
-// itself" and is not flagged here — the package's own source is in scope
-// via `frameworkWithin` when this guard runs against the framework repo.
+// itself" and is not flagged here, since the package's own source is in
+// scope via `frameworkWithin` when this guard runs against the framework repo.
+//
+// Mount-kind scoping: the same registry also backs `kind: "custom"`
+// dashboard panels and `slots: { header: {...} }` entityEdit slots, both of
+// which render bare. The guard classifies every `__component` usage site by
+// mount kind and only exempts a component used exclusively as one of those
+// two; no usage site found at all, or any other mount kind, stays flagged.
 
 import * as path from "node:path";
-import { Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { Node, type ObjectLiteralExpression, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
@@ -36,7 +42,7 @@ const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
   scope: "source",
-  extensions: ["tsx"],
+  extensions: ["ts", "tsx"],
   frameworkWithin: ["packages/bundled-features/src/**", "samples/**"],
 };
 const EXCLUDE = /(__tests__|\.test\.tsx?$|\.integration\.tsx?$|\.d\.ts$)/;
@@ -53,8 +59,9 @@ function isExternalSourceFile(sf: SourceFile): boolean {
   return sf.getFilePath().includes("/node_modules/");
 }
 
-function findExtensionComponentNames(sf: SourceFile): Set<string> {
-  const names = new Set<string>();
+/** Maps each registered component's identifier to the registry key usage sites reference via `__component: SOME_CONST`. */
+function findExtensionComponentEntries(sf: SourceFile): Map<string, string> {
+  const entries = new Map<string, string>();
   for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
     if (prop.getName() !== "extensionSectionComponents") continue;
     const init = prop.getInitializer();
@@ -63,16 +70,23 @@ function findExtensionComponentNames(sf: SourceFile): Set<string> {
       // { NOTES_SECTION_EXTENSION_NAME: NotesSection } (PropertyAssignment,
       // possibly computed-key) or { NotesSection } (ShorthandPropertyAssignment).
       if (member.getKind() === SyntaxKind.PropertyAssignment) {
-        const valueInit = member.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
-        if (valueInit !== undefined && valueInit.getKind() === SyntaxKind.Identifier) {
-          names.add(valueInit.getText());
-        }
+        const pa = member.asKindOrThrow(SyntaxKind.PropertyAssignment);
+        const valueInit = pa.getInitializer();
+        if (valueInit === undefined || valueInit.getKind() !== SyntaxKind.Identifier) continue;
+        const nameNode = pa.getNameNode();
+        const key = Node.isComputedPropertyName(nameNode)
+          ? nameNode.getExpression().getText()
+          : Node.isStringLiteral(nameNode)
+            ? nameNode.getLiteralValue()
+            : pa.getName();
+        entries.set(valueInit.getText(), key);
       } else if (member.getKind() === SyntaxKind.ShorthandPropertyAssignment) {
-        names.add(member.asKindOrThrow(SyntaxKind.ShorthandPropertyAssignment).getName());
+        const name = member.asKindOrThrow(SyntaxKind.ShorthandPropertyAssignment).getName();
+        entries.set(name, name);
       }
     }
   }
-  return names;
+  return entries;
 }
 
 function findLocalDeclaration(sf: SourceFile, name: string): Node[] {
@@ -203,18 +217,87 @@ function collectFramedViolations(
   return violations;
 }
 
+type MountKind = "extension" | "custom" | "header" | "other";
+
+function findAncestorObjectLiterals(node: Node): ObjectLiteralExpression[] {
+  return node.getAncestors().filter(Node.isObjectLiteralExpression);
+}
+
+function stringPropertyValue(obj: ObjectLiteralExpression, propName: string): string | undefined {
+  const prop = obj.getProperty(propName);
+  if (prop === undefined || !Node.isPropertyAssignment(prop)) return undefined;
+  const init = prop.getInitializer();
+  return init !== undefined && Node.isStringLiteral(init) ? init.getLiteralValue() : undefined;
+}
+
+function isDirectlyUnderSlotsHeader(obj: ObjectLiteralExpression): boolean {
+  const headerAssignment = obj.getParentIfKind(SyntaxKind.PropertyAssignment);
+  if (headerAssignment === undefined || headerAssignment.getName() !== "header") return false;
+  const slotsObject = headerAssignment.getFirstAncestorByKind(SyntaxKind.ObjectLiteralExpression);
+  if (slotsObject === undefined) return false;
+  const slotsAssignment = slotsObject.getParentIfKind(SyntaxKind.PropertyAssignment);
+  return slotsAssignment !== undefined && slotsAssignment.getName() === "slots";
+}
+
+function mountKindFor(componentPropertyAssignment: Node): MountKind {
+  for (const obj of findAncestorObjectLiterals(componentPropertyAssignment)) {
+    const kind = stringPropertyValue(obj, "kind");
+    if (kind === "extension") return "extension";
+    if (kind === "custom") return "custom";
+    if (isDirectlyUnderSlotsHeader(obj)) return "header";
+  }
+  return "other";
+}
+
+function findComponentNameUsages(sf: SourceFile): { name: string; kind: MountKind }[] {
+  const usages: { name: string; kind: MountKind }[] = [];
+  for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (prop.getName() !== "__component") continue;
+    const init = prop.getInitializer();
+    if (init === undefined) continue;
+    const name = Node.isStringLiteral(init)
+      ? init.getLiteralValue()
+      : Node.isIdentifier(init)
+        ? init.getText()
+        : undefined;
+    if (name === undefined) continue;
+    usages.push({ name, kind: mountKindFor(prop) });
+  }
+  return usages;
+}
+
+function buildUsageKindsByName(files: readonly SourceFile[]): Map<string, Set<MountKind>> {
+  const byName = new Map<string, Set<MountKind>>();
+  for (const sf of files) {
+    for (const { name, kind } of findComponentNameUsages(sf)) {
+      const kinds = byName.get(name) ?? new Set<MountKind>();
+      kinds.add(kind);
+      byName.set(name, kinds);
+    }
+  }
+  return byName;
+}
+
+/** Exempt only when every known usage is a custom panel and/or a header slot. */
+function stillNeedsFraming(kinds: Set<MountKind> | undefined): boolean {
+  if (kinds === undefined) return true;
+  return [...kinds].some((kind) => kind !== "custom" && kind !== "header");
+}
+
 function analyse(files: readonly SourceFile[]): {
   violations: GuardViolation[];
 } {
   const violations: GuardViolation[] = [];
+  const usageKindsByName = buildUsageKindsByName(files);
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
-    const registeredNames = findExtensionComponentNames(sf);
-    if (registeredNames.size === 0) continue;
-    for (const name of registeredNames) {
+    const registeredEntries = findExtensionComponentEntries(sf);
+    if (registeredEntries.size === 0) continue;
+    for (const [name, registryKey] of registeredEntries.entries()) {
       const visited = new Set<string>();
       const resolved = resolveComponent(sf, name, visited, 0);
       if (resolved === undefined || resolved === "external") continue;
+      if (!stillNeedsFraming(usageKindsByName.get(registryKey))) continue;
       violations.push(...collectFramedViolations(name, resolved, [name], visited, 0));
     }
   }
