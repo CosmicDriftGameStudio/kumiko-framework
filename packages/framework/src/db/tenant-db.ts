@@ -21,6 +21,7 @@ import {
   insertOne as bunInsertOne,
   selectMany as bunSelectMany,
   updateMany as bunUpdateMany,
+  runInNewTransaction,
   type SelectOptions,
   type WhereObject,
 } from "../db/query";
@@ -712,19 +713,10 @@ export function createTenantDb(
           "the enforced read-only scope.",
       });
     }
-    const raw = asRawClient(db) as unknown as {
-      begin?: <TResult>(cb: (tx: unknown) => Promise<TResult>) => Promise<TResult>;
-    };
-    if (typeof raw.begin !== "function") {
-      throw new InternalError({
-        message:
-          "runInOwnTransaction: runner has no begin() — already inside a transaction or savepoint.",
-      });
-    }
     // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since the fresh tx-handle isn't itself registered in runnerPersonalDataGates.
     const txGrants = personalDataGate ? { ...grants, personalDataGate } : grants;
-    return raw.begin((tx) =>
-      fn(createTenantDb(tx as DbRunner, tenantId, mode, tracer, meter, signal, txGrants)),
+    return runInNewTransaction(db, (tx) =>
+      fn(createTenantDb(tx, tenantId, mode, tracer, meter, signal, txGrants)),
     );
   });
   bindTenantDbRunner(tenantDb, db);
