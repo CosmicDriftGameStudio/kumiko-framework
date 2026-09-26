@@ -16,7 +16,7 @@ preload = [
   "./test-setup/app-define-resolver.ts",
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
-  "./test-setup/dom.preload.ts",
+  "@cosmicdrift/kumiko-testing/preload/dom",
 ]
 # No `timeout` or `concurrency` key here: bun's bunfig parser has neither
 # key in its [test] section and ignores both silently (#3078, same as #2796

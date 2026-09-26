@@ -11,12 +11,16 @@ const persisted = await seedTenant(stack, { persist: true }); // real rows via t
 await tenant.api.writeOk("my-feature:write:thing:create", { title: "x" });
 ```
 
-- `preload/{temporal,ci-log,scrub-env,env,real}`: bunfig `preload` entries. `scrub-env` removes
+- `preload/{temporal,ci-log,scrub-env,env,real,dom}`: bunfig `preload` entries. `scrub-env` removes
   `PROVIDER_ENV_KEYS` (unit default); `env` adds the localhost service defaults (integration);
-  `real` refuses to run without `KUMIKO_REAL_PROVIDERS=1` and in CI, and keeps the keys.
+  `real` refuses to run without `KUMIKO_REAL_PROVIDERS=1` and in CI, and keeps the keys; `dom`
+  registers happy-dom (window/document/HTMLElement) while preserving Bun's native
+  fetch/Request/Response, and cleans up (`@testing-library/react` unmount, Radix DOM/style leaks,
+  `window.location`) after every test.
 - `kumiko-testing bunfig [--dom] [--coverage]`: writes `bunfig.toml`,
-  `bunfig.integration.toml` and `bunfig.real.toml` (plus `bunfig.dom.toml`). `--dom` needs your own
-  `./test-setup/dom.preload.ts`.
+  `bunfig.integration.toml` and `bunfig.real.toml` (plus `bunfig.dom.toml`). `--dom` adds
+  `preload/dom` (happy-dom + testing-library/react cleanup); `@happy-dom/global-registrator` and
+  `@testing-library/react` are optional peer dependencies, install them when you use `--dom`.
 - `kumiko-testing integration [--parallel N] [--timings <file>]`: runs `*.integration.test.ts`
   with the 15s budget. `--parallel` only when you ask for it, and then with `--no-isolate`:
   bun 1.4.0's implicit `--isolate` leaks native memory per file until CI workers are OOM-killed.
