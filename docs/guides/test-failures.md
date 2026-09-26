@@ -29,7 +29,7 @@ The `test-timeouts` guard enforces step 3 and points back here.
 Bun tests and integration tests use `waitFor`. It tries first, so an
 already-true condition returns immediately, and retries with a backoff:
 
-```ts
+```ts illustration
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 
 await waitFor(() => {
@@ -39,7 +39,7 @@ await waitFor(() => {
 
 Playwright specs use web-first assertions or `expect.poll`:
 
-```ts
+```ts illustration
 await expect(page.getByRole("status")).toHaveText("Saved");
 await expect.poll(() => readRowCount(), { timeout: 10_000 }).toBe(3);
 ```
@@ -53,7 +53,7 @@ loops that call `sleep()` or `new Promise(r => setTimeout(r, n))`. A single
 If a wait cannot be expressed as a condition, mark the line (or the loop
 statement) directly above or on it:
 
-```ts
+```ts illustration
 // @timeout-exception: #1234 sidecar has no readiness signal, cold start takes 40s
 test.setTimeout(60_000);
 ```
@@ -65,7 +65,7 @@ either is ignored and the guard says so. "Flaky" or "slow CI" is not a reason.
 
 The test classes, the real-provider gate, the screenshot runner and why they
 are built this way live in
-[`testing-standard.md`](./testing-standard.md). A few file-specific notes that
+[`testing-standard.md`](/en/guides/testing-standard/). A few file-specific notes that
 don't fit either guide:
 
 - Run Playwright as `bunx --bun playwright`. The specs only load when the
