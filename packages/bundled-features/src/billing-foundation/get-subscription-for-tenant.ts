@@ -16,6 +16,10 @@ export type SubscriptionView = {
   readonly providerName: string;
   readonly providerCustomerId: string;
   readonly providerSubscriptionId: string;
+  /** `modified_at ?? inserted_at` — the projection's own base columns.
+   *  `modified_at` is null only for pre-existing rows written before every
+   *  apply-function started stamping it from `event.createdAt`. */
+  readonly lastChangedAt: Temporal.Instant;
 };
 
 /** Liefert die einzige subscription-row für den Tenant (deterministic
@@ -42,5 +46,6 @@ export async function getSubscriptionForTenant(
     providerName: decrypted["providerName"] as string,
     providerCustomerId: decrypted["providerCustomerId"] as string,
     providerSubscriptionId: decrypted["providerSubscriptionId"] as string,
+    lastChangedAt: (decrypted["modifiedAt"] ?? decrypted["insertedAt"]) as Temporal.Instant,
   };
 }

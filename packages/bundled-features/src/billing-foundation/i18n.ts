@@ -20,6 +20,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.plans.choose": { en: "Choose {plan}" },
   "billing-foundation.plans.switch": { en: "Switch to {plan}" },
   "billing-foundation.plans.manage": { en: "Manage subscription" },
+  "billing-foundation.plans.paymentPending": {
+    en: "Payment is still being completed.",
+  },
   "billing-foundation.plans.priceUnavailable": { en: "Price not available" },
   "billing-foundation.plans.purchaseNotAllowed": {
     en: "Only administrators can change the plan.",
@@ -46,6 +49,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.errors.alreadyOnPlan": { en: "This tenant is already on that plan." },
   "billing-foundation.errors.planSwitchNotSupported": {
     en: "This provider does not support switching plans.",
+  },
+  "billing-foundation.errors.planTiersShareProduct": {
+    en: "Each plan needs its own Stripe product. Contact support.",
   },
   "billing-foundation.errors.providerMismatch": {
     en: "This tenant's subscription is on a different provider than the plan catalog. Contact support to migrate.",

@@ -68,6 +68,7 @@ function planCta(
   redirecting: boolean,
 ): PlanCardActionSlot | undefined {
   if (plan.action === BillingPlanActions.current) return undefined;
+  if (plan.action === BillingPlanActions.paymentPending) return undefined;
   if (!result.canPurchase) return undefined;
 
   const kind =
@@ -156,6 +157,10 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
     const key = intervalKey(plan.price);
     return {
       title: t(plan.labelKey),
+      description:
+        plan.action === BillingPlanActions.paymentPending
+          ? t("billing-foundation.plans.paymentPending")
+          : undefined,
       current: plan.isCurrent,
       // Billing off means "no price to show", not "price failed to load" —
       // undefined drops the price row entirely, distinct from the `null`

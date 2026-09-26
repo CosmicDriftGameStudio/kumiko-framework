@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { UnconfiguredError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+// Aliased — an un-aliased `Temporal` would shadow the ambient global
+// `Temporal` TYPE `SubscriptionView.lastChangedAt` resolves against.
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import {
   assertRedirectOrigins,
   isNonEmptyStringArray,
@@ -15,6 +18,13 @@ function subscriptionView(overrides: Partial<SubscriptionView> = {}): Subscripti
     providerName: "mock",
     providerCustomerId: "cus_own",
     providerSubscriptionId: "sub_own",
+    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+    // at runtime — SubscriptionView.lastChangedAt is typed against the
+    // ambient Temporal global; temporal-polyfill's own nominal Instant type
+    // differs across the two .d.ts sources.
+    lastChangedAt: TemporalPolyfill.Instant.from(
+      "2024-01-01T00:00:00Z",
+    ) as unknown as Temporal.Instant,
     ...overrides,
   };
 }

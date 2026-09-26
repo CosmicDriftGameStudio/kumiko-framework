@@ -20,8 +20,8 @@ import type {
   SubscriptionProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
-import type Stripe from "stripe";
+import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import Stripe from "stripe";
 import type { StripeCtxRuntime } from "./runtime";
 
 // =============================================================================
@@ -251,6 +251,33 @@ function resolveProductId(product: string | Stripe.Product | Stripe.DeletedProdu
   return typeof product === "string" ? product : product.id;
 }
 
+/** Both our own pre-Stripe-call product+interval collision check and a live
+ *  `StripeInvalidRequestError` from `configurations.create()`/`sessions.create()`
+ *  surface the same underlying misconfiguration (two plan tiers sharing one
+ *  Stripe product) — mapped to the same `UnprocessableError` so the panel
+ *  only needs one i18nKey to translate. */
+function planTiersShareProductError(cause: unknown): UnprocessableError {
+  return new UnprocessableError("plan_tiers_share_product", {
+    i18nKey: "billing-foundation.errors.planTiersShareProduct",
+    message:
+      "subscription-stripe: the Stripe Customer Portal rejected this configuration — every plan tier needs its own Stripe product.",
+    ...(cause instanceof Error && { cause }),
+  });
+}
+
+/** Stripe rejects a portal-configuration whose `subscription_update.products`
+ *  entries collide (e.g. two prices for one product) with a
+ *  `StripeInvalidRequestError` — matched defensively on both `param` and
+ *  `message` since Stripe doesn't document a stable machine-readable code
+ *  for this case. */
+function isPlanTiersShareProductStripeError(error: unknown): boolean {
+  if (!(error instanceof Stripe.errors.StripeInvalidRequestError)) return false;
+  return (
+    (typeof error.param === "string" && error.param.includes("subscription_update")) ||
+    error.message.includes("subscription_update")
+  );
+}
+
 function priceSetHash(prices: readonly Stripe.Price[]): string {
   const productPricePairs = prices
     .map((price) => `${resolveProductId(price.product)}:${price.id}`)
@@ -309,9 +336,10 @@ async function resolvePortalConfiguration(
     const interval = price.recurring?.interval ?? "one_time";
     const productIntervalKey = `${productId}:${interval}`;
     if (seenProductInterval.has(productIntervalKey)) {
-      throw new Error(
-        `subscription-stripe: switch-plan's allowed prices include two prices for product "${productId}" at interval "${interval}" — the Stripe Customer Portal only supports one price per product per interval in a single configuration; every plan tier needs its own Stripe product.`,
-      );
+      throw new UnprocessableError("plan_tiers_share_product", {
+        i18nKey: "billing-foundation.errors.planTiersShareProduct",
+        message: `subscription-stripe: switch-plan's allowed prices include two prices for product "${productId}" at interval "${interval}" — the Stripe Customer Portal only supports one price per product per interval in a single configuration; every plan tier needs its own Stripe product.`,
+      });
     }
     seenProductInterval.add(productIntervalKey);
     const existing = pricesByProduct.get(productId);
@@ -331,22 +359,28 @@ async function resolvePortalConfiguration(
     return { id: found.id, hash };
   }
 
-  const created = await stripe.billingPortal.configurations.create({
-    features: {
-      subscription_update: {
-        enabled: true,
-        default_allowed_updates: ["price"],
-        proration_behavior: "create_prorations",
-        products: [...pricesByProduct.entries()].map(([product, prices2]) => ({
-          product,
-          prices: prices2,
-        })),
+  let created: Stripe.BillingPortal.Configuration;
+  try {
+    created = await stripe.billingPortal.configurations.create({
+      features: {
+        subscription_update: {
+          enabled: true,
+          default_allowed_updates: ["price"],
+          proration_behavior: "create_prorations",
+          products: [...pricesByProduct.entries()].map(([product, prices2]) => ({
+            product,
+            prices: prices2,
+          })),
+        },
+        payment_method_update: { enabled: true },
+        invoice_history: { enabled: true },
       },
-      payment_method_update: { enabled: true },
-      invoice_history: { enabled: true },
-    },
-    metadata: { [PLAN_SWITCH_METADATA_KEY]: hash },
-  });
+      metadata: { [PLAN_SWITCH_METADATA_KEY]: hash },
+    });
+  } catch (error) {
+    if (isPlanTiersShareProductStripeError(error)) throw planTiersShareProductError(error);
+    throw error;
+  }
   portalConfigCache.set(hash, created.id);
   return { id: created.id, hash };
 }
@@ -422,6 +456,7 @@ export function createStripePlanSwitchSession(
       // out-of-band) must not poison every subsequent switch for the same
       // price-set — evict it so the next call re-searches/re-creates.
       portalConfigCache.delete(hash);
+      if (isPlanTiersShareProductStripeError(error)) throw planTiersShareProductError(error);
       throw error;
     }
   };

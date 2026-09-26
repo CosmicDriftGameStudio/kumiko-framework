@@ -283,6 +283,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This tenant has no active subscription to switch.",
   "billing-foundation.errors.planSwitchNotSupported":
     "This provider does not support switching plans.",
+  "billing-foundation.errors.planTiersShareProduct":
+    "Each plan needs its own Stripe product. Contact support.",
   "billing-foundation.errors.priceUnavailable": "This plan's price is temporarily unavailable.",
   "billing-foundation.errors.providerHasNoPriceCatalog":
     "This provider has no known prices configured.",
@@ -302,6 +304,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.plans.everyInterval.week": "every {count} weeks",
   "billing-foundation.plans.everyInterval.year": "every {count} years",
   "billing-foundation.plans.manage": "Manage subscription",
+  "billing-foundation.plans.paymentPending": "Payment is still being completed.",
   "billing-foundation.plans.perInterval.day": "/ day",
   "billing-foundation.plans.perInterval.month": "/ month",
   "billing-foundation.plans.perInterval.week": "/ week",

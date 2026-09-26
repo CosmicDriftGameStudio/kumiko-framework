@@ -325,6 +325,18 @@ export type BillingFoundationOptions<TTier extends string = string> = {
    *  NOT via `new URL(path, baseUrl)` (which would drop the prefix). */
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog<TTier>;
+  /** Injectable clock for the stale-incomplete-subscription check
+   *  (constants.ts's `isSubscriptionBlockingCheckout`) — same always-
+   *  optional, real-time-default shape as `createDekCache`'s `now` option.
+   *  Defaults to `Temporal.Now.instant` when omitted. */
+  readonly now?: () => Temporal.Instant;
+};
+
+/** `BillingFoundationOptions` after `createBillingFoundationFeature`'s own
+ *  defaulting — `now` is always present. Handler-factories that call
+ *  `options.now()` take this instead of the still-optional public type. */
+export type ResolvedBillingFoundationOptions = BillingFoundationOptions & {
+  readonly now: () => Temporal.Instant;
 };
 
 export type BillingPlanPrice = {

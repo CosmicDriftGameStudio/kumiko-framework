@@ -9,7 +9,7 @@ import {
   UnconfiguredError,
   UnprocessableError,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { isTerminalSubscriptionStatus, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
+import { isSubscriptionBlockingCheckout, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant";
 import type { BillingPlanCatalog, SubscriptionProviderPlugin } from "./types";
 
@@ -141,9 +141,10 @@ export function joinBaseUrl(baseUrl: string, path: string): string {
  *  reuse) doesn't have to look it up twice. */
 export async function assertNoActiveSubscription(
   ctx: HandlerContext,
+  now: Temporal.Instant,
 ): Promise<Awaited<ReturnType<typeof getSubscriptionForTenant>>> {
   const existing = await getSubscriptionForTenant(ctx, ctx.user.tenantId);
-  if (existing && !isTerminalSubscriptionStatus(existing.status)) {
+  if (existing && isSubscriptionBlockingCheckout(existing, now)) {
     throw new ConflictError({
       i18nKey: "billing-foundation.errors.subscriptionExists",
       message:
@@ -170,6 +171,7 @@ export function isOwnProviderCustomer(
 export type OpenCheckoutOptions = {
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog;
+  readonly now: () => Temporal.Instant;
 };
 
 export type OpenCheckoutInput = {
@@ -225,7 +227,7 @@ export async function openCheckout(
       });
     }
 
-    ownSubscription = await assertNoActiveSubscription(ctx);
+    ownSubscription = await assertNoActiveSubscription(ctx, options.now());
   }
 
   // Rejects a foreign tenant's provider-customer id — otherwise the checkout

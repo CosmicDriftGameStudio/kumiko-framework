@@ -55,6 +55,10 @@ import {
   EXT_TENANT_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+// Aliased — an un-aliased `Temporal` would shadow the ambient global
+// `Temporal` TYPE `ResolvedBillingFoundationOptions.now`'s return type
+// resolves against, see event-store.ts's own import comment (#1438).
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import { paymentEntity, subscriptionEntity } from "./entities";
 import {
@@ -101,67 +105,8 @@ import {
   SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON,
   subscriptionTenantDestroyHook,
 } from "./tenant-destroy-hook";
-import type { BillingFoundationOptions } from "./types";
-
-function isRootRelativePath(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//");
-}
-
-/** Validates `options` and throws a plain `Error` with a clear message at
- *  feature-definition time — same pattern as `createCapOverviewFeature`.
- *  `createBillingFoundationFeature()` (no options) always succeeds; the
- *  extra checks only fire once a caller opts into `baseUrl`/`catalog`. */
-function validateOptions(options: BillingFoundationOptions): void {
-  if (options.baseUrl !== undefined) {
-    let parsed: URL;
-    try {
-      parsed = new URL(options.baseUrl);
-    } catch {
-      throw new Error(
-        `createBillingFoundationFeature: baseUrl "${options.baseUrl}" is not a parseable absolute URL.`,
-      );
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new Error(
-        `createBillingFoundationFeature: baseUrl "${options.baseUrl}" must use http or https (parsed protocol "${parsed.protocol}").`,
-      );
-    }
-  }
-  const { catalog } = options;
-  // skip: no catalog configured, nothing more to validate.
-  if (!catalog) return;
-  if (options.baseUrl === undefined) {
-    throw new Error(
-      "createBillingFoundationFeature: catalog requires baseUrl (plan checkouts need it to build success/cancel/return URLs).",
-    );
-  }
-  if (catalog.plans.length === 0) {
-    throw new Error("createBillingFoundationFeature: catalog.plans must not be empty.");
-  }
-  const seen = new Set<string>();
-  for (const tier of catalog.plans) {
-    if (seen.has(tier)) {
-      throw new Error(
-        `createBillingFoundationFeature: catalog.plans has a duplicate tier "${tier}".`,
-      );
-    }
-    seen.add(tier);
-  }
-  for (const [key, path] of [
-    ["successPath", catalog.successPath],
-    ["cancelPath", catalog.cancelPath],
-    ["returnPath", catalog.returnPath],
-  ] as const) {
-    if (path !== undefined && !isRootRelativePath(path)) {
-      throw new Error(
-        `createBillingFoundationFeature: catalog.${key} "${path}" must start with "/" and not "//".`,
-      );
-    }
-  }
-  if (catalog.viewRoles.length === 0) {
-    throw new Error("createBillingFoundationFeature: catalog.viewRoles must not be empty.");
-  }
-}
+import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types";
+import { validateOptions } from "./validate-options";
 
 export function createBillingFoundationFeature<TTier extends string = string>(
   options: BillingFoundationOptions<TTier> = {},
@@ -175,9 +120,16 @@ export function createBillingFoundationFeature<TTier extends string = string>(
   // baseUrl is normalized once here (trailing "/" stripped) so every
   // downstream string-concatenation site (checkout-core's joinBaseUrl, the
   // plan-checkout/switch-plan handlers) can rely on a single canonical form
-  // instead of re-normalizing per call-site.
-  const widened: BillingFoundationOptions = {
+  // instead of re-normalizing per call-site. `now` is defaulted once here
+  // too — same pattern as createDekCache's `now` option — so no handler
+  // ever calls `Temporal.Now.instant` itself.
+  const widened: ResolvedBillingFoundationOptions = {
     ...options,
+    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+    // at runtime — `now` is typed against the ambient Temporal global;
+    // TemporalPolyfill.Now.instant() returns the polyfill's own nominal
+    // Instant type across the two .d.ts sources.
+    now: options.now ?? (() => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant),
     ...(options.baseUrl !== undefined && {
       baseUrl: options.baseUrl.endsWith("/") ? options.baseUrl.slice(0, -1) : options.baseUrl,
     }),
@@ -275,7 +227,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
 
     if (widened.catalog) {
       const { catalog } = widened;
-      r.queryHandler(createBillingPlansQuery(catalog));
+      r.queryHandler(createBillingPlansQuery(widened, catalog));
       r.writeHandler(createStartPlanCheckoutHandler(widened, catalog));
       r.writeHandler(createSwitchPlanHandler(widened, catalog));
       r.screen(createBillingPlansScreen(catalog.viewRoles));

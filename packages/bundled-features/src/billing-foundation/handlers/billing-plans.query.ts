@@ -6,20 +6,27 @@ import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { resolveCatalogProvider } from "../checkout-core";
 import { buildBillingPlans } from "../plan-catalog";
-import type { BillingPlanCatalog, BillingPlansResult } from "../types";
+import type {
+  BillingPlanCatalog,
+  BillingPlansResult,
+  ResolvedBillingFoundationOptions,
+} from "../types";
 
 const billingPlansSchema = z.object({}).strict();
 
-export function createBillingPlansQuery(catalog: BillingPlanCatalog): QueryHandlerDef {
+export function createBillingPlansQuery(
+  options: ResolvedBillingFoundationOptions,
+  catalog: BillingPlanCatalog,
+): QueryHandlerDef {
   return {
     name: "billing-plans",
     description:
-      "Lists the purchasable plans with live price, benefits, the caller's current tier and which action (checkout | switch | current | unavailable) each plan offers.",
+      "Lists the purchasable plans with live price, benefits, the caller's current tier and which action (checkout | switch | current | unavailable | paymentPending) each plan offers.",
     schema: billingPlansSchema,
     access: { roles: catalog.viewRoles },
     handler: async (_query, ctx): Promise<BillingPlansResult> => {
       const { plugin } = resolveCatalogProvider(ctx, catalog);
-      return buildBillingPlans(ctx, plugin, catalog);
+      return buildBillingPlans(ctx, plugin, catalog, options.now);
     },
   };
 }

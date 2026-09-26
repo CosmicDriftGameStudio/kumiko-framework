@@ -295,6 +295,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieser Mandant hat kein aktives Abo zum Wechseln.",
   "billing-foundation.errors.planSwitchNotSupported":
     "Dieser Anbieter unterstützt keinen Tarifwechsel.",
+  "billing-foundation.errors.planTiersShareProduct":
+    "Jeder Tarif braucht ein eigenes Stripe-Produkt. Bitte den Support kontaktieren.",
   "billing-foundation.errors.priceUnavailable":
     "Der Preis dieses Tarifs ist vorübergehend nicht verfügbar.",
   "billing-foundation.errors.providerHasNoPriceCatalog":
@@ -315,6 +317,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.plans.everyInterval.week": "alle {count} Wochen",
   "billing-foundation.plans.everyInterval.year": "alle {count} Jahre",
   "billing-foundation.plans.manage": "Abo verwalten",
+  "billing-foundation.plans.paymentPending": "Zahlung wird noch abgeschlossen.",
   "billing-foundation.plans.perInterval.day": "/ Tag",
   "billing-foundation.plans.perInterval.month": "/ Monat",
   "billing-foundation.plans.perInterval.week": "/ Woche",

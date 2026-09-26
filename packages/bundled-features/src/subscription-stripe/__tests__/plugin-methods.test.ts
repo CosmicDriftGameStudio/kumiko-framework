@@ -12,7 +12,11 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, FeatureDisabledError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConflictError,
+  FeatureDisabledError,
+  UnprocessableError,
+} from "@cosmicdrift/kumiko-framework/errors";
 import Stripe from "stripe";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "../constants";
 import {
@@ -609,7 +613,7 @@ describe("createStripePlanSwitchSession", () => {
     expect(createSessionMock).toHaveBeenCalledTimes(2);
   });
 
-  test("two allowed prices sharing a product+interval throw before any Stripe portal call", async () => {
+  test("two allowed prices sharing a product+interval throw UnprocessableError('plan_tiers_share_product') before any Stripe portal call", async () => {
     const stripe = buildStripe();
     spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscription());
     spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
@@ -625,15 +629,93 @@ describe("createStripePlanSwitchSession", () => {
       createStripePriceCache(),
       new Map<string, string>(),
     );
-    await expect(
-      planSwitch(stubCtx, {
-        providerSubscriptionId: "sub_switch_001",
-        targetPriceId: "price_switch_collision_b",
-        allowedPriceIds: ["price_switch_collision_a", "price_switch_collision_b"],
-        returnUrl: "https://example.com/return",
-      }),
-    ).rejects.toThrow(/every plan tier needs its own Stripe product/);
+    const promise = planSwitch(stubCtx, {
+      providerSubscriptionId: "sub_switch_001",
+      targetPriceId: "price_switch_collision_b",
+      allowedPriceIds: ["price_switch_collision_a", "price_switch_collision_b"],
+      returnUrl: "https://example.com/return",
+    });
+    await expect(promise).rejects.toThrow(/every plan tier needs its own Stripe product/);
+    await expect(promise).rejects.toBeInstanceOf(UnprocessableError);
+    await expect(promise).rejects.toMatchObject({
+      httpStatus: 422,
+      i18nKey: "billing-foundation.errors.planTiersShareProduct",
+      details: { reason: "plan_tiers_share_product" },
+    });
     expect(listMock).not.toHaveBeenCalled();
+  });
+
+  test("a StripeInvalidRequestError from configurations.create() concerning subscription_update products becomes UnprocessableError('plan_tiers_share_product')", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscription());
+    spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+      stripePrice({
+        id,
+        product: id === "price_switch_current" ? "prod_switch_i" : "prod_switch_j",
+      })) as never);
+    spyOn(stripe.billingPortal.configurations, "list").mockResolvedValue({ data: [] } as never);
+    spyOn(stripe.billingPortal.configurations, "create").mockRejectedValue(
+      new Stripe.errors.StripeInvalidRequestError({
+        message: "Invalid subscription_update.products",
+        param: "features[subscription_update][products][1][prices]",
+      }),
+    );
+    const createSessionMock = spyOn(stripe.billingPortal.sessions, "create");
+
+    const planSwitch = createStripePlanSwitchSession(
+      ctxRuntime(stripe),
+      createStripePriceCache(),
+      new Map<string, string>(),
+    );
+    const promise = planSwitch(stubCtx, {
+      providerSubscriptionId: "sub_switch_001",
+      targetPriceId: "price_switch_config_target",
+      allowedPriceIds: ["price_switch_current", "price_switch_config_target"],
+      returnUrl: "https://example.com/return",
+    });
+    await expect(promise).rejects.toBeInstanceOf(UnprocessableError);
+    await expect(promise).rejects.toMatchObject({
+      i18nKey: "billing-foundation.errors.planTiersShareProduct",
+      details: { reason: "plan_tiers_share_product" },
+    });
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  test("a StripeInvalidRequestError from sessions.create() concerning subscription_update products becomes UnprocessableError and still evicts the cached configuration", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscription());
+    spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+      stripePrice({
+        id,
+        product: id === "price_switch_current" ? "prod_switch_k" : "prod_switch_l",
+      })) as never);
+    spyOn(stripe.billingPortal.configurations, "list").mockResolvedValue({ data: [] } as never);
+    spyOn(stripe.billingPortal.configurations, "create").mockResolvedValue({
+      id: "bpc_switch_session_err",
+    } as never);
+    spyOn(stripe.billingPortal.sessions, "create").mockRejectedValue(
+      new Stripe.errors.StripeInvalidRequestError({
+        message: "subscription_update configuration mismatch",
+      }),
+    );
+
+    const sharedCache = new Map<string, string>();
+    const planSwitch = createStripePlanSwitchSession(
+      ctxRuntime(stripe),
+      createStripePriceCache(),
+      sharedCache,
+    );
+    const promise = planSwitch(stubCtx, {
+      providerSubscriptionId: "sub_switch_001",
+      targetPriceId: "price_switch_session_target",
+      allowedPriceIds: ["price_switch_current", "price_switch_session_target"],
+      returnUrl: "https://example.com/return",
+    });
+    await expect(promise).rejects.toBeInstanceOf(UnprocessableError);
+    await expect(promise).rejects.toMatchObject({
+      i18nKey: "billing-foundation.errors.planTiersShareProduct",
+    });
+    expect(sharedCache.size).toBe(0);
   });
 
   test("multi-item subscriptions are rejected", async () => {

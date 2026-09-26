@@ -324,6 +324,20 @@ describe("BillingPlansPanel", () => {
     expect(window.location.assign).not.toHaveBeenCalled();
   });
 
+  test("paymentPending shows the still-completing hint and no cta button", () => {
+    queryState = {
+      data: result({
+        subscription: { status: "incomplete", tier: "pro", terminal: false },
+        plans: [plan({ action: BillingPlanActions.paymentPending })],
+      }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    expect(screen.getByText("billing-foundation.plans.paymentPending")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   test("price=null renders the price-unavailable fallback and a disabled cta", () => {
     queryState = {
       data: result({ plans: [plan({ price: null, action: BillingPlanActions.unavailable })] }),

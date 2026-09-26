@@ -25,7 +25,7 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { openCheckout } from "../checkout-core";
-import type { BillingFoundationOptions } from "../types";
+import type { ResolvedBillingFoundationOptions } from "../types";
 
 const createCheckoutSessionSchema = z.object({
   /** Welcher Provider — entityName eines registrierten subscription-
@@ -46,7 +46,9 @@ const createCheckoutSessionSchema = z.object({
 });
 type CreateCheckoutSessionPayload = z.infer<typeof createCheckoutSessionSchema>;
 
-export function createCheckoutSessionHandler(options: BillingFoundationOptions): WriteHandlerDef {
+export function createCheckoutSessionHandler(
+  options: ResolvedBillingFoundationOptions,
+): WriteHandlerDef {
   return {
     name: "create-checkout-session",
     description:
@@ -61,7 +63,7 @@ export function createCheckoutSessionHandler(options: BillingFoundationOptions):
 
       const result = await openCheckout(
         ctx,
-        { baseUrl: options.baseUrl, catalog: options.catalog },
+        { baseUrl: options.baseUrl, catalog: options.catalog, now: options.now },
         {
           providerName: payload.providerName,
           priceId: payload.priceId,

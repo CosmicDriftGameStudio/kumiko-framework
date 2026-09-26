@@ -14,6 +14,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createTestUser,
   setupTestStack,
@@ -22,6 +23,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+// Aliased — an un-aliased `Temporal` would shadow the ambient global
+// `Temporal` TYPE `createBillingFoundationFeature`'s `now` option resolves
+// against.
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -69,6 +74,9 @@ const PRICES: readonly ProviderPrice[] = [
 
 let billingEnabled = true;
 let retrievePricesMode: "ok" | "throw" = "ok";
+// Isolated per-test toggle for switch-plan's provider call — reset in
+// beforeEach so a test that sets it never leaks into the next one.
+let switchPlanErrorMode: "ok" | "plan_tiers_share_product" = "ok";
 const checkoutCalls: Array<{
   priceId: string;
   successUrl: string;
@@ -102,6 +110,12 @@ const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => 
       return { url: `https://mock.example/checkout/${options.priceId}` };
     },
     createPlanSwitchSession: async (_ctx, options) => {
+      if (switchPlanErrorMode === "plan_tiers_share_product") {
+        throw new UnprocessableError("plan_tiers_share_product", {
+          i18nKey: "billing-foundation.errors.planTiersShareProduct",
+          message: "mock provider: allowed prices share a Stripe product",
+        });
+      }
       switchCalls.push(options);
       return { url: `https://mock.example/portal/switch/${options.targetPriceId}` };
     },
@@ -184,6 +198,7 @@ afterAll(async () => {
 beforeEach(() => {
   billingEnabled = true;
   retrievePricesMode = "ok";
+  switchPlanErrorMode = "ok";
   checkoutCalls.length = 0;
   switchCalls.length = 0;
 });
@@ -206,9 +221,10 @@ async function createSubscription(
     providerSubscriptionId: string;
     providerCustomerId: string;
   }> = {},
+  onStack: TestStack = stack,
 ) {
   const admin = createTestUser({ id: 0, tenantId, roles: ["TenantAdmin", "SystemAdmin"] });
-  return stack.http.writeOk(
+  return onStack.http.writeOk(
     SubscriptionFoundationHandlers.processEvent,
     {
       providerEventId: overrides.providerEventId ?? `evt_${tenantId}_create`,
@@ -428,6 +444,24 @@ describe("switch-plan", () => {
       admin,
     );
     expect(error.httpStatus).toBe(409);
+  });
+
+  test("the provider rejecting the switch because two tiers share one Stripe product surfaces as a 422, not a 500", async () => {
+    const admin = adminFor(7024);
+    await createSubscription(admin.tenantId, {
+      tier: "starter",
+      providerSubscriptionId: "sub_switch_7024",
+    });
+    switchPlanErrorMode = "plan_tiers_share_product";
+
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro" },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.planTiersShareProduct");
+    expect(error.details).toMatchObject({ reason: "plan_tiers_share_product" });
   });
 });
 
@@ -675,5 +709,92 @@ describe("roles — view-only access without purchase rights", () => {
       member,
     );
     expect(error.httpStatus).toBe(403);
+  });
+});
+
+// =============================================================================
+// 11. Stale-incomplete checkout gate — a separate stack with an injectable
+//     `now` (the event's own modified_at/inserted_at stays real, only the
+//     gate's clock is controlled) so both a fresh and a >24h-stale
+//     `incomplete` subscription are reachable without waiting real time.
+// =============================================================================
+
+describe("stale-incomplete subscription — injected clock", () => {
+  let clock: () => Temporal.Instant;
+  let clockStack: TestStack;
+
+  beforeAll(async () => {
+    clock = () => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant;
+    clockStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        createBillingFoundationFeature({
+          baseUrl: "https://app.example.com",
+          catalog: catalog(),
+          now: () => clock(),
+        }),
+        mockPlanProviderFeature,
+      ],
+    });
+    await unsafeCreateEntityTable(clockStack.db, tenantEntity);
+    await unsafeCreateEntityTable(clockStack.db, tenantComplianceProfileEntity);
+  });
+
+  afterAll(async () => {
+    await clockStack.cleanup();
+  });
+
+  beforeEach(() => {
+    clock = () => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant;
+  });
+
+  test("(a) a fresh incomplete subscription still blocks checkout and shows paymentPending", async () => {
+    const admin = adminFor(7022);
+    await createSubscription(
+      admin.tenantId,
+      { tier: "starter", status: SubscriptionStatuses.incomplete },
+      clockStack,
+    );
+
+    const result = (await clockStack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      admin,
+    )) as { plans: Array<{ tier: string; action: string }> };
+    expect(result.plans.find((p) => p.tier === "starter")?.action).toBe("paymentPending");
+
+    const error = await clockStack.http.writeErr(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro" },
+      admin,
+    );
+    expect(error.httpStatus).toBe(409);
+  });
+
+  test("(b) a stale (>24h) incomplete subscription no longer blocks checkout, and offers a fresh checkout for its own tier", async () => {
+    const admin = adminFor(7023);
+    await createSubscription(
+      admin.tenantId,
+      { tier: "starter", status: SubscriptionStatuses.incomplete },
+      clockStack,
+    );
+    clock = () => TemporalPolyfill.Now.instant().add({ hours: 25 }) as unknown as Temporal.Instant;
+
+    const result = (await clockStack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      admin,
+    )) as { plans: Array<{ tier: string; action: string }> };
+    expect(result.plans.find((p) => p.tier === "starter")?.action).toBe("checkout");
+
+    const checkout = (await clockStack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro" },
+      admin,
+    )) as { url: string };
+    expect(checkout.url).toBe("https://mock.example/checkout/price_pro");
   });
 });

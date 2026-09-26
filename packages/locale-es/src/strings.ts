@@ -291,6 +291,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "billing-foundation.errors.noActiveSubscription":
     "Este cliente no tiene una suscripción activa para cambiar.",
   "billing-foundation.errors.planSwitchNotSupported": "Este proveedor no admite el cambio de plan.",
+  "billing-foundation.errors.planTiersShareProduct":
+    "Cada plan necesita su propio producto de Stripe. Contacta con soporte.",
   "billing-foundation.errors.priceUnavailable":
     "El precio de este plan no está disponible temporalmente.",
   "billing-foundation.errors.providerHasNoPriceCatalog":
@@ -311,6 +313,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "billing-foundation.plans.everyInterval.week": "cada {count} semanas",
   "billing-foundation.plans.everyInterval.year": "cada {count} años",
   "billing-foundation.plans.manage": "Gestionar suscripción",
+  "billing-foundation.plans.paymentPending": "El pago aún se está completando.",
   "billing-foundation.plans.perInterval.day": "/ día",
   "billing-foundation.plans.perInterval.month": "/ mes",
   "billing-foundation.plans.perInterval.week": "/ semana",

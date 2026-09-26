@@ -15,10 +15,10 @@ import {
 } from "../checkout-core";
 import { BILLING_FOUNDATION_FEATURE } from "../constants";
 import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog";
-import type { BillingFoundationOptions, BillingPlanCatalog } from "../types";
+import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types";
 
 export function createStartPlanCheckoutHandler(
-  options: BillingFoundationOptions,
+  options: ResolvedBillingFoundationOptions,
   catalog: BillingPlanCatalog,
 ): WriteHandlerDef {
   const plans = catalog.plans;
@@ -43,7 +43,7 @@ export function createStartPlanCheckoutHandler(
         throw new FeatureDisabledError(BILLING_FOUNDATION_FEATURE, "start-plan-checkout");
       }
 
-      const existing = await assertNoActiveSubscription(ctx);
+      const existing = await assertNoActiveSubscription(ctx, options.now());
 
       const prices = await resolvePlanPrices(ctx, plugin, catalog);
       const resolved = prices.get(payload.tier);
@@ -57,7 +57,7 @@ export function createStartPlanCheckoutHandler(
       const baseUrl = options.baseUrl ?? "";
       const result = await openCheckout(
         ctx,
-        { baseUrl: options.baseUrl, catalog },
+        { baseUrl: options.baseUrl, catalog, now: options.now },
         {
           providerName,
           priceId: resolved.priceId,

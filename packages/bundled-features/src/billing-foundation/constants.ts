@@ -1,5 +1,11 @@
 // @runtime client
-// Import-free constants, so browser bundles can safely import them.
+// temporal-polyfill is a plain npm dependency (not a framework runtime
+// module), so importing it here doesn't break browser bundles. Aliased —
+// same reason as event-store.ts's own import: the un-aliased name would
+// shadow the ambient global `Temporal` TYPE every `Temporal.Instant`
+// annotation in this file (and its callers, e.g. StoredEvent.createdAt)
+// resolves against, see #1438.
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 
 // Feature name
 export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
@@ -100,6 +106,10 @@ export const BillingPlanActions = {
   switch: "switch",
   current: "current",
   unavailable: "unavailable",
+  /** A young `incomplete` subscription for this tier — checkout was started
+   *  but Stripe hasn't confirmed payment yet. No CTA; the panel shows a
+   *  "still completing" hint instead. */
+  paymentPending: "paymentPending",
 } as const;
 export type BillingPlanAction = (typeof BillingPlanActions)[keyof typeof BillingPlanActions];
 
@@ -112,6 +122,35 @@ export const TERMINAL_SUBSCRIPTION_STATUSES: ReadonlySet<string> = new Set([
 ]);
 export function isTerminalSubscriptionStatus(status: string): boolean {
   return TERMINAL_SUBSCRIPTION_STATUSES.has(status);
+}
+
+// Stripe auto-expires an "incomplete" subscription (payment never completed)
+// after roughly 23 hours; without a matching staleness cutoff on our side, a
+// stale incomplete row would block that tenant from ever starting a new
+// checkout, since the projection has no expiry-triggered event of its own.
+export const STALE_INCOMPLETE_AFTER = TemporalPolyfill.Duration.from({ hours: 24 });
+
+/** Time-aware terminal check for the checkout gate: a canceled subscription
+ *  is terminal (see `isTerminalSubscriptionStatus`), and so is an
+ *  `incomplete` one once it's older than `STALE_INCOMPLETE_AFTER` — every
+ *  other status (including a fresh `incomplete`) still blocks a new
+ *  checkout. */
+export function isSubscriptionBlockingCheckout(
+  sub: { readonly status: string; readonly lastChangedAt: Temporal.Instant },
+  now: Temporal.Instant,
+): boolean {
+  if (isTerminalSubscriptionStatus(sub.status)) return false;
+  if (sub.status !== SubscriptionStatuses.incomplete) return true;
+  const staleAt = sub.lastChangedAt.add(STALE_INCOMPLETE_AFTER);
+  // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+  // at runtime — row types resolve against ambient Temporal; polyfill Instant
+  // is a separate nominal type across the two .d.ts sources.
+  return (
+    TemporalPolyfill.Instant.compare(
+      now as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+      staleAt as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
+    ) < 0
+  );
 }
 
 // A subscription in one of these statuses can be switched to a different

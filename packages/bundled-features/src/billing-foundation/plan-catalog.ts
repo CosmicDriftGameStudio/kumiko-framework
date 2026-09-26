@@ -7,8 +7,9 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   BillingPlanActions,
   DEFAULT_PURCHASE_ROLES,
+  isSubscriptionBlockingCheckout,
   isSwitchableSubscriptionStatus,
-  isTerminalSubscriptionStatus,
+  SubscriptionStatuses,
 } from "./constants";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant";
 import type {
@@ -95,10 +96,52 @@ export async function resolvePlanPrices(
   return result;
 }
 
+type ActiveSubscription = {
+  readonly status: string;
+  readonly tier: string;
+  readonly terminal: boolean;
+};
+
+/** One plan-row's action — pulled out of `buildBillingPlans`' map callback so
+ *  that function's own complexity stays under the guard's budget. paymentPending
+ *  is checked before the general unavailable-fallback: the tier a not-yet-
+ *  confirmed checkout targets isn't `isCurrent` yet (tier sync only happens
+ *  once Stripe confirms payment), so without this branch it would otherwise
+ *  show a disabled/checkout CTA instead of the "still completing" hint. */
+function resolvePlanAction(
+  tier: string,
+  isCurrent: boolean,
+  price: unknown,
+  enabled: boolean,
+  canPurchase: boolean,
+  subscription: ActiveSubscription | null,
+  plugin: SubscriptionProviderPlugin,
+): (typeof BillingPlanActions)[keyof typeof BillingPlanActions] {
+  if (isCurrent) return BillingPlanActions.current;
+
+  const isPaymentPendingForTier =
+    subscription !== null &&
+    !subscription.terminal &&
+    subscription.status === SubscriptionStatuses.incomplete &&
+    tier === subscription.tier;
+  if (isPaymentPendingForTier) return BillingPlanActions.paymentPending;
+
+  if (!enabled || !canPurchase || price === null) return BillingPlanActions.unavailable;
+
+  if (!subscription || subscription.terminal) return BillingPlanActions.checkout;
+
+  const canSwitch =
+    isSwitchableSubscriptionStatus(subscription.status) &&
+    tier !== subscription.tier &&
+    plugin.createPlanSwitchSession;
+  return canSwitch ? BillingPlanActions.switch : BillingPlanActions.unavailable;
+}
+
 export async function buildBillingPlans(
   ctx: HandlerContext,
   plugin: SubscriptionProviderPlugin,
   catalog: BillingPlanCatalog,
+  now: () => Temporal.Instant,
 ): Promise<BillingPlansResult> {
   const currentTierValue = await catalog.resolveCurrentTier(ctx.db, ctx.user.tenantId);
   const enabled = plugin.isBillingEnabled ? await plugin.isBillingEnabled(ctx) : true;
@@ -107,11 +150,12 @@ export async function buildBillingPlans(
     : new Map<string, ResolvedPlanPrice>(catalog.plans.map((tier) => [tier, null]));
 
   const subscriptionView = await getSubscriptionForTenant(ctx, ctx.user.tenantId);
+  const nowInstant = now();
   const subscription = subscriptionView
     ? {
         status: subscriptionView.status,
         tier: subscriptionView.tier,
-        terminal: isTerminalSubscriptionStatus(subscriptionView.status),
+        terminal: !isSubscriptionBlockingCheckout(subscriptionView, nowInstant),
       }
     : null;
 
@@ -130,17 +174,15 @@ export async function buildBillingPlans(
         }
       : null;
 
-    const action = isCurrent
-      ? BillingPlanActions.current
-      : !enabled || !canPurchase || price === null
-        ? BillingPlanActions.unavailable
-        : subscription && !subscription.terminal
-          ? isSwitchableSubscriptionStatus(subscription.status) &&
-            tier !== subscription.tier &&
-            plugin.createPlanSwitchSession
-            ? BillingPlanActions.switch
-            : BillingPlanActions.unavailable
-          : BillingPlanActions.checkout;
+    const action = resolvePlanAction(
+      tier,
+      isCurrent,
+      price,
+      enabled,
+      canPurchase,
+      subscription,
+      plugin,
+    );
 
     return {
       tier,
