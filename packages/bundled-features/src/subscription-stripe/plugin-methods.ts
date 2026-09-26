@@ -15,9 +15,11 @@
 // Stripe-Plugin das beim TS-Compile, nicht erst zur Laufzeit.
 
 import { createHash } from "node:crypto";
-import type {
-  ProviderPrice,
-  SubscriptionProviderPlugin,
+import {
+  KNOWN_RECURRING_INTERVALS,
+  type ProviderPrice,
+  type RecurringInterval,
+  type SubscriptionProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -129,12 +131,18 @@ export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
 // retrievePrices — bulk price lookup for the billing-plans catalog
 // =============================================================================
 
+// stripe >= 22.5 widened Recurring.Interval to an open union; an interval Stripe adds later narrows to null here instead of widening ProviderPrice.
+function isKnownRecurringInterval(interval: string | undefined): interval is RecurringInterval {
+  return KNOWN_RECURRING_INTERVALS.some((known) => known === interval);
+}
+
 function mapStripePrice(price: Stripe.Price): ProviderPrice {
+  const interval = price.recurring?.interval;
   return {
     priceId: price.id,
     unitAmount: price.unit_amount,
     currency: price.currency,
-    interval: price.recurring?.interval ?? null,
+    interval: isKnownRecurringInterval(interval) ? interval : null,
     intervalCount: price.recurring?.interval_count ?? null,
     active: price.active,
     metadata: price.metadata ?? {},

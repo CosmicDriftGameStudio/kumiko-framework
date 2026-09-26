@@ -272,6 +272,10 @@ export type SubscriptionProviderPlugin = {
 // Provider price + billing-plans catalog
 // =============================================================================
 
+// Closed set a provider's recurring-price interval narrows to; an unrecognized provider value maps to null instead of widening this type.
+export const KNOWN_RECURRING_INTERVALS = ["day", "week", "month", "year"] as const;
+export type RecurringInterval = (typeof KNOWN_RECURRING_INTERVALS)[number];
+
 export type ProviderPrice = {
   readonly priceId: string;
   /** Smallest currency unit (e.g. cents). Null for prices with no flat
@@ -279,8 +283,9 @@ export type ProviderPrice = {
   readonly unitAmount: number | null;
   /** Lower-case ISO currency code, as returned by the provider. */
   readonly currency: string;
-  /** Null for a one-off (non-recurring) price. */
-  readonly interval: "day" | "week" | "month" | "year" | null;
+  /** Null for a one-off (non-recurring) price, or an interval the provider
+   *  returned that isn't in KNOWN_RECURRING_INTERVALS. */
+  readonly interval: RecurringInterval | null;
   readonly intervalCount: number | null;
   readonly active: boolean;
   readonly metadata: Readonly<Record<string, string>>;
