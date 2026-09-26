@@ -219,8 +219,7 @@ function assertExcludableFields(
   entity: EntityDefinition,
   excludedFields: readonly string[],
 ): void {
-  if (excludedFields.length === 0) return;
-  if (verb !== "create" && verb !== "update") {
+  if (excludedFields.length > 0 && verb !== "create" && verb !== "update") {
     throw new Error(`"${name}": excludeFields only applies to create and update handlers.`);
   }
   for (const fieldName of excludedFields) {

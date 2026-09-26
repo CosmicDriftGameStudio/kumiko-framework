@@ -4,6 +4,7 @@ import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-fra
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation";
+import type { CapLimitContext } from "../../cap-counter";
 import { tenantTable } from "../../tenant";
 import { tierAssignmentEntity } from "../../tier-engine";
 import { capFieldName } from "../constants";
@@ -52,6 +53,20 @@ type SortableField = (typeof SORTABLE_FIELDS)[number];
 
 function capTierKey(capId: string, tier: string): string {
   return JSON.stringify([capId, tier]);
+}
+
+async function resolveLimitsByCapAndTier(
+  caps: readonly CapSpec[],
+  tiers: ReadonlySet<string>,
+  context: CapLimitContext,
+): Promise<ReadonlyMap<string, number | null>> {
+  const limitByCapAndTier = new Map<string, number | null>();
+  for (const cap of caps) {
+    for (const tier of tiers) {
+      limitByCapAndTier.set(capTierKey(cap.id, tier), await cap.limit(tier, context));
+    }
+  }
+  return limitByCapAndTier;
 }
 
 function isSortableField(field: string): field is SortableField {
@@ -201,15 +216,11 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         }
       }
 
-      const limitByCapAndTier = new Map<string, number | null>();
-      for (const cap of listedCaps) {
-        for (const tier of new Set(page.map((row) => row.tier))) {
-          limitByCapAndTier.set(
-            capTierKey(cap.id, tier),
-            await cap.limit(tier, { config: ctx.config }),
-          );
-        }
-      }
+      const limitByCapAndTier = await resolveLimitsByCapAndTier(
+        listedCaps,
+        new Set(page.map((row) => row.tier)),
+        { config: ctx.config },
+      );
 
       const rows: TenantCapsListRow[] = page.map((row) => {
         const capFields: Record<string, CapUsage> = {};
