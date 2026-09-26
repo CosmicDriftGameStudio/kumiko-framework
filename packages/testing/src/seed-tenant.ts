@@ -184,9 +184,13 @@ export async function seedTenant(
     name: rows.name,
     admin,
     members: rows.members.map((member) => withSession(member, id, [ROLES.Member])),
-    addUser: async (roles = [ROLES.Member]) =>
+    addUser: async (roles = [ROLES.Member], identity = {}) =>
       withSession(
-        persist ? await persistUserRows(write, id, roles) : lightCredentials(),
+        persist
+          ? await persistUserRows(write, id, roles, identity)
+          : lightCredentials(
+              identity.email !== undefined ? substituteTenantId(identity.email, id) : undefined,
+            ),
         id,
         roles,
       ),

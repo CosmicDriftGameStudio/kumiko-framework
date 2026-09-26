@@ -66,6 +66,15 @@ export type { RuntimeRenderer };
  *  element; native impls ignore it (precedent: `className`). */
 export type DataAttributes = Readonly<Record<`data-${string}`, string>>;
 
+/** Structural marker a top-level `actions` node can carry so DefaultForm's
+ *  sticky-footer split (fw#1918) treats it as the pinned primary action even
+ *  though it isn't a `Button` with `type="submit"` — e.g. RenderEdit's
+ *  footer-slot mount, whose actual rendered button is opaque app code the
+ *  split can't inspect (see `ScreenSlots.footerPrimary`). */
+export const STICKY_PRIMARY_ACTION_PROP = "kumikoStickyPrimaryAction" as const;
+
+export type StickyPrimaryActionMarker = Partial<Record<typeof STICKY_PRIMARY_ACTION_PROP, boolean>>;
+
 /** Standard-Button. `loading` zeigt einen Spinner statt der Children
  *  und sollte mit `disabled` kombiniert werden, wenn die Action wirklich
  *  blockiert bis das Loading durch ist (z.B. async submit). Native-

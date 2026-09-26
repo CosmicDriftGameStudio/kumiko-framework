@@ -206,7 +206,12 @@ export function createE2eSeedRoutes(
       const write: SeedWriter = async (handlerQn, payload, tenantId) =>
         unwrapSavedRow(handlerQn, await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }));
       try {
-        return c.json(await persistUserRows(write, verified.tenantId, verified.roles));
+        return c.json(
+          await persistUserRows(write, verified.tenantId, verified.roles, {
+            displayName: verified.displayName,
+            email: verified.email,
+          }),
+        );
       } catch (error) {
         return c.json({ error: error instanceof Error ? error.message : "seed failed" }, 500);
       }

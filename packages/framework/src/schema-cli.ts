@@ -141,6 +141,14 @@ export async function runSchemaCli(
         out.err("  Usage: schema generate <name>");
         return 1;
       }
+      // Trailing args (e.g. a typo'd `--dry-run` — there is no such flag) were
+      // silently ignored and the migration got written anyway. Reject them
+      // before any IO instead of pretending they did something.
+      if (argv.length > 2) {
+        out.err(`  Unrecognized argument(s): ${argv.slice(2).join(" ")}`);
+        out.err("  Usage: schema generate <name>");
+        return 1;
+      }
       if (!existsSync(schemaFile)) {
         out.err(`  ${schemaFile} fehlt.`);
         out.err("  App-Convention: kumiko/schema.ts mit");

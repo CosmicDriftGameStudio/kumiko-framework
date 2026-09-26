@@ -36,6 +36,11 @@ export type E2eSeededTenant = SeededTenant & {
   readonly seed: (seeder: string, body?: unknown) => Promise<unknown>;
 };
 
+/**
+ * Seeds a tenant over HTTP and logs the shared `context` in as its admin, so
+ * a `page` opened from that context is already authenticated — call
+ * `loginAs` to switch it to another seeded user instead.
+ */
 export type SeedTenantFixture = (opts?: E2eSeedTenantOptions) => Promise<E2eSeededTenant>;
 
 type E2eFixtures = {
@@ -125,12 +130,17 @@ export async function provideSeedTenant(
       name: seeded.name,
       admin,
       members: seeded.members.map((member) => toUser(member, [ROLES.Member])),
-      addUser: async (roles = [ROLES.Member]) =>
+      addUser: async (roles = [ROLES.Member], identity = {}) =>
         toUser(
           await postSeedRoute(
             request,
             SEED_ROUTES.seedUser,
-            { tenantId, roles: [...roles] } satisfies SeedUserRequest,
+            {
+              tenantId,
+              roles: [...roles],
+              displayName: identity.displayName,
+              email: identity.email,
+            } satisfies SeedUserRequest,
             seedUserResponseSchema,
           ),
           roles,
