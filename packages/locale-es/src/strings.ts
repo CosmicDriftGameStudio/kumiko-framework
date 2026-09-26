@@ -285,6 +285,43 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successBody": "¡Gracias! Ya puedes iniciar sesión.",
   "auth.verifyEmail.successTitle": "Correo confirmado",
   "auth.verifyEmail.verifying": "Confirmando correo electrónico …",
+  "billing-foundation.errors.alreadyOnPlan": "Este cliente ya tiene ese plan.",
+  "billing-foundation.errors.foreignProviderCustomer":
+    "Esta cuenta de cliente no pertenece a esta organización.",
+  "billing-foundation.errors.noActiveSubscription":
+    "Este cliente no tiene una suscripción activa para cambiar.",
+  "billing-foundation.errors.planSwitchNotSupported": "Este proveedor no admite el cambio de plan.",
+  "billing-foundation.errors.planTiersShareProduct":
+    "Cada plan necesita su propio producto de Stripe. Contacta con soporte.",
+  "billing-foundation.errors.priceUnavailable":
+    "El precio de este plan no está disponible temporalmente.",
+  "billing-foundation.errors.providerHasNoPriceCatalog":
+    "Este proveedor no tiene precios configurados.",
+  "billing-foundation.errors.providerMismatch":
+    "La suscripción de este cliente está en un proveedor distinto al del catálogo de planes. Contacta con soporte para migrarla.",
+  "billing-foundation.errors.redirectOriginNotAllowed":
+    "Esta URL de redirección no está permitida para esta app.",
+  "billing-foundation.errors.subscriptionExists":
+    "Este cliente ya tiene una suscripción activa. Cambia de plan en su lugar.",
+  "billing-foundation.errors.unknownPrice": "Este precio no es reconocido.",
+  "billing-foundation.plans.billingDisabled":
+    "La facturación aún no está activa. Tu plan actual se mantiene.",
+  "billing-foundation.plans.choose": "Elegir {plan}",
+  "billing-foundation.plans.currentPlan": "Plan actual",
+  "billing-foundation.plans.everyInterval.day": "cada {count} días",
+  "billing-foundation.plans.everyInterval.month": "cada {count} meses",
+  "billing-foundation.plans.everyInterval.week": "cada {count} semanas",
+  "billing-foundation.plans.everyInterval.year": "cada {count} años",
+  "billing-foundation.plans.manage": "Gestionar suscripción",
+  "billing-foundation.plans.paymentPending": "El pago aún se está completando.",
+  "billing-foundation.plans.perInterval.day": "/ día",
+  "billing-foundation.plans.perInterval.month": "/ mes",
+  "billing-foundation.plans.perInterval.week": "/ semana",
+  "billing-foundation.plans.perInterval.year": "/ año",
+  "billing-foundation.plans.priceUnavailable": "Precio no disponible",
+  "billing-foundation.plans.purchaseNotAllowed": "Solo los administradores pueden cambiar el plan.",
+  "billing-foundation.plans.subscriptionPending": "Tu cambio de plan se está procesando.",
+  "billing-foundation.plans.switch": "Cambiar a {plan}",
   "cap-counter:entity:cap-counter:field:capName": "Límite",
   "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": "Última advertencia suave",
   "cap-counter:entity:cap-counter:field:periodStart": "Inicio del período",
@@ -584,6 +621,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.drawer.restore": "Restablecer ancho del panel",
   "kumiko.widget.error.title": "No se pudo cargar.",
   "kumiko.widget.loading": "Cargando…",
+  "kumiko.planCard.current": "Plan actual",
+  "kumiko.planCard.priceUnavailable": "Precio no disponible",
   "kumiko.widget.step-bar.done": "Hecho",
   "kumiko.widget.upload.done": "Subido",
   "kumiko.widget.upload.error": "Fallido",
@@ -689,6 +728,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "screen:auth-mfa-disable.title": "Desactivar la verificación en dos pasos",
   "screen:auth-mfa-enable.title": "Verificación en dos pasos",
   "screen:auth-mfa-regenerate-recovery.title": "Generar nuevos códigos de recuperación",
+  "screen:billing-plans.title": "Facturación",
   "screen:branding-settings.title": "Marca",
   "screen:cap-list.title": "Límites de uso",
   "screen:delivery-log.title": "Registro de entregas",

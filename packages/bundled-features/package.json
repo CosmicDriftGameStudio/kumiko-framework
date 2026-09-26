@@ -55,6 +55,7 @@
     "./ledger": "./src/ledger/index.ts",
     "./ledger/web": "./src/ledger/web/index.ts",
     "./billing-foundation": "./src/billing-foundation/index.ts",
+    "./billing-foundation/web": "./src/billing-foundation/web/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",

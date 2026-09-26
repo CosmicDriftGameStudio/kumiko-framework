@@ -187,6 +187,41 @@ describe("StripeCtxRuntime.assertBillingLive", () => {
   });
 });
 
+describe("StripeCtxRuntime.isBillingEnabled", () => {
+  test("false when billing-live is off, regardless of api-key presence", async () => {
+    const rt = makeRuntimes({ apiKey: "sk_test_fallback" });
+    expect(await rt.ctx.isBillingEnabled(stubCtx({ billingLive: false }))).toBe(false);
+  });
+
+  test("true when billing-live is on and a fallback api-key is set", async () => {
+    const rt = makeRuntimes({ apiKey: "sk_test_fallback" });
+    expect(await rt.ctx.isBillingEnabled(stubCtx({ billingLive: true }))).toBe(true);
+  });
+
+  test("true when billing-live is on and ctx.secrets has the api-key, without reading its value", async () => {
+    const rt = makeRuntimes();
+    let getCalled = false;
+    const secrets = stubSecrets({ [API_KEY_HANDLE.name]: "sk_test_present" });
+    const spyingSecrets: SecretsContext = {
+      ...secrets,
+      get: async (...args) => {
+        getCalled = true;
+        return secrets.get(...args);
+      },
+    };
+    expect(
+      await rt.ctx.isBillingEnabled(stubCtx({ billingLive: true, secrets: spyingSecrets })),
+    ).toBe(true);
+    expect(getCalled).toBe(false);
+  });
+
+  test("false when billing-live is on but no api-key is configured anywhere", async () => {
+    const rt = makeRuntimes();
+    const secrets = stubSecrets({});
+    expect(await rt.ctx.isBillingEnabled(stubCtx({ billingLive: true, secrets }))).toBe(false);
+  });
+});
+
 // =============================================================================
 // webhook-runtime: pre-tenant resolution (raw, un-audited)
 // =============================================================================

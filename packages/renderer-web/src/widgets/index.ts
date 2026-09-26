@@ -43,6 +43,14 @@ export {
 export { InfinityList, type InfinityListProps } from "./infinity-list";
 export { ModeSwitch } from "./mode-switch";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots";
+export {
+  PlanCard,
+  type PlanCardActionSlot,
+  type PlanCardPrice,
+  type PlanCardProps,
+  PlanGrid,
+  type PlanGridProps,
+} from "./plan-card";
 export { ProgressBar } from "./progress-bar";
 export { ProgressList, type ProgressListRow } from "./progress-list";
 export { PublicShell, type PublicShellProps, type PublicShellVariant } from "./public-shell";

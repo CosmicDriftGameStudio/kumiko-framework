@@ -47,7 +47,7 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../constants";
-import { billingFoundationFeature } from "../feature";
+import { createBillingFoundationFeature } from "../feature";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection";
 import type { PaymentEvent, SubscriptionProviderPlugin } from "../types";
 import { createSubscriptionWebhookRoute } from "../webhook-handler";
@@ -73,6 +73,10 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
   r.requires("billing-foundation");
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
+    // Only the two tiers scenario 6's subscription-mode checkouts actually
+    // exercise — the hardened create-checkout-session now requires every
+    // mode:"subscription" priceId to resolve through priceToTier.
+    priceToTier: { price_pro_test: "pro", price_business_test: "business" },
     createCheckoutSession: async (_ctx, options) => {
       mockCheckoutCalls.push({
         priceId: options.priceId,
@@ -131,7 +135,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createBillingFoundationFeature({ baseUrl: "https://example.com" }),
       mockProviderFeature,
       mockPaymentProviderFeature,
     ],
@@ -480,7 +484,10 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
 describe("scenario 6: create-checkout-session — Plugin-routing", () => {
   test("happy-path: valid provider → URL durchgereicht + plugin mit korrekten args aufgerufen", async () => {
     mockCheckoutCalls.length = 0;
-    const admin = adminFor(3009);
+    // Not 3009 — scenario 5 reuses that tenant number and leaves it with a
+    // non-terminal "pro" subscription; openCheckout's new existing-
+    // subscription conflict-gate would reject this checkout for it.
+    const admin = adminFor(3016);
     const result = (await stack.http.writeOk(
       "billing-foundation:write:create-checkout-session",
       {
@@ -525,7 +532,26 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
 
   test("optional providerCustomerId wird durchgereicht (Plan-Wechsel-Flow)", async () => {
     mockCheckoutCalls.length = 0;
-    const admin = adminFor(3012);
+    // Not 3012 — that tenant already gets its own subscription in the
+    // crypto-shredding test further down and would collide.
+    const admin = adminFor(3018);
+
+    // The provider customer-id must belong to the caller's own subscription
+    // (even if canceled) — otherwise the foreign_provider_customer guard fires.
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        ...buildEvent({
+          providerEventId: "evt_3018_create",
+          providerCustomerId: "cus_existing_xyz",
+          providerSubscriptionId: "sub_3018",
+          status: SubscriptionStatuses.canceled,
+        }),
+        providerName: "mock",
+      },
+      admin,
+    );
+
     await stack.http.writeOk(
       "billing-foundation:write:create-checkout-session",
       {
@@ -538,6 +564,59 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
       admin,
     );
     expect(mockCheckoutCalls[0]?.providerCustomerId).toBe("cus_existing_xyz");
+  });
+
+  test("fremde providerCustomerId wird abgelehnt (foreign_provider_customer)", async () => {
+    mockCheckoutCalls.length = 0;
+    const other = adminFor(3019);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        ...buildEvent({
+          providerEventId: "evt_3019_create",
+          providerCustomerId: "cus_belongs_to_tenant_3019",
+          providerSubscriptionId: "sub_3019",
+        }),
+        providerName: "mock",
+      },
+      other,
+    );
+
+    const admin = adminFor(3017);
+    const error = await stack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_pro_test",
+        successUrl: "https://example.com/s",
+        cancelUrl: "https://example.com/c",
+        providerCustomerId: "cus_belongs_to_tenant_3019",
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.foreignProviderCustomer");
+    expect(mockCheckoutCalls).toHaveLength(0);
+  });
+
+  test("fremde providerCustomerId wird auch im mode:payment abgelehnt", async () => {
+    mockCheckoutCalls.length = 0;
+    const admin = adminFor(3020);
+    const error = await stack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_topup_test",
+        successUrl: "https://example.com/s",
+        cancelUrl: "https://example.com/c",
+        providerCustomerId: "cus_belongs_to_tenant_3019",
+        mode: "payment",
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.foreignProviderCustomer");
+    expect(mockCheckoutCalls).toHaveLength(0);
   });
 
   test("optional mode wird durchgereicht (One-off-Payment-Flow, fw#2755)", async () => {

@@ -96,6 +96,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.drawer.maximize": "Maximize drawer width",
     "kumiko.widget.drawer.resize": "Resize drawer",
 
+    "kumiko.planCard.current": "Current plan",
+    "kumiko.planCard.priceUnavailable": "Price not available",
+
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
     "kumiko.nav.search": "Search navigation…",

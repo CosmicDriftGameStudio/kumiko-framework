@@ -48,14 +48,21 @@ function fullSetFromPayload(p: SubscriptionEventPayload) {
   };
 }
 
-/** UPSERT-helper für defensive apply: wenn die row nicht existiert
- *  (= z.B. Plugin sendet "updated" als ersten event eines streams,
- *  oder rebuild-aus-dem-Nichts), legen wir sie an statt fail-silent
- *  zu sein. Apply läuft in der event-TX, expectedVersion macht
- *  drizzle-on-conflict korrekt. */
+/** UPSERT helper for defensive applies: if the row does not exist yet
+ *  (a plugin sends "updated" as a stream's first event, or a rebuild
+ *  starts from nothing), create it instead of failing silently. Apply
+ *  runs in the event TX, so expectedVersion keeps on-conflict correct.
+ *
+ *  `modified_at` is always stamped from `event.createdAt` (never `now()`),
+ *  on every apply including the initial create — a projection rebuild at a
+ *  different wall-clock time must materialize the exact same row, and
+ *  `getSubscriptionForTenant`'s `lastChangedAt` (staleness check for
+ *  incomplete subscriptions) depends on that determinism. Raw `.unsafe()`
+ *  bypasses the typed query-builder's Temporal.Instant-to-string coercion,
+ *  hence the explicit `.toString()`. */
 async function upsert(
   tx: Parameters<Parameters<typeof defineApply<SubscriptionEventPayload>>[0]>[1],
-  event: { aggregateId: string; tenantId: string },
+  event: { aggregateId: string; tenantId: string; createdAt: Temporal.Instant },
   set: Partial<{
     providerName: string;
     providerCustomerId: string;
@@ -79,6 +86,7 @@ async function upsert(
     status: fullPayload.status,
     tier: fullPayload.tier,
     current_period_end: fullPayload.currentPeriodEndIso,
+    modified_at: event.createdAt.toString(),
   };
   // Map camelCase set-keys to snake_case DB columns.
   const setMap: Record<keyof typeof set, string> = {
@@ -91,7 +99,9 @@ async function upsert(
   };
   const insertParams = Object.values(insertCols);
   const setEntries = Object.entries(set).filter(([, v]) => v !== undefined);
-  const setClauses: string[] = [];
+  // modified_at is already bound as the last insertParams placeholder —
+  // reused (not re-pushed) for the ON CONFLICT SET clause below.
+  const setClauses: string[] = [`"modified_at" = $${insertParams.length}`];
   const allParams: unknown[] = [...insertParams];
   for (const [k, v] of setEntries) {
     allParams.push(v);

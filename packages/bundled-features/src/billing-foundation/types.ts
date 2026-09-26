@@ -24,10 +24,12 @@
 // proration, multi-currency, coupons etc. bleiben provider-spezifisch
 // und sind über den Customer-Portal-Link erreichbar.
 
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   type BillingEventKinds,
+  type BillingPlanAction,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   type SubscriptionEventType,
   type SubscriptionStatus,
@@ -219,6 +221,150 @@ export type SubscriptionProviderPlugin = {
     ctx: HandlerContext,
     providerSubscriptionId: string,
   ) => Promise<void>;
+
+  /**
+   * The provider's own price/plan-id → app-tier-name mapping. This is the
+   * one source `checkout-core`/`plan-catalog` derive both hardening
+   * (unknown-priceId rejection) and the billing-plans catalog from — see
+   * `architektur/billing-price-to-tier-quelle`. Optional only for
+   * backward-compat with providers that predate this field (their
+   * `create-checkout-session` calls now reject every mode:"subscription"
+   * price as `provider_has_no_price_catalog` until they add it).
+   */
+  readonly priceToTier?: Readonly<Record<string, string>>;
+
+  /**
+   * Whether the provider is ready to accept live checkouts right now
+   * (credentials configured, master-switch on, ...). Missing → foundation
+   * treats billing as enabled (no readiness gate to check).
+   */
+  readonly isBillingEnabled?: (ctx: HandlerContext) => Promise<boolean>;
+
+  /**
+   * Bulk price lookup for the billing-plans catalog. Missing → every plan's
+   * price stays null (catalog still renders, just without live prices).
+   * A priceId the provider can't load (deleted, wrong account, ...) is
+   * simply absent from the result — no throw per-price.
+   */
+  readonly retrievePrices?: (
+    ctx: HandlerContext,
+    priceIds: readonly string[],
+  ) => Promise<readonly ProviderPrice[]>;
+
+  /**
+   * Opens the provider's own confirmation page for switching an existing,
+   * non-terminal subscription to a different plan tier (Stripe: a Customer
+   * Portal `subscription_update_confirm` flow). Missing → the foundation
+   * rejects `switch-plan` with `plan_switch_not_supported`.
+   */
+  readonly createPlanSwitchSession?: (
+    ctx: HandlerContext,
+    options: {
+      readonly providerSubscriptionId: string;
+      readonly targetPriceId: string;
+      readonly allowedPriceIds: readonly string[];
+      readonly returnUrl: string;
+    },
+  ) => Promise<{ readonly url: string }>;
+};
+
+// =============================================================================
+// Provider price + billing-plans catalog
+// =============================================================================
+
+export type ProviderPrice = {
+  readonly priceId: string;
+  /** Smallest currency unit (e.g. cents). Null for prices with no flat
+   *  amount (tiered/usage-based prices). */
+  readonly unitAmount: number | null;
+  /** Lower-case ISO currency code, as returned by the provider. */
+  readonly currency: string;
+  /** Null for a one-off (non-recurring) price. */
+  readonly interval: "day" | "week" | "month" | "year" | null;
+  readonly intervalCount: number | null;
+  readonly active: boolean;
+  readonly metadata: Readonly<Record<string, string>>;
+};
+
+export type BillingPlanBenefit = {
+  readonly labelKey: string;
+  readonly params?: Readonly<Record<string, string | number>>;
+};
+
+export type BillingPlanCatalog<TTier extends string = string> = {
+  /** Purchasable tiers, in display order. */
+  readonly plans: readonly TTier[];
+  /** Also used for the caller's current tier even when it isn't purchasable
+   *  (e.g. a legacy or free tier not in `plans`). */
+  readonly tierLabelKey: (tier: string) => string;
+  // `string`, not `TTier` — matches `tierLabelKey` above and lets
+  // `BillingFoundationOptions<TTier>` widen to `BillingFoundationOptions`
+  // (plain `string`) inside the foundation's own handlers without a cast.
+  // Callers only ever invoke this with values drawn from `catalog.plans`.
+  readonly benefits: (tier: string) => readonly BillingPlanBenefit[];
+  readonly resolveCurrentTier: (db: TenantDb, tenantId: TenantId) => Promise<string>;
+  readonly viewRoles: readonly string[];
+  /** Defaults to DEFAULT_PURCHASE_ROLES. */
+  readonly purchaseRoles?: readonly string[];
+  /** Appended to `baseUrl` after a successful plan checkout; must start
+   *  with "/" (and not "//"). */
+  readonly successPath: string;
+  readonly cancelPath: string;
+  /** Portal return-path after a plan switch. Defaults to `successPath`. */
+  readonly returnPath?: string;
+  /** Defaults to the only registered provider exposing `priceToTier`. */
+  readonly providerName?: string;
+};
+
+export type BillingFoundationOptions<TTier extends string = string> = {
+  /** Absolute http(s) URL. Its origin is the only redirect origin
+   *  create-checkout-session/create-portal-session (when set) and the plan
+   *  handlers accept — see checkout-core's `assertRedirectOrigins`. May
+   *  carry a path prefix (e.g. "https://app.example.com/tenant-x"); plan
+   *  URLs are built by string-concatenating it with the plan paths below,
+   *  NOT via `new URL(path, baseUrl)` (which would drop the prefix). */
+  readonly baseUrl?: string;
+  readonly catalog?: BillingPlanCatalog<TTier>;
+  /** Injectable clock for the stale-incomplete-subscription check
+   *  (constants.ts's `isSubscriptionBlockingCheckout`) — same always-
+   *  optional, real-time-default shape as `createDekCache`'s `now` option.
+   *  Defaults to `Temporal.Now.instant` when omitted. */
+  readonly now?: () => Temporal.Instant;
+};
+
+/** `BillingFoundationOptions` after `createBillingFoundationFeature`'s own
+ *  defaulting — `now` is always present. Handler-factories that call
+ *  `options.now()` take this instead of the still-optional public type. */
+export type ResolvedBillingFoundationOptions = BillingFoundationOptions & {
+  readonly now: () => Temporal.Instant;
+};
+
+export type BillingPlanPrice = {
+  readonly unitAmount: number;
+  readonly currency: string;
+  readonly interval: ProviderPrice["interval"];
+  readonly intervalCount: number | null;
+};
+
+export type BillingPlanView = {
+  readonly tier: string;
+  readonly labelKey: string;
+  readonly price: BillingPlanPrice | null;
+  readonly benefits: readonly BillingPlanBenefit[];
+  readonly isCurrent: boolean;
+  readonly action: BillingPlanAction;
+};
+
+export type BillingPlansResult = {
+  readonly enabled: boolean;
+  readonly currentTier: { readonly tier: string; readonly labelKey: string };
+  readonly subscription: {
+    readonly status: string;
+    readonly tier: string;
+    readonly terminal: boolean;
+  } | null;
+  readonly canPurchase: boolean;
+  readonly plans: readonly BillingPlanView[];
 };
 
 // r.useExtension options-shape, co-located since the framework never imports upward.

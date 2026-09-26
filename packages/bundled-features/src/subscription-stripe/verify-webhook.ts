@@ -215,8 +215,14 @@ export function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): Subsc
       return SubscriptionStatuses.pastDue;
     case "canceled":
       return SubscriptionStatuses.canceled;
-    case "incomplete":
+    // incomplete_expired: the subscription's first payment never completed
+    // in time and Stripe abandoned it for good — unlike a live "incomplete"
+    // (payment still retryable), this is terminal. Mapping it to canceled
+    // (not incomplete) lets a tenant start a fresh checkout instead of
+    // openCheckout's "subscription already exists" conflict blocking them.
     case "incomplete_expired":
+      return SubscriptionStatuses.canceled;
+    case "incomplete":
       return SubscriptionStatuses.incomplete;
     default:
       return SubscriptionStatuses.incomplete;

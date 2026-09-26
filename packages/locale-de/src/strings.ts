@@ -288,6 +288,44 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successBody": "Danke! Du kannst dich jetzt anmelden.",
   "auth.verifyEmail.successTitle": "E-Mail bestätigt",
   "auth.verifyEmail.verifying": "E-Mail wird bestätigt …",
+  "billing-foundation.errors.alreadyOnPlan": "Dieser Mandant ist bereits auf diesem Tarif.",
+  "billing-foundation.errors.foreignProviderCustomer":
+    "Dieses Kundenkonto gehört nicht zu diesem Mandanten.",
+  "billing-foundation.errors.noActiveSubscription":
+    "Dieser Mandant hat kein aktives Abo zum Wechseln.",
+  "billing-foundation.errors.planSwitchNotSupported":
+    "Dieser Anbieter unterstützt keinen Tarifwechsel.",
+  "billing-foundation.errors.planTiersShareProduct":
+    "Jeder Tarif braucht ein eigenes Stripe-Produkt. Bitte den Support kontaktieren.",
+  "billing-foundation.errors.priceUnavailable":
+    "Der Preis dieses Tarifs ist vorübergehend nicht verfügbar.",
+  "billing-foundation.errors.providerHasNoPriceCatalog":
+    "Für diesen Anbieter sind keine Preise konfiguriert.",
+  "billing-foundation.errors.providerMismatch":
+    "Das Abo dieses Mandanten läuft über einen anderen Anbieter als der Tarifkatalog. Bitte den Support für eine Migration kontaktieren.",
+  "billing-foundation.errors.redirectOriginNotAllowed":
+    "Diese Weiterleitungs-URL ist für diese App nicht erlaubt.",
+  "billing-foundation.errors.subscriptionExists":
+    "Dieser Mandant hat bereits ein aktives Abo. Wechsle stattdessen den Tarif.",
+  "billing-foundation.errors.unknownPrice": "Dieser Preis ist nicht bekannt.",
+  "billing-foundation.plans.billingDisabled":
+    "Die Abrechnung ist noch nicht aktiv. Dein aktueller Tarif bleibt bestehen.",
+  "billing-foundation.plans.choose": "{plan} wählen",
+  "billing-foundation.plans.currentPlan": "Aktueller Tarif",
+  "billing-foundation.plans.everyInterval.day": "alle {count} Tage",
+  "billing-foundation.plans.everyInterval.month": "alle {count} Monate",
+  "billing-foundation.plans.everyInterval.week": "alle {count} Wochen",
+  "billing-foundation.plans.everyInterval.year": "alle {count} Jahre",
+  "billing-foundation.plans.manage": "Abo verwalten",
+  "billing-foundation.plans.paymentPending": "Zahlung wird noch abgeschlossen.",
+  "billing-foundation.plans.perInterval.day": "/ Tag",
+  "billing-foundation.plans.perInterval.month": "/ Monat",
+  "billing-foundation.plans.perInterval.week": "/ Woche",
+  "billing-foundation.plans.perInterval.year": "/ Jahr",
+  "billing-foundation.plans.priceUnavailable": "Preis nicht verfügbar",
+  "billing-foundation.plans.purchaseNotAllowed": "Nur Administratoren können den Tarif ändern.",
+  "billing-foundation.plans.subscriptionPending": "Dein Tarifwechsel wird gerade verarbeitet.",
+  "billing-foundation.plans.switch": "Zu {plan} wechseln",
   "cap-counter:entity:cap-counter:field:capName": "Limit",
   "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": "Letzte Soft-Warnung",
   "cap-counter:entity:cap-counter:field:periodStart": "Periodenstart",
@@ -591,6 +629,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.widget.drawer.restore": "Drawer-Breite zurücksetzen",
   "kumiko.widget.error.title": "Konnte nicht geladen werden.",
   "kumiko.widget.loading": "Lade…",
+  "kumiko.planCard.current": "Aktueller Tarif",
+  "kumiko.planCard.priceUnavailable": "Preis nicht verfügbar",
   "kumiko.widget.step-bar.done": "Erledigt",
   "kumiko.widget.upload.done": "Hochgeladen",
   "kumiko.widget.upload.error": "Fehlgeschlagen",
@@ -701,6 +741,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:auth-mfa-disable.title": "Zwei-Faktor-Authentifizierung deaktivieren",
   "screen:auth-mfa-enable.title": "Zwei-Faktor-Authentifizierung",
   "screen:auth-mfa-regenerate-recovery.title": "Neue Recovery-Codes erzeugen",
+  "screen:billing-plans.title": "Abrechnung",
   "screen:branding-settings.title": "Branding",
   "screen:cap-list.title": "Nutzungslimits",
   "screen:delivery-log.title": "Zustellprotokoll",

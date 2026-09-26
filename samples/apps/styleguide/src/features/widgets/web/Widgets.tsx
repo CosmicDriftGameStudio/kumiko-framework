@@ -17,6 +17,8 @@ import {
   ModeSwitch,
   MoneyField,
   PercentField,
+  PlanCard,
+  PlanGrid,
   ProgressBar,
   RangeField,
   ResizableHandle,
@@ -245,7 +247,66 @@ export function Widgets(): ReactNode {
       <FormFieldsDemo />
       <ComparisonDemo />
       <AiTextDemo />
+      <PlanCatalogDemo />
     </div>
+  );
+}
+
+// PlanCard/PlanGrid: a billing-plan catalog (current plan, a purchasable
+// plan, and a plan whose price failed to load) plus one compact card for a
+// one-off purchase (e.g. a credit pack) — compact drops the feature list
+// and description for a denser, single-row layout.
+function PlanCatalogDemo(): ReactNode {
+  const t = useTranslation();
+  return (
+    <SectionCard title={t("widgets:catalog:plans")} subtitle={t("widgets:catalog:plans-subtitle")}>
+      <PlanGrid testId="plan-catalog-demo">
+        <PlanCard
+          testId="plan-card-starter"
+          title={t("widgets:catalog:plan-starter")}
+          description={t("widgets:catalog:plan-starter-description")}
+          price={{ amount: "$9", period: t("widgets:catalog:plan-per-month") }}
+          features={[
+            t("widgets:catalog:plan-feature-projects"),
+            t("widgets:catalog:plan-feature-support"),
+          ]}
+          current
+        />
+        <PlanCard
+          testId="plan-card-pro"
+          title={t("widgets:catalog:plan-pro")}
+          description={t("widgets:catalog:plan-pro-description")}
+          price={{ amount: "$29", period: t("widgets:catalog:plan-per-month") }}
+          features={[
+            t("widgets:catalog:plan-feature-projects-unlimited"),
+            t("widgets:catalog:plan-feature-support-priority"),
+            t("widgets:catalog:plan-feature-analytics"),
+          ]}
+          cta={{ label: t("widgets:catalog:plan-choose"), onClick: () => {} }}
+        />
+        <PlanCard
+          testId="plan-card-enterprise"
+          title={t("widgets:catalog:plan-enterprise")}
+          description={t("widgets:catalog:plan-enterprise-description")}
+          price={null}
+          features={[t("widgets:catalog:plan-feature-sso"), t("widgets:catalog:plan-feature-sla")]}
+          cta={{
+            label: t("widgets:catalog:plan-contact-sales"),
+            onClick: () => {},
+            disabled: true,
+          }}
+        />
+      </PlanGrid>
+      <div className="mt-4 max-w-xs">
+        <PlanCard
+          testId="plan-card-credits"
+          variant="compact"
+          title={t("widgets:catalog:plan-credits")}
+          price={{ amount: "$5" }}
+          cta={{ label: t("widgets:catalog:plan-buy"), onClick: () => {} }}
+        />
+      </div>
+    </SectionCard>
   );
 }
 

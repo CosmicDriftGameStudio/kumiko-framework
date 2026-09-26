@@ -8,6 +8,12 @@
 // Provider durch die existing subscription-row festgelegt — Tenant
 // kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
 // kennt.
+//
+// **Hardening:** when `options.baseUrl` is set, returnUrl must share its
+// origin — same reasoning as create-checkout-session. Left unchecked when
+// no baseUrl is configured (unchanged pre-hardening behavior), since a
+// bare billing-foundation mount without a catalog may not want to declare
+// one.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -17,10 +23,10 @@ import {
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
-import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
+import { assertRedirectOrigins, resolveProviderPlugin } from "../checkout-core";
 import { SUBSCRIPTION_PII_FIELDS } from "../entities";
 import { subscriptionsProjectionTable as subTable } from "../projection";
-import type { SubscriptionProviderPlugin } from "../types";
+import type { BillingFoundationOptions } from "../types";
 
 const createPortalSessionSchema = z.object({
   /** Wo der Endkunde nach Portal-Session landed. */
@@ -28,64 +34,79 @@ const createPortalSessionSchema = z.object({
 });
 type CreatePortalSessionPayload = z.infer<typeof createPortalSessionSchema>;
 
-export const createPortalSessionHandler: WriteHandlerDef = {
-  name: "create-portal-session",
-  description:
-    "Returns a hosted billing-portal URL at the provider that already holds the tenant's subscription; use it when a tenant admin wants to change payment method, see invoices or cancel.",
-  schema: createPortalSessionSchema,
-  access: { roles: ["TenantAdmin", "SystemAdmin"] },
-  handler: async (event, ctx) => {
-    const payload = event.payload as CreatePortalSessionPayload; // @cast-boundary engine-payload
-    const tenantId = event.user.tenantId;
+export function createPortalSessionHandler(options: BillingFoundationOptions): WriteHandlerDef {
+  return {
+    name: "create-portal-session",
+    description:
+      "Returns a hosted billing-portal URL at the provider that already holds the tenant's subscription; use it when a tenant admin wants to change payment method, see invoices or cancel.",
+    schema: createPortalSessionSchema,
+    access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    handler: async (event, ctx) => {
+      const payload = event.payload as CreatePortalSessionPayload; // @cast-boundary engine-payload
+      const tenantId = event.user.tenantId;
 
-    // 1. Hol current subscription-row für den Tenant. Aggregate-id ist
-    //    deterministic per tenant — eine row pro tenant.
-    const subAggId = subscriptionAggregateId(tenantId);
-    const rows = await selectMany(ctx.db, subTable, { id: subAggId }, { limit: 1 });
-    const row = rows[0];
-    if (!row) {
-      throw new Error(
-        "subscription-foundation: no active subscription for this tenant. Create one via create-checkout-session first.",
-      );
-    }
-    const piiKms = configuredPiiSubjectKms();
-    const decrypted = piiKms
-      ? await decryptPiiFieldValues(
-          row as Record<string, unknown>,
-          SUBSCRIPTION_PII_FIELDS,
-          piiKms,
-          {
-            requestId: `billing-foundation:create-portal-session:${tenantId}`,
-          },
-        )
-      : (row as Record<string, unknown>);
-    const providerName = row["providerName"] as string; // @cast-boundary db-row
-    const providerCustomerId = decrypted["providerCustomerId"] as string; // @cast-boundary db-row
+      if (options.baseUrl !== undefined) {
+        assertRedirectOrigins([payload.returnUrl], options.baseUrl);
+      }
 
-    // 2. Plugin-Lookup
-    const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
-    const usage = usages.find((u) => u.entityName === providerName);
-    if (!usage) {
-      throw new Error(
-        `subscription-foundation: subscription belongs to provider "${providerName}" but the matching plugin is not mounted.`,
-      );
-    }
-    // @cast-boundary engine-payload — extension-usage carries unknown options
-    const plugin = usage.options as SubscriptionProviderPlugin;
-    if (!plugin.createPortalSession) {
-      throw new Error(
-        `subscription-foundation: provider "${providerName}" has no createPortalSession-method (e.g. Apple-IAP managed Subs in der Apple-App).`,
-      );
-    }
+      // 1. Fetch the current subscription row for the tenant. Aggregate-id
+      //    is deterministic per tenant — one row per tenant.
+      const subAggId = subscriptionAggregateId(tenantId);
+      const rows = await selectMany(ctx.db, subTable, { id: subAggId }, { limit: 1 });
+      const row = rows[0];
+      if (!row) {
+        throw new Error(
+          "subscription-foundation: no active subscription for this tenant. Create one via create-checkout-session first.",
+        );
+      }
+      const piiKms = configuredPiiSubjectKms();
+      const decrypted = piiKms
+        ? await decryptPiiFieldValues(
+            row as Record<string, unknown>,
+            SUBSCRIPTION_PII_FIELDS,
+            piiKms,
+            {
+              requestId: `billing-foundation:create-portal-session:${tenantId}`,
+            },
+          )
+        : (row as Record<string, unknown>);
+      const providerName = row["providerName"] as string; // @cast-boundary db-row
+      const providerCustomerId = decrypted["providerCustomerId"] as string; // @cast-boundary db-row
 
-    const result = await plugin.createPortalSession(ctx, {
-      providerCustomerId,
-      returnUrl: payload.returnUrl,
-    });
+      // 2. Plugin-Lookup
+      const { plugin } = resolveProviderPluginOrThrow(ctx, providerName);
+      if (!plugin.createPortalSession) {
+        throw new Error(
+          `subscription-foundation: provider "${providerName}" has no createPortalSession-method (e.g. Apple-IAP managed Subs in der Apple-App).`,
+        );
+      }
 
-    return {
-      isSuccess: true as const,
-      data: { url: result.url, providerName },
-    };
-  },
-};
+      const result = await plugin.createPortalSession(ctx, {
+        providerCustomerId,
+        returnUrl: payload.returnUrl,
+      });
+
+      return {
+        isSuccess: true as const,
+        data: { url: result.url, providerName },
+      };
+    },
+  };
+}
+
+// resolveProviderPlugin's "not registered" message talks about checkout
+// providers ("provider ... not registered. Known: ..."), but here the
+// provider is fixed by the subscription row, not caller-chosen — keep the
+// portal-specific error message this handler always had.
+function resolveProviderPluginOrThrow(
+  ctx: Parameters<typeof resolveProviderPlugin>[0],
+  providerName: string,
+): ReturnType<typeof resolveProviderPlugin> {
+  try {
+    return resolveProviderPlugin(ctx, providerName);
+  } catch {
+    throw new Error(
+      `subscription-foundation: subscription belongs to provider "${providerName}" but the matching plugin is not mounted.`,
+    );
+  }
+}

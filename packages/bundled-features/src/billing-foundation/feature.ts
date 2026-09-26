@@ -26,6 +26,11 @@
 //      payments (checkout mode "payment") get their own event, own
 //      per-tenant aggregate, and own `process-payment-event` write-handler
 //      — not a sixth SubscriptionEventTypes value (fw#2791).
+//   7. **Optional billing-plans catalog** (`createBillingFoundationFeature({
+//      baseUrl, catalog })`): a `billing-foundation:query:billing-plans`
+//      query plus `start-plan-checkout`/`switch-plan` write-handlers and a
+//      dormant `billing-plans` dashboard screen/panel, all derived from the
+//      one `catalog` option — no separate per-app price wiring.
 //
 // **Was diese Foundation NICHT macht:**
 //   - Kein r.entity für `subscription`. Die Tabelle ist eine reine
@@ -45,7 +50,15 @@
 // (z.B. für analytics: "wie viele Wechsel im Monat?"), kommt ein
 // `subscription-provider-changed`-event-type später.
 
-import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_TENANT_DATA,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
+// Aliased — an un-aliased `Temporal` would shadow the ambient global
+// `Temporal` TYPE `ResolvedBillingFoundationOptions.now`'s return type
+// resolves against, see event-store.ts's own import comment (#1438).
+import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import { paymentEntity, subscriptionEntity } from "./entities";
 import {
@@ -66,11 +79,15 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_SHORT,
   subscriptionEventPayloadSchema,
 } from "./events";
+import { createBillingPlansQuery } from "./handlers/billing-plans.query";
 import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write";
 import { createPortalSessionHandler } from "./handlers/create-portal-session.write";
 import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query";
 import { processEventHandler } from "./handlers/process-event.write";
 import { processPaymentEventHandler } from "./handlers/process-payment-event.write";
+import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write";
+import { createSwitchPlanHandler } from "./handlers/switch-plan.write";
+import { BILLING_FOUNDATION_I18N } from "./i18n";
 import {
   applyInvoicePaid,
   applyInvoicePaymentFailed,
@@ -81,103 +98,154 @@ import {
   paymentsProjectionTable,
   subscriptionsProjectionTable,
 } from "./projection";
+import { createBillingPlansScreen } from "./screens";
 import {
   PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
   paymentTenantDestroyHook,
   SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON,
   subscriptionTenantDestroyHook,
 } from "./tenant-destroy-hook";
+import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types";
+import { validateOptions } from "./validate-options";
 
-export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
-  r.describe(
-    "Plugin host for subscription billing \u2014 manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. Low-level building block \u2014 use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
-  );
-  r.uiHints({
-    displayLabel: "Billing \u00b7 Foundation",
-    category: "billing",
-    recommended: false,
-  });
-  r.requires("tenant-lifecycle", "compliance-profiles");
-  // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
-  // shape (= subscription-state-snapshot); der event-type taggt was
-  // passiert ist. Future-consumer (billing-history, accounting)
-  // listenen direkt auf den event-type ohne payload-discriminator.
-  // piiFields: "none" — provider ids are tenantOwned ciphertext, not plaintext personal data.
-  r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema, { piiFields: "none" });
-  r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema, {
-    piiFields: "none",
-  });
-  // Own event, own aggregate-type — a one-off-payment is not a subscription
-  // state transition. piiFields: "none" for the same reason as the 5 above:
-  // providerCustomerId is tenantOwned ciphertext, not plaintext personal data.
-  r.defineEvent(PAYMENT_RECEIVED_EVENT_SHORT, paymentEventPayloadSchema, { piiFields: "none" });
+export function createBillingFoundationFeature<TTier extends string = string>(
+  options: BillingFoundationOptions<TTier> = {},
+): FeatureDefinition {
+  validateOptions(options);
+  // Handlers take the widened, string-tiered options — `TTier` only exists
+  // to let app-callers write `catalog.plans` as a literal-tier tuple; the
+  // foundation itself treats every tier as an opaque string. This object
+  // literal (not a cast) only compiles because `BillingFoundationOptions
+  // <TTier>` uses `TTier` solely in readonly-array/Record-value positions.
+  // baseUrl is normalized once here (trailing "/" stripped) so every
+  // downstream string-concatenation site (checkout-core's joinBaseUrl, the
+  // plan-checkout/switch-plan handlers) can rely on a single canonical form
+  // instead of re-normalizing per call-site. `now` is defaulted once here
+  // too — same pattern as createDekCache's `now` option — so no handler
+  // ever calls `Temporal.Now.instant` itself.
+  const widened: ResolvedBillingFoundationOptions = {
+    ...options,
+    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
+    // at runtime — `now` is typed against the ambient Temporal global;
+    // TemporalPolyfill.Now.instant() returns the polyfill's own nominal
+    // Instant type across the two .d.ts sources.
+    now: options.now ?? (() => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant),
+    ...(options.baseUrl !== undefined && {
+      baseUrl: options.baseUrl.endsWith("/") ? options.baseUrl.slice(0, -1) : options.baseUrl,
+    }),
+  };
 
-  // Inline projection: materialized current state in `read_subscriptions`.
-  // Apply läuft in derselben TX wie ctx.unsafeAppendEvent — read-your-
-  // own-write ohne dispatcher-tick.
-  r.projection({
-    name: "subscription",
-    source: SUBSCRIPTION_AGGREGATE_TYPE,
-    table: subscriptionsProjectionTable,
-    entity: subscriptionEntity,
-    apply: {
-      [SUBSCRIPTION_CREATED_EVENT_QN]: applySubscriptionCreated,
-      [SUBSCRIPTION_UPDATED_EVENT_QN]: applySubscriptionUpdated,
-      [SUBSCRIPTION_CANCELED_EVENT_QN]: applySubscriptionCanceled,
-      [INVOICE_PAID_EVENT_QN]: applyInvoicePaid,
-      [INVOICE_PAYMENT_FAILED_EVENT_QN]: applyInvoicePaymentFailed,
-    },
-  });
+  return defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
+    r.describe(
+      "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers and a dormant billing-plans dashboard screen/panel from the catalog. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+    );
+    r.uiHints({
+      displayLabel: "Billing · Foundation",
+      category: "billing",
+      recommended: false,
+    });
+    r.requires("tenant-lifecycle", "compliance-profiles");
+    // 5 fine-grained domain-events. All 5 share the same payload shape (a
+    // subscription-state snapshot); the event type tags what happened.
+    // Future consumers (billing-history, accounting) listen directly on
+    // the event type, no payload discriminator needed.
+    // piiFields: "none" — provider ids are tenantOwned ciphertext, not plaintext personal data.
+    r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+      piiFields: "none",
+    });
+    r.defineEvent(SUBSCRIPTION_UPDATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+      piiFields: "none",
+    });
+    r.defineEvent(SUBSCRIPTION_CANCELED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+      piiFields: "none",
+    });
+    r.defineEvent(INVOICE_PAID_EVENT_SHORT, subscriptionEventPayloadSchema, { piiFields: "none" });
+    r.defineEvent(INVOICE_PAYMENT_FAILED_EVENT_SHORT, subscriptionEventPayloadSchema, {
+      piiFields: "none",
+    });
+    // Own event, own aggregate-type — a one-off-payment is not a subscription
+    // state transition. piiFields: "none" for the same reason as the 5 above:
+    // providerCustomerId is tenantOwned ciphertext, not plaintext personal data.
+    r.defineEvent(PAYMENT_RECEIVED_EVENT_SHORT, paymentEventPayloadSchema, { piiFields: "none" });
 
-  // Second inline projection: `read_payments`, one row per one-off-payment.
-  r.projection({
-    name: "payment",
-    source: PAYMENT_AGGREGATE_TYPE,
-    table: paymentsProjectionTable,
-    entity: paymentEntity,
-    apply: {
-      [PAYMENT_RECEIVED_EVENT_QN]: applyPaymentReceived,
-    },
-  });
+    // Inline projection: materialized current state in `read_subscriptions`.
+    // Apply runs in the same TX as ctx.unsafeAppendEvent — read-your-own-
+    // write without a dispatcher tick.
+    r.projection({
+      name: "subscription",
+      source: SUBSCRIPTION_AGGREGATE_TYPE,
+      table: subscriptionsProjectionTable,
+      entity: subscriptionEntity,
+      apply: {
+        [SUBSCRIPTION_CREATED_EVENT_QN]: applySubscriptionCreated,
+        [SUBSCRIPTION_UPDATED_EVENT_QN]: applySubscriptionUpdated,
+        [SUBSCRIPTION_CANCELED_EVENT_QN]: applySubscriptionCanceled,
+        [INVOICE_PAID_EVENT_QN]: applyInvoicePaid,
+        [INVOICE_PAYMENT_FAILED_EVENT_QN]: applyInvoicePaymentFailed,
+      },
+    });
 
-  // Plugin extension-point. Provider-Plugins registrieren sich hier.
-  r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
-    onRegister: () => {
-      // No side-effects at register-time.
-    },
-  });
+    // Second inline projection: `read_payments`, one row per one-off-payment.
+    r.projection({
+      name: "payment",
+      source: PAYMENT_AGGREGATE_TYPE,
+      table: paymentsProjectionTable,
+      entity: paymentEntity,
+      apply: {
+        [PAYMENT_RECEIVED_EVENT_QN]: applyPaymentReceived,
+      },
+    });
 
-  // Custom write-handlers:
-  //   - process-event: programmatic entry-point vom webhook-handler;
-  //     dispatcht zu type-passendem appendEvent
-  //   - create-checkout-session: Tenant-Admin "Upgrade to Pro"-flow
-  //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
-  r.writeHandler(processEventHandler);
-  r.writeHandler(createCheckoutSessionHandler);
-  r.writeHandler(createPortalSessionHandler);
-  //   - process-payment-event: programmatic entry-point from the webhook-
-  //     handler for one-off-payments; appends onto the payment-aggregate
-  r.writeHandler(processPaymentEventHandler);
+    // Plugin extension-point. Provider-Plugins registrieren sich hier.
+    r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
+      onRegister: () => {
+        // No side-effects at register-time.
+      },
+    });
 
-  // Custom list-query auf der subscription-projection (raw drizzle-
-  // table; kein r.entity weil Schreiben via projection-apply läuft).
-  r.queryHandler(listSubscriptionsQuery);
+    // Custom write-handlers:
+    //   - process-event: programmatic entry-point vom webhook-handler;
+    //     dispatcht zu type-passendem appendEvent
+    //   - create-checkout-session: bare priceId-driven checkout (hardened,
+    //     see checkout-core)
+    //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
+    r.writeHandler(processEventHandler);
+    r.writeHandler(createCheckoutSessionHandler(widened));
+    r.writeHandler(createPortalSessionHandler(widened));
+    //   - process-payment-event: programmatic entry-point from the webhook-
+    //     handler for one-off-payments; appends onto the payment-aggregate
+    r.writeHandler(processPaymentEventHandler);
 
-  r.useExtension(EXT_TENANT_DATA, "subscription", {
-    destroy: subscriptionTenantDestroyHook,
-    escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON },
+    // Custom list-query on the subscription-projection (raw drizzle
+    // table; no r.entity since writes go through projection-apply).
+    r.queryHandler(listSubscriptionsQuery);
+
+    // Error-keys from checkout-core (redirect-origin, unknown-price, ...)
+    // fire from create-checkout-session even without a catalog — register
+    // unconditionally rather than splitting the i18n surface by option.
+    r.translations({ keys: BILLING_FOUNDATION_I18N });
+
+    if (widened.catalog) {
+      const { catalog } = widened;
+      r.queryHandler(createBillingPlansQuery(widened, catalog));
+      r.writeHandler(createStartPlanCheckoutHandler(widened, catalog));
+      r.writeHandler(createSwitchPlanHandler(widened, catalog));
+      r.screen(createBillingPlansScreen(catalog.viewRoles));
+    }
+
+    r.useExtension(EXT_TENANT_DATA, "subscription", {
+      destroy: subscriptionTenantDestroyHook,
+      escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON },
+    });
+    r.useExtension(EXT_TENANT_DATA, "payment", {
+      destroy: paymentTenantDestroyHook,
+      escapeHatch: { reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON },
+    });
   });
-  r.useExtension(EXT_TENANT_DATA, "payment", {
-    destroy: paymentTenantDestroyHook,
-    escapeHatch: { reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON },
-  });
-});
+}
+
+// Back-compat: existing consumers importing the plain const keep working
+// unchanged (no baseUrl/catalog — create-checkout-session's redirect-origin
+// check then rejects every call as UnconfiguredError, matching the
+// changes.json migration note).
+export const billingFoundationFeature = createBillingFoundationFeature();

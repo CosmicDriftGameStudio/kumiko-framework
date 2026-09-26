@@ -151,4 +151,42 @@ export const WIDGETS_I18N = {
     de: "Zeile {n} der Notiz — Lorem ipsum dolor sit amet.",
     en: "Note line {n} — Lorem ipsum dolor sit amet.",
   },
+  "widgets:catalog:plans": { de: "Tarife", en: "Plans" },
+  "widgets:catalog:plans-subtitle": {
+    de: "Aktueller Tarif, ein kaufbarer Tarif und ein Tarif mit fehlgeschlagenem Preis, plus ein kompakter Einmalkauf",
+    en: "Current plan, a purchasable plan and a plan with a failed price lookup, plus a compact one-off purchase",
+  },
+  "widgets:catalog:plan-starter": { de: "Starter", en: "Starter" },
+  "widgets:catalog:plan-starter-description": {
+    de: "Für den Einstieg",
+    en: "For getting started",
+  },
+  "widgets:catalog:plan-per-month": { de: "/Monat", en: "/month" },
+  "widgets:catalog:plan-feature-projects": { de: "3 Projekte", en: "3 projects" },
+  "widgets:catalog:plan-feature-support": { de: "E-Mail-Support", en: "Email support" },
+  "widgets:catalog:plan-pro": { de: "Pro", en: "Pro" },
+  "widgets:catalog:plan-pro-description": {
+    de: "Für wachsende Teams",
+    en: "For growing teams",
+  },
+  "widgets:catalog:plan-feature-projects-unlimited": {
+    de: "Unbegrenzte Projekte",
+    en: "Unlimited projects",
+  },
+  "widgets:catalog:plan-feature-support-priority": {
+    de: "Priorisierter Support",
+    en: "Priority support",
+  },
+  "widgets:catalog:plan-feature-analytics": { de: "Erweiterte Analysen", en: "Advanced analytics" },
+  "widgets:catalog:plan-choose": { de: "Auswählen", en: "Choose" },
+  "widgets:catalog:plan-enterprise": { de: "Enterprise", en: "Enterprise" },
+  "widgets:catalog:plan-enterprise-description": {
+    de: "Für große Organisationen",
+    en: "For large organizations",
+  },
+  "widgets:catalog:plan-feature-sso": { de: "Single Sign-On", en: "Single sign-on" },
+  "widgets:catalog:plan-feature-sla": { de: "SLA-Garantie", en: "SLA guarantee" },
+  "widgets:catalog:plan-contact-sales": { de: "Vertrieb kontaktieren", en: "Contact sales" },
+  "widgets:catalog:plan-credits": { de: "Credit-Paket", en: "Credit pack" },
+  "widgets:catalog:plan-buy": { de: "Kaufen", en: "Buy" },
 } as const;

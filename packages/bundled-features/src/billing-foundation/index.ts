@@ -8,8 +8,15 @@ export {
 } from "./billing-info-query";
 export {
   BILLING_FOUNDATION_FEATURE,
+  BILLING_PLANS_PANEL_COMPONENT,
+  BILLING_PLANS_SCREEN_ID,
   type BillingEventKind,
   BillingEventKinds,
+  type BillingPlanAction,
+  BillingPlanActions,
+  DEFAULT_PURCHASE_ROLES,
+  isSwitchableSubscriptionStatus,
+  isTerminalSubscriptionStatus,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   type SubscriptionEventType,
   SubscriptionEventTypes,
@@ -41,9 +48,10 @@ export {
   type SubscriptionEventPayload,
   subscriptionEventPayloadSchema,
 } from "./events";
-export { billingFoundationFeature } from "./feature";
+export { billingFoundationFeature, createBillingFoundationFeature } from "./feature";
 export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant";
 export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection";
+export { billingPlansPanel, createBillingPlansScreen } from "./screens";
 export {
   createSubscriptionTierSync,
   effectiveTierFromSubscription,
@@ -51,7 +59,14 @@ export {
   type SubscriptionTierSyncDeps,
 } from "./subscription-tier-sync";
 export type {
+  BillingFoundationOptions,
+  BillingPlanBenefit,
+  BillingPlanCatalog,
+  BillingPlanPrice,
+  BillingPlansResult,
+  BillingPlanView,
   PaymentEvent,
+  ProviderPrice,
   SubscriptionEvent,
   SubscriptionProviderPlugin,
 } from "./types";

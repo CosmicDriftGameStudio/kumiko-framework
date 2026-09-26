@@ -276,6 +276,43 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successBody": "Thanks! You can sign in now.",
   "auth.verifyEmail.successTitle": "Email verified",
   "auth.verifyEmail.verifying": "Verifying email …",
+  "billing-foundation.errors.alreadyOnPlan": "This tenant is already on that plan.",
+  "billing-foundation.errors.foreignProviderCustomer":
+    "This customer account does not belong to your tenant.",
+  "billing-foundation.errors.noActiveSubscription":
+    "This tenant has no active subscription to switch.",
+  "billing-foundation.errors.planSwitchNotSupported":
+    "This provider does not support switching plans.",
+  "billing-foundation.errors.planTiersShareProduct":
+    "Each plan needs its own Stripe product. Contact support.",
+  "billing-foundation.errors.priceUnavailable": "This plan's price is temporarily unavailable.",
+  "billing-foundation.errors.providerHasNoPriceCatalog":
+    "This provider has no known prices configured.",
+  "billing-foundation.errors.providerMismatch":
+    "This tenant's subscription is on a different provider than the plan catalog. Contact support to migrate.",
+  "billing-foundation.errors.redirectOriginNotAllowed":
+    "This redirect URL is not allowed for this app.",
+  "billing-foundation.errors.subscriptionExists":
+    "This tenant already has an active subscription. Switch plans instead.",
+  "billing-foundation.errors.unknownPrice": "This price is not recognized.",
+  "billing-foundation.plans.billingDisabled":
+    "Billing is not active yet. Your current plan stays in place.",
+  "billing-foundation.plans.choose": "Choose {plan}",
+  "billing-foundation.plans.currentPlan": "Current plan",
+  "billing-foundation.plans.everyInterval.day": "every {count} days",
+  "billing-foundation.plans.everyInterval.month": "every {count} months",
+  "billing-foundation.plans.everyInterval.week": "every {count} weeks",
+  "billing-foundation.plans.everyInterval.year": "every {count} years",
+  "billing-foundation.plans.manage": "Manage subscription",
+  "billing-foundation.plans.paymentPending": "Payment is still being completed.",
+  "billing-foundation.plans.perInterval.day": "/ day",
+  "billing-foundation.plans.perInterval.month": "/ month",
+  "billing-foundation.plans.perInterval.week": "/ week",
+  "billing-foundation.plans.perInterval.year": "/ year",
+  "billing-foundation.plans.priceUnavailable": "Price not available",
+  "billing-foundation.plans.purchaseNotAllowed": "Only administrators can change the plan.",
+  "billing-foundation.plans.subscriptionPending": "Your plan change is being processed.",
+  "billing-foundation.plans.switch": "Switch to {plan}",
   "cap-counter:entity:cap-counter:field:capName": "Cap",
   "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": "Last soft warning",
   "cap-counter:entity:cap-counter:field:periodStart": "Period start",
@@ -573,6 +610,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.widget.drawer.restore": "Restore drawer width",
   "kumiko.widget.error.title": "Couldn't load.",
   "kumiko.widget.loading": "Loading…",
+  "kumiko.planCard.current": "Current plan",
+  "kumiko.planCard.priceUnavailable": "Price not available",
   "kumiko.widget.step-bar.done": "Done",
   "kumiko.widget.upload.done": "Uploaded",
   "kumiko.widget.upload.error": "Failed",
@@ -682,6 +721,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "screen:auth-mfa-disable.title": "Disable two-factor authentication",
   "screen:auth-mfa-enable.title": "Two-factor authentication",
   "screen:auth-mfa-regenerate-recovery.title": "Generate new recovery codes",
+  "screen:billing-plans.title": "Billing",
   "screen:branding-settings.title": "Branding",
   "screen:cap-list.title": "Usage caps",
   "screen:delivery-log.title": "Delivery log",

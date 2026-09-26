@@ -82,6 +82,9 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "auth.verifyEmail.errorBody":
     "Der Link ist ungültig oder abgelaufen. Bitte fordern Sie eine neue Bestätigungs-Mail an.",
   "auth.verifyEmail.successBody": "Danke! Sie können sich jetzt anmelden.",
+  "billing-foundation.plans.billingDisabled":
+    "Die Abrechnung ist noch nicht aktiv. Ihr aktueller Tarif bleibt bestehen.",
+  "billing-foundation.plans.subscriptionPending": "Ihr Tarifwechsel wird gerade verarbeitet.",
   "custom-fields.form.createMode": "Speichern Sie zuerst den Eintrag, um Custom-Felder zu setzen.",
   "dispatcher.errors.network":
     "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
