@@ -52,8 +52,8 @@ export function createCheckoutSessionHandler(options: BillingFoundationOptions):
     description:
       'Opens a hosted checkout page at the named subscription provider for the caller\'s tenant and returns its URL; use it when a tenant admin wants to make a one-off payment (mode: "payment") or subscribe to a price already known to be valid. Redirect URLs must share the configured baseUrl origin. Prefer billing-foundation:write:start-plan-checkout / :switch-plan for catalog-driven plan purchases.',
     schema: createCheckoutSessionSchema,
-    // Tenant-Admin-only — der Tenant muss bewusst seine Subscription
-    // konfigurieren. SystemAdmin als Fallback für Operator-Initiated-Flows.
+    // Tenant-Admin-only — the tenant must deliberately configure its own
+    // subscription. SystemAdmin as a fallback for operator-initiated flows.
     access: { roles: ["TenantAdmin", "SystemAdmin"] },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload

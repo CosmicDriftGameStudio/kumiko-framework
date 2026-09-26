@@ -193,10 +193,10 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       recommended: false,
     });
     r.requires("tenant-lifecycle", "compliance-profiles");
-    // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
-    // shape (= subscription-state-snapshot); der event-type taggt was
-    // passiert ist. Future-consumer (billing-history, accounting)
-    // listenen direkt auf den event-type ohne payload-discriminator.
+    // 5 fine-grained domain-events. All 5 share the same payload shape (a
+    // subscription-state snapshot); the event type tags what happened.
+    // Future consumers (billing-history, accounting) listen directly on
+    // the event type, no payload discriminator needed.
     // piiFields: "none" — provider ids are tenantOwned ciphertext, not plaintext personal data.
     r.defineEvent(SUBSCRIPTION_CREATED_EVENT_SHORT, subscriptionEventPayloadSchema, {
       piiFields: "none",
@@ -217,8 +217,8 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     r.defineEvent(PAYMENT_RECEIVED_EVENT_SHORT, paymentEventPayloadSchema, { piiFields: "none" });
 
     // Inline projection: materialized current state in `read_subscriptions`.
-    // Apply läuft in derselben TX wie ctx.unsafeAppendEvent — read-your-
-    // own-write ohne dispatcher-tick.
+    // Apply runs in the same TX as ctx.unsafeAppendEvent — read-your-own-
+    // write without a dispatcher tick.
     r.projection({
       name: "subscription",
       source: SUBSCRIPTION_AGGREGATE_TYPE,
@@ -264,8 +264,8 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     //     handler for one-off-payments; appends onto the payment-aggregate
     r.writeHandler(processPaymentEventHandler);
 
-    // Custom list-query auf der subscription-projection (raw drizzle-
-    // table; kein r.entity weil Schreiben via projection-apply läuft).
+    // Custom list-query on the subscription-projection (raw drizzle
+    // table; no r.entity since writes go through projection-apply).
     r.queryHandler(listSubscriptionsQuery);
 
     // Error-keys from checkout-core (redirect-origin, unknown-price, ...)

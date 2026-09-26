@@ -49,8 +49,8 @@ export function createPortalSessionHandler(options: BillingFoundationOptions): W
         assertRedirectOrigins([payload.returnUrl], options.baseUrl);
       }
 
-      // 1. Hol current subscription-row für den Tenant. Aggregate-id ist
-      //    deterministic per tenant — eine row pro tenant.
+      // 1. Fetch the current subscription row for the tenant. Aggregate-id
+      //    is deterministic per tenant — one row per tenant.
       const subAggId = subscriptionAggregateId(tenantId);
       const rows = await selectMany(ctx.db, subTable, { id: subAggId }, { limit: 1 });
       const row = rows[0];

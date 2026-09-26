@@ -536,8 +536,8 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     // crypto-shredding test further down and would collide.
     const admin = adminFor(3018);
 
-    // Providers customer-id muss zur eigenen (auch canceled) subscription
-    // gehören — sonst greift der foreign_provider_customer-guard.
+    // The provider customer-id must belong to the caller's own subscription
+    // (even if canceled) — otherwise the foreign_provider_customer guard fires.
     await stack.http.writeOk(
       SubscriptionFoundationHandlers.processEvent,
       {
