@@ -128,6 +128,7 @@ function validateOptions(options: BillingFoundationOptions): void {
     }
   }
   const { catalog } = options;
+  // skip: no catalog configured, nothing more to validate.
   if (!catalog) return;
   if (options.baseUrl === undefined) {
     throw new Error(

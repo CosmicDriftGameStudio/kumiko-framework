@@ -18,6 +18,7 @@ import { adminShellClient } from "@cosmicdrift/kumiko-bundled-features/admin-she
 import { auditClient } from "@cosmicdrift/kumiko-bundled-features/audit/web";
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { authMfaClient, MfaVerifyScreen } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/web";
+import { billingFoundationClient } from "@cosmicdrift/kumiko-bundled-features/billing-foundation/web";
 import { capOverviewClient } from "@cosmicdrift/kumiko-bundled-features/cap-overview/web";
 import { complianceProfilesClient } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles/web";
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
@@ -101,6 +102,7 @@ createKumikoApp({
     adminShellClient(),
     tenantClient(),
     auditClient(),
+    billingFoundationClient(),
     jobsClient(),
     deliveryClient(),
     configClient(),

@@ -1,3 +1,6 @@
+// @runtime client
+// Import-free constants, so browser bundles can safely import them.
+
 // Feature name
 export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
 

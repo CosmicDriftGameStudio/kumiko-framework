@@ -186,6 +186,7 @@ async function resolvePricesViaCache(
   priceIds: readonly string[],
 ): Promise<void> {
   const misses = priceIds.filter((priceId) => cache.get(priceId) === undefined);
+  // skip: every price is already cached, nothing to retrieve.
   if (misses.length === 0) return;
   const stripe = await runtime.clientForCtx(ctx);
   const settled = await Promise.allSettled(
