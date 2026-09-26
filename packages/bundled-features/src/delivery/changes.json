@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.315.0",
+    "type": "fix",
+    "title": "delivery honors an address opt-out on sends to a user account",
+    "detail": "`deliverToUser` only checked the user's notification preferences, so an\naddress that had been opted out via an address unsubscribe token still got\nmail once it belonged to a user account. It now runs the same check\n`deliverDirect` already applied: when the resolved channel address has a\n`notification-address-opt-out` row for that tenant, notificationType and\nchannel, the attempt is logged as `skipped` / `unsubscribed` with\n`recipientAddress: null`. Critical priority still bypasses it\n(kumiko-framework#3275)."
+  },
+  {
+    "version": "0.315.0",
+    "type": "improvement",
+    "title": "Delivery unsubscribe route is now mountable via extraRoutes",
+    "detail": "`createUnsubscribeRoute` previously returned a raw Hono app that needed a\n`DbConnection` (`{ db, jwtSecret }`) and had to be mounted by hand with\n`stack.app.route(...)`, bypassing the framework's request pipeline. It now\nreturns an `ExtraRouteDefinition` built via `signatureRoute`, taking only\n`{ secret }`, and mounts at the fixed path `GET /api/delivery/unsubscribe?token=`\n(exported as `DELIVERY_UNSUBSCRIBE_PATH`). Mount it with\n`extraRoutes: [createUnsubscribeRoute({ secret: env.UNSUBSCRIBE_SECRET })]`.\n`signUnsubscribeToken` / `signAddressUnsubscribeToken` must sign with the\nsame secret. The secret must be at least 32 characters and must NOT reuse\nthe app's session `JWT_SECRET` — all three entry points fail fast on a\nshort secret.\nThe write itself now goes through two new SystemAdmin-only handlers,\n`delivery:write:unsubscribe-address` and `delivery:write:unsubscribe-user`,\ndispatched via `dispatchSystemWrite` once the route's `verify()` has proven\nthe token's authenticity. An invalid or expired token always responds 400\nwith `{ error: { code: \"unsubscribe_token_invalid\" } }`, never leaking the\nunderlying JWT-library error text.\nNew notification-preference and notification-address-opt-out rows get a\ndeterministic aggregate id derived from (tenant, user or address hash,\nnotificationType, channel), so concurrent clicks on the same link collide\nat the event-store append and converge on one row instead of failing with\na unique or version conflict. Existing rows keep their ids."
+  },
+  {
     "version": "0.313.0",
     "type": "breaking",
     "title": "delivery direct sends to a route address can now be unsubscribed via a signed link",
