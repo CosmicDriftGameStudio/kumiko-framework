@@ -107,28 +107,34 @@ Chromium processes contending for too little CPU. A project that sets its own
 
 ## Measured effect
 
-Before the template, e2e defaulted to `workers: 1` everywhere. #3118's own
-Kernbefund calls its numbers "Richtwerte, keine Baseline", not a clean
-measurement, so read them as rough pre-template signals: phronexsis's e2e
-at 2 workers already showed 1.85x, but 4 workers went red from a
-shared-tenant collision (two flow specs racing on one tenant), not from a
-CPU limit; that collision is the reason `seedTenant()` per flow exists.
-Integration's `bun test --parallel=4` (raw run in #3119, on a loaded
-machine) gave phronexsis 1.6x and publicstatus nothing measurable, with no
-clean baseline to compare against. No controlled baseline-vs-template
-runtime comparison exists; the isolate/no-isolate numbers below compare two
-modes within the template, not against the pre-template state.
+#3118's own findings ("Richtwerte, keine Baseline": rough signals, not a
+clean measurement) describe the pre-template state: e2e defaulted to
+`workers: 1` everywhere; phronexsis's e2e at 2 workers already showed
+1.85x, but 4 workers went red from a shared-tenant collision (two flow
+specs racing on one tenant), not from a CPU limit, the reason
+`seedTenant()` per flow exists.
 
-With the template, `kumiko-testing integration --parallel` also needs
-`--no-isolate`: bun 1.4.0's `--parallel` implies `--isolate`, which leaks
-native memory per test file while the JS heap stays flat. Measured on
-publicstatus's integration suite (56 files, `--parallel=4`, local, PR
-`#3294`): bun's `--isolate` default peaks at 3.31 GiB / 49.9 s, which
-OOM-kills the 3-GiB CI runner; `--no-isolate` (the runner's default since
-0.316.0) peaks at 1.31 GiB / 27.1 s, 381/381 green. `--no-isolate` is safe
-here because the template already isolates through data (`seedTenant` per
-flow, a queue prefix per stack), not through OS processes, the same
-property that makes parallel e2e safe above.
+#3119 collected the actual baseline. Its CI job-minutes table (median of
+the last 10 successful runs per app, taken before any port/config change)
+is the comparison point ("Laufzeit nicht schlechter als Baseline");
+comparing it against the migrated apps' CI minutes is still pending those
+migrations. Locally, publicstatus's integration suite (53 files, 370
+tests, loaded machine, two runs) measured sequential at 27.0 s / 24.5 s
+and `--parallel=4` at 29.3 s / 25.3 s, with 2-4 s of run-to-run noise.
+
+With the template, the same class of suite (56 files, 381 tests, measured
+in PR #3294) runs `--parallel=4 --no-isolate` at 27.1 s: within the
+baseline's noise band, not worse, with 11 more tests. `--no-isolate` is
+required because bun 1.4.0's `--parallel` implies `--isolate`, which leaks
+native memory per test file while the JS heap stays flat: the same suite
+under bun's `--isolate` default peaks at 3.31 GiB / 49.9 s, OOM-killing
+the 3-GiB CI runner, against 1.31 GiB / 27.1 s and 381/381 green under
+`--no-isolate` (the runner's default since 0.316.0). That pair is
+isolate-vs-no-isolate within the template, not a comparison against the
+pre-template baseline. `--no-isolate` is safe here because the template
+already isolates through data (`seedTenant` per flow, a queue prefix per
+stack), not through OS processes, the same property that makes parallel
+e2e safe above.
 
 ## Timeouts and retries belong to the template
 
