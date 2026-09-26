@@ -79,6 +79,15 @@ function lookupExtensionWhitelist(ext: string): readonly string[] | undefined {
   return EXTENSION_MIME_WHITELIST[ext];
 }
 
+// Reverse of lookupExtensionWhitelist: every extension whose whitelist entry
+// includes this MIME type (e.g. "image/jpeg" -> ["jpg", "jpeg"]) — backs
+// validateFileContent's accept-based normalization below.
+function extensionsForMimeType(mimeType: string): readonly string[] {
+  return Object.entries(EXTENSION_MIME_WHITELIST)
+    .filter(([, mimeTypes]) => mimeTypes.includes(mimeType))
+    .map(([ext]) => ext);
+}
+
 // Magic-byte signatures for the subset of EXTENSION_MIME_WHITELIST that has
 // a reliable binary signature. Used both at upload time (validateFileContent)
 // and at serve time (resolveServedContentType) — never trust the stored/
@@ -217,17 +226,48 @@ function signatureMimeTypesForExtension(ext: string): readonly string[] {
   );
 }
 
+export type FileContentValidationResult =
+  | { readonly kind: "ok" }
+  | { readonly kind: "normalized"; readonly extension: string; readonly mimeType: string }
+  | { readonly kind: "rejected"; readonly error: string };
+
 // Separate from validateFile: metadata is known before the upload body is
 // fully read, content-verification only after — callers reject early on
 // metadata without buffering bytes they'll then have to reject anyway.
-export function validateFileContent(fileName: string, content: Uint8Array): string | null {
+//
+// When the sniffed signature doesn't match the declared extension but the
+// sniffed type's OWN extension is in a non-empty `accept`, the upload
+// normalizes to that type instead of being rejected — this only widens which
+// of the field's own allowed formats a mislabeled upload can settle into,
+// never which formats are accepted. With no `accept` restriction at all
+// (undefined or empty, same "unrestricted" meaning validateFile gives it),
+// any recognized signature normalizes the same way, since there is no
+// declared list left to widen.
+export function validateFileContent(
+  fileName: string,
+  content: Uint8Array,
+  accept?: readonly string[],
+): FileContentValidationResult {
   const ext = extractExtension(fileName);
-  if (!ext) return null;
+  if (!ext) return { kind: "ok" };
   const signatureMimeTypes = signatureMimeTypesForExtension(ext);
-  if (signatureMimeTypes.length === 0) return null;
+  if (signatureMimeTypes.length === 0) return { kind: "ok" };
   const sniffed = sniffMimeType(content);
-  if (sniffed && signatureMimeTypes.includes(sniffed)) return null;
-  return `content_mismatch: ".${ext}" upload bytes are ${sniffed ?? "unrecognized"}, expected ${signatureMimeTypes.join(" or ")}`;
+  if (sniffed && signatureMimeTypes.includes(sniffed)) return { kind: "ok" };
+  if (sniffed) {
+    const candidateExtensions = extensionsForMimeType(sniffed);
+    const hasAcceptRestriction = accept !== undefined && accept.length > 0;
+    const normalizedExtension = hasAcceptRestriction
+      ? candidateExtensions.find((candidate) => accept.includes(candidate))
+      : candidateExtensions[0];
+    if (normalizedExtension) {
+      return { kind: "normalized", extension: normalizedExtension, mimeType: sniffed };
+    }
+  }
+  return {
+    kind: "rejected",
+    error: `content_mismatch: ".${ext}" upload bytes are ${sniffed ?? "unrecognized"}, expected ${signatureMimeTypes.join(" or ")}`,
+  };
 }
 
 export type UploadMimeTypeResolution =
@@ -270,8 +310,12 @@ export function buildStorageKey(
   fieldName: string,
   fileName: string,
   uniqueId: string,
+  // Set when validateFileContent normalized the upload to a different real
+  // type — the storage key then reflects the sniffed type, not the user's
+  // (wrong) original extension.
+  extensionOverride?: string,
 ): string {
-  const rawExt = fileName.split(".").pop() ?? "";
+  const rawExt = extensionOverride ?? fileName.split(".").pop() ?? "";
   const ext = /^[A-Za-z0-9]+$/.test(rawExt) ? rawExt.toLowerCase() : "bin";
   return `${tenantId}/${entityType}/${entityId}/${fieldName}/${uniqueId}.${ext}`;
 }
