@@ -125,15 +125,19 @@
   --font-heading: var(--font-sans);
 }
 
-/* Card-Chrome-Maße — Framework-Defaults. Eine App überschreibt selektiv in
-   ihrer eigenen styles.css (@theme oder :root, kommt in der Cascade nach dem
-   @import und gewinnt); nicht-überschriebene bleiben auf diesen Werten.
-   Plain :root (nicht @theme) → immer emittiert, kein Tree-Shaking. Defaults
-   reproduzieren exakt p-6 / rounded-xl / shadow-sm. */
+/* Card chrome defaults (reproduce p-6 / rounded-xl / shadow-sm). In the base
+   layer so the theme plugin (createThemePlugin, emitted later into the same
+   layer) and an app's plain :root both override them; plain :root rather than
+   @theme so they are always emitted. */
+@layer base {
+  :root {
+    --card-padding: 1.5rem;
+    --card-radius: var(--radius-xl);
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+}
+
 :root {
-  --card-padding: 1.5rem;
-  --card-radius: var(--radius-xl);
-  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --kumiko-grid-row-h: 2.5rem;
   /* 0 = no ShellHeader mounted (e.g. a Drawer used outside a shell) — a
      consumer offsetting by this variable then gets today's edge-to-edge

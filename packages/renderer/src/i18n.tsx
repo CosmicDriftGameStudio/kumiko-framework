@@ -127,15 +127,13 @@ export function useLocale(): LocaleResolver {
   return ctx.resolver;
 }
 
-/** Primäre API für Feature-UI. `t("key", params)` versucht in dieser
- *  Reihenfolge:
- *    1. App-Resolver (z.B. i18next)
- *    2. Plugin-Fallback-Bundles für current-locale (unter FormalityProvider
- *       "formal" zuerst `<locale>-x-formal`)
- *    3. Plugin-Fallback-Bundles für fallbackLocale
- *    4. Key as-is
- *  Interpolation für Platzhalter `{name}` passiert unabhängig von der
- *  Source — auch Fallback-Strings können parameters nutzen. */
+/** `t("key", params)` resolves in this order:
+ *    1. App resolver (e.g. i18next)
+ *    2. Plugin fallback bundles for the current locale (under a "formal"
+ *       FormalityProvider, `<locale>-x-formal` across all bundles first)
+ *    3. Plugin fallback bundles for fallbackLocale
+ *    4. The key as-is
+ *  `{name}` interpolation applies to every source, fallback strings included. */
 export function useTranslation(): (
   key: string,
   params?: Readonly<Record<string, unknown>>,
