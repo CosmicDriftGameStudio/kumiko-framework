@@ -28,9 +28,9 @@ Integration tests hit a real Postgres/Redis stack and prove the app's own
 wiring. E2E tests boot the app and prove the browser contract. Mixing them —
 a unit test that reaches for Postgres, an integration test that spins up a
 browser — loses the fast/clear-signal property of the cheaper class and
-slows down the whole suite for no extra coverage. `test:dom` (`*.dom.test.ts`,
-jsdom) sits next to unit tests for component-level rendering that needs a DOM
-but not a browser.
+slows down the whole suite for no extra coverage. `test:dom` (`*.test.tsx`,
+happy-dom via `preload/dom`) sits next to unit tests for component-level
+rendering that needs a DOM but not a browser.
 
 `kumiko-testing bunfig` generates the bunfig files (preloads, path ignores)
 that keep each class in its own lane. Bun ignores a `[test] timeout` key, so
@@ -109,21 +109,22 @@ Chromium processes contending for too little CPU. A project that sets its own
 
 Baseline, before the template (#3119): e2e defaulted to `workers: 1`
 everywhere. Integration's `bun test --parallel=4` gave phronexsis 1.6x and
-publicstatus nothing measurable — on a loaded machine, with no clean
-baseline. Running phronexsis's e2e at 2 workers already showed 1.85x, but 4
-workers went red from a shared-tenant collision (two flow specs racing on one
-tenant), not from a CPU limit — the reason `seedTenant()` per flow exists.
+publicstatus nothing measurable (a loaded machine, no clean baseline).
+Running phronexsis's e2e at 2 workers already showed 1.85x, but 4 workers
+went red from a shared-tenant collision (two flow specs racing on one
+tenant), not from a CPU limit; that collision is the reason `seedTenant()`
+per flow exists.
 
 With the template, `kumiko-testing integration --parallel` also needs
 `--no-isolate`: bun 1.4.0's `--parallel` implies `--isolate`, which leaks
 native memory per test file while the JS heap stays flat. Measured on
-publicstatus's integration suite (56 files, `--parallel=4`, local): bun's
-`--isolate` default peaks at 3.31 GiB / 49.9 s, which OOM-kills the 3-GiB CI
-runner; `--no-isolate` (the runner's default since 0.316.0, `#3294`) peaks at
-1.31 GiB / 27.1 s, 381/381 green. `--no-isolate` is safe here because the
-template already isolates through data — `seedTenant` per flow, a queue
-prefix per stack — not through OS processes, the same property that makes
-parallel e2e safe above.
+publicstatus's integration suite (56 files, `--parallel=4`, local, PR
+`#3294`): bun's `--isolate` default peaks at 3.31 GiB / 49.9 s, which
+OOM-kills the 3-GiB CI runner; `--no-isolate` (the runner's default since
+0.316.0) peaks at 1.31 GiB / 27.1 s, 381/381 green. `--no-isolate` is safe
+here because the template already isolates through data (`seedTenant` per
+flow, a queue prefix per stack), not through OS processes, the same
+property that makes parallel e2e safe above.
 
 ## Timeouts and retries belong to the template
 
@@ -185,3 +186,4 @@ per-spec case, so it stays template-owned everywhere.
 | A local `page.screenshot()` helper for docs images | `runScreenshots` / `runMatrix` with `SCREENSHOT_DIR` set |
 | A shared/global test user across flows | `seedTenant()` per flow |
 | A copied `playwright.config.ts` / bunfig from another app | `kumiko-testing bunfig` generator + `defineAppE2eConfig`, updated by a version bump |
+| A local `test-setup/dom.preload.ts` copy | `kumiko-testing bunfig --dom`, which preloads `@cosmicdrift/kumiko-testing/preload/dom` |

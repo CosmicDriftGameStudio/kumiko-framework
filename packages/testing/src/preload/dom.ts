@@ -1,24 +1,27 @@
 // DOM polyfill for tests that use testing-library/react or Radix components.
 // happy-dom's global-registrator attaches window/document/HTMLElement to
-// globalThis. Plain Node tests are unaffected (no code path changes for
-// them).
+// globalThis. Plain Node tests are unaffected, no code path changes for them.
 
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { afterEach } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+
+declare global {
+  // React's own typings don't declare this property on globalThis.
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
 
 // react-dom checks IS_REACT_ACT_ENVIRONMENT to suppress act() warnings.
 // vitest set this automatically via @testing-library/react; with bun:test we
 // set it explicitly.
-// @ts-expect-error — React's typings don't know this property on globalThis
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-// Register idempotently — a second preload entry must not crash.
+// Register idempotently, so a second preload entry doesn't crash.
 if (typeof globalThis.window === "undefined") {
   // Preserve Bun's native fetch/Request/Response/Headers before happy-dom
   // overwrites them. happy-dom ships its own Request implementation whose
-  // headers.get("cookie") returns null — that breaks Hono's getCookie() in
+  // headers.get("cookie") returns null, which breaks Hono's getCookie() in
   // every auth/csrf/sse test. We only want the DOM globals (window,
-  // document, HTMLElement) from happy-dom, NOT the fetch API.
+  // document, HTMLElement) from happy-dom, not the fetch API.
   const bunRequest = globalThis.Request;
   const bunResponse = globalThis.Response;
   const bunHeaders = globalThis.Headers;
@@ -28,9 +31,9 @@ if (typeof globalThis.window === "undefined") {
   const bunWritableStream = globalThis.WritableStream;
   const bunTransformStream = globalThis.TransformStream;
   // The url option sets window.location to http://localhost/. Without it
-  // happy-dom defaults to about:blank — history.pushState/replaceState then
+  // happy-dom defaults to about:blank, so history.pushState/replaceState
   // doesn't work (invalid origin) and window.location.pathname stays
-  // "blank". Breaks every router/nav test.
+  // "blank", breaking every router/nav test.
   GlobalRegistrator.register({ url: "http://localhost/" });
   globalThis.Request = bunRequest;
   globalThis.Response = bunResponse;
@@ -43,8 +46,8 @@ if (typeof globalThis.window === "undefined") {
 }
 
 // @testing-library/dom/dist/screen.js checks document.body at module import
-// time. A static import would evaluate screen before happy-dom registers →
-// every screen query throws TypeError. Hence require() only after the
+// time. A static import would evaluate screen before happy-dom registers, so
+// every screen query would throw TypeError. Hence require() only after the
 // registration above.
 const { cleanup } = require("@testing-library/react/pure") as {
   cleanup: () => void;
@@ -53,17 +56,18 @@ const { cleanup } = require("@testing-library/react/pure") as {
 const HTML_PRINT_LIMIT = 2000;
 
 // Pointer-capture APIs are missing in happy-dom, same as in jsdom. Radix-UI
-// (DropdownMenu/Select/Popover triggers) calls them — without the polyfill
-// nothing opens in tests.
+// (DropdownMenu/Select/Popover triggers) calls them, so nothing opens in
+// tests without the polyfill.
 if (typeof globalThis.HTMLElement !== "undefined") {
   const proto = globalThis.HTMLElement.prototype as unknown as Record<string | symbol, unknown>;
-  if (proto.hasPointerCapture === undefined) proto.hasPointerCapture = () => false;
-  if (proto.setPointerCapture === undefined) proto.setPointerCapture = () => undefined;
-  if (proto.releasePointerCapture === undefined) proto.releasePointerCapture = () => undefined;
-  if (proto.scrollIntoView === undefined) proto.scrollIntoView = () => undefined;
+  if (proto["hasPointerCapture"] === undefined) proto["hasPointerCapture"] = () => false;
+  if (proto["setPointerCapture"] === undefined) proto["setPointerCapture"] = () => undefined;
+  if (proto["releasePointerCapture"] === undefined)
+    proto["releasePointerCapture"] = () => undefined;
+  if (proto["scrollIntoView"] === undefined) proto["scrollIntoView"] = () => undefined;
 
-  // Without this, printing a happy-dom node walks its whole object graph —
-  // ownerDocument plus every React fiber property — which is 15 MB of string
+  // Without this, printing a happy-dom node walks its whole object graph:
+  // ownerDocument plus every React fiber property, which is 15 MB of string
   // for a two-element tree and 0.5-1.7 s per call. A failed assertion inside
   // waitFor pays that on every poll and blocks the loop long enough to starve
   // React's commit and waitFor's own timeout (#3082).
@@ -77,18 +81,18 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 }
 
 // Auto-cleanup after every test (DOM pollution guard): bun test runs all
-// test files in one process. Without afterEach, React components from file N
-// stay mounted in file N+1's DOM.
+// test files in one process, so without afterEach, React components from
+// file N stay mounted in file N+1's DOM.
 //
 // FIVE leak sources:
 //
-//   a) testing-library/react container — cleanup() unmounts and removes
+//   a) testing-library/react container: cleanup() unmounts and removes
 //      every container node render() created.
 //
-//   b) body.replaceChildren() — clears containers not created via
+//   b) body.replaceChildren(): clears containers not created via
 //      testing-library/react (e.g. #root via ReactDOM.createRoot +
-//      renderShell). Must run AFTER cleanup() — React needs its nodes to
-//      unmount.
+//      renderShell). Must run after cleanup(), since React needs its nodes
+//      to unmount.
 //
 //   c) Radix DismissableLayer sets body.style.pointerEvents='none' when
 //      opening a Dialog/Popover/Dropdown.
@@ -99,7 +103,7 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 afterEach(() => {
   if (typeof globalThis.document === "undefined") return;
 
-  // (a) React cleanup first — unmounts every testing-library-rendered
+  // (a) React cleanup first: unmounts every testing-library-rendered
   //     component via ReactDOM.unmountComponentAtNode. Must happen before
   //     any DOM manipulation because React needs its nodes.
   cleanup();
@@ -107,7 +111,7 @@ afterEach(() => {
   const doc = globalThis.document;
   if (!doc.body) return;
 
-  // (b) Remaining nodes are not actively removed — cleanup() from
+  // (b) Remaining nodes are not actively removed: cleanup() from
   //     testing-library/react clears all render() containers. Non-standard
   //     containers (#root via createRoot) must be cleaned by the tests
   //     themselves or via afterEach in the test file. body.replaceChildren()
@@ -125,9 +129,9 @@ afterEach(() => {
   }
 
   // (e) Reset window.location to happy-dom's initial url. replaceState
-  // instead of pushState — otherwise a history stack of 3000+ entries
-  // accumulates across all tests (memory leak + breaks tests that check
-  // history.length).
+  // instead of pushState, otherwise a history stack of 3000+ entries
+  // accumulates across all tests (memory leak, plus it breaks tests that
+  // check history.length).
   if (typeof globalThis.history !== "undefined") {
     globalThis.history.replaceState(null, "", "http://localhost/");
   }
