@@ -498,9 +498,10 @@ async function tryServePublicAsset(
   pathname: string,
   app: HonoLikeApp,
   publicDir: string,
+  socketAddress?: string,
 ): Promise<Response | undefined> {
   if (!isRoutableGetOrHead(req, pathname) || !pathname.includes(".")) return undefined;
-  const honoTry = await tryHonoFirst(app, req);
+  const honoTry = await tryHonoFirst(app, req, socketAddress);
   if (honoTry.matched) {
     return honoTry.response;
   }
@@ -1022,18 +1023,25 @@ export async function createKumikoServer(
     "createKumikoServer(pageHead)",
   );
   const buildDevSystemQuery =
-    (req: Request): PageHeadSystemQuery =>
+    (req: Request, socketAddress?: string): PageHeadSystemQuery =>
     (type, payload, tenantId) =>
       requestContext.run(
         requestContext.get() ??
-          buildRequestContextDataFromRequest(req, { resolver: pageHeadClientIpResolver }),
+          buildRequestContextDataFromRequest(req, {
+            resolver: pageHeadClientIpResolver,
+            socketAddress,
+          }),
         () => stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
       );
 
   // resolvePageHead goes through the same headless resolveAndInjectPageHead
   // that runProdApp uses, so dev and e2e exercise the one timeout and
   // fallback path instead of a second copy of it (#3026).
-  const htmlResponse = async (entryName: string, req: Request): Promise<Response> => {
+  const htmlResponse = async (
+    entryName: string,
+    req: Request,
+    socketAddress?: string,
+  ): Promise<Response> => {
     const template = htmlTemplates.get(entryName) ?? defaultTemplate;
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
@@ -1051,7 +1059,7 @@ export async function createKumikoServer(
       html = await resolveAndInjectPageHead(html, options.resolvePageHead, {
         path: url.pathname,
         host,
-        systemQuery: buildDevSystemQuery(req),
+        systemQuery: buildDevSystemQuery(req, socketAddress),
       });
     }
     return new Response(html, { headers });
@@ -1069,7 +1077,7 @@ export async function createKumikoServer(
   // process.cwd() is the app workspace, so public/ is its static asset dir.
   const publicDir = resolve(process.cwd(), "public");
 
-  const handleFetch = async (req: Request): Promise<Response> => {
+  const handleFetch = async (req: Request, socketAddress?: string): Promise<Response> => {
     const url = new URL(req.url);
 
     // Specific routes first — assets, reload-SSE, API.
@@ -1167,14 +1175,16 @@ export async function createKumikoServer(
       isRoutableGetOrHead(req, url.pathname) &&
       !url.pathname.includes(".")
     ) {
-      const honoTry = await tryHonoFirst(stack.app, req);
+      const honoTry = await tryHonoFirst(stack.app, req, socketAddress);
       if (honoTry.matched) {
         return honoTry.response;
       }
       // Discriminated-Dispatch — symmetric zu prod. Ohne hostDispatch
       // landet das im Single-Entry-Default ("client" + Schema-Inject).
       if (options.hostDispatch !== undefined) {
-        const dispatch = await options.hostDispatch(req, { systemQuery: buildDevSystemQuery(req) });
+        const dispatch = await options.hostDispatch(req, {
+          systemQuery: buildDevSystemQuery(req, socketAddress),
+        });
         if (dispatch.kind === "redirect") {
           return new Response(null, {
             status: dispatch.status ?? 302,
@@ -1192,21 +1202,27 @@ export async function createKumikoServer(
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }
-        return htmlResponse(dispatch.entryName, req);
+        return htmlResponse(dispatch.entryName, req, socketAddress);
       }
-      return htmlResponse("client", req);
+      return htmlResponse("client", req, socketAddress);
     }
 
     // Static assets under public/ — see tryServePublicAsset's own comment
     // for the Hono → file → router-miss ordering.
-    const staticAsset = await tryServePublicAsset(req, url.pathname, stack.app, publicDir);
+    const staticAsset = await tryServePublicAsset(
+      req,
+      url.pathname,
+      stack.app,
+      publicDir,
+      socketAddress,
+    );
     if (staticAsset !== undefined) return staticAsset;
 
     // Bypasses tryHonoFirst entirely (API paths, /sse, non-GET/HEAD), so the
     // router-miss marker must be stripped here too — otherwise an unmatched
     // path would leak it straight to the client (see try-hono-first.ts's
     // header-hygiene note).
-    return stripNoRouteMatchHeader(await stack.app.fetch(req));
+    return stripNoRouteMatchHeader(await stack.app.fetch(req, socketAddress));
   };
 
   // --- HTTP server (Bun only) ---
