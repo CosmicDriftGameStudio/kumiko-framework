@@ -32,4 +32,8 @@ migration: |
   purchase plans must add that role to `catalog.purchaseRoles` to keep
   portal access working; conversely, a role that isn't in
   `purchaseRoles` now gets a 403 where it previously reached the handler.
+
+  Set `catalog.returnPath` to the app's billing page (e.g.
+  "/host/billing", or offlot's `${APP_BASE_PATH}/${MY_BILLING_SCREEN_ID}`),
+  otherwise the portal sends the user back to the bare `baseUrl`.
 -->

@@ -36,8 +36,8 @@ migration: |
   `read_subscriptions` gains a nullable `cancel_at` column. Every app that
   mounts billing-foundation — including a plain `billingFoundationFeature()`
   with no catalog (e.g. kumiko-studio) — must run
-  `bun run schema:generate <name>` (wired to `bun kumiko-schema generate
-  <name>`) and commit the resulting migration file. Skipping this leaves
+  `bun kumiko-schema generate <name>` (offlot-app wraps it as
+  `bun run schema:generate <name>`) and commit the resulting migration. Skipping this leaves
   the app's own `read_subscriptions` table without the column, so the
   projection's `apply` fails at the next subscription webhook. The column
   is additive and nullable — no rebuild, existing rows keep it `null`

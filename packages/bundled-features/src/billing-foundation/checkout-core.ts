@@ -35,17 +35,32 @@ export type ResolvedProvider = {
   readonly plugin: SubscriptionProviderPlugin;
 };
 
+/** Non-throwing provider lookup by name — null when no plugin with that
+ *  entityName is registered. */
+export function findProviderPlugin(
+  ctx: HandlerContext,
+  providerName: string,
+): ResolvedProvider | null {
+  const usage = ctx.registry
+    .getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION)
+    .find((u) => u.entityName === providerName);
+  // @cast-boundary engine-payload — extension-usage carries unknown options
+  return usage ? { name: providerName, plugin: usage.options as SubscriptionProviderPlugin } : null;
+}
+
 export function resolveProviderPlugin(ctx: HandlerContext, providerName: string): ResolvedProvider {
-  const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
-  const usage = usages.find((u) => u.entityName === providerName);
-  if (!usage) {
-    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
+  const found = findProviderPlugin(ctx, providerName);
+  if (!found) {
+    const known =
+      ctx.registry
+        .getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION)
+        .map((u) => u.entityName)
+        .join(", ") || "<none>";
     throw new Error(
       `subscription-foundation: provider "${providerName}" not registered. Known: ${known}.`,
     );
   }
-  // @cast-boundary engine-payload — extension-usage carries unknown options
-  return { name: providerName, plugin: usage.options as SubscriptionProviderPlugin };
+  return found;
 }
 
 /** Picks the catalog's provider — an explicit `catalog.providerName`, or the
@@ -59,13 +74,16 @@ export function findCatalogProvider(
   ctx: HandlerContext,
   catalog: BillingPlanCatalog,
 ): ResolvedProvider | null {
-  const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
   if (catalog.providerName) {
-    const usage = usages.find((u) => u.entityName === catalog.providerName);
-    if (!usage) return null;
-    // @cast-boundary engine-payload — extension-usage carries unknown options
-    return { name: catalog.providerName, plugin: usage.options as SubscriptionProviderPlugin };
+    const found = findProviderPlugin(ctx, catalog.providerName);
+    if (!found) {
+      ctx.log?.warn(
+        `billing-foundation: catalog.providerName "${catalog.providerName}" is not a registered subscriptionProvider — billing-plans renders as disabled`,
+      );
+    }
+    return found;
   }
+  const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
   const withPriceCatalog = usages.filter(
     (u) => (u.options as SubscriptionProviderPlugin).priceToTier !== undefined,
   );
