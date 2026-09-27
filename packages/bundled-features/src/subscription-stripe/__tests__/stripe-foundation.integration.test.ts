@@ -570,14 +570,14 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
       sysAdmin,
     );
 
-    // Gate jetzt offen: nicht mehr feature_disabled. isBillingEnabled (=
+    // Gate now open, no longer feature_disabled. isBillingEnabled (=
     // billing-live AND an api-key existence probe — the fallback key above
     // satisfies it) now returns true, so openCheckout's pre-flight gate
     // passes through to the actual price-catalog check, which rejects an
     // unknown priceId as 422 unknown_price (never reaching Stripe — no live
-    // call). Wäre der billing-live-Handle falsch qualifiziert, bliebe
-    // ctx.config undefined → isBillingEnabled false → Fehler weiter
-    // feature_disabled, was Step 1 schon oben pinnt.
+    // call). A mis-qualified billing-live handle would leave ctx.config
+    // undefined, so isBillingEnabled stays false and the error stays
+    // feature_disabled, which step 1 above already pins.
     const opened = await gateStack.http.writeErr(
       "billing-foundation:write:create-checkout-session",
       { ...checkoutPayload, priceId: "price_unknown_not_in_catalog" },

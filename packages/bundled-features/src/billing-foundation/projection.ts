@@ -36,10 +36,9 @@ export const paymentsProjectionTable = buildEntityTable("payment", paymentEntity
 // Shared helpers
 // =============================================================================
 
-/** Felder die alle 5 events vollständig zur Verfügung haben. cancelAt bleibt
- *  hier aussen vor — es ist optional (siehe events.ts) und braucht die
- *  cancelAtSetFromPayload-3-way-Unterscheidung (set/null/unchanged), nicht
- *  das unconditional-Kopieren dieser Funktion. */
+/** Fields every one of the 5 events carries in full. cancelAt stays out:
+ *  it is optional (see events.ts) and needs cancelAtSetFromPayload's 3-way
+ *  set/null/unchanged split, not this function's unconditional copy. */
 function fullSetFromPayload(p: SubscriptionEventPayload) {
   return {
     providerName: p.providerName,

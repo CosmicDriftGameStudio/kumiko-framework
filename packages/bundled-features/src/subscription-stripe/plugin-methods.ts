@@ -15,9 +15,11 @@
 // Stripe-Plugin das beim TS-Compile, nicht erst zur Laufzeit.
 
 import { createHash } from "node:crypto";
-import type {
-  ProviderPrice,
-  SubscriptionProviderPlugin,
+import {
+  KNOWN_RECURRING_INTERVALS,
+  type ProviderPrice,
+  type RecurringInterval,
+  type SubscriptionProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -129,30 +131,18 @@ export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
 // retrievePrices — bulk price lookup for the billing-plans catalog
 // =============================================================================
 
-/** Stripe 22.6's `Stripe.Price.Recurring.Interval` widened to include
- *  future interval strings (`OtherString`) it hasn't typed yet —
- *  `ProviderPrice["interval"]` stays the closed 4-value union, so an
- *  unrecognized value narrows to null instead of a cast. */
-export function toProviderPriceInterval(
-  value: string | null | undefined,
-): ProviderPrice["interval"] {
-  switch (value) {
-    case "day":
-    case "week":
-    case "month":
-    case "year":
-      return value;
-    default:
-      return null;
-  }
+// stripe >= 22.5 widened Recurring.Interval to an open union; an interval Stripe adds later narrows to null here instead of widening ProviderPrice.
+function isKnownRecurringInterval(interval: string | undefined): interval is RecurringInterval {
+  return KNOWN_RECURRING_INTERVALS.some((known) => known === interval);
 }
 
 function mapStripePrice(price: Stripe.Price): ProviderPrice {
+  const interval = price.recurring?.interval;
   return {
     priceId: price.id,
     unitAmount: price.unit_amount,
     currency: price.currency,
-    interval: toProviderPriceInterval(price.recurring?.interval),
+    interval: isKnownRecurringInterval(interval) ? interval : null,
     intervalCount: price.recurring?.interval_count ?? null,
     active: price.active,
     metadata: price.metadata ?? {},

@@ -11,8 +11,9 @@ title: subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulti
 detail: |
   The bundled `stripe` dependency moves from ^22.1.1 to ^22.6.2.
   Stripe.Price.Recurring.Interval widened in that range; mapStripePrice
-  now narrows it through a new `toProviderPriceInterval` helper instead of
-  a cast (an unrecognized interval maps to `null`). Apps pinning their own
+  now narrows it against the exported `KNOWN_RECURRING_INTERVALS` /
+  `RecurringInterval` from billing-foundation instead of a cast (an
+  unrecognized interval maps to `null`). Apps pinning their own
   `stripe` override for this mismatch can remove it.
 
   The plugin gains a new `oneOffPriceIds` option (validated at mount

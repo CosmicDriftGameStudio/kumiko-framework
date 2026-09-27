@@ -26,7 +26,6 @@ import {
   createStripePortalSession,
   createStripePriceCache,
   createStripeRetrievePrices,
-  toProviderPriceInterval,
 } from "../plugin-methods";
 import type { StripeCtxRuntime } from "../runtime";
 
@@ -324,21 +323,6 @@ function stripePrice(overrides: Record<string, unknown> = {}): any {
   };
 }
 
-describe("toProviderPriceInterval", () => {
-  test("narrows the 4 known Stripe intervals", () => {
-    expect(toProviderPriceInterval("day")).toBe("day");
-    expect(toProviderPriceInterval("week")).toBe("week");
-    expect(toProviderPriceInterval("month")).toBe("month");
-    expect(toProviderPriceInterval("year")).toBe("year");
-  });
-
-  test("unknown/absent value narrows to null", () => {
-    expect(toProviderPriceInterval("fortnight")).toBeNull();
-    expect(toProviderPriceInterval(null)).toBeNull();
-    expect(toProviderPriceInterval(undefined)).toBeNull();
-  });
-});
-
 describe("createStripeRetrievePrices", () => {
   test("maps Stripe prices to ProviderPrice", async () => {
     const stripe = buildStripe();
@@ -357,6 +341,30 @@ describe("createStripeRetrievePrices", () => {
         metadata: {},
       },
     ]);
+  });
+
+  test.each(["day", "week", "month", "year"] as const)(
+    "passes a known recurring interval %s through",
+    async (interval) => {
+      const stripe = buildStripe();
+      spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+        stripePrice({ id, recurring: { interval, interval_count: 1 } })) as never);
+      const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
+      const [result] = await retrieve(stubCtx, ["price_pro"]);
+      expect(result?.interval).toBe(interval);
+    },
+  );
+
+  test("maps an interval unknown to ProviderPrice to null — forward-compat with stripe's open Interval union", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+      // stripe >= 22.5 types Recurring.Interval as a forward-compatible union
+      // (known literals | string); a future Stripe interval isn't one of
+      // KNOWN_RECURRING_INTERVALS and must map to null, not widen ProviderPrice.
+      stripePrice({ id, recurring: { interval: "biannual", interval_count: 1 } })) as never);
+    const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
+    const [result] = await retrieve(stubCtx, ["price_pro"]);
+    expect(result?.interval).toBeNull();
   });
 
   test("a cache-hit skips clientForCtx entirely — no Stripe SDK call fires", async () => {
