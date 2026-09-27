@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CustomScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { firstOpenScreenQn } from "../create-app";
+import { firstLandingScreenQnForProjectedSchema, firstOpenScreenQn } from "../create-app";
 
 function feature(
   overrides: Partial<FeatureSchema> & { readonly featureName: string },
@@ -83,5 +83,45 @@ describe("firstOpenScreenQn", () => {
       }),
     ];
     expect(firstOpenScreenQn(features)).toBe("shop:screen:catalog");
+  });
+});
+
+describe("firstLandingScreenQnForProjectedSchema", () => {
+  test("SystemAdmin-only schema (screen restricted + placed in nav): firstOpenScreenQn is undefined, projected landing returns it", () => {
+    const features: readonly FeatureSchema[] = [
+      feature({
+        featureName: "admin",
+        screens: [customScreen({ id: "dashboard", access: { roles: ["SystemAdmin"] } })],
+        navs: [{ id: "dashboard", label: "admin:nav.dashboard", screen: "admin:screen:dashboard" }],
+      }),
+    ];
+    expect(firstOpenScreenQn(features)).toBeUndefined();
+    expect(firstLandingScreenQnForProjectedSchema(features)).toBe("admin:screen:dashboard");
+  });
+
+  test("mixed schema (restricted declared first, open second, both in nav): projected landing still prefers the open screen", () => {
+    const features: readonly FeatureSchema[] = [
+      feature({
+        featureName: "admin",
+        screens: [customScreen({ id: "dashboard", access: { roles: ["SystemAdmin"] } })],
+        navs: [{ id: "dashboard", label: "admin:nav.dashboard", screen: "admin:screen:dashboard" }],
+      }),
+      feature({
+        featureName: "shop",
+        screens: [customScreen({ id: "catalog" })],
+        navs: [{ id: "catalog", label: "shop:nav.catalog", screen: "shop:screen:catalog" }],
+      }),
+    ];
+    expect(firstLandingScreenQnForProjectedSchema(features)).toBe("shop:screen:catalog");
+  });
+
+  test("restricted screen not placed in nav is never returned", () => {
+    const features: readonly FeatureSchema[] = [
+      feature({
+        featureName: "admin",
+        screens: [customScreen({ id: "dashboard", access: { roles: ["SystemAdmin"] } })],
+      }),
+    ];
+    expect(firstLandingScreenQnForProjectedSchema(features)).toBeUndefined();
   });
 });

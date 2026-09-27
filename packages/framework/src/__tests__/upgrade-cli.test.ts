@@ -14,8 +14,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   findCodemodScriptsRoot,
-  findCoreChangelogFile,
   findFeaturesDirs,
+  findPackageChangelogFiles,
   resolveCodemodScript,
   runUpgradeCli,
   type UpgradeCliOut,
@@ -195,6 +195,37 @@ describe("upgrade command — framework core changelog", () => {
     expect(exit).toBe(0);
     const result = JSON.parse(spy.logs.join("\n"));
     expect(result.installedVersion).toBeNull();
+  });
+});
+
+describe("upgrade command — every package's changelog, not just framework core", () => {
+  const SERVER_RUNTIME_ENTRY = JSON.stringify([
+    { version: "0.168.0", type: "breaking", title: "server-runtime breaking change" },
+  ]);
+
+  test("a hoisted non-framework, non-bundled-features package's changes.json shows up in pending", async () => {
+    const cwd = tmp({
+      "node_modules/@cosmicdrift/kumiko-server-runtime/src/changes.json": SERVER_RUNTIME_ENTRY,
+      "apps/web/package.json": "{}",
+    });
+
+    const result = await runJson(`${cwd}/apps/web`, "0.165.0");
+
+    expect(result.pending.map((e) => e.title)).toEqual(["server-runtime breaking change"]);
+  });
+
+  test("bundled-features is never double-counted alongside findFeaturesDirs's own collection", async () => {
+    const cwd = tmp({
+      "node_modules/@cosmicdrift/kumiko-server-runtime/src/changes.json": SERVER_RUNTIME_ENTRY,
+      "node_modules/@cosmicdrift/kumiko-bundled-features/src/user/changes.json": FEATURE_ENTRY,
+      "apps/web/package.json": "{}",
+    });
+
+    const result = await runJson(`${cwd}/apps/web`, "0.165.0");
+
+    expect(result.pending.map((e) => e.title).sort()).toEqual(
+      ["feature fix", "server-runtime breaking change"].sort(),
+    );
   });
 });
 
@@ -641,9 +672,8 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
   }
 
   test("every codemod field is a scripts/codemod/*.ts path that resolves to an existing published script", () => {
-    const coreChangelog = findCoreChangelogFile(REAL_REPO_ROOT);
     const changesJsonFiles = [
-      ...(coreChangelog ? [coreChangelog] : []),
+      ...findPackageChangelogFiles(REAL_REPO_ROOT),
       ...findFeaturesDirs(REAL_REPO_ROOT).flatMap((dir) => findChangesJsonFiles(dir)),
     ];
     expect(changesJsonFiles.length).toBeGreaterThan(0);

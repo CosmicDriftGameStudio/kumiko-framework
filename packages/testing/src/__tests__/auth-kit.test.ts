@@ -1,6 +1,28 @@
 import { describe, expect, test } from "bun:test";
-import { csrfHeaderFromCookies, totpCode } from "../e2e/auth-kit";
+import type { APIRequestContext, APIResponse } from "@playwright/test";
+import {
+  csrfHeaderFromCookies,
+  loginViaApi,
+  syntheticClientIpFor,
+  totpCode,
+} from "../e2e/auth-kit";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "../e2e/constants";
+
+type CapturedPost = {
+  readonly path: string;
+  readonly options: { headers?: Record<string, string> };
+};
+
+function fakeRequestContext(onPost: (call: CapturedPost) => void): APIRequestContext {
+  const fakeResponse = { ok: () => true, status: () => 200, text: async () => "" } as APIResponse;
+  return {
+    post: async (path: string, options?: { headers?: Record<string, string> }) => {
+      onPost({ path, options: options ?? {} });
+      return fakeResponse;
+    },
+    // @cast-boundary engine-bridge — test double covers only the subset loginViaApi calls
+  } as unknown as APIRequestContext;
+}
 
 describe("csrfHeaderFromCookies", () => {
   test("echoes the csrf cookie as the CSRF header", () => {
@@ -15,6 +37,36 @@ describe("csrfHeaderFromCookies", () => {
   test("sends no header when the cookie is absent", () => {
     expect(csrfHeaderFromCookies([{ name: "kumiko_auth", value: "jwt" }])).toEqual({});
     expect(csrfHeaderFromCookies([])).toEqual({});
+  });
+});
+
+describe("syntheticClientIpFor", () => {
+  test("is deterministic for the same email", () => {
+    expect(syntheticClientIpFor("a@example.com")).toBe(syntheticClientIpFor("a@example.com"));
+  });
+
+  test("differs across emails", () => {
+    expect(syntheticClientIpFor("a@example.com")).not.toBe(syntheticClientIpFor("b@example.com"));
+  });
+
+  test("stays in the RFC 1918 10.0.0.0/8 private range", () => {
+    expect(syntheticClientIpFor("a@example.com")).toMatch(/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/);
+  });
+});
+
+describe("loginViaApi", () => {
+  test("sends a synthetic per-email X-Forwarded-For header", async () => {
+    let captured: CapturedPost | undefined;
+    const context = fakeRequestContext((call) => {
+      captured = call;
+    });
+
+    await loginViaApi(context, { email: "a@example.com", password: "secret" });
+
+    expect(captured?.path).toBe("/api/auth/login");
+    expect(captured?.options.headers?.["x-forwarded-for"]).toBe(
+      syntheticClientIpFor("a@example.com"),
+    );
   });
 });
 

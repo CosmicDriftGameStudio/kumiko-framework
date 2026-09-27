@@ -49,7 +49,11 @@ import type {
   SessionMetadata,
   TokenVerifier,
 } from "@cosmicdrift/kumiko-framework/api";
-import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
+import {
+  createInMemoryLoginRateLimiter,
+  parseTrustedProxyHopsEnv,
+  TRUSTED_PROXY_HOPS_ENV,
+} from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -279,8 +283,9 @@ export type RunDevAppOptions = {
   /** Forwarded to createKumikoServer → setupTestStack's top-level
    *  `trustedProxyHops` — symmetric to
    *  RunProdAppOptions.trustedProxyHops. Wins over the deprecated
-   *  `auth.trustedProxyHops`. Dev usually runs unproxied, so this is
-   *  normally left unset (default 0). */
+   *  `auth.trustedProxyHops`, which wins over the `KUMIKO_TRUSTED_PROXY_HOPS`
+   *  env var. Dev usually runs unproxied, so this is normally left unset
+   *  (default 0). */
   readonly trustedProxyHops?: number;
 };
 
@@ -486,6 +491,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }
       : {};
 
+  const trustedProxyHops =
+    options.trustedProxyHops ??
+    effectiveAuth?.trustedProxyHops ??
+    parseTrustedProxyHopsEnv(envSource[TRUSTED_PROXY_HOPS_ENV], "runDevApp");
+
   const handle = await createKumikoServer({
     features,
     ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
@@ -505,9 +515,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(options.files !== undefined && { files: options.files }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     ...(options.wire !== undefined && { wire: options.wire }),
-    ...((options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops) !== undefined && {
-      trustedProxyHops: options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops,
-    }),
+    ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...(finalEffectiveFeatures !== undefined && {
       effectiveFeatures: finalEffectiveFeatures,
     }),

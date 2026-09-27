@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import { type APIRequestContext, type APIResponse, expect, type Page } from "@playwright/test";
@@ -34,12 +35,21 @@ export async function csrfFetch(
   return request.post(path, { headers: csrfHeaderFromCookies(cookies), data });
 }
 
+// Deterministic per-email IP in the RFC 1918 private range, so the same
+// seeded user always lands in the same rate-limit bucket across retries
+// while different users get distinct buckets (3 varying bytes ~= 16M slots).
+export function syntheticClientIpFor(email: string): string {
+  const digest = createHash("sha256").update(email).digest();
+  return `10.${digest[0]}.${digest[1]}.${digest[2]}`;
+}
+
 export async function loginViaApi(
   request: APIRequestContext,
   credentials: LoginCredentials,
 ): Promise<void> {
   const response = await request.post("/api/auth/login", {
     data: { email: credentials.email, password: credentials.password },
+    headers: { "x-forwarded-for": syntheticClientIpFor(credentials.email) },
   });
   if (!response.ok()) {
     throw new Error(

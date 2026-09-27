@@ -7,7 +7,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   findCodemodScriptsRoot,
-  findCoreChangelogFile,
   findFeaturesDirs,
   resolveCodemodScript,
 } from "@cosmicdrift/kumiko-framework/upgrade-cli";
@@ -72,6 +71,26 @@ function isFrameworkRepo(repoRoot: string): boolean {
   return existsSync(join(repoRoot, "packages/framework"));
 }
 
+// The framework-core changelog specifically — `kumiko changes add --feature
+// framework` writes to exactly this one file, unlike upgrade-cli's
+// findPackageChangelogFiles which collects every package's changes.json for
+// the pending-changes listing.
+function findFrameworkCoreChangelogFile(repoRoot: string): string | null {
+  const repoPath = join(repoRoot, "packages/framework/src/changes.json");
+  if (existsSync(repoPath)) return repoPath;
+
+  let dir = repoRoot;
+  for (let i = 0; i < 10; i++) {
+    const nmPath = join(dir, "node_modules/@cosmicdrift/kumiko-framework/src/changes.json");
+    if (existsSync(nmPath)) return nmPath;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return null;
+}
+
 // Standalone framework tooling packages (guards, cli, dev-server, ...) live
 // directly under packages/<name> — they're not a bundled-features entry (no
 // packages/bundled-features/src/<name> nesting) and not the framework core
@@ -99,7 +118,8 @@ function resolveStandaloneFrameworkPackage(repoRoot: string, featureName: string
 
 function resolveFeatureTarget(repoRoot: string, featureName: string): PackageTarget | null {
   if (featureName === "framework" || featureName === "framework-core" || featureName === "core") {
-    const changelogPath = findCoreChangelogFile(repoRoot) ?? join(repoRoot, "packages/framework/src/changes.json");
+    const changelogPath =
+      findFrameworkCoreChangelogFile(repoRoot) ?? join(repoRoot, "packages/framework/src/changes.json");
     const packageName = readPackageName(join(repoRoot, "packages/framework"));
     return packageName && existsSync(join(repoRoot, "packages/framework"))
       ? { packageName, changelogPath }

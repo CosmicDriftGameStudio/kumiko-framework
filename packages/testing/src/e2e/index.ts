@@ -15,6 +15,7 @@ export {
   type LoginCredentials,
   loginViaApi,
   loginViaUi,
+  syntheticClientIpFor,
   totpCode,
 } from "./auth-kit";
 export {

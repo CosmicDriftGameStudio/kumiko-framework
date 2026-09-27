@@ -100,22 +100,49 @@ function collectChangelogs(featuresDir: string): ChangelogEntry[] {
   return entries;
 }
 
-// Framework core changes belong to no feature — they live in a single
-// changes.json next to the framework sources.
-export function findCoreChangelogFile(cwd: string): string | null {
-  const repoPath = join(cwd, "packages/framework/src/changes.json");
-  if (existsSync(repoPath)) return repoPath;
+// bundled-features is excluded: findFeaturesDirs collects it per feature
+// (src/<feature>/changes.json), every other package has one src/changes.json.
+export function findPackageChangelogFiles(cwd: string): string[] {
+  const isFrameworkRepo = existsSync(join(cwd, "packages/framework"));
+  if (isFrameworkRepo) {
+    const packagesDir = join(cwd, "packages");
+    return readdirSync(packagesDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name !== "bundled-features")
+      .map((d) => join(packagesDir, d.name, "src", "changes.json"))
+      .filter((p) => existsSync(p));
+  }
 
+  // Consumer/app repo: walk up (same 10-level cap as the other node_modules
+  // walks) collecting every hoisted @cosmicdrift package's changes.json.
+  // Dedupe by package dir name — the nearest node_modules to cwd wins, same
+  // precedence as findCodemodScriptsRoot/readPackageVersion. realpath also
+  // dedupes a workspace symlink that resolves to an already-collected file.
+  const files: string[] = [];
+  const seenNames = new Set<string>();
+  const seenRealPaths = new Set<string>();
   let dir = cwd;
   for (let i = 0; i < 10; i++) {
-    const nmPath = join(dir, "node_modules/@cosmicdrift/kumiko-framework/src/changes.json");
-    if (existsSync(nmPath)) return nmPath;
+    const scopeDir = join(dir, "node_modules/@cosmicdrift");
+    if (existsSync(scopeDir)) {
+      const pkgNames = readdirSync(scopeDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && d.name !== "kumiko-bundled-features")
+        .map((d) => d.name);
+      for (const name of pkgNames) {
+        if (seenNames.has(name)) continue;
+        const changelogPath = join(scopeDir, name, "src", "changes.json");
+        if (!existsSync(changelogPath)) continue;
+        seenNames.add(name);
+        const realPath = realpathSync(changelogPath);
+        if (seenRealPaths.has(realPath)) continue;
+        seenRealPaths.add(realPath);
+        files.push(changelogPath);
+      }
+    }
     const parent = join(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
-
-  return null;
+  return files;
 }
 
 export function findFeaturesDirs(cwd: string): string[] {
@@ -129,10 +156,9 @@ export function findFeaturesDirs(cwd: string): string[] {
   // Detected by presence of changes.json, not a package-name prefix — a
   // prefix heuristic silently stops matching once packages are renamed or a
   // differently-named package is added (fw#1605). Skipped inside the
-  // framework repo itself (packages/framework present): its own
-  // packages/framework/src/changes.json is the core changelog (already
-  // collected via findCoreChangelogFile), not a feature package, and would
-  // otherwise get double-counted as one here.
+  // framework repo itself (packages/framework present): every package's own
+  // changes.json is already collected via findPackageChangelogFiles, and
+  // would otherwise get double-counted as one here.
   const isFrameworkRepo = existsSync(join(cwd, "packages/framework"));
   const entDir = join(cwd, "packages");
   if (!isFrameworkRepo && existsSync(entDir)) {
@@ -513,8 +539,8 @@ export async function runUpgradeCli(
   }
 
   const featuresDirs = findFeaturesDirs(cwd);
-  const coreChangelogFile = findCoreChangelogFile(cwd);
-  if (featuresDirs.length === 0 && !coreChangelogFile) {
+  const packageChangelogFiles = findPackageChangelogFiles(cwd);
+  if (featuresDirs.length === 0 && packageChangelogFiles.length === 0) {
     out.err("");
     out.err("  Could not find bundled-features directory.");
     out.err("  Run from framework/enterprise repo or an app with node_modules.");
@@ -526,8 +552,8 @@ export async function runUpgradeCli(
   for (const dir of featuresDirs) {
     allEntries.push(...collectChangelogs(dir));
   }
-  if (coreChangelogFile) {
-    allEntries.push(...readChangelogFile(coreChangelogFile));
+  for (const changelogFile of packageChangelogFiles) {
+    allEntries.push(...readChangelogFile(changelogFile));
   }
   const pending = sortEntries(filterEntriesAfter(allEntries, currentVersion));
 

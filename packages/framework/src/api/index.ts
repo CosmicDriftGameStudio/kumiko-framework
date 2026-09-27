@@ -34,6 +34,8 @@ export {
   clientIpSourceFromHonoContext,
   createClientIpResolver,
   extractSocketAddress,
+  parseTrustedProxyHopsEnv,
+  TRUSTED_PROXY_HOPS_ENV,
   UNKNOWN_CLIENT_IP,
 } from "./client-ip";
 export type {

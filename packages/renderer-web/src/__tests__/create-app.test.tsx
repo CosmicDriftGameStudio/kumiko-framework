@@ -17,6 +17,7 @@ import type {
 import {
   createStaticLocaleResolver,
   toAppSchema,
+  UserRolesProvider,
   useContentEditor,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -859,6 +860,41 @@ describe("createKumikoApp", () => {
           screen.getByText("This app has no screen that's accessible without a role restriction."),
         ).toBeTruthy(),
       );
+    });
+
+    // GET /api/schema already projects away screens the caller's roles can't see, so a pure SystemAdmin's fetched
+    // schema legitimately has ONLY role-restricted screens left — the
+    // landing fallback must still find one instead of showing no-open-screen.
+    test("200 with a SystemAdmin-only nav-reachable schema → renders it, no no-open-screen banner", async () => {
+      mountRoot();
+      const systemAdminOnly: AppSchema = {
+        features: [
+          {
+            featureName: "admin",
+            entities: { task: taskEntity },
+            screens: [{ ...listScreen, id: "admin-list", access: { roles: ["SystemAdmin"] } }],
+            navs: [
+              {
+                id: "admin-list",
+                label: "admin:nav.admin-list",
+                screen: "admin:screen:admin-list",
+              },
+            ],
+          },
+        ],
+      };
+      mockFetch(() => new Response(JSON.stringify(systemAdminOnly), { status: 200 }));
+      function SystemAdminRoleProvider({ children }: { readonly children: ReactNode }): ReactNode {
+        return <UserRolesProvider roles={["SystemAdmin"]}>{children}</UserRolesProvider>;
+      }
+      await mountApp({
+        dispatcher: makeDispatcher(),
+        clientFeatures: [{ name: "role-stub", providers: [SystemAdminRoleProvider] }],
+      });
+      expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+      expect(
+        screen.queryByText("This app has no screen that's accessible without a role restriction."),
+      ).toBeNull();
     });
 
     test("clientFeature gate rendering a placeholder instead of children → fetch never runs", async () => {

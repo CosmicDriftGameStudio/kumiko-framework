@@ -585,6 +585,48 @@ describe("extraRoutes: entry:signature", () => {
   });
 });
 
+describe("extraRoutes: entry:anonymous deps.clientIp", () => {
+  const clientIpRoute: AnonymousExtraRoute = {
+    method: "GET",
+    path: "/public/client-ip-probe",
+    entry: "anonymous",
+    handler: async (c, deps) => c.json({ clientIp: deps.clientIp }),
+  };
+
+  test("default trustedProxyHops (0): a spoofed X-Forwarded-For is ignored, socket address wins", async () => {
+    const stack = await setupTestStack({
+      features: [probeFeature],
+      extraRoutes: [clientIpRoute],
+    });
+    try {
+      const res = await stack.app.request(
+        "/public/client-ip-probe",
+        { headers: { "x-forwarded-for": "203.0.113.10" } },
+        "198.51.100.9",
+      );
+      expect(await res.json()).toEqual({ clientIp: "198.51.100.9" });
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("trustedProxyHops: 1 — the rightmost X-Forwarded-For entry is trusted", async () => {
+    const stack = await setupTestStack({
+      features: [probeFeature],
+      extraRoutes: [clientIpRoute],
+      trustedProxyHops: 1,
+    });
+    try {
+      const res = await stack.app.request("/public/client-ip-probe", {
+        headers: { "x-forwarded-for": "203.0.113.10" },
+      });
+      expect(await res.json()).toEqual({ clientIp: "203.0.113.10" });
+    } finally {
+      await stack.cleanup();
+    }
+  });
+});
+
 // Type-level contract for ExtraRouteDefinition (kumiko-framework#3050): the
 // bodies below are never invoked — tsc checks them, bun:test does not run
 // them. Each `@ts-expect-error` turns into an "unused directive" compile

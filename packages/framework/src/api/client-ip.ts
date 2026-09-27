@@ -44,6 +44,33 @@ export function assertValidTrustedProxyHops(value: number | undefined, context: 
   }
 }
 
+export const TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS";
+
+// Fail loud on a garbage env value rather than silently coercing to NaN:
+// a resolver built from NaN treats it like "always short chain" and returns
+// "unknown" for every request, which collapses an IP-keyed rate limiter
+// into one shared bucket for the whole deployment — a self-inflicted DoS,
+// worse than staying on the default. Digits-only (not parseInt) —
+// parseInt("0x10")/("1e3")/("2x") would silently coerce instead of failing.
+export function parseTrustedProxyHopsEnv(
+  raw: string | undefined,
+  context: string,
+): number | undefined {
+  if (raw === undefined) return undefined;
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      `${context}: ${TRUSTED_PROXY_HOPS_ENV} must be a non-negative integer, got "${raw}".`,
+    );
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(
+      `${context}: ${TRUSTED_PROXY_HOPS_ENV} must be a non-negative integer, got "${raw}".`,
+    );
+  }
+  return parsed;
+}
+
 // Instance-scoped, NOT a module singleton: the warn-once flag must reset
 // per server boot (and per test), otherwise the first test to trigger it
 // consumes the warning for the whole process and later tests can't observe
