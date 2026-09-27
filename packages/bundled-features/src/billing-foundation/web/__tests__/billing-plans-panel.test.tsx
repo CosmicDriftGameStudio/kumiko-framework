@@ -91,10 +91,23 @@ function plan(overrides: Partial<BillingPlanView> = {}): BillingPlanView {
   };
 }
 
+type SubscriptionFixture = NonNullable<BillingPlansResult["subscription"]>;
+
+function subscription(overrides: Partial<SubscriptionFixture> = {}): SubscriptionFixture {
+  return {
+    status: "active",
+    tier: "pro",
+    terminal: false,
+    currentPeriodEnd: "2024-02-01T00:00:00Z",
+    cancelAt: null,
+    ...overrides,
+  };
+}
+
 function result(overrides: Partial<BillingPlansResult> = {}): BillingPlansResult {
   return {
     enabled: true,
-    currentTier: { tier: "free", labelKey: "plan.free.label" },
+    currentTier: { tier: "free", labelKey: "plan.free.label", benefits: [] },
     subscription: null,
     canPurchase: true,
     plans: [plan()],
@@ -187,7 +200,7 @@ describe("BillingPlansPanel", () => {
   test("current tier outside the catalog gets a synthetic current-tier card alongside every purchasable plan", () => {
     queryState = {
       data: result({
-        currentTier: { tier: "free", labelKey: "plan.free.label" },
+        currentTier: { tier: "free", labelKey: "plan.free.label", benefits: [] },
         plans: [plan({ tier: "pro", isCurrent: false, action: BillingPlanActions.checkout })],
       }),
       loading: false,
@@ -225,7 +238,7 @@ describe("BillingPlansPanel", () => {
   test("current plan with an active switchable subscription renders a manage-subscription button", async () => {
     queryState = {
       data: result({
-        subscription: { status: "active", tier: "pro", terminal: false },
+        subscription: subscription(),
         plans: [plan({ isCurrent: true, action: BillingPlanActions.current })],
       }),
       loading: false,
@@ -238,7 +251,7 @@ describe("BillingPlansPanel", () => {
         "https://billing-portal.example.com/session",
       );
     });
-    expect(portalMutate).toHaveBeenCalledWith({ returnUrl: window.location.href });
+    expect(portalMutate).toHaveBeenCalledWith({});
   });
 
   test("checkout action dispatches start-plan-checkout with the tier and redirects to the returned url", async () => {
@@ -254,14 +267,14 @@ describe("BillingPlansPanel", () => {
   test("switch action dispatches switch-plan instead of start-plan-checkout", async () => {
     queryState = {
       data: result({
-        subscription: { status: "active", tier: "basic", terminal: false },
+        subscription: subscription({ tier: "basic" }),
         plans: [plan({ action: BillingPlanActions.switch })],
       }),
       loading: false,
       error: null,
     };
     renderPanel();
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
     await waitFor(() => {
       expect(switchMutate).toHaveBeenCalledWith({ tier: "pro" });
     });
@@ -309,7 +322,7 @@ describe("BillingPlansPanel", () => {
     };
     queryState = {
       data: result({
-        subscription: { status: "active", tier: "pro", terminal: false },
+        subscription: subscription(),
         plans: [plan({ isCurrent: true, action: BillingPlanActions.current })],
       }),
       loading: false,
@@ -327,7 +340,7 @@ describe("BillingPlansPanel", () => {
   test("paymentPending shows the still-completing hint and no cta button", () => {
     queryState = {
       data: result({
-        subscription: { status: "incomplete", tier: "pro", terminal: false },
+        subscription: subscription({ status: "incomplete" }),
         plans: [plan({ action: BillingPlanActions.paymentPending })],
       }),
       loading: false,
@@ -335,7 +348,7 @@ describe("BillingPlansPanel", () => {
     };
     renderPanel();
     expect(screen.getByText("billing-foundation.plans.paymentPending")).toBeTruthy();
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByTestId("billing-plan-card-pro-cta")).toBeNull();
   });
 
   test("price=null renders the price-unavailable fallback and a disabled cta", () => {

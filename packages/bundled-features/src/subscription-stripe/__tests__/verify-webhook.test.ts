@@ -61,6 +61,8 @@ function buildSubscriptionEvent(overrides: {
   customerId?: string;
   subscriptionId?: string;
   currentPeriodEndUnix?: number;
+  cancelAtUnix?: number | null;
+  cancelAtPeriodEnd?: boolean;
 }) {
   const eventId = overrides.eventId ?? "evt_test_001";
   const eventType = overrides.eventType ?? "customer.subscription.created";
@@ -83,6 +85,8 @@ function buildSubscriptionEvent(overrides: {
         object: "subscription",
         customer: customerId,
         status: overrides.status ?? "active",
+        cancel_at: overrides.cancelAtUnix ?? null,
+        cancel_at_period_end: overrides.cancelAtPeriodEnd ?? false,
         metadata: {
           tenantId: overrides.tenantId ?? "tenant-test-1",
         },
@@ -275,6 +279,39 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     // 1_780_000_000 sec = 2026-05-28T20:26:40Z (in ms: 1.78e12)
     // Temporal.Instant.toString() droppt Trailing-Zeros — keine .000Z
     expect(event?.currentPeriodEnd).toBe("2026-05-28T20:26:40Z");
+  });
+});
+
+describe("verifyAndParseStripeWebhook — cancelAt mapping", () => {
+  const verify = asSubscriptionVerifier(
+    verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    }),
+  );
+
+  test("explicit cancel_at (unix sec) → ISO", async () => {
+    const payload = JSON.stringify(
+      buildSubscriptionEvent({ cancelAtUnix: 1_780_500_000, currentPeriodEndUnix: 1_780_000_000 }),
+    );
+    const sig = await signEvent(payload);
+    const event = await verify(payload, { "stripe-signature": sig });
+    expect(event?.cancelAt).toBe("2026-06-03T15:20:00Z");
+  });
+
+  test("cancel_at_period_end without an explicit cancel_at → currentPeriodEnd's ISO value", async () => {
+    const payload = JSON.stringify(
+      buildSubscriptionEvent({ cancelAtPeriodEnd: true, currentPeriodEndUnix: 1_780_000_000 }),
+    );
+    const sig = await signEvent(payload);
+    const event = await verify(payload, { "stripe-signature": sig });
+    expect(event?.cancelAt).toBe(event?.currentPeriodEnd);
+  });
+
+  test("neither cancel_at nor cancel_at_period_end → null (renews as-is)", async () => {
+    const payload = JSON.stringify(buildSubscriptionEvent({}));
+    const sig = await signEvent(payload);
+    const event = await verify(payload, { "stripe-signature": sig });
+    expect(event?.cancelAt).toBeNull();
   });
 });
 

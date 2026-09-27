@@ -4,6 +4,7 @@
 // Internal — not re-exported from index.ts.
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { isPluginBillingEnabled } from "./checkout-core";
 import {
   BillingPlanActions,
   DEFAULT_PURCHASE_ROLES,
@@ -24,13 +25,15 @@ function userHasAnyRole(userRoles: readonly string[], allowedRoles: readonly str
   return allowedRoles.some((role) => userRoles.includes(role));
 }
 
-/** `catalog.purchaseRoles ?? DEFAULT_PURCHASE_ROLES` — the one place this
+/** `catalog?.purchaseRoles ?? DEFAULT_PURCHASE_ROLES` — the one place this
  *  fallback is spelled out; plan-catalog.ts and the start-plan-checkout/
- *  switch-plan handlers all call this instead of repeating the literal. */
+ *  switch-plan/create-portal-session handlers all call this instead of
+ *  repeating the literal. Accepts `undefined` so create-portal-session
+ *  (mounted with or without a catalog) doesn't need its own fallback. */
 export function purchaseRolesOf(
-  catalog: Pick<BillingPlanCatalog, "purchaseRoles">,
+  catalog: Pick<BillingPlanCatalog, "purchaseRoles"> | undefined,
 ): readonly string[] {
-  return catalog.purchaseRoles ?? DEFAULT_PURCHASE_ROLES;
+  return catalog?.purchaseRoles ?? DEFAULT_PURCHASE_ROLES;
 }
 
 function invertPriceToTier(
@@ -115,7 +118,7 @@ function resolvePlanAction(
   enabled: boolean,
   canPurchase: boolean,
   subscription: ActiveSubscription | null,
-  plugin: SubscriptionProviderPlugin,
+  plugin: SubscriptionProviderPlugin | null,
 ): (typeof BillingPlanActions)[keyof typeof BillingPlanActions] {
   if (isCurrent) return BillingPlanActions.current;
 
@@ -133,21 +136,26 @@ function resolvePlanAction(
   const canSwitch =
     isSwitchableSubscriptionStatus(subscription.status) &&
     tier !== subscription.tier &&
-    plugin.createPlanSwitchSession;
+    plugin?.createPlanSwitchSession;
   return canSwitch ? BillingPlanActions.switch : BillingPlanActions.unavailable;
 }
 
+/** `plugin === null` — no provider is registered/resolvable for this
+ *  catalog (see checkout-core's `findCatalogProvider`) — collapses onto the
+ *  same "enabled: false" result a disabled provider produces, rather than
+ *  a separate error shape the panel would need to special-case. */
 export async function buildBillingPlans(
   ctx: HandlerContext,
-  plugin: SubscriptionProviderPlugin,
+  plugin: SubscriptionProviderPlugin | null,
   catalog: BillingPlanCatalog,
   now: () => Temporal.Instant,
 ): Promise<BillingPlansResult> {
   const currentTierValue = await catalog.resolveCurrentTier(ctx.db, ctx.user.tenantId);
-  const enabled = plugin.isBillingEnabled ? await plugin.isBillingEnabled(ctx) : true;
-  const resolvedPrices = enabled
-    ? await resolvePlanPrices(ctx, plugin, catalog)
-    : new Map<string, ResolvedPlanPrice>(catalog.plans.map((tier) => [tier, null]));
+  const enabled = plugin !== null && (await isPluginBillingEnabled(ctx, plugin));
+  const resolvedPrices =
+    enabled && plugin
+      ? await resolvePlanPrices(ctx, plugin, catalog)
+      : new Map<string, ResolvedPlanPrice>(catalog.plans.map((tier) => [tier, null]));
 
   const subscriptionView = await getSubscriptionForTenant(ctx, ctx.user.tenantId);
   const nowInstant = now();
@@ -156,6 +164,8 @@ export async function buildBillingPlans(
         status: subscriptionView.status,
         tier: subscriptionView.tier,
         terminal: !isSubscriptionBlockingCheckout(subscriptionView, nowInstant),
+        currentPeriodEnd: subscriptionView.currentPeriodEnd.toString(),
+        cancelAt: subscriptionView.cancelAt?.toString() ?? null,
       }
     : null;
 
@@ -196,7 +206,11 @@ export async function buildBillingPlans(
 
   return {
     enabled,
-    currentTier: { tier: currentTierValue, labelKey: catalog.tierLabelKey(currentTierValue) },
+    currentTier: {
+      tier: currentTierValue,
+      labelKey: catalog.tierLabelKey(currentTierValue),
+      benefits: catalog.benefits(currentTierValue),
+    },
     subscription,
     canPurchase,
     plans,

@@ -6,10 +6,15 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   ConflictError,
+  FeatureDisabledError,
   UnconfiguredError,
   UnprocessableError,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { isSubscriptionBlockingCheckout, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
+import {
+  BILLING_FOUNDATION_FEATURE,
+  isSubscriptionBlockingCheckout,
+  SUBSCRIPTION_PROVIDER_EXTENSION,
+} from "./constants";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant";
 import type { BillingPlanCatalog, SubscriptionProviderPlugin } from "./types";
 
@@ -30,50 +35,140 @@ export type ResolvedProvider = {
   readonly plugin: SubscriptionProviderPlugin;
 };
 
+/** Non-throwing provider lookup by name — null when no plugin with that
+ *  entityName is registered. */
+export function findProviderPlugin(
+  ctx: HandlerContext,
+  providerName: string,
+): ResolvedProvider | null {
+  const usage = ctx.registry
+    .getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION)
+    .find((u) => u.entityName === providerName);
+  // @cast-boundary engine-payload — extension-usage carries unknown options
+  return usage ? { name: providerName, plugin: usage.options as SubscriptionProviderPlugin } : null;
+}
+
 export function resolveProviderPlugin(ctx: HandlerContext, providerName: string): ResolvedProvider {
-  const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
-  const usage = usages.find((u) => u.entityName === providerName);
-  if (!usage) {
-    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
+  const found = findProviderPlugin(ctx, providerName);
+  if (!found) {
+    const known =
+      ctx.registry
+        .getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION)
+        .map((u) => u.entityName)
+        .join(", ") || "<none>";
     throw new Error(
       `subscription-foundation: provider "${providerName}" not registered. Known: ${known}.`,
     );
   }
-  // @cast-boundary engine-payload — extension-usage carries unknown options
-  return { name: providerName, plugin: usage.options as SubscriptionProviderPlugin };
+  return found;
 }
 
 /** Picks the catalog's provider — an explicit `catalog.providerName`, or the
  *  single registered provider exposing `priceToTier` when there is exactly
- *  one. Throws `UnconfiguredError` otherwise (none, or an ambiguous choice
- *  between several). */
-export function resolveCatalogProvider(
+ *  one. Returns null when no provider is available (unset `providerName` not
+ *  registered, or no registered plugin exposes `priceToTier`) — a config
+ *  state `billing-plans` renders as `enabled: false` instead of erroring.
+ *  More than one candidate is a config bug, not a "no provider yet" state,
+ *  and still throws `UnconfiguredError`. */
+export function findCatalogProvider(
   ctx: HandlerContext,
   catalog: BillingPlanCatalog,
-): ResolvedProvider {
+): ResolvedProvider | null {
   if (catalog.providerName) {
-    return resolveProviderPlugin(ctx, catalog.providerName);
+    const found = findProviderPlugin(ctx, catalog.providerName);
+    if (!found) {
+      ctx.log?.warn(
+        `billing-foundation: catalog.providerName "${catalog.providerName}" is not a registered subscriptionProvider — billing-plans renders as disabled`,
+      );
+    }
+    return found;
   }
   const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
   const withPriceCatalog = usages.filter(
     (u) => (u.options as SubscriptionProviderPlugin).priceToTier !== undefined,
   );
-  if (withPriceCatalog.length !== 1) {
+  if (withPriceCatalog.length > 1) {
     throw new UnconfiguredError({
       feature: "billing-foundation",
       key: "catalog.providerName",
-      hint:
-        withPriceCatalog.length === 0
-          ? "no registered subscriptionProvider plugin exposes priceToTier"
-          : `ambiguous — ${withPriceCatalog.length} registered plugins expose priceToTier, set catalog.providerName explicitly`,
+      hint: `ambiguous — ${withPriceCatalog.length} registered plugins expose priceToTier, set catalog.providerName explicitly`,
     });
   }
   const usage = withPriceCatalog[0];
-  if (!usage) {
-    throw new UnconfiguredError({ feature: "billing-foundation", key: "catalog.providerName" });
-  }
+  if (!usage) return null;
   // @cast-boundary engine-payload — extension-usage carries unknown options
   return { name: usage.entityName, plugin: usage.options as SubscriptionProviderPlugin };
+}
+
+/** `findCatalogProvider` for callers that require a provider to proceed —
+ *  start-plan-checkout and switch-plan. `FeatureDisabledError` (not
+ *  `UnconfiguredError`) when none is found: an unconfigured provider is
+ *  the same "billing isn't live yet" state as `isPluginBillingEnabled`
+ *  returning false, and the panel already renders both the same way. */
+export function resolveCatalogProvider(
+  ctx: HandlerContext,
+  catalog: BillingPlanCatalog,
+  handlerName: string,
+): ResolvedProvider {
+  const found = findCatalogProvider(ctx, catalog);
+  if (!found) {
+    throw new FeatureDisabledError(BILLING_FOUNDATION_FEATURE, handlerName);
+  }
+  return found;
+}
+
+/** `plugin.isBillingEnabled?.(ctx) ?? true` — the one place this fallback is
+ *  spelled out, so no call-site forgets to await the optional method before
+ *  applying the `?? true` default. */
+export async function isPluginBillingEnabled(
+  ctx: HandlerContext,
+  plugin: SubscriptionProviderPlugin,
+): Promise<boolean> {
+  return (await plugin.isBillingEnabled?.(ctx)) ?? true;
+}
+
+/** Throws `FeatureDisabledError` unless the plugin reports billing enabled —
+ *  shared by every handler that must refuse to act while billing isn't live
+ *  (`openCheckout`, start-plan-checkout, switch-plan). */
+export async function assertBillingEnabled(
+  ctx: HandlerContext,
+  plugin: SubscriptionProviderPlugin,
+  handlerName: string,
+): Promise<void> {
+  const enabled = await isPluginBillingEnabled(ctx, plugin);
+  if (!enabled) {
+    throw new FeatureDisabledError(BILLING_FOUNDATION_FEATURE, handlerName);
+  }
+}
+
+/** Public readiness-probe for a named provider — `resolveProviderPlugin` +
+ *  `isPluginBillingEnabled`, re-exported from index.ts so an app-owner can
+ *  check billing readiness without reaching into checkout-core internals. */
+export async function isBillingEnabled(
+  ctx: HandlerContext,
+  providerName: string,
+): Promise<boolean> {
+  const { plugin } = resolveProviderPlugin(ctx, providerName);
+  return isPluginBillingEnabled(ctx, plugin);
+}
+
+/** `create-portal-session`'s returnUrl, built server-side (the client no
+ *  longer supplies one) — `catalog.returnPath` when set, else `baseUrl`
+ *  itself. Sharing `baseUrl`'s origin is guaranteed by construction
+ *  (`joinBaseUrl` only ever concatenates onto it), so no separate
+ *  `assertRedirectOrigins` call is needed here. */
+export function portalReturnUrl(options: {
+  readonly baseUrl?: string;
+  readonly catalog?: BillingPlanCatalog;
+}): string {
+  if (options.baseUrl === undefined) {
+    throw new UnconfiguredError({
+      feature: "billing-foundation",
+      key: "baseUrl",
+      hint: "pass createBillingFoundationFeature({ baseUrl }) so create-portal-session can build a returnUrl",
+    });
+  }
+  return joinBaseUrl(options.baseUrl, options.catalog?.returnPath ?? "");
 }
 
 /** Every redirect URL a checkout/portal call carries must share the origin
@@ -183,6 +278,47 @@ export type OpenCheckoutInput = {
   readonly mode?: "subscription" | "payment";
 };
 
+function assertSubscriptionPriceAllowed(
+  plugin: SubscriptionProviderPlugin,
+  catalog: BillingPlanCatalog | undefined,
+  input: OpenCheckoutInput,
+): void {
+  if (!plugin.priceToTier) {
+    throw new UnprocessableError("provider_has_no_price_catalog", {
+      i18nKey: "billing-foundation.errors.providerHasNoPriceCatalog",
+      message: `subscription-foundation: provider "${input.providerName}" has no priceToTier — cannot verify priceId "${input.priceId}" belongs to a known plan`,
+    });
+  }
+  const tier = plugin.priceToTier[input.priceId];
+  if (!tier) {
+    throw new UnprocessableError("unknown_price", {
+      i18nKey: "billing-foundation.errors.unknownPrice",
+      message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s priceToTier`,
+    });
+  }
+  if (catalog && !catalog.plans.includes(tier)) {
+    throw new UnprocessableError("unknown_price", {
+      i18nKey: "billing-foundation.errors.unknownPrice",
+      message: `subscription-foundation: priceId "${input.priceId}" maps to tier "${tier}", which is not one of the catalog's plans`,
+    });
+  }
+}
+
+// Missing/empty oneOffPriceIds rejects every payment checkout: same
+// "no gate configured yet = closed" default as the priceToTier gate.
+function assertOneOffPriceAllowed(
+  plugin: SubscriptionProviderPlugin,
+  input: OpenCheckoutInput,
+): void {
+  const oneOffPriceIds = plugin.oneOffPriceIds ?? [];
+  if (!oneOffPriceIds.includes(input.priceId)) {
+    throw new UnprocessableError("unknown_price", {
+      i18nKey: "billing-foundation.errors.unknownPrice",
+      message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s oneOffPriceIds`,
+    });
+  }
+}
+
 /** The one checkout entry-point create-checkout-session and
  *  start-plan-checkout both funnel through. `mode: "payment"` (one-off
  *  top-ups etc.) skips the price/subscription gates entirely — those apply
@@ -199,6 +335,10 @@ export async function openCheckout(
     );
   }
 
+  // Checked before the redirect-origin hardening for every mode — a
+  // disabled provider must reject a mode:"payment" checkout just as much
+  // as a mode:"subscription" one.
+  await assertBillingEnabled(ctx, plugin, "create-checkout-session");
   assertRedirectOrigins([input.successUrl, input.cancelUrl], options.baseUrl);
 
   const mode = input.mode ?? "subscription";
@@ -207,27 +347,10 @@ export async function openCheckout(
   let ownSubscription: Awaited<ReturnType<typeof getSubscriptionForTenant>> | undefined;
 
   if (mode === "subscription") {
-    if (!plugin.priceToTier) {
-      throw new UnprocessableError("provider_has_no_price_catalog", {
-        i18nKey: "billing-foundation.errors.providerHasNoPriceCatalog",
-        message: `subscription-foundation: provider "${input.providerName}" has no priceToTier — cannot verify priceId "${input.priceId}" belongs to a known plan`,
-      });
-    }
-    const tier = plugin.priceToTier[input.priceId];
-    if (!tier) {
-      throw new UnprocessableError("unknown_price", {
-        i18nKey: "billing-foundation.errors.unknownPrice",
-        message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s priceToTier`,
-      });
-    }
-    if (options.catalog && !options.catalog.plans.includes(tier)) {
-      throw new UnprocessableError("unknown_price", {
-        i18nKey: "billing-foundation.errors.unknownPrice",
-        message: `subscription-foundation: priceId "${input.priceId}" maps to tier "${tier}", which is not one of the catalog's plans`,
-      });
-    }
-
+    assertSubscriptionPriceAllowed(plugin, options.catalog, input);
     ownSubscription = await assertNoActiveSubscription(ctx, options.now());
+  } else {
+    assertOneOffPriceAllowed(plugin, input);
   }
 
   // Rejects a foreign tenant's provider-customer id — otherwise the checkout

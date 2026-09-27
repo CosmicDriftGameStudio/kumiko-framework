@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-25T14:52:44.006Z",
+  "generatedAt": "2026-09-27T00:50:48.724Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2046,6 +2046,11 @@
           "name": "current_period_end",
           "pgType": "timestamptz",
           "notNull": true
+        },
+        {
+          "name": "cancel_at",
+          "pgType": "timestamptz",
+          "notNull": false
         }
       ],
       "indexes": [

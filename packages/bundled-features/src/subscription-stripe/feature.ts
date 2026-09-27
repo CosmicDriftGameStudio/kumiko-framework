@@ -106,7 +106,30 @@ export type SubscriptionStripeOptions = {
    *  mode:"subscription" — Stripe rejects invoice_creation there; the
    *  subscription's own invoicing covers it. */
   readonly paymentInvoiceCreation?: boolean;
+  /** Allowlist of Stripe price-ids a mode:"payment" (one-off) checkout may
+   *  target — checkout-core's `openCheckout` rejects any other priceId as
+   *  `unknown_price`. App-specific and empty by default: without an
+   *  explicit allowlist every one-off checkout is closed, the same
+   *  fail-closed default `priceToTier` has for mode:"subscription". */
+  readonly oneOffPriceIds?: readonly string[];
 };
+
+// Validated once at feature-build time (not per-request) so a config typo
+// (a pasted-twice priceId, a blank string from a bad env-join) fails app
+// startup instead of silently widening — or narrowing — the one-off
+// allowlist at request time. Mirrors legal-pages' validateRoutes.
+function validateOneOffPriceIds(priceIds: readonly string[]): void {
+  const seen = new Set<string>();
+  for (const priceId of priceIds) {
+    if (priceId.length === 0) {
+      throw new Error("subscription-stripe: oneOffPriceIds must not contain an empty string");
+    }
+    if (seen.has(priceId)) {
+      throw new Error(`subscription-stripe: duplicate oneOffPriceIds entry "${priceId}"`);
+    }
+    seen.add(priceId);
+  }
+}
 
 /**
  * Factory für das subscription-stripe-feature. Mountet IMMER (kein
@@ -118,6 +141,7 @@ export type SubscriptionStripeOptions = {
 export function createSubscriptionStripeFeature(
   options: SubscriptionStripeOptions = {},
 ): FeatureDefinition {
+  validateOneOffPriceIds(options.oneOffPriceIds ?? []);
   return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
     r.describe(
       'Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements webhook verify, checkout, portal, cancel, `retrievePrices` (10-minute TTL-cached price lookup for the billing-plans catalog) and `createPlanSwitchSession` (auto-provisions a Customer-Portal configuration for switching an existing subscription to another plan tier — each tier needs its own Stripe product), plus `isBillingEnabled` (billingLive + an api-key existence probe, no secret read).',
@@ -207,6 +231,7 @@ export function createSubscriptionStripeFeature(
       createPortalSession: createStripePortalSession(runtimes.ctx),
       cancelSubscription: createStripeCancelSubscription(runtimes.ctx),
       priceToTier: options.priceToTier ?? {},
+      oneOffPriceIds: options.oneOffPriceIds ?? [],
       isBillingEnabled: runtimes.ctx.isBillingEnabled,
       retrievePrices: createStripeRetrievePrices(runtimes.ctx, priceCache),
       createPlanSwitchSession: createStripePlanSwitchSession(

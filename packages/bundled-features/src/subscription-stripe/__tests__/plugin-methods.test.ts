@@ -343,6 +343,30 @@ describe("createStripeRetrievePrices", () => {
     ]);
   });
 
+  test.each(["day", "week", "month", "year"] as const)(
+    "passes a known recurring interval %s through",
+    async (interval) => {
+      const stripe = buildStripe();
+      spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+        stripePrice({ id, recurring: { interval, interval_count: 1 } })) as never);
+      const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
+      const [result] = await retrieve(stubCtx, ["price_pro"]);
+      expect(result?.interval).toBe(interval);
+    },
+  );
+
+  test("maps an interval unknown to ProviderPrice to null — forward-compat with stripe's open Interval union", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+      // stripe >= 22.5 types Recurring.Interval as a forward-compatible union
+      // (known literals | string); a future Stripe interval isn't one of
+      // KNOWN_RECURRING_INTERVALS and must map to null, not widen ProviderPrice.
+      stripePrice({ id, recurring: { interval: "biannual", interval_count: 1 } })) as never);
+    const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
+    const [result] = await retrieve(stubCtx, ["price_pro"]);
+    expect(result?.interval).toBeNull();
+  });
+
   test("a cache-hit skips clientForCtx entirely — no Stripe SDK call fires", async () => {
     const stripe = buildStripe();
     const retrieveMock = spyOn(stripe.prices, "retrieve");

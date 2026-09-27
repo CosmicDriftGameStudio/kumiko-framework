@@ -76,6 +76,11 @@ export type SubscriptionEvent = {
   readonly tier: string;
   /** ISO-timestamp wann die aktuelle Billing-Period endet. */
   readonly currentPeriodEnd: string;
+  /** ISO instant a scheduled cancellation ends the subscription. null =
+   *  it keeps renewing; undefined = the provider doesn't report it (e.g.
+   *  Mollie), so projection.ts leaves the column unchanged instead of
+   *  nulling it. */
+  readonly cancelAt?: string | null;
   /** Raw provider-payload — wird 1:1 in subscription-event.rawPayload
    *  archiviert. Plugin liefert das als JSON-stringified-string. */
   readonly rawPayload: string;
@@ -234,6 +239,16 @@ export type SubscriptionProviderPlugin = {
   readonly priceToTier?: Readonly<Record<string, string>>;
 
   /**
+   * Allowlist of the provider's own price/plan-ids that may be checked out
+   * with `mode: "payment"` (one-off top-ups etc.) — mirrors `priceToTier`'s
+   * role for `mode: "subscription"`. Missing or empty → every mode:"payment"
+   * checkout is rejected as `unknown_price`, since without a list there is
+   * no way to tell a legitimate one-off price from an arbitrary caller-
+   * supplied string.
+   */
+  readonly oneOffPriceIds?: readonly string[];
+
+  /**
    * Whether the provider is ready to accept live checkouts right now
    * (credentials configured, master-switch on, ...). Missing → foundation
    * treats billing as enabled (no readiness gate to check).
@@ -272,6 +287,10 @@ export type SubscriptionProviderPlugin = {
 // Provider price + billing-plans catalog
 // =============================================================================
 
+// Closed set a provider's recurring-price interval narrows to; an unrecognized provider value maps to null instead of widening this type.
+export const KNOWN_RECURRING_INTERVALS = ["day", "week", "month", "year"] as const;
+export type RecurringInterval = (typeof KNOWN_RECURRING_INTERVALS)[number];
+
 export type ProviderPrice = {
   readonly priceId: string;
   /** Smallest currency unit (e.g. cents). Null for prices with no flat
@@ -279,8 +298,9 @@ export type ProviderPrice = {
   readonly unitAmount: number | null;
   /** Lower-case ISO currency code, as returned by the provider. */
   readonly currency: string;
-  /** Null for a one-off (non-recurring) price. */
-  readonly interval: "day" | "week" | "month" | "year" | null;
+  /** Null for a one-off (non-recurring) price, or an interval the provider
+   *  returned that isn't in KNOWN_RECURRING_INTERVALS. */
+  readonly interval: RecurringInterval | null;
   readonly intervalCount: number | null;
   readonly active: boolean;
   readonly metadata: Readonly<Record<string, string>>;
@@ -310,7 +330,9 @@ export type BillingPlanCatalog<TTier extends string = string> = {
    *  with "/" (and not "//"). */
   readonly successPath: string;
   readonly cancelPath: string;
-  /** Portal return-path after a plan switch. Defaults to `successPath`. */
+  /** Portal return-path — used both by `create-portal-session` (defaults to
+   *  `baseUrl` itself when unset) and by `switch-plan` after a plan switch
+   *  (defaults to `successPath` there instead). */
   readonly returnPath?: string;
   /** Defaults to the only registered provider exposing `priceToTier`. */
   readonly providerName?: string;
@@ -357,11 +379,17 @@ export type BillingPlanView = {
 
 export type BillingPlansResult = {
   readonly enabled: boolean;
-  readonly currentTier: { readonly tier: string; readonly labelKey: string };
+  readonly currentTier: {
+    readonly tier: string;
+    readonly labelKey: string;
+    readonly benefits: readonly BillingPlanBenefit[];
+  };
   readonly subscription: {
     readonly status: string;
     readonly tier: string;
     readonly terminal: boolean;
+    readonly currentPeriodEnd: string;
+    readonly cancelAt: string | null;
   } | null;
   readonly canPurchase: boolean;
   readonly plans: readonly BillingPlanView[];

@@ -22,6 +22,10 @@ function subscriptionView(overrides: Partial<SubscriptionView> = {}): Subscripti
     // at runtime — SubscriptionView.lastChangedAt is typed against the
     // ambient Temporal global; temporal-polyfill's own nominal Instant type
     // differs across the two .d.ts sources.
+    currentPeriodEnd: TemporalPolyfill.Instant.from(
+      "2024-02-01T00:00:00Z",
+    ) as unknown as Temporal.Instant,
+    cancelAt: null,
     lastChangedAt: TemporalPolyfill.Instant.from(
       "2024-01-01T00:00:00Z",
     ) as unknown as Temporal.Instant,

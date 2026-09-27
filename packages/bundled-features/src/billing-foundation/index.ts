@@ -7,6 +7,11 @@ export {
   createBillingInfoQueryConfig,
 } from "./billing-info-query";
 export {
+  isBillingEnabled,
+  type ResolvedProvider,
+  resolveProviderPlugin,
+} from "./checkout-core";
+export {
   BILLING_FOUNDATION_FEATURE,
   BILLING_PLANS_PANEL_COMPONENT,
   BILLING_PLANS_SCREEN_ID,
@@ -58,17 +63,19 @@ export {
   SUBSCRIPTION_WEBHOOK_PATH,
   type SubscriptionTierSyncDeps,
 } from "./subscription-tier-sync";
-export type {
-  BillingFoundationOptions,
-  BillingPlanBenefit,
-  BillingPlanCatalog,
-  BillingPlanPrice,
-  BillingPlansResult,
-  BillingPlanView,
-  PaymentEvent,
-  ProviderPrice,
-  SubscriptionEvent,
-  SubscriptionProviderPlugin,
+export {
+  type BillingFoundationOptions,
+  type BillingPlanBenefit,
+  type BillingPlanCatalog,
+  type BillingPlanPrice,
+  type BillingPlansResult,
+  type BillingPlanView,
+  KNOWN_RECURRING_INTERVALS,
+  type PaymentEvent,
+  type ProviderPrice,
+  type RecurringInterval,
+  type SubscriptionEvent,
+  type SubscriptionProviderPlugin,
 } from "./types";
 export {
   createSubscriptionWebhookRoute,

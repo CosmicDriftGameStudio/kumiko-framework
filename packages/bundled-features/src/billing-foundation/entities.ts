@@ -27,11 +27,12 @@ import {
 //   - tier: "free" / "pro" / ... — vom tier-engine konsumiert. Aus
 //     price-to-tier-Map resolved im Plugin.
 //   - currentPeriodEnd: wann läuft die aktuelle Billing-Period aus.
+//   - cancelAt: when a scheduled cancellation ends the subscription;
+//     nullable because a renewing subscription has none.
 //
 // **Was hier NICHT ist:**
 //   - invoice-history, payment-method, line-items, tax-info → all das
 //     fetcht der Tenant via customer-portal-session direkt vom Provider.
-//   - cancelAt, cancelAtPeriodEnd → Provider-Sache.
 //
 // **Audit/event-history:** lebt im event-store unter dem `subscription`-
 // stream — KEIN eigene `subscription-event`-Tabelle mehr (= ES ist die
@@ -79,6 +80,7 @@ export const subscriptionEntity = createEntity({
       reason: "catalog_label",
     }),
     currentPeriodEnd: createTimestampField({ required: true }),
+    cancelAt: createTimestampField({ required: false }),
   },
 });
 

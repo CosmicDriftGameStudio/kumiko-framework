@@ -82,6 +82,7 @@ const checkoutCalls: Array<{
   successUrl: string;
   cancelUrl: string;
   providerCustomerId?: string;
+  mode?: string;
 }> = [];
 const switchCalls: Array<{
   providerSubscriptionId: string;
@@ -89,12 +90,14 @@ const switchCalls: Array<{
   allowedPriceIds: readonly string[];
   returnUrl: string;
 }> = [];
+const portalCalls: Array<{ providerCustomerId: string; returnUrl: string }> = [];
 
 const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => {
   r.requires("billing-foundation");
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     priceToTier: PRICE_TO_TIER,
+    oneOffPriceIds: ["price_topup_credits"],
     isBillingEnabled: async () => billingEnabled,
     retrievePrices: async (_ctx, priceIds) => {
       if (retrievePricesMode === "throw") throw new Error("mock provider price lookup failed");
@@ -106,8 +109,16 @@ const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => 
         successUrl: options.successUrl,
         cancelUrl: options.cancelUrl,
         ...(options.providerCustomerId && { providerCustomerId: options.providerCustomerId }),
+        ...(options.mode && { mode: options.mode }),
       });
       return { url: `https://mock.example/checkout/${options.priceId}` };
+    },
+    createPortalSession: async (_ctx, options) => {
+      portalCalls.push({
+        providerCustomerId: options.providerCustomerId,
+        returnUrl: options.returnUrl,
+      });
+      return { url: `https://mock.example/portal/${options.providerCustomerId}` };
     },
     createPlanSwitchSession: async (_ctx, options) => {
       if (switchPlanErrorMode === "plan_tiers_share_product") {
@@ -201,6 +212,7 @@ beforeEach(() => {
   switchPlanErrorMode = "ok";
   checkoutCalls.length = 0;
   switchCalls.length = 0;
+  portalCalls.length = 0;
 });
 
 function adminFor(tenantNumber: number) {
@@ -254,7 +266,7 @@ describe("billing-plans query — no subscription", () => {
       admin,
     )) as {
       enabled: boolean;
-      currentTier: { tier: string };
+      currentTier: { tier: string; benefits: Array<{ labelKey: string }> };
       canPurchase: boolean;
       subscription: unknown;
       plans: Array<{ tier: string; action: string; price: { unitAmount: number } | null }>;
@@ -262,6 +274,9 @@ describe("billing-plans query — no subscription", () => {
 
     expect(result.enabled).toBe(true);
     expect(result.currentTier.tier).toBe("free");
+    // #3316 P2: "free" is outside catalog.plans (["starter", "pro"]) — the
+    // benefits lookup must not be gated on membership in catalog.plans.
+    expect(result.currentTier.benefits).toEqual([{ labelKey: "plan.free.benefit.core" }]);
     expect(result.subscription).toBeNull();
     expect(result.canPurchase).toBe(true);
     expect(result.plans).toHaveLength(2);
@@ -294,6 +309,7 @@ describe("start-plan-checkout — no existing subscription", () => {
       priceId: "price_pro",
       successUrl: "https://app.example.com/billing/success",
       cancelUrl: "https://app.example.com/billing/cancel",
+      mode: "subscription",
     });
   });
 });
@@ -393,6 +409,47 @@ describe("active subscription — checkout blocked, switch offered", () => {
       admin,
     )) as { url: string };
     expect(result.url).toBe("https://mock.example/checkout/price_topup_credits");
+    // #3316 P8: the plugin receives mode:"payment", not silently defaulted
+    // to "subscription" or dropped.
+    expect(checkoutCalls[0]?.mode).toBe("payment");
+  });
+
+  test("create-checkout-session mode:payment rejects a priceId outside the provider's oneOffPriceIds allowlist", async () => {
+    const admin = adminFor(7025);
+    const error = await stack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock-plan-provider",
+        priceId: "price_not_on_allowlist",
+        successUrl: "https://app.example.com/s",
+        cancelUrl: "https://app.example.com/c",
+        mode: "payment",
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.unknownPrice");
+  });
+
+  // Ordering pin: mode:"payment" runs the billing-enabled gate BEFORE the
+  // oneOffPriceIds allowlist check, same as mode:"subscription" already did.
+  // Without this order, a disabled provider would leak "unknown_price" (a
+  // provider-shape detail) instead of the generic "billing disabled" signal.
+  test("create-checkout-session mode:payment with billing disabled fails feature_disabled, not unknown_price", async () => {
+    billingEnabled = false;
+    const admin = adminFor(7026);
+    const error = await stack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock-plan-provider",
+        priceId: "price_not_on_allowlist",
+        successUrl: "https://app.example.com/s",
+        cancelUrl: "https://app.example.com/c",
+        mode: "payment",
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(403);
   });
 });
 
@@ -796,5 +853,182 @@ describe("stale-incomplete subscription — injected clock", () => {
       admin,
     )) as { url: string };
     expect(checkout.url).toBe("https://mock.example/checkout/price_pro");
+  });
+});
+
+// =============================================================================
+// 12. create-portal-session — returnUrl computation + strict payload (#3316 P4)
+// =============================================================================
+
+describe("create-portal-session — returnUrl computation", () => {
+  test("without catalog.returnPath, returnUrl is baseUrl alone", async () => {
+    const admin = adminFor(7027);
+    await createSubscription(admin.tenantId, { tier: "starter" });
+
+    const result = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.createPortalSession,
+      {},
+      admin,
+    )) as { url: string };
+    expect(result.url).toBe(`https://mock.example/portal/cus_${admin.tenantId}`);
+    expect(portalCalls).toHaveLength(1);
+    expect(portalCalls[0]?.returnUrl).toBe("https://app.example.com");
+  });
+
+  test("an unknown-key payload (e.g. a client-supplied returnUrl) is rejected — schema is z.object({}).strict()", async () => {
+    const admin = adminFor(7028);
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createPortalSession,
+      { returnUrl: "https://evil.example" },
+      admin,
+    );
+    expect(error.httpStatus).toBe(400);
+    expect(error.code).toBe("validation_error");
+  });
+
+  describe("with catalog.returnPath configured", () => {
+    let returnPathStack: TestStack;
+
+    beforeAll(async () => {
+      returnPathStack = await setupTestStack({
+        features: [
+          createConfigFeature(),
+          createTenantFeature(),
+          createComplianceProfilesFeature(),
+          createTenantLifecycleFeature(),
+          createBillingFoundationFeature({
+            baseUrl: "https://app.example.com",
+            catalog: catalog({ returnPath: "/billing/portal-return" }),
+          }),
+          mockPlanProviderFeature,
+        ],
+      });
+      await unsafeCreateEntityTable(returnPathStack.db, tenantEntity);
+      await unsafeCreateEntityTable(returnPathStack.db, tenantComplianceProfileEntity);
+    });
+
+    afterAll(async () => {
+      await returnPathStack.cleanup();
+    });
+
+    test("returnUrl is baseUrl + returnPath", async () => {
+      const admin = adminFor(7029);
+      await createSubscription(admin.tenantId, { tier: "starter" }, returnPathStack);
+
+      await returnPathStack.http.writeOk(
+        SubscriptionFoundationHandlers.createPortalSession,
+        {},
+        admin,
+      );
+      expect(portalCalls.at(-1)?.returnUrl).toBe("https://app.example.com/billing/portal-return");
+    });
+  });
+});
+
+// =============================================================================
+// 13. create-portal-session — catalog.purchaseRoles gates who may open the
+//     portal (#3316 P3): only that role gets in, everyone else is 403.
+// =============================================================================
+
+describe("create-portal-session — catalog.purchaseRoles", () => {
+  let purchaseRoleStack: TestStack;
+
+  beforeAll(async () => {
+    purchaseRoleStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        createBillingFoundationFeature({
+          baseUrl: "https://app.example.com",
+          catalog: catalog({ purchaseRoles: ["Admin"] }),
+        }),
+        mockPlanProviderFeature,
+      ],
+    });
+    await unsafeCreateEntityTable(purchaseRoleStack.db, tenantEntity);
+    await unsafeCreateEntityTable(purchaseRoleStack.db, tenantComplianceProfileEntity);
+  });
+
+  afterAll(async () => {
+    await purchaseRoleStack.cleanup();
+  });
+
+  test("a user with only the configured purchase-role gets 200", async () => {
+    const tenantId = testTenantId(7030);
+    await createSubscription(tenantId, { tier: "starter" }, purchaseRoleStack);
+    const adminRoleUser = createTestUser({ id: 7030, tenantId, roles: ["Admin"] });
+
+    const result = (await purchaseRoleStack.http.writeOk(
+      SubscriptionFoundationHandlers.createPortalSession,
+      {},
+      adminRoleUser,
+    )) as { url: string };
+    expect(result.url).toBeTruthy();
+  });
+
+  test("a user without the configured purchase-role gets 403", async () => {
+    const tenantId = testTenantId(7031);
+    await createSubscription(tenantId, { tier: "starter" }, purchaseRoleStack);
+    const nonPurchaser = createTestUser({ id: 7031, tenantId, roles: ["TenantAdmin"] });
+
+    const error = await purchaseRoleStack.http.writeErr(
+      SubscriptionFoundationHandlers.createPortalSession,
+      {},
+      nonPurchaser,
+    );
+    expect(error.httpStatus).toBe(403);
+  });
+});
+
+// =============================================================================
+// 14. No provider registered at all — billing-plans stays enabled:false,
+//     every plan unavailable, start-plan-checkout fails feature_disabled
+//     (#3316 P5).
+// =============================================================================
+
+describe("no subscription-provider mounted at all", () => {
+  let noProviderStack: TestStack;
+
+  beforeAll(async () => {
+    noProviderStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        createBillingFoundationFeature({ baseUrl: "https://app.example.com", catalog: catalog() }),
+        // Deliberately no provider plugin mounted.
+      ],
+    });
+    await unsafeCreateEntityTable(noProviderStack.db, tenantEntity);
+    await unsafeCreateEntityTable(noProviderStack.db, tenantComplianceProfileEntity);
+  });
+
+  afterAll(async () => {
+    await noProviderStack.cleanup();
+  });
+
+  test("billing-plans: enabled:false, every plan unavailable", async () => {
+    const admin = adminFor(7032);
+    const result = (await noProviderStack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      admin,
+    )) as { enabled: boolean; plans: Array<{ action: string }> };
+    expect(result.enabled).toBe(false);
+    for (const plan of result.plans) expect(plan.action).toBe("unavailable");
+  });
+
+  test("start-plan-checkout: feature_disabled", async () => {
+    const admin = adminFor(7033);
+    const error = await noProviderStack.http.writeErr(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro" },
+      admin,
+    );
+    expect(error.httpStatus).toBe(403);
+    expect(error.i18nKey).toBe("errors.feature.disabled");
   });
 });

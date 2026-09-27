@@ -20,6 +20,10 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.plans.choose": { en: "Choose {plan}" },
   "billing-foundation.plans.switch": { en: "Switch to {plan}" },
   "billing-foundation.plans.manage": { en: "Manage subscription" },
+  "billing-foundation.plans.reactivate": { en: "Reactivate subscription" },
+  "billing-foundation.plans.cancelScheduled": {
+    en: "Your subscription is scheduled to end on {date}.",
+  },
   "billing-foundation.plans.paymentPending": {
     en: "Payment is still being completed.",
   },

@@ -4,24 +4,17 @@
 // gets a `catalog`.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  ConflictError,
-  FeatureDisabledError,
-  UnprocessableError,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
+  assertBillingEnabled,
   assertRedirectOrigins,
   isNonEmptyStringArray,
   joinBaseUrl,
   resolveCatalogProvider,
   resolveProviderPlugin,
 } from "../checkout-core";
-import {
-  BILLING_FOUNDATION_FEATURE,
-  isSwitchableSubscriptionStatus,
-  isTerminalSubscriptionStatus,
-} from "../constants";
+import { isSwitchableSubscriptionStatus, isTerminalSubscriptionStatus } from "../constants";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant";
 import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog";
 import type { BillingFoundationOptions, BillingPlanCatalog } from "../types";
@@ -45,12 +38,12 @@ export function createSwitchPlanHandler(
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as { tier: string };
-      const { name: catalogProviderName, plugin } = resolveCatalogProvider(ctx, catalog);
-
-      const enabled = plugin.isBillingEnabled ? await plugin.isBillingEnabled(ctx) : true;
-      if (!enabled) {
-        throw new FeatureDisabledError(BILLING_FOUNDATION_FEATURE, "switch-plan");
-      }
+      const { name: catalogProviderName, plugin } = resolveCatalogProvider(
+        ctx,
+        catalog,
+        "switch-plan",
+      );
+      await assertBillingEnabled(ctx, plugin, "switch-plan");
 
       const sub = await getSubscriptionForTenant(ctx, event.user.tenantId);
       if (

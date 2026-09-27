@@ -1,9 +1,9 @@
 // @runtime client
-// Pure string-Konstanten — keine DB/Node-builtins. Mit `@runtime client`
-// markiert damit auch Browser-Code (Members-Screen etc.) sie importieren
-// kann ohne dass die runtime-isolation-Guard schreit. Runtime darf
-// "client"-Files importieren (siehe RUNTIME_RULES), also bleibt auch
-// der server-side Zugriff (handlers, dispatcher) erhalten.
+// Pure string constants — no DB/Node builtins. Marked `@runtime client` so
+// browser code (Members screen etc.) can import them too without the
+// runtime-isolation guard complaining. Runtime may import "client" files
+// (see RUNTIME_RULES), so server-side access (handlers, dispatcher) stays
+// intact as well.
 export const AUTH_EMAIL_PASSWORD_FEATURE = "auth-email-password" as const;
 
 // Minimum length for reset/verify hmacSecret — mirrors the ≥32-char
@@ -25,20 +25,20 @@ export const AuthHandlers = {
   // Redis lockout state.
   requestAccountUnlock: "auth-email-password:write:request-account-unlock",
   confirmAccountUnlock: "auth-email-password:write:confirm-account-unlock",
-  // Magic-Link Self-Signup (Pre-Activation-Token-Pattern). request mintet
-  // einen opaken Random-Token, speichert ihn bidirektional in Redis und
-  // sendet eine Aktivierungs-Mail. confirm löst den Token ein und legt
-  // user + tenant + Admin-Membership atomar an. emailVerified=true ab
-  // Sekunde 0 — der Klick auf den Mail-Link IST der Beweis.
+  // Magic-link self-signup (pre-activation-token pattern). Request mints an
+  // opaque random token, stores it bidirectionally in Redis and sends an
+  // activation email. Confirm redeems the token and creates
+  // user + tenant + Admin membership atomically. emailVerified=true from
+  // second 0 — clicking the mail link IS the proof.
   signupRequest: "auth-email-password:write:signup-request",
   signupConfirm: "auth-email-password:write:signup-confirm",
-  // Tenant-Invite Magic-Link (Admin lädt User in existing Tenant ein).
-  // Drei separate accept-Endpoints für klare Branch-Separation:
-  //   inviteCreate: Admin → POST email + role
-  //   inviteAccept: logged-in User → POST token (membership-add)
-  //   inviteAcceptWithLogin: anon User mit existing email → POST token + email + password
-  //   inviteSignupComplete: anon User mit neuer email → POST token + password
-  //   inviteCancel: Admin cancelt pending invite
+  // Tenant-invite magic-link (admin invites a user into an existing tenant).
+  // Three separate accept endpoints for clear branch separation:
+  //   inviteCreate: admin → POST email + role
+  //   inviteAccept: logged-in user → POST token (membership-add)
+  //   inviteAcceptWithLogin: anon user with existing email → POST token + email + password
+  //   inviteSignupComplete: anon user with new email → POST token + password
+  //   inviteCancel: admin cancels a pending invite
   inviteCreate: "auth-email-password:write:invite-create",
   inviteAccept: "auth-email-password:write:invite-accept",
   inviteAcceptWithLogin: "auth-email-password:write:invite-accept-with-login",
@@ -76,20 +76,20 @@ export const AuthErrors = {
   // code so a probing client can't distinguish tampered from stale.
   invalidUnlockToken: "invalid_unlock_token",
   unlockNotConfigured: "account_unlock_not_configured",
-  // Self-Signup: alle confirm-Failures (unbekannter Token, schon
-  // konsumiert, abgelaufen) collapsen auf diesen Code — gleicher
-  // anti-enumeration-Trade-off wie reset/verify.
+  // Self-signup: all confirm failures (unknown token, already
+  // consumed, expired) collapse onto this code — same
+  // anti-enumeration trade-off as reset/verify.
   invalidSignupToken: "invalid_signup_token",
   signupNotConfigured: "signup_not_configured",
-  // Self-Signup: confirm lehnt eine bereits registrierte Email ab statt den
-  // bestehenden User wiederzuverwenden (Account-Takeover, #365). KEIN
-  // anti-enumeration-collapse wie invalidSignupToken: wer hier ankommt,
-  // kontrolliert die Inbox (hat den Magic-Link), das Reveal "Email existiert"
-  // ist also keine neue Info.
+  // Self-signup: confirm rejects an already-registered email instead of
+  // reusing the existing user (account takeover, #365). NO
+  // anti-enumeration collapse like invalidSignupToken: whoever gets here
+  // controls the inbox (has the magic link), so revealing "email exists"
+  // is not new information.
   signupEmailAlreadyRegistered: "signup_email_already_registered",
-  // Invite-Flow: alle Token-Failures collapsen auf invalidInviteToken
-  // (anti-enumeration). emailMismatch wenn der invitee versucht den
-  // Link mit einer anderen Email zu accepten als die eingeladene.
+  // Invite flow: all token failures collapse onto invalidInviteToken
+  // (anti-enumeration). emailMismatch when the invitee tries to accept the
+  // link with a different email than the one invited.
   invalidInviteToken: "invalid_invite_token",
   inviteEmailMismatch: "invite_email_mismatch",
   inviteAlreadyMember: "invite_already_member",
@@ -100,17 +100,17 @@ export const AuthErrors = {
   // deliberate enumeration trade-off: the lockout event itself is already
   // observable to the attacker, and legit users benefit from a clear signal.
   accountLocked: "account_locked",
-  // S2.U6 (DSGVO Art. 18) — Account ist im Restricted-Status. Login wird
-  // explicit verweigert mit eigenem Code (nicht zu invalid_credentials
-  // collapsen) damit UI sagen kann "Account ist aktuell pausiert, hier
-  // klicken zum Aufheben". Enumeration-leak akzeptiert: Restriction ist
-  // user-initiiert, der User weiss dass sein Konto restricted ist.
+  // S2.U6 (GDPR Art. 18) — account is in Restricted status. Login is
+  // explicitly refused with its own code (not collapsed into
+  // invalid_credentials) so the UI can say "account is currently paused,
+  // click here to lift it". Enumeration leak accepted: restriction is
+  // user-initiated, the user already knows their account is restricted.
   accountRestricted: "account_restricted",
-  // Account ist im DeletionRequested- oder Deleted-Status. Anders als
-  // Restricted ist das nicht reversibel via Login → wir collapsen auf
-  // invalid_credentials damit Forget-Pfad nicht via Login enumerierbar
-  // wird (User der "Konto loeschen" geklickt hat soll nicht erneut sehen
-  // dass die Email-Adresse noch in der DB existiert).
+  // Account is in DeletionRequested or Deleted status. Unlike
+  // Restricted, this is not reversible via login → we collapse onto
+  // invalid_credentials so the forget-path isn't enumerable via login
+  // (a user who clicked "delete account" shouldn't see again that their
+  // email address still exists in the DB).
 } as const;
 
 // Account-lockout defaults — overridable via
@@ -132,12 +132,12 @@ export const AUTH_RESET_DEFAULT_TTL_MINUTES = 15;
 // replaying the same token re-sets the same flag.
 export const AUTH_VERIFY_DEFAULT_TTL_MINUTES = 24 * 60;
 
-// Self-Signup: 24h Default. Lang genug damit User nicht denken muss
-// "schnell aktivieren" — ein Mail-Link der morgen früh noch geht ist
-// User-Friendly. Kürzere TTLs werfen Resend-Spam weil User vergessen.
+// Self-signup: 24h default. Long enough that the user doesn't have to
+// think "activate quickly" — a mail link that still works tomorrow morning
+// is user-friendly. Shorter TTLs cause resend-spam because users forget.
 export const AUTH_SIGNUP_DEFAULT_TTL_MINUTES = 24 * 60;
 
-// Tenant-Invite: 7 Tage Default. Industry-Standard (GitHub, Linear,
-// Slack); invitees brauchen oft länger zum Reagieren als bei Self-
-// Signup wo die User-Intention frisch ist.
+// Tenant invite: 7 days default. Industry standard (GitHub, Linear,
+// Slack); invitees often need longer to respond than in self-signup,
+// where the user's intent is fresh.
 export const AUTH_INVITE_DEFAULT_TTL_MINUTES = 7 * 24 * 60;

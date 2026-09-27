@@ -36,7 +36,9 @@ export const paymentsProjectionTable = buildEntityTable("payment", paymentEntity
 // Shared helpers
 // =============================================================================
 
-/** Felder die alle 5 events vollständig zur Verfügung haben. */
+/** Fields every one of the 5 events carries in full. cancelAt stays out:
+ *  it is optional (see events.ts) and needs cancelAtSetFromPayload's 3-way
+ *  set/null/unchanged split, not this function's unconditional copy. */
 function fullSetFromPayload(p: SubscriptionEventPayload) {
   return {
     providerName: p.providerName,
@@ -46,6 +48,16 @@ function fullSetFromPayload(p: SubscriptionEventPayload) {
     tier: p.tier,
     currentPeriodEnd: p.currentPeriodEndIso,
   };
+}
+
+/** `cancelAtIso === undefined` (provider doesn't report it, e.g. Mollie) →
+ *  leave the column unchanged; otherwise (a value or explicit `null`) set
+ *  it. Shared by every apply-function below so the 3-way distinction (set /
+ *  clear-to-null / leave-unchanged) lives in exactly one place. */
+function cancelAtSetFromPayload(p: SubscriptionEventPayload): {
+  readonly cancelAt?: string | null;
+} {
+  return p.cancelAtIso !== undefined ? { cancelAt: p.cancelAtIso } : {};
 }
 
 /** UPSERT helper for defensive applies: if the row does not exist yet
@@ -70,6 +82,7 @@ async function upsert(
     status: string;
     tier: string;
     currentPeriodEnd: string;
+    cancelAt: string | null;
   }>,
   fullPayload: SubscriptionEventPayload,
 ): Promise<void> {
@@ -86,6 +99,7 @@ async function upsert(
     status: fullPayload.status,
     tier: fullPayload.tier,
     current_period_end: fullPayload.currentPeriodEndIso,
+    cancel_at: fullPayload.cancelAtIso ?? null,
     modified_at: event.createdAt.toString(),
   };
   // Map camelCase set-keys to snake_case DB columns.
@@ -96,6 +110,7 @@ async function upsert(
     status: "status",
     tier: "tier",
     currentPeriodEnd: "current_period_end",
+    cancelAt: "cancel_at",
   };
   const insertParams = Object.values(insertCols);
   const setEntries = Object.entries(set).filter(([, v]) => v !== undefined);
@@ -125,13 +140,13 @@ async function upsert(
  *  Tenant) den existing row überschreibt statt PK-conflict. */
 export const applySubscriptionCreated = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const full = fullSetFromPayload(event.payload);
-  await upsert(tx, event, full, event.payload);
+  await upsert(tx, event, { ...full, ...cancelAtSetFromPayload(event.payload) }, event.payload);
 });
 
 /** subscription-updated → UPSERT mit allen Feldern. */
 export const applySubscriptionUpdated = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const full = fullSetFromPayload(event.payload);
-  await upsert(tx, event, full, event.payload);
+  await upsert(tx, event, { ...full, ...cancelAtSetFromPayload(event.payload) }, event.payload);
 });
 
 /** subscription-canceled → status/tier/currentPeriodEnd patchen. */
@@ -141,7 +156,12 @@ export const applySubscriptionCanceled = defineApply<SubscriptionEventPayload>(
     await upsert(
       tx,
       event,
-      { status: p.status, tier: p.tier, currentPeriodEnd: p.currentPeriodEndIso },
+      {
+        status: p.status,
+        tier: p.tier,
+        currentPeriodEnd: p.currentPeriodEndIso,
+        ...cancelAtSetFromPayload(p),
+      },
       p,
     );
   },
@@ -154,7 +174,12 @@ export const applyInvoicePaid = defineApply<SubscriptionEventPayload>(async (eve
   await upsert(
     tx,
     event,
-    { status: p.status, tier: p.tier, currentPeriodEnd: p.currentPeriodEndIso },
+    {
+      status: p.status,
+      tier: p.tier,
+      currentPeriodEnd: p.currentPeriodEndIso,
+      ...cancelAtSetFromPayload(p),
+    },
     p,
   );
 });
@@ -166,7 +191,7 @@ export const applyInvoicePaid = defineApply<SubscriptionEventPayload>(async (eve
 export const applyInvoicePaymentFailed = defineApply<SubscriptionEventPayload>(
   async (event, tx) => {
     const p = event.payload;
-    await upsert(tx, event, { status: p.status, tier: p.tier }, p);
+    await upsert(tx, event, { status: p.status, tier: p.tier, ...cancelAtSetFromPayload(p) }, p);
   },
 );
 

@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { paymentAggregateId, paymentRowId, subscriptionAggregateId } from "../aggregate-id";
 import {
   BILLING_FOUNDATION_FEATURE,
+  BILLING_PLANS_SCREEN_ID,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
@@ -232,5 +233,24 @@ describe("createBillingFoundationFeature — factory validation", () => {
         catalog: catalog({ viewRoles: [] }),
       }),
     ).toThrow(/viewRoles must not be empty/);
+  });
+});
+
+describe("billingFoundationFeature — dormant billing-plans screen (#3316 P9)", () => {
+  test("not registered without a catalog", () => {
+    const feature = createBillingFoundationFeature({ baseUrl: "https://example.com" });
+    expect(feature.screens[BILLING_PLANS_SCREEN_ID]).toBeUndefined();
+  });
+
+  test("not registered with no options at all", () => {
+    expect(billingFoundationFeature.screens[BILLING_PLANS_SCREEN_ID]).toBeUndefined();
+  });
+
+  test("registered once a catalog is configured", () => {
+    const feature = createBillingFoundationFeature({
+      baseUrl: "https://example.com",
+      catalog: catalog(),
+    });
+    expect(feature.screens[BILLING_PLANS_SCREEN_ID]).toBeDefined();
   });
 });
