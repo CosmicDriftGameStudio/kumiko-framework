@@ -253,12 +253,19 @@ function makeDryRunHandle(): ProdAppHandle {
  *  Seit der delivery-Migration trägt PasswordResetOptions selbst `appUrl`
  *  (+ appName/locale) und der Handler mailt via ctx.notify — kein
  *  sendResetEmail-Callback mehr. Apps geben `auth.mail` (Convenience,
- *  resolveAuthMail baut die appUrl) ODER einen expliziten Block. */
-export type PasswordResetSetup = PasswordResetOptions;
+ *  resolveAuthMail baut die appUrl) ODER einen expliziten Block.
+ *
+ *  hmacSecret is optional here (unlike PasswordResetOptions): resolveAuthMail
+ *  backfills it, so overriding just appUrl needs no secret of its own. */
+export type PasswordResetSetup = Omit<PasswordResetOptions, "hmacSecret"> & {
+  readonly hmacSecret?: string;
+};
 
-/** Wrapper-API für den Email-Verification-Flow. Symmetrisch zu
- *  PasswordResetSetup — = EmailVerificationOptions (appUrl via delivery). */
-export type EmailVerificationSetup = EmailVerificationOptions;
+/** Wrapper-API für den Email-Verification-Flow, symmetrisch zu
+ *  PasswordResetSetup (appUrl via delivery, optional hmacSecret). */
+export type EmailVerificationSetup = Omit<EmailVerificationOptions, "hmacSecret"> & {
+  readonly hmacSecret?: string;
+};
 
 /** Wrapper-API für Magic-Link Self-Signup. = SignupOptions (appUrl, die
  *  Mail geht via delivery/ctx.notify wie reset/verify). Anders als reset/
@@ -303,6 +310,9 @@ export type AuthMailOptions = {
   readonly from?: string;
   /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
   readonly paths?: Partial<AuthPaths>;
+  /** Reset/verify token secret, decoupled from JWT_SECRET rotation.
+   *  Falls back to resolveAuthMail's call-site secret when unset. */
+  readonly hmacSecret?: string;
 };
 
 export type RunProdAppAuthOptions = {

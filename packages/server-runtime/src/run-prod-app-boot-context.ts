@@ -2,7 +2,12 @@ import {
   AUDIT_FEATURE,
   createEscapeHatchAuditSink,
 } from "@cosmicdrift/kumiko-bundled-features/audit";
-import { makeAuthPaths } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import {
+  type AuthPath,
+  type EmailVerificationOptions,
+  makeAuthPaths,
+  type PasswordResetOptions,
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { resolveSessionStore } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   bindMfaRevokeAllOtherSessionsFromFeature,
@@ -182,6 +187,15 @@ type AuthMailNormalizable = {
   readonly invite?: InviteSetup;
 };
 
+function buildAuthPathAppUrl(
+  baseUrl: string,
+  path: AuthPath,
+): string | ((locale: string) => string) {
+  return typeof path === "function"
+    ? (locale: string) => `${baseUrl}${path(locale)}`
+    : `${baseUrl}${path}`;
+}
+
 // accountUnlock (#1266) deliberately does NOT join this convenience block —
 // unlike reset/verify/signup/invite it's only meaningful paired with
 // `accountLockout` (kumiko-framework#1627), and apps set both explicitly
@@ -192,8 +206,30 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   auth: T,
   hmacSecret: string,
   envSource: Record<string, string | undefined>,
-): T {
-  if (!auth.mail) return auth;
+): T & {
+  readonly passwordReset?: PasswordResetOptions;
+  readonly emailVerification?: EmailVerificationOptions;
+} {
+  // Runs before the mail/SMTP guards below so an app-supplied block without
+  // hmacSecret is backfilled even without a `mail` block; an explicit secret still wins.
+  const tokenSecret = auth.mail?.hmacSecret ?? hmacSecret;
+  const withResolvedSecrets = {
+    ...auth,
+    ...(auth.passwordReset && {
+      passwordReset: {
+        ...auth.passwordReset,
+        hmacSecret: auth.passwordReset.hmacSecret ?? tokenSecret,
+      },
+    }),
+    ...(auth.emailVerification && {
+      emailVerification: {
+        ...auth.emailVerification,
+        hmacSecret: auth.emailVerification.hmacSecret ?? tokenSecret,
+      },
+    }),
+  };
+
+  if (!auth.mail) return withResolvedSecrets;
   // SMTP-presence gate: ohne SMTP_HOST-env wird KEIN Flow verdrahtet (Routes
   // blieben sonst 500). Der eigentliche Mail-Versand läuft über delivery
   // (channel-email), nicht über diesen Transport — er ist nur der Detektor
@@ -201,7 +237,7 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   if (
     !createSmtpTransportFromEnv(envSource, { fallbackFrom: auth.mail.from ?? "noreply@localhost" })
   ) {
-    return auth;
+    return withResolvedSecrets;
   }
   const paths = makeAuthPaths(auth.mail.paths);
   // appName/locale fließen in alle vier Flow-Options (alle mailen via delivery).
@@ -210,26 +246,26 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
     ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
   };
   return {
-    ...auth,
-    passwordReset: auth.passwordReset ?? {
-      hmacSecret,
-      appUrl: `${auth.mail.baseUrl}${paths.resetPassword}`,
+    ...withResolvedSecrets,
+    passwordReset: withResolvedSecrets.passwordReset ?? {
+      hmacSecret: tokenSecret,
+      appUrl: buildAuthPathAppUrl(auth.mail.baseUrl, paths.resetPassword),
       ...mailPresentation,
     },
-    emailVerification: auth.emailVerification ?? {
-      hmacSecret,
-      appUrl: `${auth.mail.baseUrl}${paths.verifyEmail}`,
+    emailVerification: withResolvedSecrets.emailVerification ?? {
+      hmacSecret: tokenSecret,
+      appUrl: buildAuthPathAppUrl(auth.mail.baseUrl, paths.verifyEmail),
       ...(auth.mail.emailVerificationMode !== undefined && {
         mode: auth.mail.emailVerificationMode,
       }),
       ...mailPresentation,
     },
-    signup: auth.signup ?? {
-      appUrl: `${auth.mail.baseUrl}${paths.signupComplete}`,
+    signup: withResolvedSecrets.signup ?? {
+      appUrl: buildAuthPathAppUrl(auth.mail.baseUrl, paths.signupComplete),
       ...mailPresentation,
     },
-    invite: auth.invite ?? {
-      appUrl: `${auth.mail.baseUrl}${paths.inviteAccept}`,
+    invite: withResolvedSecrets.invite ?? {
+      appUrl: buildAuthPathAppUrl(auth.mail.baseUrl, paths.inviteAccept),
       ...mailPresentation,
     },
   };

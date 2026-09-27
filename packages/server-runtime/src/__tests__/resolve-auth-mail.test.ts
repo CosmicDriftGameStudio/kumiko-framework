@@ -66,4 +66,79 @@ describe("resolveAuthMail", () => {
     expect(out.passwordReset?.appUrl).toBe("https://app.example.com/pw");
     expect(out.emailVerification?.appUrl).toBe("https://app.example.com/verify-email");
   });
+
+  test("function path → locale-aware appUrl, still signed with the resolved hmacSecret", () => {
+    const localeAware: RunProdAppAuthOptions = {
+      admin,
+      mail: {
+        baseUrl: "https://app.example.com",
+        paths: {
+          resetPassword: (locale) => (locale === "de" ? "/de/reset-password" : "/reset-password"),
+        },
+      },
+    };
+    const out = resolveAuthMail(localeAware, "secret", { SMTP_HOST: "localhost" });
+    const appUrl = out.passwordReset?.appUrl;
+    if (typeof appUrl !== "function") throw new Error("expected a locale-aware appUrl function");
+    expect(appUrl("de")).toBe("https://app.example.com/de/reset-password");
+    expect(appUrl("en")).toBe("https://app.example.com/reset-password");
+    expect(out.passwordReset?.hmacSecret).toBe("secret");
+  });
+
+  test("mail.hmacSecret overrides the call-site secret for passwordReset and emailVerification", () => {
+    const dedicatedSecret: RunProdAppAuthOptions = {
+      admin,
+      mail: { baseUrl: "https://app.example.com", hmacSecret: "mail-only-secret" },
+    };
+    const out = resolveAuthMail(dedicatedSecret, "jwt-secret", { SMTP_HOST: "localhost" });
+    expect(out.passwordReset?.hmacSecret).toBe("mail-only-secret");
+    expect(out.emailVerification?.hmacSecret).toBe("mail-only-secret");
+  });
+
+  test("no mail.hmacSecret → falls back to the call-site secret", () => {
+    const out = resolveAuthMail(withMail, "jwt-secret", { SMTP_HOST: "localhost" });
+    expect(out.passwordReset?.hmacSecret).toBe("jwt-secret");
+  });
+
+  test("explicit passwordReset/emailVerification without hmacSecret is backfilled from mail.hmacSecret", () => {
+    const explicitNoSecret: RunProdAppAuthOptions = {
+      admin,
+      mail: { baseUrl: "https://app.example.com", hmacSecret: "mail-only-secret" },
+      passwordReset: { appUrl: "https://custom.example.com/pw" },
+      emailVerification: { appUrl: "https://custom.example.com/verify" },
+    };
+    const out = resolveAuthMail(explicitNoSecret, "jwt-secret", { SMTP_HOST: "localhost" });
+    expect(out.passwordReset?.appUrl).toBe("https://custom.example.com/pw");
+    expect(out.passwordReset?.hmacSecret).toBe("mail-only-secret");
+    expect(out.emailVerification?.hmacSecret).toBe("mail-only-secret");
+  });
+
+  test("explicit passwordReset with its own hmacSecret wins over mail.hmacSecret", () => {
+    const explicitOwnSecret: RunProdAppAuthOptions = {
+      admin,
+      mail: { baseUrl: "https://app.example.com", hmacSecret: "mail-only-secret" },
+      passwordReset: { appUrl: "https://custom.example.com/pw", hmacSecret: "app-own-secret" },
+    };
+    const out = resolveAuthMail(explicitOwnSecret, "jwt-secret", { SMTP_HOST: "localhost" });
+    expect(out.passwordReset?.hmacSecret).toBe("app-own-secret");
+  });
+
+  test("explicit passwordReset without hmacSecret and no mail block falls back to the call-site secret", () => {
+    const explicitNoMail: RunProdAppAuthOptions = {
+      admin,
+      passwordReset: { appUrl: "https://custom.example.com/pw" },
+    };
+    const out = resolveAuthMail(explicitNoMail, "jwt-secret", {});
+    expect(out.passwordReset?.hmacSecret).toBe("jwt-secret");
+  });
+
+  test("explicit passwordReset without hmacSecret is still backfilled when SMTP_HOST is unset", () => {
+    const explicitNoSmtp: RunProdAppAuthOptions = {
+      admin,
+      mail: { baseUrl: "https://app.example.com", hmacSecret: "mail-only-secret" },
+      passwordReset: { appUrl: "https://custom.example.com/pw" },
+    };
+    const out = resolveAuthMail(explicitNoSmtp, "jwt-secret", {});
+    expect(out.passwordReset?.hmacSecret).toBe("mail-only-secret");
+  });
 });
