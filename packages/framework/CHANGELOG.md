@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.322.0
+
+### Minor Changes
+
+- d0c631a: Agent-risk floor for irreversible writes
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Irreversible writes now require agent.risk "high" on the directly-dispatched handler
+  migration: |
+    Any write handler reachable as the directly-dispatched entry point that
+    performs `executor.forget()` (any entity) or `executor.delete()` on an
+    entity without `softDelete` must resolve `agent.risk: "high"`, or the
+    executor gate now denies it with `access_denied` /
+    `irreversible_operation_requires_high_risk` before any DB read.
+
+    Three breaking changes ship together:
+    1. Add `agent: { risk: "high" }` to your own write handler if it directly
+       runs `forget` or a hard `delete` on a non-softDelete entity.
+    2. Delegating via `ctx.write`/`ctx.writeAs` from a lower-risk handler into
+       a high-risk forget/hard-delete handler no longer inherits the inner
+       handler's risk — the outermost/entry handler's declared risk governs,
+       so the delegating handler itself must be "high".
+    3. Declaring `agent.risk` below "high" on a standard entity-convention
+       delete handler for a non-softDelete entity is now a define-time/boot
+       error instead of a silently-accepted setting.
+
+    Standard entity-convention delete handlers on a non-softDelete entity now
+    default to "high" automatically (no more implicit "always allow").
+
+    `dispatchToolCall` treats the invoked tool itself as the entry handler,
+    not the surrounding turn/approve write handler that dispatched it — a
+    mid-risk "approve" handler can safely invoke a high-risk tool directly,
+    but a mid-risk tool that itself delegates to a high-risk handler via
+    `ctx.write`/`writeAs` is still denied per rule 2.
+
+    `runAsDirectCallEntry` (framework `/api`) is the one sanctioned entry
+    boundary: it clears the entry handler so the next dispatch counts as the
+    directly called one. `dispatchToolCall` uses it because the human
+    confirmation happens in approve; do not use it to lift a handler past
+    the floor.
+
+    Remaining gap: `afterCommit` hooks, jobs, and event consumers are not
+    gated by this floor — they have no directly-dispatched entry handler to
+    attribute risk to.
+  -->
+
+- 9e7bedc: i18n plural forms via Intl.PluralRules
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Translation values may now be CLDR plural-form objects, resolved per locale with Intl.PluralRules
+  migration: |
+    A translation entry's value type widens from `string` to
+    `string | PluralForms`, so an existing `TranslationEntry` locale value can
+    now also be an object with `one`/`few`/`many`/`other` (etc.) CLDR
+    categories, where `other` is required:
+
+    ```ts
+    { de: { one: "{count} Status-Seite", other: "{count} Status-Seiten" } }
+    ```
+
+    `createI18n(...).t(key, locale, { count })` resolves the CLDR category for
+    the given locale via a per-locale-cached `Intl.PluralRules` and interpolates
+    `{count}`; it falls back to `other` when `count` is missing/non-finite, the
+    locale tag is invalid, or `Intl.PluralRules` is unavailable (older Hermes).
+    `mailT` and the renderer's `translateWithFallbacks` resolve plural values
+    the same way, through the shared `resolveTranslationValue` helper.
+
+    Existing string-only translations keep working unchanged. Code that reads
+    values back out of a bundle (`TranslationBundle`, `TranslationsByLocale`,
+    `TranslationEntry`) and annotates them as `string` no longer typechecks:
+    annotate as `TranslationValue` (from `@cosmicdrift/kumiko-framework/ui-types`)
+    or flatten with `translationValueOtherText(value)`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [9e7bedc]
+  - @cosmicdrift/kumiko-types@0.322.0
+  - @cosmicdrift/kumiko-http@0.322.0
+
 ## 0.321.0
 
 ### Minor Changes
