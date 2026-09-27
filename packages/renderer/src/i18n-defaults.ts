@@ -82,6 +82,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.dashboard.filter.all": "All",
 
+    "kumiko.app-boot.loading": "Loading…",
+    "kumiko.app-boot.unauthorized": "You need to sign in to see this.",
+    "kumiko.app-boot.failed": "Couldn't load the app. Check your connection and try again.",
+    "kumiko.app-boot.no-open-screen":
+      "This app has no screen that's accessible without a role restriction.",
+
     "kumiko.widget.loading": "Loading…",
     "kumiko.widget.error.title": "Couldn't load.",
 

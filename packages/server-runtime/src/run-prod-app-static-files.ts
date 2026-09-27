@@ -9,7 +9,6 @@ import {
 import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
 import { ASSETS_DIR } from "./build-prod-bundle";
-import { injectSchema } from "./inject-schema";
 import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app";
 import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first";
 
@@ -129,7 +128,6 @@ export type PageHeadOptions = {
 export function buildStaticFallback(
   apiHandler: (req: Request) => Response | Promise<Response>,
   staticDir: string,
-  appSchemaJson: string,
   hostDispatch?: HostDispatchFn,
   pageHead?: PageHeadOptions,
   /** Backs hostDispatch's `systemQuery` — required whenever `hostDispatch`
@@ -140,35 +138,21 @@ export function buildStaticFallback(
 ): (req: Request) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
 
-  // Helper: liest eine HTML-Datei von der Disk + (optional) injiziert
-  // das pre-serialized AppSchema vor dem client.js-Tag. Schema-Injection
-  // ist explicit-opt-in damit Public-Domain-Antworten die Admin-UI-
-  // Topologie nicht leaken. injectSchema ist idempotent, doppelte Calls
-  // produzieren keinen doppelten Tag.
+  // Reads an HTML file from disk. No schema injection — createKumikoApp
+  // fetches it itself from the authenticated GET /api/schema, so the HTML
+  // is identical for every host.
   async function readHtmlFile(
     path: string,
-    injectSchemaInto: boolean,
   ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number } | null> {
     const file = await readStaticFile(path);
     if (!file) return null;
-    if (!injectSchemaInto) {
-      return {
-        bytes: file.bytes.buffer.slice(
-          file.bytes.byteOffset,
-          file.bytes.byteOffset + file.bytes.byteLength,
-        ) as ArrayBuffer,
-        mime: file.mime,
-        etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
-        mtimeMs: file.mtimeMs,
-      };
-    }
-    const text = new TextDecoder().decode(file.bytes);
-    const injected = injectSchema(text, appSchemaJson);
-    const bytes = new TextEncoder().encode(injected).buffer as ArrayBuffer;
     return {
-      bytes,
+      bytes: file.bytes.buffer.slice(
+        file.bytes.byteOffset,
+        file.bytes.byteOffset + file.bytes.byteLength,
+      ) as ArrayBuffer,
       mime: file.mime,
-      etag: computeStrongEtag(new Uint8Array(bytes)),
+      etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
       mtimeMs: file.mtimeMs,
     };
   }
@@ -261,14 +245,14 @@ export function buildStaticFallback(
     }
     // result.kind === "html"
     const filePath = `${staticDir}/${result.file}`;
-    const html = await readHtmlFile(filePath, result.injectSchema === true);
+    const html = await readHtmlFile(filePath);
     if (!html) {
       // Author-Fehler: hostDispatch verweist auf nicht-existente Datei.
       // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
       return new Response(`hostDispatch: file not found: ${result.file}`, { status: 500 });
     }
-    // Per-Host-Body (hostDispatch wählt die Datei nach Host) → Vary: Host,
-    // sonst darf ein Shared-Cache Tenant-As Schema an Tenant B liefern.
+    // Per-host body (hostDispatch picks the file by host) → Vary: Host,
+    // otherwise a shared cache could serve Host A's HTML to Host B.
     const extraHeaders: Record<string, string> = { vary: "Host" };
     if (result.csp) extraHeaders["content-security-policy"] = result.csp;
     const withHead = await applyPageHead(req, html);
@@ -317,13 +301,13 @@ export function buildStaticFallback(
       }
     }
 
-    // Root oder SPA-Route — hier greift hostDispatch wenn gesetzt.
-    // Ohne hostDispatch: alter Single-App-Pfad (index.html mit Schema).
+    // Root or SPA route — hostDispatch applies here when set.
+    // Without hostDispatch: the old single-app path (index.html).
     const dispatched = await tryHostDispatch(req);
     if (dispatched) return dispatched;
 
-    // Default Single-App-Pfad: index.html, schema injected.
-    const index = await readHtmlFile(indexHtml, true);
+    // Default single-app path: index.html, no schema injection.
+    const index = await readHtmlFile(indexHtml);
     if (index) {
       const withHead = await applyPageHead(req, index);
       return serveHtmlFile(req, "/index.html", withHead);

@@ -1,15 +1,15 @@
-// Browser-Entry. runDevApp's clientEntry-Option bundlet diese Datei zu
-// /client.js und das Default-HTML lädt sie. createKumikoApp liest das
-// Schema aus dem window-globalen (das injectSchema im dev-server setzt)
-// und mountet die Routen.
+// Browser entry. runDevApp's clientEntry option bundles this file to
+// /client.js and the default HTML loads it. createKumikoApp fetches the
+// AppSchema itself from the authenticated GET /api/schema (once the auth
+// gate lets rendering through) and mounts the routes.
 //
-// DefaultAppShell liefert die Sidebar + Topbar — ohne `shell` rendert
-// createKumikoApp das aktive Screen ohne Layout-Wrapper (= nach Login
-// nur ein nackter Banner statt der App). emailPasswordClient() bringt
-// Login-Screen + Session-Provider — ohne ihn bliebe /login leer.
+// DefaultAppShell supplies the sidebar + topbar — without `shell`,
+// createKumikoApp renders the active screen without a layout wrapper (=
+// after login just a bare banner instead of the app). emailPasswordClient()
+// brings the login screen + session provider — without it /login stays empty.
 //
-// Neue Client-Plugins (z.B. notificationsClient()) hier in clientFeatures
-// hinzu — symmetrisch zu APP_FEATURES auf der Server-Seite.
+// Add new client plugins (e.g. notificationsClient()) here in clientFeatures
+// — symmetric to APP_FEATURES on the server side.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";

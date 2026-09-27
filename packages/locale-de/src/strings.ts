@@ -563,6 +563,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.contentEditor.orderedList": "Nummerierte Liste",
   "kumiko.contentEditor.preview": "Vorschau",
   "kumiko.dashboard.filter.all": "Alle",
+
+  "kumiko.app-boot.loading": "Lade…",
+  "kumiko.app-boot.unauthorized": "Anmeldung erforderlich, um dies zu sehen.",
+  "kumiko.app-boot.failed":
+    "Die App konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.",
+  "kumiko.app-boot.no-open-screen":
+    "Diese App hat keinen Screen, der ohne Rollen-Einschränkung erreichbar ist.",
   "kumiko.dialog.cancel": "Abbrechen",
   "kumiko.dialog.close": "Schließen",
   "kumiko.dialog.confirm": "Bestätigen",

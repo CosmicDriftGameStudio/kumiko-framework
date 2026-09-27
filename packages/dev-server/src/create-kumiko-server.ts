@@ -51,7 +51,6 @@ import {
   makeDispatchSystemWrite,
   type SystemWireDeps,
 } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
-import { injectSchema } from "@cosmicdrift/kumiko-server-runtime/inject-schema";
 import {
   canResolveTailwindStylesheet,
   resolveTailwindCli,
@@ -102,24 +101,23 @@ export type DevClientEntry = {
   readonly htmlPath?: string;
 };
 
-/** Discriminated-Union, identisch zur Form von `runProdApp.hostDispatch`.
- *  Damit kann Dev/Prod-Routing 1:1 gespiegelt werden — ein Apex-404 in
- *  Prod ist ein Apex-404 in Dev (mit `/etc/hosts`-Eintrag für die
- *  betroffene Domain). Schema-Inject ist pro Response steuerbar — ein
- *  Public-Bundle leakt das Admin-Schema nicht, auch nicht in Dev. */
+/** Discriminated union, identical in shape to `runProdApp.hostDispatch`, so
+ *  dev/prod routing mirrors 1:1 — an apex 404 in prod is an apex 404 in dev
+ *  (with an `/etc/hosts` entry for the affected domain). HTML never carries
+ *  a schema, in dev or prod — createKumikoApp fetches it itself from the
+ *  authenticated GET /api/schema. */
 export type DevHostDispatchResult =
   | {
       readonly kind: "html";
       readonly entryName: string;
-      /** Default: true. Setze `false` für Public-Routes — analog zu
-       *  prod-`injectSchema:false` für Anonymous-Visitors. */
+      /** @deprecated Ignored — HTML never carries the schema; createKumikoApp
+       *  fetches it from the authenticated GET /api/schema. */
       readonly injectSchema?: boolean;
     }
   | {
-      /** Static-HTML: liefert eine Datei wortwörtlich, kein Bundle-Inject,
-       *  kein Schema-Inject. Pendant zu prod's `{ kind: "html", file: ...,
-       *  injectSchema: false }` für Marketing-/Apex-Pages die kein React
-       *  brauchen. Pfad relativ zum Server-CWD. */
+      /** Static HTML: serves a file verbatim, no bundle injection. Mirrors
+       *  prod's `{ kind: "html", file: ... }` for marketing/apex pages that
+       *  don't need React. Path relative to the server CWD. */
       readonly kind: "static-html";
       readonly file: string;
     }
@@ -511,9 +509,6 @@ async function tryServePublicAsset(
   }
   return honoTry.response;
 }
-
-// injectSchema lebt in `./inject-schema.ts` damit dev-server + prod-
-// server denselben Inject-Pfad nutzen.
 
 async function watchDir(
   dir: string,
@@ -968,17 +963,14 @@ export async function createKumikoServer(
   const autoMintJwt = options.auth === undefined;
   const devUser = TestUsers.admin;
 
-  // AppSchema einmal beim Boot bauen. Sample-clients ohne explizites
-  // schema-Argument lesen das via window.__KUMIKO_SCHEMA__ aus — der
-  // dev-server injiziert das in jede HTML-Response. Re-build NICHT
-  // bei Hot-Reload weil sich Feature-Defs nur über einen restart
-  // ändern.
-  const appSchemaJson = JSON.stringify(
-    buildAppSchema(stack.registry, {
-      authoringWarnings: true,
-      searchAdapterMissing: !stack.context.searchAdapter,
-    }),
-  );
+  // Build once at boot purely to surface authoring warnings (settings-hub
+  // placement etc.) at the same point prod would — clients fetch the actual
+  // schema themselves from GET /api/schema, so the result itself is
+  // discarded here.
+  buildAppSchema(stack.registry, {
+    authoringWarnings: true,
+    searchAdapterMissing: !stack.context.searchAdapter,
+  });
 
   // --- SSE reload ---
   // bootId identifiziert diese spezifische Server-Process-Instanz. Wird
@@ -1000,16 +992,16 @@ export async function createKumikoServer(
     }
   };
 
-  // Build a fresh HTML response. Im Auto-Mint-Modus (keine auth-Config)
-  // packen wir direkt ein gültiges JWT + CSRF-Cookie rein — Deep-Links
-  // funktionieren sofort ohne Login. Im Auth-Modus serven wir nur die
-  // nackte HTML; der Client geht dann durch /auth/login und bekommt die
-  // Cookies von dort.
+  // Build a fresh HTML response. In auto-mint mode (no auth config) we
+  // pack a valid JWT + CSRF cookie right in — deep-links work immediately
+  // without login (and that auth cookie is what a client-side fetch to
+  // GET /api/schema authenticates with). In auth mode we serve the bare
+  // HTML; the client then goes through /auth/login and gets its cookies
+  // from there.
   //
-  // entryName + injectSchemaForEntry werden vom Caller (handleFetch)
-  // bestimmt nachdem er hostDispatch evaluiert hat. Ohne hostDispatch
-  // ist es immer "client" mit Schema-Inject true (Single-Entry-Default
-  // damit der Client TypeScript-Schemas findet).
+  // entryName is decided by the caller (handleFetch) after evaluating
+  // hostDispatch. Without hostDispatch it's always "client" (single-entry
+  // default).
   //
   // Anonymous-role systemQuery, shared by resolvePageHead and hostDispatch —
   // mirrors runProdApp's HostDispatchFn deps so dev/prod stay symmetric.
@@ -1023,11 +1015,7 @@ export async function createKumikoServer(
   // resolvePageHead goes through the same headless resolveAndInjectPageHead
   // that runProdApp uses, so dev and e2e exercise the one timeout and
   // fallback path instead of a second copy of it (#3026).
-  const htmlResponse = async (
-    entryName: string,
-    doInjectSchema: boolean,
-    req: Request,
-  ): Promise<Response> => {
+  const htmlResponse = async (entryName: string, req: Request): Promise<Response> => {
     const template = htmlTemplates.get(entryName) ?? defaultTemplate;
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
@@ -1039,7 +1027,6 @@ export async function createKumikoServer(
     }
     let html = injectReload(template);
     if (stylesheetPath !== undefined) html = injectStylesheet(html);
-    if (doInjectSchema) html = injectSchema(html, appSchemaJson);
     if (options.resolvePageHead !== undefined) {
       const url = new URL(req.url);
       const host = req.headers.get("host") ?? url.host;
@@ -1180,16 +1167,16 @@ export async function createKumikoServer(
           return new Response("Not Found", { status: 404 });
         }
         if (dispatch.kind === "static-html") {
-          // Raw-File-Serve, kein Bundle-Inject, kein Schema-Inject.
-          // Pendant zu prod's `{ kind: "html", file: ..., injectSchema: false }`.
+          // Raw file serve, no bundle injection — mirrors prod's
+          // `{ kind: "html", file: ... }` static-html branch.
           const file = await readFile(dispatch.file, "utf-8");
           return new Response(file, {
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }
-        return htmlResponse(dispatch.entryName, dispatch.injectSchema ?? true, req);
+        return htmlResponse(dispatch.entryName, req);
       }
-      return htmlResponse("client", true, req);
+      return htmlResponse("client", req);
     }
 
     // Static assets under public/ — see tryServePublicAsset's own comment

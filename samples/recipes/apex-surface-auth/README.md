@@ -6,8 +6,9 @@ reachable, without leaking admin nav or internal topology.
 
 A typical app has two mounts sharing locale and primitives:
 
-- **Admin UI** → `createKumikoApp` (full schema, `injectSchema: true`)
-- **Apex** → `createPublicSurface` (no schema, `injectSchema: false`)
+- **Admin UI** → `createKumikoApp` (loads the full schema after login via
+  the authenticated `GET /api/schema`)
+- **Apex** → `createPublicSurface` (no schema, ever)
 
 ## What it shows
 

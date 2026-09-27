@@ -545,6 +545,12 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.contentEditor.orderedList": "Numbered list",
   "kumiko.contentEditor.preview": "Preview",
   "kumiko.dashboard.filter.all": "All",
+
+  "kumiko.app-boot.loading": "Loading…",
+  "kumiko.app-boot.unauthorized": "You need to sign in to see this.",
+  "kumiko.app-boot.failed": "Couldn't load the app. Check your connection and try again.",
+  "kumiko.app-boot.no-open-screen":
+    "This app has no screen that's accessible without a role restriction.",
   "kumiko.dialog.cancel": "Cancel",
   "kumiko.dialog.close": "Close",
   "kumiko.dialog.confirm": "Confirm",

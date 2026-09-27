@@ -691,9 +691,10 @@ describe("runProdApp", () => {
   });
 
   test("hostDispatch: per-host html-Datei + Schema-Gating", async () => {
-    // Multi-App-Deployment: zwei HTML-Dateien für unterschiedliche
-    // Hosts. Schema wird NUR für admin-Host injected — Public-Host
-    // bekommt das pure HTML ohne __KUMIKO_SCHEMA__ Tag (Sicherheit).
+    // Multi-app deployment: two HTML files for different hosts. Neither
+    // ever carries __KUMIKO_SCHEMA__ (kumiko-framework#3314) —
+    // createKumikoApp fetches the schema itself from GET /api/schema
+    // after the auth gates let it through, regardless of host.
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html><body>PUBLIC</body><script src=/client.js></script></html>",
       "admin.html": "<html><body>ADMIN</body><script src=/client.js></script></html>",
@@ -703,13 +704,12 @@ describe("runProdApp", () => {
       staticDir: tmpStaticDir,
       hostDispatch: ({ host }) => {
         if (host.startsWith("admin.")) {
-          return { kind: "html", file: "admin.html", injectSchema: true };
+          return { kind: "html", file: "admin.html" };
         }
-        return { kind: "html", file: "index.html", injectSchema: false };
+        return { kind: "html", file: "index.html" };
       },
     });
 
-    // Public host: index.html, KEIN schema-Tag.
     const pubRes = await handle.fetch(
       new Request("http://demo.example.test/", { headers: { host: "demo.example.test" } }),
     );
@@ -718,57 +718,107 @@ describe("runProdApp", () => {
     expect(pubBody).toContain("PUBLIC");
     expect(pubBody).not.toContain("__KUMIKO_SCHEMA__");
 
-    // Admin host: admin.html MIT schema-Tag.
     const adminRes = await handle.fetch(
       new Request("http://admin.example.test/", { headers: { host: "admin.example.test" } }),
     );
     expect(adminRes.status).toBe(200);
     const adminBody = await adminRes.text();
     expect(adminBody).toContain("ADMIN");
-    expect(adminBody).toContain("__KUMIKO_SCHEMA__");
-
-    // #2062: this boot()'s widgetFeature never wires extraContext.searchAdapter,
-    // so run-prod-app's `searchAdapterMissing = !(extraContext).searchAdapter`
-    // must actually flip true and flow into the injected schema — proving
-    // the cast-boundary read isn't silently always-false.
-    const schemaMatch = adminBody.match(/window\.__KUMIKO_SCHEMA__=(\{.*?\});<\/script>/s);
-    expect(schemaMatch).not.toBeNull();
-    const injectedSchema = JSON.parse(schemaMatch?.[1] ?? "{}");
-    // Guards against a regex miss silently degrading to `?? "{}"` — an empty
-    // features array would make `.every(...)` below vacuously true too.
-    expect(injectedSchema.features.length).toBeGreaterThan(0);
-    const allFeaturesMissingAdapter = injectedSchema.features.every(
-      (f: { searchAdapterMissing?: boolean }) => f.searchAdapterMissing === true,
-    );
-    expect(allFeaturesMissingAdapter).toBe(true);
+    expect(adminBody).not.toContain("__KUMIKO_SCHEMA__");
   });
 
-  test("extraContext.searchAdapter wired → injected schema omits searchAdapterMissing (#2062)", async () => {
+  test("staticDir without hostDispatch: HTML never carries the schema; GET /api/schema needs a signed-in user (kumiko-framework#3314)", async () => {
+    // A real POST /api/auth/login round-trip needs the tenant/user bundled
+    // features' own projection tables (e.g. read_tenants), which this
+    // suite's boot() doesn't migrate (migrations: false, only the app's own
+    // entity tables are auto-created — see unsafeEnsureEntityTable above).
+    // Signing a token straight through the entrypoint's JwtHelper exercises
+    // the exact same cookie transport auth-middleware reads, without
+    // pulling in that migration surface just for this schema-fetch test.
     const tmpStaticDir = await createTempStaticDir({
-      "index.html": "<html><body>ADMIN</body><script src=/client.js></script></html>",
+      "index.html": "<html><body>SHELL</body><script src=/client.js></script></html>",
     });
 
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+
+    const rootRes = await handle.fetch(new Request("http://test/"));
+    expect(rootRes.status).toBe(200);
+    expect(await rootRes.text()).not.toContain("__KUMIKO_SCHEMA__");
+
+    const spaRes = await handle.fetch(new Request("http://test/some/spa/route"));
+    expect(spaRes.status).toBe(200);
+    expect(await spaRes.text()).not.toContain("__KUMIKO_SCHEMA__");
+
+    const anonSchemaRes = await handle.fetch(new Request("http://test/api/schema"));
+    expect(anonSchemaRes.status).toBe(401);
+
+    const token = await handle.entrypoint.jwt.sign({
+      id: "schema-fetch-user",
+      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+      roles: ["User"],
+    });
+    const schemaRes = await handle.fetch(
+      new Request("http://test/api/schema", { headers: { Cookie: `kumiko_auth=${token}` } }),
+    );
+    expect(schemaRes.status).toBe(200);
+    const schema = (await schemaRes.json()) as { features: readonly unknown[] };
+    expect(schema.features.length).toBeGreaterThan(0);
+  });
+
+  test("anonymousAccess wired → GET /api/schema still 401s for the synthesised anonymous user", async () => {
     const handle = await boot(undefined, {
-      staticDir: tmpStaticDir,
+      anonymousAccess: {
+        defaultTenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+      },
+    });
+
+    const res = await handle.entrypoint.app.fetch(new Request("http://test/api/schema"));
+    expect(res.status).toBe(401);
+  });
+
+  test("extraContext.searchAdapter absent → GET /api/schema marks every feature searchAdapterMissing (#2062)", async () => {
+    const handle = await boot();
+    const token = await handle.entrypoint.jwt.sign({
+      id: "schema-probe-user",
+      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+      roles: ["User"],
+    });
+
+    const res = await handle.entrypoint.app.fetch(
+      new Request("http://test/api/schema", { headers: { Authorization: `Bearer ${token}` } }),
+    );
+    expect(res.status).toBe(200);
+    const schema = (await res.json()) as {
+      features: ReadonlyArray<{ searchAdapterMissing?: boolean }>;
+    };
+    // Guards against a vacuous pass — an empty features array would make
+    // `.every(...)` below vacuously true too.
+    expect(schema.features.length).toBeGreaterThan(0);
+    expect(schema.features.every((f) => f.searchAdapterMissing === true)).toBe(true);
+  });
+
+  test("extraContext.searchAdapter wired → GET /api/schema omits searchAdapterMissing (#2062)", async () => {
+    const handle = await boot(undefined, {
       // Presence-only probe — run-prod-app's cast-boundary read only checks
       // truthiness, so a minimal stand-in is enough without pulling in the
       // real SearchAdapter shape.
       extraContext: { searchAdapter: { configure: async () => {}, search: async () => [] } },
-      hostDispatch: () => ({ kind: "html", file: "index.html", injectSchema: true }),
+    });
+    const token = await handle.entrypoint.jwt.sign({
+      id: "schema-probe-user",
+      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+      roles: ["User"],
     });
 
-    const res = await handle.fetch(new Request("http://demo.example.test/"));
-    const body = await res.text();
-    const schemaMatch = body.match(/window\.__KUMIKO_SCHEMA__=(\{.*?\});<\/script>/s);
-    expect(schemaMatch).not.toBeNull();
-    const injectedSchema = JSON.parse(schemaMatch?.[1] ?? "{}");
-    // Guards against a regex miss silently degrading to `?? "{}"` — an empty
-    // features array would make `.some(...)` below vacuously false too.
-    expect(injectedSchema.features.length).toBeGreaterThan(0);
-    const anyFeatureMissingAdapter = injectedSchema.features.some(
-      (f: { searchAdapterMissing?: boolean }) => f.searchAdapterMissing === true,
+    const res = await handle.entrypoint.app.fetch(
+      new Request("http://test/api/schema", { headers: { Authorization: `Bearer ${token}` } }),
     );
-    expect(anyFeatureMissingAdapter).toBe(false);
+    expect(res.status).toBe(200);
+    const schema = (await res.json()) as {
+      features: ReadonlyArray<{ searchAdapterMissing?: boolean }>;
+    };
+    expect(schema.features.length).toBeGreaterThan(0);
+    expect(schema.features.some((f) => f.searchAdapterMissing === true)).toBe(false);
   });
 
   test("hostDispatch: redirect-Modus", async () => {

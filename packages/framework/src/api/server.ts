@@ -2,6 +2,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
+import { buildAppSchema } from "../engine/build-app-schema";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names";
 import { runsInLane } from "../engine/run-in";
 import { ANONYMOUS_ROLE, createAnonymousUser, createSystemUser } from "../engine/system-user";
@@ -11,6 +12,7 @@ import {
   isFileField,
   type Registry,
   type RunIn,
+  type SessionUser,
   type TenantId,
   type WriteResult,
 } from "../engine/types";
@@ -53,7 +55,7 @@ import {
 import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config";
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
-import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS } from "./api-constants";
+import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants";
 import {
   type AnonymousAccessResolved,
   authMiddleware,
@@ -69,6 +71,7 @@ import {
   ExtraRouteRejection,
   type SystemDispatchArgs,
 } from "./extra-route";
+import { computeStrongEtag, etagMatches } from "./http-cache";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, normalizeOrigin, originMiddleware } from "./origin-middleware";
@@ -832,6 +835,34 @@ export function buildServer(options: ServerOptions): KumikoServer {
   );
   app.route("/api", createSseRoute(sseBroker));
 
+  // GET /api/schema — the only way a client obtains the AppSchema. Behind
+  // jwtGuard (NON_PUBLIC_API_PATHS), so anonymousAccess's synthesised user
+  // also gets rejected below — the schema never reaches an unauthenticated
+  // caller. Built lazily and cached with its ETag: the registry is
+  // immutable for this server's lifetime, so both are the same on every
+  // request.
+  let cachedSchema: { readonly json: string; readonly etag: string } | undefined;
+  app.get(`/api${Routes.schema}`, (c) => {
+    const user = getUser(c);
+    if (isMissingOrAnonymousUser(user)) {
+      return unauthenticatedResponse(c);
+    }
+    if (cachedSchema === undefined) {
+      const json = JSON.stringify(
+        buildAppSchema(options.registry, { searchAdapterMissing: !options.context.searchAdapter }),
+      );
+      cachedSchema = { json, etag: computeStrongEtag(json) };
+    }
+    const cacheHeaders = { "Cache-Control": "private, no-cache", ETag: cachedSchema.etag };
+    if (etagMatches(c.req.header("If-None-Match") ?? null, cachedSchema.etag)) {
+      return c.body(null, 304, cacheHeaders);
+    }
+    return c.body(cachedSchema.json, 200, {
+      "Content-Type": "application/json; charset=utf-8",
+      ...cacheHeaders,
+    });
+  });
+
   // Mount upload/download routes whenever a file provider is resolvable (a
   // file-provider plugin is mounted, or a resolver was injected). They resolve
   // the provider per-tenant through file-foundation — no `files` option; route
@@ -1103,6 +1134,27 @@ function makeAnonymousWrite(
   };
 }
 
+// Shared by entry:"user" extra routes and GET /api/schema — both require a
+// real, signed-in principal and reject the synthesised anonymousAccess user
+// (SessionUser.roles includes ANONYMOUS_ROLE) the same way.
+function isMissingOrAnonymousUser(user: SessionUser | undefined): boolean {
+  return !user || user.roles.includes(ANONYMOUS_ROLE);
+}
+
+function unauthenticatedResponse(c: import("hono").Context): Response {
+  return c.json(
+    {
+      error: {
+        code: "unauthenticated",
+        httpStatus: 401,
+        message: "this route requires a signed-in user",
+        i18nKey: "auth.errors.missingToken",
+      },
+    },
+    401,
+  );
+}
+
 function isKnownExtraRouteEntry(entry: unknown): entry is ExtraRouteEntry {
   return (
     entry === ExtraRouteEntries.anonymous ||
@@ -1165,18 +1217,8 @@ function buildExtraRouteHonoHandler(
     case ExtraRouteEntries.user:
       return async (c) => {
         const user = getUser(c);
-        if (!user || user.roles.includes(ANONYMOUS_ROLE)) {
-          return c.json(
-            {
-              error: {
-                code: "unauthenticated",
-                httpStatus: 401,
-                message: "this route requires a signed-in user",
-                i18nKey: "auth.errors.missingToken",
-              },
-            },
-            401,
-          );
+        if (isMissingOrAnonymousUser(user)) {
+          return unauthenticatedResponse(c);
         }
         return route.handler(c, {
           app: shared.app,

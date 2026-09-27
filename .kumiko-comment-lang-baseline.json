@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-09-05",
-  "total": 8376,
+  "total": 8369,
   "perFile": {
     "packages/bundled-features/src/__tests__/env-schemas.test.ts": 3,
     "packages/bundled-features/src/__tests__/es-ops-e2e.integration.test.ts": 11,
@@ -762,7 +762,6 @@
     "packages/server-runtime/src/bun-serve-options.ts": 1,
     "packages/server-runtime/src/extra-routes-deps.ts": 3,
     "packages/server-runtime/src/index.ts": 3,
-    "packages/server-runtime/src/inject-schema.ts": 7,
     "packages/server-runtime/src/resolve-tailwind-cli.ts": 4,
     "packages/server-runtime/src/run-prod-app-boot-context.ts": 17,
     "packages/server-runtime/src/run-prod-app-static-files.ts": 36,

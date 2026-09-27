@@ -10,6 +10,7 @@ import type {
 import {
   AppFeaturesProvider,
   type AppSchema,
+  type ColumnRendererComponent,
   ColumnRenderersProvider,
   type ContentEditorComponent,
   ContentEditorsProvider,
@@ -18,12 +19,14 @@ import {
   DispatcherProvider,
   type DraftStorage,
   DraftStorageProvider,
+  type ExtensionSectionComponent,
   ExtensionSectionsProvider,
   type FeatureSchema,
   type FormWidth,
   hasDetailScreen,
   KumikoScreen,
   kumikoDefaultTranslations,
+  type LiveEventSubscriber,
   LiveEventsProvider,
   LocaleProvider,
   mergeTranslations,
@@ -40,8 +43,10 @@ import {
   toAppSchema,
   translationsByLocaleFromKeys,
   useNav,
+  usePrimitives,
+  useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ComponentType, type ReactNode, useMemo } from "react";
+import { type ComponentType, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { lastSegment } from "../layout/nav-tree";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives";
@@ -49,6 +54,7 @@ import { ToastProvider } from "../primitives/toast";
 import { createEventSourceLiveEvents } from "../sse/live-events";
 import { useBrowserTokensApi } from "../tokens";
 import { UpdateChecker } from "../version/update-checker";
+import { AppSchemaFetchBoot } from "./app-schema-boot";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { WebDashboardBody } from "./dashboard-body";
@@ -57,6 +63,9 @@ import { createBrowserDraftStorage } from "./draft-storage";
 import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
+
+const EMPTY_FEATURES: readonly FeatureSchema[] = [];
+const EMPTY_COLLECTIONS: readonly QualifiedContentCollection[] = [];
 
 // Qualifiziert den Key eines navProviders auf seine Nav-QN. Lokale ids
 // (z.B. "content") werden wie in r.nav mit dem Feature-Namen qualifiziert;
@@ -127,16 +136,17 @@ export function buildNavProviderMaps(
 //   createKumikoApp({ schema: clientSchema });
 
 export type CreateKumikoAppOptions = {
-  /** App-Schema. Akzeptiert AppSchema (multi-feature) oder die legacy
-   *  FeatureSchema (single-feature) — toAppSchema() normalisiert intern.
+  /** App schema. Accepts AppSchema (multi-feature) or the legacy
+   *  FeatureSchema (single-feature) — toAppSchema() normalizes internally.
    *
-   *  Optional: ohne Argument liest createKumikoApp das schema aus
-   *  `window.__KUMIKO_SCHEMA__`, das der dev-server beim Boot in die
-   *  HTML injiziert (siehe @cosmicdrift/kumiko-dev-server: injectSchema).
-   *  Production-Apps mit eigenem Bundling-Setup können das Global selbst
-   *  setzen (`<script>window.__KUMIKO_SCHEMA__=...</script>` aus einem
-   *  build-time bake oder einem fetch). Wer kein Schema übergibt UND
-   *  keins im Window vorfindet bekommt einen Fehler beim Mount. */
+   *  Optional. Resolution order: this option, then
+   *  `window.__KUMIKO_SCHEMA__` (only for explicit/custom builds, e.g. e2e
+   *  fixtures that bake it into the page themselves — the dev-server no
+   *  longer injects it), then a client-side fetch to the authenticated
+   *  `GET /api/schema` once the clientFeature gates (e.g. an auth gate)
+   *  have let rendering through. Without an explicit
+   *  schema, mounting shows a loading/unauthorized/error state until the
+   *  fetch resolves instead of throwing at boot. */
   readonly schema?: AppSchema | FeatureSchema;
   readonly rootId?: string;
   readonly dispatcher?: Dispatcher;
@@ -202,9 +212,10 @@ export type CreateKumikoAppOptions = {
   readonly screenWidth?: FormWidth;
 };
 
-// Reads the dev-server-injected schema from the global. Guarded for
-// SSR/node — die Funktion läuft heute nur im Browser, aber das schadet
-// auch unter jsdom nicht.
+// Reads a schema an app baked into the page itself (e.g. an e2e fixture) —
+// nothing in this repo sets this global anymore now that HTML never carries
+// an injected schema. Guarded for SSR/node even though this only runs in
+// the browser today; harmless under jsdom either way.
 function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
   if (typeof window === "undefined") return undefined;
   const w = window as unknown as { __KUMIKO_SCHEMA__?: AppSchema | FeatureSchema };
@@ -282,6 +293,245 @@ export function mergeContentEditors(
   return mergeByKey(clientFeatures, (f) => f.contentEditors, "contentEditor");
 }
 
+// Fail loud at boot instead of per-URL: a mounted server feature can
+// declare a `type: "custom"` screen that's reachable directly by URL
+// even without nav placement — without this check, a missing client
+// plugin only surfaces as an error placeholder to whoever happens to
+// open that URL (kumiko-framework#2025). Screens flagged `dormant`
+// (e.g. user-data-rights privacy-center, auth-mfa's enable screen) are
+// registered without a self-owned r.nav on purpose — an app opts in by
+// navving them explicitly, so a consumer that hasn't done that yet isn't
+// missing anything (kumiko-framework#2034). Still dev-only: several
+// bundled screens that ARE self-navved (e.g. compliance-profiles'
+// profile-picker) have real unmounted-client-plugin bugs in existing
+// consumer apps today (kumiko-framework#2025) — running this in
+// production before those are fixed (tracked via infra#503) would just
+// spam every affected app's console.
+function warnMissingCustomScreens(
+  app: AppSchema,
+  customScreens: Readonly<Record<string, ComponentType>>,
+): void {
+  if (typeof process === "undefined" || process.env.NODE_ENV === "production") return;
+  const missingCustomScreens = app.features.flatMap((f) =>
+    f.screens
+      .filter((s) => s.type === "custom" && s.dormant !== true && customScreens[s.id] === undefined)
+      .map((s) => `${f.featureName}:${s.id}`),
+  );
+  if (missingCustomScreens.length > 0) {
+    // biome-ignore lint/suspicious/noConsole: dev-only diagnostic for missing client plugins
+    console.error(
+      `[kumiko] ${missingCustomScreens.length} custom screen(s) have no registered component in clientFeatures.components — they render an error placeholder instead of the intended UI: ${missingCustomScreens.join(", ")}. Add the feature's web client plugin to clientFeatures.`,
+    );
+  }
+}
+
+type KumikoAppRootProps = {
+  readonly initialApp: AppSchema | undefined;
+  readonly screenQn?: string;
+  readonly clientFeatures: readonly ClientFeatureDefinition[];
+  readonly providers: readonly ComponentType<{ readonly children: ReactNode }>[];
+  readonly gates: readonly ComponentType<{ readonly children: ReactNode }>[];
+  readonly customScreens: Readonly<Record<string, ComponentType>>;
+  readonly columnRenderers: Readonly<Record<string, ColumnRendererComponent>>;
+  readonly extensionSectionComponents: Readonly<Record<string, ExtensionSectionComponent>>;
+  readonly contentEditors: Readonly<Record<string, ContentEditorComponent>>;
+  readonly resolvers: ReadonlyMap<string, ResolverComponent>;
+  readonly dispatcher: Dispatcher;
+  readonly draftStorage: DraftStorage;
+  readonly primitives: PrimitivesRegistry;
+  readonly liveEvents: LiveEventSubscriber;
+  readonly localeResolver: LocaleResolver;
+  readonly navAdapter: (options?: {
+    readonly hasWorkspaces?: boolean;
+    readonly features?: readonly FeatureSchema[];
+  }) => NavApi;
+  readonly screenWidth?: FormWidth;
+  readonly translate?: Translate;
+  readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
+  readonly shell?: (props: {
+    readonly children: ReactNode;
+    readonly schema: AppSchema;
+  }) => ReactNode;
+};
+
+// Everything schema-INdependent (dispatcher, providers, gates, merged
+// component maps, ...) is built once in createKumikoApp and passed in as
+// props; only the schema-dependent slice (fallbackBundles, nav-provider
+// derivation, the actual screen tree) lives in this component's own state
+// so a schema arriving later (the fetch path) doesn't need a second copy
+// of the provider tree.
+function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
+  const [app, setApp] = useState<AppSchema | undefined>(props.initialApp);
+
+  // Precedence in fallbackBundles (array order = priority, highest first):
+  //   1. clientFeatures.translations — app overrides always win, even
+  //      against the framework's own labels.
+  //   2. schemaTranslations — server-authored r.translations, projected
+  //      verbatim by buildAppSchema (#1059). Without this bundle, nav/
+  //      screen labels only resolve if an app ALSO duplicates them in its
+  //      own web/i18n.ts — most bundled features never did, labels then
+  //      render as raw i18n keys.
+  //   3. kumikoDefaultTranslations — framework defaults, the very last
+  //      fallback.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: props.clientFeatures is stable for the app instance's lifetime (built once in createKumikoApp)
+  const { fallbackBundles, navProviders, navEntities } = useMemo(() => {
+    const schemaTranslations = (app?.features ?? EMPTY_FEATURES).reduce<TranslationsByLocale>(
+      (acc, f) =>
+        f.translations ? mergeTranslations(acc, translationsByLocaleFromKeys(f.translations)) : acc,
+      {},
+    );
+    const bundles = [
+      ...props.clientFeatures.flatMap((f) =>
+        f.translations !== undefined ? [f.translations] : [],
+      ),
+      schemaTranslations,
+      kumikoDefaultTranslations,
+    ];
+    const { navProviders: providersByQn, navEntities: entitiesByQn } = buildNavProviderMaps(
+      props.clientFeatures,
+      app?.features.flatMap((f) => f.contentCollections ?? []) ?? EMPTY_COLLECTIONS,
+    );
+    return { fallbackBundles: bundles, navProviders: providersByQn, navEntities: entitiesByQn };
+  }, [app]);
+
+  // Sync path (initialApp given at construction) never resets — that
+  // schema was handed in explicitly and stays valid for the app's
+  // lifetime. Fetch path resets to undefined on unmount so a future
+  // role-aware schema projection never lets a re-login reuse a
+  // previous user's cached app.
+  const isFetchMode = props.initialApp === undefined;
+  const screenNode = (
+    <AppSchemaBoundary
+      app={app}
+      screenQn={props.screenQn}
+      navAdapter={props.navAdapter}
+      onAppLoaded={(loaded) => {
+        warnMissingCustomScreens(loaded, props.customScreens);
+        setApp(loaded);
+      }}
+      {...(isFetchMode && { onUnmountResetSchema: () => setApp(undefined) })}
+      {...(props.translate !== undefined && { translate: props.translate })}
+      {...(props.onRowClick !== undefined && { onRowClick: props.onRowClick })}
+      {...(props.shell !== undefined && { shell: props.shell })}
+    />
+  );
+
+  return (
+    <TokensBoot>
+      <LocaleProvider resolver={props.localeResolver} fallbackBundles={fallbackBundles}>
+        <DocumentLangSync resolver={props.localeResolver} />
+        <PrimitivesProvider value={props.primitives}>
+          <ScreenWidthProvider width={props.screenWidth ?? "4xl"}>
+            <AppFeaturesProvider features={app?.features ?? EMPTY_FEATURES}>
+              <DispatcherProvider dispatcher={props.dispatcher}>
+                <DraftStorageProvider value={props.draftStorage}>
+                  <LiveEventsProvider value={props.liveEvents}>
+                    <DashboardBodyProvider value={WebDashboardBody}>
+                      <CustomScreensProvider value={props.customScreens}>
+                        <ColumnRenderersProvider value={props.columnRenderers}>
+                          <ContentEditorsProvider value={props.contentEditors}>
+                            <ExtensionSectionsProvider value={props.extensionSectionComponents}>
+                              <NavProvidersProvider value={navProviders} entities={navEntities}>
+                                <ResolversProvider resolvers={props.resolvers}>
+                                  <ToastProvider>
+                                    <UpdateChecker />
+                                    {stackWrappers(
+                                      props.providers,
+                                      stackWrappers(props.gates, screenNode),
+                                    )}
+                                  </ToastProvider>
+                                </ResolversProvider>
+                              </NavProvidersProvider>
+                            </ExtensionSectionsProvider>
+                          </ContentEditorsProvider>
+                        </ColumnRenderersProvider>
+                      </CustomScreensProvider>
+                    </DashboardBodyProvider>
+                  </LiveEventsProvider>
+                </DraftStorageProvider>
+              </DispatcherProvider>
+            </AppFeaturesProvider>
+          </ScreenWidthProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    </TokensBoot>
+  );
+}
+
+// Sits INSIDE the clientFeature gates (e.g. an auth gate) — a gate that
+// renders a login placeholder instead of children keeps this component
+// (and its schema fetch) from ever mounting until the user is signed in.
+function AppSchemaBoundary({
+  app,
+  screenQn,
+  navAdapter,
+  onAppLoaded,
+  onUnmountResetSchema,
+  translate,
+  onRowClick,
+  shell,
+}: {
+  readonly app: AppSchema | undefined;
+  readonly screenQn?: string;
+  readonly navAdapter: (options?: {
+    readonly hasWorkspaces?: boolean;
+    readonly features?: readonly FeatureSchema[];
+  }) => NavApi;
+  readonly onAppLoaded: (app: AppSchema) => void;
+  readonly onUnmountResetSchema?: () => void;
+  readonly translate?: Translate;
+  readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
+  readonly shell?: (props: {
+    readonly children: ReactNode;
+    readonly schema: AppSchema;
+  }) => ReactNode;
+}): ReactNode {
+  // Called unconditionally regardless of which branch below actually
+  // renders — this component's identity persists across the "no app yet"
+  // → "app loaded" transition, so its hooks must run in the same order on
+  // every render (Rules of Hooks).
+  const t = useTranslation();
+  const { Banner } = usePrimitives();
+
+  // Ref, not an effect dependency: onUnmountResetSchema closes over
+  // KumikoAppRoot's setApp and would otherwise force this effect to
+  // re-run (and re-fire its cleanup) on every render.
+  const onUnmountResetSchemaRef = useRef(onUnmountResetSchema);
+  onUnmountResetSchemaRef.current = onUnmountResetSchema;
+
+  // A real unmount (the gate withdrawing children, e.g. on logout) resets
+  // the schema so the next mount re-fetches instead of reusing this
+  // session's — fetch-mode only, see isFetchMode in KumikoAppRoot.
+  useEffect(() => {
+    return () => onUnmountResetSchemaRef.current?.();
+  }, []);
+
+  if (app === undefined) {
+    return <AppSchemaFetchBoot onLoaded={onAppLoaded} />;
+  }
+
+  const fallbackQn = screenQn ?? firstOpenScreenQn(app.features);
+  if (fallbackQn === undefined) {
+    return (
+      <Banner variant="error" padded>
+        {t("kumiko.app-boot.no-open-screen")}
+      </Banner>
+    );
+  }
+
+  return (
+    <BrowserNavBoot
+      app={app}
+      fallbackQn={fallbackQn}
+      useNavApi={navAdapter}
+      hasWorkspaces={(app.workspaces?.length ?? 0) > 0}
+      {...(translate !== undefined && { translate })}
+      {...(onRowClick !== undefined && { onRowClick })}
+      {...(shell !== undefined && { shell })}
+    />
+  );
+}
+
 export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
@@ -291,28 +541,20 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     );
   }
 
-  // Resolve das Schema. Reihenfolge:
-  //   1. options.schema explizit übergeben → nutzen
-  //   2. window.__KUMIKO_SCHEMA__ (vom dev-server injiziert) → nutzen
-  //   3. Sonst → throw mit klarer Anleitung was zu tun ist
-  // toAppSchema normalisiert die FeatureSchema/AppSchema-Union, ab hier
-  // kennen alle Layouts nur noch AppSchema.
+  // toAppSchema normalizes the FeatureSchema/AppSchema union — from here on
+  // every layout only ever sees AppSchema. No schema resolved yet (neither
+  // options.schema nor window.__KUMIKO_SCHEMA__) is no longer an error here:
+  // KumikoAppRoot/AppSchemaBoundary fetch it from GET /api/schema instead.
   const rawSchema = options.schema ?? readInjectedSchema();
-  if (rawSchema === undefined) {
-    throw new Error(
-      "createKumikoApp: kein Schema übergeben und window.__KUMIKO_SCHEMA__ nicht gesetzt. " +
-        "Entweder `schema: <FeatureSchema|AppSchema>` an createKumikoApp übergeben, oder " +
-        "den dev-server (@cosmicdrift/kumiko-dev-server) nutzen — der injiziert das Schema beim Boot.",
-    );
-  }
-  const app = toAppSchema(rawSchema);
-
-  // Fallback-Screen falls kein explizites screenQn übergeben wurde.
-  const fallbackQn = options.screenQn ?? firstOpenScreenQn(app.features);
-  if (!fallbackQn) {
-    throw new Error(
-      "createKumikoApp: schema contains no screens accessible without a role restriction. Add at least one entry to `schema.screens` without `access.roles`, or pass `screenQn` explicitly.",
-    );
+  let initialApp: AppSchema | undefined;
+  if (rawSchema !== undefined) {
+    initialApp = toAppSchema(rawSchema);
+    const fallbackQn = options.screenQn ?? firstOpenScreenQn(initialApp.features);
+    if (!fallbackQn) {
+      throw new Error(
+        "createKumikoApp: schema contains no screens accessible without a role restriction. Add at least one entry to `schema.screens` without `access.roles`, or pass `screenQn` explicitly.",
+      );
+    }
   }
 
   const dispatcher = options.dispatcher ?? createLiveDispatcher();
@@ -320,68 +562,20 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   const primitives: PrimitivesRegistry = { ...defaultPrimitives, ...(options.primitives ?? {}) };
   const liveEvents = createEventSourceLiveEvents();
 
-  // Feature-Plugins: providers stacken außen (jeder Gate + Screen sieht
-  // jeden Provider), gates stacken zwischen Renderer-Providern und
-  // Shell/Screen. Array-Order: erstes Element = äußerste Hülle.
+  // Feature plugins: providers stack outermost (every gate + screen sees
+  // every provider), gates stack between the renderer providers and the
+  // shell/screen. Array order: first element = outermost wrapper.
   const clientFeatures = options.clientFeatures ?? [];
   const providers = clientFeatures.flatMap((f) => f.providers ?? []);
   const gates = clientFeatures.flatMap((f) => f.gates ?? []);
-  // Precedence in fallbackBundles (Array-Order = Priorität, höchste zuerst):
-  //   1. clientFeatures.translations — App-Overrides gewinnen immer, auch
-  //      gegen framework-eigene Labels.
-  //   2. schemaTranslations — server-authored r.translations, von
-  //      buildAppSchema verbatim projiziert (#1059). Ohne dieses Bundle
-  //      resolven Nav-/Screen-Labels nur, wenn eine App sie ZUSÄTZLICH in
-  //      web/i18n.ts dupliziert — die meisten bundled-features taten das
-  //      nie, Labels rendern dann als rohe i18n-Keys.
-  //   3. kumikoDefaultTranslations — Framework-Defaults, ALLERLETZTER
-  //      Fallback.
-  const schemaTranslations = app.features.reduce<TranslationsByLocale>(
-    (acc, f) =>
-      f.translations ? mergeTranslations(acc, translationsByLocaleFromKeys(f.translations)) : acc,
-    {},
-  );
-  const fallbackBundles = [
-    ...clientFeatures.flatMap((f) => (f.translations !== undefined ? [f.translations] : [])),
-    schemaTranslations,
-    kumikoDefaultTranslations,
-  ];
-  // Custom-Screen-Components-Map mergen: spätere Features überschreiben
-  // frühere bei screenId-Kollision (Last-Wins). Apps können so ein
-  // bundled-Feature mit lokaler Override versehen.
+  // Custom-screen component map merge: later features override earlier ones
+  // on screenId collision (last-wins). Lets an app override a bundled
+  // feature's screen with a local component.
   const customScreens: Record<string, ComponentType> = {};
   for (const f of clientFeatures) {
     if (f.components !== undefined) Object.assign(customScreens, f.components);
   }
-  // Fail loud at boot instead of per-URL: a mounted server feature can
-  // declare a `type: "custom"` screen that's reachable directly by URL
-  // even without nav placement — without this check, a missing client
-  // plugin only surfaces as an error placeholder to whoever happens to
-  // open that URL (kumiko-framework#2025). Screens flagged `dormant`
-  // (e.g. user-data-rights privacy-center, auth-mfa's enable screen) are
-  // registered without a self-owned r.nav on purpose — an app opts in by
-  // navving them explicitly, so a consumer that hasn't done that yet isn't
-  // missing anything (kumiko-framework#2034). Still dev-only: several
-  // bundled screens that ARE self-navved (e.g. compliance-profiles'
-  // profile-picker) have real unmounted-client-plugin bugs in existing
-  // consumer apps today (kumiko-framework#2025) — running this in
-  // production before those are fixed (tracked via infra#503) would just
-  // spam every affected app's console.
-  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-    const missingCustomScreens = app.features.flatMap((f) =>
-      f.screens
-        .filter(
-          (s) => s.type === "custom" && s.dormant !== true && customScreens[s.id] === undefined,
-        )
-        .map((s) => `${f.featureName}:${s.id}`),
-    );
-    if (missingCustomScreens.length > 0) {
-      // biome-ignore lint/suspicious/noConsole: dev-only diagnostic for missing client plugins
-      console.error(
-        `[kumiko] ${missingCustomScreens.length} custom screen(s) have no registered component in clientFeatures.components — they render an error placeholder instead of the intended UI: ${missingCustomScreens.join(", ")}. Add the feature's web client plugin to clientFeatures.`,
-      );
-    }
-  }
+  if (initialApp !== undefined) warnMissingCustomScreens(initialApp, customScreens);
   // Column-renderer map, same last-wins semantics as customScreens —
   // duplicate keys across features are rarely intentional, so a
   // collision logs once instead of silently overriding a library's
@@ -397,11 +591,6 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   );
 
   const contentEditors = mergeContentEditors(clientFeatures);
-
-  const { navProviders, navEntities } = buildNavProviderMaps(
-    clientFeatures,
-    app.features.flatMap((f) => f.contentCollections ?? []),
-  );
 
   // Aggregate editor resolvers — keyed by "featureId:action". Same
   // last-wins semantics as columnRenderers. Warns on collision.
@@ -420,61 +609,33 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   }
 
   const localeResolver = options.locale ?? createBrowserLocaleResolver();
-
   const navAdapter = options.navAdapter ?? useBrowserNavApi;
-  const hasWorkspaces = (app.workspaces?.length ?? 0) > 0;
-  const screenNode = (
-    <BrowserNavBoot
-      app={app}
-      fallbackQn={fallbackQn}
-      useNavApi={navAdapter}
-      hasWorkspaces={hasWorkspaces}
+
+  const root = createRoot(container);
+  root.render(
+    <KumikoAppRoot
+      initialApp={initialApp}
+      screenQn={options.screenQn}
+      clientFeatures={clientFeatures}
+      providers={providers}
+      gates={gates}
+      customScreens={customScreens}
+      columnRenderers={columnRenderers}
+      extensionSectionComponents={extensionSectionComponents}
+      contentEditors={contentEditors}
+      resolvers={resolvers}
+      dispatcher={dispatcher}
+      draftStorage={draftStorage}
+      primitives={primitives}
+      liveEvents={liveEvents}
+      localeResolver={localeResolver}
+      navAdapter={navAdapter}
+      screenWidth={options.screenWidth}
       {...(options.translate !== undefined && { translate: options.translate })}
       {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
       {...(options.shell !== undefined && { shell: options.shell })}
-    />
+    />,
   );
-
-  const tree = (
-    <TokensBoot>
-      <LocaleProvider resolver={localeResolver} fallbackBundles={fallbackBundles}>
-        <DocumentLangSync resolver={localeResolver} />
-        <PrimitivesProvider value={primitives}>
-          <ScreenWidthProvider width={options.screenWidth ?? "4xl"}>
-            <AppFeaturesProvider features={app.features}>
-              <DispatcherProvider dispatcher={dispatcher}>
-                <DraftStorageProvider value={draftStorage}>
-                  <LiveEventsProvider value={liveEvents}>
-                    <DashboardBodyProvider value={WebDashboardBody}>
-                      <CustomScreensProvider value={customScreens}>
-                        <ColumnRenderersProvider value={columnRenderers}>
-                          <ContentEditorsProvider value={contentEditors}>
-                            <ExtensionSectionsProvider value={extensionSectionComponents}>
-                              <NavProvidersProvider value={navProviders} entities={navEntities}>
-                                <ResolversProvider resolvers={resolvers}>
-                                  <ToastProvider>
-                                    <UpdateChecker />
-                                    {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                                  </ToastProvider>
-                                </ResolversProvider>
-                              </NavProvidersProvider>
-                            </ExtensionSectionsProvider>
-                          </ContentEditorsProvider>
-                        </ColumnRenderersProvider>
-                      </CustomScreensProvider>
-                    </DashboardBodyProvider>
-                  </LiveEventsProvider>
-                </DraftStorageProvider>
-              </DispatcherProvider>
-            </AppFeaturesProvider>
-          </ScreenWidthProvider>
-        </PrimitivesProvider>
-      </LocaleProvider>
-    </TokensBoot>
-  );
-
-  const root = createRoot(container);
-  root.render(tree);
   return { root };
 }
 

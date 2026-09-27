@@ -705,9 +705,9 @@ function renderDev(appName: string): string {
 function renderClient(appName: string): string {
   return [
     "// Browser entry. runDevApp's clientEntry option bundles this file to",
-    "// /client.js and the default HTML loads it. createKumikoApp reads the",
-    "// schema from the window global (injectSchema in the dev-server sets it)",
-    "// and mounts the routes.",
+    "// /client.js and the default HTML loads it. createKumikoApp fetches the",
+    "// AppSchema itself from the authenticated GET /api/schema and mounts",
+    "// the routes.",
     "//",
     "// AppShell wraps DefaultAppShell to supply `brand` — createKumikoApp's",
     "// shell option only injects schema + children. Without `shell` the",

@@ -106,7 +106,6 @@ describe("buildStaticFallback hostDispatch", () => {
     const handler = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "html", file: "gone.html" }),
     );
     const res = await handler(new Request("http://t/"));
@@ -118,7 +117,6 @@ describe("buildStaticFallback hostDispatch", () => {
     const notFound = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "not-found" }),
     );
     expect((await notFound(new Request("http://t/"))).status).toBe(404);
@@ -126,7 +124,6 @@ describe("buildStaticFallback hostDispatch", () => {
     const redirect = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "redirect", to: "https://example.com/", status: 301 }),
     );
     const res = await redirect(new Request("http://t/"));
@@ -135,7 +132,7 @@ describe("buildStaticFallback hostDispatch", () => {
   });
 
   test("/api/* always hits apiHandler", async () => {
-    const handler = buildStaticFallback(() => new Response("from-api", { status: 200 }), tmp, "{}");
+    const handler = buildStaticFallback(() => new Response("from-api", { status: 200 }), tmp);
     const res = await handler(new Request("http://t/api/query", { method: "POST" }));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("from-api");
@@ -143,7 +140,7 @@ describe("buildStaticFallback hostDispatch", () => {
 
   test("serves disk asset under staticDir", async () => {
     await writeFile(join(tmp, "logo.png"), "PNGDATA");
-    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, "{}");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp);
     const res = await handler(new Request("http://t/logo.png"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
@@ -153,7 +150,7 @@ describe("buildStaticFallback hostDispatch", () => {
   test("a request for a directory copied verbatim from public/ falls back to index.html instead of 500ing", async () => {
     await mkdir(join(tmp, "sub"));
     await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
-    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, "{}");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp);
     const res = await handler(new Request("http://t/sub"));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("spa-shell");
@@ -164,11 +161,9 @@ describe("buildStaticFallback hostDispatch", () => {
     const handler = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      '{"screens":[]}',
       () => ({
         kind: "html",
         file: "tenant.html",
-        injectSchema: false,
         csp: "default-src 'self'",
       }),
     );
@@ -185,11 +180,7 @@ describe("buildStaticFallback hostDispatch", () => {
     // matched route (e.g. file-derivatives' public-variant default-deny)
     // that never carries NO_ROUTE_MATCH_HEADER_NAME.
     await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
-    const handler = buildStaticFallback(
-      () => new Response("not found", { status: 404 }),
-      tmp,
-      "{}",
-    );
+    const handler = buildStaticFallback(() => new Response("not found", { status: 404 }), tmp);
     const res = await handler(new Request("http://t/files/deadbeef/thumb"));
     expect(res.status).toBe(404);
     expect(await res.text()).toBe("not found");
@@ -197,7 +188,7 @@ describe("buildStaticFallback hostDispatch", () => {
 
   test("an unknown SPA route with no matching handler still gets the SPA shell", async () => {
     await writeFile(join(tmp, "index.html"), "<!doctype html><html><body>spa-shell</body></html>");
-    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, "{}");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp);
     const res = await handler(new Request("http://t/some/client-side/route"));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("spa-shell");
@@ -230,7 +221,6 @@ describe("buildStaticFallback resolvePageHead", () => {
     const handler = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "html", file: "tenant.html" }),
       {
         resolvePageHead: async () => ({
@@ -252,7 +242,6 @@ describe("buildStaticFallback resolvePageHead", () => {
     const handler = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "html", file: "tenant.html" }),
       {
         resolvePageHead: async () => {
@@ -270,7 +259,6 @@ describe("buildStaticFallback resolvePageHead", () => {
     const handler = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "html", file: "tenant.html" }),
       {
         resolvePageHead: () => new Promise(() => {}),
@@ -286,7 +274,6 @@ describe("buildStaticFallback resolvePageHead", () => {
     const handler = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "html", file: "tenant.html" }),
       {
         resolvePageHead: async ({ path }) => ({ title: `Title for ${path}` }),
@@ -302,7 +289,6 @@ describe("buildStaticFallback resolvePageHead", () => {
     const withoutPageHead = buildStaticFallback(
       () => noRouteMatchedResponse(),
       tmp,
-      "{}",
       () => ({ kind: "html", file: "tenant.html" }),
     );
     const res = await withoutPageHead(new Request("http://t/"));

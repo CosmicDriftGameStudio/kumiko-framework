@@ -8,8 +8,8 @@ bookmarks, reloads, and shared links land on the same surface.
 
 Plus: cross-feature membership — a nav from the `demo-driver` feature
 belongs to the `driver` workspace owned by the `demo` feature. The
-server registry resolves the merge, the browser receives the assembled
-AppSchema via `window.__KUMIKO_SCHEMA__` injection.
+server registry resolves the merge, the browser loads the assembled
+AppSchema itself via the authenticated `GET /api/schema`.
 
 ## Run
 

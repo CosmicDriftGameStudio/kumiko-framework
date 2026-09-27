@@ -62,10 +62,6 @@
       "types": "./src/extra-routes-deps.ts",
       "default": "./src/extra-routes-deps.ts"
     },
-    "./inject-schema": {
-      "types": "./src/inject-schema.ts",
-      "default": "./src/inject-schema.ts"
-    },
     "./resolve-tailwind-cli": {
       "types": "./src/resolve-tailwind-cli.ts",
       "default": "./src/resolve-tailwind-cli.ts"
