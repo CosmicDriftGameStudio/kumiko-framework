@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   ExtraRouteRejection,
   NO_ROUTE_MATCH_HEADER_NAME,
+  requestContext,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -50,6 +51,16 @@ const probeFeature = defineFeature("dev-server-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["anonymous"] },
     handler: async () => ({ pong: true }),
+  });
+  // Echoes the resolved client IP — proves a real Bun.serve socket address
+  // reaches requestContext.ip through handleFetch (fw#3260 addendum: every
+  // other test drives h.fetch()/handle.fetch() directly, never Bun.serve's
+  // real socket).
+  r.queryHandler({
+    name: "whoami",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    handler: async () => ({ ip: requestContext.get()?.ip }),
   });
   // SystemAdmin-gated write — Ziel der entry:"signature" / `wire`-Tests
   // (252/2): Echo von user.tenantId + roles beweist Dispatch durch
@@ -913,5 +924,35 @@ describe("createKumikoServer — public/ static files", () => {
       process.chdir(cwdBefore);
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("createKumikoServer — real Bun.serve socket resolves the client IP (fw#3260 addendum)", () => {
+  // Every other test in this file drives h.fetch()/handle.fetch() directly,
+  // bypassing Bun.serve's real TCP socket entirely — none of them can catch
+  // a regression where handleFetch loses the socket address before it
+  // reaches requestContext.ip (see client-ip.ts: falls back to "unknown"
+  // rather than throwing, so a wiring bug here stays silent otherwise).
+  test("a real loopback connection resolves to the actual socket address, not 'unknown'", async () => {
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+    const port = handle.server?.port;
+    if (port === undefined) throw new Error("expected handle.server to be listening");
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/query`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "dev-server-probe:query:whoami", payload: {} }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { ip?: string } };
+    // See the matching prod-side test (run-prod-app.integration.test.ts)
+    // for why the assertion matches the loopback family instead of a
+    // fixed literal (IPv4 vs. IPv4-mapped IPv6 is a platform detail).
+    expect(body.data?.ip).toMatch(/^(::ffff:)?127\.0\.0\.1$/);
   });
 });

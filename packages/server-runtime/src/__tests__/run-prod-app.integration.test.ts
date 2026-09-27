@@ -25,6 +25,7 @@ import {
   ExtraRouteRejection,
   isRedisSseBroker,
   NO_ROUTE_MATCH_HEADER_NAME,
+  requestContext,
   type SseEvent,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -91,6 +92,17 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
     handler: async () => ({ pong: true }),
+  });
+  // Echoes the resolved client IP — the only way to prove a real Bun.serve
+  // socket address reaches requestContext.ip end-to-end (fw#3260 addendum:
+  // every other test in this file drives fetchHandler directly, which never
+  // exercises server.requestIP()).
+  r.queryHandler({
+    name: "ip-probe",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
+    handler: async () => ({ ip: requestContext.get()?.ip }),
   });
   r.queryHandler({
     name: "kms-probe",
@@ -1030,6 +1042,37 @@ describe("runProdApp", () => {
     await expect(boot(undefined, { migrations: { dir: driftDir } })).rejects.toThrow(
       /Schema drift detected/,
     );
+  });
+});
+
+describe("runProdApp — real Bun.serve socket resolves the client IP (fw#3260 addendum)", () => {
+  // Every other test in this file drives handle.fetch()/entrypoint.app.fetch()
+  // directly, which never goes through Bun.serve's real TCP socket — so none
+  // of them can catch a regression where the socket address gets lost before
+  // reaching requestContext.ip (see client-ip.ts: falls back to "unknown"
+  // rather than throwing, so a wiring bug here stays silent otherwise).
+  test("a real loopback connection resolves to the actual socket address, not 'unknown'", async () => {
+    const handle = await boot(undefined, {
+      autoListen: true,
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+    const port = handle.server?.port;
+    if (port === undefined) throw new Error("expected handle.server to be listening");
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/query`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "prod-probe:query:ip-probe", payload: {} }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data?: { ip?: string } };
+    // Exact loopback notation (bare "127.0.0.1" vs. the IPv4-mapped IPv6
+    // form "::ffff:127.0.0.1") depends on the platform's dual-stack
+    // listener behavior, not on the code under test — matching the
+    // family instead of a fixed literal keeps the assertion about what
+    // this test actually proves: a real socket address reached
+    // requestContext.ip instead of the "unknown" fallback.
+    expect(body.data?.ip).toMatch(/^(::ffff:)?127\.0\.0\.1$/);
   });
 });
 
