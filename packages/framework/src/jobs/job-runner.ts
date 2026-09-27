@@ -550,7 +550,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       log("lock redis connection error", { error: err.message });
     });
     const lockScope = consumerLane ?? "enqueue";
-    sequentialLock = createDistributedLock(lockRedis, `${RedisKeys.lock}seq:${lockScope}:`);
+    // Scoped by queueNamePrefix like the queues themselves, so runners
+    // isolated by prefix on a shared Redis don't contend for the same lock.
+    sequentialLock = createDistributedLock(
+      lockRedis,
+      `${RedisKeys.lock}seq:${queueNamePrefix}:${lockScope}:`,
+    );
   }
   // Default lock-TTL for sequential jobs that didn't declare a timeout.
   // 5 minutes matches BullMQ's default stalledInterval — long enough for

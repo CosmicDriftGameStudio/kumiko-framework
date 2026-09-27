@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
+import { Redis } from "ioredis";
 import * as z from "zod";
 import { requestContext } from "../../api/request-context";
 import { tenantDbRunner } from "../../db/tenant-db-runner";
@@ -13,6 +14,7 @@ import type {
   TenantId,
 } from "../../engine/types";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider";
+import { RedisKeys } from "../../pipeline/redis-keys";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { sleep, waitFor } from "../../testing";
 import {
@@ -498,10 +500,110 @@ describe("concurrency: sequential", () => {
       expect(delta12).toBeGreaterThanOrEqual(250);
       expect(delta23).toBeGreaterThanOrEqual(250);
 
-      // FIFO inside the same lock-name: the dispatch order is preserved
-      // even though re-enqueues happen.
-      expect(entries[0]?.payload).toEqual({ n: 1 });
+      // NOT dispatch order: "sequential" is mutual exclusion, not a FIFO
+      // queue. A re-enqueued lock loser goes to the back of its
+      // queue, so it can still win the next race. What's guaranteed, and
+      // already asserted above via delta12/delta23, is that runs never
+      // overlap. Assert the complete set instead of a specific order.
+      expect(entries.map((e) => e.payload)).toEqual(
+        expect.arrayContaining([{ n: 1 }, { n: 2 }, { n: 3 }]),
+      );
     });
+  });
+
+  test("runners with distinct queueNamePrefix do not share the sequential lock", async () => {
+    clearLog();
+    // Regression guard: the lock key used to omit queueNamePrefix, so two
+    // isolated runners sharing a Redis collided on the same lock.
+    const prefixA = `kumiko-test-lockscope-a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prefixB = `kumiko-test-lockscope-b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const runnerA = createJobRunner({
+      registry: createRegistry([testFeature]),
+      context: {},
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefixA,
+    });
+    const runnerB = createJobRunner({
+      registry: createRegistry([testFeature]),
+      context: {},
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefixB,
+    });
+    // Own client, no keyPrefix — testRedis.redis auto-prefixes SET/DEL and
+    // would write a different key than the runner's own lock connection.
+    const lockKeyA = `${RedisKeys.lock}seq:${prefixA}:worker:test:job:sequential-job`;
+    const rawRedis = new Redis(redisUrl);
+    rawRedis.on("error", () => {});
+    const queueA = new Queue(`${prefixA}-worker`, {
+      connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+    });
+    // A post-close 'error' here is otherwise unhandled and bun:test
+    // attributes it to whichever test runs next (fw#1805).
+    queueA.on("error", () => {});
+
+    try {
+      await rawRedis.set(lockKeyA, "held-by-test", "EX", 30, "NX");
+
+      await runnerA.start();
+      await runnerB.start();
+
+      await runnerA.dispatch("test:job:sequential-job", { n: 100 });
+
+      // A's handler returns successfully on a lock loss (re-enqueue, not a
+      // throw) — BullMQ records the dropped attempt as completed even
+      // though the job body never ran. Filtered by name+payload so unrelated
+      // boot/cron jobs on the same worker queue don't false-positive this.
+      await waitFor(
+        async () => {
+          const completed = await queueA.getCompleted();
+          const lostAttempts = completed.filter(
+            (job) => job.name === "test:job:sequential-job" && job.data.n === 100,
+          );
+          expect(lostAttempts.length).toBeGreaterThanOrEqual(1);
+        },
+        { delays: [400, 800, 1500, 3000] },
+      );
+      expect(
+        jobLog.some((e) => e.name === "test:job:sequential-job" && e.payload["n"] === 100),
+      ).toBe(false);
+
+      // B shares no lock scope with the externally held A-key, so it must
+      // run despite A being blocked.
+      await runnerB.dispatch("test:job:sequential-job", { n: 200 });
+      await waitFor(
+        () => {
+          const entries = jobLog.filter(
+            (e) => e.name === "test:job:sequential-job" && e.payload["n"] === 200,
+          );
+          expect(entries.length).toBeGreaterThanOrEqual(1);
+        },
+        { delays: [400, 800, 1500, 3000] },
+      );
+
+      // Releasing the externally held key unblocks A's own dispatch.
+      await rawRedis.del(lockKeyA);
+      await waitFor(
+        () => {
+          const entries = jobLog.filter(
+            (e) => e.name === "test:job:sequential-job" && e.payload["n"] === 100,
+          );
+          expect(entries.length).toBeGreaterThanOrEqual(1);
+        },
+        { delays: [400, 800, 1500, 3000] },
+      );
+    } finally {
+      await runnerA.stop();
+      await runnerB.stop();
+      await queueA.close();
+      await rawRedis.del(lockKeyA);
+      rawRedis.disconnect();
+      const keysA = await testRedis.redis.keys(`bull:${prefixA}-worker:*`);
+      if (keysA.length > 0) await testRedis.redis.del(...keysA);
+      const keysB = await testRedis.redis.keys(`bull:${prefixB}-worker:*`);
+      if (keysB.length > 0) await testRedis.redis.del(...keysB);
+    }
   });
 
   test("lock is released even when the handler throws", async () => {
