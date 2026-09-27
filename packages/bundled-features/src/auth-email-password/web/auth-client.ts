@@ -96,6 +96,14 @@ export type LoginResult =
   | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string }
   | { readonly kind: "failure"; readonly error: LoginFailure };
 
+function toLoginResponse(
+  token: string,
+  user: LoginResponse["user"],
+  landingPath: unknown,
+): LoginResponse {
+  return typeof landingPath === "string" ? { token, user, landingPath } : { token, user };
+}
+
 // POST /api/auth/login. Success → token + user; MFA-enrolled user → a
 // challenge token the caller completes via auth-mfa's verify screen;
 // unenrolled user blocked by enforcement policy → mfa-setup-required;
@@ -144,14 +152,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
       return { kind: "failure", error: { reason: "mfa_setup_required" } };
     }
     if (body.token !== undefined && body.user !== undefined) {
-      return {
-        kind: "success",
-        data: {
-          token: body.token,
-          user: body.user,
-          ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
-        },
-      };
+      return { kind: "success", data: toLoginResponse(body.token, body.user, body.landingPath) };
     }
   }
   // Der Server schickt error entweder als string ("invalid_body") oder als
