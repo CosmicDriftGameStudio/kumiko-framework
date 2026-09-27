@@ -1239,18 +1239,35 @@ export function validateScreens(
             );
           }
           const navigate = typeof metric === "string" ? undefined : metric.navigate;
-          // Cross-screen navigate+tab isn't checked here — the target screen
-          // validates its own section ids when the loop reaches it.
-          if (
-            navigate?.tab !== undefined &&
-            navigate.screen === undefined &&
-            navigate.entity === undefined &&
-            !screen.layout.sections.some((section) => section.id === navigate.tab)
-          ) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
-                `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
-            );
+          if (navigate?.tab !== undefined) {
+            if (navigate.screen === undefined && navigate.entity === undefined) {
+              if (!screen.layout.sections.some((section) => section.id === navigate.tab)) {
+                throw new Error(
+                  `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
+                    `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
+                );
+              }
+            } else {
+              resolveRowActionNavigateTarget(
+                feature.name,
+                screenId,
+                "projectionDetail",
+                "metric",
+                {
+                  kind: "navigate",
+                  id: field,
+                  label: field,
+                  ...(navigate.screen !== undefined ? { screen: navigate.screen } : {}),
+                  ...(navigate.entity !== undefined ? { entity: navigate.entity } : {}),
+                  ...(navigate.entityId !== undefined ? { entityId: navigate.entityId } : {}),
+                  tab: navigate.tab,
+                },
+                allScreenQns,
+                navTargetShortIds,
+                screensByShortId,
+                detailForScreens,
+              );
+            }
           }
         }
       }
