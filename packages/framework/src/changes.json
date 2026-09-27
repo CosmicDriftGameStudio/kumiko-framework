@@ -1,5 +1,53 @@
 [
   {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "kumiko-schema gained --help/-h/help",
+    "detail": "Prints usage listing the available subcommands and exits 0.",
+    "migration": "No action needed."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "parseTrustedProxyHopsEnv/TRUSTED_PROXY_HOPS_ENV factored out of runProdApp for runDevApp and consumer tooling to share",
+    "detail": "`packages/framework/src/api/client-ip.ts` gained\n`parseTrustedProxyHopsEnv(raw, context)` and the\n`TRUSTED_PROXY_HOPS_ENV = \"KUMIKO_TRUSTED_PROXY_HOPS\"` constant (both\nexported via the `api` barrel), moved out of `runProdApp`'s inline\nparsing. Same validation and error message as before.",
+    "migration": "No action needed; runProdApp's behavior and error message are unchanged."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "AnonymousExtraRouteDeps gained clientIp, resolved by the server's trustedProxyHops-aware resolver",
+    "detail": "`AnonymousExtraRouteDeps.clientIp: string`, populated the same way as the\nhttpRoute path via `shared.clientIpResolver.resolve\n(clientIpSourceFromHonoContext(c))`. `ExtraRouteHonoHandlerDeps\n.clientIpResolver` is now required (its only caller always supplied it).",
+    "migration": "Anonymous extra routes that need the caller's IP should read\n`deps.clientIp` instead of reading `X-Forwarded-For` (or any other\nheader) themselves — the latter is attacker-controlled unless you also\nknow the exact trusted-hop count. Tests that build an\n`AnonymousExtraRouteDeps` literal by hand must add a `clientIp` string."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "feature-ast resolves imported constants and registrar wrappers without building a TypeScript program",
+    "detail": "Imported `const` initializers (named imports, aliases, `export { X as Y }`,\nre-export chains, `export *`) and imported registrar-wrapper functions are\nresolved through `ts.resolveModuleName` plus a syntactic export walk.\nSame-file lookups walk enclosing block scopes instead of the file top level. Parse\noutput is unchanged; parsing a feature file drops from hundreds of\nmilliseconds to a few milliseconds."
+  },
+  {
+    "version": "0.321.0",
+    "type": "breaking",
+    "title": "webhook.send step auth secretRef renamed to secret; MultiStreamApplyContext gained an optional secrets field",
+    "detail": "`r.step.webhook.send`'s `auth` union renamed `secretRef` → `secret` (see\nthe step-dispatcher entry for the full rationale). `MultiStreamApplyContext`\n(and `createMultiStreamApplyContext`'s deps) gained an optional\n`secrets?: SecretsContext` field, mirroring `files`/`derivatives` — present\nwhen the app booted with the secrets feature, letting a saga/process-\nmanager MSP apply read a tenant secret with its own audit context. The\nserver's MSP consumer wiring now threads the boot-time `AppContext.secrets`\nthrough automatically; `rebuildMultiStreamProjection`'s rebuild context\ndeliberately does not carry `secrets` (rebuild must stay side-effect-free).",
+    "migration": "Rename `auth.secretRef` → `auth.secret` at every `r.step.webhook.send`\ncall site. No action needed for `MultiStreamApplyContext` consumers that\ndon't read `ctx.secrets` — the field is optional and additive."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "New event-store primitive transferAggregateStreams for tenant-to-tenant aggregate moves",
+    "detail": "`transferAggregateStreams(db, { sourceTenantId, destinationTenantId,\naggregateType, aggregateIds, transferredBy })` (event-store/transfer.ts)\nmoves an aggregate's events, drops its snapshot, and carries its archive\nmarker from one tenant to another, then appends one\n`kumiko:system:aggregate.transferred` system event per moved aggregate\n(own fresh stream, destination tenant, payload carries aggregateType/\naggregateId/sourceTenantId/destinationTenantId). An id with no events\nunder the given tenant/aggregateType is left untouched and gets no event.\nBacked by db/queries/event-store-transfer.ts.",
+    "migration": "No action for existing consumers — this is a new, additive primitive."
+  },
+  {
+    "version": "0.321.0",
+    "type": "fix",
+    "title": "upgrade-cli now collects every package's changes.json, not just framework's",
+    "detail": "`findCoreChangelogFile(cwd): string | null` is replaced by\n`findPackageChangelogFiles(cwd): string[]`. In the framework repo itself\nit collects every `packages/<dir>/src/changes.json` except\n`packages/bundled-features` (bundled features are already collected per\nfeature dir). In a consumer repo it walks up to 10 levels looking for\n`node_modules/@cosmicdrift/*/src/changes.json`, skipping\n`kumiko-bundled-features`, deduping by package name (nearest\n`node_modules` wins) and by realpath (symlinked workspace copies).",
+    "migration": "No action needed — `kumiko upgrade` now surfaces more relevant breaking\nchanges than before, it never hides ones it previously showed."
+  },
+  {
     "version": "0.320.0",
     "type": "breaking",
     "title": "Centralized client-IP resolver replaces the old first-XFF-entry heuristic",

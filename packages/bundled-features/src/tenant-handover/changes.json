@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "Claim now moves event-store ownership through transferAggregateStreams instead of raw SQL",
+    "detail": "move-entity-graph.ts no longer runs its own `UPDATE kumiko_events` /\n`UPDATE kumiko_snapshots` against the event store — it calls the\nframework's `transferAggregateStreams` per aggregate type, threading the\nclaiming user's id as `transferredBy`. Archive markers now move with the\nstream (previously left behind under the source tenant). Each moved\naggregate gets its own `kumiko:system:aggregate.transferred` audit event\nin the destination tenant, in addition to the existing\n`tenant-handover:event:claimed` summary event.",
+    "migration": "No action needed — the claim API and its response shape are unchanged."
+  },
+  {
     "version": "0.313.0",
     "type": "fix",
     "title": "tenant-handover claim now moves a fileRef's own event history and storage-usage counters",

@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.321.0",
+    "type": "breaking",
+    "title": "switch-plan rejects a subscription with a scheduled cancellation",
+    "detail": "`billing-foundation:write:switch-plan` now throws a `409 ConflictError`\n(`billing-foundation.errors.cancellationScheduled`) when the tenant's\nsubscription already has `cancelAt` set — switching plans mid-cancellation\npreviously silently proceeded and could leave the new plan itself\nscheduled to cancel. `billing-foundation:query:billing-plans` now resolves every\nnon-current plan's `action` to `unavailable` (instead of `switch`) while a\ncancellation is scheduled, and the billing-plans panel shows a\n`switchRequiresReactivation` message alongside the existing\n`cancelScheduled` banner.",
+    "migration": "A tenant that switches plans while their subscription is scheduled to\ncancel now gets a 409 instead of a successful switch. Callers driving\n`switch-plan` directly (not through the bundled panel) must reactivate the\nsubscription first (`create-portal-session` / the provider's own\nreactivation flow) before retrying the switch."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "past_due banner on the billing-plans panel; sync-subscription backfill for provider-side drift",
+    "detail": "`billing-plans-panel` renders a `past_due`-status warning banner\n(`billing-foundation.plans.pastDue`) alongside the existing\npayment-pending/cancel-scheduled ones. `SubscriptionProviderPlugin` gained\nan optional `retrieveSubscription(ctx, providerSubscriptionId)` method\nreturning a `ProviderSubscriptionSnapshot`; the new\n`billing-foundation:write:sync-subscription` handler (`agent.expose:\nfalse`, `SYSTEM_ROLE`/`SystemAdmin`-only — the `sync-subscriptions` job's\nown systemUser only carries `SYSTEM_ROLE`) compares the live snapshot\nagainst `read_subscriptions` and appends a `subscription.updated` (or\n`subscription.canceled`, when the snapshot's own status is terminal)\nevent with a deterministic `sync:<sha256>` providerEventId when it has\ndrifted, a no-op otherwise. The `sync-subscriptions` job (manual-trigger +\nrunOnBoot, perTenant) dispatches it and is registered unconditionally.\n`isBillingEnabled(ctx, providerName)` returns `false` instead of throwing\nwhen `providerName` isn't registered.",
+    "migration": "No action needed — every part is additive. Apps on `subscription-stripe`\nautomatically get `retrieveSubscription` wired; a custom provider plugin\nwithout one makes `sync-subscription` report\n`{ synced: false, reason: \"provider_cannot_retrieve\" }` instead of syncing.\nOn the next deploy, `sync-subscriptions`' `runOnBoot` fires once per Redis\ndataset (not once per replica) with one provider API call per tenant that\nhas a live subscription. If that run is interrupted (deploy killed\nmid-fan-out, Redis restart), it is not re-run automatically on the next\nboot — trigger it manually via `billing-foundation:job:sync-subscriptions`\n(`jobs:write:trigger`) to catch up."
+  },
+  {
     "version": "0.319.0",
     "type": "improvement",
     "title": "billing-plans no longer throws when no provider is mounted",

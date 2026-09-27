@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.321.0",
+    "type": "fix",
+    "title": "Landing fallback for a role-projected fetched schema now considers every nav-reachable screen, not just open-to-all ones",
+    "detail": "New export `firstLandingScreenQnForProjectedSchema(features)`: tries\n`firstOpenScreenQn(features)` first (so regular users keep today's\nlanding), then falls back to the first nav-reachable screen regardless\nof `access` (the server already removed anything the caller's roles may\nnot see). `AppSchemaBoundary` now takes a `schemaIsRoleProjected: boolean`\nprop; `KumikoAppRoot` passes `isFetchMode`. The sync path\n(`options.schema`/injected `__KUMIKO_SCHEMA__`, unprojected, pre-auth)\nis unchanged and still strict.",
+    "migration": "No action needed — this only affects the fetch-mode landing fallback and\nwidens it, it never narrows an existing landing choice."
+  },
+  {
     "version": "0.320.0",
     "type": "improvement",
     "title": "The default detailFor row click carries returnTo",

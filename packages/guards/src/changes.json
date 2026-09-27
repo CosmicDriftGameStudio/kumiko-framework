@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "pre-push.sh refuses to push a stale .kumiko/upgrade-state.json",
+    "detail": "When `.kumiko/upgrade-state.json` exists at the repo root, `pre-push.sh`\nnow runs the upgrade-state guard before its main check and refuses the\npush if the guard fails, resolving `guard-upgrade-state.ts` next to the\nhook's real (symlink-resolved) script location.",
+    "migration": "A repo that has adopted `.kumiko/upgrade-state.json` and is currently\nstale now has its push blocked until the upgrade state is reconciled. A\nrepo without that marker file is unaffected."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "New guard blocks direct writes to the event-store tables outside the event store itself",
+    "detail": "guard-event-store-writes.ts flags any UPDATE/DELETE FROM/INSERT INTO\nstring or template literal naming kumiko_events, kumiko_snapshots, or\nkumiko_archived_streams outside packages/framework/src/event-store/**\nand their db/queries/event-store*.ts backing (plus the two pre-existing,\nnamed one-time backfill exceptions). Registered in run-guards.ts.",
+    "migration": "No action needed for code that already goes through the event store's\nown primitives (append, transferAggregateStreams, archiveStream, ...).\nA direct raw-SQL write against one of these three tables from feature\ncode now fails the guard; use transferAggregateStreams for a tenant\nmove, or add a new event-store primitive instead."
+  },
+  {
     "version": "0.317.0",
     "type": "fix",
     "title": "no-framed-extension-sections now resolves the actual mount kind before flagging",

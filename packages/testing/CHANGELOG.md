@@ -1,5 +1,213 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.321.0
+
+### Minor Changes
+
+- 959b3fb: `billing-plans-panel` now surfaces a `past_due` subscription with its own warning banner, instead of looking the same as an active one. `switch-plan` now rejects switching a subscription that already has a scheduled cancellation (`cancelAt` set) with a `409 cancellationScheduled` conflict — the tenant must reactivate first; the billing-plans query and panel reflect this by marking every switch target `unavailable` and pointing at reactivation. A new `retrieveSubscription` provider-plugin method (implemented for Stripe) plus a `sync-subscription` write-handler and `sync-subscriptions` job backfill drift — like a `cancel_at` set on the provider's own dashboard — that never arrived as a webhook, appending it as a real `subscription.updated` event. `isBillingEnabled` no longer throws for an unregistered provider name, returning `false` instead. `kumiko-testing integration` now accepts positional test-file args, `kumiko-upgrade`/`kumiko-schema` gained a `--help`, and `pre-push.sh` now refuses to push a repo with a stale `.kumiko/upgrade-state.json`.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: switch-plan rejects a subscription with a scheduled cancellation
+  detail: |
+    `billing-foundation:write:switch-plan` now throws a `409 ConflictError`
+    (`billing-foundation.errors.cancellationScheduled`) when the tenant's
+    subscription already has `cancelAt` set — switching plans mid-cancellation
+    previously silently proceeded and could leave the new plan itself
+    scheduled to cancel. `billing-foundation:query:billing-plans` now resolves every
+    non-current plan's `action` to `unavailable` (instead of `switch`) while a
+    cancellation is scheduled, and the billing-plans panel shows a
+    `switchRequiresReactivation` message alongside the existing
+    `cancelScheduled` banner.
+  migration: |
+    A tenant that switches plans while their subscription is scheduled to
+    cancel now gets a 409 instead of a successful switch. Callers driving
+    `switch-plan` directly (not through the bundled panel) must reactivate the
+    subscription first (`create-portal-session` / the provider's own
+    reactivation flow) before retrying the switch.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: past_due banner on the billing-plans panel; sync-subscription backfill for provider-side drift
+  detail: |
+    `billing-plans-panel` renders a `past_due`-status warning banner
+    (`billing-foundation.plans.pastDue`) alongside the existing
+    payment-pending/cancel-scheduled ones. `SubscriptionProviderPlugin` gained
+    an optional `retrieveSubscription(ctx, providerSubscriptionId)` method
+    returning a `ProviderSubscriptionSnapshot`; the new
+    `billing-foundation:write:sync-subscription` handler (`agent.expose:
+    false`, `SYSTEM_ROLE`/`SystemAdmin`-only — the `sync-subscriptions` job's
+    own systemUser only carries `SYSTEM_ROLE`) compares the live snapshot
+    against `read_subscriptions` and appends a `subscription.updated` (or
+    `subscription.canceled`, when the snapshot's own status is terminal)
+    event with a deterministic `sync:<sha256>` providerEventId when it has
+    drifted, a no-op otherwise. The `sync-subscriptions` job (manual-trigger +
+    runOnBoot, perTenant) dispatches it and is registered unconditionally.
+    `isBillingEnabled(ctx, providerName)` returns `false` instead of throwing
+    when `providerName` isn't registered.
+  migration: |
+    No action needed — every part is additive. Apps on `subscription-stripe`
+    automatically get `retrieveSubscription` wired; a custom provider plugin
+    without one makes `sync-subscription` report
+    `{ synced: false, reason: "provider_cannot_retrieve" }` instead of syncing.
+    On the next deploy, `sync-subscriptions`' `runOnBoot` fires once per Redis
+    dataset (not once per replica) with one provider API call per tenant that
+    has a live subscription. If that run is interrupted (deploy killed
+    mid-fan-out, Redis restart), it is not re-run automatically on the next
+    boot — trigger it manually via `billing-foundation:job:sync-subscriptions`
+    (`jobs:write:trigger`) to catch up.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: kumiko-testing integration accepts positional test-file args
+  detail: |
+    `kumiko-testing integration` now runs only the given files/globs when
+    positional args are passed, instead of always discovering every
+    `*.integration.test.ts` file.
+  migration: No action needed — omitting positional args keeps the previous full-discovery behavior.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: kumiko-upgrade gained --help/-h
+  detail: Prints usage and exits 0 without running the upgrade report.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema gained --help/-h/help
+  detail: Prints usage listing the available subcommands and exits 0.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: pre-push.sh refuses to push a stale .kumiko/upgrade-state.json
+  detail: |
+    When `.kumiko/upgrade-state.json` exists at the repo root, `pre-push.sh`
+    now runs the upgrade-state guard before its main check and refuses the
+    push if the guard fails, resolving `guard-upgrade-state.ts` next to the
+    hook's real (symlink-resolved) script location.
+  migration: |
+    A repo that has adopted `.kumiko/upgrade-state.json` and is currently
+    stale now has its push blocked until the upgrade state is reconciled. A
+    repo without that marker file is unaffected.
+  -->
+
+### Patch Changes
+
+- fa27809: E2e logins started 429ing after the client-IP resolver landed (kumiko-framework#3323): every Playwright client is on `::1`, so the default `trustedProxyHops` (0, socket-only) collapsed every seeded user's login into one shared rate-limit bucket instead of one per user
+
+  `defineAppE2eConfig`'s `webServer` now sets `KUMIKO_TRUSTED_PROXY_HOPS=1` (template-owned, added to `RESERVED_ENV_KEYS`), and `loginViaApi` sends a deterministic per-email `X-Forwarded-For` so each seeded user gets their own bucket, the same way a real client behind one trusted reverse-proxy hop would.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: parseTrustedProxyHopsEnv/TRUSTED_PROXY_HOPS_ENV factored out of runProdApp for runDevApp and consumer tooling to share
+  detail: |
+    `packages/framework/src/api/client-ip.ts` gained
+    `parseTrustedProxyHopsEnv(raw, context)` and the
+    `TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS"` constant (both
+    exported via the `api` barrel), moved out of `runProdApp`'s inline
+    parsing. Same validation and error message as before.
+  migration: |
+    No action needed; runProdApp's behavior and error message are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp now also honors KUMIKO_TRUSTED_PROXY_HOPS as an env fallback, symmetric to runProdApp
+  detail: |
+    Precedence: `options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops
+    ?? parseTrustedProxyHopsEnv(envSource[TRUSTED_PROXY_HOPS_ENV], "runDevApp")`.
+  migration: |
+    No action needed for the default (unproxied) dev setup.
+  -->
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp's KUMIKO_TRUSTED_PROXY_HOPS parsing now shares framework's parseTrustedProxyHopsEnv
+  detail: |
+    The inline digits-only + non-negative-integer validation moved out of
+    `run-prod-app.ts` into `parseTrustedProxyHopsEnv`
+    (`@cosmicdrift/kumiko-framework/api`); same validation and error message
+    as before, no behavioral change.
+  migration: |
+    No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: defineAppE2eConfig reserves KUMIKO_TRUSTED_PROXY_HOPS; loginViaApi sends a synthetic per-user X-Forwarded-For
+  detail: |
+    `defineAppE2eConfig`'s `webServer.env` now sets
+    `KUMIKO_TRUSTED_PROXY_HOPS=1` and rejects that key in a consumer's own
+    `env` (template-owned, added to `RESERVED_ENV_KEYS`). `loginViaApi` sends
+    `x-forwarded-for: syntheticClientIpFor(credentials.email)`, a new
+    exported helper deriving a deterministic private-range IP from
+    `sha256(email)`, so each seeded user's login lands in its own
+    rate-limit bucket instead of every ::1 client sharing one.
+    `loginViaUi` is unchanged.
+  migration: |
+    Consumers using `defineAppE2eConfig` + `loginViaApi` (incl. the
+    `seedTenant` fixture) need no changes — each seeded user now logs in
+    from its own bucket. Browser logins (`loginViaUi`, raw `fetch` to
+    `/api/auth/login` from a page) still share the `::1` bucket. A consumer
+    with its own e2e login helper (bypassing `loginViaApi`) should send
+    `x-forwarded-for: syntheticClientIpFor(email)` (exported from
+    `@cosmicdrift/kumiko-testing`) themselves, and must not set
+    `KUMIKO_TRUSTED_PROXY_HOPS` in `defineAppE2eConfig`'s `env` — it's now
+    reserved.
+  -->
+
+- de9ee46: Browser requests in e2e shared one `per: "ip"` rate-limit bucket
+
+  Every Playwright client connects from `::1`. Since the client-IP resolver counts requests without `X-Forwarded-For` instead of skipping them, all browser pages of a parallel e2e run shared one `ip`/`ip+handler` bucket and hit load-dependent 429s on `/api/query`. The kumiko-testing `test` fixture now routes the browser context's same-origin `/api/**` requests through a synthetic `X-Forwarded-For` per test (run token + test id + repeat and retry index), so every test gets its own client IP, including browser logins. The per-user API contexts of `seedTenant` send their user's IP. The e2e webServer trusts exactly one hop (`defineAppE2eConfig`), and production is unchanged.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: e2e test fixture gives every test its own synthetic client IP
+  detail: |
+    `test` from `@cosmicdrift/kumiko-testing/e2e` overrides the `context`
+    fixture with a `context.route("**/api/**")` that adds
+    `x-forwarded-for: syntheticClientIpFor(perTestClientIpKey(testInfo))` to
+    same-origin requests; an explicit `x-forwarded-for` wins. Cross-origin
+    requests stay untouched because an extra header would force a CORS
+    preflight. Routing disables the HTTP cache of the test's context.
+    `seedTenant`'s per-user API contexts send
+    `syntheticClientIpFor(user.email)`. The built-in `request` fixture is not
+    covered.
+  migration: |
+    Specs that import `test` from `@cosmicdrift/kumiko-testing/e2e` need no
+    change. Specs importing `test` straight from `@playwright/test` keep
+    sharing the `::1` bucket; switch their import to kumiko-testing.
+  -->
+
+- Updated dependencies [959b3fb]
+- Updated dependencies [c8c629f]
+- Updated dependencies [fa27809]
+- Updated dependencies [fa27809]
+- Updated dependencies [8246f13]
+- Updated dependencies [b74db24]
+- Updated dependencies [5616ad9]
+- Updated dependencies [fa27809]
+  - @cosmicdrift/kumiko-bundled-features@0.321.0
+  - @cosmicdrift/kumiko-dev-server@0.321.0
+  - @cosmicdrift/kumiko-framework@0.321.0
+
 ## 0.320.0
 
 ### Minor Changes
