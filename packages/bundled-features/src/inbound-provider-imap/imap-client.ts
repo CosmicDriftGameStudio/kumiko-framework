@@ -5,6 +5,7 @@
 import {
   BlockedHostError,
   type MailHostGuardOptions,
+  readAllowedPrivateMailHostsFromEnv,
   resolveMailConnectTarget,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
@@ -35,6 +36,29 @@ const IMAP_HOST_UNREACHABLE_MESSAGE = "IMAP host is not reachable or not allowed
 // =============================================================================
 // Client-Factory + Fehler-Mapping
 // =============================================================================
+
+// Operator escape hatch for an internal relay or a dev/test IMAP server
+// (greenmail): KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, the same operator env
+// var mail-transport-smtp declares (see its envSchema — composeEnvSchema
+// rejects two features declaring the same key, so this feature reads it
+// without redeclaring it), never a tenant-config value, so a tenant can
+// never grant themselves the private-host bypass.
+//
+// mailHostLookup is a test-only DNS seam — production leaves it undefined,
+// so resolveMailConnectTarget uses the real resolver. Module-global state:
+// reset it in afterEach/afterAll.
+let mailHostLookup: MailHostGuardOptions["lookupFn"];
+
+export function setImapMailHostLookup(fn: MailHostGuardOptions["lookupFn"]): void {
+  mailHostLookup = fn;
+}
+
+export function imapMailHostGuard(): MailHostGuardOptions {
+  return {
+    allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
+    lookupFn: mailHostLookup,
+  };
+}
 
 // Resolves+pins doc.host before ever touching imapflow — a blocked host
 // (private/reserved range) must never reach a connect attempt. Rejection is

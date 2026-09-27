@@ -69,6 +69,7 @@ async function syncExistingProjectionTable(
   const missingColumns = meta.columns.filter((c) => !liveColumns.has(c.name));
   if (missingColumns.length === 0) {
     logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
+    // skip: live table already has every declared column
     return;
   }
 

@@ -202,18 +202,8 @@ function buildAuthPathAppUrl(
 // alongside each other (same shape as `passwordReset`), so `mail` alone
 // can't silently expose a new public endpoint an app didn't ask for.
 
-export function resolveAuthMail<T extends AuthMailNormalizable>(
-  auth: T,
-  hmacSecret: string,
-  envSource: Record<string, string | undefined>,
-): T & {
-  readonly passwordReset?: PasswordResetOptions;
-  readonly emailVerification?: EmailVerificationOptions;
-} {
-  // Runs before the mail/SMTP guards below so an app-supplied block without
-  // hmacSecret is backfilled even without a `mail` block; an explicit secret still wins.
-  const tokenSecret = auth.mail?.hmacSecret ?? hmacSecret;
-  const withResolvedSecrets = {
+function backfillTokenSecrets<T extends AuthMailNormalizable>(auth: T, tokenSecret: string) {
+  return {
     ...auth,
     ...(auth.passwordReset && {
       passwordReset: {
@@ -228,6 +218,20 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
       },
     }),
   };
+}
+
+export function resolveAuthMail<T extends AuthMailNormalizable>(
+  auth: T,
+  hmacSecret: string,
+  envSource: Record<string, string | undefined>,
+): T & {
+  readonly passwordReset?: PasswordResetOptions;
+  readonly emailVerification?: EmailVerificationOptions;
+} {
+  // Runs before the mail/SMTP guards below so an app-supplied block without
+  // hmacSecret is backfilled even without a `mail` block; an explicit secret still wins.
+  const tokenSecret = auth.mail?.hmacSecret ?? hmacSecret;
+  const withResolvedSecrets = backfillTokenSecrets(auth, tokenSecret);
 
   if (!auth.mail) return withResolvedSecrets;
   // SMTP-presence gate: ohne SMTP_HOST-env wird KEIN Flow verdrahtet (Routes

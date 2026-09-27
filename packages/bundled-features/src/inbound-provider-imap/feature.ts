@@ -24,10 +24,6 @@
 // pro Tenant verschiedene Hosts haben.
 
 import {
-  type MailHostGuardOptions,
-  readAllowedPrivateMailHostsFromEnv,
-} from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
-import {
   INBOUND_MAIL_PROVIDER_EXTENSION,
   InboundAuthError,
   type InboundFetchResult,
@@ -48,6 +44,7 @@ import {
   coerceDate,
   createImapClient,
   IMAP_MAILBOX,
+  imapMailHostGuard,
   mapImapError,
   parseImapCursor,
   toRawInboundMessage,
@@ -56,22 +53,7 @@ import {
 const FEATURE_NAME = "inbound-provider-imap";
 export const IMAP_PROVIDER_KEY = "imap";
 
-// Operator escape hatch for an internal relay or a dev/test IMAP server
-// (greenmail): KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, the same operator env
-// var mail-transport-smtp declares (see its envSchema — composeEnvSchema
-// rejects two features declaring the same key, so this feature reads it
-// without redeclaring it), never a tenant-config value, so a tenant can
-// never grant themselves the private-host bypass.
-
-// Test-only DNS seam — production never calls this, resolveMailConnectTarget
-// defaults to the real resolver. Lets tests pin deterministic, network-free
-// host resolutions instead of depending on real DNS for a placeholder host.
-// Reset it in afterEach/afterAll — this is module-global state.
-let mailHostLookup: MailHostGuardOptions["lookupFn"];
-
-export function setImapMailHostLookup(fn: MailHostGuardOptions["lookupFn"]): void {
-  mailHostLookup = fn;
-}
+export { setImapMailHostLookup } from "./imap-client";
 
 // =============================================================================
 // Credential-Read — per-Account-Slot, Worker-tauglich (slim ctx).
@@ -109,10 +91,7 @@ async function fetchMessages(
   opts: { readonly backfillWindowDays: number; readonly maxMessages: number },
 ): Promise<InboundFetchResult> {
   const doc = await readCredentialDocument(ctx, account);
-  const client = await createImapClient(doc, {
-    allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
-    lookupFn: mailHostLookup,
-  });
+  const client = await createImapClient(doc, imapMailHostGuard());
   let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined;
   try {
     await client.connect();
@@ -188,10 +167,7 @@ async function watchMailbox(
   },
 ): Promise<() => Promise<void>> {
   const doc = await readCredentialDocument(ctx, account);
-  const client: ImapFlow = await createImapClient(doc, {
-    allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
-    lookupFn: mailHostLookup,
-  });
+  const client: ImapFlow = await createImapClient(doc, imapMailHostGuard());
   let stopped = false;
 
   try {
@@ -279,10 +255,7 @@ async function watchMailbox(
 export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   verify: async (ctx, account) => {
     const doc = await readCredentialDocument(ctx, account);
-    const client = await createImapClient(doc, {
-      allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
-      lookupFn: mailHostLookup,
-    });
+    const client = await createImapClient(doc, imapMailHostGuard());
     try {
       await client.connect();
     } catch (err) {

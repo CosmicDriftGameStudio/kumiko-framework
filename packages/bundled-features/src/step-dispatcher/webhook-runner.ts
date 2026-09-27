@@ -86,6 +86,48 @@ export function setWebhookFetch(fn: typeof fetch): void {
   fetchImpl = fn;
 }
 
+function buildWebhookHeaders(
+  spec: WebhookSpec,
+): { ok: true; headers: Record<string, string> } | { ok: false; error: string } {
+  const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
+  if (!spec.auth) return { ok: true, headers };
+  const secret = secretResolver(spec.auth.secretRef);
+  if (!secret) {
+    return { ok: false, error: `secret "${spec.auth.secretRef}" not configured` };
+  }
+  if (spec.auth.kind === "bearer") {
+    headers["authorization"] = `Bearer ${secret}`;
+  } else {
+    headers[spec.auth.name] = secret;
+  }
+  return { ok: true, headers };
+}
+
+async function resolveWebhookFetchTarget(
+  rawUrl: string,
+  url: URL,
+  headers: Record<string, string>,
+): Promise<
+  { ok: true; fetchUrl: string | URL; requestInit: RequestInit } | { ok: false; error: string }
+> {
+  const isAllowedPrivateHost = readAllowedPrivateWebhookHostsFromEnv().some(
+    (candidate) => candidate.toLowerCase() === url.hostname.toLowerCase(),
+  );
+  if (isAllowedPrivateHost) return { ok: true, fetchUrl: rawUrl, requestInit: { headers } };
+  try {
+    const resolved = await resolvePublicHostname(url.hostname, webhookHostLookup);
+    const pinned = buildPinnedRequest(url, resolved, { headers });
+    return { ok: true, fetchUrl: pinned.url, requestInit: pinned.init };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    if (err instanceof BlockedHostError || err instanceof HostResolutionError) {
+      log.warn("webhook host unreachable", { host: url.hostname, reason });
+      return { ok: false, error: "webhook host is not reachable or not allowed" };
+    }
+    throw err;
+  }
+}
+
 export async function performWebhookDispatch(spec: WebhookSpec): Promise<WebhookDispatchResult> {
   // Host-egress guard at the primitive boundary: only http(s), the target
   // host must resolve to a public address (unless operator-allowlisted),
@@ -103,45 +145,15 @@ export async function performWebhookDispatch(spec: WebhookSpec): Promise<Webhook
     return { ok: false, error: `unsupported url scheme "${url.protocol}"` };
   }
 
-  const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
-  if (spec.auth) {
-    const secret = secretResolver(spec.auth.secretRef);
-    if (!secret) {
-      return { ok: false, error: `secret "${spec.auth.secretRef}" not configured` };
-    }
-    if (spec.auth.kind === "bearer") {
-      headers["authorization"] = `Bearer ${secret}`;
-    } else {
-      headers[spec.auth.name] = secret;
-    }
-  }
+  const headers = buildWebhookHeaders(spec);
+  if (!headers.ok) return headers;
 
-  const allowedPrivateHosts = readAllowedPrivateWebhookHostsFromEnv();
-  const isAllowedPrivateHost = allowedPrivateHosts.some(
-    (candidate) => candidate.toLowerCase() === url.hostname.toLowerCase(),
-  );
-
-  let fetchUrl: string | URL = spec.url;
-  let requestInit: RequestInit = { headers };
-  if (!isAllowedPrivateHost) {
-    try {
-      const resolved = await resolvePublicHostname(url.hostname, webhookHostLookup);
-      const pinned = buildPinnedRequest(url, resolved, { headers });
-      fetchUrl = pinned.url;
-      requestInit = pinned.init;
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      if (err instanceof BlockedHostError || err instanceof HostResolutionError) {
-        log.warn("webhook host unreachable", { host: url.hostname, reason });
-        return { ok: false, error: "webhook host is not reachable or not allowed" };
-      }
-      throw err;
-    }
-  }
+  const target = await resolveWebhookFetchTarget(spec.url, url, headers.headers);
+  if (!target.ok) return target;
 
   try {
-    const res = await fetchImpl(fetchUrl, {
-      ...requestInit,
+    const res = await fetchImpl(target.fetchUrl, {
+      ...target.requestInit,
       method: spec.method,
       redirect: "manual",
       body: spec.body !== undefined ? JSON.stringify(spec.body) : undefined,
