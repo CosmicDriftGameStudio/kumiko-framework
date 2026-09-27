@@ -50,8 +50,8 @@ const emailTransport = createInMemoryTransport();
 
 let stack: TestStack;
 
-// offlot-artige Default-Regel: invite entscheidet über den Tenant der
-// Einladung (nicht die Rolle), sonst zählt die höchste Rolle.
+// offlot-style default rule: invite routes by the inviting tenant (not the
+// role); otherwise the highest role wins.
 function defaultResolver(args: PostAuthLandingArgs): string | undefined {
   if (args.flow === "invite") return `/a/invited/${args.tenantId}`;
   if (args.roles.includes("SystemAdmin")) return "/a/waitlist-list";
