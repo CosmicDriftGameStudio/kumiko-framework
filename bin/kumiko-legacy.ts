@@ -399,6 +399,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   return steps;
 })();
 
+// bun 1.4.0's --parallel implies --isolate, which leaks native memory per
+// test file until it OOMs the runner; --no-isolate keeps the speedup without it.
+const FRAMEWORK_UNIT_TEST_PARALLEL = 4;
+
 const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
   const steps: Array<{ name: string; cmd: string }> = [];
   const siblings = [
@@ -419,9 +423,11 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
         process.env.CI === "true" && existsSync(join(absPath, "bunfig.ci.toml"))
           ? " --config=bunfig.ci.toml"
           : "";
+      const parallelFlags =
+        root.kind === "framework" ? ` --parallel=${FRAMEWORK_UNIT_TEST_PARALLEL} --no-isolate` : "";
       steps.push({
         name: `Unit Tests (${root.kind})`,
-        cmd: `cd ${absPath} && KUMIKO_CHECK=1 bun${ciFlag} --env-file=../.env test`,
+        cmd: `cd ${absPath} && KUMIKO_CHECK=1 bun${ciFlag} --env-file=../.env test${parallelFlags}`,
       });
     }
 

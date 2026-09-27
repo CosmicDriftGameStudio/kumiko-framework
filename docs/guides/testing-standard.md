@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-26
+verified: 2026-09-27
 ---
 
 # The test standard
@@ -184,6 +184,38 @@ the app template's reusable workflow (infra#936) and this repo's local
 `docker-compose.yml` (#3299), for the same reason: `DROP DATABASE` in
 `stack.cleanup()` forces a synchronous checkpoint that queues up under
 concurrent teardowns.
+
+After that, the framework's unit step in `bun kumiko check` ("Unit Tests
+(framework)", one `bun test` process, about 155 s in CI) was the longest
+part of the `test` job, the critical path. It now runs with
+`--parallel=4 --no-isolate` too, only for kumiko-framework; the sibling
+repos' unit steps and the DOM steps are unchanged. Measured locally with
+the CI profile (`CI=true`, `bunfig.ci.toml`, coverage on), in a worktree
+with its own `bun install`, three runs each: serial 71-74 s,
+`--parallel=4 --no-isolate` 29-34 s. Every run reported 9072 tests across
+803 files with 0 failures, and the per-test JUnit results (file, name,
+status) were identical across all six runs: no cross-file dependency on
+worker assignment showed up in three parallel runs. Peak summed RSS,
+sampled with `ps` every second, was 3.5-4.2 GB serial against 4.5-4.9 GB
+parallel. The same upper-bound caveat as above applies.
+
+Coverage under `--parallel` differs in two ways, both confirmed on the
+lcov files of one serial and one parallel run. First, bun 1.4.0's
+parallel workers ignore `coveragePathIgnorePatterns` from the bunfig (also
+with `--config` after `test`), so the parallel lcov also listed about 70
+files under `bin/`, `scripts/` and `test-setup/`. `scripts/coverage-badge.ts`
+now filters all three lcov inputs against `bunfig.ci.toml`'s patterns
+itself. After that filter, both runs cover the same 1762 files with the
+same 80560 hit lines. Second, the parallel run reports 7001 more
+executable lines (`DA` entries), all with zero hits. It is a strict
+superset of the serial run's lines, and no line changes hit status. The
+cause is not isolated; a likely explanation is that each worker reports
+lines of the functions it compiled, and the union over four workers
+includes more of them. The unit-only line coverage computed by
+`coverage-badge.ts` therefore drops from 55.5 % to 52.9 % without a single
+test covering less; how much of that reaches the merged badge depends on
+the integration and DOM lcov. The parallel line total varies by about 50
+lines between runs, depending on which files share a worker.
 
 ## Timeouts and retries belong to the template
 
