@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.319.0",
+    "type": "improvement",
+    "title": "German strings for the new billing-plans cancel-scheduled banner and reactivate label",
+    "detail": "Adds German i18n strings for the cancel-scheduled info banner and the\n\"Reactivate subscription\" button label introduced by billing-foundation's\ncancel/reactivate change."
+  }
+]

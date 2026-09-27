@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.319.0
+
+### Patch Changes
+
+- 53c5206: Spanish strings for the new billing-plans cancel-scheduled banner and reactivate label
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish strings for the new billing-plans cancel-scheduled banner and reactivate label
+  detail: |
+    Adds Spanish i18n strings for the cancel-scheduled info banner and the
+    "Reactivate subscription" button label introduced by billing-foundation's
+    cancel/reactivate change.
+  -->
+
+  - @cosmicdrift/kumiko-framework@0.319.0
+
 ## 0.318.0
 
 ### Minor Changes

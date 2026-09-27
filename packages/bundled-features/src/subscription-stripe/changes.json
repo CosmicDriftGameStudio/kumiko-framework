@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.319.0",
+    "type": "fix",
+    "title": "subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulting price-interval type break",
+    "detail": "The bundled `stripe` dependency moves from ^22.1.1 to ^22.6.2.\nStripe.Price.Recurring.Interval widened in that range; mapStripePrice\nnow narrows it against the exported `KNOWN_RECURRING_INTERVALS` /\n`RecurringInterval` from billing-foundation instead of a cast (an\nunrecognized interval maps to `null`). Apps pinning their own\n`stripe` override for this mismatch can remove it.\n\nThe plugin gains a new `oneOffPriceIds` option (validated at mount\ntime — an empty-string or duplicate entry throws) and now maps Stripe's\n`subscription.cancel_at` (or `current_period_end` when only\n`cancel_at_period_end` is set) into the `cancelAtIso` event field\nbilling-foundation's process-event consumes."
+  },
+  {
     "version": "0.318.0",
     "type": "fix",
     "title": "switch-plan returns a 422 instead of a 500 when two plan tiers share one Stripe product",

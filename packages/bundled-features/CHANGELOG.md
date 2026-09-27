@@ -1,5 +1,198 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.319.0
+
+### Minor Changes
+
+- 53c5206: billing-plans no longer throws when no provider is mounted
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: billing-plans no longer throws when no provider is mounted
+  detail: |
+    billing-plans now resolves the catalog's provider through a new
+    `findCatalogProvider` (returns `null` instead of throwing) and returns
+    `{ enabled: false, ... }` when none is mounted, instead of failing the
+    whole query with UnconfiguredError. Apps that mounted Stripe with an
+    empty price map purely to keep this query alive can drop that
+    workaround. An ambiguous catalog (more than one matching provider
+    mounted) still throws UnconfiguredError — that case didn't change.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: start-plan-checkout and switch-plan reject with FeatureDisabledError, not UnconfiguredError, when no provider is mounted
+  migration: |
+    start-plan-checkout and switch-plan now reject with FeatureDisabledError
+    (code "feature_disabled", HTTP 403) instead of UnconfiguredError (code
+    "unconfigured", HTTP 422) when no provider is mounted for the catalog. A
+    caller that specifically catches UnconfiguredError from these two
+    handlers, or branches on the 422 status, must catch FeatureDisabledError
+    / branch on 403 instead.
+  -->
+
+- 53c5206: billing-plans now reports a scheduled cancellation and the panel offers reactivation
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: billing-plans now reports a scheduled cancellation and the panel offers reactivation
+  migration: |
+    SubscriptionView and BillingPlansResult.subscription gain two REQUIRED
+    fields: `currentPeriodEnd` (a `Temporal.Instant`, ISO string on
+    BillingPlansResult) and `cancelAt` (`Temporal.Instant | null`, ISO
+    string or null on BillingPlansResult). Any test fake that constructs a
+    SubscriptionView object literal directly must add both fields.
+    BillingPlansResult.currentTier also gains a `benefits` field
+    (via `catalog.benefits(currentTier)`), computed even when currentTier is
+    outside `catalog.plans` (e.g. a legacy/free tier).
+
+    The Stripe provider now maps `subscription.cancel_at` (or
+    `current_period_end` when only `cancel_at_period_end` is set) into a new
+    `cancelAtIso` event payload field; process-event applies it with
+    set/clear/leave-unchanged semantics, so an event without the field never
+    wipes a previously recorded value.
+
+    BillingPlansPanel shows an info banner ("Your subscription is scheduled
+    to end on {date}") whenever `subscription.cancelAt` is set and the
+    subscription isn't terminal, and swaps the manage-subscription button's
+    label to "Reactivate subscription" in the same case. The synthetic
+    current-tier card (a tier outside `catalog.plans`, e.g. a legacy/free
+    tier) now also renders `catalog.benefits(currentTier)` and the same
+    manage/reactivate action as a catalog card, via a shared helper — no
+    action needed unless an app relied on that card being action-less.
+
+    `read_subscriptions` gains a nullable `cancel_at` column. Every app that
+    mounts billing-foundation — including a plain `billingFoundationFeature()`
+    with no catalog (e.g. kumiko-studio) — must run
+    `bun kumiko-schema generate <name>` (offlot-app wraps it as
+    `bun run schema:generate <name>`) and commit the resulting migration. Skipping this leaves
+    the app's own `read_subscriptions` table without the column, so the
+    projection's `apply` fails at the next subscription webhook. The column
+    is additive and nullable — no rebuild, existing rows keep it `null`
+    until their next subscription webhook.
+  -->
+
+- 53c5206: billing-foundation exports resolveProviderPlugin, isBillingEnabled and the /web QN constants
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: billing-foundation exports resolveProviderPlugin, isBillingEnabled and the /web QN constants
+  detail: |
+    The server barrel now exports `resolveProviderPlugin`, `isBillingEnabled`
+    and the `ResolvedProvider` type, built on internal
+    `isPluginBillingEnabled`/`assertBillingEnabled` helpers already used by
+    every handler that gates on billing being enabled. An app that
+    duplicated this provider-lookup-plus-cast itself (offlot did) can call
+    `resolveProviderPlugin`/`isBillingEnabled` instead and drop the cast.
+
+    The `/web` barrel now exports `SubscriptionFoundationHandlers`,
+    `SubscriptionFoundationQueries`, `BillingPlanActions`,
+    `SubscriptionStatuses`, `BILLING_PLANS_SCREEN_ID` and the
+    `BillingPlanBenefit`/`BillingPlanCatalog`/`BillingPlansResult`/
+    `BillingPlanView` types. An app that hand-copied these QN constants
+    (publicstatus did) can import them from `/web` instead.
+  -->
+
+- 53c5206: create-checkout-session's mode:"payment" now requires a declared one-off-price allowlist
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: create-checkout-session's mode:"payment" now requires a declared one-off-price allowlist
+  migration: |
+    SubscriptionProviderPlugin gains an `oneOffPriceIds` field (a readonly
+    string array, defaulting to empty). create-checkout-session's
+    mode:"payment" branch now rejects any priceId that isn't in the
+    resolved provider's `oneOffPriceIds` with an UnprocessableError whose
+    details.reason is "unknown_price" (same shape as the existing
+    subscription-mode price check) — previously any priceId was accepted,
+    so a TenantAdmin could start a one-off checkout against an arbitrary
+    Stripe price. mode:"payment" also now goes through the same
+    isBillingEnabled gate as mode:"subscription", before the redirect-origin
+    check, and fails with FeatureDisabledError when billing isn't enabled.
+
+    Every provider mount that offers one-off purchases (credit packs,
+    top-ups, ...) must list their priceIds explicitly. offlot-app's
+    start-pack-checkout.write.ts mounts Stripe for credit-pack purchases via
+    mode:"payment" and needs its pack priceIds added, e.g.:
+    `createSubscriptionStripeFeature({ priceToTier, oneOffPriceIds: configuredPackPriceIds() })`
+    (or the equivalent option on its provider plugin), or every pack
+    checkout starts failing with "unknown_price" after this release.
+    `oneOffPriceIds` is validated at mount time — an empty-string entry or a
+    duplicate priceId now throws instead of silently widening/narrowing the
+    allowlist.
+  -->
+
+- 53c5206: create-portal-session now computes returnUrl server-side and honors the catalog's purchase roles
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: create-portal-session now computes returnUrl server-side and honors the catalog's purchase roles
+  migration: |
+    create-portal-session's payload schema is now `z.object({}).strict()` — a
+    client that still sends `{ returnUrl }` gets a 400 instead of the URL
+    being honored. The server now computes returnUrl itself from
+    `catalog.returnPath` (joined onto `baseUrl`) or, without a catalog or
+    returnPath, from `baseUrl` directly; a foundation mounted without
+    `baseUrl` fails the call with UnconfiguredError on the "baseUrl" key,
+    same as create-checkout-session. Update any client call to
+    `portalMutation.mutate({})` — BillingPlansPanel already does this and no
+    longer reads `window.location.href`, which used to trigger
+    redirect_origin_not_allowed on a `www.`-prefixed origin. A server-internal
+    caller like offlot-app's open-portal.write.ts, which currently does
+    `ctx.write(SubscriptionFoundationHandlers.createPortalSession, { returnUrl })`,
+    must drop the `returnUrl` field from that call and instead set the return
+    target via `catalog.returnPath` (or, without a catalog, the target is
+    simply `baseUrl`).
+
+    Access control also changed: with a catalog configured, the handler's
+    allowed roles are now `catalog.purchaseRoles` (falling back to the
+    catalog's default purchase roles) instead of the hardcoded
+    TenantAdmin/SystemAdmin pair. An app that lets e.g. a plain Admin role
+    purchase plans must add that role to `catalog.purchaseRoles` to keep
+    portal access working; conversely, a role that isn't in
+    `purchaseRoles` now gets a 403 where it previously reached the handler.
+
+    Set `catalog.returnPath` to the app's billing page (e.g.
+    "/host/billing", or offlot's `${APP_BASE_PATH}/${MY_BILLING_SCREEN_ID}`),
+    otherwise the portal sends the user back to the bare `baseUrl`.
+  -->
+
+### Patch Changes
+
+- 53c5206: subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulting price-interval type break
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulting price-interval type break
+  detail: |
+    The bundled `stripe` dependency moves from ^22.1.1 to ^22.6.2.
+    Stripe.Price.Recurring.Interval widened in that range; mapStripePrice
+    now narrows it against the exported `KNOWN_RECURRING_INTERVALS` /
+    `RecurringInterval` from billing-foundation instead of a cast (an
+    unrecognized interval maps to `null`). Apps pinning their own
+    `stripe` override for this mismatch can remove it.
+
+    The plugin gains a new `oneOffPriceIds` option (validated at mount
+    time — an empty-string or duplicate entry throws) and now maps Stripe's
+    `subscription.cancel_at` (or `current_period_end` when only
+    `cancel_at_period_end` is set) into the `cancelAtIso` event field
+    billing-foundation's process-event consumes.
+  -->
+
+  - @cosmicdrift/kumiko-renderer@0.319.0
+  - @cosmicdrift/kumiko-renderer-web@0.319.0
+  - @cosmicdrift/kumiko-framework@0.319.0
+  - @cosmicdrift/kumiko-types@0.319.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.319.0
+  - @cosmicdrift/kumiko-headless@0.319.0
+
 ## 0.318.0
 
 ### Minor Changes

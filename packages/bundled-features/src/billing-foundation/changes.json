@@ -1,5 +1,41 @@
 [
   {
+    "version": "0.319.0",
+    "type": "improvement",
+    "title": "billing-plans no longer throws when no provider is mounted",
+    "detail": "billing-plans now resolves the catalog's provider through a new\n`findCatalogProvider` (returns `null` instead of throwing) and returns\n`{ enabled: false, ... }` when none is mounted, instead of failing the\nwhole query with UnconfiguredError. Apps that mounted Stripe with an\nempty price map purely to keep this query alive can drop that\nworkaround. An ambiguous catalog (more than one matching provider\nmounted) still throws UnconfiguredError — that case didn't change."
+  },
+  {
+    "version": "0.319.0",
+    "type": "breaking",
+    "title": "start-plan-checkout and switch-plan reject with FeatureDisabledError, not UnconfiguredError, when no provider is mounted",
+    "migration": "start-plan-checkout and switch-plan now reject with FeatureDisabledError\n(code \"feature_disabled\", HTTP 403) instead of UnconfiguredError (code\n\"unconfigured\", HTTP 422) when no provider is mounted for the catalog. A\ncaller that specifically catches UnconfiguredError from these two\nhandlers, or branches on the 422 status, must catch FeatureDisabledError\n/ branch on 403 instead."
+  },
+  {
+    "version": "0.319.0",
+    "type": "breaking",
+    "title": "billing-plans now reports a scheduled cancellation and the panel offers reactivation",
+    "migration": "SubscriptionView and BillingPlansResult.subscription gain two REQUIRED\nfields: `currentPeriodEnd` (a `Temporal.Instant`, ISO string on\nBillingPlansResult) and `cancelAt` (`Temporal.Instant | null`, ISO\nstring or null on BillingPlansResult). Any test fake that constructs a\nSubscriptionView object literal directly must add both fields.\nBillingPlansResult.currentTier also gains a `benefits` field\n(via `catalog.benefits(currentTier)`), computed even when currentTier is\noutside `catalog.plans` (e.g. a legacy/free tier).\n\nThe Stripe provider now maps `subscription.cancel_at` (or\n`current_period_end` when only `cancel_at_period_end` is set) into a new\n`cancelAtIso` event payload field; process-event applies it with\nset/clear/leave-unchanged semantics, so an event without the field never\nwipes a previously recorded value.\n\nBillingPlansPanel shows an info banner (\"Your subscription is scheduled\nto end on {date}\") whenever `subscription.cancelAt` is set and the\nsubscription isn't terminal, and swaps the manage-subscription button's\nlabel to \"Reactivate subscription\" in the same case. The synthetic\ncurrent-tier card (a tier outside `catalog.plans`, e.g. a legacy/free\ntier) now also renders `catalog.benefits(currentTier)` and the same\nmanage/reactivate action as a catalog card, via a shared helper — no\naction needed unless an app relied on that card being action-less.\n\n`read_subscriptions` gains a nullable `cancel_at` column. Every app that\nmounts billing-foundation — including a plain `billingFoundationFeature()`\nwith no catalog (e.g. kumiko-studio) — must run\n`bun kumiko-schema generate <name>` (offlot-app wraps it as\n`bun run schema:generate <name>`) and commit the resulting migration. Skipping this leaves\nthe app's own `read_subscriptions` table without the column, so the\nprojection's `apply` fails at the next subscription webhook. The column\nis additive and nullable — no rebuild, existing rows keep it `null`\nuntil their next subscription webhook."
+  },
+  {
+    "version": "0.319.0",
+    "type": "improvement",
+    "title": "billing-foundation exports resolveProviderPlugin, isBillingEnabled and the /web QN constants",
+    "detail": "The server barrel now exports `resolveProviderPlugin`, `isBillingEnabled`\nand the `ResolvedProvider` type, built on internal\n`isPluginBillingEnabled`/`assertBillingEnabled` helpers already used by\nevery handler that gates on billing being enabled. An app that\nduplicated this provider-lookup-plus-cast itself (offlot did) can call\n`resolveProviderPlugin`/`isBillingEnabled` instead and drop the cast.\n\nThe `/web` barrel now exports `SubscriptionFoundationHandlers`,\n`SubscriptionFoundationQueries`, `BillingPlanActions`,\n`SubscriptionStatuses`, `BILLING_PLANS_SCREEN_ID` and the\n`BillingPlanBenefit`/`BillingPlanCatalog`/`BillingPlansResult`/\n`BillingPlanView` types. An app that hand-copied these QN constants\n(publicstatus did) can import them from `/web` instead."
+  },
+  {
+    "version": "0.319.0",
+    "type": "breaking",
+    "title": "create-checkout-session's mode:\"payment\" now requires a declared one-off-price allowlist",
+    "migration": "SubscriptionProviderPlugin gains an `oneOffPriceIds` field (a readonly\nstring array, defaulting to empty). create-checkout-session's\nmode:\"payment\" branch now rejects any priceId that isn't in the\nresolved provider's `oneOffPriceIds` with an UnprocessableError whose\ndetails.reason is \"unknown_price\" (same shape as the existing\nsubscription-mode price check) — previously any priceId was accepted,\nso a TenantAdmin could start a one-off checkout against an arbitrary\nStripe price. mode:\"payment\" also now goes through the same\nisBillingEnabled gate as mode:\"subscription\", before the redirect-origin\ncheck, and fails with FeatureDisabledError when billing isn't enabled.\n\nEvery provider mount that offers one-off purchases (credit packs,\ntop-ups, ...) must list their priceIds explicitly. offlot-app's\nstart-pack-checkout.write.ts mounts Stripe for credit-pack purchases via\nmode:\"payment\" and needs its pack priceIds added, e.g.:\n`createSubscriptionStripeFeature({ priceToTier, oneOffPriceIds: configuredPackPriceIds() })`\n(or the equivalent option on its provider plugin), or every pack\ncheckout starts failing with \"unknown_price\" after this release.\n`oneOffPriceIds` is validated at mount time — an empty-string entry or a\nduplicate priceId now throws instead of silently widening/narrowing the\nallowlist."
+  },
+  {
+    "version": "0.319.0",
+    "type": "breaking",
+    "title": "create-portal-session now computes returnUrl server-side and honors the catalog's purchase roles",
+    "migration": "create-portal-session's payload schema is now `z.object({}).strict()` — a\nclient that still sends `{ returnUrl }` gets a 400 instead of the URL\nbeing honored. The server now computes returnUrl itself from\n`catalog.returnPath` (joined onto `baseUrl`) or, without a catalog or\nreturnPath, from `baseUrl` directly; a foundation mounted without\n`baseUrl` fails the call with UnconfiguredError on the \"baseUrl\" key,\nsame as create-checkout-session. Update any client call to\n`portalMutation.mutate({})` — BillingPlansPanel already does this and no\nlonger reads `window.location.href`, which used to trigger\nredirect_origin_not_allowed on a `www.`-prefixed origin. A server-internal\ncaller like offlot-app's open-portal.write.ts, which currently does\n`ctx.write(SubscriptionFoundationHandlers.createPortalSession, { returnUrl })`,\nmust drop the `returnUrl` field from that call and instead set the return\ntarget via `catalog.returnPath` (or, without a catalog, the target is\nsimply `baseUrl`).\n\nAccess control also changed: with a catalog configured, the handler's\nallowed roles are now `catalog.purchaseRoles` (falling back to the\ncatalog's default purchase roles) instead of the hardcoded\nTenantAdmin/SystemAdmin pair. An app that lets e.g. a plain Admin role\npurchase plans must add that role to `catalog.purchaseRoles` to keep\nportal access working; conversely, a role that isn't in\n`purchaseRoles` now gets a 403 where it previously reached the handler.\n\nSet `catalog.returnPath` to the app's billing page (e.g.\n\"/host/billing\", or offlot's `${APP_BASE_PATH}/${MY_BILLING_SCREEN_ID}`),\notherwise the portal sends the user back to the bare `baseUrl`."
+  },
+  {
     "version": "0.318.0",
     "type": "improvement",
     "title": "Add a shared billing-plans catalog (start-plan-checkout, switch-plan, BillingPlansPanel)",
