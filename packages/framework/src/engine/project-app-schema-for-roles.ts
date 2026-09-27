@@ -79,15 +79,21 @@ import { isUiAccessGranted } from "./types/handlers";
 import type { NavDefinition } from "./types/nav";
 import type {
   ActionFormRedirect,
+  ActionFormScreenDefinition,
   DashboardPanelDefinition,
   EditLayout,
   EditRelatedListSection,
   EditSectionSpec,
+  EntityEditScreenDefinition,
+  EntityListScreenDefinition,
   MetricNavigate,
   MetricSpec,
+  ProjectionDetailScreenDefinition,
+  ProjectionListScreenDefinition,
   RelatedListToolbarAction,
   RowAction,
   ScreenDefinition,
+  SecretMintScreenDefinition,
   ToolbarAction,
 } from "./types/screen";
 import type { TreeAction } from "./types/tree-node";
@@ -226,7 +232,30 @@ function buildDroppedNavQns(
   keptScreenQns: ReadonlySet<string>,
   roles: readonly string[],
 ): ReadonlySet<string> {
-  const dropped = new Set<string>();
+  const childrenByParent = groupNavChildrenByParent(navContexts);
+  const dropped = new Set<string>(
+    navContexts
+      .filter((ctx) => isNavDeniedOrDead(ctx, screenAccessByQn, keptScreenQns, roles))
+      .map((ctx) => ctx.qn),
+  );
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const ctx of navContexts) {
+      if (dropped.has(ctx.qn)) continue;
+      if (isDroppedByPropagation(ctx, dropped, childrenByParent)) {
+        dropped.add(ctx.qn);
+        changed = true;
+      }
+    }
+  }
+  return dropped;
+}
+
+function groupNavChildrenByParent(
+  navContexts: readonly NavContext[],
+): ReadonlyMap<string, readonly NavContext[]> {
   const childrenByParent = new Map<string, NavContext[]>();
   for (const ctx of navContexts) {
     if (ctx.resolvedParentQn === undefined) continue;
@@ -234,45 +263,36 @@ function buildDroppedNavQns(
     siblings.push(ctx);
     childrenByParent.set(ctx.resolvedParentQn, siblings);
   }
+  return childrenByParent;
+}
 
-  for (const ctx of navContexts) {
-    // `nav.access` already carries `nav.access ?? collection.access` for a
-    // content-collection's synthesized nav entry (feature-ui-extensions.ts
-    // sets it at registration time) — no separate collection-access lookup
-    // needed here.
-    const effectiveAccess =
-      ctx.nav.access ??
-      (ctx.resolvedScreenQn !== undefined ? screenAccessByQn.get(ctx.resolvedScreenQn) : undefined);
-    const screenGone =
-      ctx.resolvedScreenQn !== undefined && !keptScreenQns.has(ctx.resolvedScreenQn);
-    if (!isUiAccessGranted(effectiveAccess, roles) || screenGone) {
-      dropped.add(ctx.qn);
-    }
-  }
+function isNavDeniedOrDead(
+  ctx: NavContext,
+  screenAccessByQn: ReadonlyMap<string, AccessRule | undefined>,
+  keptScreenQns: ReadonlySet<string>,
+  roles: readonly string[],
+): boolean {
+  // `nav.access` already carries `nav.access ?? collection.access` for a
+  // content-collection's synthesized nav entry (feature-ui-extensions.ts
+  // sets it at registration time) — no separate collection-access lookup
+  // needed here.
+  if (ctx.resolvedScreenQn === undefined) return !isUiAccessGranted(ctx.nav.access, roles);
+  if (!keptScreenQns.has(ctx.resolvedScreenQn)) return true;
+  const effectiveAccess = ctx.nav.access ?? screenAccessByQn.get(ctx.resolvedScreenQn);
+  return !isUiAccessGranted(effectiveAccess, roles);
+}
 
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const ctx of navContexts) {
-      if (dropped.has(ctx.qn)) continue;
-      if (ctx.resolvedParentQn !== undefined && dropped.has(ctx.resolvedParentQn)) {
-        dropped.add(ctx.qn);
-        changed = true;
-        continue;
-      }
-      const isPureGroupingNode =
-        ctx.nav.screen === undefined && ctx.nav.target === undefined && ctx.nav.provider !== true;
-      const children = childrenByParent.get(ctx.qn) ?? [];
-      if (isPureGroupingNode && children.length > 0) {
-        const survivingChildren = children.filter((c) => !dropped.has(c.qn));
-        if (survivingChildren.length === 0) {
-          dropped.add(ctx.qn);
-          changed = true;
-        }
-      }
-    }
-  }
-  return dropped;
+function isDroppedByPropagation(
+  ctx: NavContext,
+  dropped: ReadonlySet<string>,
+  childrenByParent: ReadonlyMap<string, readonly NavContext[]>,
+): boolean {
+  if (ctx.resolvedParentQn !== undefined && dropped.has(ctx.resolvedParentQn)) return true;
+  const isPureGroupingNode =
+    ctx.nav.screen === undefined && ctx.nav.target === undefined && ctx.nav.provider !== true;
+  if (!isPureGroupingNode) return false;
+  const children = childrenByParent.get(ctx.qn) ?? [];
+  return children.length > 0 && children.every((child) => dropped.has(child.qn));
 }
 
 // --- screen-target resolution helpers (mirror boot-validator/screens.ts) ---
@@ -575,6 +595,159 @@ function projectDashboardPanels(
 
 // --- per-screen-type projection ---
 
+function projectListScreenId(
+  listScreenId: string | undefined,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): string | undefined {
+  if (listScreenId === undefined) return undefined;
+  return isListScreenIdKept(listScreenId, indices, keptScreenQns) ? listScreenId : undefined;
+}
+
+function projectRedirect<Redirect extends string | ActionFormRedirect>(
+  featureName: string,
+  redirect: Redirect | undefined,
+  keptScreenQns: ReadonlySet<string>,
+): Redirect | undefined {
+  if (redirect === undefined) return undefined;
+  return isRedirectTargetKept(featureName, redirect, keptScreenQns) ? redirect : undefined;
+}
+
+function projectCancelTarget(
+  featureName: string,
+  cancelTarget: string | false | undefined,
+  keptScreenQns: ReadonlySet<string>,
+): string | false | undefined {
+  if (cancelTarget === undefined || cancelTarget === false) return cancelTarget;
+  return isScreenTargetKept(featureName, cancelTarget, keptScreenQns) ? cancelTarget : undefined;
+}
+
+function projectListScreen(
+  screen: EntityListScreenDefinition | ProjectionListScreenDefinition,
+  feature: FeatureSchema,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): ScreenDefinition {
+  const { rowActions, toolbarActions, ...rest } = screen;
+  const nextRowActions = projectRowActionArray(rowActions, feature, indices, keptScreenQns);
+  const nextToolbarActions = projectToolbarActionArray(
+    toolbarActions,
+    feature,
+    indices,
+    keptScreenQns,
+  );
+  if (nextRowActions === rowActions && nextToolbarActions === toolbarActions) return screen;
+  return {
+    ...rest,
+    ...(nextRowActions !== undefined && { rowActions: nextRowActions }),
+    ...(nextToolbarActions !== undefined && { toolbarActions: nextToolbarActions }),
+  };
+}
+
+function projectProjectionDetailScreen(
+  screen: ProjectionDetailScreenDefinition,
+  feature: FeatureSchema,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): ScreenDefinition {
+  const { metrics, actions, layout, listScreenId, ...rest } = screen;
+  const nextMetrics = projectMetrics(metrics, indices, keptScreenQns);
+  const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
+  const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
+  const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
+  const unchanged =
+    nextMetrics === metrics &&
+    nextActions === actions &&
+    nextLayout === layout &&
+    nextListScreenId === listScreenId;
+  if (unchanged) return screen;
+  return {
+    ...rest,
+    layout: nextLayout,
+    ...(nextMetrics !== undefined && { metrics: nextMetrics }),
+    ...(nextActions !== undefined && { actions: nextActions }),
+    ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
+  };
+}
+
+function projectEntityEditScreen(
+  screen: EntityEditScreenDefinition,
+  feature: FeatureSchema,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): ScreenDefinition {
+  const { redirect, actions, layout, listScreenId, ...rest } = screen;
+  const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
+  const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
+  const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
+  const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
+  const unchanged =
+    nextRedirect === redirect &&
+    nextActions === actions &&
+    nextLayout === layout &&
+    nextListScreenId === listScreenId;
+  if (unchanged) return screen;
+  return {
+    ...rest,
+    layout: nextLayout,
+    ...(nextRedirect !== undefined && { redirect: nextRedirect }),
+    ...(nextActions !== undefined && { actions: nextActions }),
+    ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
+  };
+}
+
+function projectActionFormScreen(
+  screen: ActionFormScreenDefinition,
+  feature: FeatureSchema,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): ScreenDefinition {
+  const { redirect, cancelTarget, layout, listScreenId, ...rest } = screen;
+  const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
+  const nextCancelTarget = projectCancelTarget(feature.featureName, cancelTarget, keptScreenQns);
+  const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
+  const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
+  const unchanged =
+    nextRedirect === redirect &&
+    nextCancelTarget === cancelTarget &&
+    nextLayout === layout &&
+    nextListScreenId === listScreenId;
+  if (unchanged) return screen;
+  return {
+    ...rest,
+    layout: nextLayout,
+    ...(nextRedirect !== undefined && { redirect: nextRedirect }),
+    ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
+    ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
+  };
+}
+
+function projectSecretMintScreen(
+  screen: SecretMintScreenDefinition,
+  feature: FeatureSchema,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): ScreenDefinition {
+  const { redirect, cancelTarget, layout, listScreenId, ...rest } = screen;
+  const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
+  const nextCancelTarget = projectCancelTarget(feature.featureName, cancelTarget, keptScreenQns);
+  const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
+  const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
+  const unchanged =
+    nextRedirect === redirect &&
+    nextCancelTarget === cancelTarget &&
+    nextLayout === layout &&
+    nextListScreenId === listScreenId;
+  if (unchanged) return screen;
+  return {
+    ...rest,
+    layout: nextLayout,
+    ...(nextRedirect !== undefined && { redirect: nextRedirect }),
+    ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
+    ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
+  };
+}
+
 function projectScreen(
   screen: ScreenDefinition,
   feature: FeatureSchema,
@@ -583,149 +756,23 @@ function projectScreen(
 ): ScreenDefinition {
   switch (screen.type) {
     case "entityList":
-    case "projectionList": {
-      const { rowActions, toolbarActions, ...rest } = screen;
-      const nextRowActions = projectRowActionArray(rowActions, feature, indices, keptScreenQns);
-      const nextToolbarActions = projectToolbarActionArray(
-        toolbarActions,
-        feature,
-        indices,
-        keptScreenQns,
-      );
-      if (nextRowActions === rowActions && nextToolbarActions === toolbarActions) return screen;
-      return {
-        ...rest,
-        ...(nextRowActions !== undefined && { rowActions: nextRowActions }),
-        ...(nextToolbarActions !== undefined && { toolbarActions: nextToolbarActions }),
-      };
-    }
-    case "projectionDetail": {
-      const { metrics, actions, layout, listScreenId, ...rest } = screen;
-      const nextMetrics = projectMetrics(metrics, indices, keptScreenQns);
-      const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
-      const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
-      const nextListScreenId =
-        listScreenId === undefined || isListScreenIdKept(listScreenId, indices, keptScreenQns)
-          ? listScreenId
-          : undefined;
-      if (
-        nextMetrics === metrics &&
-        nextActions === actions &&
-        nextLayout === layout &&
-        nextListScreenId === listScreenId
-      )
-        return screen;
-      return {
-        ...rest,
-        layout: nextLayout,
-        ...(nextMetrics !== undefined && { metrics: nextMetrics }),
-        ...(nextActions !== undefined && { actions: nextActions }),
-        ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
-      };
-    }
+    case "projectionList":
+      return projectListScreen(screen, feature, indices, keptScreenQns);
+    case "projectionDetail":
+      return projectProjectionDetailScreen(screen, feature, indices, keptScreenQns);
     case "dashboard": {
-      const { panels, ...rest } = screen;
-      const nextPanels = projectDashboardPanels(panels, feature, keptScreenQns);
-      if (nextPanels === panels) return screen;
-      return { ...rest, panels: nextPanels };
+      const nextPanels = projectDashboardPanels(screen.panels, feature, keptScreenQns);
+      return nextPanels === screen.panels ? screen : { ...screen, panels: nextPanels };
     }
-    case "entityEdit": {
-      const { redirect, actions, layout, listScreenId, ...rest } = screen;
-      const nextRedirect =
-        redirect === undefined || isRedirectTargetKept(feature.featureName, redirect, keptScreenQns)
-          ? redirect
-          : undefined;
-      const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
-      const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
-      const nextListScreenId =
-        listScreenId === undefined || isListScreenIdKept(listScreenId, indices, keptScreenQns)
-          ? listScreenId
-          : undefined;
-      if (
-        nextRedirect === redirect &&
-        nextActions === actions &&
-        nextLayout === layout &&
-        nextListScreenId === listScreenId
-      )
-        return screen;
-      return {
-        ...rest,
-        layout: nextLayout,
-        ...(nextRedirect !== undefined && { redirect: nextRedirect }),
-        ...(nextActions !== undefined && { actions: nextActions }),
-        ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
-      };
-    }
-    case "actionForm": {
-      const { redirect, cancelTarget, layout, listScreenId, ...rest } = screen;
-      const nextRedirect =
-        redirect === undefined || isRedirectTargetKept(feature.featureName, redirect, keptScreenQns)
-          ? redirect
-          : undefined;
-      const nextCancelTarget =
-        cancelTarget === undefined ||
-        cancelTarget === false ||
-        isScreenTargetKept(feature.featureName, cancelTarget, keptScreenQns)
-          ? cancelTarget
-          : undefined;
-      const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
-      const nextListScreenId =
-        listScreenId === undefined || isListScreenIdKept(listScreenId, indices, keptScreenQns)
-          ? listScreenId
-          : undefined;
-      if (
-        nextRedirect === redirect &&
-        nextCancelTarget === cancelTarget &&
-        nextLayout === layout &&
-        nextListScreenId === listScreenId
-      )
-        return screen;
-      return {
-        ...rest,
-        layout: nextLayout,
-        ...(nextRedirect !== undefined && { redirect: nextRedirect }),
-        ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
-        ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
-      };
-    }
-    case "secretMint": {
-      const { redirect, cancelTarget, layout, listScreenId, ...rest } = screen;
-      const nextRedirect =
-        redirect === undefined || isScreenTargetKept(feature.featureName, redirect, keptScreenQns)
-          ? redirect
-          : undefined;
-      const nextCancelTarget =
-        cancelTarget === undefined ||
-        cancelTarget === false ||
-        isScreenTargetKept(feature.featureName, cancelTarget, keptScreenQns)
-          ? cancelTarget
-          : undefined;
-      const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
-      const nextListScreenId =
-        listScreenId === undefined || isListScreenIdKept(listScreenId, indices, keptScreenQns)
-          ? listScreenId
-          : undefined;
-      if (
-        nextRedirect === redirect &&
-        nextCancelTarget === cancelTarget &&
-        nextLayout === layout &&
-        nextListScreenId === listScreenId
-      )
-        return screen;
-      return {
-        ...rest,
-        layout: nextLayout,
-        ...(nextRedirect !== undefined && { redirect: nextRedirect }),
-        ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
-        ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),
-      };
-    }
+    case "entityEdit":
+      return projectEntityEditScreen(screen, feature, indices, keptScreenQns);
+    case "actionForm":
+      return projectActionFormScreen(screen, feature, indices, keptScreenQns);
+    case "secretMint":
+      return projectSecretMintScreen(screen, feature, indices, keptScreenQns);
     case "custom": {
       const { listScreenId, ...rest } = screen;
-      const nextListScreenId =
-        listScreenId === undefined || isListScreenIdKept(listScreenId, indices, keptScreenQns)
-          ? listScreenId
-          : undefined;
+      const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
       if (nextListScreenId === listScreenId) return screen;
       return { ...rest, ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }) };
     }
