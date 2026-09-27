@@ -1,11 +1,14 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   type APIRequestContext,
+  type BrowserContext,
   test as base,
   type Page,
+  type Request as PlaywrightRequest,
   type PlaywrightTestArgs,
   type PlaywrightTestOptions,
   type PlaywrightWorkerArgs,
+  type TestInfo,
 } from "@playwright/test";
 import type * as z from "zod";
 import {
@@ -16,8 +19,14 @@ import {
   type SeedTenantOptions,
   withSession,
 } from "../seed-types";
-import { clearSession, createHttpApi, loginViaApi } from "./auth-kit";
-import { SEED_ROUTES } from "./constants";
+import {
+  CLIENT_IP_HEADER,
+  clearSession,
+  createHttpApi,
+  loginViaApi,
+  syntheticClientIpFor,
+} from "./auth-kit";
+import { SEED_ROUTES, SEED_TOKEN_ENV } from "./constants";
 import { seedRouteHeaders } from "./mail-capture";
 import {
   type ExtraSeedRequest,
@@ -77,7 +86,10 @@ export async function provideSeedTenant(
 
   // One cookie jar per user: two tenants (or admin + member) in one test must not clobber each other's session.
   const openLoggedInApi = async (user: SeededUser): Promise<BoundApi> => {
-    const ctx = await playwright.request.newContext({ baseURL });
+    const ctx = await playwright.request.newContext({
+      baseURL,
+      extraHTTPHeaders: { [CLIENT_IP_HEADER]: syntheticClientIpFor(user.email) },
+    });
     openedContexts.push(ctx);
     await loginViaApi(ctx, user);
     return createHttpApi(ctx);
@@ -166,6 +178,65 @@ export async function provideSeedTenant(
   await Promise.all(openedContexts.map((ctx) => ctx.dispose()));
 }
 
+// Every e2e client connects from ::1, and the e2e webServer trusts one proxy
+// hop (defineAppE2eConfig). Without a distinct X-Forwarded-For per test, all
+// browser pages of a run would share one `per: "ip"` rate-limit bucket and
+// 429 under parallel load. The run token keeps a rerun within the limiter
+// window out of the previous run's buckets; the retry index keeps a retry
+// out of the bucket its failed attempt already drained.
+export function perTestClientIpKey(
+  testInfo: Pick<TestInfo, "testId" | "repeatEachIndex" | "retry">,
+  runToken: string | undefined = process.env[SEED_TOKEN_ENV],
+): string {
+  return `${runToken ?? ""}:${testInfo.testId}:${testInfo.repeatEachIndex}:${testInfo.retry}`;
+}
+
+// Same-origin only: on a cross-origin fetch the extra header would force a
+// CORS preflight the target never agreed to (why extraHTTPHeaders is no option
+// here). An explicit X-Forwarded-For set by the test wins.
+export function headersWithClientIp(
+  request: { readonly url: string; readonly frameUrl: string | undefined },
+  headers: Readonly<Record<string, string>>,
+  clientIp: string,
+): Record<string, string> | undefined {
+  if (request.frameUrl === undefined) return undefined;
+  let sameOrigin: boolean;
+  try {
+    sameOrigin = new URL(request.frameUrl).origin === new URL(request.url).origin;
+  } catch {
+    return undefined;
+  }
+  return sameOrigin ? { [CLIENT_IP_HEADER]: clientIp, ...headers } : undefined;
+}
+
+function frameUrlOf(request: PlaywrightRequest): string | undefined {
+  try {
+    return request.frame().url();
+  } catch {
+    // Service-worker requests have no frame.
+    return undefined;
+  }
+}
+
+export async function providePerTestClientIpContext(
+  { context }: Pick<PlaywrightTestArgs, "context">,
+  use: (context: BrowserContext) => Promise<void>,
+  testInfo: Pick<TestInfo, "testId" | "repeatEachIndex" | "retry">,
+): Promise<void> {
+  const clientIp = syntheticClientIpFor(perTestClientIpKey(testInfo));
+  await context.route("**/api/**", (route) => {
+    const request = route.request();
+    const headers = headersWithClientIp(
+      { url: request.url(), frameUrl: frameUrlOf(request) },
+      request.headers(),
+      clientIp,
+    );
+    return headers === undefined ? route.fallback() : route.fallback({ headers });
+  });
+  await use(context);
+}
+
 export const test = base.extend<E2eFixtures>({
+  context: providePerTestClientIpContext,
   seedTenant: provideSeedTenant,
 });
