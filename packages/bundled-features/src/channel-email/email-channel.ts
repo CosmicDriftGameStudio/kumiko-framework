@@ -1,10 +1,12 @@
 import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type {
-  ChannelMessage,
-  DeliveryChannel,
-  NotificationRenderer,
-  RenderedMessage,
+import {
+  type ChannelMessage,
+  DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
+  DELIVERY_UNSUBSCRIBE_PATH,
+  type DeliveryChannel,
+  type NotificationRenderer,
+  type RenderedMessage,
 } from "../delivery";
 import { guardEmailMessage } from "./pii-guard";
 import type { EmailTransport } from "./types";
@@ -24,6 +26,26 @@ function stringHeaders(raw: unknown): Readonly<Record<string, string>> | undefin
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+// Only the framework's own unsubscribe route can honor a one-click POST.
+function listUnsubscribeHeaders(
+  data: Readonly<Record<string, unknown>> | undefined,
+): Readonly<Record<string, string>> | undefined {
+  const rawUrl = data?.["unsubscribeUrl"];
+  if (typeof rawUrl !== "string") return undefined;
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
+  if (url.pathname !== DELIVERY_UNSUBSCRIBE_PATH) return undefined;
+  return {
+    "List-Unsubscribe": `<${url.toString()}>`,
+    "List-Unsubscribe-Post": DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
+  };
+}
+
 function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined): {
   from?: string;
   replyTo?: string;
@@ -32,7 +54,10 @@ function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined):
   if (!data) return {};
   const from = typeof data["from"] === "string" ? data["from"] : undefined;
   const replyTo = typeof data["replyTo"] === "string" ? data["replyTo"] : undefined;
-  const headers = stringHeaders(data["headers"]);
+  const autoHeaders = listUnsubscribeHeaders(data);
+  const explicitHeaders = stringHeaders(data["headers"]);
+  const headers =
+    autoHeaders || explicitHeaders ? { ...autoHeaders, ...explicitHeaders } : undefined;
   return { ...(from && { from }), ...(replyTo && { replyTo }), ...(headers && { headers }) };
 }
 

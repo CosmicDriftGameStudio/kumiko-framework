@@ -10,7 +10,7 @@ export const DeliveryHandlers = {
 } as const;
 
 // Fixed so links mailed out today keep working — the unsubscribe route is
-// mounted at this exact path via `extraRoutes: [createUnsubscribeRoute(...)]`.
+// mounted at this exact path via `extraRoutes: [...createUnsubscribeRoutes(...)]`.
 export const DELIVERY_UNSUBSCRIBE_PATH = "/api/delivery/unsubscribe" as const;
 
 export const DeliveryQueries = {

@@ -1,9 +1,12 @@
 import {
   type ExtraRouteDefinition,
   ExtraRouteRejection,
+  type SignatureExtraRouteDeps,
+  type SignatureExtraRouteVerifyRequest,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import * as jose from "jose";
 import * as z from "zod";
 import { hashUnsubscribeAddress } from "./address-opt-out";
@@ -55,8 +58,8 @@ export type AddressUnsubscribeTokenPayload = {
 /**
  * `secret` must be a value dedicated to unsubscribe-token signing — do NOT
  * reuse the app's session `JWT_SECRET`. The app mounting `extraRoutes:
- * [createUnsubscribeRoute({ secret })]` signs outgoing links with the same
- * value via `signUnsubscribeToken` / `signAddressUnsubscribeToken`.
+ * [...createUnsubscribeRoutes({ secret })]` signs outgoing links with the
+ * same value via `signUnsubscribeToken` / `signAddressUnsubscribeToken`.
  */
 export type UnsubscribeRouteOptions = {
   readonly secret: string;
@@ -152,110 +155,185 @@ type VerifiedUnsubscribe =
       readonly channel: string;
     };
 
-export function createUnsubscribeRoute(options: UnsubscribeRouteOptions): ExtraRouteDefinition {
-  assertUnsubscribeSecret(options.secret, "createUnsubscribeRoute");
-  const encodedSecret = new TextEncoder().encode(options.secret);
+// RFC 8058 fixed value — both the List-Unsubscribe-Post header and the body a
+// one-click client POSTs.
+export const DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE = "List-Unsubscribe=One-Click" as const;
 
-  return signatureRoute<VerifiedUnsubscribe>({
-    method: "GET",
-    path: DELIVERY_UNSUBSCRIBE_PATH,
-    entry: "signature",
-    // Every throw here must become the same ExtraRouteRejection(400,
-    // unsubscribe_token_invalid) — anything else falls through to the
-    // framework's generic 401 extra_route_signature_invalid mapping, which
-    // would leak jose's internal error text into the response body.
-    verify: async ({ query }) => {
-      try {
-        const token = query["token"];
-        if (!token) {
-          throw new ExtraRouteRejection(
-            400,
-            UNSUBSCRIBE_TOKEN_INVALID_BODY,
-            "missing unsubscribe token",
-          );
-        }
+const CONFIRMATION_PAGE_HEADERS = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+} as const;
 
-        const { payload: verifiedPayload } = await jose.jwtVerify(token, encodedSecret, {
-          issuer: "kumiko:unsubscribe",
-        });
+// Every throw here must become the same ExtraRouteRejection(400,
+// unsubscribe_token_invalid) — anything else falls through to the
+// framework's generic 401 extra_route_signature_invalid mapping, which
+// would leak jose's internal error text into the response body.
+async function verifyUnsubscribeToken(
+  token: string | undefined,
+  encodedSecret: Uint8Array,
+): Promise<VerifiedUnsubscribe> {
+  try {
+    if (!token) {
+      throw new ExtraRouteRejection(
+        400,
+        UNSUBSCRIBE_TOKEN_INVALID_BODY,
+        "missing unsubscribe token",
+      );
+    }
 
-        const addressAttempt = addressUnsubscribeJwtPayloadSchema.safeParse(verifiedPayload);
-        if (addressAttempt.success) {
-          const parsed = addressAttempt.data;
-          if (parsed.sub !== parsed.addressHash) {
-            throw new ExtraRouteRejection(
-              400,
-              UNSUBSCRIBE_TOKEN_INVALID_BODY,
-              "address token subject mismatch",
-            );
-          }
-          // @cast-boundary engine-bridge — string post-zod → branded TenantId
-          const tenantId = parsed.tenantId as TenantId;
-          return {
-            kind: "address",
-            tenantId,
-            addressHash: parsed.addressHash,
-            notificationType: parsed.notificationType,
-            channel: parsed.channel,
-          };
-        }
+    const { payload: verifiedPayload } = await jose.jwtVerify(token, encodedSecret, {
+      issuer: "kumiko:unsubscribe",
+    });
 
-        const userAttempt = unsubscribeJwtPayloadSchema.safeParse(verifiedPayload);
-        if (!userAttempt.success) {
-          throw new ExtraRouteRejection(
-            400,
-            UNSUBSCRIBE_TOKEN_INVALID_BODY,
-            "unsubscribe token payload matched neither schema",
-          );
-        }
-        const parsed = userAttempt.data;
-        // @cast-boundary engine-bridge — string post-zod → branded TenantId
-        const tenantId = parsed.tenantId as TenantId;
-        return {
-          kind: "user",
-          tenantId,
-          userId: parsed.sub,
-          notificationType: parsed.notificationType,
-          channel: parsed.channel,
-        };
-      } catch (err) {
-        if (err instanceof ExtraRouteRejection) throw err;
+    const addressAttempt = addressUnsubscribeJwtPayloadSchema.safeParse(verifiedPayload);
+    if (addressAttempt.success) {
+      const parsed = addressAttempt.data;
+      if (parsed.sub !== parsed.addressHash) {
         throw new ExtraRouteRejection(
           400,
           UNSUBSCRIBE_TOKEN_INVALID_BODY,
-          "unsubscribe token verification failed",
+          "address token subject mismatch",
         );
       }
-    },
-    handler: async (c, verified, deps) => {
-      const payload =
-        verified.kind === "address"
-          ? {
-              addressHash: verified.addressHash,
-              notificationType: verified.notificationType,
-              channel: verified.channel,
-            }
-          : {
-              userId: verified.userId,
-              notificationType: verified.notificationType,
-              channel: verified.channel,
-            };
+      // @cast-boundary engine-bridge — string post-zod → branded TenantId
+      const tenantId = parsed.tenantId as TenantId;
+      return {
+        kind: "address",
+        tenantId,
+        addressHash: parsed.addressHash,
+        notificationType: parsed.notificationType,
+        channel: parsed.channel,
+      };
+    }
 
+    const userAttempt = unsubscribeJwtPayloadSchema.safeParse(verifiedPayload);
+    if (!userAttempt.success) {
+      throw new ExtraRouteRejection(
+        400,
+        UNSUBSCRIBE_TOKEN_INVALID_BODY,
+        "unsubscribe token payload matched neither schema",
+      );
+    }
+    const parsed = userAttempt.data;
+    // @cast-boundary engine-bridge — string post-zod → branded TenantId
+    const tenantId = parsed.tenantId as TenantId;
+    return {
+      kind: "user",
+      tenantId,
+      userId: parsed.sub,
+      notificationType: parsed.notificationType,
+      channel: parsed.channel,
+    };
+  } catch (err) {
+    if (err instanceof ExtraRouteRejection) throw err;
+    throw new ExtraRouteRejection(
+      400,
+      UNSUBSCRIBE_TOKEN_INVALID_BODY,
+      "unsubscribe token verification failed",
+    );
+  }
+}
+
+async function dispatchUnsubscribeWrite(
+  verified: VerifiedUnsubscribe,
+  deps: SignatureExtraRouteDeps,
+): Promise<boolean> {
+  const payload =
+    verified.kind === "address"
+      ? {
+          addressHash: verified.addressHash,
+          notificationType: verified.notificationType,
+          channel: verified.channel,
+        }
+      : {
+          userId: verified.userId,
+          notificationType: verified.notificationType,
+          channel: verified.channel,
+        };
+
+  const dispatched = await deps.dispatchSystemWrite({
+    handlerQn:
+      verified.kind === "address"
+        ? DeliveryHandlers.unsubscribeAddress
+        : DeliveryHandlers.unsubscribeUser,
+    tenantId: verified.tenantId,
+    payload,
+  });
+  return dispatched.isSuccess;
+}
+
+function confirmationPage(token: string): string {
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Unsubscribe</title>
+</head>
+<body>
+<p>Unsubscribe from these emails?</p>
+<form method="post" action="${DELIVERY_UNSUBSCRIBE_PATH}">
+<input type="hidden" name="token" value="${escapeHtmlAttr(token)}">
+<button type="submit">Unsubscribe</button>
+</form>
+</body>
+</html>`;
+}
+
+// One-click clients put the token in the query string; only the
+// confirmation-page form submits it in the body.
+function tokenFromPostRequest(request: SignatureExtraRouteVerifyRequest): string | undefined {
+  const contentType = request.headers["content-type"];
+  if (contentType?.includes("application/x-www-form-urlencoded")) {
+    const fromBody = new URLSearchParams(request.rawBody).get("token");
+    if (fromBody) return fromBody;
+  }
+  return request.query["token"];
+}
+
+// GET renders a confirmation page without writing; POST performs the opt-out.
+export function createUnsubscribeRoutes(
+  options: UnsubscribeRouteOptions,
+): readonly ExtraRouteDefinition[] {
+  assertUnsubscribeSecret(options.secret, "createUnsubscribeRoutes");
+  const encodedSecret = new TextEncoder().encode(options.secret);
+
+  const confirmRoute = signatureRoute<{ token: string }>({
+    method: "GET",
+    path: DELIVERY_UNSUBSCRIBE_PATH,
+    entry: "signature",
+    verify: async ({ query }) => {
+      const token = query["token"];
+      if (!token) {
+        throw new ExtraRouteRejection(
+          400,
+          UNSUBSCRIBE_TOKEN_INVALID_BODY,
+          "missing unsubscribe token",
+        );
+      }
+      await verifyUnsubscribeToken(token, encodedSecret);
+      return { token };
+    },
+    handler: async (c, { token }) =>
+      c.html(confirmationPage(token), 200, CONFIRMATION_PAGE_HEADERS),
+  });
+
+  const writeRoute = signatureRoute<VerifiedUnsubscribe>({
+    method: "POST",
+    path: DELIVERY_UNSUBSCRIBE_PATH,
+    entry: "signature",
+    verify: async (request) => verifyUnsubscribeToken(tokenFromPostRequest(request), encodedSecret),
+    handler: async (c, verified, deps) => {
       // Token-verify passed — everything below is a legitimate write. Don't
       // swallow write-errors as "invalid token", that would mask real bugs
       // (e.g. events-table missing, DB down) behind a misleading 400.
-      const dispatched = await deps.dispatchSystemWrite({
-        handlerQn:
-          verified.kind === "address"
-            ? DeliveryHandlers.unsubscribeAddress
-            : DeliveryHandlers.unsubscribeUser,
-        tenantId: verified.tenantId,
-        payload,
-      });
-      if (!dispatched.isSuccess) {
-        return c.text("Unsubscribe failed", 500);
+      const succeeded = await dispatchUnsubscribeWrite(verified, deps);
+      if (!succeeded) {
+        return c.html("Unsubscribe failed", 500, { "Cache-Control": "no-store" });
       }
-      return c.text("You have been unsubscribed.", 200);
+      return c.html("You have been unsubscribed.", 200, { "Cache-Control": "no-store" });
     },
   });
+
+  return [confirmRoute, writeRoute];
 }

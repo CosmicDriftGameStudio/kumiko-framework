@@ -11,7 +11,7 @@ export const unsubscribeAddressWrite = defineWriteHandler({
     channel: z.string().min(1),
   }),
   access: { roles: access.systemAdmin },
-  // Only reachable via createUnsubscribeRoute's dispatchSystemWrite, once
+  // Only reachable via createUnsubscribeRoutes' POST dispatchSystemWrite, once
   // verify() has already proven the address-token signature — not a surface
   // for the agent tool-picker to offer a user directly.
   agent: { expose: false },
