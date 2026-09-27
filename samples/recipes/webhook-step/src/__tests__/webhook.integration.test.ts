@@ -4,6 +4,12 @@
 // step.dispatched / step.dispatch-failed events land on the same stream.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { randomBytes } from "node:crypto";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  tenantSecretsTable,
+} from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
   createStepDispatcherFeature,
   type MailSpec,
@@ -12,18 +18,33 @@ import {
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
 } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createEnvMasterKeyProvider,
+  type MasterKeyProvider,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 
 import { incidentEntity, incidentTable, webhookDemoFeature } from "../feature";
 
 let stack: TestStack;
+let masterKeyProvider: MasterKeyProvider;
 const admin = createTestUser({ roles: ["Admin"] });
+
+const TENANT_B = testTenantId(101);
+const TENANT_A = testTenantId(102);
+const TENANT_C = testTenantId(103);
+const adminB = createTestUser({ id: 101, tenantId: TENANT_B, roles: ["Admin", "TenantAdmin"] });
+const adminA = createTestUser({ id: 102, tenantId: TENANT_A, roles: ["Admin", "TenantAdmin"] });
+const adminC = createTestUser({ id: 103, tenantId: TENANT_C, roles: ["Admin", "TenantAdmin"] });
 
 const fetchMock = mock<typeof fetch>();
 const mailMock =
@@ -42,11 +63,21 @@ beforeAll(async () => {
   process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";
   setWebhookFetch(fetchMock as unknown as typeof fetch);
   setMailRunner(async (spec: MailSpec) => mailMock(spec));
+  masterKeyProvider = createEnvMasterKeyProvider({
+    env: {
+      KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+    },
+  });
   stack = await setupTestStack({
-    features: [createStepDispatcherFeature(), webhookDemoFeature],
+    features: [createStepDispatcherFeature(), createSecretsFeature(), webhookDemoFeature],
     systemHooks: [],
+    extraContext: ({ db }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider }),
+    }),
   });
   await unsafeCreateEntityTable(stack.db, incidentEntity, "incident");
+  await unsafePushTables(stack.db, { tenantSecretsTable });
 });
 
 afterAll(async () => {
@@ -62,7 +93,7 @@ beforeEach(async () => {
   fetchMock.mockReset();
   mailMock.mockReset();
   mailMock.mockResolvedValue({ ok: true, status: 202 });
-  await resetEventStore(stack, ["read_webhook_demo_incidents"]);
+  await resetEventStore(stack, ["read_webhook_demo_incidents", tenantSecretsTable]);
   await stack.redis.flushNamespace();
   await stack.eventDispatcher?.ensureRegistered();
 });
@@ -148,5 +179,102 @@ describe("webhook-step Sample", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     const rows = await selectMany(stack.db, incidentTable);
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("incident:open-authenticated — tenant-owned webhook auth secret", () => {
+  test("a caller without the Admin role is rejected", async () => {
+    const viewer = createTestUser({ roles: ["User"] });
+
+    const error = await stack.http.writeErr(
+      "webhook-demo:write:incident:open-authenticated",
+      { title: "DB outage", severity: "high", webhookUrl: "https://hooks.example/incident" },
+      viewer,
+    );
+    expect(error.code).toBe("access_denied");
+  });
+
+  test("tenant B's own secret authenticates its own webhook", async () => {
+    await stack.http.writeOk(
+      "secrets:write:set",
+      { key: "step-dispatcher:webhook-auth.incident-hook", value: "b-token-secret" },
+      adminB,
+    );
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    await stack.http.writeOk<{ id: string }>(
+      "webhook-demo:write:incident:open-authenticated",
+      { title: "DB outage", severity: "high", webhookUrl: "https://hooks.example/incident" },
+      adminB,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer b-token-secret");
+
+    const dispatchedEvents = await selectMany(stack.db, eventsTable, {
+      type: "kumiko:system:step.dispatched",
+    });
+    expect(dispatchedEvents).toHaveLength(1);
+    const failedEvents = await selectMany(stack.db, eventsTable, {
+      type: "kumiko:system:step.dispatch-failed",
+    });
+    expect(failedEvents).toHaveLength(0);
+  });
+
+  test("another tenant without a matching secret cannot ride tenant B's credential", async () => {
+    await stack.http.writeOk(
+      "secrets:write:set",
+      { key: "step-dispatcher:webhook-auth.incident-hook", value: "b-token-secret" },
+      adminB,
+    );
+
+    await stack.http.writeOk<{ id: string }>(
+      "webhook-demo:write:incident:open-authenticated",
+      {
+        title: "Tenant A incident",
+        severity: "high",
+        webhookUrl: "https://hooks.example/incident",
+      },
+      adminA,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const failedEvents = await selectMany(stack.db, eventsTable, {
+      type: "kumiko:system:step.dispatch-failed",
+    });
+    expect(failedEvents).toHaveLength(1);
+    const errorMessage = (failedEvents[0]?.payload as { error?: string } | null)?.error;
+    expect(errorMessage).toBe("webhook auth secret is not available");
+    expect(errorMessage).not.toContain("incident-hook");
+    expect(errorMessage).not.toContain("b-token-secret");
+  });
+
+  test("a secret stored without the tenant namespace prefix does not authenticate", async () => {
+    await stack.http.writeOk(
+      "secrets:write:set",
+      { key: "incident-hook", value: "c-raw-token" },
+      adminC,
+    );
+
+    await stack.http.writeOk<{ id: string }>(
+      "webhook-demo:write:incident:open-authenticated",
+      {
+        title: "Tenant C incident",
+        severity: "high",
+        webhookUrl: "https://hooks.example/incident",
+      },
+      adminC,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const failedEvents = await selectMany(stack.db, eventsTable, {
+      type: "kumiko:system:step.dispatch-failed",
+    });
+    expect(failedEvents).toHaveLength(1);
   });
 });

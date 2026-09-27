@@ -15,9 +15,11 @@ export {
   readAllowedPrivateWebhookHostsFromEnv,
   setWebhookFetch,
   setWebhookHostLookup,
-  setWebhookSecretResolver,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+  WEBHOOK_AUTH_SECRET_KEY_PREFIX,
+  type WebhookDispatchDeps,
   type WebhookDispatchResult,
   type WebhookSpec,
+  webhookAuthSecretKey,
   webhookSpecSchema,
 } from "./webhook-runner";

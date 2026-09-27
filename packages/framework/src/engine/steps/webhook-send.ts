@@ -25,9 +25,11 @@ export {
 
 type WebhookHttpMethod = "POST" | "PUT" | "PATCH";
 
+// Name inside the tenant-owned secrets namespace
+// `step-dispatcher:webhook-auth.<secret>` (secrets feature).
 type WebhookAuth =
-  | { readonly kind: "bearer"; readonly secretRef: string }
-  | { readonly kind: "header"; readonly name: string; readonly secretRef: string };
+  | { readonly kind: "bearer"; readonly secret: string }
+  | { readonly kind: "header"; readonly name: string; readonly secret: string };
 
 type WebhookSendArgs = {
   readonly url: StepResolver<string>;
