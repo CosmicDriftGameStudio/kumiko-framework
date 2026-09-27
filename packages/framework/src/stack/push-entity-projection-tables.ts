@@ -1,8 +1,11 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { tableExists } from "../db/schema-inspection";
+import type { DbConnection } from "../db/connection";
+import type { ColumnMeta } from "../db/entity-table-meta";
+import { columnNamesOf, tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
-import { unsafePushTables } from "./table-helpers";
-import type { TestStack } from "./test-stack";
+import { addMissingColumns, tableToMeta, unsafePushTables } from "./table-helpers";
+
+type DbHolder = { readonly db: DbConnection };
 
 // biome-ignore lint/suspicious/noConsole: stack-internal status logging
 const logInfo = (msg: string): void => console.log(msg);
@@ -25,7 +28,7 @@ const logInfo = (msg: string): void => console.log(msg);
  * never call this directly.
  */
 export async function pushEntityProjectionTables(
-  stack: TestStack,
+  stack: DbHolder,
   registry: Registry,
 ): Promise<void> {
   const seen = new Set<unknown>();
@@ -37,14 +40,55 @@ export async function pushEntityProjectionTables(
     seen.add(proj.table);
     const tableRec = proj.table as unknown as Record<symbol, unknown>;
     const physical = tableRec[KUMIKO_NAME_SYMBOL] as string;
-    if (await tableExists(stack.db, `public.${physical}`)) {
-      logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
+    if (!(await tableExists(stack.db, `public.${physical}`))) {
+      missing[projName] = proj.table;
       continue;
     }
-    missing[projName] = proj.table;
+    await syncExistingProjectionTable(stack, physical, proj.table);
   }
 
   if (Object.keys(missing).length > 0) {
     await unsafePushTables(stack.db, missing);
   }
+}
+
+function isUnsafeToAutoAdd(col: ColumnMeta): boolean {
+  return col.notNull && !col.primaryKey && col.defaultSql === undefined;
+}
+
+// Backfills columns a persistent dev DB predates; a required column with no
+// default can't be added safely on a table that may hold rows, so that
+// stays a boot error instead.
+async function syncExistingProjectionTable(
+  stack: DbHolder,
+  physical: string,
+  table: unknown,
+): Promise<void> {
+  const meta = tableToMeta(table);
+  const liveColumns = await columnNamesOf(stack.db, physical);
+  const missingColumns = meta.columns.filter((c) => !liveColumns.has(c.name));
+  if (missingColumns.length === 0) {
+    logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
+    return;
+  }
+
+  const unsafeColumns = missingColumns.filter(isUnsafeToAutoAdd);
+  if (unsafeColumns.length > 0) {
+    const devDbName = process.env["KUMIKO_DEV_DB_NAME"] ?? "<KUMIKO_DEV_DB_NAME>";
+    throw new Error(
+      `[kumiko-stack] table "${physical}" is missing required column(s) ` +
+        `${unsafeColumns.map((c) => `"${c.name}"`).join(", ")} with no default. ` +
+        "Auto-sync only backfills nullable columns or columns with a default on an " +
+        "existing dev DB — a required column with no default can't be added safely " +
+        `once the table may hold rows. Drop the persistent dev database "${devDbName}" ` +
+        `(e.g. \`dropdb ${devDbName}\`, adjusted for your local Postgres host/port/user) ` +
+        "so the next boot recreates it from scratch.",
+    );
+  }
+
+  logInfo(
+    `[kumiko-stack] table ${physical} is missing column(s) ` +
+      `${missingColumns.map((c) => `"${c.name}"`).join(", ")} — adding`,
+  );
+  await addMissingColumns(stack.db, physical, missingColumns);
 }

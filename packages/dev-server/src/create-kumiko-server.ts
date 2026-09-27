@@ -1252,7 +1252,10 @@ export async function createKumikoServer(
           if (action === "ignore") return;
           if (action === "restart") {
             logInfo(
-              `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
+              `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht). ` +
+                "The kumiko-dev wrapper (package.json's `dev` script) respawns automatically " +
+                "and re-syncs new r.entity() columns on the new boot; running this entry " +
+                "directly (not via kumiko-dev) exits here without restarting.",
             );
             await stop();
             process.exit(75);
