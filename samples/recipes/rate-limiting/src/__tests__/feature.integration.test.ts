@@ -20,6 +20,13 @@ const admin = TestUsers.admin;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [createRateLimitShowcaseFeature()],
+    // The L1/L2 tests below simulate distinct client IPs via
+    // X-Forwarded-For. Without a trusted proxy hop configured, the
+    // client-ip resolver now ignores X-Forwarded-For by design (it can't
+    // tell a real proxy from a spoofing client) and every call falls into
+    // the shared "unknown" bucket — trust one hop so the showcase actually
+    // demonstrates per-IP buckets, the way a real app behind one proxy would.
+    trustedProxyHops: 1,
     rateLimit: {
       // L1: 20/min per IP. High enough that L3 tests (which loop 4×
       // with their own IP) don't accidentally trip L1 first.
