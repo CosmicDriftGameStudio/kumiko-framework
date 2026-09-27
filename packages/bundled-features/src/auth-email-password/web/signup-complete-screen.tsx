@@ -10,15 +10,17 @@
 // server-side token pass `token` as a prop instead.
 //
 // On success: shows a confirmation (account active, signed in) with a
-// button to loggedInHref, instead of navigating away immediately — the
-// server already logged the user in via cookies, but a silent redirect
-// leaves no signal that activation worked. Default pattern is "/" — apps
-// with multi-tenant routing pass `(data) => "/" + data.tenantKey + "/"`.
+// button to the continue target, instead of navigating away immediately —
+// the server already logged the user in via cookies, but a silent redirect
+// leaves no signal that activation worked. Server-side auth.postAuthLanding
+// (landingPath) wins over loggedInHref; loggedInHref is the deprecated
+// per-app fallback. Default pattern is "/" — apps with multi-tenant routing
+// pass `(data) => "/" + data.tenantKey + "/"`.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup, type SignupConfirmSuccess } from "./auth-client";
-import { passwordPairIssue, resolveLoggedInHref } from "./auth-form-logic";
+import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic";
 import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type SignupCompleteScreenProps = {
@@ -27,7 +29,9 @@ export type SignupCompleteScreenProps = {
   readonly token?: string;
   /** Where to send the user after activation. Function-form receives the tenantKey, the
    *  roles granted by this flow in that tenant, and the claimed `handover` entity when
-   *  signup claimed a try-first grant. Default "/". */
+   *  signup claimed a try-first grant. Default "/".
+   *  @deprecated Configure auth.postAuthLanding on the server; its landingPath wins.
+   *  Kept as fallback. */
   readonly loggedInHref?:
     | string
     | ((args: {
@@ -73,7 +77,7 @@ export function SignupCompleteScreen({
       // explicit continue button instead of navigating away silently —
       // the user otherwise gets no signal that activation worked.
       setContinueHref(
-        resolveLoggedInHref(loggedInHref, {
+        resolvePostAuthHref(res.data.landingPath, loggedInHref, {
           tenantKey: res.data.tenantKey,
           roles: res.data.user.roles,
           ...(res.data.handover !== undefined && { handover: res.data.handover }),

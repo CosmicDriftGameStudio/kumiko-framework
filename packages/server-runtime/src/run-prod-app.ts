@@ -75,6 +75,7 @@ import {
   type ExtraRouteDefinition,
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
+  type PostAuthLandingResolver,
   type SseBroker,
   type TokenVerifier,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -373,6 +374,10 @@ export type RunProdAppAuthOptions = {
    *  env var when unset; both unset means the pre-#1539 spoofable default
    *  (0 hops). Set this to your real ingress hop count (typically 1). */
   readonly trustedProxyHops?: number;
+  /** Server-computed post-auth redirect (see AuthRoutesConfig.postAuthLanding).
+   *  Result lands in the login/signup/invite response as `landingPath`; an
+   *  invalid path or a throwing resolver just omits the field. */
+  readonly postAuthLanding?: PostAuthLandingResolver;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -1101,6 +1106,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...(trustedProxyHops !== undefined && { trustedProxyHops }),
+        ...(effectiveAuth.postAuthLanding !== undefined && {
+          postAuthLanding: effectiveAuth.postAuthLanding,
+        }),
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...(mfaFeature && {

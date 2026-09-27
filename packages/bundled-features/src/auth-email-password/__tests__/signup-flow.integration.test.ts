@@ -273,6 +273,9 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(body.user?.tenantId).toBeTruthy();
     expect(body.user?.roles).toContain("TenantAdmin");
     expect(body.tenantKey).toBeTruthy();
+    // No auth.postAuthLanding configured on this stack — the field must be
+    // absent entirely, not `landingPath: undefined`.
+    expect(body).not.toHaveProperty("landingPath");
 
     // Cookies gesetzt (auth + csrf)
     const setCookies = confirmRes.headers.get("set-cookie") ?? "";

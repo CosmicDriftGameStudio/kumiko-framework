@@ -143,6 +143,11 @@ beforeAll(async () => {
         requestHandler: AuthHandlers.signupRequest,
         confirmHandler: AuthHandlers.signupConfirm,
       },
+      // Pins that a claimed handover grant reaches the resolver's `handover`
+      // arg — the offlot-style rule this mirrors routes a claimed run to a
+      // dedicated landing page, everything else to the generic profile.
+      postAuthLanding: ({ handover }) =>
+        handover !== undefined ? `/a/run/${encodeURIComponent(handover.id)}` : "/a/profile",
     },
   });
 
@@ -273,11 +278,13 @@ describe("cross-device try-first handover :: signup-request + signup-confirm", (
     const body = (await confirmRes.json()) as {
       user?: { id: string; tenantId: string };
       handover?: { entityType: string; id: string };
+      landingPath?: string;
     };
     const destinationTenantId = body.user?.tenantId;
     if (!destinationTenantId) throw new Error("confirm did not return a tenantId");
 
     expect(body.handover).toEqual({ entityType: "run", id: runId });
+    expect(body.landingPath).toBe(`/a/run/${runId}`);
     expect(await readTenantId("signup_handover_run", runId)).toBe(destinationTenantId);
     expect(await readTenantId("signup_handover_photo", photoId)).toBe(destinationTenantId);
 
@@ -320,10 +327,13 @@ describe("cross-device try-first handover :: signup-request + signup-confirm", (
       token?: string;
       user?: { id: string; tenantId: string };
       handover?: { entityType: string; id: string };
+      landingPath?: string;
     };
     expect(body.isSuccess).toBe(true);
     expect(body.token).toBeTruthy();
     expect(body.handover).toBeUndefined();
+    // No claim landed → resolver's `handover` arg is undefined → generic path.
+    expect(body.landingPath).toBe("/a/profile");
 
     // Account/login for the signup still works — a failed claim redeem
     // must never fail the signup itself.

@@ -19,7 +19,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client";
-import { resolveLoggedInHref } from "./auth-form-logic";
+import { resolvePostAuthHref } from "./auth-form-logic";
 import { AuthCard, useUrlToken } from "./auth-form-primitives";
 import { SessionContext, UNAUTHENTICATED } from "./session";
 
@@ -29,7 +29,9 @@ export type InviteAcceptScreenProps = {
   /** Where to redirect on success. Default "/" — multi-tenant apps can pass
    *  `(data) => "/${data.tenantId}/"`. Function-form receives the roles this
    *  flow grants in the target tenant; branch 1 reports the invitation's
-   *  role, which for an existing member is not their full role set there. */
+   *  role, which for an existing member is not their full role set there.
+   *  @deprecated Configure auth.postAuthLanding on the server; its landingPath wins.
+   *  Kept as fallback. */
   readonly loggedInHref?:
     | string
     | ((args: { tenantId: string; roles: readonly string[] }) => string);
@@ -46,6 +48,9 @@ type InviteAcceptResponse = {
   readonly tenantId: string;
   readonly role?: string;
   readonly user?: { readonly roles?: readonly string[] };
+  // Present only when the server's auth.postAuthLanding resolver returned a
+  // valid path — see auth-routes.ts.
+  readonly landingPath?: string;
 };
 
 function grantedRoles(data: InviteAcceptResponse): readonly string[] {
@@ -92,7 +97,7 @@ export function InviteAcceptScreen({
       // @cast-boundary engine-payload — auth route JSON
       const data = (await res.json()) as InviteAcceptResponse;
       window.location.assign(
-        resolveLoggedInHref(loggedInHref, {
+        resolvePostAuthHref(data.landingPath, loggedInHref, {
           tenantId: data.tenantId,
           roles: grantedRoles(data),
         }),
@@ -117,7 +122,7 @@ export function InviteAcceptScreen({
       // @cast-boundary engine-payload — auth route JSON
       const data = (await res.json()) as InviteAcceptResponse;
       window.location.assign(
-        resolveLoggedInHref(loggedInHref, {
+        resolvePostAuthHref(data.landingPath, loggedInHref, {
           tenantId: data.tenantId,
           roles: grantedRoles(data),
         }),
@@ -142,7 +147,7 @@ export function InviteAcceptScreen({
       // @cast-boundary engine-payload — auth route JSON
       const data = (await res.json()) as InviteAcceptResponse;
       window.location.assign(
-        resolveLoggedInHref(loggedInHref, {
+        resolvePostAuthHref(data.landingPath, loggedInHref, {
           tenantId: data.tenantId,
           roles: grantedRoles(data),
         }),

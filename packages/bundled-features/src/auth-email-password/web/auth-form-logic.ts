@@ -28,3 +28,13 @@ export function resolveLoggedInHref<Args>(
 ): string {
   return typeof href === "function" ? href(args) : href;
 }
+
+/** The server's `landingPath` (auth.postAuthLanding) wins over the screen's
+ *  loggedInHref prop — that prop is a deprecated per-app fallback. */
+export function resolvePostAuthHref<Args>(
+  landingPath: string | undefined,
+  href: string | ((args: Args) => string),
+  args: Args,
+): string {
+  return landingPath ?? resolveLoggedInHref(href, args);
+}

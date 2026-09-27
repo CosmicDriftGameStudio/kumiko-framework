@@ -33,6 +33,9 @@ export type LoginResponse = {
     readonly tenantId: string;
     readonly roles: readonly string[];
   };
+  // Present only when the server's auth.postAuthLanding resolver returned a
+  // valid path — see auth-routes.ts. Screens prefer this over loggedInHref.
+  readonly landingPath?: string;
 };
 
 // Reason codes the login-handler is known to emit today (login-screen.tsx's
@@ -118,6 +121,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
     challengeToken?: string;
     mfaSetupRequired?: boolean;
     preauthSetupToken?: string;
+    landingPath?: string;
     error?:
       | {
           code?: string;
@@ -140,7 +144,14 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
       return { kind: "failure", error: { reason: "mfa_setup_required" } };
     }
     if (body.token !== undefined && body.user !== undefined) {
-      return { kind: "success", data: { token: body.token, user: body.user } };
+      return {
+        kind: "success",
+        data: {
+          token: body.token,
+          user: body.user,
+          ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
+        },
+      };
     }
   }
   // Der Server schickt error entweder als string ("invalid_body") oder als
@@ -343,6 +354,9 @@ export type SignupConfirmSuccess = {
   // Present only when a bound handover grant existed and its claim
   // succeeded — see signup-confirm.write.ts.
   readonly handover?: { readonly entityType: string; readonly id: string };
+  // Present only when the server's auth.postAuthLanding resolver returned a
+  // valid path — see auth-routes.ts.
+  readonly landingPath?: string;
 };
 
 export async function confirmSignup(

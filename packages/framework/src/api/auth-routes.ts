@@ -27,6 +27,8 @@ import {
   type TokenVerifier,
 } from "./auth-middleware";
 import type { JwtHelper } from "./jwt";
+import type { PostAuthLandingArgs, PostAuthLandingResolver } from "./post-auth-landing";
+import { resolvePostAuthLandingPath } from "./post-auth-landing";
 import { generateToken } from "./tokens";
 
 // Resolves the Secure cookie flag. Locked off in dev/test so Playwright
@@ -450,6 +452,11 @@ export type AuthRoutesConfig = {
   // a single ingress/reverse-proxy, 2 for edge-LB + ingress, etc.) to close
   // the hole; see clientIpOf's doc comment for the extraction algorithm.
   trustedProxyHops?: number;
+  // Server-computed post-auth redirect, consulted at login, mfa-verify,
+  // mfa-preauth-confirm, signup-confirm, and all three invite-accept branches.
+  // Result lands in the response as `landingPath`; an invalid path or a
+  // throwing resolver just omits the field (see post-auth-landing.ts).
+  postAuthLanding?: PostAuthLandingResolver;
 };
 
 export type PasswordResetConfig = {
@@ -752,6 +759,13 @@ export function createAuthRoutes(
     return token;
   }
 
+  // Spreadable landingPath fragment for the 7 auth-response call sites below
+  // — absent (not `landingPath: undefined`) when unwired/invalid/throwing.
+  function landingPathFragment(args: PostAuthLandingArgs): { readonly landingPath?: string } {
+    const landingPath = resolvePostAuthLandingPath(config.postAuthLanding, args);
+    return landingPath === undefined ? {} : { landingPath };
+  }
+
   // POST /auth/login — public endpoint (bypasses auth middleware via PUBLIC_API_PATHS).
   // The configured login handler authenticates and returns a SessionUser;
   // the route signs the JWT and hands it back to the client.
@@ -836,6 +850,11 @@ export function createAuthRoutes(
       // that references it can be handed out, otherwise a fast client could
       // arrive at an auth-middleware check before the insert commits.
       const token = await mintSessionAndRespond(c, data.session);
+      const landingPath = landingPathFragment({
+        flow: "login",
+        roles: data.session.roles,
+        tenantId: data.session.tenantId,
+      });
 
       if (rateLimiter) {
         await rateLimiter.reset(rateLimitKey);
@@ -845,6 +864,7 @@ export function createAuthRoutes(
         isSuccess: true,
         token,
         user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+        ...landingPath,
       });
     });
   }
@@ -907,6 +927,11 @@ export function createAuthRoutes(
       const data = result.data as { kind: "mfa-verify-success"; session: SessionUser };
 
       const token = await mintSessionAndRespond(c, data.session);
+      const landingPath = landingPathFragment({
+        flow: "login",
+        roles: data.session.roles,
+        tenantId: data.session.tenantId,
+      });
 
       if (rateLimiter) {
         await rateLimiter.reset(clientIp);
@@ -916,6 +941,7 @@ export function createAuthRoutes(
         isSuccess: true,
         token,
         user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+        ...landingPath,
       });
     });
   }
@@ -1054,6 +1080,11 @@ export function createAuthRoutes(
       const data = result.data as { kind: "mfa-preauth-confirm-success"; session: SessionUser };
 
       const token = await mintSessionAndRespond(c, data.session);
+      const landingPath = landingPathFragment({
+        flow: "login",
+        roles: data.session.roles,
+        tenantId: data.session.tenantId,
+      });
 
       if (rateLimiter) {
         await rateLimiter.reset(clientIp);
@@ -1063,6 +1094,7 @@ export function createAuthRoutes(
         isSuccess: true,
         token,
         user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+        ...landingPath,
       });
     });
   }
@@ -1169,6 +1201,13 @@ export function createAuthRoutes(
 
       // Session creation + JWT sign + cookies — see mintSessionAndRespond.
       const token = await mintSessionAndRespond(c, data.session);
+      const landingPath = landingPathFragment({
+        flow: "signup",
+        roles: data.session.roles,
+        tenantId: data.session.tenantId,
+        tenantKey: data.tenantKey,
+        ...(data.handover !== undefined && { handover: data.handover }),
+      });
 
       return c.json({
         isSuccess: true,
@@ -1189,6 +1228,7 @@ export function createAuthRoutes(
         // absent, not null, so a client that doesn't know the field sees
         // nothing unusual.
         ...(data.handover !== undefined && { handover: data.handover }),
+        ...landingPath,
       });
     });
   }
@@ -1222,11 +1262,17 @@ export function createAuthRoutes(
         role: string;
         alreadyMember: boolean;
       };
+      const landingPath = landingPathFragment({
+        flow: "invite",
+        roles: [data.role],
+        tenantId: data.tenantId,
+      });
       return c.json({
         isSuccess: true,
         tenantId: data.tenantId,
         role: data.role,
         alreadyMember: data.alreadyMember,
+        ...landingPath,
       });
     });
 
@@ -1269,6 +1315,11 @@ export function createAuthRoutes(
       }
 
       const token = await mintSessionAndRespond(c, data.session);
+      const landingPath = landingPathFragment({
+        flow: "invite",
+        roles: data.session.roles,
+        tenantId: data.tenantId,
+      });
       return c.json({
         isSuccess: true,
         token,
@@ -1279,6 +1330,7 @@ export function createAuthRoutes(
         },
         tenantId: data.tenantId,
         role: data.role,
+        ...landingPath,
       });
     });
 
@@ -1306,6 +1358,11 @@ export function createAuthRoutes(
         role: string;
       }; // @cast-boundary engine-payload
       const token = await mintSessionAndRespond(c, data.session);
+      const landingPath = landingPathFragment({
+        flow: "invite",
+        roles: data.session.roles,
+        tenantId: data.tenantId,
+      });
       return c.json({
         isSuccess: true,
         token,
@@ -1316,6 +1373,7 @@ export function createAuthRoutes(
         },
         tenantId: data.tenantId,
         role: data.role,
+        ...landingPath,
       });
     });
   }
