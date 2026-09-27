@@ -182,6 +182,47 @@ describe("webhook-step Sample", () => {
   });
 });
 
+describe("access-denied — role-restricted handlers", () => {
+  test("incident:notify-via-mail rejects a caller without the Admin role", async () => {
+    const viewer = createTestUser({ roles: ["User"] });
+
+    const error = await stack.http.writeErr(
+      "webhook-demo:write:incident:notify-via-mail",
+      { to: "ops@example.com", title: "DB outage", severity: "high" },
+      viewer,
+    );
+    expect(error.code).toBe("access_denied");
+    await stack.eventDispatcher?.runOnce();
+    expect(mailMock).not.toHaveBeenCalled();
+  });
+
+  test("incident:open-via-call rejects a caller without the Admin role", async () => {
+    const viewer = createTestUser({ roles: ["User"] });
+
+    const error = await stack.http.writeErr(
+      "webhook-demo:write:incident:open-via-call",
+      { title: "Network hiccup", severity: "low" },
+      viewer,
+    );
+    expect(error.code).toBe("access_denied");
+    const rows = await selectMany(stack.db, incidentTable, { title: "Network hiccup" });
+    expect(rows).toHaveLength(0);
+  });
+
+  test("incident:open-then-fail rejects a caller without the Admin role", async () => {
+    const viewer = createTestUser({ roles: ["User"] });
+
+    const error = await stack.http.writeErr(
+      "webhook-demo:write:incident:open-then-fail",
+      { title: "should-not-run", webhookUrl: "https://hooks.example/never" },
+      viewer,
+    );
+    expect(error.code).toBe("access_denied");
+    await stack.eventDispatcher?.runOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("incident:open-authenticated — tenant-owned webhook auth secret", () => {
   test("a caller without the Admin role is rejected", async () => {
     const viewer = createTestUser({ roles: ["User"] });
