@@ -1,6 +1,6 @@
 // Entity + screen definitions, registered server-side through feature.ts.
-// The browser receives them via the dev-server's window.__KUMIKO_SCHEMA__
-// injection (buildAppSchema) — no hand-written clientSchema mirror.
+// The browser loads them itself via the authenticated GET /api/schema
+// (buildAppSchema) — no hand-written clientSchema mirror.
 
 import type {
   EntityDefinition,

@@ -1089,7 +1089,7 @@ describe("KumikoScreen", () => {
     expect(searchParamUpdates).toEqual([{ returnTo: "task-list" }]);
   });
 
-  // JSON-Schema-Fall (window.__KUMIKO_SCHEMA__): Declarative entityId: "id"
+  // JSON-Schema-Fall (GET /api/schema): Declarative entityId: "id"
   // überlebt JSON.stringify (String, kein Function-Drop). Das Schema
   // funktioniert identisch ob direkt oder nach JSON-Roundtrip geladen.
   test("entityList rowActions kind=navigate auf entityEdit-Ziel: entityId-String überlebt JSON-Roundtrip (JSON-Schema-sicher)", async () => {

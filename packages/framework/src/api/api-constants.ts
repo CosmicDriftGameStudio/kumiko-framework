@@ -36,6 +36,7 @@ export const Routes = {
   authInviteSignupComplete: "/auth/invite-signup-complete",
   authInviteInfo: "/auth/invite-info",
   files: "/files",
+  schema: "/schema",
 } as const;
 
 // Routes that must be reachable WITHOUT a valid JWT.
@@ -87,6 +88,7 @@ export const NON_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   // invite-accept requires a JWT (Branch 1, see PUBLIC_API_PATHS above).
   `/api${Routes.authInviteAccept}`,
   `/api${Routes.files}`,
+  `/api${Routes.schema}`,
 ]);
 
 // Opt-out from the default request-body-size cap (registerBodyLimit applies

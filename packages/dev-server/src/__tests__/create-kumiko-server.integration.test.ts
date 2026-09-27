@@ -16,6 +16,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import {
   createKumikoServer,
@@ -245,9 +246,9 @@ describe("createKumikoServer (Multi-Entry)", () => {
         if (host === "apex.test") return { kind: "not-found" };
         if (host === "old.test") return { kind: "redirect", to: "https://new.test/" };
         if (host.startsWith("admin.")) {
-          return { kind: "html", entryName: "admin", injectSchema: true };
+          return { kind: "html", entryName: "admin" };
         }
-        return { kind: "html", entryName: "public", injectSchema: false };
+        return { kind: "html", entryName: "public" };
       },
     });
   }
@@ -288,35 +289,42 @@ describe("createKumikoServer (Multi-Entry)", () => {
     expect(noFallback.status).toBe(404);
   });
 
-  test("Schema-Inject: admin → injected, public → NICHT injected", async () => {
+  test("HTML never carries the schema; GET /api/schema needs the auto-minted cookie (kumiko-framework#3314)", async () => {
     handle = await bootMultiEntry();
 
-    const publicHtml = await (
-      await handle.fetch(
-        new Request("http://status.localhost/", { headers: { host: "status.localhost" } }),
-      )
-    ).text();
-    expect(publicHtml).not.toMatch(/__KUMIKO_SCHEMA__/);
+    const publicRes = await handle.fetch(
+      new Request("http://status.localhost/", { headers: { host: "status.localhost" } }),
+    );
+    expect(await publicRes.text()).not.toMatch(/__KUMIKO_SCHEMA__/);
 
-    const adminHtml = await (
-      await handle.fetch(
-        new Request("http://admin.localhost/", { headers: { host: "admin.localhost" } }),
-      )
-    ).text();
-    expect(adminHtml).toMatch(/__KUMIKO_SCHEMA__/);
+    const adminRes = await handle.fetch(
+      new Request("http://admin.localhost/", { headers: { host: "admin.localhost" } }),
+    );
+    expect(await adminRes.text()).not.toMatch(/__KUMIKO_SCHEMA__/);
+
+    const authCookie = getSetCookieValue(adminRes, "kumiko_auth");
+    expect(authCookie).toBeDefined();
+
+    const unauthenticated = await handle.fetch(new Request("http://admin.localhost/api/schema"));
+    expect(unauthenticated.status).toBe(401);
+
+    const authenticatedRes = await handle.fetch(
+      new Request("http://admin.localhost/api/schema", {
+        headers: { cookie: `kumiko_auth=${authCookie}` },
+      }),
+    );
+    expect(authenticatedRes.status).toBe(200);
+    const schema = await authenticatedRes.json();
+    // Guards against an empty features array making the #2062 `.some(...)`
+    // assertion below vacuously false.
+    expect(schema.features.length).toBeGreaterThan(0);
 
     // #2062: setupTestStack always wires an in-memory SearchAdapter
     // (test-stack.ts), so the dev-server call site's
     // `searchAdapterMissing: !stack.context.searchAdapter` must read false —
     // proving the flag actually flows from stack.context through to the
-    // injected schema instead of silently staying at its own default.
-    const schemaMatch = adminHtml.match(/window\.__KUMIKO_SCHEMA__=(\{.*?\});<\/script>/s);
-    expect(schemaMatch).not.toBeNull();
-    const injectedSchema = JSON.parse(schemaMatch?.[1] ?? "{}");
-    // Guards against a regex miss silently degrading to `?? "{}"` — an empty
-    // features array would make `.some(...)` below vacuously false too.
-    expect(injectedSchema.features.length).toBeGreaterThan(0);
-    const anyFeatureMissingAdapter = injectedSchema.features.some(
+    // schema served by GET /api/schema.
+    const anyFeatureMissingAdapter = schema.features.some(
       (f: { searchAdapterMissing?: boolean }) => f.searchAdapterMissing === true,
     );
     expect(anyFeatureMissingAdapter).toBe(false);

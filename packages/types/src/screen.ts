@@ -79,7 +79,7 @@ export interface FieldFormatRegistry {
 }
 
 // Discriminated union derived from the registry — one variant per key.
-// JSON-safe: no function members, survives buildAppSchema → window.__KUMIKO_SCHEMA__.
+// JSON-safe: no function members, survives buildAppSchema → GET /api/schema.
 export type FormatSpec = {
   [K in keyof FieldFormatRegistry]: { readonly format: K } & FieldFormatRegistry[K];
 }[keyof FieldFormatRegistry];
@@ -97,7 +97,7 @@ export type FieldRenderer = PlatformComponent | string | FormatSpec;
 //   { field, ne }    — true when row[field] !== ne
 //   { field, in }    — true when row[field] is one of the given values
 //   { field, notIn } — true when row[field] is none of the given values
-// JSON-safe: survives buildAppSchema → window.__KUMIKO_SCHEMA__ stringify.
+// JSON-safe: survives buildAppSchema → GET /api/schema stringify.
 export type FieldCondition =
   | boolean
   | { readonly field: string; readonly eq: unknown }
@@ -196,14 +196,14 @@ export type ScreenFilter = {
   readonly value: unknown;
 };
 
-/** Deklarativer Row-Field-Extraktor — JSON-sicher (kein Function-Prop,
- *  überlebt window.__KUMIKO_SCHEMA__ / buildAppSchema).
+/** Declarative row-field extractor — JSON-safe (no function prop, survives
+ *  GET /api/schema / buildAppSchema).
  *
- *  `pick`: extrahiert Felder 1:1. `{ pick: ["id", "version"] }` → `{ id: row.id, version: row.version }`
- *  `map`:  benennt um.        `{ map: { incidentId: "id" } }` → `{ incidentId: row.id }`
+ *  `pick`: extracts fields 1:1. `{ pick: ["id", "version"] }` → `{ id: row.id, version: row.version }`
+ *  `map`:  renames fields.      `{ map: { incidentId: "id" } }` → `{ incidentId: row.id }`
  *
- *  Limitation: computed/template-Werte können nicht ausgedrückt werden
- *  — solche Logik gehört server-side in den Write-Handler. */
+ *  Limitation: computed/templated values can't be expressed this way —
+ *  that logic belongs server-side in the write handler. */
 export type RowFieldExtractor =
   | { readonly pick: readonly string[] }
   | { readonly map: Readonly<Record<string, string>> };

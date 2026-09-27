@@ -555,6 +555,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.contentEditor.orderedList": "Lista numerada",
   "kumiko.contentEditor.preview": "Vista previa",
   "kumiko.dashboard.filter.all": "Todos",
+
+  "kumiko.app-boot.loading": "Cargando…",
+  "kumiko.app-boot.unauthorized": "Debes iniciar sesión para ver esto.",
+  "kumiko.app-boot.failed": "No se pudo cargar la app. Revisa tu conexión e inténtalo de nuevo.",
+  "kumiko.app-boot.no-open-screen":
+    "Esta app no tiene ninguna pantalla accesible sin restricción de rol.",
   "kumiko.dialog.cancel": "Cancelar",
   "kumiko.dialog.close": "Cerrar",
   "kumiko.dialog.confirm": "Confirmar",

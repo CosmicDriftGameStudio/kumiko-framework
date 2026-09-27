@@ -76,7 +76,7 @@ describe("createPublicSurface", () => {
     expect(screen.queryByTestId("login")).toBeNull();
   });
 
-  test("injectSchema:false — ignoriert window.__KUMIKO_SCHEMA__ komplett (kein Topologie-Leak)", async () => {
+  test("ignores window.__KUMIKO_SCHEMA__ entirely (no topology leak)", async () => {
     // Ein Admin-Schema im Window darf NICHT zu gerenderter Admin-Nav/
     // Topologie führen — die Surface liest das Global gar nicht, sie
     // rendert ausschließlich die deklarierte Route.

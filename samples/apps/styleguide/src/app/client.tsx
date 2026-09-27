@@ -7,10 +7,10 @@ import { galleryClient } from "../features/gallery/web";
 import { widgetsClient } from "../features/widgets/web";
 import { AppShell } from "./shell";
 
-// Schema kommt vom dev-server via window.__KUMIKO_SCHEMA__. styleguideClient
-// liefert die Feld-Label-Übersetzungen, galleryClient die custom Gallery-Screen,
-// widgetsClient den Widget-Kit-Katalog, examplesClient die Config-Stresstest-
-// Screens (Shipping etc.).
+// createKumikoApp fetches the schema itself from the authenticated
+// GET /api/schema. styleguideClient supplies the field-label translations,
+// galleryClient the custom gallery screen, widgetsClient the widget-kit
+// catalog, examplesClient the config-stresstest screens (shipping etc.).
 createKumikoApp({
   shell: AppShell,
   clientFeatures: [

@@ -90,7 +90,6 @@ import {
   type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  buildAppSchema,
   collectWriteHandlerQns,
   createRegistry,
   type EffectiveFeaturesResolver,
@@ -403,23 +402,25 @@ export type ExtraContextOption =
   | Record<string, unknown>
   | ((deps: RunProdAppDeps) => Record<string, unknown>);
 
-/** Per-Host Routing-Entscheidung für den staticDir-Fallback. Wird aus
- *  hostDispatch returned. Drei Modi:
- *    - "html": eine bestimmte HTML-Datei (relativ zu staticDir) servieren,
- *      mit optionaler Schema-Injection und CSP. Schema-Injection MUSS
- *      explizit eingeschaltet werden (default false) — Public-Domain-
- *      Antworten leaken sonst die volle Admin-UI-Schema-Topologie.
- *    - "redirect": 301/302 an die angegebene Location.
- *    - "not-found": klar abweisen (z.B. unbekannte Subdomain).
+/** Per-host routing decision for the staticDir fallback, returned from
+ *  hostDispatch. Three modes:
+ *    - "html": serve a specific HTML file (relative to staticDir), optionally
+ *      with CSP. HTML never carries a schema — createKumikoApp fetches it
+ *      itself from the authenticated GET /api/schema, after the
+ *      clientFeature gates (auth) let it through.
+ *    - "redirect": 301/302 to the given location.
+ *    - "not-found": reject outright (e.g. unknown subdomain).
  *
- *  Wird NUR konsultiert wenn der Pfad sonst auf den HTML-Fallback gehen
- *  würde — also für "/", "/index.html", oder SPA-Routen die weder Hono
- *  matched noch eine konkrete Disk-Datei treffen. Asset-Pfade (/assets/*)
- *  und API-Pfade laufen unabhängig vom Host. */
+ *  Only consulted when the path would otherwise fall through to the HTML
+ *  fallback — i.e. for "/", "/index.html", or SPA routes that neither Hono
+ *  matches nor a concrete disk file. Asset paths (/assets/*) and API paths
+ *  run independent of the host. */
 export type HostDispatchResult =
   | {
       readonly kind: "html";
       readonly file: string;
+      /** @deprecated Ignored — HTML never carries the schema; createKumikoApp
+       *  fetches it from the authenticated GET /api/schema. */
       readonly injectSchema?: boolean;
       readonly csp?: string;
     }
@@ -481,21 +482,19 @@ export type RunProdAppOptions = {
    *  for any path that doesn't match an /api/ handler. Use this for the
    *  public status page HTML, embed widget JS, etc. */
   readonly staticDir?: string;
-  /** Host-aware Routing-Hook für Multi-Tenant + Multi-App-Deployments
-   *  (z.B. publicstatus's `<sub>.publicstatus.eu` (Public-Page) +
-   *  `admin.publicstatus.eu` (Admin-UI) + `publicstatus.eu` (Apex/
-   *  Marketing) im SELBEN Container).
+  /** Host-aware routing hook for multi-tenant + multi-app deployments
+   *  (e.g. publicstatus's `<sub>.publicstatus.eu` (public page) +
+   *  `admin.publicstatus.eu` (admin UI) + `publicstatus.eu` (apex/
+   *  marketing) in the SAME container).
    *
-   *  Wird aufgerufen wenn der staticDir-Fallback einen HTML-Response
-   *  generieren würde (Root oder SPA-Route). Default-Verhalten ohne
-   *  hostDispatch: index.html mit Schema-Injection (Single-App).
+   *  Called when the staticDir fallback would generate an HTML response
+   *  (root or SPA route). Default behavior without hostDispatch: index.html
+   *  (single-app), no schema.
    *
-   *  Sicherheitshinweis: Schema-Injection (`__KUMIKO_SCHEMA__`) leakt
-   *  die Admin-UI-Topologie (alle Screens, Felder, Layouts) ans HTML.
-   *  Public-Domain-Antworten sollen das NIEMALS — `injectSchema` ist
-   *  daher default false und MUSS pro Host explizit eingeschaltet
-   *  werden. CSP-Header pro Host können zusätzlich Asset-Pfade
-   *  einschränken. */
+   *  Schema safety: HTML (per-host as well as single-app) never carries an
+   *  AppSchema — createKumikoApp fetches it via GET /api/schema, which sits
+   *  behind the auth middleware and only serves non-anonymous, signed-in
+   *  users. Per-host CSP headers can additionally restrict asset paths. */
   readonly hostDispatch?: HostDispatchFn;
   /** Per-request head-metadata resolver (Open-Graph/title/description) for
    *  the static-fallback HTML shell — see `PageHeadResolver`. Consulted on
@@ -989,11 +988,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
     ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
   };
-  // @cast-boundary engine-bridge — searchAdapter is an optional context-extension
-  // (SharedContextFields.searchAdapter), invisible to extraContext's loose
-  // Record<string, unknown>-based typing. Presence check only, no need to
-  // pull in the SearchAdapter type here.
-  const searchAdapterMissing = !(extraContext as { searchAdapter?: unknown }).searchAdapter;
   const baseAnonymousAccess =
     typeof options.anonymousAccess === "function"
       ? options.anonymousAccess(deps)
@@ -1222,18 +1216,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     });
   }
 
-  // 8. Build the AppSchema once + serialize. Wird beim Static-Fallback
-  //    in die index.html injiziert damit createKumikoApp() im Browser
-  //    `window.__KUMIKO_SCHEMA__` synchron lesen kann — gleicher Pfad
-  //    wie im dev-server, damit der Client-Code keine Sonderfall-
-  //    Branch zwischen dev/prod braucht. Boot-once weil Features
-  //    nach dem Start nicht mehr ändern.
-  // TODO: Sobald per-Tenant- oder per-User-Schema kommt (Feature-Toggles
-  // pro Tenant, Auth-Rolle gated Screens), muss die Injection pro
-  // Request rendern — staticDir-Fallback einen render(req)-Hook bekommen
-  // statt eines fixed JSON-Strings. Heute: registry-static, also OK.
-  const appSchemaJson = JSON.stringify(buildAppSchema(registry, { searchAdapterMissing }));
-
   // `extraRoutes` itself is already mounted — buildServer wires it inside
   // createApiEntrypoint/createAllInOneEntrypoint, before this function ever
   // runs. `wire` is the remaining escape-hatch for app-wired co-running
@@ -1301,7 +1283,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? buildStaticFallback(
           entrypoint.app.fetch.bind(entrypoint.app),
           options.staticDir,
-          appSchemaJson,
           options.hostDispatch,
           options.resolvePageHead
             ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }

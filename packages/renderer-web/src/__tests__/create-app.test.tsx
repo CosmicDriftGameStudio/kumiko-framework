@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   DashboardScreenDefinition,
   EntityDefinition,
@@ -14,9 +14,14 @@ import type {
   FeatureSchema,
   NavApi,
 } from "@cosmicdrift/kumiko-renderer";
-import { createStaticLocaleResolver, useContentEditor } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStaticLocaleResolver,
+  toAppSchema,
+  useContentEditor,
+} from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
+import { APP_SCHEMA_API_PATH } from "../app/app-schema-boot";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
 import { createMockDispatcher } from "./test-utils";
@@ -727,6 +732,180 @@ describe("createKumikoApp", () => {
       await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
 
       expect(screen.getByTestId("row-r1").className).toContain("cursor-pointer");
+    });
+  });
+
+  // kumiko-framework#3314: without an explicit `schema`, createKumikoApp
+  // fetches it from the authenticated GET /api/schema instead of throwing
+  // at boot — these tests exercise the loading/unauthorized/failed states
+  // and the "gate first, fetch after" ordering.
+  describe("createKumikoApp — schema fetch (kumiko-framework#3314)", () => {
+    const originalFetch = globalThis.fetch;
+    let calls: Array<{ readonly url: string; readonly init?: RequestInit }> = [];
+
+    function mockFetch(
+      onSchema: (call: {
+        readonly url: string;
+        readonly init?: RequestInit;
+      }) => Promise<Response> | Response,
+    ): void {
+      globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        calls.push({ url, init });
+        if (url.endsWith(APP_SCHEMA_API_PATH)) return onSchema({ url, init });
+        return new Response(null, { status: 404 });
+      }) as unknown as typeof globalThis.fetch;
+    }
+
+    function schemaCalls(): Array<{ readonly url: string; readonly init?: RequestInit }> {
+      return calls.filter((c) => c.url.endsWith(APP_SCHEMA_API_PATH));
+    }
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+      calls = [];
+      const w = window as unknown as { __KUMIKO_SCHEMA__?: unknown };
+      delete w.__KUMIKO_SCHEMA__;
+    });
+
+    test("explicit schema → fetch is never called", async () => {
+      mountRoot();
+      mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
+      await mountApp({ schema: baseSchema, dispatcher: makeDispatcher() });
+      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      expect(schemaCalls().length).toBe(0);
+    });
+
+    test("no schema/global set → fetches GET /api/schema with same-origin credentials; 200 renders the first screen", async () => {
+      mountRoot();
+      mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
+      await mountApp({ dispatcher: makeDispatcher() });
+      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      expect(schemaCalls().length).toBe(1);
+      expect(schemaCalls()[0]?.url).toBe(APP_SCHEMA_API_PATH);
+      expect(schemaCalls()[0]?.init?.credentials).toBe("same-origin");
+    });
+
+    test("fetch → 401 → unauthorized text, no throw, exactly one fetch even after further updates", async () => {
+      mountRoot();
+      mockFetch(() => new Response(null, { status: 401 }));
+      await mountApp({ dispatcher: makeDispatcher() });
+      await waitFor(() =>
+        expect(screen.getByText("You need to sign in to see this.")).toBeTruthy(),
+      );
+      expect(schemaCalls().length).toBe(1);
+      // A later, unrelated update must not re-trigger the fetch (no
+      // accidental retry loop from an effect keyed on the wrong deps).
+      await act(async () => {});
+      expect(schemaCalls().length).toBe(1);
+    });
+
+    test("fetch rejected (network error) → error text + retry; retry click refetches and renders", async () => {
+      mountRoot();
+      let attempts = 0;
+      mockFetch(() => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("network down");
+        return new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 });
+      });
+      await mountApp({ dispatcher: makeDispatcher() });
+      await waitFor(() => expect(screen.getByText(/Couldn't load the app/)).toBeTruthy());
+      expect(schemaCalls().length).toBe(1);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText("Reload"));
+      });
+
+      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      expect(schemaCalls().length).toBe(2);
+    });
+
+    test("200 with an invalid payload ({}) → failed state, not a crash", async () => {
+      mountRoot();
+      mockFetch(() => new Response("{}", { status: 200 }));
+      await mountApp({ dispatcher: makeDispatcher() });
+      await waitFor(() => expect(screen.getByText(/Couldn't load the app/)).toBeTruthy());
+    });
+
+    test("200 with a schema that has no open screen → no-open-screen error, not a throw", async () => {
+      mountRoot();
+      const restrictedOnly: AppSchema = {
+        features: [
+          {
+            featureName: "user",
+            entities: { task: taskEntity },
+            screens: [{ ...editScreen, access: { roles: ["SystemAdmin"] } }],
+          },
+        ],
+      };
+      mockFetch(() => new Response(JSON.stringify(restrictedOnly), { status: 200 }));
+      await mountApp({ dispatcher: makeDispatcher() });
+      await waitFor(() =>
+        expect(
+          screen.getByText("This app has no screen that's accessible without a role restriction."),
+        ).toBeTruthy(),
+      );
+    });
+
+    test("clientFeature gate rendering a placeholder instead of children → fetch never runs", async () => {
+      mountRoot();
+      mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
+      function LoginPlaceholderGate({
+        children: _children,
+      }: {
+        readonly children: ReactNode;
+      }): ReactNode {
+        return <span data-testid="login-placeholder" />;
+      }
+      await mountApp({
+        dispatcher: makeDispatcher(),
+        clientFeatures: [{ name: "auth-stub", gates: [LoginPlaceholderGate] }],
+      });
+      expect(await screen.findByTestId("login-placeholder")).toBeTruthy();
+      expect(schemaCalls().length).toBe(0);
+    });
+
+    function createToggleableGateStore(initial: boolean) {
+      let allowed = initial;
+      const listeners = new Set<() => void>();
+      return {
+        getSnapshot: () => allowed,
+        subscribe: (onChange: () => void) => {
+          listeners.add(onChange);
+          return () => listeners.delete(onChange);
+        },
+        setAllowed: (next: boolean) => {
+          allowed = next;
+          for (const listener of listeners) listener();
+        },
+      };
+    }
+
+    test("gate withdrawing then re-admitting children refetches the schema (no stale cross-session reuse)", async () => {
+      mountRoot();
+      mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
+      const gateStore = createToggleableGateStore(true);
+      function ToggleableGate({ children }: { readonly children: ReactNode }): ReactNode {
+        const allowed = useSyncExternalStore(gateStore.subscribe, gateStore.getSnapshot);
+        return allowed ? children : <span data-testid="gate-closed" />;
+      }
+      await mountApp({
+        dispatcher: makeDispatcher(),
+        clientFeatures: [{ name: "toggle-stub", gates: [ToggleableGate] }],
+      });
+      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      expect(schemaCalls().length).toBe(1);
+
+      await act(async () => {
+        gateStore.setAllowed(false);
+      });
+      expect(screen.getByTestId("gate-closed")).toBeTruthy();
+
+      await act(async () => {
+        gateStore.setAllowed(true);
+      });
+      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      expect(schemaCalls().length).toBe(2);
     });
   });
 });

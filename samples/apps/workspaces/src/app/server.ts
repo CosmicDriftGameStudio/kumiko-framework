@@ -7,8 +7,9 @@
 //
 // runDevApp mischt die Standard-Features (config/user/tenant/auth)
 // automatisch dazu wenn `auth` gesetzt ist und ruft seedAdmin im
-// onAfterSetup. Schema landet als window.__KUMIKO_SCHEMA__-Injection
-// im Browser, kein hand-geschriebener clientSchema-Spiegel.
+// onAfterSetup. Der Client lädt das Schema selbst über die
+// authentifizierte GET /api/schema, kein hand-geschriebener
+// clientSchema-Spiegel.
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";

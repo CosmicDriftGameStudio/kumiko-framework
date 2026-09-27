@@ -1,8 +1,7 @@
 // Entity + Screen-Definitionen. WIRD vom Server in feature.ts via
 // r.entity/r.screen registriert; die Browser-seitige Spiegelung
-// (clientSchema mit navs/workspaces) ist obsolet — der dev-server
-// injiziert das aufgelöste AppSchema beim Boot, der Client liest es
-// aus window.__KUMIKO_SCHEMA__.
+// (clientSchema mit navs/workspaces) ist obsolet — der Client lädt das
+// aufgelöste AppSchema selbst über die authentifizierte GET /api/schema.
 
 import type {
   EntityDefinition,

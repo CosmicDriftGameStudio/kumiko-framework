@@ -21,8 +21,9 @@ import { DocumentLangSync } from "./document-lang-sync";
 // schema-LESS provider chain (locale + primitives + dispatcher +
 // feature-providers) and renders exactly one content chosen by URL path.
 // Deliberately NO schema, NO nav, NO KumikoScreen: the surface is reachable
-// anonymously, and a __KUMIKO_SCHEMA__ inject would leak admin nav/topology
-// to visitors (injectSchema:false is a structural default here, not a flag).
+// anonymously, and even the authenticated GET /api/schema would leak admin
+// nav/topology to visitors if this ever fetched it — createKumikoApp is the
+// one that loads a schema, this mount never does.
 //
 // `routes` are app-authored React elements — auth screens et al. carry
 // callback props (loggedInHref etc.) that wouldn't fit through any
