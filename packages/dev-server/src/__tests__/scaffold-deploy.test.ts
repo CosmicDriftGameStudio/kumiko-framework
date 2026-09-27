@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { render, scaffoldDeploy } from "../scaffold-deploy";
+import { checkDeployDrift, render, scaffoldDeploy } from "../scaffold-deploy";
 
 describe("scaffoldDeploy", () => {
   let tmp: string;
@@ -212,13 +212,13 @@ describe("scaffoldDeploy", () => {
       const result = scaffoldDeploy({ appName: "ghapp", destination: tmp });
       expect(result.detected.hasPrivateGhPackages).toBe(true);
       const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
-      expect(df).toContain("ARG GITHUB_TOKEN=");
-      expect(df).toContain("ARG GITHUB_TOKEN\n");
+      expect(df).toContain("ARG NPM_AUTH_TOKEN=");
+      expect(df).toContain("ARG NPM_AUTH_TOKEN\n");
       // biome-ignore lint/suspicious/noTemplateCurlyInString: shell variable expansion, not a JS template
-      expect(df).toContain("ENV GITHUB_TOKEN=${GITHUB_TOKEN}");
+      expect(df).toContain("ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}");
     });
 
-    it("skips GITHUB_TOKEN blocks when only public @cosmicdrift/* deps are present", () => {
+    it("skips NPM_AUTH_TOKEN blocks when only public @cosmicdrift/* deps are present", () => {
       writeFileSync(
         join(tmp, "package.json"),
         JSON.stringify({
@@ -232,16 +232,100 @@ describe("scaffoldDeploy", () => {
       const result = scaffoldDeploy({ appName: "publicapp", destination: tmp });
       expect(result.detected.hasPrivateGhPackages).toBe(false);
       const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
-      expect(df).not.toContain("ARG GITHUB_TOKEN");
+      expect(df).not.toContain("ARG NPM_AUTH_TOKEN");
       expect(df).not.toContain("ENV GITHUB_TOKEN");
     });
 
-    it("malformed package.json warns + defaults to no private deps (mis-detection is visible)", () => {
+    it("manifests app with bunfig.toml: NPM_AUTH_TOKEN wiring + manifests-first COPY", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "manifestapp",
+          dependencies: { "@cosmicdriftgamestudio/kumiko-ai-foundation": "^0.2.0" },
+        }),
+      );
+      writeFileSync(join(tmp, "bunfig.toml"), "[install.scopes]\n");
+      const result = scaffoldDeploy({ appName: "manifestapp", destination: tmp });
+      expect(result.detected.installFromFullTree).toBe(false);
+      expect(result.detected.registryConfigFiles).toEqual(["bunfig.toml"]);
+      const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(df).toContain("ARG NPM_AUTH_TOKEN=");
+      expect(df).toContain("ARG NPM_AUTH_TOKEN\n");
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell variable expansion, not a JS template
+      expect(df).toContain("ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}");
+      expect(df).toContain(
+        "COPY package.json bun.lock bunfig.toml ./\nRUN bun install --frozen-lockfile",
+      );
+      expect(df).toMatch(
+        /FROM .* AS runtime\n(?:#[^\n]*\n)*ARG BUILD_VERSION=dev\nARG BUILD_TIME=unknown/,
+      );
+    });
+
+    it(".npmrc-only app copies .npmrc before install", () => {
+      writeFileSync(join(tmp, "package.json"), JSON.stringify({ name: "npmrcapp" }));
+      writeFileSync(
+        join(tmp, ".npmrc"),
+        "@cosmicdriftgamestudio:registry=https://npm.pkg.github.com\n",
+      );
+      const result = scaffoldDeploy({ appName: "npmrcapp", destination: tmp });
+      expect(result.detected.registryConfigFiles).toEqual([".npmrc"]);
+      const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(df).toContain("COPY package.json bun.lock .npmrc ./");
+    });
+
+    it("a workspaces app renders COPY . . before install (full-tree)", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "wsapp", workspaces: ["packages/*"] }),
+      );
+      const result = scaffoldDeploy({ appName: "wsapp", destination: tmp });
+      expect(result.detected.installFromFullTree).toBe(true);
+      const df = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+      expect(df).toContain("COPY . .\nRUN bun install --frozen-lockfile\nRUN bun run build");
+      expect(df).not.toContain("COPY package.json bun.lock");
+    });
+
+    it("a file:/workspace:/link: dependency spec triggers full-tree install without a workspaces field", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "localdepapp", dependencies: { "@app/define": "file:./.kumiko" } }),
+      );
+      const result = scaffoldDeploy({ appName: "localdepapp", destination: tmp });
+      expect(result.detected.installFromFullTree).toBe(true);
+    });
+  });
+
+  describe("checkDeployDrift", () => {
+    it("reports missing when no deploy files exist yet", () => {
+      const result = checkDeployDrift({ appName: "driftapp", destination: tmp });
+      expect(result.drifted).toHaveLength(3);
+      expect(result.drifted.every((d) => d.reason === "missing")).toBe(true);
+    });
+
+    it("reports differs when an on-disk file no longer matches the rendered content", () => {
+      scaffoldDeploy({ appName: "driftapp", destination: tmp });
+      writeFileSync(join(tmp, "deploy", "Dockerfile"), "# hand-edited, drifted");
+      const result = checkDeployDrift({ appName: "driftapp", destination: tmp });
+      expect(result.drifted).toEqual([
+        { path: join(tmp, "deploy", "Dockerfile"), reason: "differs" },
+      ]);
+    });
+
+    it("reports no drift right after a fresh scaffold", () => {
+      scaffoldDeploy({ appName: "driftapp", destination: tmp });
+      const result = checkDeployDrift({ appName: "driftapp", destination: tmp });
+      expect(result.drifted).toHaveLength(0);
+    });
+  });
+
+  describe("malformed package.json", () => {
+    it("warns + defaults to no private deps and manifests-first install (mis-detection is visible)", () => {
       const warn = spyOn(console, "warn").mockImplementation(() => {});
       try {
         writeFileSync(join(tmp, "package.json"), "{ this is not json");
         const result = scaffoldDeploy({ appName: "broken", destination: tmp });
         expect(result.detected.hasPrivateGhPackages).toBe(false);
+        expect(result.detected.installFromFullTree).toBe(false);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn.mock.calls[0]?.[0]).toContain("is not valid JSON");
       } finally {

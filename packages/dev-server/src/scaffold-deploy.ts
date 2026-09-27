@@ -3,16 +3,21 @@
 // Generates `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore`, and
 // `deploy/migrate-step.sh` in the target app from canonical templates
 // shipped with @cosmicdrift/kumiko-dev-server. Substitutes `{{appName}}`,
-// `{{port}}`, `{{githubOrg}}` placeholders. Refuses to overwrite existing
-// files unless `force: true` — keeps an app's already-tuned Dockerfile
-// from being clobbered.
+// `{{port}}`, `{{githubOrg}}`, `{{installManifests}}` placeholders and the
+// `hasSeeds`/`hasPrivateGhPackages`/`installFromFullTree`/
+// `installFromManifests` block flags detected from the app's source-tree.
+// `renderDeployFiles` is the pure computation (no writes); `scaffoldDeploy`
+// writes it to disk (refuses to overwrite existing files unless
+// `force: true`); `checkDeployDrift` compares it against what's on disk
+// without writing.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as z from "zod";
 import { isKebabSegment } from "./kebab";
 
-export type ScaffoldDeployOptions = {
+export type RenderDeployFilesOptions = {
   /** App name, kebab-case (e.g. "publicstatus", "kumiko-studio"). */
   readonly appName: string;
   /** Container port the app listens on. Default 3000. */
@@ -26,19 +31,34 @@ export type ScaffoldDeployOptions = {
    *  `destination`. Lets the caller scaffold into one dir while detecting
    *  optional surfaces in another (rare — mostly destination = sourceDir). */
   readonly sourceDir?: string;
+};
+
+export type ScaffoldDeployOptions = RenderDeployFilesOptions & {
   /** Overwrite existing files instead of skipping them. */
   readonly force?: boolean;
 };
 
-/** Detected optional-dirs in the app's source-tree. Drives which COPY
- *  blocks the Dockerfile-template emits. */
+const REGISTRY_CONFIG_FILES = ["bunfig.toml", ".npmrc"] as const;
+export type RegistryConfigFile = (typeof REGISTRY_CONFIG_FILES)[number];
+
+/** Detected optional-dirs/layout traits in the app's source-tree. Drives
+ *  which COPY blocks the Dockerfile-template emits. */
 export type ScaffoldDeployDetected = {
   /** ES-Operations seed-migrations (`seeds/`). Required for apps that
    *  use the es-ops feature. */
   readonly hasSeeds: boolean;
   /** Private @cosmicdriftgamestudio/* GH-Packages → Dockerfile needs to
-   *  pass GITHUB_TOKEN as build-arg + re-export inside the build-stage. */
+   *  pass NPM_AUTH_TOKEN as build-arg + re-export it as $GITHUB_TOKEN inside
+   *  the build-stage (bunfig.toml/.npmrc read $GITHUB_TOKEN). */
   readonly hasPrivateGhPackages: boolean;
+  /** A `workspaces` root, or a `file:`/`workspace:`/`link:` dependency spec
+   *  — bun needs the whole build context on disk to resolve the lockfile,
+   *  so the Dockerfile does `COPY . .` before `bun install` instead of
+   *  copying manifests first for layer-cache. */
+  readonly installFromFullTree: boolean;
+  /** Which of bunfig.toml/.npmrc exist at the source root — copied ahead of
+   *  `bun install` in the manifests-first install variant. */
+  readonly registryConfigFiles: readonly RegistryConfigFile[];
 };
 
 export type ScaffoldedFile = {
@@ -56,6 +76,30 @@ export type ScaffoldDeployResult = {
   readonly detected: ScaffoldDeployDetected;
 };
 
+export type RenderedDeployFile = {
+  /** Template-relative output filename (e.g. "Dockerfile"). */
+  readonly output: string;
+  /** Absolute path this would be written to. */
+  readonly path: string;
+  readonly content: string;
+};
+
+export type RenderDeployFilesResult = {
+  readonly deployDir: string;
+  readonly files: readonly RenderedDeployFile[];
+  readonly detected: ScaffoldDeployDetected;
+};
+
+export type DeployDriftEntry = {
+  readonly path: string;
+  readonly reason: "missing" | "differs";
+};
+
+export type CheckDeployDriftResult = {
+  readonly drifted: readonly DeployDriftEntry[];
+  readonly detected: ScaffoldDeployDetected;
+};
+
 const TEMPLATE_FILES = [
   { template: "Dockerfile.template", output: "Dockerfile" },
   {
@@ -65,61 +109,77 @@ const TEMPLATE_FILES = [
   { template: "migrate-step.sh.template", output: "migrate-step.sh" },
 ] as const;
 
-export function scaffoldDeploy(options: ScaffoldDeployOptions): ScaffoldDeployResult {
+function templatesDir(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "templates", "deploy");
+}
+
+/** Pure: computes the rendered deploy files for `options` without touching
+ *  disk beyond reading the app's source-tree (package.json, seeds/,
+ *  registry-config files) and the shipped templates. */
+export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDeployFilesResult {
   if (!isKebabSegment(options.appName)) {
     throw new Error(
-      `scaffoldDeploy: appName must be kebab-case (a-z, 0-9, -); got "${options.appName}"`,
+      `renderDeployFiles: appName must be kebab-case (a-z, 0-9, -); got "${options.appName}"`,
     );
   }
   const port = options.port ?? 3000;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`scaffoldDeploy: port must be 1..65535, got ${port}`);
+    throw new Error(`renderDeployFiles: port must be 1..65535, got ${port}`);
   }
   const githubOrg = options.githubOrg ?? "cosmicdriftgamestudio";
   const destinationRoot = options.destination ?? process.cwd();
   const deployDir = join(destinationRoot, "deploy");
-  mkdirSync(deployDir, { recursive: true });
-
-  const templatesDir = join(dirname(fileURLToPath(import.meta.url)), "..", "templates", "deploy");
 
   // Detect optional surfaces in the source-tree so the Dockerfile only
   // emits COPYs for dirs that actually exist. Without this, apps without
   // a `seeds/` directory (e.g. studio) crash in Docker-build with
   // `failed to compute cache key: "/app/seeds": not found`.
-  //
-  // `hasPrivateGhPackages`: scan package.json for any
-  // `@cosmicdriftgamestudio/*` dep — those need GITHUB_TOKEN as a build-
-  // arg passed through into the build-stage (multi-stage ARG inheritance
-  // requires re-declaration inside the stage).
   const sourceDir = options.sourceDir ?? destinationRoot;
   const detected = detectOptionalSurfaces(sourceDir);
+
+  const installManifests = ["package.json", "bun.lock", ...detected.registryConfigFiles].join(" ");
 
   const subs: Readonly<Record<string, string>> = {
     appName: options.appName,
     port: String(port),
     githubOrg,
+    installManifests,
   };
 
   const flags: Readonly<Record<string, boolean>> = {
     hasSeeds: detected.hasSeeds,
     hasPrivateGhPackages: detected.hasPrivateGhPackages,
+    installFromFullTree: detected.installFromFullTree,
+    installFromManifests: !detected.installFromFullTree,
   };
 
+  const dir = templatesDir();
+  const files: RenderedDeployFile[] = TEMPLATE_FILES.map(({ template, output }) => ({
+    output,
+    path: join(deployDir, output),
+    content: render(readFileSync(join(dir, template), "utf-8"), subs, flags),
+  }));
+
+  return { deployDir, files, detected };
+}
+
+export function scaffoldDeploy(options: ScaffoldDeployOptions): ScaffoldDeployResult {
+  const { deployDir, files: rendered, detected } = renderDeployFiles(options);
+  mkdirSync(deployDir, { recursive: true });
+
   const files: ScaffoldedFile[] = [];
-  for (const { template, output } of TEMPLATE_FILES) {
-    const outputPath = join(deployDir, output);
-    const preExisted = existsSync(outputPath);
+  for (const { path, content } of rendered) {
+    const preExisted = existsSync(path);
     if (preExisted && !options.force) {
-      files.push({ path: outputPath, written: false, reason: "exists" });
+      files.push({ path, written: false, reason: "exists" });
       continue;
     }
-    const rendered = render(readFileSync(join(templatesDir, template), "utf-8"), subs, flags);
-    writeFileSync(outputPath, rendered);
+    writeFileSync(path, content);
     // `reason: "force"` only when we actually clobbered a pre-existing
     // file — distinct from a clean first-time write. The existsSync above
     // is captured BEFORE the write so the flag reflects pre-state.
     files.push({
-      path: outputPath,
+      path,
       written: true,
       ...(preExisted && options.force ? { reason: "force" as const } : {}),
     });
@@ -128,31 +188,63 @@ export function scaffoldDeploy(options: ScaffoldDeployOptions): ScaffoldDeployRe
   return { destination: deployDir, files, detected };
 }
 
+/** Read-only: compares the rendered deploy files against what's on disk
+ *  without writing anything. */
+export function checkDeployDrift(options: RenderDeployFilesOptions): CheckDeployDriftResult {
+  const { files: rendered, detected } = renderDeployFiles(options);
+  const drifted: DeployDriftEntry[] = [];
+  for (const { path, content } of rendered) {
+    if (!existsSync(path)) {
+      drifted.push({ path, reason: "missing" });
+      continue;
+    }
+    if (readFileSync(path, "utf-8") !== content) {
+      drifted.push({ path, reason: "differs" });
+    }
+  }
+  return { drifted, detected };
+}
+
+const packageJsonSchema = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+  workspaces: z
+    .union([z.array(z.string()), z.object({ packages: z.array(z.string()).optional() })])
+    .optional(),
+});
+
+const LOCAL_DEP_SPEC_RE = /^(file:|workspace:|link:)/;
+
 function detectOptionalSurfaces(sourceDir: string): ScaffoldDeployDetected {
   const hasSeeds = existsSync(join(sourceDir, "seeds"));
   let hasPrivateGhPackages = false;
+  let installFromFullTree = false;
   const pkgJsonPath = join(sourceDir, "package.json");
   if (existsSync(pkgJsonPath)) {
     try {
-      const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as {
-        dependencies?: Record<string, string>;
-        devDependencies?: Record<string, string>;
-      };
+      const raw: unknown = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+      const pkg = packageJsonSchema.parse(raw);
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
       hasPrivateGhPackages = Object.keys(allDeps).some((d) =>
         d.startsWith("@cosmicdriftgamestudio/"),
       );
+      installFromFullTree =
+        pkg.workspaces !== undefined ||
+        Object.values(allDeps).some((v) => LOCAL_DEP_SPEC_RE.test(v));
     } catch (err) {
-      // malformed package.json — assume no private packages, app-author can
-      // override via Dockerfile. Warn so a silent mis-detection (later YN0041
-      // on yarn install) is traceable to the scaffold step.
+      // malformed/unexpected-shape package.json — assume no private packages
+      // and a plain manifests-first install; app-author can override via
+      // Dockerfile. Warn so a silent mis-detection (later YN0041 on yarn
+      // install, or a broken lockfile resolve) is traceable to the scaffold
+      // step.
       // biome-ignore lint/suspicious/noConsole: scaffold visibility for skipped private-package detection
       console.warn(
-        `scaffoldDeploy: package.json at ${pkgJsonPath} is not valid JSON — private-GH-packages detection skipped (${err instanceof Error ? err.message : String(err)})`,
+        `scaffoldDeploy: package.json at ${pkgJsonPath} is not valid JSON — private-GH-packages/install-layout detection skipped (${err instanceof Error ? err.message : String(err)})`,
       );
     }
   }
-  return { hasSeeds, hasPrivateGhPackages };
+  const registryConfigFiles = REGISTRY_CONFIG_FILES.filter((f) => existsSync(join(sourceDir, f)));
+  return { hasSeeds, hasPrivateGhPackages, installFromFullTree, registryConfigFiles };
 }
 
 // Unconsumed-mustache guard. After step 1+2 the only legitimate `{{`
