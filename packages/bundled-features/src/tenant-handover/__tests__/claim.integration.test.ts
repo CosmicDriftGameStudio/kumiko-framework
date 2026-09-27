@@ -20,8 +20,13 @@ import {
   type EntityDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  AGGREGATE_TRANSFER_STREAM_TYPE,
+  AGGREGATE_TRANSFERRED_EVENT_TYPE,
+  loadAggregate,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestUser,
   setupTestStack,
@@ -387,7 +392,7 @@ async function seedFileRef(
   tenantId: TenantId,
   entityType: string,
   entityId: string,
-): Promise<void> {
+): Promise<string> {
   const user = createSystemUser(tenantId);
   const db = createTenantDb(stack.db, tenantId, "system");
   const result = await fileRefCrud.create(
@@ -404,6 +409,7 @@ async function seedFileRef(
     db,
   );
   if (!result.isSuccess) throw new Error(`seedFileRef failed: ${result.error.message}`);
+  return String(result.data.id);
 }
 
 function grantFor(rowId: string): string {
@@ -429,8 +435,8 @@ describe("tenant-handover :: claim", () => {
   test("claims the root, its parentRef-linked child, and both attached files into the caller's tenant, leaving an unrelated run of the same type untouched", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const photoId = await seedPhoto(SOURCE_TENANT, runId, "front");
-    await seedFileRef(SOURCE_TENANT, "run", runId);
-    await seedFileRef(SOURCE_TENANT, "photo", photoId);
+    const runFileRefId = await seedFileRef(SOURCE_TENANT, "run", runId);
+    const photoFileRefId = await seedFileRef(SOURCE_TENANT, "photo", photoId);
 
     // A second, unrelated run of the SAME entity type, still in the source
     // tenant — proves the claim moves only the identified run's rows, not
@@ -491,6 +497,58 @@ describe("tenant-handover :: claim", () => {
     // The unrelated run (same entity type, different row) never moved.
     expect(await readTenantId("handover_run", otherRunId)).toBe(SOURCE_TENANT);
     expect(await readTenantId("handover_photo", otherPhotoId)).toBe(SOURCE_TENANT);
+
+    // The event store's own transfer primitive left its own audit trail too:
+    // exactly one aggregate.transferred system event per moved aggregate,
+    // landed in the destination tenant.
+    const transferEvents = await executeRawQuery<{ payload: Record<string, unknown> }>(
+      stack.db,
+      `SELECT payload FROM kumiko_events WHERE tenant_id = $1 AND aggregate_type = $2 AND type = $3`,
+      [dest.tenantId, AGGREGATE_TRANSFER_STREAM_TYPE, AGGREGATE_TRANSFERRED_EVENT_TYPE],
+    );
+    expect(transferEvents).toHaveLength(4);
+    const byMovedAggregateId = new Map(
+      transferEvents.map((row) => [row.payload["aggregateId"], row.payload]),
+    );
+    for (const [aggregateId, aggregateType] of [
+      [runId, "run"],
+      [photoId, "photo"],
+      [runFileRefId, "fileRef"],
+      [photoFileRefId, "fileRef"],
+    ] as const) {
+      expect(byMovedAggregateId.get(aggregateId)).toMatchObject({
+        aggregateType,
+        aggregateId,
+        sourceTenantId: SOURCE_TENANT,
+        destinationTenantId: dest.tenantId,
+      });
+    }
+
+    // A projection rebuild of the root entity after the claim still resolves
+    // it under the destination tenant with the same content — the transfer
+    // didn't leave the projection and the event store out of sync.
+    await rebuildProjection("handover-fixtures:projection:run-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    expect(await readTenantId("handover_run", runId)).toBe(dest.tenantId);
+    const rebuiltRow = await executeRawQuery<{ name: string }>(
+      stack.db,
+      `SELECT name FROM handover_run WHERE id = $1`,
+      [runId],
+    );
+    expect(rebuiltRow[0]?.name).toBe("my run");
+
+    // The event store's version bookkeeping survived the move: a normal
+    // write against the claimed root in its new tenant still succeeds.
+    const destDb = createTenantDb(stack.db, dest.tenantId, "system");
+    const destUser = createSystemUser(dest.tenantId);
+    const followUpWrite = await runCrud.update(
+      { id: runId, version: 1, changes: { name: "renamed after claim" } },
+      destUser,
+      destDb,
+    );
+    expect(followUpWrite.isSuccess).toBe(true);
   });
 
   // kumiko-framework#3088: before this, resolveChildCandidates only knew

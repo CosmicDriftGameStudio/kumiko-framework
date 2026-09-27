@@ -1,9 +1,12 @@
 // The actual ownership change (kumiko-framework#3035): raw SQL against the
-// event store + read-model tables, because moving a row across the tenant
-// boundary is exactly the kind of write the framework's entity write map
-// cannot express (it is single-tenant-scoped by design — that boundary is
-// the whole point of `assertTenantMatch`). This is the framework's OWN
-// declared operation, not a consumer's `acknowledgeCrossTenant` escape.
+// read-model tables, because moving a row across the tenant boundary is
+// exactly the kind of write the framework's entity write map cannot express
+// (it is single-tenant-scoped by design — that boundary is the whole point
+// of `assertTenantMatch`). This is the framework's OWN declared operation,
+// not a consumer's `acknowledgeCrossTenant` escape. The event-store side of
+// the move (kumiko_events/kumiko_snapshots/kumiko_archived_streams) is the
+// framework's own `transferAggregateStreams` primitive
+// — see event-store/transfer.ts for why that boundary is owned there instead.
 //
 // Every statement here runs inside the calling write handler's own
 // transaction (HandlerContext.db is transaction-scoped for the handler's
@@ -28,12 +31,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { MAX_TRANSFER_DEPTH, type Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { transferAggregateStreams } from "@cosmicdrift/kumiko-framework/event-store";
 import { transferTenantStorageUsage } from "@cosmicdrift/kumiko-framework/files";
 import { resolveTransferAdjacency, type TransferEdge } from "./transfer-graph";
 
 const FILE_REFS_TABLE = "file_refs";
-const EVENTS_TABLE = "kumiko_events";
-const SNAPSHOTS_TABLE = "kumiko_snapshots";
 
 // The commitAnchor statement itself: spends the anchor (WHERE tenant_id =
 // expected) AND performs the ownership write (SET tenant_id = destination)
@@ -57,34 +59,6 @@ export async function moveRootRow(args: {
   return rows.length === 1;
 }
 
-async function moveEventHistory(args: {
-  readonly db: DbRunner;
-  readonly aggregateType: string;
-  readonly aggregateIds: readonly string[];
-  readonly sourceTenantId: string;
-  readonly destinationTenantId: string;
-}): Promise<void> {
-  // skip: an empty id list has nothing to move — both callers already
-  // filter to a non-empty list before calling, this only guards a future
-  // caller that forgets to.
-  if (args.aggregateIds.length === 0) return;
-  await executeRawQuery(
-    args.db,
-    `UPDATE ${EVENTS_TABLE} SET tenant_id = $1 ` +
-      `WHERE tenant_id = $2 AND aggregate_type = $3 AND aggregate_id = ANY($4)`,
-    [args.destinationTenantId, args.sourceTenantId, args.aggregateType, args.aggregateIds],
-  );
-  // Snapshots are a pure read-performance cache (event-store/snapshot.ts) —
-  // dropped rather than rewritten, forcing a full replay from the just-moved
-  // events on next read instead of carrying the snapshot's own generation
-  // bookkeeping across the tenant boundary.
-  await executeRawQuery(
-    args.db,
-    `DELETE FROM ${SNAPSHOTS_TABLE} WHERE tenant_id = $1 AND aggregate_id = ANY($2)`,
-    [args.sourceTenantId, args.aggregateIds],
-  );
-}
-
 // Moves the file_refs row itself PLUS the fileRef aggregate's own event
 // history + storage-usage counters — fileRef is a standard ES entity (see
 // files-storage-tracking.md), so without those two follow-ups a later write
@@ -98,6 +72,7 @@ async function moveFileRefs(args: {
   readonly entityIds: readonly string[];
   readonly sourceTenantId: string;
   readonly destinationTenantId: string;
+  readonly transferredBy: string;
 }): Promise<number> {
   if (args.entityIds.length === 0) return 0;
   const rows = await executeRawQuery<{ id: string }>(
@@ -109,8 +84,8 @@ async function moveFileRefs(args: {
   const movedIds = rows.map((row) => row.id);
   if (movedIds.length === 0) return 0;
 
-  // Must run before moveEventHistory rewrites these events' tenant_id — see
-  // transferTenantStorageUsage's own comment for why.
+  // Must run before transferAggregateStreams rewrites these events' tenant_id —
+  // see transferTenantStorageUsage's own comment for why.
   await transferTenantStorageUsage({
     db: args.db,
     registry: args.registry,
@@ -118,12 +93,12 @@ async function moveFileRefs(args: {
     sourceTenantId: args.sourceTenantId,
     destinationTenantId: args.destinationTenantId,
   });
-  await moveEventHistory({
-    db: args.db,
+  await transferAggregateStreams(args.db, {
     aggregateType: "fileRef",
     aggregateIds: movedIds,
     sourceTenantId: args.sourceTenantId,
     destinationTenantId: args.destinationTenantId,
+    transferredBy: args.transferredBy,
   });
   return movedIds.length;
 }
@@ -237,8 +212,17 @@ export async function moveTransferGraph(args: {
   readonly rootRowId: string;
   readonly sourceTenantId: string;
   readonly destinationTenantId: string;
+  readonly transferredBy: string;
 }): Promise<Readonly<Record<string, number>>> {
-  const { db, registry, rootEntityName, rootRowId, sourceTenantId, destinationTenantId } = args;
+  const {
+    db,
+    registry,
+    rootEntityName,
+    rootRowId,
+    sourceTenantId,
+    destinationTenantId,
+    transferredBy,
+  } = args;
   const movedCounts: Record<string, number> = { [rootEntityName]: 1 };
   const trackFileMove = (count: number) => {
     // skip: nothing moved (this entity had no attached files) — the audit
@@ -248,12 +232,12 @@ export async function moveTransferGraph(args: {
     movedCounts["fileRef"] = (movedCounts["fileRef"] ?? 0) + count;
   };
 
-  await moveEventHistory({
-    db,
+  await transferAggregateStreams(db, {
     aggregateType: rootEntityName,
     aggregateIds: [rootRowId],
     sourceTenantId,
     destinationTenantId,
+    transferredBy,
   });
   trackFileMove(
     await moveFileRefs({
@@ -263,6 +247,7 @@ export async function moveTransferGraph(args: {
       entityIds: [rootRowId],
       sourceTenantId,
       destinationTenantId,
+      transferredBy,
     }),
   );
 
@@ -317,12 +302,12 @@ export async function moveTransferGraph(args: {
         movedCounts[edge.entityName] = (movedCounts[edge.entityName] ?? 0) + childIds.length;
         discovered.push({ entityName: edge.entityName, rowIds: childIds });
 
-        await moveEventHistory({
-          db,
+        await transferAggregateStreams(db, {
           aggregateType: edge.entityName,
           aggregateIds: childIds,
           sourceTenantId,
           destinationTenantId,
+          transferredBy,
         });
         trackFileMove(
           await moveFileRefs({
@@ -332,6 +317,7 @@ export async function moveTransferGraph(args: {
             entityIds: childIds,
             sourceTenantId,
             destinationTenantId,
+            transferredBy,
           }),
         );
       }
