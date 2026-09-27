@@ -222,18 +222,15 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
   return w.__KUMIKO_SCHEMA__;
 }
 
-// Erstes Screen über alle Features in deklarierter Reihenfolge, dessen
-// `access` niemanden ausschließt (undefined oder openToAll). Die Landing-
-// Route wird VOR Auth-Resolution gewählt, kennt also keine User-Rollen —
-// ein role-restricted Screen (z.B. bundled user/tenant, SystemAdmin-only)
-// darf hier nie gewinnen, sonst landet jeder Nicht-Admin auf einem
-// Access-Denied-Screen (#1176).
-// Also requires the screen be reachable via r.nav, otherwise a dormant
-// `type: "custom"` screen a feature only registers for manual app-side
-// placement (e.g. auth-mfa's enable screen) can win by declaration order
-// alone, landing every app without an explicit `screenQn` on a screen
-// nobody wired a component for (#1258).
-export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
+// Nav reachability is required, otherwise a dormant `type: "custom"`
+// screen a feature only registers for manual app-side placement (e.g.
+// auth-mfa's enable screen) can win by declaration order alone, landing
+// every app without an explicit `screenQn` on a screen nobody wired a
+// component for (#1258).
+function firstNavReachableScreenQn(
+  features: readonly FeatureSchema[],
+  acceptsScreen: (screen: ScreenDef) => boolean,
+): string | undefined {
   // NavDefinition.screen carries two shapes in practice: most bundled
   // features author it pre-qualified ("tenant:screen:members"), but the
   // config settings-hub generator emits the bare short id. Index both
@@ -248,14 +245,36 @@ export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | 
     }
   }
   for (const feature of features) {
-    const openScreen = feature.screens.find(
-      (s) =>
-        (s.access === undefined || isOpenToAllGranted(s.access)) &&
-        navScreenQns.has(qualifyScreenId(feature.featureName, s.id)),
+    const screen = feature.screens.find(
+      (s) => acceptsScreen(s) && navScreenQns.has(qualifyScreenId(feature.featureName, s.id)),
     );
-    if (openScreen !== undefined) return qualifyScreenId(feature.featureName, openScreen.id);
+    if (screen !== undefined) return qualifyScreenId(feature.featureName, screen.id);
   }
   return undefined;
+}
+
+// Only screens whose `access` excludes nobody: on an unprojected schema the
+// landing is picked without knowing the user's roles, so a role-restricted
+// screen would land every non-admin on access-denied (#1176).
+export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
+  return firstNavReachableScreenQn(
+    features,
+    (s) => s.access === undefined || isOpenToAllGranted(s.access),
+  );
+}
+
+// Landing fallback for a schema that arrived already role-projected by the
+// server (fetch mode, GET /api/schema strips screens the caller's roles
+// can't see) — a pure SystemAdmin whose only screens are role-restricted
+// must still get a landing instead of the "no-open-screen" banner.
+// Regular users keep today's
+// firstOpenScreenQn landing; only when that yields nothing do we fall back
+// to any nav-reachable screen, since the projection already removed
+// everything the caller's roles may not see.
+export function firstLandingScreenQnForProjectedSchema(
+  features: readonly FeatureSchema[],
+): string | undefined {
+  return firstOpenScreenQn(features) ?? firstNavReachableScreenQn(features, () => true);
 }
 
 // Last-wins merge for a clientFeature-contributed map (contentEditors,
@@ -409,6 +428,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
         warnMissingCustomScreens(loaded, props.customScreens);
         setApp(loaded);
       }}
+      schemaIsRoleProjected={isFetchMode}
       {...(isFetchMode && { onUnmountResetSchema: () => setApp(undefined) })}
       {...(props.translate !== undefined && { translate: props.translate })}
       {...(props.onRowClick !== undefined && { onRowClick: props.onRowClick })}
@@ -466,6 +486,7 @@ function AppSchemaBoundary({
   screenQn,
   navAdapter,
   onAppLoaded,
+  schemaIsRoleProjected,
   onUnmountResetSchema,
   translate,
   onRowClick,
@@ -478,6 +499,10 @@ function AppSchemaBoundary({
     readonly features?: readonly FeatureSchema[];
   }) => NavApi;
   readonly onAppLoaded: (app: AppSchema) => void;
+  /** true for the fetch path (GET /api/schema, already role-projected
+   *  server-side) — the landing fallback then also accepts a
+   *  nav-reachable restricted screen instead of only openToAll ones. */
+  readonly schemaIsRoleProjected: boolean;
   readonly onUnmountResetSchema?: () => void;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
@@ -510,7 +535,11 @@ function AppSchemaBoundary({
     return <AppSchemaFetchBoot onLoaded={onAppLoaded} />;
   }
 
-  const fallbackQn = screenQn ?? firstOpenScreenQn(app.features);
+  const fallbackQn =
+    screenQn ??
+    (schemaIsRoleProjected
+      ? firstLandingScreenQnForProjectedSchema(app.features)
+      : firstOpenScreenQn(app.features));
   if (fallbackQn === undefined) {
     return (
       <Banner variant="error" padded>

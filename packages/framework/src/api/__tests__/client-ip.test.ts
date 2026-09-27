@@ -9,6 +9,7 @@ import {
   assertValidTrustedProxyHops,
   type ClientIpHeaderSource,
   createClientIpResolver,
+  parseTrustedProxyHopsEnv,
 } from "../client-ip";
 
 function sourceOf(headers: Record<string, string>, socketAddress?: string): ClientIpHeaderSource {
@@ -135,5 +136,29 @@ describe("createClientIpResolver", () => {
 
   test("createClientIpResolver fails loud on an invalid trustedProxyHops instead of silently degrading", () => {
     expect(() => createClientIpResolver(-1, "test")).toThrow(/non-negative integer/);
+  });
+});
+
+describe("parseTrustedProxyHopsEnv", () => {
+  test("undefined -> undefined (no env set)", () => {
+    expect(parseTrustedProxyHopsEnv(undefined, "test")).toBeUndefined();
+  });
+
+  test("valid digits-only string -> parsed integer", () => {
+    expect(parseTrustedProxyHopsEnv("1", "test")).toBe(1);
+    expect(parseTrustedProxyHopsEnv("0", "test")).toBe(0);
+    expect(parseTrustedProxyHopsEnv("42", "test")).toBe(42);
+  });
+
+  test("hex/exponent/negative notation throws instead of silently coercing", () => {
+    expect(() => parseTrustedProxyHopsEnv("0x10", "test")).toThrow(/non-negative integer/);
+    expect(() => parseTrustedProxyHopsEnv("1e3", "test")).toThrow(/non-negative integer/);
+    expect(() => parseTrustedProxyHopsEnv("-1", "test")).toThrow(/non-negative integer/);
+  });
+
+  test("error message carries the context prefix and the raw value", () => {
+    expect(() => parseTrustedProxyHopsEnv("x", "runProdApp")).toThrow(
+      'runProdApp: KUMIKO_TRUSTED_PROXY_HOPS must be a non-negative integer, got "x".',
+    );
   });
 });

@@ -76,8 +76,10 @@ import {
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
   type PostAuthLandingResolver,
+  parseTrustedProxyHopsEnv,
   type SseBroker,
   type TokenVerifier,
+  TRUSTED_PROXY_HOPS_ENV,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -380,8 +382,10 @@ export type RunProdAppAuthOptions = {
    *  process for client-IP derivation (see AuthRoutesConfig.trustedProxyHops,
    *  kumiko-framework#1539) — closes the X-Forwarded-For spoofing hole on
    *  the auth rate-limiters. Falls back to the `KUMIKO_TRUSTED_PROXY_HOPS`
-   *  env var when unset; both unset means the pre-#1539 spoofable default
-   *  (0 hops). Set this to your real ingress hop count (typically 1). */
+   *  env var when unset; both unset means 0 hops, the safe socket-only
+   *  default (only the socket address counts, XFF ignored). Deprecated in
+   *  favor of the top-level `trustedProxyHops` option, which wins over
+   *  this and the env var. */
   readonly trustedProxyHops?: number;
   /** Server-computed post-auth redirect (see AuthRoutesConfig.postAuthLanding).
    *  Result lands in the login/signup/invite response as `landingPath`; an
@@ -700,8 +704,12 @@ export type ProdAppHandle = {
    *  `process.exit(0)` before returning a handle. */
   readonly entrypoint: ApiEntrypoint | AllInOneEntrypoint;
   /** The fetch-handler — wired into Bun.serve in production, called
-   *  directly in tests. Composes Hono + static-fallback. */
-  readonly fetch: (req: Request) => Promise<Response> | Response;
+   *  directly in tests. Composes Hono + static-fallback. Apps with
+   *  `autoListen: false` that call `Bun.serve` themselves must pass the
+   *  2nd arg from `server.requestIP(req)?.address`, extracted in their
+   *  outermost Bun fetch callback — `requestIP` only resolves for Bun's
+   *  original Request instance, never a cloned/rebuilt one. */
+  readonly fetch: (req: Request, socketAddress?: string) => Promise<Response> | Response;
   /** Active Bun-server (only set when listen() was called — tests skip
    *  listen() because Bun.serve isn't available under vitest/node). */
   server?: ReturnType<typeof Bun.serve>;
@@ -818,31 +826,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // kumiko-framework#1539 — options.auth.trustedProxyHops wins; falls back
   // to the env var so ops can close the XFF-spoofing hole per-deployment
   // without a code change (mirrors instanceId's env-first pattern above).
-  // Fail loud on a garbage env value rather than silently coercing to NaN:
-  // clientIpOf treats NaN like "always short chain" and returns "unknown"
-  // for every request, which collapses mfa-verify/preauth-confirm's
-  // pure-IP-keyed rate limiter into one shared bucket for the whole
-  // deployment — a self-inflicted DoS, worse than staying on the default.
-  const trustedProxyHopsFromEnv = readEnv("KUMIKO_TRUSTED_PROXY_HOPS", envSource);
-  const trustedProxyHops = ((): number | undefined => {
-    if (options.trustedProxyHops !== undefined) return options.trustedProxyHops;
-    if (options.auth?.trustedProxyHops !== undefined) return options.auth.trustedProxyHops;
-    if (trustedProxyHopsFromEnv === undefined) return undefined;
-    // Digits-only — parseInt("0x10")/("1e3")/("2x") would silently coerce
-    // and land on the spoofable hops=0 path for values like "0x10".
-    if (!/^\d+$/.test(trustedProxyHopsFromEnv)) {
-      throw new Error(
-        `runProdApp: KUMIKO_TRUSTED_PROXY_HOPS must be a non-negative integer, got "${trustedProxyHopsFromEnv}".`,
-      );
-    }
-    const parsed = Number.parseInt(trustedProxyHopsFromEnv, 10);
-    if (!Number.isInteger(parsed) || parsed < 0) {
-      throw new Error(
-        `runProdApp: KUMIKO_TRUSTED_PROXY_HOPS must be a non-negative integer, got "${trustedProxyHopsFromEnv}".`,
-      );
-    }
-    return parsed;
-  })();
+  const trustedProxyHops =
+    options.trustedProxyHops ??
+    options.auth?.trustedProxyHops ??
+    parseTrustedProxyHopsEnv(readEnv(TRUSTED_PROXY_HOPS_ENV, envSource), "runProdApp");
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
 
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early

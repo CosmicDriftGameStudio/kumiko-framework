@@ -1260,7 +1260,7 @@ type ExtraRouteHonoHandlerDeps = {
   readonly secrets: import("../secrets").SecretsContext | undefined;
   readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
-  readonly clientIpResolver?: ClientIpResolver;
+  readonly clientIpResolver: ClientIpResolver;
 };
 
 function buildExtraRouteHonoHandler(
@@ -1276,6 +1276,7 @@ function buildExtraRouteHonoHandler(
           registry: shared.registry,
           systemQuery: makeSystemQuery(c, shared.dispatcher, shared.clientIpResolver),
           write: makeAnonymousWrite(c, shared.dispatcher),
+          clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
         });
     case ExtraRouteEntries.user:
       return async (c) => {

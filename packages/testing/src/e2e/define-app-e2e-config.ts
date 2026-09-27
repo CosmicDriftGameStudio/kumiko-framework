@@ -19,6 +19,7 @@ import {
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,
+  TRUSTED_PROXY_HOPS_ENV,
 } from "./constants";
 import { isScreenshotRun, requireScreenshotDir, screenshotSpecsIgnore } from "./screenshot-dir";
 import { E2E_TIMEOUT_MS } from "./timeouts";
@@ -61,6 +62,7 @@ const RESERVED_ENV_KEYS = [
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,
   PROD_BUNDLES_ENV,
+  TRUSTED_PROXY_HOPS_ENV,
 ] as const;
 
 type ProjectUse = Partial<PlaywrightTestOptions & PlaywrightWorkerOptions>;
@@ -205,6 +207,11 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
         // E2E runs against prod-shaped bundles: splitting, no sourcemap,
         // NODE_ENV=production — matches what actually ships.
         [PROD_BUNDLES_ENV]: "1",
+        // E2e clients all share ::1, so the default trustedProxyHops (0,
+        // socket-only) would collapse every seeded user into one rate-limit
+        // bucket. loginViaApi sends a synthetic per-user X-Forwarded-For, so
+        // trust exactly one hop to give each user its own bucket.
+        [TRUSTED_PROXY_HOPS_ENV]: "1",
       },
       reuseExistingServer: false,
       timeout: E2E_TIMEOUT_MS.webServer,

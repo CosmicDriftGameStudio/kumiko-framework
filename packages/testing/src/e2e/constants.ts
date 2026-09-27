@@ -24,6 +24,10 @@ export const STYLESHEET_WATCH_ENV = "KUMIKO_DEV_STYLESHEET_WATCH";
 // duplicated for the same Node/Bun-toolchain reason.
 export const PROD_BUNDLES_ENV = "KUMIKO_DEV_PROD_BUNDLES";
 
+// Same literal as kumiko-framework's client-ip.ts (TRUSTED_PROXY_HOPS_ENV),
+// duplicated for the same Node/Bun-toolchain reason.
+export const TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS";
+
 export const SEED_ROUTE_PREFIX = "/__test";
 
 export const SEED_ROUTES = {

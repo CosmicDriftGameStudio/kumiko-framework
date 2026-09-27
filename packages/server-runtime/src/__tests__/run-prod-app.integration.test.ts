@@ -359,6 +359,27 @@ describe("runProdApp", () => {
     expect(body).toContain('<probe ok="true" />');
   });
 
+  test("handle.fetch threads the socket address into deps.clientIp, ignoring a spoofed X-Forwarded-For at the default trustedProxyHops (0)", async () => {
+    const handle = await boot(undefined, {
+      extraRoutes: [
+        {
+          method: "GET",
+          path: "/client-ip-probe",
+          entry: "anonymous",
+          handler: (c, deps) => c.body(deps.clientIp, 200),
+        },
+      ],
+    });
+    const req = () =>
+      new Request("http://test/client-ip-probe", { headers: { "x-forwarded-for": "1.2.3.4" } });
+
+    const withSocket = await handle.fetch(req(), "198.51.100.7");
+    expect(await withSocket.text()).toBe("198.51.100.7");
+
+    const withoutSocket = await handle.fetch(req());
+    expect(await withoutSocket.text()).toBe("unknown");
+  });
+
   test("extraRoutes: entry:signature dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
     // Wiring for provider webhook routes (billing-foundation
     // createSubscriptionWebhookRoute): the route authenticates via

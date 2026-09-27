@@ -3,6 +3,7 @@ import {
   PROD_BUNDLES_ENV as DEV_SERVER_PROD_BUNDLES_ENV,
   STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV,
 } from "@cosmicdrift/kumiko-dev-server";
+import { TRUSTED_PROXY_HOPS_ENV as FRAMEWORK_TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
 import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   E2E_WORKERS_ENV,
@@ -11,6 +12,7 @@ import {
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,
+  TRUSTED_PROXY_HOPS_ENV,
 } from "../e2e/constants";
 import {
   defineAppE2eConfig,
@@ -171,6 +173,7 @@ describe("defineAppE2eConfig defaults", () => {
     expect(server.env?.["JWT_SECRET"]).toBe("app-secret-of-32-characters-long!");
     expect(server.env?.[STYLESHEET_WATCH_ENV]).toBe("0");
     expect(server.env?.[PROD_BUNDLES_ENV]).toBe("1");
+    expect(server.env?.[TRUSTED_PROXY_HOPS_ENV]).toBe("1");
   });
 
   test("real runs get the 240s real-provider budget from the template", () => {
@@ -294,12 +297,16 @@ describe("template-owned settings cannot be overridden", () => {
     },
   );
 
-  test.each(["PORT", SEED_ENABLE_ENV, SEED_TOKEN_ENV, STYLESHEET_WATCH_ENV, PROD_BUNDLES_ENV])(
-    "env key %s is reserved",
-    (key) => {
-      expect(() => defineAppE2eConfig({ port: 1, env: { [key]: "x" } })).toThrow(/template owns/);
-    },
-  );
+  test.each([
+    "PORT",
+    SEED_ENABLE_ENV,
+    SEED_TOKEN_ENV,
+    STYLESHEET_WATCH_ENV,
+    PROD_BUNDLES_ENV,
+    TRUSTED_PROXY_HOPS_ENV,
+  ])("env key %s is reserved", (key) => {
+    expect(() => defineAppE2eConfig({ port: 1, env: { [key]: "x" } })).toThrow(/template owns/);
+  });
 
   test("the reserved KUMIKO_DEV_STYLESHEET_WATCH literal matches kumiko-dev-server's own constant", () => {
     expect(STYLESHEET_WATCH_ENV).toBe(DEV_SERVER_STYLESHEET_WATCH_ENV);
@@ -307,6 +314,10 @@ describe("template-owned settings cannot be overridden", () => {
 
   test("the reserved KUMIKO_DEV_PROD_BUNDLES literal matches kumiko-dev-server's own constant", () => {
     expect(PROD_BUNDLES_ENV).toBe(DEV_SERVER_PROD_BUNDLES_ENV);
+  });
+
+  test("the reserved KUMIKO_TRUSTED_PROXY_HOPS literal matches kumiko-framework's own constant", () => {
+    expect(TRUSTED_PROXY_HOPS_ENV).toBe(FRAMEWORK_TRUSTED_PROXY_HOPS_ENV);
   });
 });
 

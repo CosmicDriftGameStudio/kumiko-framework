@@ -14,6 +14,7 @@ import {
   TEXT_BLOCK_KIND,
   type TemplateResolverApi,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import type { AnonymousExtraRoute } from "@cosmicdrift/kumiko-framework/api";
 import {
   createEntity,
   createTextField,
@@ -118,6 +119,46 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
       },
     });
     expect(handle).toBeDefined();
+  });
+});
+
+describe("runDevApp — trustedProxyHops env fallback (KUMIKO_TRUSTED_PROXY_HOPS)", () => {
+  const clientIpRoute: AnonymousExtraRoute = {
+    method: "GET",
+    path: "/client-ip-probe",
+    entry: "anonymous",
+    handler: async (c, deps) => c.json({ clientIp: deps.clientIp }),
+  };
+
+  test("no trustedProxyHops option, env var set → env value reaches the server's client-ip resolver", async () => {
+    handle = await runDevApp({
+      features: [validFeature()],
+      port: 0,
+      extraRoutes: [clientIpRoute],
+      envSource: { ...process.env, KUMIKO_TRUSTED_PROXY_HOPS: "1" },
+    });
+    const res = await handle.fetch(
+      new Request("http://test/client-ip-probe", {
+        headers: { "x-forwarded-for": "203.0.113.10" },
+      }),
+    );
+    expect(await res.json()).toEqual({ clientIp: "203.0.113.10" });
+  });
+
+  test("explicit trustedProxyHops option wins over the env var", async () => {
+    handle = await runDevApp({
+      features: [validFeature()],
+      port: 0,
+      trustedProxyHops: 0,
+      extraRoutes: [clientIpRoute],
+      envSource: { ...process.env, KUMIKO_TRUSTED_PROXY_HOPS: "1" },
+    });
+    const res = await handle.fetch(
+      new Request("http://test/client-ip-probe", {
+        headers: { "x-forwarded-for": "203.0.113.10" },
+      }),
+    );
+    expect(await res.json()).toEqual({ clientIp: "unknown" });
   });
 });
 
