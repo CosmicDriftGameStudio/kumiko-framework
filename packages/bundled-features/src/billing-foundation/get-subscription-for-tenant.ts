@@ -16,6 +16,10 @@ export type SubscriptionView = {
   readonly providerName: string;
   readonly providerCustomerId: string;
   readonly providerSubscriptionId: string;
+  readonly currentPeriodEnd: Temporal.Instant;
+  /** When the subscription ends because of a cancellation. null = it
+   *  renews. */
+  readonly cancelAt: Temporal.Instant | null;
   /** `modified_at ?? inserted_at` — the projection's own base columns.
    *  `modified_at` is null only for pre-existing rows written before every
    *  apply-function started stamping it from `event.createdAt`. */
@@ -46,6 +50,8 @@ export async function getSubscriptionForTenant(
     providerName: decrypted["providerName"] as string,
     providerCustomerId: decrypted["providerCustomerId"] as string,
     providerSubscriptionId: decrypted["providerSubscriptionId"] as string,
+    currentPeriodEnd: decrypted["currentPeriodEnd"] as Temporal.Instant,
+    cancelAt: (decrypted["cancelAt"] ?? null) as Temporal.Instant | null,
     lastChangedAt: (decrypted["modifiedAt"] ?? decrypted["insertedAt"]) as Temporal.Instant,
   };
 }

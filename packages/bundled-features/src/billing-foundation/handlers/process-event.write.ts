@@ -63,6 +63,7 @@ export const processEventSchema = z.object({
   status: statusSchema,
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
+  cancelAtIso: z.string().min(1).nullable().optional(),
   rawPayload: z.string().min(1),
 });
 type ProcessEventPayload = z.infer<typeof processEventSchema>;
@@ -173,6 +174,7 @@ export const processEventHandler: WriteHandlerDef = {
       status: payload.status,
       tier: payload.tier,
       currentPeriodEndIso: payload.currentPeriodEndIso,
+      ...(payload.cancelAtIso !== undefined && { cancelAtIso: payload.cancelAtIso }),
     };
     const headers: SubscriptionEventHeaders = {
       providerEventId: payload.providerEventId,

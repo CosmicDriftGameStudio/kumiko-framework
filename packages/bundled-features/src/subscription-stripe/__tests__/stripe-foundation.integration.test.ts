@@ -486,7 +486,13 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
   let gateStack: TestStack;
 
   beforeAll(async () => {
-    const stripeFeature = createSubscriptionStripeFeature({ priceToTier: PRICE_TO_TIER });
+    const stripeFeature = createSubscriptionStripeFeature({
+      priceToTier: PRICE_TO_TIER,
+      // A fallback key so isBillingEnabled (checkout-core's pre-flight
+      // gate) reports true once billing-live flips — without one the gate
+      // stays closed forever and the flip-open branch below is unreachable.
+      apiKey: "sk_test_fake_for_gate_test",
+    });
     const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
     const resolver = createConfigResolver({ cipher: encryption });
     const masterKeyProvider = createEnvMasterKeyProvider({
@@ -505,6 +511,8 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
         // baseUrl must match checkoutPayload's successUrl/cancelUrl origin —
         // otherwise create-checkout-session's redirect-origin hardening
         // fires before the billing-live gate this scenario pins the order of.
+        // checkout-core's openCheckout now runs assertBillingEnabled (which
+        // wraps isBillingEnabled) before that origin check for every mode.
         createBillingFoundationFeature({ baseUrl: "https://app.example.com" }),
         stripeFeature,
       ],
@@ -562,16 +570,21 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
       sysAdmin,
     );
 
-    // Gate jetzt offen: nicht mehr feature_disabled. Der nächste Schritt
-    // (api-key-Resolution) schlägt fehl, weil weder secret noch fallback
-    // gesetzt sind → unconfigured. Wäre der billing-live-Handle falsch
-    // qualifiziert, bliebe ctx.config undefined → Fehler weiter feature_disabled.
+    // Gate jetzt offen: nicht mehr feature_disabled. isBillingEnabled (=
+    // billing-live AND an api-key existence probe — the fallback key above
+    // satisfies it) now returns true, so openCheckout's pre-flight gate
+    // passes through to the actual price-catalog check, which rejects an
+    // unknown priceId as 422 unknown_price (never reaching Stripe — no live
+    // call). Wäre der billing-live-Handle falsch qualifiziert, bliebe
+    // ctx.config undefined → isBillingEnabled false → Fehler weiter
+    // feature_disabled, was Step 1 schon oben pinnt.
     const opened = await gateStack.http.writeErr(
       "billing-foundation:write:create-checkout-session",
-      checkoutPayload,
+      { ...checkoutPayload, priceId: "price_unknown_not_in_catalog" },
       tenantAdmin,
     );
     expect(opened.code).not.toBe("feature_disabled");
-    expect(opened.code).toBe("unconfigured");
+    expect(opened.httpStatus).toBe(422);
+    expect(opened.i18nKey).toBe("billing-foundation.errors.unknownPrice");
   });
 });

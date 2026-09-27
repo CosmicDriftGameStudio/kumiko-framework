@@ -7,6 +7,11 @@ export {
   createBillingInfoQueryConfig,
 } from "./billing-info-query";
 export {
+  isBillingEnabled,
+  type ResolvedProvider,
+  resolveProviderPlugin,
+} from "./checkout-core";
+export {
   BILLING_FOUNDATION_FEATURE,
   BILLING_PLANS_PANEL_COMPONENT,
   BILLING_PLANS_SCREEN_ID,

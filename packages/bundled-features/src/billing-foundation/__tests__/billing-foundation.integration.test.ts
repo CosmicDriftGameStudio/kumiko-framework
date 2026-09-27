@@ -77,6 +77,7 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
     // exercise — the hardened create-checkout-session now requires every
     // mode:"subscription" priceId to resolve through priceToTier.
     priceToTier: { price_pro_test: "pro", price_business_test: "business" },
+    oneOffPriceIds: ["price_topup_test"],
     createCheckoutSession: async (_ctx, options) => {
       mockCheckoutCalls.push({
         priceId: options.priceId,
@@ -178,6 +179,7 @@ function buildEvent(
     providerCustomerId: string;
     providerSubscriptionId: string;
     currentPeriodEndIso: string;
+    cancelAtIso: string | null;
     rawPayload: string;
   }> = {},
 ) {
@@ -190,6 +192,12 @@ function buildEvent(
     status: overrides.status ?? SubscriptionStatuses.active,
     tier: overrides.tier ?? "pro",
     currentPeriodEndIso: overrides.currentPeriodEndIso ?? "2026-06-01T00:00:00Z",
+    // `cancelAtIso` stays entirely absent from the payload unless an override
+    // sets it — undefined (key omitted) vs. null (explicit clear) is the
+    // 3-way distinction cancelAtSetFromPayload relies on; a `?? undefined`
+    // default here would collapse "omitted" into "explicit null" and hide a
+    // regression where a later event without the field wipes a prior value.
+    ...(overrides.cancelAtIso !== undefined && { cancelAtIso: overrides.cancelAtIso }),
     rawPayload: overrides.rawPayload ?? '{"raw":"payload"}',
   };
 }
@@ -677,7 +685,7 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
 
     const result = (await stack.http.writeOk(
       "billing-foundation:write:create-portal-session",
-      { returnUrl: "https://example.com/return" },
+      {},
       admin,
     )) as Record<string, unknown>;
 
@@ -687,11 +695,13 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
     // Drift-pin: portal-handler liest providerCustomerId AUS DER DB
     // (subscription-row), nicht aus der payload. Wenn ein Refactor das
     // umstellt (= Tenant könnte fremde portal-sessions öffnen), würde
-    // mockPortalCalls den falschen customer-id sehen.
+    // mockPortalCalls den falschen customer-id sehen. returnUrl is now
+    // server-computed (portalReturnUrl) — no catalog mounted here, so it
+    // collapses onto baseUrl itself.
     expect(mockPortalCalls).toHaveLength(1);
     expect(mockPortalCalls[0]).toEqual({
       providerCustomerId: "cus_3013",
-      returnUrl: "https://example.com/return",
+      returnUrl: "https://example.com",
     });
   });
 
@@ -699,7 +709,7 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
     const admin = adminFor(3011);
     const error = await stack.http.writeErr(
       "billing-foundation:write:create-portal-session",
-      { returnUrl: "https://example.com/return" },
+      {},
       admin,
     );
     expect(JSON.stringify(error)).toMatch(/no active subscription/);
@@ -743,6 +753,68 @@ describe("scenario 8: cancel-event setzt status auf canceled, behält subscripti
     expect(subs.rows).toHaveLength(1); // row bleibt für audit-history
     expect(subs.rows[0]?.["status"]).toBe(SubscriptionStatuses.canceled);
     expect(subs.rows[0]?.["tier"]).toBe("free");
+  });
+});
+
+describe("scenario 8b: cancelAt — set / leave-unchanged / clear across events", () => {
+  test("event without cancelAtIso key keeps a prior value; explicit null clears it", async () => {
+    const admin = adminFor(3009);
+
+    // 1. create with cancelAt set — a Stripe cancel_at_period_end webhook.
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3009_create",
+        providerCustomerId: "cus_3009",
+        providerSubscriptionId: "sub_3009",
+        cancelAtIso: "2026-07-01T00:00:00Z",
+      }),
+      admin,
+    );
+    let subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows[0]?.["cancelAt"]).toBe("2026-07-01T00:00:00Z");
+
+    // 2. an unrelated update event that never mentions cancelAtIso (e.g. a
+    // price/tier change) must NOT wipe the previously recorded cancelAt.
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3009_update",
+        type: SubscriptionEventTypes.updated,
+        providerCustomerId: "cus_3009",
+        providerSubscriptionId: "sub_3009",
+        tier: "business",
+      }),
+      admin,
+    );
+    subs = (await stack.http.queryOk("billing-foundation:query:subscription:list", {}, admin)) as {
+      rows: Array<Record<string, unknown>>;
+    };
+    expect(subs.rows[0]?.["tier"]).toBe("business");
+    expect(subs.rows[0]?.["cancelAt"]).toBe("2026-07-01T00:00:00Z");
+
+    // 3. reactivation — an update event with cancelAtIso explicitly null
+    // clears it.
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3009_reactivate",
+        type: SubscriptionEventTypes.updated,
+        providerCustomerId: "cus_3009",
+        providerSubscriptionId: "sub_3009",
+        tier: "business",
+        cancelAtIso: null,
+      }),
+      admin,
+    );
+    subs = (await stack.http.queryOk("billing-foundation:query:subscription:list", {}, admin)) as {
+      rows: Array<Record<string, unknown>>;
+    };
+    expect(subs.rows[0]?.["cancelAt"]).toBeNull();
   });
 });
 

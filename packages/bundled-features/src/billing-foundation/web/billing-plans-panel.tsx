@@ -1,4 +1,6 @@
 // @runtime client
+
+import { toInstant } from "@cosmicdrift/kumiko-headless";
 import {
   type ExtensionSectionProps,
   useLocale,
@@ -56,10 +58,34 @@ function impliedAction(
     : "checkout";
 }
 
+/** Shared manage/reactivate secondaryAction for a current-tier card — used
+ *  by both a catalog plan's own card (`isCurrent`) and the synthetic
+ *  out-of-catalog current-tier card, so the two don't duplicate the
+ *  cancelAt-aware label choice. */
+function manageOrReactivateAction(
+  canManage: boolean,
+  subscription: BillingPlansResult["subscription"],
+  t: UseTranslation,
+  onManage: () => void,
+  redirecting: boolean,
+): PlanCardActionSlot | undefined {
+  if (!canManage) return undefined;
+  return {
+    label: t(
+      subscription?.cancelAt != null
+        ? "billing-foundation.plans.reactivate"
+        : "billing-foundation.plans.manage",
+    ),
+    onClick: onManage,
+    disabled: redirecting,
+  };
+}
+
 /** `!canPurchase` hides every CTA outright (spec: "keine CTAs, Hinweis
  *  purchaseNotAllowed") — distinct from the `unavailable` action's disabled
  *  CTA, which still shows a button (e.g. for a plan whose price failed to
  *  load) so this check runs before the general unavailable-fallback. */
+
 function planCta(
   plan: BillingPlanView,
   result: BillingPlansResult,
@@ -124,7 +150,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
 
   async function handleManage(): Promise<void> {
     setRedirecting(true);
-    const result = await portalMutation.mutate({ returnUrl: window.location.href });
+    const result = await portalMutation.mutate({});
     if (result.isSuccess) {
       window.location.assign(result.data.url);
     } else {
@@ -183,14 +209,9 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
         t(benefit.labelKey, localizedParams(benefit.params, locale)),
       ),
       cta: planCta(plan, result, t, handleAction, redirecting),
-      secondaryAction:
-        plan.isCurrent && canManage
-          ? {
-              label: t("billing-foundation.plans.manage"),
-              onClick: handleManage,
-              disabled: redirecting,
-            }
-          : undefined,
+      secondaryAction: plan.isCurrent
+        ? manageOrReactivateAction(canManage, result.subscription, t, handleManage, redirecting)
+        : undefined,
     };
   }
 
@@ -220,12 +241,33 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           {t(mutationError.i18nKey, mutationError.i18nParams)}
         </Banner>
       )}
+      {result.subscription !== null &&
+        !result.subscription.terminal &&
+        result.subscription.cancelAt != null && (
+          <Banner variant="info" testId="billing-plans-panel-cancel-scheduled">
+            {t("billing-foundation.plans.cancelScheduled", {
+              date: toInstant(result.subscription.cancelAt).toLocaleString(locale, {
+                dateStyle: "medium",
+              }),
+            })}
+          </Banner>
+        )}
       <PlanGrid testId="billing-plans-grid">
         {!currentTierInPlans && (
           <PlanCard
             title={t(result.currentTier.labelKey)}
             current
             testId="billing-plan-card-current"
+            features={result.currentTier.benefits.map((benefit) =>
+              t(benefit.labelKey, localizedParams(benefit.params, locale)),
+            )}
+            secondaryAction={manageOrReactivateAction(
+              canManage,
+              result.subscription,
+              t,
+              handleManage,
+              redirecting,
+            )}
           />
         )}
         {visiblePlans.map((plan) => (

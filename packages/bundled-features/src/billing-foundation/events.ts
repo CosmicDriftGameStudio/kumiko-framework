@@ -60,6 +60,11 @@ export const subscriptionEventPayloadSchema = z.object({
   status: statusEnum,
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
+  // Optional (not required): existing events (Mollie-style providers, or
+  // events appended before this field existed) stay valid without an
+  // upcaster. null = the subscription renews; undefined = the provider
+  // doesn't report cancelAt at all — projection.ts tells the two apart.
+  cancelAtIso: z.string().min(1).nullable().optional(),
 });
 export type SubscriptionEventPayload = z.infer<typeof subscriptionEventPayloadSchema>;
 

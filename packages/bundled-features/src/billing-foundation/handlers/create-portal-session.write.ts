@@ -9,11 +9,9 @@
 // kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
 // kennt.
 //
-// **Hardening:** when `options.baseUrl` is set, returnUrl must share its
-// origin — same reasoning as create-checkout-session. Left unchecked when
-// no baseUrl is configured (unchanged pre-hardening behavior), since a
-// bare billing-foundation mount without a catalog may not want to declare
-// one.
+// **returnUrl:** computed server-side via `portalReturnUrl` (catalog's
+// returnPath, or baseUrl itself) — the client no longer supplies one, so
+// there is no client-controlled redirect to harden against.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -23,16 +21,13 @@ import {
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
-import { assertRedirectOrigins, resolveProviderPlugin } from "../checkout-core";
+import { portalReturnUrl, resolveProviderPlugin } from "../checkout-core";
 import { SUBSCRIPTION_PII_FIELDS } from "../entities";
+import { purchaseRolesOf } from "../plan-catalog";
 import { subscriptionsProjectionTable as subTable } from "../projection";
 import type { BillingFoundationOptions } from "../types";
 
-const createPortalSessionSchema = z.object({
-  /** Wo der Endkunde nach Portal-Session landed. */
-  returnUrl: z.string().url(),
-});
-type CreatePortalSessionPayload = z.infer<typeof createPortalSessionSchema>;
+const createPortalSessionSchema = z.object({}).strict();
 
 export function createPortalSessionHandler(options: BillingFoundationOptions): WriteHandlerDef {
   return {
@@ -40,14 +35,10 @@ export function createPortalSessionHandler(options: BillingFoundationOptions): W
     description:
       "Returns a hosted billing-portal URL at the provider that already holds the tenant's subscription; use it when a tenant admin wants to change payment method, see invoices or cancel.",
     schema: createPortalSessionSchema,
-    access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    access: { roles: purchaseRolesOf(options.catalog) },
     handler: async (event, ctx) => {
-      const payload = event.payload as CreatePortalSessionPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;
-
-      if (options.baseUrl !== undefined) {
-        assertRedirectOrigins([payload.returnUrl], options.baseUrl);
-      }
+      const returnUrl = portalReturnUrl(options);
 
       // 1. Fetch the current subscription row for the tenant. Aggregate-id
       //    is deterministic per tenant — one row per tenant.
@@ -83,7 +74,7 @@ export function createPortalSessionHandler(options: BillingFoundationOptions): W
 
       const result = await plugin.createPortalSession(ctx, {
         providerCustomerId,
-        returnUrl: payload.returnUrl,
+        returnUrl,
       });
 
       return {

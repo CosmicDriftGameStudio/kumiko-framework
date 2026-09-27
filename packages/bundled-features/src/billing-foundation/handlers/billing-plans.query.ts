@@ -4,7 +4,7 @@
 
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { resolveCatalogProvider } from "../checkout-core";
+import { findCatalogProvider } from "../checkout-core";
 import { buildBillingPlans } from "../plan-catalog";
 import type {
   BillingPlanCatalog,
@@ -25,8 +25,8 @@ export function createBillingPlansQuery(
     schema: billingPlansSchema,
     access: { roles: catalog.viewRoles },
     handler: async (_query, ctx): Promise<BillingPlansResult> => {
-      const { plugin } = resolveCatalogProvider(ctx, catalog);
-      return buildBillingPlans(ctx, plugin, catalog, options.now);
+      const found = findCatalogProvider(ctx, catalog);
+      return buildBillingPlans(ctx, found?.plugin ?? null, catalog, options.now);
     },
   };
 }

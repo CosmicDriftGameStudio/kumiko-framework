@@ -26,6 +26,7 @@ import {
   createStripePortalSession,
   createStripePriceCache,
   createStripeRetrievePrices,
+  toProviderPriceInterval,
 } from "../plugin-methods";
 import type { StripeCtxRuntime } from "../runtime";
 
@@ -322,6 +323,21 @@ function stripePrice(overrides: Record<string, unknown> = {}): any {
     ...overrides,
   };
 }
+
+describe("toProviderPriceInterval", () => {
+  test("narrows the 4 known Stripe intervals", () => {
+    expect(toProviderPriceInterval("day")).toBe("day");
+    expect(toProviderPriceInterval("week")).toBe("week");
+    expect(toProviderPriceInterval("month")).toBe("month");
+    expect(toProviderPriceInterval("year")).toBe("year");
+  });
+
+  test("unknown/absent value narrows to null", () => {
+    expect(toProviderPriceInterval("fortnight")).toBeNull();
+    expect(toProviderPriceInterval(null)).toBeNull();
+    expect(toProviderPriceInterval(undefined)).toBeNull();
+  });
+});
 
 describe("createStripeRetrievePrices", () => {
   test("maps Stripe prices to ProviderPrice", async () => {

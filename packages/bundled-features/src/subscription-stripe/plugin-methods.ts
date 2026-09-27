@@ -129,12 +129,30 @@ export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
 // retrievePrices — bulk price lookup for the billing-plans catalog
 // =============================================================================
 
+/** Stripe 22.6's `Stripe.Price.Recurring.Interval` widened to include
+ *  future interval strings (`OtherString`) it hasn't typed yet —
+ *  `ProviderPrice["interval"]` stays the closed 4-value union, so an
+ *  unrecognized value narrows to null instead of a cast. */
+export function toProviderPriceInterval(
+  value: string | null | undefined,
+): ProviderPrice["interval"] {
+  switch (value) {
+    case "day":
+    case "week":
+    case "month":
+    case "year":
+      return value;
+    default:
+      return null;
+  }
+}
+
 function mapStripePrice(price: Stripe.Price): ProviderPrice {
   return {
     priceId: price.id,
     unitAmount: price.unit_amount,
     currency: price.currency,
-    interval: price.recurring?.interval ?? null,
+    interval: toProviderPriceInterval(price.recurring?.interval),
     intervalCount: price.recurring?.interval_count ?? null,
     active: price.active,
     metadata: price.metadata ?? {},

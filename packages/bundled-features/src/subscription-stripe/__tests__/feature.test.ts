@@ -61,6 +61,26 @@ describe("createSubscriptionStripeFeature — mounts without mount-time credenti
   });
 });
 
+describe("createSubscriptionStripeFeature — oneOffPriceIds validation", () => {
+  test("mounts with a valid, non-empty oneOffPriceIds list", () => {
+    expect(() =>
+      createSubscriptionStripeFeature({ oneOffPriceIds: ["price_topup_a", "price_topup_b"] }),
+    ).not.toThrow();
+  });
+
+  test("rejects an empty-string entry", () => {
+    expect(() => createSubscriptionStripeFeature({ oneOffPriceIds: ["price_ok", ""] })).toThrow(
+      /must not contain an empty string/,
+    );
+  });
+
+  test("rejects a duplicate entry", () => {
+    expect(() =>
+      createSubscriptionStripeFeature({ oneOffPriceIds: ["price_topup_a", "price_topup_a"] }),
+    ).toThrow(/duplicate oneOffPriceIds entry "price_topup_a"/);
+  });
+});
+
 describe("subscription-stripe — plugin-registration", () => {
   test("registers itself under entityName 'stripe' for billing-foundation's extension", () => {
     const feature = createSubscriptionStripeFeature(OPTIONS);

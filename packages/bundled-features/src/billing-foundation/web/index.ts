@@ -4,5 +4,20 @@
 // the server side (createBillingFoundationFeature) lives under
 // `@cosmicdrift/kumiko-bundled-features/billing-foundation` and has no React deps.
 
+export {
+  BILLING_PLANS_SCREEN_ID,
+  type BillingPlanAction,
+  BillingPlanActions,
+  SubscriptionFoundationHandlers,
+  SubscriptionFoundationQueries,
+  type SubscriptionStatus,
+  SubscriptionStatuses,
+} from "../constants";
+export type {
+  BillingPlanBenefit,
+  BillingPlanCatalog,
+  BillingPlansResult,
+  BillingPlanView,
+} from "../types";
 export { BillingPlansPanel } from "./billing-plans-panel";
 export { type BillingFoundationClientOptions, billingFoundationClient } from "./client-plugin";
