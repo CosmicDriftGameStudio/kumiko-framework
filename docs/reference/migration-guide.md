@@ -10,6 +10,102 @@ verified: 2026-09-27
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.321.0
+
+### billing-foundation
+
+**switch-plan rejects a subscription with a scheduled cancellation**
+
+`billing-foundation:write:switch-plan` now throws a `409 ConflictError`
+(`billing-foundation.errors.cancellationScheduled`) when the tenant's
+subscription already has `cancelAt` set — switching plans mid-cancellation
+previously silently proceeded and could leave the new plan itself
+scheduled to cancel. `billing-foundation:query:billing-plans` now resolves every
+non-current plan's `action` to `unavailable` (instead of `switch`) while a
+cancellation is scheduled, and the billing-plans panel shows a
+`switchRequiresReactivation` message alongside the existing
+`cancelScheduled` banner.
+
+**Migration:** A tenant that switches plans while their subscription is scheduled to
+cancel now gets a 409 instead of a successful switch. Callers driving
+`switch-plan` directly (not through the bundled panel) must reactivate the
+subscription first (`create-portal-session` / the provider's own
+reactivation flow) before retrying the switch.
+
+### delivery
+
+**Unsubscribe route splits into a non-writing GET confirmation page and a writing POST (RFC 8058)**
+
+`createUnsubscribeRoute({ secret })`, which mounted a single `GET` route
+that wrote the opt-out as a side effect of the request, is replaced by
+`createUnsubscribeRoutes({ secret })`, which returns both routes for the
+same path: `GET` renders a confirmation page (`<form method="post">`) and
+performs no write; `POST` performs the write, reading the token from a
+form-urlencoded body first, then the query string as a fallback (so an
+RFC-8058 one-click client that POSTs `token=` only in the URL still works).
+Token verification and error mapping (`400 unsubscribe_token_invalid`) are
+unchanged and shared between both routes.
+
+**Migration:** Replace `extraRoutes: [createUnsubscribeRoute({ secret })]` with
+`extraRoutes: [...createUnsubscribeRoutes({ secret })]`.
+
+Unsubscribe links already mailed out before this upgrade now show a
+confirmation page on click instead of unsubscribing immediately — the
+recipient must submit the form (or a one-click mail client must POST) to
+complete the opt-out. If the app rendered its own confirmation page in
+front of the old GET link, it can be removed; the framework route now
+covers that step.
+
+### framework-core
+
+**webhook.send step auth secretRef renamed to secret; MultiStreamApplyContext gained an optional secrets field**
+
+`r.step.webhook.send`'s `auth` union renamed `secretRef` → `secret` (see
+the step-dispatcher entry for the full rationale). `MultiStreamApplyContext`
+(and `createMultiStreamApplyContext`'s deps) gained an optional
+`secrets?: SecretsContext` field, mirroring `files`/`derivatives` — present
+when the app booted with the secrets feature, letting a saga/process-
+manager MSP apply read a tenant secret with its own audit context. The
+server's MSP consumer wiring now threads the boot-time `AppContext.secrets`
+through automatically; `rebuildMultiStreamProjection`'s rebuild context
+deliberately does not carry `secrets` (rebuild must stay side-effect-free).
+
+**Migration:** Rename `auth.secretRef` → `auth.secret` at every `r.step.webhook.send`
+call site. No action needed for `MultiStreamApplyContext` consumers that
+don't read `ctx.secrets` — the field is optional and additive.
+
+### step-dispatcher
+
+**Webhook auth secrets are now tenant-owned via the secrets feature, not a global env var**
+
+`r.step.webhook.send`'s `auth` config renamed `secretRef` → `secret`. The
+value is now a name inside the tenant-owned secrets namespace
+`step-dispatcher:webhook-auth.<secret>` (secrets feature), resolved via
+`SecretsContext.get()` at dispatch time with an audit read stamped with
+the triggering event's userId (or the system actor for cron/resume
+dispatches). `setWebhookSecretResolver` / the `WEBHOOK_SECRET_*` env
+convention are gone. `performWebhookDispatch(spec)` now takes a required
+second `deps: { tenantId, userId, secrets }` argument.
+
+**Migration:** Mount `createSecretsFeature()` (with a `MasterKeyProvider`) alongside
+`createStepDispatcherFeature()` — boot-validation now fails without it.
+For each tenant that uses `r.step.webhook.send` with `auth`, set the
+credential via `secrets:write:set` under
+`step-dispatcher:webhook-auth.<secret>` (the same name passed as
+`auth.secret`). Rename `auth.secretRef` → `auth.secret` at every
+`r.step.webhook.send({ auth: {...} })` call site. Remove any
+`WEBHOOK_SECRET_*` env vars — they're no longer read.
+
+A `step.dispatch-requested` event already enqueued before this upgrade
+(still carrying the old `secretRef` shape) fails validation on drain and
+is recorded as `step.dispatch-failed` with `error: "invalid dispatch
+payload"` instead of silently resolving a stale ref — drain the queue (or
+accept the one-time failed event) before deploying.
+
+Tests calling `performWebhookDispatch` directly or using
+`setWebhookSecretResolver` must pass a `SecretsContext` (or `undefined`)
+via the new `deps` argument instead.
+
 ## 0.320.0
 
 ### enterprise:dev-server

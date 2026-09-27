@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.321.0",
+    "type": "breaking",
+    "title": "Unsubscribe route splits into a non-writing GET confirmation page and a writing POST (RFC 8058)",
+    "detail": "`createUnsubscribeRoute({ secret })`, which mounted a single `GET` route\nthat wrote the opt-out as a side effect of the request, is replaced by\n`createUnsubscribeRoutes({ secret })`, which returns both routes for the\nsame path: `GET` renders a confirmation page (`<form method=\"post\">`) and\nperforms no write; `POST` performs the write, reading the token from a\nform-urlencoded body first, then the query string as a fallback (so an\nRFC-8058 one-click client that POSTs `token=` only in the URL still works).\nToken verification and error mapping (`400 unsubscribe_token_invalid`) are\nunchanged and shared between both routes.",
+    "migration": "Replace `extraRoutes: [createUnsubscribeRoute({ secret })]` with\n`extraRoutes: [...createUnsubscribeRoutes({ secret })]`.\n\nUnsubscribe links already mailed out before this upgrade now show a\nconfirmation page on click instead of unsubscribing immediately — the\nrecipient must submit the form (or a one-click mail client must POST) to\ncomplete the opt-out. If the app rendered its own confirmation page in\nfront of the old GET link, it can be removed; the framework route now\ncovers that step."
+  },
+  {
     "version": "0.315.0",
     "type": "fix",
     "title": "delivery honors an address opt-out on sends to a user account",

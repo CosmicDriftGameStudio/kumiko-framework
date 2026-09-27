@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.321.0",
+    "type": "breaking",
+    "title": "Webhook auth secrets are now tenant-owned via the secrets feature, not a global env var",
+    "detail": "`r.step.webhook.send`'s `auth` config renamed `secretRef` → `secret`. The\nvalue is now a name inside the tenant-owned secrets namespace\n`step-dispatcher:webhook-auth.<secret>` (secrets feature), resolved via\n`SecretsContext.get()` at dispatch time with an audit read stamped with\nthe triggering event's userId (or the system actor for cron/resume\ndispatches). `setWebhookSecretResolver` / the `WEBHOOK_SECRET_*` env\nconvention are gone. `performWebhookDispatch(spec)` now takes a required\nsecond `deps: { tenantId, userId, secrets }` argument.",
+    "migration": "Mount `createSecretsFeature()` (with a `MasterKeyProvider`) alongside\n`createStepDispatcherFeature()` — boot-validation now fails without it.\nFor each tenant that uses `r.step.webhook.send` with `auth`, set the\ncredential via `secrets:write:set` under\n`step-dispatcher:webhook-auth.<secret>` (the same name passed as\n`auth.secret`). Rename `auth.secretRef` → `auth.secret` at every\n`r.step.webhook.send({ auth: {...} })` call site. Remove any\n`WEBHOOK_SECRET_*` env vars — they're no longer read.\n\nA `step.dispatch-requested` event already enqueued before this upgrade\n(still carrying the old `secretRef` shape) fails validation on drain and\nis recorded as `step.dispatch-failed` with `error: \"invalid dispatch\npayload\"` instead of silently resolving a stale ref — drain the queue (or\naccept the one-time failed event) before deploying.\n\nTests calling `performWebhookDispatch` directly or using\n`setWebhookSecretResolver` must pass a `SecretsContext` (or `undefined`)\nvia the new `deps` argument instead."
+  },
+  {
     "version": "0.320.0",
     "type": "fix",
     "title": "webhook dispatch failures no longer distinguish a blocked host from a DNS failure",

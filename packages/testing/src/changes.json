@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "kumiko-testing integration accepts positional test-file args",
+    "detail": "`kumiko-testing integration` now runs only the given files/globs when\npositional args are passed, instead of always discovering every\n`*.integration.test.ts` file.",
+    "migration": "No action needed — omitting positional args keeps the previous full-discovery behavior."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "defineAppE2eConfig reserves KUMIKO_TRUSTED_PROXY_HOPS; loginViaApi sends a synthetic per-user X-Forwarded-For",
+    "detail": "`defineAppE2eConfig`'s `webServer.env` now sets\n`KUMIKO_TRUSTED_PROXY_HOPS=1` and rejects that key in a consumer's own\n`env` (template-owned, added to `RESERVED_ENV_KEYS`). `loginViaApi` sends\n`x-forwarded-for: syntheticClientIpFor(credentials.email)`, a new\nexported helper deriving a deterministic private-range IP from\n`sha256(email)`, so each seeded user's login lands in its own\nrate-limit bucket instead of every ::1 client sharing one.\n`loginViaUi` is unchanged.",
+    "migration": "Consumers using `defineAppE2eConfig` + `loginViaApi` (incl. the\n`seedTenant` fixture) need no changes — each seeded user now logs in\nfrom its own bucket. Browser logins (`loginViaUi`, raw `fetch` to\n`/api/auth/login` from a page) still share the `::1` bucket. A consumer\nwith its own e2e login helper (bypassing `loginViaApi`) should send\n`x-forwarded-for: syntheticClientIpFor(email)` (exported from\n`@cosmicdrift/kumiko-testing`) themselves, and must not set\n`KUMIKO_TRUSTED_PROXY_HOPS` in `defineAppE2eConfig`'s `env` — it's now\nreserved."
+  },
+  {
+    "version": "0.321.0",
+    "type": "fix",
+    "title": "e2e test fixture gives every test its own synthetic client IP",
+    "detail": "`test` from `@cosmicdrift/kumiko-testing/e2e` overrides the `context`\nfixture with a `context.route(\"**/api/**\")` that adds\n`x-forwarded-for: syntheticClientIpFor(perTestClientIpKey(testInfo))` to\nsame-origin requests; an explicit `x-forwarded-for` wins. Cross-origin\nrequests stay untouched because an extra header would force a CORS\npreflight. Routing disables the HTTP cache of the test's context.\n`seedTenant`'s per-user API contexts send\n`syntheticClientIpFor(user.email)`. The built-in `request` fixture is not\ncovered.",
+    "migration": "Specs that import `test` from `@cosmicdrift/kumiko-testing/e2e` need no\nchange. Specs importing `test` straight from `@playwright/test` keep\nsharing the `::1` bucket; switch their import to kumiko-testing."
+  },
+  {
     "version": "0.320.0",
     "type": "improvement",
     "title": "requireRealProviders from kumiko-testing/e2e, SSE events for seedTenant tenants",

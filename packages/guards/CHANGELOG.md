@@ -1,5 +1,169 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.321.0
+
+### Minor Changes
+
+- 959b3fb: `billing-plans-panel` now surfaces a `past_due` subscription with its own warning banner, instead of looking the same as an active one. `switch-plan` now rejects switching a subscription that already has a scheduled cancellation (`cancelAt` set) with a `409 cancellationScheduled` conflict — the tenant must reactivate first; the billing-plans query and panel reflect this by marking every switch target `unavailable` and pointing at reactivation. A new `retrieveSubscription` provider-plugin method (implemented for Stripe) plus a `sync-subscription` write-handler and `sync-subscriptions` job backfill drift — like a `cancel_at` set on the provider's own dashboard — that never arrived as a webhook, appending it as a real `subscription.updated` event. `isBillingEnabled` no longer throws for an unregistered provider name, returning `false` instead. `kumiko-testing integration` now accepts positional test-file args, `kumiko-upgrade`/`kumiko-schema` gained a `--help`, and `pre-push.sh` now refuses to push a repo with a stale `.kumiko/upgrade-state.json`.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: switch-plan rejects a subscription with a scheduled cancellation
+  detail: |
+    `billing-foundation:write:switch-plan` now throws a `409 ConflictError`
+    (`billing-foundation.errors.cancellationScheduled`) when the tenant's
+    subscription already has `cancelAt` set — switching plans mid-cancellation
+    previously silently proceeded and could leave the new plan itself
+    scheduled to cancel. `billing-foundation:query:billing-plans` now resolves every
+    non-current plan's `action` to `unavailable` (instead of `switch`) while a
+    cancellation is scheduled, and the billing-plans panel shows a
+    `switchRequiresReactivation` message alongside the existing
+    `cancelScheduled` banner.
+  migration: |
+    A tenant that switches plans while their subscription is scheduled to
+    cancel now gets a 409 instead of a successful switch. Callers driving
+    `switch-plan` directly (not through the bundled panel) must reactivate the
+    subscription first (`create-portal-session` / the provider's own
+    reactivation flow) before retrying the switch.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: past_due banner on the billing-plans panel; sync-subscription backfill for provider-side drift
+  detail: |
+    `billing-plans-panel` renders a `past_due`-status warning banner
+    (`billing-foundation.plans.pastDue`) alongside the existing
+    payment-pending/cancel-scheduled ones. `SubscriptionProviderPlugin` gained
+    an optional `retrieveSubscription(ctx, providerSubscriptionId)` method
+    returning a `ProviderSubscriptionSnapshot`; the new
+    `billing-foundation:write:sync-subscription` handler (`agent.expose:
+    false`, `SYSTEM_ROLE`/`SystemAdmin`-only — the `sync-subscriptions` job's
+    own systemUser only carries `SYSTEM_ROLE`) compares the live snapshot
+    against `read_subscriptions` and appends a `subscription.updated` (or
+    `subscription.canceled`, when the snapshot's own status is terminal)
+    event with a deterministic `sync:<sha256>` providerEventId when it has
+    drifted, a no-op otherwise. The `sync-subscriptions` job (manual-trigger +
+    runOnBoot, perTenant) dispatches it and is registered unconditionally.
+    `isBillingEnabled(ctx, providerName)` returns `false` instead of throwing
+    when `providerName` isn't registered.
+  migration: |
+    No action needed — every part is additive. Apps on `subscription-stripe`
+    automatically get `retrieveSubscription` wired; a custom provider plugin
+    without one makes `sync-subscription` report
+    `{ synced: false, reason: "provider_cannot_retrieve" }` instead of syncing.
+    On the next deploy, `sync-subscriptions`' `runOnBoot` fires once per Redis
+    dataset (not once per replica) with one provider API call per tenant that
+    has a live subscription. If that run is interrupted (deploy killed
+    mid-fan-out, Redis restart), it is not re-run automatically on the next
+    boot — trigger it manually via `billing-foundation:job:sync-subscriptions`
+    (`jobs:write:trigger`) to catch up.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: kumiko-testing integration accepts positional test-file args
+  detail: |
+    `kumiko-testing integration` now runs only the given files/globs when
+    positional args are passed, instead of always discovering every
+    `*.integration.test.ts` file.
+  migration: No action needed — omitting positional args keeps the previous full-discovery behavior.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: kumiko-upgrade gained --help/-h
+  detail: Prints usage and exits 0 without running the upgrade report.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema gained --help/-h/help
+  detail: Prints usage listing the available subcommands and exits 0.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: pre-push.sh refuses to push a stale .kumiko/upgrade-state.json
+  detail: |
+    When `.kumiko/upgrade-state.json` exists at the repo root, `pre-push.sh`
+    now runs the upgrade-state guard before its main check and refuses the
+    push if the guard fails, resolving `guard-upgrade-state.ts` next to the
+    hook's real (symlink-resolved) script location.
+  migration: |
+    A repo that has adopted `.kumiko/upgrade-state.json` and is currently
+    stale now has its push blocked until the upgrade state is reconciled. A
+    repo without that marker file is unaffected.
+  -->
+
+- 5616ad9: tenant-handover's claim handler moved event-store ownership between tenants with a raw `UPDATE kumiko_events SET tenant_id …` directly inside a bundled feature — bypassing the event store's own invariants (version-unique index, archive markers, tenant boundary) and leaving no audit trail of the move beyond the feature's own claimed-event summary.
+
+  That responsibility now lives in the event store itself: `transferAggregateStreams`, a framework-owned primitive that moves a set of aggregates' events, drops their snapshots, carries their archive markers, and appends a `kumiko:system:aggregate.transferred` event per moved aggregate on its own fresh stream in the destination tenant.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: New event-store primitive transferAggregateStreams for tenant-to-tenant aggregate moves
+  detail: |
+    `transferAggregateStreams(db, { sourceTenantId, destinationTenantId,
+    aggregateType, aggregateIds, transferredBy })` (event-store/transfer.ts)
+    moves an aggregate's events, drops its snapshot, and carries its archive
+    marker from one tenant to another, then appends one
+    `kumiko:system:aggregate.transferred` system event per moved aggregate
+    (own fresh stream, destination tenant, payload carries aggregateType/
+    aggregateId/sourceTenantId/destinationTenantId). An id with no events
+    under the given tenant/aggregateType is left untouched and gets no event.
+    Backed by db/queries/event-store-transfer.ts.
+  migration: |
+    No action for existing consumers — this is a new, additive primitive.
+  -->
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: improvement
+  title: Claim now moves event-store ownership through transferAggregateStreams instead of raw SQL
+  detail: |
+    move-entity-graph.ts no longer runs its own `UPDATE kumiko_events` /
+    `UPDATE kumiko_snapshots` against the event store — it calls the
+    framework's `transferAggregateStreams` per aggregate type, threading the
+    claiming user's id as `transferredBy`. Archive markers now move with the
+    stream (previously left behind under the source tenant). Each moved
+    aggregate gets its own `kumiko:system:aggregate.transferred` audit event
+    in the destination tenant, in addition to the existing
+    `tenant-handover:event:claimed` summary event.
+  migration: |
+    No action needed — the claim API and its response shape are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard blocks direct writes to the event-store tables outside the event store itself
+  detail: |
+    guard-event-store-writes.ts flags any UPDATE/DELETE FROM/INSERT INTO
+    string or template literal naming kumiko_events, kumiko_snapshots, or
+    kumiko_archived_streams outside packages/framework/src/event-store/**
+    and their db/queries/event-store*.ts backing (plus the two pre-existing,
+    named one-time backfill exceptions). Registered in run-guards.ts.
+  migration: |
+    No action needed for code that already goes through the event store's
+    own primitives (append, transferAggregateStreams, archiveStream, ...).
+    A direct raw-SQL write against one of these three tables from feature
+    code now fails the guard; use transferAggregateStreams for a tenant
+    move, or add a new event-store primitive instead.
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-repo-manifest@0.321.0
+
 ## 0.320.0
 
 ### Patch Changes

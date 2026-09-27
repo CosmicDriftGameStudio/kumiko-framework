@@ -1,5 +1,290 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.321.0
+
+### Minor Changes
+
+- 959b3fb: `billing-plans-panel` now surfaces a `past_due` subscription with its own warning banner, instead of looking the same as an active one. `switch-plan` now rejects switching a subscription that already has a scheduled cancellation (`cancelAt` set) with a `409 cancellationScheduled` conflict — the tenant must reactivate first; the billing-plans query and panel reflect this by marking every switch target `unavailable` and pointing at reactivation. A new `retrieveSubscription` provider-plugin method (implemented for Stripe) plus a `sync-subscription` write-handler and `sync-subscriptions` job backfill drift — like a `cancel_at` set on the provider's own dashboard — that never arrived as a webhook, appending it as a real `subscription.updated` event. `isBillingEnabled` no longer throws for an unregistered provider name, returning `false` instead. `kumiko-testing integration` now accepts positional test-file args, `kumiko-upgrade`/`kumiko-schema` gained a `--help`, and `pre-push.sh` now refuses to push a repo with a stale `.kumiko/upgrade-state.json`.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: switch-plan rejects a subscription with a scheduled cancellation
+  detail: |
+    `billing-foundation:write:switch-plan` now throws a `409 ConflictError`
+    (`billing-foundation.errors.cancellationScheduled`) when the tenant's
+    subscription already has `cancelAt` set — switching plans mid-cancellation
+    previously silently proceeded and could leave the new plan itself
+    scheduled to cancel. `billing-foundation:query:billing-plans` now resolves every
+    non-current plan's `action` to `unavailable` (instead of `switch`) while a
+    cancellation is scheduled, and the billing-plans panel shows a
+    `switchRequiresReactivation` message alongside the existing
+    `cancelScheduled` banner.
+  migration: |
+    A tenant that switches plans while their subscription is scheduled to
+    cancel now gets a 409 instead of a successful switch. Callers driving
+    `switch-plan` directly (not through the bundled panel) must reactivate the
+    subscription first (`create-portal-session` / the provider's own
+    reactivation flow) before retrying the switch.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: past_due banner on the billing-plans panel; sync-subscription backfill for provider-side drift
+  detail: |
+    `billing-plans-panel` renders a `past_due`-status warning banner
+    (`billing-foundation.plans.pastDue`) alongside the existing
+    payment-pending/cancel-scheduled ones. `SubscriptionProviderPlugin` gained
+    an optional `retrieveSubscription(ctx, providerSubscriptionId)` method
+    returning a `ProviderSubscriptionSnapshot`; the new
+    `billing-foundation:write:sync-subscription` handler (`agent.expose:
+    false`, `SYSTEM_ROLE`/`SystemAdmin`-only — the `sync-subscriptions` job's
+    own systemUser only carries `SYSTEM_ROLE`) compares the live snapshot
+    against `read_subscriptions` and appends a `subscription.updated` (or
+    `subscription.canceled`, when the snapshot's own status is terminal)
+    event with a deterministic `sync:<sha256>` providerEventId when it has
+    drifted, a no-op otherwise. The `sync-subscriptions` job (manual-trigger +
+    runOnBoot, perTenant) dispatches it and is registered unconditionally.
+    `isBillingEnabled(ctx, providerName)` returns `false` instead of throwing
+    when `providerName` isn't registered.
+  migration: |
+    No action needed — every part is additive. Apps on `subscription-stripe`
+    automatically get `retrieveSubscription` wired; a custom provider plugin
+    without one makes `sync-subscription` report
+    `{ synced: false, reason: "provider_cannot_retrieve" }` instead of syncing.
+    On the next deploy, `sync-subscriptions`' `runOnBoot` fires once per Redis
+    dataset (not once per replica) with one provider API call per tenant that
+    has a live subscription. If that run is interrupted (deploy killed
+    mid-fan-out, Redis restart), it is not re-run automatically on the next
+    boot — trigger it manually via `billing-foundation:job:sync-subscriptions`
+    (`jobs:write:trigger`) to catch up.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: kumiko-testing integration accepts positional test-file args
+  detail: |
+    `kumiko-testing integration` now runs only the given files/globs when
+    positional args are passed, instead of always discovering every
+    `*.integration.test.ts` file.
+  migration: No action needed — omitting positional args keeps the previous full-discovery behavior.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: kumiko-upgrade gained --help/-h
+  detail: Prints usage and exits 0 without running the upgrade report.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema gained --help/-h/help
+  detail: Prints usage listing the available subcommands and exits 0.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: pre-push.sh refuses to push a stale .kumiko/upgrade-state.json
+  detail: |
+    When `.kumiko/upgrade-state.json` exists at the repo root, `pre-push.sh`
+    now runs the upgrade-state guard before its main check and refuses the
+    push if the guard fails, resolving `guard-upgrade-state.ts` next to the
+    hook's real (symlink-resolved) script location.
+  migration: |
+    A repo that has adopted `.kumiko/upgrade-state.json` and is currently
+    stale now has its push blocked until the upgrade state is reconciled. A
+    repo without that marker file is unaffected.
+  -->
+
+- c8c629f: The framework's unsubscribe route wrote an opt-out on a plain `GET` — a link that any prefetcher, email scanner, or antivirus crawler could trigger just by following it, with no user intent behind the write. It also had no `List-Unsubscribe`/`List-Unsubscribe-Post` headers, so mail clients offering RFC-8058 one-click unsubscribe had nothing to act on.
+
+  `GET /api/delivery/unsubscribe?token=` now renders a minimal confirmation page and writes nothing; the opt-out only happens on `POST` to the same path, with the token read from a form-urlencoded body (confirmation-page submit or a one-click client) or, failing that, the query string. `channel-email` now sets `List-Unsubscribe` / `List-Unsubscribe-Post: List-Unsubscribe=One-Click` automatically whenever a message's `data.unsubscribeUrl` points at this route — apps with their own GET-only unsubscribe page don't get the header, since only the framework route can honor a one-click POST.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Unsubscribe route splits into a non-writing GET confirmation page and a writing POST (RFC 8058)
+  detail: |
+    `createUnsubscribeRoute({ secret })`, which mounted a single `GET` route
+    that wrote the opt-out as a side effect of the request, is replaced by
+    `createUnsubscribeRoutes({ secret })`, which returns both routes for the
+    same path: `GET` renders a confirmation page (`<form method="post">`) and
+    performs no write; `POST` performs the write, reading the token from a
+    form-urlencoded body first, then the query string as a fallback (so an
+    RFC-8058 one-click client that POSTs `token=` only in the URL still works).
+    Token verification and error mapping (`400 unsubscribe_token_invalid`) are
+    unchanged and shared between both routes.
+  migration: |
+    Replace `extraRoutes: [createUnsubscribeRoute({ secret })]` with
+    `extraRoutes: [...createUnsubscribeRoutes({ secret })]`.
+
+    Unsubscribe links already mailed out before this upgrade now show a
+    confirmation page on click instead of unsubscribing immediately — the
+    recipient must submit the form (or a one-click mail client must POST) to
+    complete the opt-out. If the app rendered its own confirmation page in
+    front of the old GET link, it can be removed; the framework route now
+    covers that step.
+  -->
+
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: Automatic List-Unsubscribe / List-Unsubscribe-Post headers for messages that carry a framework unsubscribeUrl
+  detail: |
+    `createEmailChannel`'s `send()` now sets `List-Unsubscribe: <url>` and
+    `List-Unsubscribe-Post: List-Unsubscribe=One-Click` whenever the
+    notification's `data.unsubscribeUrl` is an `http(s)` URL whose path is
+    the delivery feature's `DELIVERY_UNSUBSCRIBE_PATH` — only that route can
+    honor a one-click POST. An explicit `data.headers["List-Unsubscribe"]`
+    (or `-Post`) still wins over the automatic value. Apps whose
+    `unsubscribeUrl` points somewhere else (their own page, a foreign path)
+    get no automatic headers.
+  migration: |
+    No action needed for apps already using the framework's unsubscribe
+    route via `data.unsubscribeUrl`. Apps with a GET-only unsubscribe page of
+    their own keep getting no `List-Unsubscribe-Post` header, since a
+    one-click POST there would 404 or no-op.
+  -->
+
+- b74db24: `r.step.webhook.send`'s `auth.secretRef` resolved through a module-global `secretResolver`, defaulting to `process.env["WEBHOOK_SECRET_" + ref]` — a platform-wide, process-scoped credential store with no tenant boundary. Any tenant able to configure a webhook auth ref could, in principle, reach a secret meant for another tenant or for the operator's own infrastructure, and the only way to change what a ref resolved to was redeploying the process with new env vars.
+
+  `auth.secretRef` is now `auth.secret`, resolved per-tenant at dispatch time through the `secrets` bundled-feature under the tenant-owned namespace `step-dispatcher:webhook-auth.<secret>`. The `step-dispatcher` feature now `r.requires("secrets")`. A missing or unconfigured secret — or a request from a tenant that never set one — fails with the same generic `webhook auth secret is not available` message, without ever echoing the secret's name back onto the tenant-visible `step.dispatch-failed` event.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: breaking
+  title: Webhook auth secrets are now tenant-owned via the secrets feature, not a global env var
+  detail: |
+    `r.step.webhook.send`'s `auth` config renamed `secretRef` → `secret`. The
+    value is now a name inside the tenant-owned secrets namespace
+    `step-dispatcher:webhook-auth.<secret>` (secrets feature), resolved via
+    `SecretsContext.get()` at dispatch time with an audit read stamped with
+    the triggering event's userId (or the system actor for cron/resume
+    dispatches). `setWebhookSecretResolver` / the `WEBHOOK_SECRET_*` env
+    convention are gone. `performWebhookDispatch(spec)` now takes a required
+    second `deps: { tenantId, userId, secrets }` argument.
+  migration: |
+    Mount `createSecretsFeature()` (with a `MasterKeyProvider`) alongside
+    `createStepDispatcherFeature()` — boot-validation now fails without it.
+    For each tenant that uses `r.step.webhook.send` with `auth`, set the
+    credential via `secrets:write:set` under
+    `step-dispatcher:webhook-auth.<secret>` (the same name passed as
+    `auth.secret`). Rename `auth.secretRef` → `auth.secret` at every
+    `r.step.webhook.send({ auth: {...} })` call site. Remove any
+    `WEBHOOK_SECRET_*` env vars — they're no longer read.
+
+    A `step.dispatch-requested` event already enqueued before this upgrade
+    (still carrying the old `secretRef` shape) fails validation on drain and
+    is recorded as `step.dispatch-failed` with `error: "invalid dispatch
+    payload"` instead of silently resolving a stale ref — drain the queue (or
+    accept the one-time failed event) before deploying.
+
+    Tests calling `performWebhookDispatch` directly or using
+    `setWebhookSecretResolver` must pass a `SecretsContext` (or `undefined`)
+    via the new `deps` argument instead.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: webhook.send step auth secretRef renamed to secret; MultiStreamApplyContext gained an optional secrets field
+  detail: |
+    `r.step.webhook.send`'s `auth` union renamed `secretRef` → `secret` (see
+    the step-dispatcher entry for the full rationale). `MultiStreamApplyContext`
+    (and `createMultiStreamApplyContext`'s deps) gained an optional
+    `secrets?: SecretsContext` field, mirroring `files`/`derivatives` — present
+    when the app booted with the secrets feature, letting a saga/process-
+    manager MSP apply read a tenant secret with its own audit context. The
+    server's MSP consumer wiring now threads the boot-time `AppContext.secrets`
+    through automatically; `rebuildMultiStreamProjection`'s rebuild context
+    deliberately does not carry `secrets` (rebuild must stay side-effect-free).
+  migration: |
+    Rename `auth.secretRef` → `auth.secret` at every `r.step.webhook.send`
+    call site. No action needed for `MultiStreamApplyContext` consumers that
+    don't read `ctx.secrets` — the field is optional and additive.
+  -->
+
+- 5616ad9: tenant-handover's claim handler moved event-store ownership between tenants with a raw `UPDATE kumiko_events SET tenant_id …` directly inside a bundled feature — bypassing the event store's own invariants (version-unique index, archive markers, tenant boundary) and leaving no audit trail of the move beyond the feature's own claimed-event summary.
+
+  That responsibility now lives in the event store itself: `transferAggregateStreams`, a framework-owned primitive that moves a set of aggregates' events, drops their snapshots, carries their archive markers, and appends a `kumiko:system:aggregate.transferred` event per moved aggregate on its own fresh stream in the destination tenant.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: New event-store primitive transferAggregateStreams for tenant-to-tenant aggregate moves
+  detail: |
+    `transferAggregateStreams(db, { sourceTenantId, destinationTenantId,
+    aggregateType, aggregateIds, transferredBy })` (event-store/transfer.ts)
+    moves an aggregate's events, drops its snapshot, and carries its archive
+    marker from one tenant to another, then appends one
+    `kumiko:system:aggregate.transferred` system event per moved aggregate
+    (own fresh stream, destination tenant, payload carries aggregateType/
+    aggregateId/sourceTenantId/destinationTenantId). An id with no events
+    under the given tenant/aggregateType is left untouched and gets no event.
+    Backed by db/queries/event-store-transfer.ts.
+  migration: |
+    No action for existing consumers — this is a new, additive primitive.
+  -->
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: improvement
+  title: Claim now moves event-store ownership through transferAggregateStreams instead of raw SQL
+  detail: |
+    move-entity-graph.ts no longer runs its own `UPDATE kumiko_events` /
+    `UPDATE kumiko_snapshots` against the event store — it calls the
+    framework's `transferAggregateStreams` per aggregate type, threading the
+    claiming user's id as `transferredBy`. Archive markers now move with the
+    stream (previously left behind under the source tenant). Each moved
+    aggregate gets its own `kumiko:system:aggregate.transferred` audit event
+    in the destination tenant, in addition to the existing
+    `tenant-handover:event:claimed` summary event.
+  migration: |
+    No action needed — the claim API and its response shape are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard blocks direct writes to the event-store tables outside the event store itself
+  detail: |
+    guard-event-store-writes.ts flags any UPDATE/DELETE FROM/INSERT INTO
+    string or template literal naming kumiko_events, kumiko_snapshots, or
+    kumiko_archived_streams outside packages/framework/src/event-store/**
+    and their db/queries/event-store*.ts backing (plus the two pre-existing,
+    named one-time backfill exceptions). Registered in run-guards.ts.
+  migration: |
+    No action needed for code that already goes through the event store's
+    own primitives (append, transferAggregateStreams, archiveStream, ...).
+    A direct raw-SQL write against one of these three tables from feature
+    code now fails the guard; use transferAggregateStreams for a tenant
+    move, or add a new event-store primitive instead.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [959b3fb]
+- Updated dependencies [fa27809]
+- Updated dependencies [fa27809]
+- Updated dependencies [8246f13]
+- Updated dependencies [fa27809]
+- Updated dependencies [b74db24]
+- Updated dependencies [5616ad9]
+- Updated dependencies [fa27809]
+  - @cosmicdrift/kumiko-framework@0.321.0
+  - @cosmicdrift/kumiko-renderer-web@0.321.0
+  - @cosmicdrift/kumiko-types@0.321.0
+  - @cosmicdrift/kumiko-headless@0.321.0
+  - @cosmicdrift/kumiko-renderer@0.321.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.321.0
+
 ## 0.320.0
 
 ### Minor Changes

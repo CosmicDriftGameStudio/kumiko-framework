@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "Automatic List-Unsubscribe / List-Unsubscribe-Post headers for messages that carry a framework unsubscribeUrl",
+    "detail": "`createEmailChannel`'s `send()` now sets `List-Unsubscribe: <url>` and\n`List-Unsubscribe-Post: List-Unsubscribe=One-Click` whenever the\nnotification's `data.unsubscribeUrl` is an `http(s)` URL whose path is\nthe delivery feature's `DELIVERY_UNSUBSCRIBE_PATH` — only that route can\nhonor a one-click POST. An explicit `data.headers[\"List-Unsubscribe\"]`\n(or `-Post`) still wins over the automatic value. Apps whose\n`unsubscribeUrl` points somewhere else (their own page, a foreign path)\nget no automatic headers.",
+    "migration": "No action needed for apps already using the framework's unsubscribe\nroute via `data.unsubscribeUrl`. Apps with a GET-only unsubscribe page of\ntheir own keep getting no `List-Unsubscribe-Post` header, since a\none-click POST there would 404 or no-op."
+  }
+]

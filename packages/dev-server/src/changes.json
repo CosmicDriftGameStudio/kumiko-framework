@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "kumiko-upgrade gained --help/-h",
+    "detail": "Prints usage and exits 0 without running the upgrade report.",
+    "migration": "No action needed."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "runDevApp now also honors KUMIKO_TRUSTED_PROXY_HOPS as an env fallback, symmetric to runProdApp",
+    "detail": "Precedence: `options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops\n?? parseTrustedProxyHopsEnv(envSource[TRUSTED_PROXY_HOPS_ENV], \"runDevApp\")`.",
+    "migration": "No action needed for the default (unproxied) dev setup."
+  },
+  {
     "version": "0.320.0",
     "type": "breaking",
     "title": "createKumikoServer/runDevApp gained a trustedProxyHops option",

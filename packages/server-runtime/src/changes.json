@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "runProdApp's KUMIKO_TRUSTED_PROXY_HOPS parsing now shares framework's parseTrustedProxyHopsEnv",
+    "detail": "The inline digits-only + non-negative-integer validation moved out of\n`run-prod-app.ts` into `parseTrustedProxyHopsEnv`\n(`@cosmicdrift/kumiko-framework/api`); same validation and error message\nas before, no behavioral change.",
+    "migration": "No action needed."
+  },
+  {
+    "version": "0.321.0",
+    "type": "improvement",
+    "title": "ProdAppHandle.fetch's type now declares its optional socket-address parameter",
+    "detail": "`fetch: (req: Request, socketAddress?: string) => Promise<Response> |\nResponse`. The doc comment now explains that an app with `autoListen:\nfalse` running its own `Bun.serve` must pass\n`server.requestIP(req)?.address`, extracted at the outermost Bun fetch\ncallback — `requestIP()` only resolves for Bun's original Request\ninstance, not a cloned/rebuilt one. `RunProdAppAuthOptions\n.trustedProxyHops`'s doc comment also dropped the stale \"pre-#1539\nspoofable default\" wording; 0 hops is the safe socket-only default.",
+    "migration": "No action needed for the default `autoListen: true` boot. Apps with\n`autoListen: false` can now type-check passing the socket address to\n`handle.fetch`; passing nothing keeps the previous (unresolved) behavior."
+  },
+  {
     "version": "0.320.0",
     "type": "breaking",
     "title": "runProdApp threads the Bun socket address and a trustedProxyHops option through to the client-IP resolver",

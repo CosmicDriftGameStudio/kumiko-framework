@@ -1,5 +1,350 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.321.0
+
+### Minor Changes
+
+- fa27809: E2e logins started 429ing after the client-IP resolver landed (kumiko-framework#3323): every Playwright client is on `::1`, so the default `trustedProxyHops` (0, socket-only) collapsed every seeded user's login into one shared rate-limit bucket instead of one per user
+
+  `defineAppE2eConfig`'s `webServer` now sets `KUMIKO_TRUSTED_PROXY_HOPS=1` (template-owned, added to `RESERVED_ENV_KEYS`), and `loginViaApi` sends a deterministic per-email `X-Forwarded-For` so each seeded user gets their own bucket, the same way a real client behind one trusted reverse-proxy hop would.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: parseTrustedProxyHopsEnv/TRUSTED_PROXY_HOPS_ENV factored out of runProdApp for runDevApp and consumer tooling to share
+  detail: |
+    `packages/framework/src/api/client-ip.ts` gained
+    `parseTrustedProxyHopsEnv(raw, context)` and the
+    `TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS"` constant (both
+    exported via the `api` barrel), moved out of `runProdApp`'s inline
+    parsing. Same validation and error message as before.
+  migration: |
+    No action needed; runProdApp's behavior and error message are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp now also honors KUMIKO_TRUSTED_PROXY_HOPS as an env fallback, symmetric to runProdApp
+  detail: |
+    Precedence: `options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops
+    ?? parseTrustedProxyHopsEnv(envSource[TRUSTED_PROXY_HOPS_ENV], "runDevApp")`.
+  migration: |
+    No action needed for the default (unproxied) dev setup.
+  -->
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp's KUMIKO_TRUSTED_PROXY_HOPS parsing now shares framework's parseTrustedProxyHopsEnv
+  detail: |
+    The inline digits-only + non-negative-integer validation moved out of
+    `run-prod-app.ts` into `parseTrustedProxyHopsEnv`
+    (`@cosmicdrift/kumiko-framework/api`); same validation and error message
+    as before, no behavioral change.
+  migration: |
+    No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: defineAppE2eConfig reserves KUMIKO_TRUSTED_PROXY_HOPS; loginViaApi sends a synthetic per-user X-Forwarded-For
+  detail: |
+    `defineAppE2eConfig`'s `webServer.env` now sets
+    `KUMIKO_TRUSTED_PROXY_HOPS=1` and rejects that key in a consumer's own
+    `env` (template-owned, added to `RESERVED_ENV_KEYS`). `loginViaApi` sends
+    `x-forwarded-for: syntheticClientIpFor(credentials.email)`, a new
+    exported helper deriving a deterministic private-range IP from
+    `sha256(email)`, so each seeded user's login lands in its own
+    rate-limit bucket instead of every ::1 client sharing one.
+    `loginViaUi` is unchanged.
+  migration: |
+    Consumers using `defineAppE2eConfig` + `loginViaApi` (incl. the
+    `seedTenant` fixture) need no changes — each seeded user now logs in
+    from its own bucket. Browser logins (`loginViaUi`, raw `fetch` to
+    `/api/auth/login` from a page) still share the `::1` bucket. A consumer
+    with its own e2e login helper (bypassing `loginViaApi`) should send
+    `x-forwarded-for: syntheticClientIpFor(email)` (exported from
+    `@cosmicdrift/kumiko-testing`) themselves, and must not set
+    `KUMIKO_TRUSTED_PROXY_HOPS` in `defineAppE2eConfig`'s `env` — it's now
+    reserved.
+  -->
+
+- fa27809: An anonymous extra route had no way to read the server's resolved client IP without reaching for `X-Forwarded-For` itself — exactly the attacker-controlled, hop-count-unaware read the centralized `createClientIpResolver` (kumiko-framework#3323) exists to prevent.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: AnonymousExtraRouteDeps gained clientIp, resolved by the server's trustedProxyHops-aware resolver
+  detail: |
+    `AnonymousExtraRouteDeps.clientIp: string`, populated the same way as the
+    httpRoute path via `shared.clientIpResolver.resolve
+    (clientIpSourceFromHonoContext(c))`. `ExtraRouteHonoHandlerDeps
+    .clientIpResolver` is now required (its only caller always supplied it).
+  migration: |
+    Anonymous extra routes that need the caller's IP should read
+    `deps.clientIp` instead of reading `X-Forwarded-For` (or any other
+    header) themselves — the latter is attacker-controlled unless you also
+    know the exact trusted-hop count. Tests that build an
+    `AnonymousExtraRouteDeps` literal by hand must add a `clientIp` string.
+  -->
+
+- b74db24: `r.step.webhook.send`'s `auth.secretRef` resolved through a module-global `secretResolver`, defaulting to `process.env["WEBHOOK_SECRET_" + ref]` — a platform-wide, process-scoped credential store with no tenant boundary. Any tenant able to configure a webhook auth ref could, in principle, reach a secret meant for another tenant or for the operator's own infrastructure, and the only way to change what a ref resolved to was redeploying the process with new env vars.
+
+  `auth.secretRef` is now `auth.secret`, resolved per-tenant at dispatch time through the `secrets` bundled-feature under the tenant-owned namespace `step-dispatcher:webhook-auth.<secret>`. The `step-dispatcher` feature now `r.requires("secrets")`. A missing or unconfigured secret — or a request from a tenant that never set one — fails with the same generic `webhook auth secret is not available` message, without ever echoing the secret's name back onto the tenant-visible `step.dispatch-failed` event.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: breaking
+  title: Webhook auth secrets are now tenant-owned via the secrets feature, not a global env var
+  detail: |
+    `r.step.webhook.send`'s `auth` config renamed `secretRef` → `secret`. The
+    value is now a name inside the tenant-owned secrets namespace
+    `step-dispatcher:webhook-auth.<secret>` (secrets feature), resolved via
+    `SecretsContext.get()` at dispatch time with an audit read stamped with
+    the triggering event's userId (or the system actor for cron/resume
+    dispatches). `setWebhookSecretResolver` / the `WEBHOOK_SECRET_*` env
+    convention are gone. `performWebhookDispatch(spec)` now takes a required
+    second `deps: { tenantId, userId, secrets }` argument.
+  migration: |
+    Mount `createSecretsFeature()` (with a `MasterKeyProvider`) alongside
+    `createStepDispatcherFeature()` — boot-validation now fails without it.
+    For each tenant that uses `r.step.webhook.send` with `auth`, set the
+    credential via `secrets:write:set` under
+    `step-dispatcher:webhook-auth.<secret>` (the same name passed as
+    `auth.secret`). Rename `auth.secretRef` → `auth.secret` at every
+    `r.step.webhook.send({ auth: {...} })` call site. Remove any
+    `WEBHOOK_SECRET_*` env vars — they're no longer read.
+
+    A `step.dispatch-requested` event already enqueued before this upgrade
+    (still carrying the old `secretRef` shape) fails validation on drain and
+    is recorded as `step.dispatch-failed` with `error: "invalid dispatch
+    payload"` instead of silently resolving a stale ref — drain the queue (or
+    accept the one-time failed event) before deploying.
+
+    Tests calling `performWebhookDispatch` directly or using
+    `setWebhookSecretResolver` must pass a `SecretsContext` (or `undefined`)
+    via the new `deps` argument instead.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: webhook.send step auth secretRef renamed to secret; MultiStreamApplyContext gained an optional secrets field
+  detail: |
+    `r.step.webhook.send`'s `auth` union renamed `secretRef` → `secret` (see
+    the step-dispatcher entry for the full rationale). `MultiStreamApplyContext`
+    (and `createMultiStreamApplyContext`'s deps) gained an optional
+    `secrets?: SecretsContext` field, mirroring `files`/`derivatives` — present
+    when the app booted with the secrets feature, letting a saga/process-
+    manager MSP apply read a tenant secret with its own audit context. The
+    server's MSP consumer wiring now threads the boot-time `AppContext.secrets`
+    through automatically; `rebuildMultiStreamProjection`'s rebuild context
+    deliberately does not carry `secrets` (rebuild must stay side-effect-free).
+  migration: |
+    Rename `auth.secretRef` → `auth.secret` at every `r.step.webhook.send`
+    call site. No action needed for `MultiStreamApplyContext` consumers that
+    don't read `ctx.secrets` — the field is optional and additive.
+  -->
+
+- 5616ad9: tenant-handover's claim handler moved event-store ownership between tenants with a raw `UPDATE kumiko_events SET tenant_id …` directly inside a bundled feature — bypassing the event store's own invariants (version-unique index, archive markers, tenant boundary) and leaving no audit trail of the move beyond the feature's own claimed-event summary.
+
+  That responsibility now lives in the event store itself: `transferAggregateStreams`, a framework-owned primitive that moves a set of aggregates' events, drops their snapshots, carries their archive markers, and appends a `kumiko:system:aggregate.transferred` event per moved aggregate on its own fresh stream in the destination tenant.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: New event-store primitive transferAggregateStreams for tenant-to-tenant aggregate moves
+  detail: |
+    `transferAggregateStreams(db, { sourceTenantId, destinationTenantId,
+    aggregateType, aggregateIds, transferredBy })` (event-store/transfer.ts)
+    moves an aggregate's events, drops its snapshot, and carries its archive
+    marker from one tenant to another, then appends one
+    `kumiko:system:aggregate.transferred` system event per moved aggregate
+    (own fresh stream, destination tenant, payload carries aggregateType/
+    aggregateId/sourceTenantId/destinationTenantId). An id with no events
+    under the given tenant/aggregateType is left untouched and gets no event.
+    Backed by db/queries/event-store-transfer.ts.
+  migration: |
+    No action for existing consumers — this is a new, additive primitive.
+  -->
+
+  <!-- kumiko-changes
+  feature: tenant-handover
+  type: improvement
+  title: Claim now moves event-store ownership through transferAggregateStreams instead of raw SQL
+  detail: |
+    move-entity-graph.ts no longer runs its own `UPDATE kumiko_events` /
+    `UPDATE kumiko_snapshots` against the event store — it calls the
+    framework's `transferAggregateStreams` per aggregate type, threading the
+    claiming user's id as `transferredBy`. Archive markers now move with the
+    stream (previously left behind under the source tenant). Each moved
+    aggregate gets its own `kumiko:system:aggregate.transferred` audit event
+    in the destination tenant, in addition to the existing
+    `tenant-handover:event:claimed` summary event.
+  migration: |
+    No action needed — the claim API and its response shape are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New guard blocks direct writes to the event-store tables outside the event store itself
+  detail: |
+    guard-event-store-writes.ts flags any UPDATE/DELETE FROM/INSERT INTO
+    string or template literal naming kumiko_events, kumiko_snapshots, or
+    kumiko_archived_streams outside packages/framework/src/event-store/**
+    and their db/queries/event-store*.ts backing (plus the two pre-existing,
+    named one-time backfill exceptions). Registered in run-guards.ts.
+  migration: |
+    No action needed for code that already goes through the event store's
+    own primitives (append, transferAggregateStreams, archiveStream, ...).
+    A direct raw-SQL write against one of these three tables from feature
+    code now fails the guard; use transferAggregateStreams for a tenant
+    move, or add a new event-store primitive instead.
+  -->
+
+### Patch Changes
+
+- 959b3fb: `billing-plans-panel` now surfaces a `past_due` subscription with its own warning banner, instead of looking the same as an active one. `switch-plan` now rejects switching a subscription that already has a scheduled cancellation (`cancelAt` set) with a `409 cancellationScheduled` conflict — the tenant must reactivate first; the billing-plans query and panel reflect this by marking every switch target `unavailable` and pointing at reactivation. A new `retrieveSubscription` provider-plugin method (implemented for Stripe) plus a `sync-subscription` write-handler and `sync-subscriptions` job backfill drift — like a `cancel_at` set on the provider's own dashboard — that never arrived as a webhook, appending it as a real `subscription.updated` event. `isBillingEnabled` no longer throws for an unregistered provider name, returning `false` instead. `kumiko-testing integration` now accepts positional test-file args, `kumiko-upgrade`/`kumiko-schema` gained a `--help`, and `pre-push.sh` now refuses to push a repo with a stale `.kumiko/upgrade-state.json`.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: switch-plan rejects a subscription with a scheduled cancellation
+  detail: |
+    `billing-foundation:write:switch-plan` now throws a `409 ConflictError`
+    (`billing-foundation.errors.cancellationScheduled`) when the tenant's
+    subscription already has `cancelAt` set — switching plans mid-cancellation
+    previously silently proceeded and could leave the new plan itself
+    scheduled to cancel. `billing-foundation:query:billing-plans` now resolves every
+    non-current plan's `action` to `unavailable` (instead of `switch`) while a
+    cancellation is scheduled, and the billing-plans panel shows a
+    `switchRequiresReactivation` message alongside the existing
+    `cancelScheduled` banner.
+  migration: |
+    A tenant that switches plans while their subscription is scheduled to
+    cancel now gets a 409 instead of a successful switch. Callers driving
+    `switch-plan` directly (not through the bundled panel) must reactivate the
+    subscription first (`create-portal-session` / the provider's own
+    reactivation flow) before retrying the switch.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: past_due banner on the billing-plans panel; sync-subscription backfill for provider-side drift
+  detail: |
+    `billing-plans-panel` renders a `past_due`-status warning banner
+    (`billing-foundation.plans.pastDue`) alongside the existing
+    payment-pending/cancel-scheduled ones. `SubscriptionProviderPlugin` gained
+    an optional `retrieveSubscription(ctx, providerSubscriptionId)` method
+    returning a `ProviderSubscriptionSnapshot`; the new
+    `billing-foundation:write:sync-subscription` handler (`agent.expose:
+    false`, `SYSTEM_ROLE`/`SystemAdmin`-only — the `sync-subscriptions` job's
+    own systemUser only carries `SYSTEM_ROLE`) compares the live snapshot
+    against `read_subscriptions` and appends a `subscription.updated` (or
+    `subscription.canceled`, when the snapshot's own status is terminal)
+    event with a deterministic `sync:<sha256>` providerEventId when it has
+    drifted, a no-op otherwise. The `sync-subscriptions` job (manual-trigger +
+    runOnBoot, perTenant) dispatches it and is registered unconditionally.
+    `isBillingEnabled(ctx, providerName)` returns `false` instead of throwing
+    when `providerName` isn't registered.
+  migration: |
+    No action needed — every part is additive. Apps on `subscription-stripe`
+    automatically get `retrieveSubscription` wired; a custom provider plugin
+    without one makes `sync-subscription` report
+    `{ synced: false, reason: "provider_cannot_retrieve" }` instead of syncing.
+    On the next deploy, `sync-subscriptions`' `runOnBoot` fires once per Redis
+    dataset (not once per replica) with one provider API call per tenant that
+    has a live subscription. If that run is interrupted (deploy killed
+    mid-fan-out, Redis restart), it is not re-run automatically on the next
+    boot — trigger it manually via `billing-foundation:job:sync-subscriptions`
+    (`jobs:write:trigger`) to catch up.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: kumiko-testing integration accepts positional test-file args
+  detail: |
+    `kumiko-testing integration` now runs only the given files/globs when
+    positional args are passed, instead of always discovering every
+    `*.integration.test.ts` file.
+  migration: No action needed — omitting positional args keeps the previous full-discovery behavior.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: kumiko-upgrade gained --help/-h
+  detail: Prints usage and exits 0 without running the upgrade report.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema gained --help/-h/help
+  detail: Prints usage listing the available subcommands and exits 0.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: pre-push.sh refuses to push a stale .kumiko/upgrade-state.json
+  detail: |
+    When `.kumiko/upgrade-state.json` exists at the repo root, `pre-push.sh`
+    now runs the upgrade-state guard before its main check and refuses the
+    push if the guard fails, resolving `guard-upgrade-state.ts` next to the
+    hook's real (symlink-resolved) script location.
+  migration: |
+    A repo that has adopted `.kumiko/upgrade-state.json` and is currently
+    stale now has its push blocked until the upgrade state is reconciled. A
+    repo without that marker file is unaffected.
+  -->
+
+- 8246f13: `parseFeatureFile` built a full TypeScript program (about 1000 workspace files) the first time it resolved an identifier or registrar wrapper imported from another file, costing 0.5–5 s per feature file. Cross-file names are now resolved syntactically via module resolution and export walking, without a type checker.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: feature-ast resolves imported constants and registrar wrappers without building a TypeScript program
+  detail: |
+    Imported `const` initializers (named imports, aliases, `export { X as Y }`,
+    re-export chains, `export *`) and imported registrar-wrapper functions are
+    resolved through `ts.resolveModuleName` plus a syntactic export walk.
+    Same-file lookups walk enclosing block scopes instead of the file top level. Parse
+    output is unchanged; parsing a feature file drops from hundreds of
+    milliseconds to a few milliseconds.
+  -->
+
+- fa27809: `kumiko upgrade`'s changelog listing only ever read `packages/framework/src/changes.json` — a breaking change in server-runtime, dev-server, renderer-web, testing, cli, or any other package was invisible to a consumer running the upgrade CLI.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: upgrade-cli now collects every package's changes.json, not just framework's
+  detail: |
+    `findCoreChangelogFile(cwd): string | null` is replaced by
+    `findPackageChangelogFiles(cwd): string[]`. In the framework repo itself
+    it collects every `packages/<dir>/src/changes.json` except
+    `packages/bundled-features` (bundled features are already collected per
+    feature dir). In a consumer repo it walks up to 10 levels looking for
+    `node_modules/@cosmicdrift/*/src/changes.json`, skipping
+    `kumiko-bundled-features`, deduping by package name (nearest
+    `node_modules` wins) and by realpath (symlinked workspace copies).
+  migration: |
+    No action needed — `kumiko upgrade` now surfaces more relevant breaking
+    changes than before, it never hides ones it previously showed.
+  -->
+
+- Updated dependencies [b74db24]
+  - @cosmicdrift/kumiko-types@0.321.0
+  - @cosmicdrift/kumiko-http@0.321.0
+
 ## 0.320.0
 
 ### Minor Changes
