@@ -83,6 +83,7 @@ import { computeStrongEtag, etagMatches } from "./http-cache";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, normalizeOrigin, originMiddleware } from "./origin-middleware";
+import { patRouteGuard } from "./pat-route-guard";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
 import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker";
 import { requestContext } from "./request-context";
@@ -781,6 +782,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
     return jwtGuard(c, next);
   });
 
+  // Fail-closed PAT scoping: a PAT-authenticated caller (user.pat set by
+  // jwtGuard's tokenVerifier above) may only reach the dispatcher routes —
+  // everywhere else on /api/* is off-limits regardless of granted scopes.
+  const patRouteGuardMiddleware = patRouteGuard();
+  app.use("/api/*", async (c, next) => {
+    if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
+    return patRouteGuardMiddleware(c, next);
+  });
+
   // Without anonymousAccess a missing token 401s instead of falling through as anonymous.
   const sessionOnlyGuard = authMiddleware(jwt, {
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
@@ -834,9 +844,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
     return csrfGuard(c, next);
   });
 
-  // Same order as /api/* above: auth → PAT → origin → CSRF.
+  // Same order as /api/* above: auth → PAT route scope → PAT rate-limit → origin → CSRF.
   const sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[] = [
     sessionOnlyGuard,
+    patRouteGuardMiddleware,
     ...(patRateLimitGuard ? [patRateLimitGuard] : []),
     ...(originGuard ? [originGuard] : []),
     csrfGuard,
