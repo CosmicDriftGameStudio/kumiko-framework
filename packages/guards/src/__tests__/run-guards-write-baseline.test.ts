@@ -3,8 +3,19 @@
 // guard's baseline at all.
 
 import { describe, expect, spyOn, test } from "bun:test";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import type { AstGuard } from "../_lib/guard-kit";
 import { GUARDS, runGuardsCli } from "../run-guards";
+import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
+
+const FIXTURE_MANIFEST: RepoManifest = {
+  kind: "library",
+  sourceRoots: ["packages/*/src"],
+  testGlobs: ["packages/*/src/**/*.test.ts"],
+};
 
 type RatchetGuard = AstGuard & { writeBaseline: NonNullable<AstGuard["writeBaseline"]> };
 
@@ -58,17 +69,33 @@ describe("runGuardsCli — --write-baseline", () => {
     const ratchetGuards = GUARDS.filter(isRatchetGuard);
     const target = ratchetGuards.find((g) => g.name === "PII-Annotations Guard");
     expect(target).toBeDefined();
+    // A tiny fixture repo instead of the real checkout: scanning the whole
+    // framework synchronously blew the 5s test budget under CI load.
+    const fixtureDir = realpathSync(mkdtempSync(join(tmpdir(), "write-baseline-narrow-")));
+    writeRepo(fixtureDir, {
+      name: "write-baseline-fixture",
+      layout: { manifest: FIXTURE_MANIFEST },
+    });
+    const roots = [fixtureRoot("write-baseline-fixture", fixtureDir, FIXTURE_MANIFEST)];
     const { restore, spies } = mockAllRatchetWriters();
     try {
-      const exitCode = runGuardsCli(["--write-baseline", "--guard=PII-Annotations Guard"]);
+      const exitCode = runGuardsCli(["--write-baseline", "--guard=PII-Annotations Guard"], {
+        writeBaselineRoots: roots,
+      });
       expect(exitCode).toBe(0);
       const targetIndex = ratchetGuards.indexOf(target as NonNullable<typeof target>);
       spies.forEach((spy, i) => {
         if (i === targetIndex) expect(spy).toHaveBeenCalledTimes(1);
         else expect(spy).not.toHaveBeenCalled();
       });
+      const scannedFiles: Parameters<RatchetGuard["writeBaseline"]>[0] | undefined =
+        spies[targetIndex]?.mock.calls[0]?.[0];
+      expect(scannedFiles?.map((file) => String(file.getFilePath()))).toEqual([
+        join(fixtureDir, "packages/pkg/src/index.ts"),
+      ]);
     } finally {
       restore();
+      rmSync(fixtureDir, { recursive: true, force: true });
     }
   });
 
