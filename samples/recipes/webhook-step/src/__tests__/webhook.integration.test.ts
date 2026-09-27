@@ -9,6 +9,7 @@ import {
   type MailSpec,
   setMailRunner,
   setWebhookFetch,
+  WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
 } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -33,7 +34,12 @@ const mailMock =
     }>
   >();
 
+const originalAllowedPrivateHostsEnv = process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+
 beforeAll(async () => {
+  // hooks.example is a placeholder, not a real resolvable host — goes
+  // through the operator escape hatch instead of a real DNS lookup.
+  process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";
   setWebhookFetch(fetchMock as unknown as typeof fetch);
   setMailRunner(async (spec: MailSpec) => mailMock(spec));
   stack = await setupTestStack({
@@ -44,6 +50,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (originalAllowedPrivateHostsEnv === undefined) {
+    delete process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+  } else {
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = originalAllowedPrivateHostsEnv;
+  }
   await stack.cleanup();
 });
 
