@@ -179,6 +179,10 @@
       "types": "./src/testing/handler-context.ts",
       "default": "./src/testing/handler-context.ts"
     },
+    "./testing/real-providers": {
+      "types": "./src/testing/real-providers.ts",
+      "default": "./src/testing/real-providers.ts"
+    },
     "./testing/e2e-generator": {
       "types": "./src/testing/e2e-generator.ts",
       "default": "./src/testing/e2e-generator.ts"

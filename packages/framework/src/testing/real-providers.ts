@@ -1,3 +1,5 @@
+// Playwright configs load this module under plain Node via
+// @cosmicdrift/kumiko-testing/e2e, so it must stay import-free.
 export const REAL_PROVIDERS_ENV = "KUMIKO_REAL_PROVIDERS";
 const CI_FLAG = "CI";
 
