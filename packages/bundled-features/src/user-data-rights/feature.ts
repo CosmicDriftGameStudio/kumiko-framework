@@ -513,24 +513,25 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         return app.fetch(
           new Request(`${url.origin}/api/query`, {
             method: "POST",
-            headers: {
-              "content-type": "application/json",
-              // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
-              // keys off request-id-middleware's own X-Forwarded-For read on
-              // THIS internal request — without forwarding it, every fragment-
-              // POST download shares the request's own (empty/localhost) IP,
-              // turning the per-user 30/min backstop into one global bucket
-              // (#1307). Forwarding `clientIp` (the same server-resolved,
-              // trustedProxyHops-aware value the outer request already
-              // trusted) doesn't widen the trust boundary — it's a single
-              // already-vetted hop, not a caller-controlled header.
-              ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
-            },
+            headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "user-data-rights:query:download-by-token",
               payload: { token, auditMeta },
             }),
           }),
+          // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
+          // resolves the client IP from this internal request's env (2nd
+          // app.fetch arg), same as Bun.serve's socket address — without it,
+          // the resolver has neither a trusted XFF entry (trustedProxyHops
+          // defaults to 0, ignoring headers entirely) nor a socket, so every
+          // fragment-POST download would fall to the shared "unknown" bucket,
+          // turning the per-user 30/min backstop into one global bucket an
+          // attacker can exhaust for everyone (#1307). Passing `clientIp`
+          // directly as env — the same server-resolved, trustedProxyHops-
+          // aware value the outer request already trusted — reaches
+          // extractSocketAddress() without going through header/hop-count
+          // logic at all.
+          clientIp,
         );
       },
     });
