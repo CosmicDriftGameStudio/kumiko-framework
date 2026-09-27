@@ -36,6 +36,10 @@ export {
   readScreenStatic,
 } from "./projections-screens";
 export {
+  findImportBindingForLocalName,
+  resolveModuleFile,
+} from "./resolve-import";
+export {
   extractDescribe,
   extractOptionalRequires,
   extractReadsConfig,
