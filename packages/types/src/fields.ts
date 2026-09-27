@@ -160,6 +160,11 @@ export type Findability = "exact" | "fuzzy" | "none" | "secret";
 // force every OTHER intersected property (e.g. a factory's `required?: R`)
 // to `never` too, since its index signature applies to all string keys.
 // Naming the three annotation keys explicitly avoids that trap.
+//
+// kumiko-framework#2921: no longer part of PersonalAnnotations /
+// PersonalAnnotationsLongText — text and longText fields must declare an
+// explicit stance. It still applies to PersonalAnnotationsNoFind, whose
+// factories keep `personal` optional.
 type NoPersonalAnnotation = {
   readonly personal?: never;
   readonly find?: never;
@@ -178,8 +183,7 @@ export type PersonalAnnotations =
       readonly personal: false;
       readonly reason: string;
       readonly anonymize?: () => unknown | Promise<unknown>;
-    }
-  | NoPersonalAnnotation;
+    };
 
 // longText has no lookupable/searchable machinery ("Kein searchable" — see
 // LongTextFieldDef doc) — only "does this need to stay a secret" applies.
@@ -197,8 +201,7 @@ export type PersonalAnnotationsLongText =
       readonly personal: false;
       readonly reason: string;
       readonly anonymize?: () => unknown | Promise<unknown>;
-    }
-  | NoPersonalAnnotation;
+    };
 
 // Same as PersonalAnnotations but without `find` — for field types with no
 // full-text/blind-index machinery (everything except text and longText).

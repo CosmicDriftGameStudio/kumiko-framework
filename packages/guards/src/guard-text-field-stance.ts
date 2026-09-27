@@ -64,6 +64,14 @@ const EXCLUDE = /\.d\.ts$/;
 
 const FIELD_FACTORY_CALLEES = new Set(["createTextField", "createLongTextField"]);
 
+// These two files deliberately call the factories without a stance to prove
+// the fail-closed throw (kumiko-framework#2921) — exact repo-relative match,
+// not basename, so a consumer file sharing a name stays flagged.
+const STANCE_THROW_TEST_ALLOWLIST = new Set<string>([
+  "packages/framework/src/engine/__tests__/factories-long-text.test.ts",
+  "packages/framework/src/engine/__tests__/factories-personal.test.ts",
+]);
+
 const VALID_PERSONAL_HINT =
   '{ personal: "self" | "tenant" | "ref" | { of: "<ownerField>" } | false } ("false" additionally needs { reason: "..." })';
 
@@ -118,6 +126,9 @@ export interface Finding {
 
 function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding[] {
   const findings: Finding[] = [];
+  const file = relFile(sf, roots);
+  if (STANCE_THROW_TEST_ALLOWLIST.has(file)) return findings;
+
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression().getText();
     if (!FIELD_FACTORY_CALLEES.has(callee)) continue;
@@ -132,7 +143,6 @@ function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding
 
     const place = enclosingFieldName(call) ?? `${callee}(...)`;
     const line = call.getStartLineNumber();
-    const file = relFile(sf, roots);
     findings.push({ file, line, place, callee });
     console.warn(
       `  [text-field-stance WARN] ${file}:${line}  ${callee}(...) at "${place}" has no personal stance — mark ${VALID_PERSONAL_HINT}`,
@@ -141,7 +151,7 @@ function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding
   return findings;
 }
 
-function scan(
+export function scan(
   files: readonly SourceFile[],
   roots: readonly RepoRoot[] = resolveRepoRoots(),
 ): {
