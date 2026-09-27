@@ -110,6 +110,34 @@ describe("defineEntityWriteHandler", () => {
     // @ts-expect-error access is required since fw#2855 — no implicit openToAll.
     expect(() => defineEntityCreateHandler("note", noteEntity)).toThrow();
   });
+
+  test("delete on an entity without softDelete defaults agent.risk to high", () => {
+    const def = defineEntityDeleteHandler("note", noteEntity, adminAccess);
+    expect(resolveAgentExposure(def, "write").risk).toBe("high");
+  });
+
+  test("delete on an entity without softDelete preserves other agent hints while forcing risk high", () => {
+    const def = defineEntityDeleteHandler("note", noteEntity, {
+      access: { roles: ["Admin"] },
+      agent: { expose: false },
+    });
+    expect(def.agent).toEqual({ expose: false, risk: "high" });
+  });
+
+  test("delete on an entity without softDelete throws when agent.risk is explicitly set below high", () => {
+    expect(() =>
+      defineEntityDeleteHandler("note", noteEntity, {
+        access: { roles: ["Admin"] },
+        agent: { risk: "mid" },
+      }),
+    ).toThrow(/agent\.risk must be "high"/);
+  });
+
+  test("delete on a softDelete entity leaves agent hints untouched", () => {
+    const def = defineEntityDeleteHandler("note", noteEntitySoftDelete, adminAccess);
+    expect(def.agent).toBeUndefined();
+    expect(resolveAgentExposure(def, "write").risk).toBe("mid");
+  });
 });
 
 describe("defineEntityQueryHandler", () => {

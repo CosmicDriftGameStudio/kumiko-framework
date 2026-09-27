@@ -13,6 +13,7 @@ import { createDerivativesContext } from "../derivatives/derivatives-context";
 import type { defineTransitions } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type {
+  AgentRisk,
   AggregateStreamHandle,
   AppContext,
   AppendEventArgs,
@@ -28,7 +29,7 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
-import { isRateLimitDisabled } from "../engine/types";
+import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
 import {
   FeatureDisabledError,
@@ -877,6 +878,25 @@ export async function buildHandlerContext(
     : handlerContext;
 }
 
+// Resolves the agent risk the irreversible-operation gate should attribute to
+// `type` when it becomes the request's entry handler — same defaulting rule
+// (resolveAgentExposure) the agent manifest itself uses, so the two never diverge.
+function resolveEntryHandlerRisk(
+  registry: Registry,
+  type: string,
+  operation: "query" | "write" | "stream",
+): AgentRisk {
+  if (operation === "write") {
+    return resolveAgentExposure(registry.getWriteHandler(type) ?? {}, "write").risk;
+  }
+  if (operation === "stream") {
+    // StreamHandlerDef carries no `agent` hint — streams can never declare
+    // "high", so nested irreversible writes stay conservatively denied.
+    return "mid";
+  }
+  return resolveAgentExposure(registry.getQueryHandler(type) ?? {}, "query").risk;
+}
+
 // Wrap handler execution in a dispatcher.handler span AND emit the standard
 // dispatcher metrics (duration + error counter). Errors are re-thrown so
 // control flow stays identical to the uninstrumented path.
@@ -916,7 +936,11 @@ export async function runHandlerInstrumented<T>(
           // #3043 — everything the handler writes, including entity-executor
           // writes below it, is attributed to this handler.
           const result = await runWithOrigin(
-            { handler: type, feature: registry.getHandlerFeature(type) },
+            {
+              handler: type,
+              feature: registry.getHandlerFeature(type),
+              entryHandler: { qn: type, risk: resolveEntryHandlerRisk(registry, type, operation) },
+            },
             inner,
           );
           if (operation === "write" && isFailedWriteResult(result)) {
@@ -978,8 +1002,13 @@ export async function* runStreamInstrumented<T>(
   // generator suspension, so wrapping inner() once would leave every event a
   // stream writes unattributed.
   const inScope = <R>(fn: () => R): R =>
-    runWithOrigin({ handler: type, feature: registry.getHandlerFeature(type) }, () =>
-      observabilityContext.run({ activeSpan: span }, fn),
+    runWithOrigin(
+      {
+        handler: type,
+        feature: registry.getHandlerFeature(type),
+        entryHandler: { qn: type, risk: resolveEntryHandlerRisk(registry, type, "stream") },
+      },
+      () => observabilityContext.run({ activeSpan: span }, fn),
     );
   try {
     let next = await inScope(() => it.next());

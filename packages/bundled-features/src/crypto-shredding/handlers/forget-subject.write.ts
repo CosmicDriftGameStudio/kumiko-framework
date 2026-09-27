@@ -28,6 +28,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
+import { assertIrreversibleOperationAllowed } from "@cosmicdrift/kumiko-framework/pipeline";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
@@ -267,7 +268,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     "Irreversibly crypto-shreds one user, tenant or record subject by erasing its encryption key, nulling its blind indexes, purging its search documents and closing the user's login, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
   // Erasing the subject key is irreversible: there is no undo, so an agent must
   // not be able to reach it at all.
-  agent: { expose: false },
+  agent: { expose: false, risk: "high" },
   escapeHatch: {
     reason:
       "denial audit append names the prober's own tenant stream on the outside-transaction db; " +
@@ -276,6 +277,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       "lifecycle update and PAT revoke run on the SYSTEM user stream.",
   },
   handler: async (event, ctx) => {
+    assertIrreversibleOperationAllowed("forget-subject key erase");
     const kms = configuredPiiSubjectKms();
     if (!kms) {
       return writeFailure(

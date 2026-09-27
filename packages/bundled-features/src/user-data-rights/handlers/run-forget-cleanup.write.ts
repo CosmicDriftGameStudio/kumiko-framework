@@ -31,7 +31,9 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
     name: "run-forget-cleanup",
     schema: z.object({}),
     access: { roles: access.privileged },
-    agent: { expose: false },
+    // Cascades into per-user forget hooks that hard-purge (executor.forget)
+    // records without softDelete — an agent must never be able to trigger it.
+    agent: { expose: false, risk: "high" },
     escapeHatch: {
       reason: RUN_FORGET_CLEANUP_REASON,
     },

@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import type { AgentRisk } from "@cosmicdrift/kumiko-types/handlers";
 import { generateId } from "../utils";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
@@ -54,6 +55,10 @@ export type RequestContextData = {
   // Only ever a gated origin. Read by job enqueue and event-store.append();
   // dispatch roots never narrow from it, only jobs inherit explicitly.
   readonly writeOrigin?: WriteOrigin;
+  // The handler directly invoked by the dispatcher (not a nested ctx.write/
+  // writeAs target) — nested dispatches inherit it unchanged, so the
+  // irreversible-operation gate always sees the outermost caller's risk.
+  readonly entryHandler?: { readonly qn: string; readonly risk: AgentRisk };
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
@@ -77,7 +82,11 @@ export const requestContext = {
 // when there is no surrounding request (job-runner, event-dispatcher) —
 // requestId/correlationId are mandatory, `get()` may be undefined.
 export function runWithOrigin<T>(
-  origin: { readonly feature?: string; readonly handler?: string },
+  origin: {
+    readonly feature?: string;
+    readonly handler?: string;
+    readonly entryHandler?: { readonly qn: string; readonly risk: AgentRisk };
+  },
   fn: () => T,
 ): T {
   const current = requestContext.get();
@@ -89,9 +98,22 @@ export function runWithOrigin<T>(
       correlationId: current?.correlationId ?? requestId,
       feature: origin.feature,
       handler: origin.handler,
+      // The outermost dispatch wins — a nested ctx.write/writeAs must not
+      // overwrite the entry handler that the irreversible-operation gate reads.
+      entryHandler: current?.entryHandler ?? origin.entryHandler,
     },
     fn,
   );
+}
+
+// Clears entryHandler so the next dispatch inside fn becomes the new entry —
+// used by dispatchToolCall so the invoked tool handler, not the surrounding
+// turn/approve handler, is what the irreversible-operation gate sees.
+export function runAsDirectCallEntry<T>(fn: () => T): T {
+  const current = requestContext.get();
+  if (!current) return fn();
+  const { entryHandler: _entryHandler, ...rest } = current;
+  return requestContext.run(rest, fn);
 }
 
 // An ungated origin never mints a scope: seeds and boot writes keep their missing context.

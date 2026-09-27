@@ -49,7 +49,7 @@ describe("buildAgentManifest against the showcase app", () => {
       "showcase:write:item:update",
     ]);
     expect(byQn.get("showcase:query:item:list")?.risk).toBe("low");
-    expect(byQn.get("showcase:write:item:delete")?.risk).toBe("mid");
+    expect(byQn.get("showcase:write:item:delete")?.risk).toBe("high");
     expect(byQn.get("showcase:write:item:create")?.description).toBeTruthy();
   });
 

@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { buildAgentManifest } from "../agent-manifest";
-import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
+import { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "../tool-catalog";
 import type { AgentManifest, AgentToolMode, RegistrySearchView } from "../types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -437,6 +437,21 @@ describe("buildToolCatalog — built-in client tool names vs. a colliding handle
       qn: "query:navigate",
       risk: "low",
     });
+  });
+});
+
+describe("buildToolCatalog — tools/dispatchTable bijection", () => {
+  test("every tool name has exactly one dispatchTable entry, and vice versa, with no duplicates", () => {
+    const catalog = buildCatalog(ADMIN);
+    const names = catalog.tools.map((t) => t.name);
+    expect(names.length).toBeGreaterThan(0);
+    expect(new Set(names).size).toBe(names.length);
+    // open_form is the one deliberate exception: dispatch-only, claimed via
+    // claimDispatchName so the approval layer can trigger it, but never
+    // listed for the model to call directly (see addClientTools).
+    const dispatchNamesForModel = new Set(catalog.dispatchTable.keys());
+    dispatchNamesForModel.delete(OPEN_FORM_TOOL_NAME);
+    expect(dispatchNamesForModel).toEqual(new Set(names));
   });
 });
 
