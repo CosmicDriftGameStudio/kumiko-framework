@@ -39,7 +39,7 @@ describe("buildWebhookSendStep", () => {
       method: "PUT",
       headers: { "X-Custom": "val" },
       body: { event: "test" },
-      auth: { kind: "bearer", secretRef: "MY_SECRET" },
+      auth: { kind: "bearer", secret: "MY_SECRET" },
       retry: { times: 5, backoff: "linear" },
       mode: "deferred",
     });
@@ -125,7 +125,7 @@ describe("webhook.send run", () => {
 
   it("passes auth config through when provided", async () => {
     const stepDef = getStep("webhook.send");
-    const auth = { kind: "bearer" as const, secretRef: "WEBHOOK_TOKEN" };
+    const auth = { kind: "bearer" as const, secret: "WEBHOOK_TOKEN" };
 
     await stepDef!.run({ url: "https://hooks.example/secured", mode: "deferred", auth }, mockCtx);
 

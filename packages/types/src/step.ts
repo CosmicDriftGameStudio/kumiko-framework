@@ -342,9 +342,12 @@ export type StepNamespace = {
       readonly method?: "POST" | "PUT" | "PATCH";
       readonly headers?: StepResolver<Readonly<Record<string, string>>>;
       readonly body?: StepResolver<unknown>;
+      // Name inside the tenant-owned secrets namespace
+      // `step-dispatcher:webhook-auth.<secret>` (secrets feature). Resolved
+      // per-tenant at dispatch time — never a global/env-scoped secret.
       readonly auth?:
-        | { readonly kind: "bearer"; readonly secretRef: string }
-        | { readonly kind: "header"; readonly name: string; readonly secretRef: string };
+        | { readonly kind: "bearer"; readonly secret: string }
+        | { readonly kind: "header"; readonly name: string; readonly secret: string };
       readonly mode: "deferred";
       readonly retry?: { readonly times: number; readonly backoff: "exponential" | "linear" };
     }) => StepInstance;

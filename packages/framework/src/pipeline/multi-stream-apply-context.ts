@@ -1,5 +1,6 @@
 import type { DerivativesContext } from "@cosmicdrift/kumiko-types/derivatives-types";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
+import type { SecretsContext } from "@cosmicdrift/kumiko-types/secrets-types";
 import type { DbRunner } from "../db/connection";
 import type { AppendEventArgs, AppendEventFn, Registry, TenantId } from "../engine/types";
 import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store";
@@ -32,6 +33,8 @@ export type MultiStreamApplyContextDeps = {
   readonly files?: FileContext;
   // Same DerivativesContext the outer AppContext carries — mirrors `files`.
   readonly derivatives?: DerivativesContext;
+  // Same SecretsContext the outer AppContext carries, mirrors `files`.
+  readonly secrets?: SecretsContext;
 };
 
 export function createMultiStreamApplyContext(
@@ -41,6 +44,7 @@ export function createMultiStreamApplyContext(
     registry: deps.registry,
     ...(deps.files ? { files: deps.files } : {}),
     ...(deps.derivatives ? { derivatives: deps.derivatives } : {}),
+    ...(deps.secrets ? { secrets: deps.secrets } : {}),
     appendEvent: (async (args: AppendEventArgs) => {
       await appendDomainEventCore(
         {

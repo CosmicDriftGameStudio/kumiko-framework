@@ -4,6 +4,7 @@ import type { KumikoEventTypeMap } from "./event-type-map";
 import type { Registry } from "./feature";
 import type { FileContext } from "./file-handle-types";
 import type { AppendEventFn, UnsafeAppendEventFn } from "./handlers";
+import type { SecretsContext } from "./secrets-types";
 
 // Minimal, read+write surface handed to a MultiStreamProjection's apply()
 // when it needs to produce follow-up events (saga / process-manager
@@ -44,4 +45,8 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   // Derive-on-first-use variants, mirrors AppContext.derivatives. Present
   // exactly when `files` is — same file-foundation-provider precondition.
   readonly derivatives?: DerivativesContext;
+  // Tenant-scoped secret reads for side-effect MSPs (e.g. step-dispatcher's
+  // webhook auth), audited via the read's own auditCtx. Present when the
+  // app booted with the secrets feature; undefined otherwise.
+  readonly secrets?: SecretsContext;
 };

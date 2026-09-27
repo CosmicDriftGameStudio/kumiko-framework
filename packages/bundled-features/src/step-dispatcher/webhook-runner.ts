@@ -14,6 +14,11 @@
 // tenant can never grant themselves the bypass. Own key, not the mail
 // features' — step-dispatcher has no dependency relation to mail-transport-
 // smtp/inbound-provider-imap and shouldn't require mounting them.
+//
+// `auth.secret` resolves through the secrets feature under the tenant-owned
+// namespace `step-dispatcher:webhook-auth.<secret>` — the target URL is
+// tenant/request-controlled, so a webhook can never read a platform-wide or
+// another tenant's secret.
 
 import type { lookup } from "node:dns/promises";
 import {
@@ -23,6 +28,8 @@ import {
   resolvePublicHostname,
 } from "@cosmicdrift/kumiko-framework/http";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
 
 const log = createFallbackLogger("step-dispatcher");
@@ -51,6 +58,25 @@ export function setWebhookHostLookup(fn: typeof lookup | undefined): void {
   webhookHostLookup = fn;
 }
 
+// Tenant-owned namespace every webhook auth secret lives under in the
+// secrets feature. Applied at resolution time, never at step-build time,
+// so `auth.secret` stays a short, human-picked name (e.g. "smtp.password")
+// while the stored key stays collision-free with every other feature's
+// secrets.
+export const WEBHOOK_AUTH_SECRET_KEY_PREFIX = "step-dispatcher:webhook-auth.";
+
+export function webhookAuthSecretKey(name: string): string {
+  return `${WEBHOOK_AUTH_SECRET_KEY_PREFIX}${name}`;
+}
+
+const WEBHOOK_AUTH_SECRET_NAME_MAX_LENGTH = 100 - WEBHOOK_AUTH_SECRET_KEY_PREFIX.length;
+
+const webhookAuthSecretNameSchema = z
+  .string()
+  .min(1)
+  .max(WEBHOOK_AUTH_SECRET_NAME_MAX_LENGTH)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+
 export const webhookSpecSchema = z.object({
   url: z.string(),
   method: z.enum(["POST", "PUT", "PATCH"]),
@@ -58,8 +84,12 @@ export const webhookSpecSchema = z.object({
   body: z.unknown().optional(),
   auth: z
     .union([
-      z.object({ kind: z.literal("bearer"), secretRef: z.string() }),
-      z.object({ kind: z.literal("header"), name: z.string(), secretRef: z.string() }),
+      z.object({ kind: z.literal("bearer"), secret: webhookAuthSecretNameSchema }),
+      z.object({
+        kind: z.literal("header"),
+        name: z.string(),
+        secret: webhookAuthSecretNameSchema,
+      }),
     ])
     .optional(),
 });
@@ -70,31 +100,38 @@ export type WebhookDispatchResult =
   | { readonly ok: true; readonly status: number }
   | { readonly ok: false; readonly error: string };
 
-// Resolves a secretRef via the test-injectable secret-store. Default
-// implementation reads from process.env at the prefix WEBHOOK_SECRET_.
-// Tests pass a custom resolver via setWebhookSecretResolver.
-let secretResolver: (ref: string) => string | undefined = (ref) =>
-  process.env[`WEBHOOK_SECRET_${ref}`];
-
-export function setWebhookSecretResolver(fn: (ref: string) => string | undefined): void {
-  secretResolver = fn;
-}
-
 let fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis);
 
 export function setWebhookFetch(fn: typeof fetch): void {
   fetchImpl = fn;
 }
 
-function buildWebhookHeaders(
+export type WebhookDispatchDeps = {
+  readonly tenantId: TenantId;
+  readonly userId: string;
+  readonly secrets: SecretsContext | undefined;
+};
+
+// Never includes the secret name or value — spec.auth.secret is a
+// tenant-chosen name, but the error still reaches the tenant via the
+// dispatch-failed event, so it stays generic.
+const WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR = "webhook auth secret is not available";
+
+async function buildWebhookHeaders(
   spec: WebhookSpec,
-): { ok: true; headers: Record<string, string> } | { ok: false; error: string } {
+  deps: WebhookDispatchDeps,
+): Promise<{ ok: true; headers: Record<string, string> } | { ok: false; error: string }> {
   const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
   if (!spec.auth) return { ok: true, headers };
-  const secret = secretResolver(spec.auth.secretRef);
-  if (!secret) {
-    return { ok: false, error: `secret "${spec.auth.secretRef}" not configured` };
+  if (!deps.secrets) return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
+  const revealed = await deps.secrets.get(deps.tenantId, webhookAuthSecretKey(spec.auth.secret), {
+    userId: deps.userId,
+    handlerName: "step-dispatcher:webhook.send",
+  });
+  if (!revealed) {
+    return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
   }
+  const secret = revealed.reveal();
   if (spec.auth.kind === "bearer") {
     headers["authorization"] = `Bearer ${secret}`;
   } else {
@@ -128,7 +165,10 @@ async function resolveWebhookFetchTarget(
   }
 }
 
-export async function performWebhookDispatch(spec: WebhookSpec): Promise<WebhookDispatchResult> {
+export async function performWebhookDispatch(
+  spec: WebhookSpec,
+  deps: WebhookDispatchDeps,
+): Promise<WebhookDispatchResult> {
   // Host-egress guard at the primitive boundary: only http(s), the target
   // host must resolve to a public address (unless operator-allowlisted),
   // and redirects are never followed — a 3xx could point at an internal/
@@ -145,7 +185,7 @@ export async function performWebhookDispatch(spec: WebhookSpec): Promise<Webhook
     return { ok: false, error: `unsupported url scheme "${url.protocol}"` };
   }
 
-  const headers = buildWebhookHeaders(spec);
+  const headers = await buildWebhookHeaders(spec, deps);
   if (!headers.ok) return headers;
 
   const target = await resolveWebhookFetchTarget(spec.url, url, headers.headers);

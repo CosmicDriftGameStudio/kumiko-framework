@@ -71,6 +71,46 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
     }),
   );
 
+  // auth variant — the webhook secret resolves per-tenant via the secrets
+  // feature under `step-dispatcher:webhook-auth.incident-hook`, never a
+  // process-wide env var. See README for how to set it via
+  // `secrets:write:set`.
+  r.writeHandler(
+    defineWriteHandler({
+      name: "incident:open-authenticated",
+      schema: z.object({
+        title: z.string().min(1),
+        severity: z.enum(["low", "medium", "high"]),
+        webhookUrl: z.string(),
+      }),
+      access: { roles: ["Admin"] },
+      perform: stepsPipeline<
+        { title: string; severity: "low" | "medium" | "high"; webhookUrl: string },
+        { id: string }
+      >(({ event, r }) => [
+        r.step.aggregate.create("incident", {
+          executor: incidentExecutor,
+          data: () => ({ title: event.payload.title, severity: event.payload.severity }),
+        }),
+        r.step.webhook.send({
+          url: () => event.payload.webhookUrl,
+          mode: "deferred",
+          auth: { kind: "bearer", secret: "incident-hook" },
+          body: ({ steps }: PipelineCtx) => ({
+            event: "incident-opened",
+            id: (steps["incident"] as { id: string }).id,
+            title: event.payload.title,
+            severity: event.payload.severity,
+          }),
+        }),
+        r.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: { id: (steps["incident"] as { id: string }).id },
+        })),
+      ]),
+    }),
+  );
+
   // mail.send variant — same deferred shape, different stepKind.
   // Step-dispatcher MSP routes to performMailDispatch.
   r.writeHandler(

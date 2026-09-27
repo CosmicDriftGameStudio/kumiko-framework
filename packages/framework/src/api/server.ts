@@ -617,6 +617,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         userId: event.metadata.userId,
         ...(mspOwner && { callerFeature: mspOwner }),
         ...(mspFiles && { files: mspFiles }),
+        ...(contextWithObservability.secrets && { secrets: contextWithObservability.secrets }),
         ...(mspFiles && {
           derivatives: createDerivativesContext({
             files: mspFiles,
