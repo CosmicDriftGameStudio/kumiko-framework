@@ -343,7 +343,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       },
       "kind": "write",
       "qn": "showcase:write:item:delete",
-      "risk": "mid",
+      "risk": "high",
     },
     {
       "description": "Applies changed item fields to one existing row, addressed by id plus the version the client last read; used when the item edit screen saves.",

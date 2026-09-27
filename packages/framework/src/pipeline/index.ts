@@ -50,6 +50,10 @@ export type { PruneEventsOptions, PruneEventsResult } from "./event-retention";
 export { ConsumerLagError, pruneEvents } from "./event-retention";
 export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
+export {
+  assertIrreversibleOperationAllowed,
+  isIrreversibleEntityVerb,
+} from "./irreversible-operation-gate";
 export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
 export { createLifecycleHooks } from "./lifecycle-pipeline";
 export type { MspRebuildDeps } from "./msp-rebuild";

@@ -75,7 +75,11 @@ export type {
 export { isSafeLandingPath } from "./post-auth-landing";
 export type { RedisSseBroker, RedisSseBrokerOptions } from "./redis-sse-broker";
 export { createDefaultSseBroker, createRedisSseBroker, isRedisSseBroker } from "./redis-sse-broker";
-export { type RequestContextData, requestContext } from "./request-context";
+export {
+  type RequestContextData,
+  requestContext,
+  runAsDirectCallEntry,
+} from "./request-context";
 export {
   buildRequestContextDataFromRequest,
   requestIdMiddleware,

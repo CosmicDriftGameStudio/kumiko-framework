@@ -18,6 +18,10 @@ import {
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
 } from "../event-store";
+import {
+  assertIrreversibleOperationAllowed,
+  isIrreversibleEntityVerb,
+} from "../pipeline/irreversible-operation-gate";
 import { generateId } from "../utils";
 import { applyEntityEvent } from "./apply-entity-event";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
@@ -586,6 +590,9 @@ export function createWriteVerbs(
     },
 
     async delete(payload, user, db) {
+      if (isIrreversibleEntityVerb("delete", entity)) {
+        assertIrreversibleOperationAllowed(`${entityName}.delete (entity has no softDelete)`);
+      }
       const runner = tenantDbRunner(db);
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
@@ -684,6 +691,7 @@ export function createWriteVerbs(
     // the erasure replays on rebuild (created → forgotten → row gone). Loads
     // without the isDeleted filter so trashed (soft-deleted) rows are erased too.
     async forget(payload, user, db) {
+      assertIrreversibleOperationAllowed(`${entityName}.forget`);
       const runner = tenantDbRunner(db);
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));

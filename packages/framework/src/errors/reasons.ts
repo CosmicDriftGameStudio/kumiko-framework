@@ -63,6 +63,11 @@ export const FrameworkReasons = {
   // AccessDeniedError: a write under an anonymous root touched a personal-data field
   // without the root handler declaring access.personalData: "public-intake".
   publicIntakeRequired: "public_intake_required",
+
+  // AccessDeniedError: the directly-dispatched entry handler performs a hard
+  // delete/forget but its agent.risk resolves below "high" — delegation via
+  // ctx.write/writeAs from a lower-risk handler does not inherit the gate.
+  irreversibleOperationRequiresHighRisk: "irreversible_operation_requires_high_risk",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

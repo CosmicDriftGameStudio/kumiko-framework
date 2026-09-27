@@ -8,15 +8,21 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createEntityExecutor,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import * as z from "zod";
 import { buildAgentManifest } from "../agent-manifest";
-import { buildToolCatalog } from "../tool-catalog";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
 import { dispatchToolCall } from "../tool-dispatch";
 
 const vendorEntity = createEntity({
@@ -47,11 +53,92 @@ const vendorFeature = defineFeature("agent-tools-test-vendor", (r) => {
 
 const VENDOR_CREATE_QN = "agent-tools-test-vendor:write:vendor:create";
 
+// No softDelete — forget-gizmo-high performs a hard, irreversible purge and
+// therefore must resolve agent.risk "high" to pass the executor gate.
+const gizmoEntity = createEntity({
+  table: "agent_tools_test_gizmos",
+  fields: {
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
+});
+const { executor: gizmoExecutor } = createEntityExecutor("gizmo", gizmoEntity);
+
+const GIZMO_CREATE_QN = "agent-tools-test-gizmo:write:gizmo:create";
+const GIZMO_FORGET_HIGH_QN = "agent-tools-test-gizmo:write:forget-gizmo-high";
+const GIZMO_DELEGATE_FORGET_MID_QN = "agent-tools-test-gizmo:write:delegate-forget-gizmo-mid";
+
+const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
+  r.entity("gizmo", gizmoEntity);
+
+  r.writeHandler(
+    "gizmo:create",
+    z.object({ label: z.string() }),
+    async (event, ctx) => gizmoExecutor.create(event.payload, event.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.writeHandler(
+    "forget-gizmo-high",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => gizmoExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
+    {
+      access: { roles: ["Admin"] },
+      description: "Permanently forget a gizmo (GDPR erasure).",
+      agent: { risk: "high" },
+    },
+  );
+
+  r.writeHandler(
+    "delegate-forget-gizmo-mid",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) =>
+      ctx.write("agent-tools-test-gizmo:write:forget-gizmo-high", { id: event.payload.id }),
+    {
+      access: { roles: ["Admin"] },
+      description: "Delegates to forget-gizmo-high via ctx.write.",
+    },
+  );
+
+  // Simulates the enterprise "approve" write handler: an outer, mid-risk
+  // handler that itself runs the real dispatchToolCall path against a
+  // tool name given as input, the way an AI-agent turn approves a queued
+  // tool call.
+  r.writeHandler(
+    "approve",
+    z.object({ toolName: z.string(), id: z.string() }),
+    async (event) => {
+      const manifest = buildAgentManifest(stack.registry, {
+        locale: "en",
+        roles: event.user.roles,
+      });
+      const catalog = buildToolCatalog(stack.registry, manifest, { mode: "edit" });
+      // runId/toolCallId feed the write's idempotency key — must be unique
+      // per call, or a second approve() reuses the first call's cached
+      // WriteResult instead of actually re-dispatching the tool.
+      const result = await dispatchToolCall({
+        dispatcher: stack.dispatcher,
+        user: event.user,
+        toolName: event.payload.toolName,
+        input: { id: event.payload.id },
+        dispatchTable: catalog.dispatchTable,
+        runId: `run-approve:${event.payload.toolName}`,
+        toolCallId: `call-approve:${event.payload.id}`,
+      });
+      return {
+        isSuccess: true as const,
+        data: result.ok ? { ok: true } : { ok: false, error: result.error },
+      };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+});
+
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [vendorFeature] });
+  stack = await setupTestStack({ features: [vendorFeature, gizmoFeature] });
   await unsafeCreateEntityTable(stack.db, vendorEntity);
+  await unsafeCreateEntityTable(stack.db, gizmoEntity, "gizmo");
 }, 20000);
 
 afterAll(async () => {
@@ -61,6 +148,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
   await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_vendors");
+  await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_gizmos");
 });
 
 const TENANT_B = "00000000-0000-4000-8000-0000000000bb";
@@ -117,5 +205,44 @@ describe("dispatchToolCall — real <entity>:list pipeline", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
     expect(result.error).toContain("access denied");
+  });
+});
+
+describe("dispatchToolCall — the invoked tool is the entry handler, not the surrounding write handler", () => {
+  async function createGizmo(label: string): Promise<string> {
+    const { id } = await stack.http.writeOk<{ id: string }>(GIZMO_CREATE_QN, { label }, adminA);
+    return id;
+  }
+
+  async function gizmoRowExists(id: string): Promise<boolean> {
+    const rows = (await asRawClient(stack.db).unsafe(
+      "SELECT id FROM agent_tools_test_gizmos WHERE id = $1",
+      [id],
+    )) as readonly Record<string, unknown>[];
+    return rows.length > 0;
+  }
+
+  test("approve (mid) invoking a high-risk forget tool succeeds — the tool is the entry, not approve", async () => {
+    const id = await createGizmo("gone-after-tool-forget");
+    const { ok } = await stack.http.writeOk<{ ok: boolean }>(
+      "agent-tools-test-gizmo:write:approve",
+      { toolName: toolNameForQn(GIZMO_FORGET_HIGH_QN), id },
+      adminA,
+    );
+    expect(ok).toBe(true);
+    expect(await gizmoRowExists(id)).toBe(false);
+  });
+
+  test("approve (mid) invoking a mid-risk tool that delegates via ctx.write to the high forget handler is denied", async () => {
+    const id = await createGizmo("survives-delegated-forget");
+    const { ok, error } = await stack.http.writeOk<{ ok: boolean; error?: string }>(
+      "agent-tools-test-gizmo:write:approve",
+      { toolName: toolNameForQn(GIZMO_DELEGATE_FORGET_MID_QN), id },
+      adminA,
+    );
+    expect(ok).toBe(false);
+    expect(error).toContain(GIZMO_DELEGATE_FORGET_MID_QN);
+    expect(error).toContain("irreversible");
+    expect(await gizmoRowExists(id)).toBe(true);
   });
 });

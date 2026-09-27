@@ -159,6 +159,20 @@ public_intake_required:
     Wurzel-Handler `access: { roles: [..., "anonymous"], personalData: "public-intake" }`
     deklarieren.
 
+irreversible_operation_requires_high_risk:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: der direkt aufgerufene Einstiegs-Handler führt ein
+    hartes Delete oder `forget` aus (`details.operation`), aber sein
+    aufgelöstes Agent-Risiko (`details.resolvedRisk`) liegt unter `"high"`.
+    `details.handler` nennt den Einstiegs-Handler — eine Delegation über
+    `ctx.write`/`writeAs` aus einem Handler mit niedrigerem Risiko erbt das
+    deklarierte Risiko des inneren Handlers nicht.
+
+    `agent: { risk: "high" }` am genannten Handler deklarieren.
+
 agent.tool_not_allowed:
   endUser: |
     Dieses Tool ist im aktuellen Modus nicht verfügbar.

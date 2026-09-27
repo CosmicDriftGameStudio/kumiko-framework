@@ -102,7 +102,9 @@ const archFeature = defineFeature("archtest", (r) => {
     "item:delete",
     z.object({ id: z.uuid() }),
     async (event, ctx) => executor.delete({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
+    // arch-item has no softDelete — a hard delete needs agent.risk: "high"
+    // to pass the irreversible-operation gate.
+    { access: { roles: ["Admin"] }, agent: { risk: "high" } },
   );
 
   r.queryHandler(

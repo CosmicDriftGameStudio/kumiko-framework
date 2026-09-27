@@ -1,3 +1,4 @@
+import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import type { ToolDispatchDescriptor } from "./types";
 
@@ -355,18 +356,22 @@ export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCa
   }
 
   try {
-    switch (descriptor.kind) {
-      case "search":
-        return await dispatchSearch(descriptor, dispatcher, user, toolName, input);
-      case "findBy":
-        return await dispatchFindBy(descriptor, dispatcher, user, toolName, input);
-      case "client":
-        return dispatchClient(descriptor, input);
-      case "server":
-        return descriptor.op === "query"
-          ? await dispatchServerQuery(descriptor, dispatcher, user, input)
-          : await dispatchServerWrite(descriptor, dispatcher, user, input, runId, toolCallId);
-    }
+    // The invoked tool, not the surrounding turn/approve write handler, must
+    // be what the irreversible-operation gate sees as the entry handler.
+    return await runAsDirectCallEntry(async () => {
+      switch (descriptor.kind) {
+        case "search":
+          return await dispatchSearch(descriptor, dispatcher, user, toolName, input);
+        case "findBy":
+          return await dispatchFindBy(descriptor, dispatcher, user, toolName, input);
+        case "client":
+          return dispatchClient(descriptor, input);
+        case "server":
+          return descriptor.op === "query"
+            ? await dispatchServerQuery(descriptor, dispatcher, user, input)
+            : await dispatchServerWrite(descriptor, dispatcher, user, input, runId, toolCallId);
+      }
+    });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

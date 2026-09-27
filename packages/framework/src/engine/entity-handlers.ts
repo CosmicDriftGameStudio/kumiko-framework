@@ -16,6 +16,7 @@ import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type {
   AccessRule,
+  AgentHandlerHints,
   DeriveContext,
   EntityDefinition,
   EscapeHatchDeclaration,
@@ -213,6 +214,23 @@ function isInTotalsMatchPair(entity: EntityDefinition, fieldName: string): boole
   );
 }
 
+// delete on an entity without softDelete hard-purges the row — the agent
+// risk gate only protects it if this handler resolves to "high".
+function resolveEntityWriteAgentHints(
+  name: string,
+  verb: (typeof WRITE_VERBS)[number],
+  entity: EntityDefinition,
+  agent: AgentHandlerHints | undefined,
+): AgentHandlerHints | undefined {
+  if (verb !== "delete" || entity.softDelete) return agent;
+  if (agent?.risk !== undefined && agent.risk !== "high") {
+    throw new Error(
+      `"${name}": delete on an entity without softDelete is irreversible — agent.risk must be "high" (got "${agent.risk}").`,
+    );
+  }
+  return { ...agent, risk: "high" };
+}
+
 function assertExcludableFields(
   name: string,
   verb: (typeof WRITE_VERBS)[number],
@@ -253,6 +271,7 @@ export function defineEntityWriteHandler(
       `"${name}": restore is only valid for entities declared with softDelete: true.`,
     );
   }
+  const agentHints = resolveEntityWriteAgentHints(name, verb, entity, options.agent);
   const excludedFields = options.excludeFields ?? [];
   assertExcludableFields(name, verb, entity, excludedFields);
 
@@ -378,7 +397,7 @@ export function defineEntityWriteHandler(
     handler,
     access: options.access,
     ...(options.description !== undefined && { description: options.description }),
-    ...(options.agent !== undefined && { agent: options.agent }),
+    ...(agentHints !== undefined && { agent: agentHints }),
   };
 }
 
